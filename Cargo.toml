@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = [
+    "dway",
+    "dway-client-core",
+    "dway-ui",
+    "dway-protocol",
+    "dway-server",
+    "dway-util",
+]
