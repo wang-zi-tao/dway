@@ -17,7 +17,7 @@ use crate::{
     stages::DWayStage,
     window::WindowMetadata,
 };
-#[derive(Resource,Default)]
+#[derive(Resource, Default)]
 pub struct MoveRelative(Vec2);
 #[derive(Default)]
 pub struct DWayMovingPlugin {}
@@ -78,7 +78,7 @@ pub fn move_window(
         let pos: Vec2 =
             Vec2::new(event.position.x, window.height() - event.position.y) - move_relative.0;
         output_focus.0 = Some((event.id, pos.as_ivec2()));
-        crate::window::move_window(&mut meta, &mut style, pos);
+        crate::window::set_window_position(&mut meta, pos);
         if let Err(e) = sender.0.send(WindowMessage {
             uuid: meta.uuid,
             time: SystemTime::now(),
@@ -91,18 +91,15 @@ pub fn move_window(
 }
 pub fn stop_moving(
     mut cursor_button_events: EventReader<MouseButtonInput>,
-    mut status: ResMut<State<DWayStage>>,
+    mut stages: ResMut<State<DWayStage>>,
     mut move_relative: ResMut<MoveRelative>,
 ) {
-    if cursor_button_events.is_empty() {
-        return;
-    }
     for event in cursor_button_events.iter() {
         if event.state == ButtonState::Released {
-            if let Err(e) = status.pop() {
+            if let Err(e) = stages.pop() {
                 error!("failed to enter moving stage: {}", e);
             };
-            move_relative.0 = Vec2::default();
+            // move_relative.0 = Vec2::default();
             return;
         }
     }

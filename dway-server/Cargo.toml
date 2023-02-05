@@ -30,7 +30,7 @@ renderdoc = {version = "0.10.1", optional = true}
 
 [dependencies.smithay]
 default-features = false
-features = ["desktop","xwayland", "wayland_frontend","use_system_lib", "backend_egl", "slog-stdlog"]
+features = ["desktop","xwayland", "use_system_lib", "backend_egl", "slog-stdlog"]
 git = "https://github.com/Smithay/smithay"
 
 [dependencies.x11rb]

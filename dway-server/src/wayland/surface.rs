@@ -1,9 +1,7 @@
 use std::{
     borrow::{Borrow, BorrowMut},
     cell::RefCell,
-    sync::{
-        Mutex,
-    },
+    sync::{Mutex, MutexGuard},
 };
 
 use bevy_input::{keyboard::KeyboardInput, mouse::MouseButtonInput, prelude::MouseButton};
@@ -13,43 +11,39 @@ use failure::{format_err, Fallible};
 use slog::{debug, error, info, trace, warn};
 use smithay::{
     desktop::{
-        layer_map_for_output, PopupKind, PopupManager, Space, WindowSurfaceType,
+        layer_map_for_output, utils::with_surfaces_surface_tree, PopupKind, PopupManager, Space,
+        WindowSurfaceType,
     },
-    reexports::wayland_server::{
-            protocol::{wl_surface::WlSurface},
-        },
-    utils::{
-        Logical, Rectangle,
-    },
+    reexports::wayland_server::protocol::wl_surface::WlSurface,
+    utils::{Logical, Rectangle, Scale},
     wayland::{
-        compositor::{
-            with_states, with_surface_tree_upward, TraversalAction,
-        },
+        compositor::{with_states, with_surface_tree_upward, TraversalAction},
         seat::WaylandFocus,
         shell::{
-            wlr_layer::{
-                LayerSurfaceAttributes,
-            },
-            xdg::{
-                XdgPopupSurfaceRoleAttributes,
-                XdgToplevelSurfaceRoleAttributes,
-            },
+            wlr_layer::LayerSurfaceAttributes,
+            xdg::{XdgPopupSurfaceRoleAttributes, XdgToplevelSurfaceRoleAttributes},
         },
     },
 };
 use uuid::Uuid;
 
+use super::shell::{ResizeState, WindowElement};
 
-use super::{
-    shell::{ResizeState, WindowElement},
-};
-
-
-#[derive(Default)]
 pub struct SurfaceData {
-    pub uuid:Uuid,
-    pub geometry: Option<Rectangle<i32, Logical>>,
+    pub uuid: Uuid,
+    pub scala: Scale<i32>,
     pub resize_state: ResizeState,
+    pub ssd:bool,
+}
+impl SurfaceData{
+    pub fn new(uuid:Uuid)->SurfaceData{
+        Self {
+            uuid,
+            scala: Scale { x: 1, y: 1 },
+            resize_state: Default::default(),
+            ssd:false,
+        }
+    }
 }
 
 pub fn with_states_locked<F, T, C>(surface: &WlSurface, f: F) -> T
@@ -58,29 +52,14 @@ where
     C: 'static,
 {
     with_states(surface, |states| {
-        let mut state = states.data_map.get::<Mutex<C>>().unwrap().lock().unwrap();
+        let mut state=get_component_locked(states);
         f(&mut state)
     })
 }
-pub fn with_states_borrowed<F, T, C>(surface: &WlSurface, f: F) -> T
-where
-    F: FnOnce(&C) -> T,
-    C: 'static,
-{
-    with_states(surface, |states| {
-        let mut state = states.data_map.get::<RefCell<C>>().unwrap().borrow();
-        f(&mut state)
-    })
-}
-pub fn with_states_borrowed_mut<F, T, C>(surface: &WlSurface, f: F) -> T
-where
-    F: FnOnce(&mut C) -> T,
-    C: 'static,
-{
-    with_states(surface, |states| {
-        let mut state = states.data_map.get::<RefCell<C>>().unwrap().borrow_mut();
-        f(&mut state)
-    })
+pub fn get_component_locked<C: 'static>(
+    states: &smithay::wayland::compositor::SurfaceData,
+) -> MutexGuard<C> {
+    states.data_map.get::<Mutex<C>>().unwrap().lock().unwrap()
 }
 
 pub fn ensure_initial_configure(
@@ -88,17 +67,11 @@ pub fn ensure_initial_configure(
     space: &Space<WindowElement>,
     popups: &mut PopupManager,
 ) {
-    with_surface_tree_upward(
-        surface,
-        (),
-        |_, _, _| TraversalAction::DoChildren(()),
-        |_, states, _| {
-            states
-                .data_map
-                .insert_if_missing(|| RefCell::new(SurfaceData::default()));
-        },
-        |_, _, _| true,
-    );
+    with_surfaces_surface_tree(surface, |_, states| {
+        states
+            .data_map
+            .insert_if_missing(|| Mutex::new(SurfaceData::new(Uuid::new_v4())));
+    });
 
     if let Some(window) = space
         .elements()
@@ -116,7 +89,7 @@ pub fn ensure_initial_configure(
             }
         }
 
-        with_states_borrowed_mut(surface, |data: &mut SurfaceData| {
+        with_states_locked(surface, |data: &mut SurfaceData| {
             if let ResizeState::WaitingForCommit(_) = data.resize_state {
                 data.resize_state = ResizeState::NotResizing;
             }
@@ -165,4 +138,3 @@ pub fn ensure_initial_configure(
         }
     };
 }
-

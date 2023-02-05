@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use kayak_ui::{prelude::*, widgets::*, KayakUIPlugin};
 
+use crate::widgets::clock::*;
+
 #[derive(Default)]
 pub struct DWayPanelPlugin {}
 impl Plugin for DWayPanelPlugin {
@@ -59,17 +61,18 @@ pub fn panel_render(
                     background_color: StyleProp::Value(Color::rgba(1.0, 1.0, 1.0, 0.5)),
                     color: StyleProp::Value(Color::rgba(0.0, 0.0, 0.0, 1.0)),
                     layout_type: LayoutType::Row.into(),
-                    top: StyleProp::Value(Units::Pixels(0.0)),
-                    left: StyleProp::Value(Units::Pixels(0.0)),
-                    right: StyleProp::Value(Units::Pixels(0.0)),
+                    top: StyleProp::Value(Units::Pixels(4.0)),
+                    left: StyleProp::Value(Units::Pixels(4.0)),
+                    right: StyleProp::Value(Units::Pixels(4.0)),
                     padding: StyleProp::Value(Edge::axis( Units::Pixels(2.0) , Units::Pixels(16.0) )),
                     // width: StyleProp::Value(Units::Stretch(1.0)),
                     height: StyleProp::Value(Units::Pixels(32.0)),
-                    border_radius: StyleProp::Value(Corner::all(25.0)),
+                    border_radius: StyleProp::Value(Corner::all(100.0)),
 
                     ..Default::default()
                 }}
             >
+                <ClockBundle props={Clock{format:"%B-%e %A %H:%M:%S".to_string()}} />
             </BackgroundBundle>
         };
     }

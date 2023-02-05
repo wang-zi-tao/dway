@@ -15,7 +15,7 @@ use log::info;
 
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
 
-use crate::stages::DWayStage;
+use crate::{stages::DWayStage, window::WindowLabel};
 
 use super::{
     desktop::{CursorOnOutput, FocusedWindow},
@@ -29,13 +29,13 @@ pub struct DWayInputPlugin {
 }
 impl Plugin for DWayInputPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_to_stage(CoreStage::PreUpdate, print_pick_events);
-        // app.add_system_to_stage(DWayStage::Desktop, mouse_move_on_window);
+        app.add_system(print_pick_events.label(WindowLabel::Input));
         app.add_system_set(
-            SystemSet::on_update(DWayStage::Desktop).with_system(mouse_move_on_window),
+            SystemSet::on_update(DWayStage::Desktop)
+                .with_system(mouse_move_on_window.label(WindowLabel::Input)),
         );
-        app.add_system_to_stage(CoreStage::PreUpdate, mouse_button_on_window);
-        app.add_system_to_stage(CoreStage::PreUpdate, keyboard_input_system);
+        app.add_system(mouse_button_on_window.label(WindowLabel::Input));
+        app.add_system(keyboard_input_system.label(WindowLabel::Input));
         if self.debug {
             app.add_startup_system(setup_debug_cursor);
             app.add_system(debug_follow_cursor);
@@ -167,7 +167,7 @@ pub fn mouse_move_on_window(
             if let Err(e) = sender.0.send(WindowMessage {
                 uuid: meta.uuid,
                 time: SystemTime::now(),
-                data: WindowMessageKind::MouseMove(pos - meta.geo.min),
+                data: WindowMessageKind::MouseMove(pos - meta.bbox.min),
             }) {
                 error!("failed to send message: {}", e);
             };

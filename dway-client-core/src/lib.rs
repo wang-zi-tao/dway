@@ -1,4 +1,4 @@
-use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
+use bevy::{prelude::*, sprite::MaterialMesh2dBundle, core_pipeline::clear_color::ClearColorConfig};
 use bevy_mod_picking::{
     DebugCursorPickingPlugin, DebugEventsPickingPlugin, DefaultPickingPlugins, PickableBundle,
     PickingCameraBundle,
@@ -7,6 +7,7 @@ use log::info;
 use stages::DWayStage;
 
 use self::{desktop::WindowSet, window::receive_window_message};
+pub mod debug;
 pub mod compositor;
 pub mod desktop;
 pub mod input;
@@ -34,6 +35,7 @@ impl Plugin for WaylandPlugin {
         app.add_plugin(window::DWayWindowPlugin);
         app.add_plugin(moving::DWayMovingPlugin::default());
         app.add_plugin(resizing::DWayResizingPlugin::default());
+        app.add_plugin(debug::DebugPlugin::default());
         // app.add_system(debug_info);
     }
 }
@@ -58,5 +60,9 @@ fn setup_2d(
     //     PickableBundle::default(), // <- Makes the mesh pickable.
     // ));
     // // camera
-    commands.spawn((Camera2dBundle::default(), PickingCameraBundle::default()));
+    let mut camera=Camera2dBundle::default();
+    // camera.camera.priority=0;
+    // camera.camera_2d.clear_color=ClearColorConfig::None;
+    // camera.transform.translation.z=1024.0;
+    commands.spawn((camera, PickingCameraBundle::default()));
 }

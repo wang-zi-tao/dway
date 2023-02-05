@@ -1,5 +1,9 @@
-use std::time::Duration;
+use std::{
+    cell::{RefCell, RefMut},
+    time::Duration,
+};
 
+use dway_protocol::window::WindowState;
 use smithay::{
     backend::renderer::{
         element::{
@@ -16,11 +20,14 @@ use smithay::{
     },
     input::{keyboard::KeyboardTarget, pointer::PointerTarget},
     output::Output,
-    reexports::wayland_server::protocol::wl_surface::WlSurface,
+    reexports::wayland_server::{protocol::wl_surface::WlSurface, Resource},
     render_elements,
-    utils::{IsAlive, Logical, Point, Rectangle, Serial, Size},
+    utils::{user_data::UserDataMap, IsAlive, Logical, Point, Rectangle, Serial, Size},
     wayland::seat::WaylandFocus,
-    xwayland::{xwm::ResizeEdge, X11Surface},
+    xwayland::{
+        xwm::{ResizeEdge, XwmId},
+        X11Surface,
+    },
 };
 
 use super::DWayState;
@@ -38,11 +45,21 @@ pub enum WindowElement {
 }
 
 impl WindowElement {
-    pub(crate) fn wl_surface(&self) -> Option<WlSurface> {
-        if let Self::Wayland(w) = self {
-            w.wl_surface()
-        } else {
-            None
+    pub fn id(&self) -> String {
+        match self {
+            WindowElement::Wayland(w) => w
+                .wl_surface()
+                .map_or_else(|| "unknown".to_string(), |s| format!("{:?}", s.id())),
+            WindowElement::X11(w) => w
+                .xwm_id()
+                .map_or_else(|| "unknown".to_string(), |id: XwmId| format!("{id:?}")),
+        }
+    }
+
+    pub fn wl_surface(&self) -> Option<WlSurface> {
+        match self {
+            WindowElement::Wayland(w) => w.wl_surface(),
+            WindowElement::X11(w) => w.wl_surface(),
         }
     }
 
@@ -85,6 +102,13 @@ impl WindowElement {
                     );
                 }
             }
+        }
+    }
+
+    pub fn user_data(&self) -> &UserDataMap {
+        match self {
+            WindowElement::Wayland(w) => w.user_data(),
+            WindowElement::X11(w) => w.user_data(),
         }
     }
 }
@@ -322,7 +346,7 @@ pub fn place_new_window(
     // let x= output_geometry.loc.x + output_geometry.size.w/2;
     // let y= output_geometry.loc.y + output_geometry.size.h/2;
     let x = 0;
-    let y = 0;
+    let y = 75;
 
     space.map_element(window.clone(), (x, y), activate);
     Rectangle::from_loc_and_size((x, y), (800, 600))
@@ -353,4 +377,3 @@ impl Default for ResizeState {
         Self::NotResizing
     }
 }
-

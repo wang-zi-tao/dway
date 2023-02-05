@@ -51,6 +51,10 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 color: Color::GOLD,
             }),
         ])
+        .with_style(Style {
+            margin:UiRect::top(Val::Px(32.0)),
+            ..Default::default()
+        })
         .with_text_alignment(TextAlignment::TOP_LEFT),
         FpsText,
     ));

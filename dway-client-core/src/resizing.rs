@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use bevy::{
     input::{
         keyboard::KeyboardInput,
@@ -7,6 +9,7 @@ use bevy::{
     prelude::*,
     sprite::MaterialMesh2dBundle,
 };
+use dway_protocol::window::{WindowMessage, WindowMessageKind};
 
 use crate::{
     desktop::{CursorOnOutput, FocusedWindow},
@@ -38,7 +41,7 @@ impl Plugin for DWayResizingPlugin {
 pub fn resize_window(
     focused_window: Res<FocusedWindow>,
     mut cursor_move_events: EventReader<CursorMoved>,
-    mut windows: Query<(&mut WindowMetadata, &mut Style)>,
+    mut windows: Query<&mut WindowMetadata>,
     sender: Res<WindowMessageSender>,
     physical_windows: Res<Windows>,
     resize_method: Res<ResizingMethod>,
@@ -50,7 +53,7 @@ pub fn resize_window(
     let Some(focus_window)=&focused_window.0 else{
         return;
     };
-    let Ok( ( mut meta,mut style ) )=windows.get_mut(*focus_window)else {
+    let Ok( mut meta )=windows.get_mut(*focus_window)else {
         error!("window entity {focus_window:?} not found");
         return;
     };
@@ -74,16 +77,15 @@ pub fn resize_window(
         if resize_method.right {
             geo.max.x = pos.x;
         }
-        set_window_rect(&mut meta, &mut style, geo);
-        // crate::window::move_window(&mut meta, &mut style, pos);
-        // if let Err(e) = sender.0.send(WindowMessage {
-        //     uuid: meta.uuid,
-        //     time: SystemTime::now(),
-        //     data: WindowMessageKind::Move(pos.as_ivec2()),
-        // }) {
-        //     error!("failed to send message: {}", e);
-        //     continue;
-        // };
+        set_window_rect(&mut meta, geo);
+        if let Err(e) = sender.0.send(WindowMessage {
+            uuid: meta.uuid,
+            time: SystemTime::now(),
+            data: WindowMessageKind::SetRect(geo),
+        }) {
+            error!("failed to send message: {}", e);
+            continue;
+        };
     }
 }
 pub fn stop_resizing(

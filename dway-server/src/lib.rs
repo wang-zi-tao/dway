@@ -33,15 +33,17 @@ pub fn main_loop(receiver: Receiver<WindowMessage>, sender: Sender<WindowMessage
     let mut calloop_data = CalloopData { state, display };
 
     let mut command = Command::new("alacritty");
-    command.args(&["-e", "zsh", "-c", "gnome-system-monitor;zsh"]);
-    // command.args(&["-e", "zsh", "-c", "htop;zsh"]);
+    // command.args(&["-e", "zsh", "-c", "gnome-calculator;zsh"]);
+    // command.args(&["-e", "zsh", "-c", "sleep 1;DISPLAY=:2 glxgears;zsh"]);
+    // command.args(&["-e", "zsh", "-c", "gnome-system-monitor;zsh"]);
     // // let command = Command::new("gnome-system-monitor");
     // let command = Command::new("google-ch");
     calloop_data.state.spawn(command);
 
     while calloop_data.state.running.load(Ordering::SeqCst) {
         let loop_begin = Instant::now();
-        let frame_duration = Duration::from_secs_f32(1.0 / 60.0);
+        let frame_rate=60;
+        let frame_duration = Duration::from_secs_f32(1.0 / frame_rate as f32);
         let tick_rate: usize = 8;
         let tick_duration = frame_duration / (tick_rate as u32);
         let result = (|| {
@@ -64,6 +66,9 @@ pub fn main_loop(receiver: Receiver<WindowMessage>, sender: Sender<WindowMessage
                 calloop_data.state.popups.cleanup();
                 render_desktop(&mut calloop_data.state)?;
                 // info!(calloop_data.state.log, "render tick",);
+            }
+            if calloop_data.state.tick % ( tick_rate*frame_rate ) == 0 {
+                calloop_data.state.debug();
             }
             Fallible::Ok(())
         })();

@@ -1,14 +1,16 @@
 use std::{
-    cell::Cell,
+    borrow::Borrow,
+    cell::{Cell, RefCell},
     collections::HashMap,
     fmt::Display,
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::{Duration, SystemTime},
 };
 
 use bevy_math::Vec2;
 use dway_protocol::window::{ImageBuffer, WindowMessage, WindowMessageKind};
-use failure::{Error, Fail, Fallible, format_err};
+use failure::{format_err, Error, Fail, Fallible};
+use slog::debug;
 use smithay::{
     backend::renderer::{
         element::{
@@ -22,17 +24,21 @@ use smithay::{
     desktop::{
         space::SpaceElement,
         utils::{surface_primary_scanout_output, update_surface_primary_scanout_output},
+        PopupManager,
     },
     reexports::wayland_server::{backend::ObjectId, protocol::wl_surface::WlSurface, Resource},
-    utils::{Buffer, Logical, Physical, Rectangle, Size, Transform},
-    wayland::{compositor::with_states, fractional_scale::with_fractional_scale},
+    utils::{Buffer, Logical, Physical, Point, Rectangle, Scale, Size, Transform},
+    wayland::{
+        compositor::{with_states, with_surface_tree_downward},
+        fractional_scale::with_fractional_scale,
+    },
 };
 
 use crate::math::rectangle_to_rect;
 
 use super::{
     shell::WindowElement,
-    surface::{with_states_borrowed, SurfaceData},
+    surface::{  SurfaceData, with_states_locked, get_component_locked},
     DWayState,
 };
 
@@ -52,7 +58,7 @@ impl Display for RenderError {
 }
 impl std::error::Error for RenderError {}
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct DummyRenderer {
     pub images: Vec<(
         Rectangle<f64, Buffer>,
@@ -262,14 +268,15 @@ pub fn render_surface(
     dway: &mut DWayState,
     element: &WindowElement,
     surface: &WlSurface,
+    geo: Rectangle<i32, Physical>,
+    bbox: Rectangle<i32, Physical>,
 ) -> Fallible<()> {
+    let scale = Scale { x: 1, y: 1 };
     let mut render_state = RenderElementStates {
         states: Default::default(),
     };
     let render = &mut dway.render;
-    let uuid = with_states_borrowed(&surface, |s: &SurfaceData| s.uuid);
-    let geo=dway.space.element_geometry(element).ok_or_else(||format_err!("failed to get geometry"))?;
-    let bbox=dway.space.element_bbox(element).ok_or_else(||format_err!("failed to get geometry"))?;
+    let uuid = with_states_locked(&surface, |s: &mut SurfaceData| s.uuid);
     let result = with_states(&surface, |states| {
         let surface_state = states
             .data_map
@@ -317,6 +324,9 @@ pub fn render_surface(
                 presentation_state: RenderElementPresentationState::Rendering,
             },
         );
+
+        let mut surface_data = get_component_locked::<SurfaceData>(states);
+
         dway.sender.send(WindowMessage {
             uuid,
             time: SystemTime::now(),
@@ -362,13 +372,36 @@ pub fn render_surface(
     Ok(())
 }
 
+pub fn render_element(dway: &mut DWayState, element: &WindowElement) -> Fallible<()> {
+    let Some(surface)=element.wl_surface()else{
+        slog::warn!(dway.log, "no wl_surface on {:?}",element.id());
+        return Ok(());
+    };
+    let scale = Scale { x: 1, y: 1 };
+    let geo = dway
+        .space
+        .element_geometry(element)
+        .ok_or_else(|| format_err!("failed to get geometry"))?
+        .to_physical(scale);
+    let bbox = dway
+        .space
+        .element_bbox(element)
+        .ok_or_else(|| format_err!("failed to get geometry"))?
+        .to_physical(scale);
+    for (popup, popup_offset) in PopupManager::popups_for_surface(&surface) {
+        let offset: Point<i32, Physical> = (element.geometry().loc + popup_offset
+            - popup.geometry().loc)
+            .to_physical_precise_round(Scale { x: 1.0, y: 1.0 });
+        let geo = Rectangle::from_loc_and_size(geo.loc + offset, geo.size);
+        let bbox = Rectangle::from_loc_and_size(bbox.loc + offset, bbox.size);
+        render_surface(dway, &element, popup.wl_surface(), geo,bbox)?;
+    }
+    render_surface(dway, &element, &surface, geo,bbox)?;
+    Ok(())
+}
 pub fn render_desktop(dway: &mut DWayState) -> Fallible<()> {
     for element in dway.space.elements().cloned().collect::<Vec<_>>() {
-        let Some( surface )=element.wl_surface()else{
-                slog::warn!(dway.log, "no wl_surface on {:?}",element);
-                continue;
-            };
-        render_surface(dway, &element, &surface)?;
+        render_element(dway, &element)?;
     }
     Ok(())
 }

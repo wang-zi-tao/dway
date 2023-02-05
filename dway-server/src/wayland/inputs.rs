@@ -1,11 +1,11 @@
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use crate::{math::vec2_to_point, wayland::focus::FocusTarget};
-
-use super::{
-    surface::{with_states_borrowed_mut, SurfaceData},
-    DWayState,
+use crate::{
+    math::{rect_to_rectangle, vec2_to_point},
+    wayland::{focus::FocusTarget, surface::with_states_locked},
 };
+
+use super::{surface::SurfaceData, DWayState};
 use bevy_input::{
     keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseScrollUnit, MouseWheel},
@@ -24,7 +24,7 @@ use smithay::{
         pointer::{ButtonEvent, MotionEvent},
     },
     output::Scale,
-    reexports::wayland_server::Resource,
+    reexports::{wayland_protocols::xdg::shell::server::xdg_toplevel, wayland_server::Resource},
     utils::{Point, SERIAL_COUNTER},
     xwayland::XwmHandler,
 };
@@ -56,24 +56,35 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                         let serial = SERIAL_COUNTER.next_serial();
                         let point = Point::from((pos.x as f64, pos.y as f64));
                         let uuid = &message.uuid;
-                        let Some( element )=dway.window_for_uuid(uuid)else{
-                            error!(dway.log,"element with {uuid:?} not found");
-                            return Err(format_err!("element with {uuid:?} not found"));
-                        };
-                        let geo = element.geometry().to_f64();
-                        let bbox = element.bbox().to_f64();
-                        let diff = geo.loc - bbox.loc;
                         let time =
                             message.time.duration_since(UNIX_EPOCH).unwrap().as_millis() as u32;
-                        dway.seat.get_pointer().unwrap().motion(
-                            dway,
-                            Some((element.into(), diff.to_i32_round())),
-                            &MotionEvent {
-                                location: point + diff + diff,
-                                serial,
-                                time,
-                            },
-                        );
+                        if let Some(element) = dway.element_for_uuid(uuid) {
+                            dway.seat.get_pointer().unwrap().motion(
+                                dway,
+                                Some((element.into(), Default::default())),
+                                &MotionEvent {
+                                    location: point,
+                                    serial,
+                                    time,
+                                },
+                            );
+                        } else if let Some(surface) = dway.surface_for_uuid(uuid) {
+                            if let Some(popup) = dway.popups.find_popup(&surface) {
+                                popup.geometry();
+                                dway.seat.get_pointer().unwrap().motion(
+                                    dway,
+                                    Some((popup.into(), Default::default())),
+                                    &MotionEvent {
+                                        location: point,
+                                        serial,
+                                        time,
+                                    },
+                                );
+                            }
+                        } else {
+                            error!(dway.log, "element with {uuid:?} not found, uuid: {uuid:?}");
+                            return Ok(());
+                        }
                     }
                     WindowMessageKind::MouseButton(MouseButtonInput { button, state }) => {
                         let serial = SERIAL_COUNTER.next_serial();
@@ -88,7 +99,7 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                                     MouseButton::Left => 0x110,
                                     MouseButton::Right => 0x111,
                                     MouseButton::Middle => 0x112,
-                                    MouseButton::Other(_) => todo!(),
+                                    MouseButton::Other(o) => o as u32,
                                 },
                                 state: match state {
                                     bevy_input::ButtonState::Pressed => ButtonState::Pressed,
@@ -100,13 +111,12 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                     WindowMessageKind::MouseWheel(MouseWheel { unit, x, y }) => {
                         let time =
                             message.time.duration_since(UNIX_EPOCH).unwrap().as_millis() as u32;
-                        dbg!(unit, x, y);
                         dway.seat.get_pointer().unwrap().axis(
                             dway,
                             smithay::input::pointer::AxisFrame {
                                 source: None,
                                 time,
-                                axis: (x as f64, y as f64),
+                                axis: ((x * 4.0) as f64, (y * 4.0) as f64),
                                 discrete: match unit {
                                     MouseScrollUnit::Line => None,
                                     MouseScrollUnit::Pixel => Some((x as i32, y as i32)),
@@ -121,7 +131,7 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                         state,
                     }) => {
                         let keyboard = dway.seat.get_keyboard().unwrap();
-                        let element = dway.window_for_uuid(&uuid);
+                        let element = dway.element_for_uuid(&uuid);
                         let serial = SERIAL_COUNTER.next_serial();
                         let time =
                             message.time.duration_since(UNIX_EPOCH).unwrap().as_millis() as u32;
@@ -146,22 +156,74 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                         );
                     }
                     WindowMessageKind::Move(pos) => {
-                        let Some( element ) = dway.window_for_uuid(&uuid)else{
+                        let Some( element ) = dway.element_for_uuid(&uuid)else{
                             error!(dway.log,"window not found {uuid}");
                             return Ok(());
                         };
                         dway.space
                             .map_element(element.clone(), (pos.x, pos.y), true);
-                        dbg!( dway.space.element_geometry(&element) );
-                        dbg!( dway.space.element_bbox(&element) );
                         let geo = element.geometry().to_f64();
-                        dbg!(pos,geo);
+                    }
+                    WindowMessageKind::SetRect(geo) => {
+                        let geo = rect_to_rectangle(geo).to_i32_round();
+                        let Some( element ) = dway.element_for_uuid(&uuid)else{
+                            error!(dway.log,"window not found {uuid}");
+                            return Ok(());
+                        };
+                        dway.space.map_element(element.clone(), geo.loc, true);
+                        match &element {
+                            crate::wayland::shell::WindowElement::Wayland(w) => {
+                                let toplevel = w.toplevel();
+                                toplevel.with_pending_state(|state| {
+                                    state.size = Some(geo.size);
+                                });
+                                toplevel.send_configure();
+                            }
+                            crate::wayland::shell::WindowElement::X11(w) => {
+                            },
+                        };
+                    }
+                    WindowMessageKind::Normal => {
+                        debug!(dway.log, "WindowMessageKind::Normal");
+                        let Some( element ) = dway.element_for_uuid(&uuid)else{
+                            error!(dway.log,"window not found {uuid}");
+                            return Ok(());
+                        };
+                        match &element {
+                            crate::wayland::shell::WindowElement::Wayland(w) => {
+                                let toplevel = w.toplevel();
+                                toplevel.with_pending_state(|state| {
+                                    state.states.unset(xdg_toplevel::State::Maximized);
+                                });
+                                toplevel.send_configure();
+                            }
+                            crate::wayland::shell::WindowElement::X11(_) => {
+
+                            },
+                        };
+                    }
+                    WindowMessageKind::Maximized => {
+                        debug!(dway.log, "WindowMessageKind::Maximized");
+                        let Some( element ) = dway.element_for_uuid(&uuid)else{
+                            error!(dway.log,"window not found {uuid}");
+                            return Ok(());
+                        };
+                        match &element {
+                            crate::wayland::shell::WindowElement::Wayland(w) => {
+                                let toplevel = w.toplevel();
+                                toplevel.with_pending_state(|state| {
+                                    state.states.set(xdg_toplevel::State::Maximized);
+                                });
+                                toplevel.send_configure();
+                            }
+                            crate::wayland::shell::WindowElement::X11(_) => {
+
+                            },
+                        };
                     }
                     WindowMessageKind::Create { pos, size } => todo!(),
                     WindowMessageKind::Destroy => todo!(),
-                    WindowMessageKind::Resize { pos, size } => todo!(),
                     WindowMessageKind::Minimized => todo!(),
-                    WindowMessageKind::Maximized => todo!(),
                     WindowMessageKind::FullScreen => todo!(),
                     _ => {
                         todo!();
