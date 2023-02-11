@@ -8,28 +8,25 @@ pub mod surface;
 pub mod x11;
 
 use std::{
-    any::TypeId,
-    borrow::{Borrow, BorrowMut},
-    cell::RefCell,
     collections::HashMap,
     ffi::OsString,
     os::unix::io::{AsRawFd, OwnedFd},
     process::Command,
     sync::{
-        atomic::{AtomicBool, AtomicU32},
         Arc, Mutex,
     },
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime},
 };
+use std::sync::atomic::AtomicBool;
 
-use bevy_input::{keyboard::KeyboardInput, mouse::MouseButtonInput, prelude::MouseButton};
+
 use bevy_math::Vec2;
 use crossbeam_channel::{Receiver, Sender};
-use failure::{format_err, Fallible};
+use failure::Fallible;
 use slog::{debug, error, info, trace, warn};
 use smithay::{
     backend::renderer::{
-        damage::DamageTrackedRenderer, utils::on_commit_buffer_handler, Frame, Renderer,
+        damage::DamageTrackedRenderer, utils::on_commit_buffer_handler,
     },
     delegate_compositor, delegate_data_device, delegate_fractional_scale,
     delegate_input_method_manager, delegate_keyboard_shortcuts_inhibit, delegate_layer_shell,
@@ -38,9 +35,8 @@ use smithay::{
     delegate_virtual_keyboard_manager, delegate_xdg_activation, delegate_xdg_decoration,
     delegate_xdg_shell,
     desktop::{
-        find_popup_root_surface, layer_map_for_output, space::SpaceElement,
-        utils::with_surfaces_surface_tree, PopupKeyboardGrab, PopupKind, PopupManager,
-        PopupPointerGrab, PopupUngrabStrategy, Space, Window, WindowSurfaceType,
+        find_popup_root_surface, layer_map_for_output, utils::with_surfaces_surface_tree, PopupKeyboardGrab, PopupKind, PopupManager,
+        PopupPointerGrab, PopupUngrabStrategy, Window, WindowSurfaceType,
     },
     input::{
         keyboard::XkbConfig,
@@ -62,14 +58,12 @@ use smithay::{
             protocol::wl_surface::WlSurface,
             Display, DisplayHandle, Resource,
         },
-        x11rb::protocol::xfixes::get_cursor_image_and_name,
     },
-    utils::{Clock, Logical, Monotonic, Physical, Point, Rectangle, Scale, Size, Transform},
+    utils::{Clock, Logical, Monotonic, Point, Rectangle, Scale, Size, Transform},
     wayland::{
         buffer::BufferHandler,
         compositor::{
-            get_parent, is_sync_subsurface, with_states, with_surface_tree_downward,
-            with_surface_tree_upward, CompositorHandler, CompositorState, TraversalAction,
+            is_sync_subsurface, CompositorHandler, CompositorState,
         },
         data_device::{
             ClientDndGrabHandler, DataDeviceHandler, DataDeviceState, ServerDndGrabHandler,
@@ -82,14 +76,11 @@ use smithay::{
         output::OutputManagerState,
         presentation::PresentationState,
         primary_selection::{PrimarySelectionHandler, PrimarySelectionState},
-        seat::WaylandFocus,
         shell::{
             wlr_layer::{WlrLayerShellHandler, WlrLayerShellState},
             xdg::{
-                decoration::{XdgDecorationHandler, XdgDecorationState},
-                Configure, SurfaceCachedState, ToplevelSurface, XdgPopupSurfaceData,
-                XdgPopupSurfaceRoleAttributes, XdgShellHandler, XdgShellState,
-                XdgToplevelSurfaceData, XdgToplevelSurfaceRoleAttributes,
+                decoration::{XdgDecorationHandler, XdgDecorationState}, ToplevelSurface,
+                XdgPopupSurfaceRoleAttributes, XdgShellHandler, XdgShellState, XdgToplevelSurfaceRoleAttributes,
             },
         },
         shm::{ShmHandler, ShmState},
@@ -106,18 +97,17 @@ use smithay::{
 };
 use uuid::Uuid;
 
-use dway_protocol::window::{ImageBuffer, WindowMessage, WindowMessageKind};
-use dway_util::stat::PerfLog;
+use dway_protocol::window::{WindowMessage, WindowMessageKind};
+
 
 use crate::{
     math::{
-        point_to_ivec2, point_to_vec2, rectangle_i32_to_rect, rectangle_to_rect, vec2_to_point,
+        point_to_vec2, rectangle_to_rect,
     },
     wayland::{
         render::render_surface,
         surface::{
-            ensure_initial_configure, print_surface_tree, try_get_component_locked,
-            try_with_states_locked,
+            ensure_initial_configure, try_get_component_locked,
         },
     },
 };
@@ -125,9 +115,8 @@ use crate::{
 use self::{
     cursor::Cursor,
     focus::FocusTarget,
-    grabs::MoveSurfaceGrab,
-    render::{DummyRenderer, DummyTexture},
-    shell::{place_new_window, ResizeState, WindowElement},
+    render::DummyRenderer,
+    shell::WindowElement,
     surface::{get_component_locked, with_states_locked, DWaySurfaceData},
 };
 
@@ -506,7 +495,7 @@ impl DWayState {
     }
 
     pub fn send(&mut self, message: WindowMessage) {
-        if let Err(e) = self.sender.send(message) {}
+        if let Err(_e) = self.sender.send(message) {}
     }
 
     pub fn tick(&mut self) {
@@ -567,7 +556,7 @@ impl CompositorHandler for DWayState {
         ensure_initial_configure(self, surface);
 
         let scale = Scale { x: 1, y: 1 };
-        if let Some((element, geo, bbox)) = element {
+        if let Some((_element, geo, bbox)) = element {
             let geo = geo.to_physical_precise_round(scale);
             let bbox = bbox.to_physical_precise_round(scale);
             if let Err(e) = render_surface(self, surface, geo, bbox) {
@@ -583,21 +572,21 @@ delegate_data_device!(DWayState);
 impl ClientDndGrabHandler for DWayState {
     fn started(
         &mut self,
-        source: Option<smithay::reexports::wayland_server::protocol::wl_data_source::WlDataSource>,
-        icon: Option<WlSurface>,
-        seat: Seat<Self>,
+        _source: Option<smithay::reexports::wayland_server::protocol::wl_data_source::WlDataSource>,
+        _icon: Option<WlSurface>,
+        _seat: Seat<Self>,
     ) {
         info!(self.log, "ClientDndGrabHandler::started");
     }
 
-    fn dropped(&mut self, seat: Seat<Self>) {
+    fn dropped(&mut self, _seat: Seat<Self>) {
         info!(self.log, "ClientDndGrabHandler::started");
     }
 }
 impl ServerDndGrabHandler for DWayState {
     fn action(
         &mut self,
-        action: smithay::reexports::wayland_server::protocol::wl_data_device_manager::DndAction,
+        _action: smithay::reexports::wayland_server::protocol::wl_data_device_manager::DndAction,
     ) {
         info!(self.log, "ServerDndGrabHandler::action");
     }
@@ -610,7 +599,7 @@ impl ServerDndGrabHandler for DWayState {
         info!(self.log, "ServerDndGrabHandler::cancelled");
     }
 
-    fn send(&mut self, mime_type: String, fd: OwnedFd) {
+    fn send(&mut self, _mime_type: String, _fd: OwnedFd) {
         info!(self.log, "ServerDndGrabHandler::send");
     }
 
@@ -633,11 +622,11 @@ impl DataDeviceHandler for DWayState {
 
     fn new_selection(
         &mut self,
-        source: Option<smithay::reexports::wayland_server::protocol::wl_data_source::WlDataSource>,
+        _source: Option<smithay::reexports::wayland_server::protocol::wl_data_source::WlDataSource>,
     ) {
     }
 
-    fn send_selection(&mut self, mime_type: String, fd: OwnedFd) {}
+    fn send_selection(&mut self, _mime_type: String, _fd: OwnedFd) {}
 }
 delegate_output!(DWayState);
 delegate_primary_selection!(DWayState);
@@ -648,11 +637,11 @@ impl PrimarySelectionHandler for DWayState {
 
     fn new_selection(
         &mut self,
-        source: Option<smithay::reexports::wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1>,
+        _source: Option<smithay::reexports::wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1>,
     ) {
     }
 
-    fn send_selection(&mut self, mime_type: String, fd: OwnedFd) {}
+    fn send_selection(&mut self, _mime_type: String, _fd: OwnedFd) {}
 }
 delegate_shm!(DWayState);
 impl BufferHandler for DWayState {
@@ -680,13 +669,13 @@ impl KeyboardShortcutsInhibitHandler for DWayState {
 
     fn new_inhibitor(
         &mut self,
-        inhibitor: smithay::wayland::keyboard_shortcuts_inhibit::KeyboardShortcutsInhibitor,
+        _inhibitor: smithay::wayland::keyboard_shortcuts_inhibit::KeyboardShortcutsInhibitor,
     ) {
     }
 
     fn inhibitor_destroyed(
         &mut self,
-        inhibitor: smithay::wayland::keyboard_shortcuts_inhibit::KeyboardShortcutsInhibitor,
+        _inhibitor: smithay::wayland::keyboard_shortcuts_inhibit::KeyboardShortcutsInhibitor,
     ) {
     }
 }
@@ -700,18 +689,18 @@ impl XdgActivationHandler for DWayState {
 
     fn request_activation(
         &mut self,
-        token: XdgActivationToken,
-        token_data: XdgActivationTokenData,
-        surface: WlSurface,
+        _token: XdgActivationToken,
+        _token_data: XdgActivationTokenData,
+        _surface: WlSurface,
     ) {
         todo!()
     }
 
     fn destroy_activation(
         &mut self,
-        token: XdgActivationToken,
-        token_data: XdgActivationTokenData,
-        surface: WlSurface,
+        _token: XdgActivationToken,
+        _token_data: XdgActivationTokenData,
+        _surface: WlSurface,
     ) {
         todo!()
     }
@@ -727,7 +716,7 @@ impl XdgDecorationHandler for DWayState {
         toplevel.send_configure();
     }
 
-    fn request_mode(&mut self, toplevel: ToplevelSurface, mode: DecorationMode) {
+    fn request_mode(&mut self, _toplevel: ToplevelSurface, _mode: DecorationMode) {
         todo!()
     }
 
@@ -793,7 +782,7 @@ impl XdgShellHandler for DWayState {
             .get_parent_surface()
             .and_then(|surface| self.element_for_surface(&surface))
             .as_ref()
-            .and_then(|element| DWaySurfaceData::get_logical_geometry_bbox(element))
+            .and_then(DWaySurfaceData::get_logical_geometry_bbox)
             .map(|(geo, _)| geo)
             .unwrap_or_default();
         with_surfaces_surface_tree(surface.wl_surface(), |surface, states| {
@@ -872,15 +861,15 @@ impl XdgShellHandler for DWayState {
         }
     }
 
-    fn new_client(&mut self, client: smithay::wayland::shell::xdg::ShellClient) {}
+    fn new_client(&mut self, _client: smithay::wayland::shell::xdg::ShellClient) {}
 
-    fn client_pong(&mut self, client: smithay::wayland::shell::xdg::ShellClient) {}
+    fn client_pong(&mut self, _client: smithay::wayland::shell::xdg::ShellClient) {}
 
     fn move_request(
         &mut self,
         surface: ToplevelSurface,
-        seat: smithay::reexports::wayland_server::protocol::wl_seat::WlSeat,
-        serial: smithay::utils::Serial,
+        _seat: smithay::reexports::wayland_server::protocol::wl_seat::WlSeat,
+        _serial: smithay::utils::Serial,
     ) {
         let uuid = with_states_locked(surface.wl_surface(), |s: &mut DWaySurfaceData| s.uuid);
         self.send(WindowMessage {
@@ -893,8 +882,8 @@ impl XdgShellHandler for DWayState {
     fn resize_request(
         &mut self,
         surface: ToplevelSurface,
-        seat: smithay::reexports::wayland_server::protocol::wl_seat::WlSeat,
-        serial: smithay::utils::Serial,
+        _seat: smithay::reexports::wayland_server::protocol::wl_seat::WlSeat,
+        _serial: smithay::utils::Serial,
         edges: smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::ResizeEdge,
     ) {
         let uuid = with_states_locked(surface.wl_surface(), |s: &mut DWaySurfaceData| s.uuid);
@@ -943,7 +932,7 @@ impl XdgShellHandler for DWayState {
     fn fullscreen_request(
         &mut self,
         surface: ToplevelSurface,
-        output: Option<smithay::reexports::wayland_server::protocol::wl_output::WlOutput>,
+        _output: Option<smithay::reexports::wayland_server::protocol::wl_output::WlOutput>,
     ) {
         self.send(WindowMessage {
             uuid: with_states_locked(surface.wl_surface(), |s: &mut DWaySurfaceData| s.uuid),
@@ -970,10 +959,10 @@ impl XdgShellHandler for DWayState {
 
     fn show_window_menu(
         &mut self,
-        surface: ToplevelSurface,
-        seat: smithay::reexports::wayland_server::protocol::wl_seat::WlSeat,
-        serial: smithay::utils::Serial,
-        location: Point<i32, Logical>,
+        _surface: ToplevelSurface,
+        _seat: smithay::reexports::wayland_server::protocol::wl_seat::WlSeat,
+        _serial: smithay::utils::Serial,
+        _location: Point<i32, Logical>,
     ) {
         debug!(self.log, "show_window_menu");
         // let uuid = Uuid::new_v4();
@@ -1006,8 +995,8 @@ impl XdgShellHandler for DWayState {
 
     fn ack_configure(
         &mut self,
-        surface: smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
-        configure: smithay::wayland::shell::xdg::Configure,
+        _surface: smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+        _configure: smithay::wayland::shell::xdg::Configure,
     ) {
     }
 
@@ -1031,7 +1020,7 @@ impl XdgShellHandler for DWayState {
     }
 
     fn toplevel_destroyed(&mut self, surface: ToplevelSurface) {
-        with_surfaces_surface_tree(surface.wl_surface(), |surface, states| {
+        with_surfaces_surface_tree(surface.wl_surface(), |_surface, states| {
             if let Some(surface_data) = try_get_component_locked::<DWaySurfaceData>(states) {
                 self.surface_map.remove(&surface_data.uuid);
             }
@@ -1044,7 +1033,7 @@ impl XdgShellHandler for DWayState {
     }
 
     fn popup_destroyed(&mut self, surface: smithay::wayland::shell::xdg::PopupSurface) {
-        with_surfaces_surface_tree(surface.wl_surface(), |surface, states| {
+        with_surfaces_surface_tree(surface.wl_surface(), |_surface, states| {
             let surface_data = get_component_locked::<DWaySurfaceData>(states);
             self.surface_map.remove(&surface_data.uuid);
         });
@@ -1063,30 +1052,30 @@ impl WlrLayerShellHandler for DWayState {
 
     fn new_layer_surface(
         &mut self,
-        surface: smithay::wayland::shell::wlr_layer::LayerSurface,
-        output: Option<smithay::reexports::wayland_server::protocol::wl_output::WlOutput>,
-        layer: smithay::wayland::shell::wlr_layer::Layer,
-        namespace: String,
+        _surface: smithay::wayland::shell::wlr_layer::LayerSurface,
+        _output: Option<smithay::reexports::wayland_server::protocol::wl_output::WlOutput>,
+        _layer: smithay::wayland::shell::wlr_layer::Layer,
+        _namespace: String,
     ) {
         todo!()
     }
 
     fn new_popup(
         &mut self,
-        parent: smithay::wayland::shell::wlr_layer::LayerSurface,
-        popup: smithay::wayland::shell::xdg::PopupSurface,
+        _parent: smithay::wayland::shell::wlr_layer::LayerSurface,
+        _popup: smithay::wayland::shell::xdg::PopupSurface,
     ) {
         todo!()
     }
 
     fn ack_configure(
         &mut self,
-        surface: smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
-        configure: smithay::wayland::shell::wlr_layer::LayerSurfaceConfigure,
+        _surface: smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+        _configure: smithay::wayland::shell::wlr_layer::LayerSurfaceConfigure,
     ) {
     }
 
-    fn layer_destroyed(&mut self, surface: smithay::wayland::shell::wlr_layer::LayerSurface) {}
+    fn layer_destroyed(&mut self, _surface: smithay::wayland::shell::wlr_layer::LayerSurface) {}
 }
 delegate_layer_shell!(DWayState);
 delegate_presentation!(DWayState);
@@ -1101,7 +1090,7 @@ impl FractionScaleHandler for DWayState {
 delegate_fractional_scale!(DWayState);
 
 impl XwmHandler for CalloopData {
-    fn xwm_state(&mut self, xwm: smithay::xwayland::xwm::XwmId) -> &mut X11Wm {
+    fn xwm_state(&mut self, _xwm: smithay::xwayland::xwm::XwmId) -> &mut X11Wm {
         self.state.xwm.as_mut().unwrap()
     }
 
@@ -1233,7 +1222,7 @@ impl XwmHandler for CalloopData {
             return;
         };
         self.state.x11_window_map.remove(&window.window_id());
-        with_surfaces_surface_tree(&surface, |surface, states| {
+        with_surfaces_surface_tree(&surface, |_surface, states| {
             if let Some(surface_data) = try_get_component_locked::<DWaySurfaceData>(states) {
                 let uuid = surface_data.uuid;
                 self.state.surface_map.remove(&uuid);
@@ -1268,7 +1257,7 @@ impl XwmHandler for CalloopData {
         );
         self.state.x11_window_map.remove(&window.window_id());
         if let Some(surface) = window.wl_surface() {
-            with_surfaces_surface_tree(&surface, |surface, states| {
+            with_surfaces_surface_tree(&surface, |_surface, states| {
                 let status = get_component_locked::<DWaySurfaceData>(states);
                 self.state.send(WindowMessage {
                     uuid: status.uuid,
@@ -1283,11 +1272,11 @@ impl XwmHandler for CalloopData {
         &mut self,
         xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
-        x: Option<i32>,
-        y: Option<i32>,
+        _x: Option<i32>,
+        _y: Option<i32>,
         w: Option<u32>,
         h: Option<u32>,
-        reorder: Option<smithay::xwayland::xwm::Reorder>,
+        _reorder: Option<smithay::xwayland::xwm::Reorder>,
     ) {
         info!(
             self.state.log,
@@ -1311,8 +1300,8 @@ impl XwmHandler for CalloopData {
         &mut self,
         xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
-        geometry: Rectangle<i32, Logical>,
-        above: Option<smithay::reexports::x11rb::protocol::xproto::Window>,
+        _geometry: Rectangle<i32, Logical>,
+        _above: Option<smithay::reexports::x11rb::protocol::xproto::Window>,
     ) {
         info!(
             self.state.log,
@@ -1325,7 +1314,7 @@ impl XwmHandler for CalloopData {
 
     fn maximize_request(
         &mut self,
-        xwm: smithay::xwayland::xwm::XwmId,
+        _xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
     ) {
         if let Some(surface) = window.wl_surface() {
@@ -1340,7 +1329,7 @@ impl XwmHandler for CalloopData {
 
     fn unmaximize_request(
         &mut self,
-        xwm: smithay::xwayland::xwm::XwmId,
+        _xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
     ) {
         if let Some(surface) = window.wl_surface() {
@@ -1355,7 +1344,7 @@ impl XwmHandler for CalloopData {
 
     fn fullscreen_request(
         &mut self,
-        xwm: smithay::xwayland::xwm::XwmId,
+        _xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
     ) {
         if let Some(surface) = window.wl_surface() {
@@ -1370,7 +1359,7 @@ impl XwmHandler for CalloopData {
 
     fn unfullscreen_request(
         &mut self,
-        xwm: smithay::xwayland::xwm::XwmId,
+        _xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
     ) {
         if let Some(surface) = window.wl_surface() {
@@ -1385,7 +1374,7 @@ impl XwmHandler for CalloopData {
 
     fn minimize_request(
         &mut self,
-        xwm: smithay::xwayland::xwm::XwmId,
+        _xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
     ) {
         if let Some(surface) = window.wl_surface() {
@@ -1400,7 +1389,7 @@ impl XwmHandler for CalloopData {
 
     fn unminimize_request(
         &mut self,
-        xwm: smithay::xwayland::xwm::XwmId,
+        _xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
     ) {
         if let Some(surface) = window.wl_surface() {
@@ -1415,9 +1404,9 @@ impl XwmHandler for CalloopData {
 
     fn resize_request(
         &mut self,
-        xwm: smithay::xwayland::xwm::XwmId,
+        _xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
-        button: u32,
+        _button: u32,
         resize_edge: smithay::xwayland::xwm::ResizeEdge,
     ) {
         let (top, bottom, left, right) = match resize_edge {
@@ -1429,7 +1418,6 @@ impl XwmHandler for CalloopData {
             xwm::ResizeEdge::Right => (false, false, false, true),
             xwm::ResizeEdge::TopRight => (true, false, false, true),
             xwm::ResizeEdge::BottomRight => (false, true, false, true),
-            _ => return,
         };
         if let Some(surface) = window.wl_surface() {
             let uuid = with_states_locked(&surface, |s: &mut DWaySurfaceData| s.uuid);
@@ -1448,9 +1436,9 @@ impl XwmHandler for CalloopData {
 
     fn move_request(
         &mut self,
-        xwm: smithay::xwayland::xwm::XwmId,
+        _xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
-        button: u32,
+        _button: u32,
     ) {
         if let Some(surface) = window.wl_surface() {
             let uuid = with_states_locked(&surface, |s: &mut DWaySurfaceData| s.uuid);

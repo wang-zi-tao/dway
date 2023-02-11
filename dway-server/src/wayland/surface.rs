@@ -1,32 +1,26 @@
 use std::{
-    borrow::{Borrow, BorrowMut},
     cell::{RefCell, RefMut},
     sync::{Mutex, MutexGuard},
-    time::SystemTime,
 };
 
-use bevy_input::{keyboard::KeyboardInput, mouse::MouseButtonInput, prelude::MouseButton};
-use bevy_math::Vec2;
-use crossbeam_channel::{Receiver, Sender};
-use dway_protocol::window::{WindowMessage, WindowMessageKind};
-use failure::{format_err, Fallible};
-use slog::{debug, error, info, trace, warn};
+
+
+
+
+
+
 use smithay::{
     desktop::{
-        layer_map_for_output, space::SpaceElement, utils::with_surfaces_surface_tree, PopupKind,
-        PopupManager, Space, Window, WindowSurfaceType,
+        space::SpaceElement, utils::with_surfaces_surface_tree, PopupKind, Window,
     },
     reexports::wayland_server::{
         backend::smallvec::SmallVec, protocol::wl_surface::WlSurface, Resource,
     },
     utils::{Logical, Physical, Rectangle, Scale},
     wayland::{
-        compositor::{with_states, with_surface_tree_upward, TraversalAction},
+        compositor::with_states,
         seat::WaylandFocus,
-        shell::{
-            wlr_layer::LayerSurfaceAttributes,
-            xdg::{XdgPopupSurfaceRoleAttributes, XdgToplevelSurfaceRoleAttributes},
-        },
+        shell::xdg::{XdgPopupSurfaceRoleAttributes, XdgToplevelSurfaceRoleAttributes},
     },
     xwayland::X11Surface,
 };
@@ -107,7 +101,7 @@ impl DWaySurfaceData {
         element.wl_surface().and_then(|surface| {
             Self::try_with(&surface, |s| {
                 let outer_geo = s.geo;
-                let outer_bbox = s.bbox;
+                let _outer_bbox = s.bbox;
                 let mut bbox = element_bbox;
                 let mut geo = element_geo;
                 bbox.loc += outer_geo.loc - geo.loc;
@@ -124,7 +118,7 @@ impl DWaySurfaceData {
         element.wl_surface().and_then(|surface| {
             Self::try_with(&surface, |s| {
                 let outer_geo = s.geo.to_physical(s.scala);
-                let outer_bbox = s.bbox.to_physical(s.scala);
+                let _outer_bbox = s.bbox.to_physical(s.scala);
                 let mut bbox = element_bbox.to_physical(s.scala);
                 let mut geo = element_geo.to_physical(s.scala);
                 bbox.loc += outer_geo.loc - geo.loc;
@@ -218,9 +212,7 @@ pub fn ensure_initial_configure(dway: &mut DWayState, surface: &WlSurface) {
             // allowed.
             popup.send_configure().expect("initial configure failed");
         }
-
-        return;
-    };
+    }
 
     // if let Some(output) = dway.space.outputs().find(|o| {
     //     let map = layer_map_for_output(o);
@@ -251,7 +243,7 @@ pub fn ensure_initial_configure(dway: &mut DWayState, surface: &WlSurface) {
 
 pub fn print_surface_tree(surface: &WlSurface) {
     print!("root: {} tree: [", surface.id());
-    with_surfaces_surface_tree(surface, |surface, states| {
+    with_surfaces_surface_tree(surface, |surface, _states| {
         print!("  {}", surface.id());
     });
     println!("]");

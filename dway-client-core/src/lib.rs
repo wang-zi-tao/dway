@@ -1,12 +1,12 @@
-use bevy::{prelude::*, sprite::MaterialMesh2dBundle, core_pipeline::clear_color::ClearColorConfig};
+use bevy::{prelude::*};
 use bevy_mod_picking::{
-    DebugCursorPickingPlugin, DebugEventsPickingPlugin, DefaultPickingPlugins, PickableBundle,
+    DebugCursorPickingPlugin, DebugEventsPickingPlugin, DefaultPickingPlugins,
     PickingCameraBundle,
 };
 use log::info;
 use stages::DWayStage;
 
-use self::{desktop::WindowSet, window::receive_window_messages};
+
 pub mod debug;
 pub mod compositor;
 pub mod desktop;
@@ -47,8 +47,8 @@ pub fn debug_info(cameras: Query<&Camera>, cameras2d: Query<&Camera2d>) {
 /// set up a simple 2D scene
 fn setup_2d(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    _meshes: ResMut<Assets<Mesh>>,
+    _materials: ResMut<Assets<ColorMaterial>>,
 ) {
     // commands.spawn((
     //     MaterialMesh2dBundle {
@@ -60,7 +60,7 @@ fn setup_2d(
     //     PickableBundle::default(), // <- Makes the mesh pickable.
     // ));
     // // camera
-    let mut camera=Camera2dBundle::default();
+    let camera=Camera2dBundle::default();
     // camera.camera.priority=0;
     // camera.camera_2d.clear_color=ClearColorConfig::None;
     // camera.transform.translation.z=1024.0;

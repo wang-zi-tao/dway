@@ -1,21 +1,20 @@
-use std::{collections::HashMap, mem::replace, time::SystemTime};
+use std::{mem::replace, time::SystemTime};
 
 use bevy::{
     app::AppExit,
     prelude::*,
     render::render_resource::{TextureDimension, TextureFormat},
-    sprite::MaterialMesh2dBundle,
 };
-use bevy_mod_picking::{highlight::Highlight, Hover, PickableBundle, PickableMesh, Selection};
-use crossbeam_channel::{Receiver, TryRecvError};
+
+use crossbeam_channel::{TryRecvError};
 use dway_protocol::window::WindowState;
 use dway_protocol::window::{ImageBuffer, WindowMessage, WindowMessageKind};
-use dway_util::stat::PerfLog;
-use rand::Rng;
+
+
 use uuid::Uuid;
 
 use crate::{
-    desktop::{self, CursorOnOutput, FocusedWindow, WindowSet},
+    desktop::{CursorOnOutput, FocusedWindow, WindowSet},
     protocol::{WindowMessageReceiver, WindowMessageSender},
     resizing::ResizingMethod,
     stages::DWayStage,
@@ -68,7 +67,7 @@ pub fn focus_on_new_window(
     }
 }
 pub fn receive_window_messages(
-    mut world: &mut World,
+    world: &mut World,
     // mut app_exit_events: EventWriter<AppExit>,
     // queue: Res<WindowMessageReceiver>,
     mut system: Local<Option<Box<dyn System<In = WindowMessage, Out = ()>>>>,
@@ -104,14 +103,14 @@ pub fn receive_window_message(
     mut windows: Query<(&mut WindowMetadata, &mut UiImage)>,
     mut desktop: ResMut<WindowSet>,
     mut images: ResMut<Assets<Image>>,
-    mut app_exit_events: EventWriter<AppExit>,
+    _app_exit_events: EventWriter<AppExit>,
     mut message_count: Local<usize>,
     mut status: ResMut<State<DWayStage>>,
     mut resize_method: ResMut<ResizingMethod>,
 ) {
     // info!("poll messages");
     let request = message.0;
-    let tick = *message_count;
+    let _tick = *message_count;
     *message_count += 1;
     let window_id = &request.uuid;
     match &request.data {

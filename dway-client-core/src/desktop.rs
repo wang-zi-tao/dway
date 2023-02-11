@@ -63,7 +63,7 @@ pub fn update_z_index(
         return;
     }
     for (i, (&window_entity, ())) in window_stack.0.iter().enumerate() {
-        if let Ok((window, mut z_index,mut transform)) = window_meta_query.get_mut(window_entity) {
+        if let Ok((_window, _z_index,mut transform)) = window_meta_query.get_mut(window_entity) {
             // *z_index = ZIndex::Global(65536-(i as i32));
             // *z_index = ZIndex::Local(0);
             transform.translation.z=256.0-( i as f32) ;

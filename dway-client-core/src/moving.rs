@@ -2,12 +2,10 @@ use std::time::SystemTime;
 
 use bevy::{
     input::{
-        keyboard::KeyboardInput,
-        mouse::{MouseButtonInput, MouseMotion, MouseWheel},
+        mouse::{MouseButtonInput},
         ButtonState,
     },
     prelude::*,
-    sprite::MaterialMesh2dBundle,
 };
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
 
@@ -66,7 +64,7 @@ pub fn move_window(
     let Some(focus_window)=&focused_window.0 else{
         return;
     };
-    let Ok( ( mut meta,mut style ) )=windows.get_mut(*focus_window)else {
+    let Ok( ( mut meta,_style ) )=windows.get_mut(*focus_window)else {
         error!("window entity {focus_window:?} not found");
         return;
     };
@@ -92,7 +90,7 @@ pub fn move_window(
 pub fn stop_moving(
     mut cursor_button_events: EventReader<MouseButtonInput>,
     mut stages: ResMut<State<DWayStage>>,
-    mut move_relative: ResMut<MoveRelative>,
+    _move_relative: ResMut<MoveRelative>,
 ) {
     for event in cursor_button_events.iter() {
         if event.state == ButtonState::Released {

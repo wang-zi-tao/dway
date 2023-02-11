@@ -1,4 +1,4 @@
-use std::time::{Instant, SystemTime};
+use std::time::{SystemTime};
 
 use bevy::{
     input::{
@@ -6,7 +6,6 @@ use bevy::{
         mouse::{MouseButtonInput, MouseMotion, MouseWheel},
     },
     prelude::*,
-    sprite::MaterialMesh2dBundle,
 };
 use bevy_mod_picking::{PickingEvent, PickingRaycastSet};
 
@@ -86,7 +85,7 @@ pub fn debug_follow_cursor(
 
 pub fn print_pick_events(
     mut events: EventReader<PickingEvent>,
-    mut cursors: Query<(Entity, &Intersection<PickingRaycastSet>)>,
+    cursors: Query<(Entity, &Intersection<PickingRaycastSet>)>,
 ) {
     for event in events.iter() {
         match event {
@@ -163,7 +162,7 @@ pub fn mouse_move_on_window(
         let pos: Vec2 = (event.position.x, window.height() - event.position.y).into();
         output_focus.0 = Some((event.id, pos.as_ivec2()));
         let min_z_element = window_unser_position(pos, &elements);
-        if let Some((element, meta, z_index)) = min_z_element {
+        if let Some((_element, meta, _z_index)) = min_z_element {
             if let Err(e) = sender.0.send(WindowMessage {
                 uuid: meta.uuid,
                 time: SystemTime::now(),
@@ -177,9 +176,9 @@ pub fn mouse_move_on_window(
 fn mouse_button_on_window(
     mut cursor_button_events: EventReader<MouseButtonInput>,
     mut mouse_wheel_events: EventReader<MouseWheel>,
-    mut sender: Res<WindowMessageSender>,
-    mut windows: Res<Windows>,
-    mut elements: Query<(Entity, &WindowMetadata, &ZIndex)>,
+    sender: Res<WindowMessageSender>,
+    windows: Res<Windows>,
+    elements: Query<(Entity, &WindowMetadata, &ZIndex)>,
     output_focus: Res<CursorOnOutput>,
     mut focus: ResMut<FocusedWindow>,
 ) {
@@ -189,13 +188,13 @@ fn mouse_button_on_window(
     let Some(( window_id,pos ))=&output_focus.0 else{
         return;
     };
-    let Some( window )=windows.get(*window_id)else{
+    let Some( _window )=windows.get(*window_id)else{
         error!("failed to get window {}",window_id);
         return;
     };
     let pos = pos.as_vec2();
     let min_z_element = window_unser_position(pos, &elements);
-    if let Some((element, meta, z_index)) = min_z_element {
+    if let Some((element, meta, _z_index)) = min_z_element {
         focus.0 = Some(element);
         for event in cursor_button_events.iter() {
             if let Err(e) = sender.0.send(WindowMessage {

@@ -1,14 +1,13 @@
 use std::{
-    cell::{RefCell, RefMut},
     time::Duration,
 };
 
-use dway_protocol::window::WindowState;
+
 use smithay::{
     backend::renderer::{
         element::{
             memory::MemoryRenderBufferRenderElement, surface::WaylandSurfaceRenderElement,
-            AsRenderElements, Element, RenderElement,
+            AsRenderElements, 
         },
         ImportAll, ImportMem, Renderer, Texture,
     },
@@ -25,7 +24,7 @@ use smithay::{
     utils::{user_data::UserDataMap, IsAlive, Logical, Point, Rectangle, Serial, Size},
     wayland::seat::WaylandFocus,
     xwayland::{
-        xwm::{ResizeEdge, XwmId},
+        xwm::ResizeEdge,
         X11Surface,
     },
 };
@@ -112,18 +111,18 @@ impl WindowElement {
 }
 impl SpaceElement for WindowElement {
     fn geometry(&self) -> Rectangle<i32, Logical> {
-        let mut geo = match self {
+        
+        match self {
             WindowElement::Wayland(w) => w.geometry(),
             WindowElement::X11(w) => SpaceElement::geometry(w),
-        };
-        geo
+        }
     }
     fn bbox(&self) -> Rectangle<i32, Logical> {
-        let mut bbox = match self {
+        
+        match self {
             WindowElement::Wayland(w) => SpaceElement::bbox(w),
             WindowElement::X11(w) => SpaceElement::bbox(w),
-        };
-        bbox
+        }
     }
     fn is_in_input_region(&self, point: &Point<f64, Logical>) -> bool {
         match self {
@@ -333,7 +332,7 @@ pub fn place_new_window(
     activate: bool,
 ) -> Rectangle<i32, Logical> {
     let output = space.outputs().next().cloned();
-    let output_geometry = output
+    let _output_geometry = output
         .and_then(|o| {
             let geo = space.output_geometry(&o)?;
             let map = layer_map_for_output(&o);
@@ -347,8 +346,8 @@ pub fn place_new_window(
     let y = 75;
 
     space.map_element(window.clone(), (x, y), activate);
-    let geo=Rectangle::from_loc_and_size((x, y), (800, 600));
-    geo
+    
+    Rectangle::from_loc_and_size((x, y), (800, 600))
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]

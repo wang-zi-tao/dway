@@ -1,9 +1,6 @@
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use crate::{
-    math::{ivec2_to_point, rect_to_rectangle, vec2_to_point},
-    wayland::{focus::FocusTarget, surface::with_states_locked},
-};
+use crate::math::{ivec2_to_point, rect_to_rectangle};
 
 use super::{surface::DWaySurfaceData, DWayState};
 use bevy_input::{
@@ -11,26 +8,18 @@ use bevy_input::{
     mouse::{MouseButtonInput, MouseScrollUnit, MouseWheel},
     prelude::MouseButton,
 };
-use bevy_math::Vec2;
-use crossbeam_channel::{Receiver, Sender};
+
+
 use dway_protocol::window::WindowMessageKind;
-use failure::{format_err, Fallible};
-use slog::{debug, error, info, trace, warn};
+use failure::Fallible;
+use slog::{debug, error, trace};
 use smithay::{
     backend::input::ButtonState,
-    desktop::space::SpaceElement,
     input::{
         keyboard::FilterResult,
         pointer::{ButtonEvent, MotionEvent},
     },
-    output::Scale,
-    reexports::{
-        wayland_protocols::{self, xdg::shell::server::xdg_toplevel},
-        wayland_server::Resource,
-    },
-    utils::{Point, SERIAL_COUNTER},
-    wayland::seat::WaylandFocus,
-    xwayland::XwmHandler,
+    utils::{Point, SERIAL_COUNTER}, reexports::wayland_protocols::xdg::shell::server::xdg_toplevel,
 };
 
 pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()> {
@@ -51,10 +40,10 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                 );
                 match message.data {
                     WindowMessageKind::Sync {
-                        state,
-                        pos,
-                        buffer,
-                        title,
+                        state: _,
+                        pos: _,
+                        buffer: _,
+                        title: _,
                     } => todo!(),
                     WindowMessageKind::MouseMove(pos) => {
                         let serial = SERIAL_COUNTER.next_serial();
@@ -74,7 +63,7 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                             );
                         } else if let Some(popup) = dway
                             .surface_for_uuid(uuid)
-                            .and_then(|surface| dway.popups.find_popup(&surface))
+                            .and_then(|surface| dway.popups.find_popup(surface))
                         {
                             popup.geometry();
                             dway.seat.get_pointer().unwrap().motion(
@@ -131,7 +120,7 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                     }
                     WindowMessageKind::KeyboardInput(KeyboardInput {
                         scan_code,
-                        key_code,
+                        key_code: _,
                         state,
                     }) => {
                         let keyboard = dway.seat.get_keyboard().unwrap();
@@ -168,13 +157,13 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                         // dway.space
                         //     .map_element(element.clone(),pos , true);
                         // let geo = element.geometry();
-                        DWaySurfaceData::with_element(&element, |s| {
+                        DWaySurfaceData::with_element(element, |s| {
                             let delta = s.bbox.loc - s.geo.loc;
                             s.geo.loc = pos;
                             s.bbox.loc = pos + delta;
                         });
                         match element {
-                            crate::wayland::shell::WindowElement::Wayland(w) => {}
+                            crate::wayland::shell::WindowElement::Wayland(_w) => {}
                             crate::wayland::shell::WindowElement::X11(w) => {
                                 let mut rect = w.geometry();
                                 rect.loc = pos;
@@ -190,7 +179,7 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                             error!(dway.log,"surface not found {uuid}");
                             return Ok(());
                         };
-                        DWaySurfaceData::with(&surface, |s| {
+                        DWaySurfaceData::with(surface, |s| {
                             let delta = s.bbox.loc - s.geo.loc;
                             s.geo = geo;
                             s.bbox = geo;
@@ -205,7 +194,7 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                                     });
                                     toplevel.send_configure();
                                 }
-                                crate::wayland::shell::WindowElement::X11(w) => {}
+                                crate::wayland::shell::WindowElement::X11(_w) => {}
                             };
                         };
                     }
@@ -276,7 +265,7 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                         match &element {
                             crate::wayland::shell::WindowElement::Wayland(w) => {
                                 let toplevel = w.toplevel();
-                                toplevel.with_pending_state(|state| {
+                                toplevel.with_pending_state(|_state| {
                                     // state.states.set(xdg_toplevel::State::Maximized);
                                 });
                                 toplevel.send_configure();
@@ -295,7 +284,7 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                         match &element {
                             crate::wayland::shell::WindowElement::Wayland(w) => {
                                 let toplevel = w.toplevel();
-                                toplevel.with_pending_state(|state| {
+                                toplevel.with_pending_state(|_state| {
                                     // state.states.set(xdg_toplevel::State::Maximized);
                                 });
                                 toplevel.send_configure();
@@ -343,7 +332,7 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                             }
                         };
                     }
-                    WindowMessageKind::Create { pos, size } => todo!(),
+                    WindowMessageKind::Create { pos: _, size: _ } => todo!(),
                     WindowMessageKind::Destroy => todo!(),
                     _ => {
                         todo!();

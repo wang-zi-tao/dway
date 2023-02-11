@@ -1,23 +1,22 @@
-use std::{thread, time::Duration};
+use std::{thread};
 
 use bevy_inspector_egui::WorldInspectorPlugin;
 use dway_client_core::protocol::{WindowMessageReceiver, WindowMessageSender};
 use dway_ui::kayak_ui::{prelude::KayakContextPlugin, widgets::KayakWidgets};
 
 use bevy::{
-    asset::diagnostic::AssetCountDiagnosticsPlugin,
-    diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    diagnostic::{FrameTimeDiagnosticsPlugin},
     log::{Level, LogPlugin},
     prelude::*,
     window::PresentMode,
-    winit::{UpdateMode, WinitSettings},
+    winit::{WinitSettings},
 };
 
 fn main() {
     let (wayland_sender, client_receiver) = crossbeam_channel::unbounded();
     let (client_sender, wawyland_receiver) = crossbeam_channel::unbounded();
 
-    let wayland_thread = thread::Builder::new()
+    let _wayland_thread = thread::Builder::new()
         .name("wayland".to_string())
         .spawn(move || dway_server::main_loop(wawyland_receiver, wayland_sender))
         .unwrap();

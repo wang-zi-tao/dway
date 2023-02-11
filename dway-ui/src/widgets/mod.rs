@@ -2,7 +2,7 @@ pub mod clock;
 
 
 use bevy::prelude::*;
-use kayak_ui::{prelude::*, widgets::{*}, KayakUIPlugin};
+use kayak_ui::{prelude::*, KayakUIPlugin};
 
 
 #[derive(Default)]

@@ -1,21 +1,19 @@
 #![feature(arc_unwrap_or_clone)]
+pub mod background;
+pub mod contexts;
 pub mod dock;
 pub mod lock;
 pub mod overview;
 pub mod panel;
 pub mod title_bar;
 pub mod widgets;
-pub mod contexts;
-pub mod background;
 
 use std::sync::Arc;
-
-use kayak_font::{KayakFont, bevy::KayakFontLoader};
 
 use failure::Fallible;
 pub use kayak_ui;
 
-use bevy::{asset::AssetLoader, prelude::*, core_pipeline::clear_color::ClearColorConfig};
+use bevy::prelude::*;
 use font_kit::{
     error::SelectionError,
     family_name::FamilyName,
@@ -23,7 +21,7 @@ use font_kit::{
     properties::{Properties, Style},
     source::SystemSource,
 };
-use kayak_ui::{prelude::*, widgets::*, KayakUIPlugin};
+use kayak_ui::{prelude::*, widgets::*};
 
 pub struct DWayUiPlugin;
 impl Plugin for DWayUiPlugin {
@@ -48,7 +46,7 @@ pub fn default_system_font() -> Result<Handle, SelectionError> {
 fn setup(
     mut commands: Commands,
     mut font_mapping: ResMut<FontMapping>,
-    mut font_resource: ResMut<Assets<Font>>,
+    _font_resource: ResMut<Assets<Font>>,
     asset_server: Res<AssetServer>,
 ) {
     match default_system_font()
@@ -56,16 +54,13 @@ fn setup(
         .and_then(|font| font.load().map_err(|e| e.into()))
     {
         Fallible::Ok(font) => {
-                let font: font_kit::font::Font=font;
+            let font: font_kit::font::Font = font;
             let font_data_list = font.copy_font_data();
-            for font_data in font_data_list {
-                let Ok( bevy_font )=Font::try_from_bytes(Arc::unwrap_or_clone(font_data))else {
-                    error!("failed to parse font data");
-                    continue;
-                };
-                    let e=bevy_font.font;
+            if let Some(font_data) = font_data_list {
+                if let Ok(bevy_font) = Font::try_from_bytes(Arc::unwrap_or_clone(font_data)) {
+                    let _e = bevy_font.font;
                     // let kayak_ui_frot=KayakFontLoader.load(font, load_context);
-
+                }
             }
             // font_mapping.set_default();
         }
@@ -137,6 +132,6 @@ fn setup(
         </KayakAppBundle>
     };
 
-    let mut camera=UICameraBundle::new(widget_context);
+    let camera = UICameraBundle::new(widget_context);
     commands.spawn(camera);
 }

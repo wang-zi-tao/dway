@@ -1,8 +1,8 @@
-use bevy::{prelude::*, render::render_graph::RenderGraph};
+use bevy::{prelude::*};
 
 pub struct DWayRender;
 impl Plugin for DWayRender{
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
         // app.add_startup_system(add_texture);
     }
 }

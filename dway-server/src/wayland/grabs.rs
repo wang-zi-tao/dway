@@ -10,29 +10,29 @@ pub struct MoveSurfaceGrab {
 impl PointerGrab<DWayState> for MoveSurfaceGrab{
     fn motion(
         &mut self,
-        data: &mut DWayState,
-        handle: &mut smithay::input::pointer::PointerInnerHandle<'_, DWayState>,
-        focus: Option<(<DWayState as SeatHandler>::PointerFocus, Point<i32, Logical>)>,
-        event: &smithay::input::pointer::MotionEvent,
+        _data: &mut DWayState,
+        _handle: &mut smithay::input::pointer::PointerInnerHandle<'_, DWayState>,
+        _focus: Option<(<DWayState as SeatHandler>::PointerFocus, Point<i32, Logical>)>,
+        _event: &smithay::input::pointer::MotionEvent,
     ) {
         todo!()
     }
 
     fn relative_motion(
         &mut self,
-        data: &mut DWayState,
-        handle: &mut smithay::input::pointer::PointerInnerHandle<'_, DWayState>,
-        focus: Option<(<DWayState as SeatHandler>::PointerFocus, Point<i32, Logical>)>,
-        event: &smithay::input::pointer::RelativeMotionEvent,
+        _data: &mut DWayState,
+        _handle: &mut smithay::input::pointer::PointerInnerHandle<'_, DWayState>,
+        _focus: Option<(<DWayState as SeatHandler>::PointerFocus, Point<i32, Logical>)>,
+        _event: &smithay::input::pointer::RelativeMotionEvent,
     ) {
         todo!()
     }
 
-    fn button(&mut self, data: &mut DWayState, handle: &mut smithay::input::pointer::PointerInnerHandle<'_, DWayState>, event: &smithay::input::pointer::ButtonEvent) {
+    fn button(&mut self, _data: &mut DWayState, _handle: &mut smithay::input::pointer::PointerInnerHandle<'_, DWayState>, _event: &smithay::input::pointer::ButtonEvent) {
         todo!()
     }
 
-    fn axis(&mut self, data: &mut DWayState, handle: &mut smithay::input::pointer::PointerInnerHandle<'_, DWayState>, details: smithay::input::pointer::AxisFrame) {
+    fn axis(&mut self, _data: &mut DWayState, _handle: &mut smithay::input::pointer::PointerInnerHandle<'_, DWayState>, _details: smithay::input::pointer::AxisFrame) {
         todo!()
     }
 

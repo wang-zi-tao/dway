@@ -1,23 +1,20 @@
 use std::{
-    borrow::Borrow,
-    cell::{Cell, RefCell},
     collections::HashMap,
     fmt::Display,
-    sync::{Arc, Mutex},
     time::{Duration, SystemTime},
 };
 
 use bevy_math::Vec2;
 use dway_protocol::window::{ImageBuffer, WindowMessage, WindowMessageKind};
-use failure::{format_err, Error, Fail, Fallible};
-use slog::{debug, error, warn};
+use failure::Fallible;
+use slog::warn;
 use smithay::{
     backend::renderer::{
         element::{
             default_primary_scanout_output_compare, Id, RenderElementPresentationState,
             RenderElementState, RenderElementStates,
         },
-        utils::{CommitCounter, RendererSurfaceStateUserData, RendererSurfaceState},
+        utils::{CommitCounter, RendererSurfaceStateUserData},
         Frame, ImportAll, ImportDma, ImportDmaWl, ImportEgl, ImportMem, ImportMemWl, Renderer,
         Texture,
     },
@@ -25,14 +22,13 @@ use smithay::{
         space::SpaceElement,
         utils::{
             surface_primary_scanout_output, update_surface_primary_scanout_output,
-            with_surfaces_surface_tree,
         },
         PopupManager,
     },
     reexports::wayland_server::{backend::ObjectId, protocol::wl_surface::WlSurface, Resource},
     utils::{Buffer, Logical, Physical, Point, Rectangle, Scale, Size, Transform},
     wayland::{
-        compositor::{with_states, with_surface_tree_downward},
+        compositor::with_states,
         fractional_scale::with_fractional_scale,
     },
 };
@@ -41,7 +37,7 @@ use crate::math::rectangle_to_rect;
 
 use super::{
     shell::WindowElement,
-    surface::{get_component_locked, try_with_states_locked, with_states_locked, DWaySurfaceData, try_get_component_locked},
+    surface::{get_component_locked, try_with_states_locked, DWaySurfaceData},
     DWayState,
 };
 
@@ -55,7 +51,7 @@ pub enum RenderError {
     Other(failure::Error),
 }
 impl Display for RenderError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
@@ -100,18 +96,18 @@ impl Texture for DummyTexture {
 impl ImportMem for DummyRenderer {
     fn import_memory(
         &mut self,
-        data: &[u8],
-        size: smithay::utils::Size<i32, smithay::utils::Buffer>,
-        flipped: bool,
+        _data: &[u8],
+        _size: smithay::utils::Size<i32, smithay::utils::Buffer>,
+        _flipped: bool,
     ) -> Result<<Self as Renderer>::TextureId, <Self as Renderer>::Error> {
         todo!()
     }
 
     fn update_memory(
         &mut self,
-        texture: &<Self as Renderer>::TextureId,
-        data: &[u8],
-        region: Rectangle<i32, smithay::utils::Buffer>,
+        _texture: &<Self as Renderer>::TextureId,
+        _data: &[u8],
+        _region: Rectangle<i32, smithay::utils::Buffer>,
     ) -> Result<(), <Self as Renderer>::Error> {
         todo!()
     }
@@ -120,8 +116,8 @@ impl ImportMemWl for DummyRenderer {
     fn import_shm_buffer(
         &mut self,
         buffer: &smithay::reexports::wayland_server::protocol::wl_buffer::WlBuffer,
-        surface: Option<&smithay::wayland::compositor::SurfaceData>,
-        damage: &[Rectangle<i32, smithay::utils::Buffer>],
+        _surface: Option<&smithay::wayland::compositor::SurfaceData>,
+        _damage: &[Rectangle<i32, smithay::utils::Buffer>],
     ) -> Result<
         <Self as smithay::backend::renderer::Renderer>::TextureId,
         <Self as smithay::backend::renderer::Renderer>::Error,
@@ -154,7 +150,7 @@ impl ImportMemWl for DummyRenderer {
 impl ImportEgl for DummyRenderer {
     fn bind_wl_display(
         &mut self,
-        display: &smithay::reexports::wayland_server::DisplayHandle,
+        _display: &smithay::reexports::wayland_server::DisplayHandle,
     ) -> Result<(), smithay::backend::egl::Error> {
         todo!()
     }
@@ -169,9 +165,9 @@ impl ImportEgl for DummyRenderer {
 
     fn import_egl_buffer(
         &mut self,
-        buffer: &smithay::reexports::wayland_server::protocol::wl_buffer::WlBuffer,
-        surface: Option<&smithay::wayland::compositor::SurfaceData>,
-        damage: &[Rectangle<i32, smithay::utils::Buffer>],
+        _buffer: &smithay::reexports::wayland_server::protocol::wl_buffer::WlBuffer,
+        _surface: Option<&smithay::wayland::compositor::SurfaceData>,
+        _damage: &[Rectangle<i32, smithay::utils::Buffer>],
     ) -> Result<
         <Self as smithay::backend::renderer::Renderer>::TextureId,
         <Self as smithay::backend::renderer::Renderer>::Error,
@@ -182,8 +178,8 @@ impl ImportEgl for DummyRenderer {
 impl ImportDma for DummyRenderer {
     fn import_dmabuf(
         &mut self,
-        dmabuf: &smithay::backend::allocator::dmabuf::Dmabuf,
-        damage: Option<&[Rectangle<i32, smithay::utils::Buffer>]>,
+        _dmabuf: &smithay::backend::allocator::dmabuf::Dmabuf,
+        _damage: Option<&[Rectangle<i32, smithay::utils::Buffer>]>,
     ) -> Result<<Self as Renderer>::TextureId, <Self as Renderer>::Error> {
         todo!()
     }
@@ -204,8 +200,8 @@ impl<'r> Frame for DummyFrame<'r> {
 
     fn clear(
         &mut self,
-        color: [f32; 4],
-        at: &[Rectangle<i32, smithay::utils::Physical>],
+        _color: [f32; 4],
+        _at: &[Rectangle<i32, smithay::utils::Physical>],
     ) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -216,8 +212,8 @@ impl<'r> Frame for DummyFrame<'r> {
         src: Rectangle<f64, smithay::utils::Buffer>,
         dst: Rectangle<i32, smithay::utils::Physical>,
         damage: &[Rectangle<i32, smithay::utils::Physical>],
-        src_transform: smithay::utils::Transform,
-        alpha: f32,
+        _src_transform: smithay::utils::Transform,
+        _alpha: f32,
     ) -> Result<(), Self::Error> {
         self.render
             .images
@@ -247,22 +243,22 @@ impl Renderer for DummyRenderer {
 
     fn downscale_filter(
         &mut self,
-        filter: smithay::backend::renderer::TextureFilter,
+        _filter: smithay::backend::renderer::TextureFilter,
     ) -> Result<(), Self::Error> {
         todo!()
     }
 
     fn upscale_filter(
         &mut self,
-        filter: smithay::backend::renderer::TextureFilter,
+        _filter: smithay::backend::renderer::TextureFilter,
     ) -> Result<(), Self::Error> {
         todo!()
     }
 
     fn render(
         &mut self,
-        output_size: smithay::utils::Size<i32, smithay::utils::Physical>,
-        dst_transform: smithay::utils::Transform,
+        _output_size: smithay::utils::Size<i32, smithay::utils::Physical>,
+        _dst_transform: smithay::utils::Transform,
     ) -> Result<Self::Frame<'_>, Self::Error> {
         Ok(DummyFrame { render: self })
     }
@@ -273,16 +269,16 @@ pub fn render_surface(
     geo: Rectangle<i32, Physical>,
     bbox: Rectangle<i32, Physical>,
 ) -> Fallible<RenderElementStates> {
-    let scale = Scale { x: 1, y: 1 };
+    let _scale = Scale { x: 1, y: 1 };
     let mut render_state = RenderElementStates {
         states: Default::default(),
     };
     let render = &mut dway.render;
-    let Some( uuid ) = try_with_states_locked(&surface, |s: &mut DWaySurfaceData| s.uuid)else{
+    let Some( uuid ) = try_with_states_locked(surface, |s: &mut DWaySurfaceData| s.uuid)else{
         warn!(dway.log,"surface {:?} has no uuid",surface.id());
         return Ok(render_state);
     };
-    with_states(&surface, |states| {
+    with_states(surface, |states| {
         let Some( surface_state ) = states
             .data_map
             .get::<RendererSurfaceStateUserData>()
@@ -363,8 +359,8 @@ pub fn render_element(dway: &mut DWayState, element: &WindowElement) -> Fallible
     // let geo = element.geometry().to_physical(scale);
     // let bbox = element.bbox().to_physical(scale);
     let (geo, bbox) = match element {
-        WindowElement::Wayland(w) => {
-            DWaySurfaceData::get_physical_geometry_bbox(&element).unwrap_or_default()
+        WindowElement::Wayland(_w) => {
+            DWaySurfaceData::get_physical_geometry_bbox(element).unwrap_or_default()
         }
         WindowElement::X11(w) => {
             let geo = w.geometry().to_physical(scale);

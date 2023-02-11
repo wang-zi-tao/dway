@@ -10,9 +10,8 @@ use std::{
 use crossbeam_channel::{Receiver, Sender};
 use dway_protocol::window::WindowMessage;
 use failure::Fallible;
-use slog::{error, info, Logger};
+use slog::{error};
 use smithay::{
-    output::{Output, PhysicalProperties, Subpixel},
     reexports::{calloop::EventLoop, wayland_server::Display},
 };
 use wayland::{inputs::receive_messages, render::render_desktop};
@@ -34,7 +33,7 @@ pub fn main_loop(receiver: Receiver<WindowMessage>, sender: Sender<WindowMessage
 
     let mut command = Command::new("alacritty");
     // command.args(&["-e", "zsh", "-c", "gnome-calculator;zsh"]);
-    command.args(&["-e", "zsh", "-c", "sleep 1;DISPLAY=:2 glxgears;zsh"]);
+    command.args(["-e", "zsh", "-c", "sleep 1;DISPLAY=:2 glxgears;zsh"]);
     // command.args(&["-e", "zsh", "-c", "gnome-system-monitor;zsh"]);
     // // let command = Command::new("gnome-system-monitor");
     // let command = Command::new("google-ch");
@@ -75,7 +74,7 @@ pub fn main_loop(receiver: Receiver<WindowMessage>, sender: Sender<WindowMessage
         if let Err(err) = result {
             error!(calloop_data.state.log, "error in tick: {err}");
         }
-        let loop_end = Instant::now();
+        let _loop_end = Instant::now();
         // info!(
         //     calloop_data.state.log,
         //     "tick duration: {:?}",

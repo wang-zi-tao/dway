@@ -1,21 +1,14 @@
-use std::time::Duration;
+
 
 use bevy::{
-    app::ScheduleRunnerSettings,
-    asset::diagnostic::AssetCountDiagnosticsPlugin,
     diagnostic::{
-        Diagnostics, EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
+        Diagnostics,
     },
-    log::{Level, LogPlugin},
     prelude::*,
-    window::PresentMode,
-    winit::WinitSettings,
-};
-use bevy_mod_picking::{
-    DebugCursorPickingPlugin, DebugEventsPickingPlugin, DefaultPickingPlugins, PickingCameraBundle,
 };
 
-use crate::stages::DWayStage;
+
+
 
 
 pub struct CompositorPlugin;
@@ -53,7 +46,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         FpsText,
     ));
 }
-fn fps_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text, With<FpsText>>) {
+fn fps_update_system(_diagnostics: Res<Diagnostics>, _query: Query<&mut Text, With<FpsText>>) {
     // for mut text in &mut query {
     //     if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
     //         if let Some(value) = fps.smoothed() {

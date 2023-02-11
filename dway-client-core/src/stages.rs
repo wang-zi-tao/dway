@@ -1,4 +1,4 @@
-use bevy::prelude::{Stage, StageLabel};
+use bevy::prelude::{StageLabel};
 
 
 #[derive(Hash,Debug,PartialEq,Eq,Clone,StageLabel)]

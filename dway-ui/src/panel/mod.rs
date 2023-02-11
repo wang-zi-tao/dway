@@ -10,7 +10,7 @@ impl Plugin for DWayPanelPlugin {
         app.add_startup_system(setup);
     }
 }
-pub fn setup(mut commands: Commands) {}
+pub fn setup(_commands: Commands) {}
 impl KayakUIPlugin for DWayPanelPlugin {
     fn build(&self, context: &mut KayakRootContext) {
         context.add_widget_data::<DWayPanelProps, DWayPanelStates>();
@@ -53,7 +53,7 @@ pub fn panel_render(
     query: Query<&DWayPanelStates>,
 ) -> bool {
     let state_entity = widget_context.use_state(&mut commands, entity, DWayPanelStates::default());
-    if let Ok(status) = query.get(state_entity) {
+    if let Ok(_status) = query.get(state_entity) {
         let parent_id = Some(entity);
         rsx! {
             <BackgroundBundle

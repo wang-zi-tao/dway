@@ -2,12 +2,10 @@ use std::time::SystemTime;
 
 use bevy::{
     input::{
-        keyboard::KeyboardInput,
-        mouse::{MouseButtonInput, MouseMotion, MouseWheel},
+        mouse::{MouseButtonInput},
         ButtonState,
     },
     prelude::*,
-    sprite::MaterialMesh2dBundle,
 };
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
 

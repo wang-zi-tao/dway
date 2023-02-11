@@ -1,7 +1,6 @@
-use bevy::{asset::AssetLoader, prelude::*};
+use bevy::prelude::*;
 use kayak_ui::{
     prelude::*,
-    widgets::{ElementBundle, KImage, KImageBundle},
     KayakUIPlugin,
 };
 
@@ -14,7 +13,7 @@ impl Plugin for DWayBackgroundPlugin {
 }
 
 impl KayakUIPlugin for DWayBackgroundPlugin {
-    fn build(&self, context: &mut kayak_ui::prelude::KayakRootContext) {
+    fn build(&self, _context: &mut kayak_ui::prelude::KayakRootContext) {
         // context.add_widget_data::<DWayBackgroundProps, DWayBackgroundStates>();
         // context.add_widget_system(
         //     DWayBackgroundProps::default().get_name(),
