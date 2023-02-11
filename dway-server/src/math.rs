@@ -4,13 +4,25 @@ use smithay::utils::{Point, Rectangle};
 pub fn point_to_vec2<K>(point: Point<f64, K>) -> Vec2 {
     Vec2::new(point.x as f32, point.y as f32)
 }
+pub fn point_i32_to_vec2<K>(point: Point<i32, K>) -> Vec2 {
+    Vec2::new(point.x as f32, point.y as f32)
+}
 pub fn point_to_ivec2<K>(point: Point<i32, K>) -> IVec2 {
     IVec2::new(point.x, point.y)
 }
 pub fn vec2_to_point<K>(vec: Vec2) -> Point<f64, K> {
     (vec.x as f64, vec.y as f64).into()
 }
+pub fn ivec2_to_point<K>(vec: IVec2) -> Point<i32, K> {
+    (vec.x, vec.y).into()
+}
 
+pub fn rectangle_i32_to_rect<T>(rectangle: Rectangle<i32, T>) -> Rect {
+    Rect::from_corners(
+        point_i32_to_vec2(rectangle.loc),
+        point_i32_to_vec2(rectangle.loc + rectangle.size),
+    )
+}
 pub fn rectangle_to_rect<T>(rectangle: Rectangle<f64, T>) -> Rect {
     Rect::from_corners(
         point_to_vec2(rectangle.loc),

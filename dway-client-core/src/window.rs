@@ -38,7 +38,7 @@ impl Plugin for DWayWindowPlugin {
         );
         app.add_system_to_stage(
             CoreStage::PreUpdate,
-            receive_window_message.label(WindowLabel::Receive),
+            receive_window_messages.label(WindowLabel::Receive),
         );
         app.add_system(update_window_ui_rect.label(WindowLabel::UpdateUi));
     }
@@ -67,11 +67,42 @@ pub fn focus_on_new_window(
         focus.0 = Some(new_window);
     }
 }
+pub fn receive_window_messages(
+    mut world: &mut World,
+    // mut app_exit_events: EventWriter<AppExit>,
+    // queue: Res<WindowMessageReceiver>,
+    mut system: Local<Option<Box<dyn System<In = WindowMessage, Out = ()>>>>,
+) {
+    let Some( queue )=world.get_resource::<WindowMessageReceiver>()else{
+        return
+    };
+    let queue = queue.0.clone();
+    loop {
+        match queue.try_recv() {
+            Err(TryRecvError::Empty) => break,
+            Err(e) => {
+                error!("channel error {e}");
+                world.send_event(AppExit);
+                return;
+            }
+            Ok(message) => {
+                let system = system.get_or_insert_with(|| {
+                    let mut system = IntoSystem::into_system(receive_window_message);
+                    system.initialize(world);
+                    Box::new(system)
+                });
+                system.run(message, world);
+                system.apply_buffers(world);
+            }
+        }
+    }
+}
 pub fn receive_window_message(
+    message: In<WindowMessage>,
+    // mut commands: ParallelCommands,
     mut commands: Commands,
     mut windows: Query<(&mut WindowMetadata, &mut UiImage)>,
     mut desktop: ResMut<WindowSet>,
-    queue: Res<WindowMessageReceiver>,
     mut images: ResMut<Assets<Image>>,
     mut app_exit_events: EventWriter<AppExit>,
     mut message_count: Local<usize>,
@@ -79,183 +110,150 @@ pub fn receive_window_message(
     mut resize_method: ResMut<ResizingMethod>,
 ) {
     // info!("poll messages");
-    loop {
-        match queue.0.try_recv() {
-            Err(TryRecvError::Empty) => break,
-            Err(e) => {
-                error!("channel error {e}");
-                app_exit_events.send(AppExit);
-                return;
-            }
-            Ok(request) => {
-                let tick = *message_count;
-                *message_count += 1;
-                let window_id = &request.uuid;
-                match &request.data {
-                    WindowMessageKind::Create { pos, size } => {
-                        create_window(
-                            window_id,
-                            *size,
-                            *pos,
-                            windows.iter().count() as i32,
-                            &mut commands,
-                            &mut images,
-                            &mut desktop,
-                        );
-                    }
-                    WindowMessageKind::UpdateImage {
-                        bbox,
-                        geo,
-                        image: ImageBuffer(size, data),
-                    } => {
-                        let mut need_create = true;
-                        if let Some(entity) = desktop.window_set.get(window_id) {
-                            // need_create = !windows.contains(*entity);
-                            need_create = false;
-                        }
-                        if need_create {
-                            create_window(
-                                window_id,
-                                *size,
-                                bbox.min,
-                                windows.iter().count() as i32,
-                                &mut commands,
-                                &mut images,
-                                &mut desktop,
-                            );
-                        }
-                    }
-                    _ => {}
-                }
-                let Some(&window_entity)=desktop.window_set.get(window_id) else{
+    let request = message.0;
+    let tick = *message_count;
+    *message_count += 1;
+    let window_id = &request.uuid;
+    match &request.data {
+        WindowMessageKind::Create { pos, size } => {
+            create_window(
+                window_id,
+                *size,
+                *pos,
+                windows.iter().count() as i32,
+                &mut commands,
+                &mut images,
+                &mut desktop,
+            );
+        }
+        _ => {}
+    }
+    let Some(&window_entity)=desktop.window_set.get(window_id) else{
             error!("window not found: {}",window_id);
-            continue;
+            return;
         };
-                let Ok((mut meta,mut image))=windows.get_mut(window_entity)else{
+    let Ok((mut meta,mut image))=windows.get_mut(window_entity)else{
             error!("window entity not found: {:?} {window_id}",window_entity);
-            continue;
+            return;
         };
-                match request.data {
-                    WindowMessageKind::Create { .. } => {}
-                    WindowMessageKind::Destroy => {
-                        info!("destroy window {:?} {window_id}", window_entity);
-                        commands.entity(window_entity).despawn_recursive();
-                        desktop.window_set.remove(window_id);
-                    }
-                    WindowMessageKind::Move(pos) => {
-                        let pos = pos.as_vec2();
-                        let rect = meta.bbox;
-                        meta.bbox = Rect::from_corners(pos, rect.size() + pos);
-                    }
-                    WindowMessageKind::UpdateImage {
-                        bbox,
-                        geo,
-                        image: ImageBuffer(size, data),
-                    } => {
-                        // let diff = geo.min - bbox.min;
-                        // let bbox = Rect::from_corners(bbox.min - diff, bbox.max - diff);
-                        // let geo = Rect::from_corners(geo.min - diff, geo.max - diff);
-                        let new_image = UiImage(images.add(Image::new(
-                            bevy::render::render_resource::Extent3d {
-                                width: size.x as u32,
-                                height: size.y as u32,
-                                depth_or_array_layers: 1,
-                            },
-                            TextureDimension::D2,
-                            data,
-                            TextureFormat::Bgra8UnormSrgb,
-                        )));
-                        trace!(
-                            "update image: duration: {:?}, image: {:?}",
-                            SystemTime::now().duration_since(request.time).unwrap(),
-                            new_image,
-                        );
-                        let UiImage(old_image) = replace(&mut *image, new_image);
-                        images.remove(old_image);
-                        let bbox = Rect::from_corners(bbox.min, bbox.min + size);
-                        if meta.bbox != bbox {
-                            meta.bbox = bbox;
-                        }
-                        if meta.geo != geo {
-                            meta.geo = geo;
-                        }
-                    }
-                    WindowMessageKind::MoveRequest => {
-                        if let Err(e) = status.push(DWayStage::Moving) {
-                            error!("failed to enter moving stage: {}", e);
-                        };
-                    }
-                    WindowMessageKind::ResizeRequest {
-                        top,
-                        bottom,
-                        left,
-                        right,
-                    } => {
-                        *resize_method = ResizingMethod {
-                            top,
-                            bottom,
-                            left,
-                            right,
-                        };
-                        if let Err(e) = status.push(DWayStage::Resizing) {
-                            error!("failed to enter resizing stage: {}", e);
-                        };
-                    }
-                    WindowMessageKind::SetRect(geo) => {
-                        set_window_rect(&mut meta, geo);
-                    }
-                    WindowMessageKind::Maximized => {
-                        info!("WindowMessageKind::Maximized");
-                        if meta.backup_geo.is_none() {
-                            meta.backup_geo = Some(meta.geo);
-                        }
-                        meta.state = WindowState::Maximized;
-                    }
-                    WindowMessageKind::Minimized => {
-                        if meta.backup_geo.is_none() {
-                            meta.backup_geo = Some(meta.geo);
-                        }
-                        meta.state = WindowState::Minimized;
-                    }
-                    WindowMessageKind::FullScreen => {
-                        if meta.backup_geo.is_none() {
-                            meta.backup_geo = Some(meta.geo);
-                        } else {
-                            warn!("no normal geometry info");
-                        }
-                        meta.state = WindowState::FullScreen;
-                    }
-                    WindowMessageKind::UnFullScreen => {
-                        if let Some(geo) = meta.backup_geo.take() {
-                            set_window_rect(&mut meta, geo);
-                        } else {
-                            warn!("no normal geometry info");
-                        }
-                        meta.state = WindowState::Normal;
-                    }
-                    WindowMessageKind::Unmaximized => {
-                        info!("WindowMessageKind::Unmaximize");
-                        if let Some(geo) = meta.backup_geo.take() {
-                            set_window_rect(&mut meta, geo);
-                        } else {
-                            warn!("no normal geometry info");
-                        }
-                        meta.state = WindowState::Normal;
-                    }
-                    WindowMessageKind::Unminimized => {
-                        info!("WindowMessageKind::Unminimized");
-                        if let Some(geo) = meta.backup_geo.take() {
-                            set_window_rect(&mut meta, geo);
-                        } else {
-                            warn!("no normal geometry info");
-                        }
-                        meta.state = WindowState::Normal;
-                    }
-                    o => {
-                        panic!("not implemented, message: {o:?}");
-                    }
-                }
+    match request.data {
+        WindowMessageKind::Create { .. } => {}
+        WindowMessageKind::Destroy => {
+            info!("destroy window {:?} {window_id}", window_entity);
+            commands.entity(window_entity).despawn_recursive();
+            desktop.window_set.remove(window_id);
+        }
+        WindowMessageKind::Move(pos) => {
+            let pos = pos.as_vec2();
+            let rect = meta.bbox;
+            meta.bbox = Rect::from_corners(pos, rect.size() + pos);
+        }
+        WindowMessageKind::UpdateImage {
+            bbox,
+            geo,
+            image: ImageBuffer(size, data),
+        } => {
+            // let diff = geo.min - bbox.min;
+            // let bbox = Rect::from_corners(bbox.min - diff, bbox.max - diff);
+            // let geo = Rect::from_corners(geo.min - diff, geo.max - diff);
+            let new_image = UiImage(images.add(Image::new(
+                bevy::render::render_resource::Extent3d {
+                    width: size.x as u32,
+                    height: size.y as u32,
+                    depth_or_array_layers: 1,
+                },
+                TextureDimension::D2,
+                data,
+                TextureFormat::Bgra8UnormSrgb,
+            )));
+            trace!(
+                "update image: duration: {:?}, image: {:?}",
+                SystemTime::now().duration_since(request.time).unwrap(),
+                new_image,
+            );
+            let UiImage(old_image) = replace(&mut *image, new_image);
+            images.remove(old_image);
+            let bbox = Rect::from_corners(bbox.min, bbox.min + size);
+            if meta.bbox != bbox {
+                meta.bbox = bbox;
             }
+            if meta.geo != geo {
+                meta.geo = geo;
+            }
+        }
+        WindowMessageKind::MoveRequest => {
+            if let Err(e) = status.push(DWayStage::Moving) {
+                error!("failed to enter moving stage: {}", e);
+            };
+        }
+        WindowMessageKind::ResizeRequest {
+            top,
+            bottom,
+            left,
+            right,
+        } => {
+            *resize_method = ResizingMethod {
+                top,
+                bottom,
+                left,
+                right,
+            };
+            if let Err(e) = status.push(DWayStage::Resizing) {
+                error!("failed to enter resizing stage: {}", e);
+            };
+        }
+        WindowMessageKind::SetRect(geo) => {
+            set_window_rect(&mut meta, geo);
+        }
+        WindowMessageKind::Maximized => {
+            info!("WindowMessageKind::Maximized");
+            if meta.backup_geo.is_none() {
+                meta.backup_geo = Some(meta.geo);
+            }
+            meta.state = WindowState::Maximized;
+        }
+        WindowMessageKind::Minimized => {
+            if meta.backup_geo.is_none() {
+                meta.backup_geo = Some(meta.geo);
+            }
+            meta.state = WindowState::Minimized;
+        }
+        WindowMessageKind::FullScreen => {
+            if meta.backup_geo.is_none() {
+                meta.backup_geo = Some(meta.geo);
+            } else {
+                warn!("no normal geometry info");
+            }
+            meta.state = WindowState::FullScreen;
+        }
+        WindowMessageKind::UnFullScreen => {
+            if let Some(geo) = meta.backup_geo.take() {
+                set_window_rect(&mut meta, geo);
+            } else {
+                warn!("no normal geometry info");
+            }
+            meta.state = WindowState::Normal;
+        }
+        WindowMessageKind::Unmaximized => {
+            info!("WindowMessageKind::Unmaximize");
+            if let Some(geo) = meta.backup_geo.take() {
+                set_window_rect(&mut meta, geo);
+            } else {
+                warn!("no normal geometry info");
+            }
+            meta.state = WindowState::Normal;
+        }
+        WindowMessageKind::Unminimized => {
+            info!("WindowMessageKind::Unminimized");
+            if let Some(geo) = meta.backup_geo.take() {
+                set_window_rect(&mut meta, geo);
+            } else {
+                warn!("no normal geometry info");
+            }
+            meta.state = WindowState::Normal;
+        }
+        o => {
+            panic!("not implemented, message: {o:?}");
         }
     }
 }

@@ -6,7 +6,7 @@ use bevy_mod_picking::{
 use log::info;
 use stages::DWayStage;
 
-use self::{desktop::WindowSet, window::receive_window_message};
+use self::{desktop::WindowSet, window::receive_window_messages};
 pub mod debug;
 pub mod compositor;
 pub mod desktop;

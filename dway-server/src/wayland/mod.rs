@@ -12,6 +12,7 @@ use std::{
     borrow::{Borrow, BorrowMut},
     cell::RefCell,
     collections::HashMap,
+    ffi::OsString,
     os::unix::io::{AsRawFd, OwnedFd},
     process::Command,
     sync::{
@@ -61,6 +62,7 @@ use smithay::{
             protocol::wl_surface::WlSurface,
             Display, DisplayHandle, Resource,
         },
+        x11rb::protocol::xfixes::get_cursor_image_and_name,
     },
     utils::{Clock, Logical, Monotonic, Physical, Point, Rectangle, Scale, Size, Transform},
     wayland::{
@@ -85,9 +87,9 @@ use smithay::{
             wlr_layer::{WlrLayerShellHandler, WlrLayerShellState},
             xdg::{
                 decoration::{XdgDecorationHandler, XdgDecorationState},
-                SurfaceCachedState, ToplevelSurface, XdgPopupSurfaceData,
+                Configure, SurfaceCachedState, ToplevelSurface, XdgPopupSurfaceData,
                 XdgPopupSurfaceRoleAttributes, XdgShellHandler, XdgShellState,
-                XdgToplevelSurfaceRoleAttributes,
+                XdgToplevelSurfaceData, XdgToplevelSurfaceRoleAttributes,
             },
         },
         shm::{ShmHandler, ShmState},
@@ -100,7 +102,7 @@ use smithay::{
             XdgActivationHandler, XdgActivationState, XdgActivationToken, XdgActivationTokenData,
         },
     },
-    xwayland::{X11Surface, X11Wm, XWayland, XWaylandEvent, XwmHandler},
+    xwayland::{xwm, X11Surface, X11Wm, XWayland, XWaylandEvent, XwmHandler},
 };
 use uuid::Uuid;
 
@@ -108,8 +110,16 @@ use dway_protocol::window::{ImageBuffer, WindowMessage, WindowMessageKind};
 use dway_util::stat::PerfLog;
 
 use crate::{
-    math::{point_to_ivec2, point_to_vec2, rectangle_to_rect, vec2_to_point},
-    wayland::{render::render_surface, surface::ensure_initial_configure},
+    math::{
+        point_to_ivec2, point_to_vec2, rectangle_i32_to_rect, rectangle_to_rect, vec2_to_point,
+    },
+    wayland::{
+        render::render_surface,
+        surface::{
+            ensure_initial_configure, print_surface_tree, try_get_component_locked,
+            try_with_states_locked,
+        },
+    },
 };
 
 use self::{
@@ -118,7 +128,7 @@ use self::{
     grabs::MoveSurfaceGrab,
     render::{DummyRenderer, DummyTexture},
     shell::{place_new_window, ResizeState, WindowElement},
-    surface::{get_component_locked, with_states_locked, SurfaceData},
+    surface::{get_component_locked, with_states_locked, DWaySurfaceData},
 };
 
 #[derive(Debug, Default)]
@@ -137,6 +147,8 @@ pub struct CalloopData {
 pub struct DWayState {
     pub element_map: HashMap<Uuid, WindowElement>,
     pub surface_map: HashMap<Uuid, WlSurface>,
+    pub x11_window_map: HashMap<u32, X11Surface>,
+    pub outputs: Vec<Output>,
     pub tick: usize,
 
     pub display_number: Option<u32>,
@@ -146,7 +158,7 @@ pub struct DWayState {
     pub handle: LoopHandle<'static, CalloopData>,
 
     // desktop
-    pub space: Space<WindowElement>,
+    // pub space: Space<WindowElement>,
     pub popups: PopupManager,
 
     pub render: DummyRenderer,
@@ -334,7 +346,8 @@ impl DWayState {
             }
             xwayland
         };
-        if let Err(e) = xwayland.start(handle.clone()) {
+        let xwayland_env: [(OsString, OsString); 0] = [];
+        if let Err(e) = xwayland.start(handle.clone(), None, xwayland_env, |_| {}) {
             error!(log, "Failed to start XWayland: {}", e);
         }
 
@@ -345,7 +358,7 @@ impl DWayState {
             socket_name,
             running: Arc::new(AtomicBool::new(true)),
             handle,
-            space: Space::new(log.clone()),
+            // space: Space::new(log.clone()),
             popups: PopupManager::new(log.clone()),
             compositor_state,
             data_device_state,
@@ -378,36 +391,38 @@ impl DWayState {
             damage_render,
             surface_map: Default::default(),
             element_map: Default::default(),
+            x11_window_map: Default::default(),
+            outputs: Default::default(),
         }
     }
 
-    pub fn element_for_uuid(&self, uuid: &Uuid) -> Option<WindowElement> {
-        self.space
-            .elements()
-            .find(|window| {
-                if let Some(surface) = window.wl_surface() {
-                    with_states_locked(&surface, |s: &mut SurfaceData| &s.uuid == uuid)
-                } else {
-                    false
-                }
-            })
-            .cloned()
+    pub fn element_for_uuid(&self, uuid: &Uuid) -> Option<&WindowElement> {
+        self.element_map.get(uuid)
+        // self.element_map.values()
+        //     .find(|window| {
+        //         if let Some(surface) = window.wl_surface() {
+        //             with_states_locked(&surface, |s: &mut DWaySurfaceData| &s.uuid == uuid)
+        //         } else {
+        //             false
+        //         }
+        //     })
     }
-    pub fn surface_for_uuid(&self, uuid: &Uuid) -> Option<WlSurface> {
-        self.surface_map.get(uuid).cloned()
+    pub fn surface_for_uuid(&self, uuid: &Uuid) -> Option<&WlSurface> {
+        self.surface_map.get(uuid)
     }
-    pub fn element_for_x11_surface(&self, surface: &X11Surface) -> Option<WindowElement> {
-        self.space
-            .elements()
-            .find(|window| match window {
-                WindowElement::Wayland(_) => false,
-                WindowElement::X11(w) => w.xwm_id() == surface.xwm_id(),
-            })
-            .cloned()
-    }
+    // pub fn element_for_x11_surface(&self, surface: &X11Surface) -> Option<WindowElement> {
+    //     self.x11_window_map.get(k)
+    //     self.space
+    //         .elements()
+    //         .find(|window| match window {
+    //             WindowElement::Wayland(_) => false,
+    //             WindowElement::X11(w) => w == surface,
+    //         })
+    //         .cloned()
+    // }
     pub fn element_for_surface(&self, surface: &WlSurface) -> Option<WindowElement> {
-        self.space
-            .elements()
+        self.element_map
+            .values()
             .find(|window| window.wl_surface().map(|s| s == *surface).unwrap_or(false))
             .cloned()
             .or_else(|| {
@@ -434,15 +449,13 @@ impl DWayState {
         Rectangle<i32, Logical>,
         Rectangle<i32, Logical>,
     )> {
-        self.space
-            .elements()
+        self.element_map
+            .values()
             .find(|window| window.wl_surface().map(|s| s == *surface).unwrap_or(false))
             .cloned()
             .and_then(|element| {
-                if let (Some(geo), Some(bbox)) = (
-                    self.space.element_geometry(&element),
-                    self.space.element_bbox(&element),
-                ) {
+                // let s=DWaySurfaceData::get_physical_geometry_bbox(&element);
+                if let Some((geo, bbox)) = DWaySurfaceData::get_logical_geometry_bbox(&element) {
                     Some((element, geo, bbox))
                 } else {
                     None
@@ -505,6 +518,16 @@ impl DWayState {
     }
 
     pub fn debug(&self) {
+        // info!(self.log, "element count {}", self.space.elements().count());
+        // self.space.elements().for_each(|e| {
+        //     if let Some(surface) = e.wl_surface() {
+        //         print!("element {} ", e.id());
+        //         print_surface_tree(&surface);
+        //     } else {
+        //         println!("element {} ", e.id());
+        //     }
+        // });
+        // dbg!(&self.popups);
         // dbg!(&self.popups);
         // dbg!(&self.space);
     }
@@ -541,13 +564,13 @@ impl CompositorHandler for DWayState {
         }
         self.popups.commit(surface);
 
-        ensure_initial_configure(surface, &self.space, &mut self.popups);
+        ensure_initial_configure(self, surface);
 
         let scale = Scale { x: 1, y: 1 };
         if let Some((element, geo, bbox)) = element {
             let geo = geo.to_physical_precise_round(scale);
             let bbox = bbox.to_physical_precise_round(scale);
-            if let Err(e) = render_surface(self, &element, surface, geo, bbox) {
+            if let Err(e) = render_surface(self, surface, geo, bbox) {
                 error!(self.log, "{e}");
             }
         } else {
@@ -730,22 +753,29 @@ impl XdgShellHandler for DWayState {
 
     fn new_toplevel(&mut self, surface: ToplevelSurface) {
         debug!(self.log, "new_toplevel");
-        let uuid = Uuid::new_v4();
-        with_surfaces_surface_tree(surface.wl_surface(), |_, states| {
-            states
-                .data_map
-                .insert_if_missing(|| Mutex::new(SurfaceData::new(uuid)));
-        });
-        self.surface_map.insert(uuid, surface.wl_surface().clone());
-        let window = WindowElement::Wayland(Window::new(surface));
-        let rect = place_new_window(&mut self.space, &window, true);
-        self.send(WindowMessage {
-            uuid,
-            time: SystemTime::now(),
-            data: WindowMessageKind::Create {
-                pos: Vec2::new(rect.loc.x as f32, rect.loc.y as f32),
-                size: Vec2::new(rect.size.w as f32, rect.size.h as f32),
-            },
+        // let rect = place_new_window(&mut self.space, &window, true);
+        let rect = Rectangle::<i32, Logical>::from_loc_and_size((75, 75), (800, 600));
+        with_surfaces_surface_tree(surface.wl_surface(), |s, states| {
+            states.data_map.insert_if_missing(|| {
+                let uuid = Uuid::new_v4();
+                if s == surface.wl_surface() {
+                    self.element_map
+                        .insert(uuid, WindowElement::Wayland(Window::new(surface.clone())));
+                }
+                self.surface_map.insert(uuid, s.clone());
+                self.send(WindowMessage {
+                    uuid,
+                    time: SystemTime::now(),
+                    data: WindowMessageKind::Create {
+                        pos: Vec2::new(rect.loc.x as f32, rect.loc.y as f32),
+                        size: Vec2::new(rect.size.w as f32, rect.size.h as f32),
+                    },
+                });
+                let mut data = DWaySurfaceData::new(uuid);
+                data.geo = rect;
+                data.bbox = rect;
+                Mutex::new(data)
+            });
         });
     }
 
@@ -763,7 +793,8 @@ impl XdgShellHandler for DWayState {
             .get_parent_surface()
             .and_then(|surface| self.element_for_surface(&surface))
             .as_ref()
-            .and_then(|element| self.space.element_geometry(element))
+            .and_then(|element| DWaySurfaceData::get_logical_geometry_bbox(element))
+            .map(|(geo, _)| geo)
             .unwrap_or_default();
         with_surfaces_surface_tree(surface.wl_surface(), |surface, states| {
             states.data_map.insert_if_missing(|| {
@@ -778,7 +809,7 @@ impl XdgShellHandler for DWayState {
                         size: point_to_vec2(geo.size.to_f64().to_point()),
                     },
                 });
-                Mutex::new(SurfaceData::new(uuid))
+                Mutex::new(DWaySurfaceData::new(uuid))
             });
         });
         if let Err(err) = self.popups.track_popup(PopupKind::from(surface)) {
@@ -796,14 +827,14 @@ impl XdgShellHandler for DWayState {
         let seat: Seat<Self> = Seat::from_resource(&seat).unwrap();
         let kind = PopupKind::Xdg(surface);
         if let Some(root) = find_popup_root_surface(&kind).ok().and_then(|root| {
-            self.space
-                .elements()
+            self.element_map
+                .values()
                 .find(|w| w.wl_surface().map(|s| s == root).unwrap_or(false))
                 .cloned()
                 .map(FocusTarget::Window)
                 .or_else(|| {
-                    self.space
-                        .outputs()
+                    self.outputs
+                        .iter()
                         .find_map(|o| {
                             let map = layer_map_for_output(o);
                             map.layer_for_surface(&root, WindowSurfaceType::TOPLEVEL)
@@ -851,7 +882,7 @@ impl XdgShellHandler for DWayState {
         seat: smithay::reexports::wayland_server::protocol::wl_seat::WlSeat,
         serial: smithay::utils::Serial,
     ) {
-        let uuid = with_states_locked(surface.wl_surface(), |s: &mut SurfaceData| s.uuid);
+        let uuid = with_states_locked(surface.wl_surface(), |s: &mut DWaySurfaceData| s.uuid);
         self.send(WindowMessage {
             uuid,
             time: SystemTime::now(),
@@ -866,7 +897,7 @@ impl XdgShellHandler for DWayState {
         serial: smithay::utils::Serial,
         edges: smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::ResizeEdge,
     ) {
-        let uuid = with_states_locked(surface.wl_surface(), |s: &mut SurfaceData| s.uuid);
+        let uuid = with_states_locked(surface.wl_surface(), |s: &mut DWaySurfaceData| s.uuid);
         let (top, bottom, left, right) = match edges {
             xdg_toplevel::ResizeEdge::None => (false, false, false, false),
             xdg_toplevel::ResizeEdge::Top => (true, false, false, false),
@@ -894,7 +925,7 @@ impl XdgShellHandler for DWayState {
 
     fn maximize_request(&mut self, surface: ToplevelSurface) {
         self.send(WindowMessage {
-            uuid: with_states_locked(surface.wl_surface(), |s: &mut SurfaceData| s.uuid),
+            uuid: with_states_locked(surface.wl_surface(), |s: &mut DWaySurfaceData| s.uuid),
             time: SystemTime::now(),
             data: WindowMessageKind::Maximized,
         });
@@ -903,7 +934,7 @@ impl XdgShellHandler for DWayState {
     fn unmaximize_request(&mut self, surface: ToplevelSurface) {
         debug!(self.log, "unmaximize_request");
         self.send(WindowMessage {
-            uuid: with_states_locked(surface.wl_surface(), |s: &mut SurfaceData| s.uuid),
+            uuid: with_states_locked(surface.wl_surface(), |s: &mut DWaySurfaceData| s.uuid),
             time: SystemTime::now(),
             data: WindowMessageKind::Unmaximized,
         });
@@ -915,7 +946,7 @@ impl XdgShellHandler for DWayState {
         output: Option<smithay::reexports::wayland_server::protocol::wl_output::WlOutput>,
     ) {
         self.send(WindowMessage {
-            uuid: with_states_locked(surface.wl_surface(), |s: &mut SurfaceData| s.uuid),
+            uuid: with_states_locked(surface.wl_surface(), |s: &mut DWaySurfaceData| s.uuid),
             time: SystemTime::now(),
             data: WindowMessageKind::FullScreen,
         });
@@ -923,7 +954,7 @@ impl XdgShellHandler for DWayState {
 
     fn unfullscreen_request(&mut self, surface: ToplevelSurface) {
         self.send(WindowMessage {
-            uuid: with_states_locked(surface.wl_surface(), |s: &mut SurfaceData| s.uuid),
+            uuid: with_states_locked(surface.wl_surface(), |s: &mut DWaySurfaceData| s.uuid),
             time: SystemTime::now(),
             data: WindowMessageKind::UnFullScreen,
         });
@@ -931,7 +962,7 @@ impl XdgShellHandler for DWayState {
 
     fn minimize_request(&mut self, surface: ToplevelSurface) {
         self.send(WindowMessage {
-            uuid: with_states_locked(surface.wl_surface(), |s: &mut SurfaceData| s.uuid),
+            uuid: with_states_locked(surface.wl_surface(), |s: &mut DWaySurfaceData| s.uuid),
             time: SystemTime::now(),
             data: WindowMessageKind::Minimized,
         });
@@ -993,7 +1024,7 @@ impl XdgShellHandler for DWayState {
         });
         surface.send_repositioned(token);
         self.send(WindowMessage {
-            uuid: with_states_locked(surface.wl_surface(), |s: &mut SurfaceData| s.uuid),
+            uuid: with_states_locked(surface.wl_surface(), |s: &mut DWaySurfaceData| s.uuid),
             time: SystemTime::now(),
             data: WindowMessageKind::SetRect(rectangle_to_rect(positioner.get_geometry().to_f64())),
         });
@@ -1001,11 +1032,12 @@ impl XdgShellHandler for DWayState {
 
     fn toplevel_destroyed(&mut self, surface: ToplevelSurface) {
         with_surfaces_surface_tree(surface.wl_surface(), |surface, states| {
-            let surface_data = get_component_locked::<SurfaceData>(states);
-            self.surface_map.remove(&surface_data.uuid);
+            if let Some(surface_data) = try_get_component_locked::<DWaySurfaceData>(states) {
+                self.surface_map.remove(&surface_data.uuid);
+            }
         });
         self.send(WindowMessage {
-            uuid: with_states_locked(surface.wl_surface(), |s: &mut SurfaceData| s.uuid),
+            uuid: with_states_locked(surface.wl_surface(), |s: &mut DWaySurfaceData| s.uuid),
             time: SystemTime::now(),
             data: WindowMessageKind::Destroy,
         });
@@ -1013,11 +1045,11 @@ impl XdgShellHandler for DWayState {
 
     fn popup_destroyed(&mut self, surface: smithay::wayland::shell::xdg::PopupSurface) {
         with_surfaces_surface_tree(surface.wl_surface(), |surface, states| {
-            let surface_data = get_component_locked::<SurfaceData>(states);
+            let surface_data = get_component_locked::<DWaySurfaceData>(states);
             self.surface_map.remove(&surface_data.uuid);
         });
         self.send(WindowMessage {
-            uuid: with_states_locked(surface.wl_surface(), |s: &mut SurfaceData| s.uuid),
+            uuid: with_states_locked(surface.wl_surface(), |s: &mut DWaySurfaceData| s.uuid),
             time: SystemTime::now(),
             data: WindowMessageKind::Destroy,
         });
@@ -1063,7 +1095,7 @@ impl FractionScaleHandler for DWayState {
         &mut self,
         surface: smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
     ) {
-        todo!()
+        info!(self.log,"new_fractional_scale";"surface"=>surface.id().to_string());
     }
 }
 delegate_fractional_scale!(DWayState);
@@ -1078,31 +1110,20 @@ impl XwmHandler for CalloopData {
         xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
     ) {
+        let uuid = Uuid::new_v4();
         info!(
             self.state.log,
             "create x11 window: {:?} {:?}",
             xwm,
             window.window_id()
         );
-        if let Some(surface) = window.wl_surface() {
-            let uuid = Uuid::new_v4();
-            with_surfaces_surface_tree(&surface, |_, states| {
-                states
-                    .data_map
-                    .insert_if_missing(|| Mutex::new(SurfaceData::new(uuid)));
-            });
-            self.state.surface_map.insert(uuid, surface.clone());
-            let window = WindowElement::X11(window);
-            let rect = place_new_window(&mut self.state.space, &window, true);
-            self.state.send(WindowMessage {
-                uuid,
-                time: SystemTime::now(),
-                data: WindowMessageKind::Create {
-                    pos: Vec2::new(rect.loc.x as f32, rect.loc.y as f32),
-                    size: Vec2::new(rect.size.w as f32, rect.size.h as f32),
-                },
-            });
-        }
+        dbg!("new_window", window.window_id(), uuid);
+        self.state
+            .x11_window_map
+            .insert(window.window_id(), window.clone());
+        self.state
+            .element_map
+            .insert(uuid, WindowElement::X11(window));
     }
 
     fn new_override_redirect_window(
@@ -1110,12 +1131,59 @@ impl XwmHandler for CalloopData {
         xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
     ) {
+        let uuid = Uuid::new_v4();
         info!(
             self.state.log,
             "new_override_redirect_window x11 window: {:?} {:?}",
             xwm,
             window.window_id()
         );
+        dbg!("new_window", window.window_id(), uuid);
+        self.state
+            .x11_window_map
+            .insert(window.window_id(), window.clone());
+        self.state
+            .element_map
+            .insert(uuid, WindowElement::X11(window));
+    }
+
+    fn map_window_notify(&mut self, xwm: xwm::XwmId, window: X11Surface) {
+        let Some(surface)=window.wl_surface()else{
+            error!(self.state.log,"failed to get surface";"window"=>window.window_id());
+            return;
+        };
+        info!(
+            self.state.log,
+            "map_window_notify {:?}:{:?} => {:?}",
+            xwm,
+            window.window_id(),
+            surface.id()
+        );
+        DWaySurfaceData::update_x11_surface_geometry(&window);
+        let rect = window.geometry();
+        with_surfaces_surface_tree(&surface, |s, states| {
+            states.data_map.insert_if_missing(|| {
+                let uuid = Uuid::new_v4();
+                if s == &surface {
+                    self.state
+                        .element_map
+                        .insert(uuid, WindowElement::X11(window.clone()));
+                }
+                self.state.surface_map.insert(uuid, s.clone());
+                self.state.send(WindowMessage {
+                    uuid,
+                    time: SystemTime::now(),
+                    data: WindowMessageKind::Create {
+                        pos: Vec2::new(rect.loc.x as f32, rect.loc.y as f32),
+                        size: Vec2::new(rect.size.w as f32, rect.size.h as f32),
+                    },
+                });
+                let mut data = DWaySurfaceData::new(uuid);
+                data.geo = rect;
+                data.bbox = rect;
+                Mutex::new(data)
+            });
+        });
     }
 
     fn map_window_request(
@@ -1130,21 +1198,7 @@ impl XwmHandler for CalloopData {
             window.window_id()
         );
         window.set_mapped(true).unwrap();
-        let window = WindowElement::X11(window);
-        place_new_window(&mut self.state.space, &window, true);
-
-        let bbox = self.state.space.element_bbox(&window);
-
-        let WindowElement::X11(xsurface) = &window else { unreachable!() };
-        if let Err(e) = xsurface.configure(bbox) {
-            error!(self.state.log, "failed to configure x11 surface: {e:?}");
-        };
-        if let Some(surface) = window.wl_surface() {
-            let uuid = with_states_locked(&surface, |s: &mut SurfaceData| {
-                s.ssd = !xsurface.is_decorated();
-                s.uuid
-            });
-        }
+        DWaySurfaceData::update_x11_surface_geometry(&window);
     }
 
     fn mapped_override_redirect_window(
@@ -1152,7 +1206,14 @@ impl XwmHandler for CalloopData {
         xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
     ) {
-        todo!()
+        info!(
+            self.state.log,
+            "mapped_override_redirect_window x11 window: {:?} {:?}",
+            xwm,
+            window.window_id()
+        );
+        dbg!("mapped_override_redirect_window", window.geometry());
+        DWaySurfaceData::update_x11_surface_geometry(&window);
     }
 
     fn unmapped_window(
@@ -1166,18 +1227,29 @@ impl XwmHandler for CalloopData {
             xwm,
             window.window_id()
         );
-        if let Some(elem) = self.state.element_for_x11_surface(&window) {
-            let Some(surface) = elem.wl_surface() else{
-                error!(self.state.log,"surface of x11 window not found {:?}",xwm);
-                return;
-            };
-            self.state.send(WindowMessage {
-                uuid: with_states_locked(&surface, |s: &mut SurfaceData| s.uuid),
-                time: SystemTime::now(),
-                data: WindowMessageKind::Destroy,
-            });
-            self.state.space.unmap_elem(&elem)
-        }
+        self.state.x11_window_map.remove(&window.window_id());
+        let Some(surface) = window.wl_surface() else{
+            error!(self.state.log,"surface of x11 window not found {:?}",window.window_id());
+            return;
+        };
+        self.state.x11_window_map.remove(&window.window_id());
+        with_surfaces_surface_tree(&surface, |surface, states| {
+            if let Some(surface_data) = try_get_component_locked::<DWaySurfaceData>(states) {
+                let uuid = surface_data.uuid;
+                self.state.surface_map.remove(&uuid);
+                self.state.send(WindowMessage {
+                    uuid,
+                    time: SystemTime::now(),
+                    data: WindowMessageKind::Destroy,
+                });
+            } else {
+                warn!(
+                    self.state.log,
+                    "uuid of x11 surface not found {}",
+                    window.window_id()
+                );
+            }
+        });
         if !window.is_override_redirect() {
             window.set_mapped(false).unwrap();
         }
@@ -1188,25 +1260,23 @@ impl XwmHandler for CalloopData {
         xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
     ) {
-        // let Some( element )=self.state.element_for_x11_surface(&window)else{
-        //     error!(self.state.log,"element of x11 window not found {:?}",xwm);
-        //     return;
-        // };
-        // let Some(surface) = element.wl_surface() else{
-        //     error!(self.state.log,"surface of x11 window not found {:?}",xwm);
-        //     return;
-        // };
-        // self.state.send(WindowMessage {
-        //     uuid: with_states_locked(&surface, |s: &mut SurfaceData| s.uuid),
-        //     time: SystemTime::now(),
-        //     data: WindowMessageKind::Destroy,
-        // });
         info!(
             self.state.log,
             "destroyed x11 window: {:?} {:?}",
             xwm,
             window.window_id()
         );
+        self.state.x11_window_map.remove(&window.window_id());
+        if let Some(surface) = window.wl_surface() {
+            with_surfaces_surface_tree(&surface, |surface, states| {
+                let status = get_component_locked::<DWaySurfaceData>(states);
+                self.state.send(WindowMessage {
+                    uuid: status.uuid,
+                    time: SystemTime::now(),
+                    data: WindowMessageKind::Destroy,
+                });
+            });
+        }
     }
 
     fn configure_request(
@@ -1219,7 +1289,22 @@ impl XwmHandler for CalloopData {
         h: Option<u32>,
         reorder: Option<smithay::xwayland::xwm::Reorder>,
     ) {
-        todo!()
+        info!(
+            self.state.log,
+            "configure_request x11 window: {:?} {:?}",
+            xwm,
+            window.window_id()
+        );
+        let mut geo = window.geometry();
+        if let Some(w) = w {
+            geo.size.w = w as i32;
+        }
+        if let Some(h) = h {
+            geo.size.h = h as i32;
+        }
+        if let Err(e) = window.configure(geo) {
+            error!(self.state.log, "error while configure_request: {e:?}");
+        };
     }
 
     fn configure_notify(
@@ -1229,40 +1314,13 @@ impl XwmHandler for CalloopData {
         geometry: Rectangle<i32, Logical>,
         above: Option<smithay::reexports::x11rb::protocol::xproto::Window>,
     ) {
-        let Some(elem) = self
-            .state
-            .space
-            .elements()
-            .find(|e| matches!(e, WindowElement::X11(w) if w == &window))
-            .cloned()
-        else { return };
-        self.state.space.map_element(elem, geometry.loc, false);
-    }
-
-    fn resize_request(
-        &mut self,
-        xwm: smithay::xwayland::xwm::XwmId,
-        window: smithay::xwayland::X11Surface,
-        button: u32,
-        resize_edge: smithay::xwayland::xwm::ResizeEdge,
-    ) {
-        todo!()
-    }
-
-    fn move_request(
-        &mut self,
-        xwm: smithay::xwayland::xwm::XwmId,
-        window: smithay::xwayland::X11Surface,
-        button: u32,
-    ) {
-        if let Some(surface) = window.wl_surface() {
-            let uuid = with_states_locked(&surface, |s: &mut SurfaceData| s.uuid);
-            self.state.send(WindowMessage {
-                uuid,
-                time: SystemTime::now(),
-                data: WindowMessageKind::MoveRequest,
-            });
-        }
+        info!(
+            self.state.log,
+            "configure_request x11 window: {:?} {:?}",
+            xwm,
+            window.window_id()
+        );
+        DWaySurfaceData::update_x11_surface_geometry(&window);
     }
 
     fn maximize_request(
@@ -1271,7 +1329,7 @@ impl XwmHandler for CalloopData {
         window: smithay::xwayland::X11Surface,
     ) {
         if let Some(surface) = window.wl_surface() {
-            let uuid = with_states_locked(&surface, |s: &mut SurfaceData| s.uuid);
+            let uuid = with_states_locked(&surface, |s: &mut DWaySurfaceData| s.uuid);
             self.state.send(WindowMessage {
                 uuid,
                 time: SystemTime::now(),
@@ -1286,7 +1344,7 @@ impl XwmHandler for CalloopData {
         window: smithay::xwayland::X11Surface,
     ) {
         if let Some(surface) = window.wl_surface() {
-            let uuid = with_states_locked(&surface, |s: &mut SurfaceData| s.uuid);
+            let uuid = with_states_locked(&surface, |s: &mut DWaySurfaceData| s.uuid);
             self.state.send(WindowMessage {
                 uuid,
                 time: SystemTime::now(),
@@ -1301,7 +1359,7 @@ impl XwmHandler for CalloopData {
         window: smithay::xwayland::X11Surface,
     ) {
         if let Some(surface) = window.wl_surface() {
-            let uuid = with_states_locked(&surface, |s: &mut SurfaceData| s.uuid);
+            let uuid = with_states_locked(&surface, |s: &mut DWaySurfaceData| s.uuid);
             self.state.send(WindowMessage {
                 uuid,
                 time: SystemTime::now(),
@@ -1316,7 +1374,7 @@ impl XwmHandler for CalloopData {
         window: smithay::xwayland::X11Surface,
     ) {
         if let Some(surface) = window.wl_surface() {
-            let uuid = with_states_locked(&surface, |s: &mut SurfaceData| s.uuid);
+            let uuid = with_states_locked(&surface, |s: &mut DWaySurfaceData| s.uuid);
             self.state.send(WindowMessage {
                 uuid,
                 time: SystemTime::now(),
@@ -1331,7 +1389,7 @@ impl XwmHandler for CalloopData {
         window: smithay::xwayland::X11Surface,
     ) {
         if let Some(surface) = window.wl_surface() {
-            let uuid = with_states_locked(&surface, |s: &mut SurfaceData| s.uuid);
+            let uuid = with_states_locked(&surface, |s: &mut DWaySurfaceData| s.uuid);
             self.state.send(WindowMessage {
                 uuid,
                 time: SystemTime::now(),
@@ -1346,11 +1404,60 @@ impl XwmHandler for CalloopData {
         window: smithay::xwayland::X11Surface,
     ) {
         if let Some(surface) = window.wl_surface() {
-            let uuid = with_states_locked(&surface, |s: &mut SurfaceData| s.uuid);
+            let uuid = with_states_locked(&surface, |s: &mut DWaySurfaceData| s.uuid);
             self.state.send(WindowMessage {
                 uuid,
                 time: SystemTime::now(),
                 data: WindowMessageKind::Unminimized,
+            });
+        }
+    }
+
+    fn resize_request(
+        &mut self,
+        xwm: smithay::xwayland::xwm::XwmId,
+        window: smithay::xwayland::X11Surface,
+        button: u32,
+        resize_edge: smithay::xwayland::xwm::ResizeEdge,
+    ) {
+        let (top, bottom, left, right) = match resize_edge {
+            xwm::ResizeEdge::Top => (true, false, false, false),
+            xwm::ResizeEdge::Bottom => (false, true, false, false),
+            xwm::ResizeEdge::Left => (false, false, true, false),
+            xwm::ResizeEdge::TopLeft => (true, false, true, false),
+            xwm::ResizeEdge::BottomLeft => (false, true, true, false),
+            xwm::ResizeEdge::Right => (false, false, false, true),
+            xwm::ResizeEdge::TopRight => (true, false, false, true),
+            xwm::ResizeEdge::BottomRight => (false, true, false, true),
+            _ => return,
+        };
+        if let Some(surface) = window.wl_surface() {
+            let uuid = with_states_locked(&surface, |s: &mut DWaySurfaceData| s.uuid);
+            self.state.send(WindowMessage {
+                uuid,
+                time: SystemTime::now(),
+                data: WindowMessageKind::ResizeRequest {
+                    top,
+                    bottom,
+                    left,
+                    right,
+                },
+            });
+        }
+    }
+
+    fn move_request(
+        &mut self,
+        xwm: smithay::xwayland::xwm::XwmId,
+        window: smithay::xwayland::X11Surface,
+        button: u32,
+    ) {
+        if let Some(surface) = window.wl_surface() {
+            let uuid = with_states_locked(&surface, |s: &mut DWaySurfaceData| s.uuid);
+            self.state.send(WindowMessage {
+                uuid,
+                time: SystemTime::now(),
+                data: WindowMessageKind::MoveRequest,
             });
         }
     }

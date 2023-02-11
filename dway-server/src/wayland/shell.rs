@@ -50,9 +50,7 @@ impl WindowElement {
             WindowElement::Wayland(w) => w
                 .wl_surface()
                 .map_or_else(|| "unknown".to_string(), |s| format!("{:?}", s.id())),
-            WindowElement::X11(w) => w
-                .xwm_id()
-                .map_or_else(|| "unknown".to_string(), |id: XwmId| format!("{id:?}")),
+            WindowElement::X11(w) => format!("X11({})", w.window_id()),
         }
     }
 
@@ -115,7 +113,7 @@ impl WindowElement {
 impl SpaceElement for WindowElement {
     fn geometry(&self) -> Rectangle<i32, Logical> {
         let mut geo = match self {
-            WindowElement::Wayland(w) => SpaceElement::geometry(w),
+            WindowElement::Wayland(w) => w.geometry(),
             WindowElement::X11(w) => SpaceElement::geometry(w),
         };
         geo
@@ -349,7 +347,8 @@ pub fn place_new_window(
     let y = 75;
 
     space.map_element(window.clone(), (x, y), activate);
-    Rectangle::from_loc_and_size((x, y), (800, 600))
+    let geo=Rectangle::from_loc_and_size((x, y), (800, 600));
+    geo
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]

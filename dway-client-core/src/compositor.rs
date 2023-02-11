@@ -17,13 +17,7 @@ use bevy_mod_picking::{
 
 use crate::stages::DWayStage;
 
-use super::{
-    desktop::DWayDesktop,
-    input::DWayInputPlugin,
-    protocol::{WindowMessageReceiver, WindowMessageSender},
-    window::DWayWindowPlugin,
-    WaylandPlugin,
-};
+
 pub struct CompositorPlugin;
 impl Plugin for CompositorPlugin {
     fn build(&self, app: &mut App) {
@@ -60,11 +54,11 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 fn fps_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text, With<FpsText>>) {
-    for mut text in &mut query {
-        if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(value) = fps.smoothed() {
-                text.sections[1].value = format!("{value:.2}");
-            }
-        }
-    }
+    // for mut text in &mut query {
+    //     if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+    //         if let Some(value) = fps.smoothed() {
+    //             text.sections[1].value = format!("{value:.2}");
+    //         }
+    //     }
+    // }
 }

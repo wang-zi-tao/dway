@@ -1,5 +1,5 @@
-pub mod math;
 pub mod log;
+pub mod math;
 pub mod wayland;
 use std::{
     process::Command,
@@ -34,7 +34,7 @@ pub fn main_loop(receiver: Receiver<WindowMessage>, sender: Sender<WindowMessage
 
     let mut command = Command::new("alacritty");
     // command.args(&["-e", "zsh", "-c", "gnome-calculator;zsh"]);
-    // command.args(&["-e", "zsh", "-c", "sleep 1;DISPLAY=:2 glxgears;zsh"]);
+    command.args(&["-e", "zsh", "-c", "sleep 1;DISPLAY=:2 glxgears;zsh"]);
     // command.args(&["-e", "zsh", "-c", "gnome-system-monitor;zsh"]);
     // // let command = Command::new("gnome-system-monitor");
     // let command = Command::new("google-ch");
@@ -42,9 +42,9 @@ pub fn main_loop(receiver: Receiver<WindowMessage>, sender: Sender<WindowMessage
 
     while calloop_data.state.running.load(Ordering::SeqCst) {
         let loop_begin = Instant::now();
-        let frame_rate=60;
+        let frame_rate = 60;
         let frame_duration = Duration::from_secs_f32(1.0 / frame_rate as f32);
-        let tick_rate: usize = 8;
+        let tick_rate: usize = 2;
         let tick_duration = frame_duration / (tick_rate as u32);
         let result = (|| {
             calloop_data.state.tick();
@@ -62,12 +62,12 @@ pub fn main_loop(receiver: Receiver<WindowMessage>, sender: Sender<WindowMessage
             // event_loop.dispatch(Some(tick_duration / 2), &mut calloop_data)?;
             if calloop_data.state.tick % tick_rate == 0 {
                 calloop_data.display.flush_clients()?;
-                calloop_data.state.space.refresh();
+                // calloop_data.state.space.refresh();
                 calloop_data.state.popups.cleanup();
                 render_desktop(&mut calloop_data.state)?;
                 // info!(calloop_data.state.log, "render tick",);
             }
-            if calloop_data.state.tick % ( tick_rate*frame_rate ) == 0 {
+            if calloop_data.state.tick % (tick_rate * frame_rate) == 0 {
                 calloop_data.state.debug();
             }
             Fallible::Ok(())

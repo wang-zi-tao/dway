@@ -1,11 +1,11 @@
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use crate::{
-    math::{rect_to_rectangle, vec2_to_point},
+    math::{ivec2_to_point, rect_to_rectangle, vec2_to_point},
     wayland::{focus::FocusTarget, surface::with_states_locked},
 };
 
-use super::{surface::SurfaceData, DWayState};
+use super::{surface::DWaySurfaceData, DWayState};
 use bevy_input::{
     keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseScrollUnit, MouseWheel},
@@ -24,8 +24,12 @@ use smithay::{
         pointer::{ButtonEvent, MotionEvent},
     },
     output::Scale,
-    reexports::{wayland_protocols::xdg::shell::server::xdg_toplevel, wayland_server::Resource},
+    reexports::{
+        wayland_protocols::{self, xdg::shell::server::xdg_toplevel},
+        wayland_server::Resource,
+    },
     utils::{Point, SERIAL_COUNTER},
+    wayland::seat::WaylandFocus,
     xwayland::XwmHandler,
 };
 
@@ -61,29 +65,29 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                         if let Some(element) = dway.element_for_uuid(uuid) {
                             dway.seat.get_pointer().unwrap().motion(
                                 dway,
-                                Some((element.into(), Default::default())),
+                                Some((element.clone().into(), Default::default())),
                                 &MotionEvent {
                                     location: point,
                                     serial,
                                     time,
                                 },
                             );
-                        } else if let Some(surface) = dway.surface_for_uuid(uuid) {
-                            if let Some(popup) = dway.popups.find_popup(&surface) {
-                                popup.geometry();
-                                dway.seat.get_pointer().unwrap().motion(
-                                    dway,
-                                    Some((popup.into(), Default::default())),
-                                    &MotionEvent {
-                                        location: point,
-                                        serial,
-                                        time,
-                                    },
-                                );
-                            }
+                        } else if let Some(popup) = dway
+                            .surface_for_uuid(uuid)
+                            .and_then(|surface| dway.popups.find_popup(&surface))
+                        {
+                            popup.geometry();
+                            dway.seat.get_pointer().unwrap().motion(
+                                dway,
+                                Some((popup.into(), Default::default())),
+                                &MotionEvent {
+                                    location: point,
+                                    serial,
+                                    time,
+                                },
+                            );
                         } else {
                             error!(dway.log, "element with {uuid:?} not found, uuid: {uuid:?}");
-                            return Ok(());
                         }
                     }
                     WindowMessageKind::MouseButton(MouseButtonInput { button, state }) => {
@@ -136,7 +140,7 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                         let time =
                             message.time.duration_since(UNIX_EPOCH).unwrap().as_millis() as u32;
                         if let Some(element) = element {
-                            keyboard.set_focus(dway, Some(element.into()), serial);
+                            keyboard.set_focus(dway, Some(element.clone().into()), serial);
                         }
                         keyboard.input(
                             dway,
@@ -160,46 +164,69 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                             error!(dway.log,"window not found {uuid}");
                             return Ok(());
                         };
-                        dway.space
-                            .map_element(element.clone(), (pos.x, pos.y), true);
-                        let geo = element.geometry().to_f64();
+                        let pos = ivec2_to_point(pos);
+                        // dway.space
+                        //     .map_element(element.clone(),pos , true);
+                        // let geo = element.geometry();
+                        DWaySurfaceData::with_element(&element, |s| {
+                            let delta = s.bbox.loc - s.geo.loc;
+                            s.geo.loc = pos;
+                            s.bbox.loc = pos + delta;
+                        });
+                        match element {
+                            crate::wayland::shell::WindowElement::Wayland(w) => {}
+                            crate::wayland::shell::WindowElement::X11(w) => {
+                                let mut rect = w.geometry();
+                                rect.loc = pos;
+                                w.configure(Some(rect)).unwrap();
+                            }
+                        }
                     }
                     WindowMessageKind::SetRect(geo) => {
+                        debug!(dway.log, "WindowMessageKind::SetRect");
                         let geo = rect_to_rectangle(geo).to_i32_round();
-                        let Some( element ) = dway.element_for_uuid(&uuid)else{
-                            error!(dway.log,"window not found {uuid}");
+                        // dway.space.map_element(element.clone(), geo.loc, true);
+                        let Some(surface)=dway.surface_for_uuid(&uuid)else{
+                            error!(dway.log,"surface not found {uuid}");
                             return Ok(());
                         };
-                        dway.space.map_element(element.clone(), geo.loc, true);
-                        match &element {
-                            crate::wayland::shell::WindowElement::Wayland(w) => {
-                                let toplevel = w.toplevel();
-                                toplevel.with_pending_state(|state| {
-                                    state.size = Some(geo.size);
-                                });
-                                toplevel.send_configure();
-                            }
-                            crate::wayland::shell::WindowElement::X11(w) => {
-                            },
+                        DWaySurfaceData::with(&surface, |s| {
+                            let delta = s.bbox.loc - s.geo.loc;
+                            s.geo = geo;
+                            s.bbox = geo;
+                            s.bbox.loc = geo.loc + delta;
+                        });
+                        if let Some(element) = dway.element_for_uuid(&uuid) {
+                            match &element {
+                                crate::wayland::shell::WindowElement::Wayland(w) => {
+                                    let toplevel = w.toplevel();
+                                    toplevel.with_pending_state(|state| {
+                                        state.size = Some(geo.size);
+                                    });
+                                    toplevel.send_configure();
+                                }
+                                crate::wayland::shell::WindowElement::X11(w) => {}
+                            };
                         };
                     }
                     WindowMessageKind::Normal => {
-                        debug!(dway.log, "WindowMessageKind::Normal");
-                        let Some( element ) = dway.element_for_uuid(&uuid)else{
-                            error!(dway.log,"window not found {uuid}");
-                            return Ok(());
-                        };
-                        match &element {
-                            crate::wayland::shell::WindowElement::Wayland(w) => {
-                                let toplevel = w.toplevel();
-                                toplevel.with_pending_state(|state| {
-                                    state.states.unset(xdg_toplevel::State::Maximized);
-                                });
-                                toplevel.send_configure();
-                            }
-                            crate::wayland::shell::WindowElement::X11(_) => {
-
-                            },
+                        if let Some(element) = dway.element_for_uuid(&uuid) {
+                            debug!(dway.log, "WindowMessageKind::Normal");
+                            match &element {
+                                crate::wayland::shell::WindowElement::Wayland(w) => {
+                                    let toplevel = w.toplevel();
+                                    toplevel.with_pending_state(|state| {
+                                        state.states.unset(xdg_toplevel::State::Maximized);
+                                        state.states.unset(xdg_toplevel::State::Maximized);
+                                    });
+                                    toplevel.send_configure();
+                                }
+                                crate::wayland::shell::WindowElement::X11(w) => {
+                                    w.set_maximized(false)?;
+                                    w.set_minimized(false)?;
+                                    w.set_fullscreen(false)?;
+                                }
+                            };
                         };
                     }
                     WindowMessageKind::Maximized => {
@@ -216,15 +243,108 @@ pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()>
                                 });
                                 toplevel.send_configure();
                             }
-                            crate::wayland::shell::WindowElement::X11(_) => {
-
-                            },
+                            crate::wayland::shell::WindowElement::X11(w) => {
+                                w.set_maximized(true)?;
+                            }
+                        };
+                    }
+                    WindowMessageKind::Unmaximized => {
+                        debug!(dway.log, "WindowMessageKind::Unmaximized");
+                        let Some( element ) = dway.element_for_uuid(&uuid)else{
+                            error!(dway.log,"window not found {uuid}");
+                            return Ok(());
+                        };
+                        match &element {
+                            crate::wayland::shell::WindowElement::Wayland(w) => {
+                                let toplevel = w.toplevel();
+                                toplevel.with_pending_state(|state| {
+                                    state.states.unset(xdg_toplevel::State::Maximized);
+                                });
+                                toplevel.send_configure();
+                            }
+                            crate::wayland::shell::WindowElement::X11(w) => {
+                                w.set_maximized(false)?;
+                            }
+                        };
+                    }
+                    WindowMessageKind::Minimized => {
+                        debug!(dway.log, "WindowMessageKind::Minimized");
+                        let Some( element ) = dway.element_for_uuid(&uuid)else{
+                            error!(dway.log,"window not found {uuid}");
+                            return Ok(());
+                        };
+                        match &element {
+                            crate::wayland::shell::WindowElement::Wayland(w) => {
+                                let toplevel = w.toplevel();
+                                toplevel.with_pending_state(|state| {
+                                    // state.states.set(xdg_toplevel::State::Maximized);
+                                });
+                                toplevel.send_configure();
+                            }
+                            crate::wayland::shell::WindowElement::X11(w) => {
+                                w.set_minimized(true)?;
+                            }
+                        };
+                    }
+                    WindowMessageKind::Unminimized => {
+                        debug!(dway.log, "WindowMessageKind::Unminimized");
+                        let Some( element ) = dway.element_for_uuid(&uuid)else{
+                            error!(dway.log,"window not found {uuid}");
+                            return Ok(());
+                        };
+                        match &element {
+                            crate::wayland::shell::WindowElement::Wayland(w) => {
+                                let toplevel = w.toplevel();
+                                toplevel.with_pending_state(|state| {
+                                    // state.states.set(xdg_toplevel::State::Maximized);
+                                });
+                                toplevel.send_configure();
+                            }
+                            crate::wayland::shell::WindowElement::X11(w) => {
+                                w.set_minimized(false)?;
+                            }
+                        };
+                    }
+                    WindowMessageKind::FullScreen => {
+                        debug!(dway.log, "WindowMessageKind::Minimized");
+                        let Some( element ) = dway.element_for_uuid(&uuid)else{
+                            error!(dway.log,"window not found {uuid}");
+                            return Ok(());
+                        };
+                        match &element {
+                            crate::wayland::shell::WindowElement::Wayland(w) => {
+                                let toplevel = w.toplevel();
+                                toplevel.with_pending_state(|state| {
+                                    state.states.set(xdg_toplevel::State::Fullscreen);
+                                });
+                                toplevel.send_configure();
+                            }
+                            crate::wayland::shell::WindowElement::X11(w) => {
+                                w.set_fullscreen(true)?;
+                            }
+                        };
+                    }
+                    WindowMessageKind::UnFullScreen => {
+                        debug!(dway.log, "WindowMessageKind::UnFullScreen");
+                        let Some( element ) = dway.element_for_uuid(&uuid)else{
+                            error!(dway.log,"window not found {uuid}");
+                            return Ok(());
+                        };
+                        match &element {
+                            crate::wayland::shell::WindowElement::Wayland(w) => {
+                                let toplevel = w.toplevel();
+                                toplevel.with_pending_state(|state| {
+                                    state.states.unset(xdg_toplevel::State::Fullscreen);
+                                });
+                                toplevel.send_configure();
+                            }
+                            crate::wayland::shell::WindowElement::X11(w) => {
+                                w.set_fullscreen(false)?;
+                            }
                         };
                     }
                     WindowMessageKind::Create { pos, size } => todo!(),
                     WindowMessageKind::Destroy => todo!(),
-                    WindowMessageKind::Minimized => todo!(),
-                    WindowMessageKind::FullScreen => todo!(),
                     _ => {
                         todo!();
                     }

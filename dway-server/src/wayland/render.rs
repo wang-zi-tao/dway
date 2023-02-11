@@ -10,20 +10,23 @@ use std::{
 use bevy_math::Vec2;
 use dway_protocol::window::{ImageBuffer, WindowMessage, WindowMessageKind};
 use failure::{format_err, Error, Fail, Fallible};
-use slog::debug;
+use slog::{debug, error, warn};
 use smithay::{
     backend::renderer::{
         element::{
             default_primary_scanout_output_compare, Id, RenderElementPresentationState,
             RenderElementState, RenderElementStates,
         },
-        utils::{CommitCounter, RendererSurfaceStateUserData},
+        utils::{CommitCounter, RendererSurfaceStateUserData, RendererSurfaceState},
         Frame, ImportAll, ImportDma, ImportDmaWl, ImportEgl, ImportMem, ImportMemWl, Renderer,
         Texture,
     },
     desktop::{
         space::SpaceElement,
-        utils::{surface_primary_scanout_output, update_surface_primary_scanout_output},
+        utils::{
+            surface_primary_scanout_output, update_surface_primary_scanout_output,
+            with_surfaces_surface_tree,
+        },
         PopupManager,
     },
     reexports::wayland_server::{backend::ObjectId, protocol::wl_surface::WlSurface, Resource},
@@ -38,7 +41,7 @@ use crate::math::rectangle_to_rect;
 
 use super::{
     shell::WindowElement,
-    surface::{  SurfaceData, with_states_locked, get_component_locked},
+    surface::{get_component_locked, try_with_states_locked, with_states_locked, DWaySurfaceData, try_get_component_locked},
     DWayState,
 };
 
@@ -266,29 +269,33 @@ impl Renderer for DummyRenderer {
 }
 pub fn render_surface(
     dway: &mut DWayState,
-    element: &WindowElement,
     surface: &WlSurface,
     geo: Rectangle<i32, Physical>,
     bbox: Rectangle<i32, Physical>,
-) -> Fallible<()> {
+) -> Fallible<RenderElementStates> {
     let scale = Scale { x: 1, y: 1 };
     let mut render_state = RenderElementStates {
         states: Default::default(),
     };
     let render = &mut dway.render;
-    let uuid = with_states_locked(&surface, |s: &mut SurfaceData| s.uuid);
-    let result = with_states(&surface, |states| {
-        let surface_state = states
+    let Some( uuid ) = try_with_states_locked(&surface, |s: &mut DWaySurfaceData| s.uuid)else{
+        warn!(dway.log,"surface {:?} has no uuid",surface.id());
+        return Ok(render_state);
+    };
+    with_states(&surface, |states| {
+        let Some( surface_state ) = states
             .data_map
             .get::<RendererSurfaceStateUserData>()
-            .unwrap()
-            .borrow();
+            .map(|d|d.borrow()) else{
+            return Ok(false);
+        };
+        let mut surface_data = get_component_locked::<DWaySurfaceData>(states);
         let last_commit = render.last_commit_map.get(&surface.id()).cloned();
         let damages = surface_state.damage_since(last_commit);
         render
             .last_commit_map
             .insert(surface.id(), surface_state.current_commit());
-        if damages.is_empty() {
+        if !surface_data.need_rerender && damages.is_empty() {
             let size = dway.output.physical_properties().size;
             render_state.states.insert(
                 Id::from_wayland_resource(surface),
@@ -299,6 +306,7 @@ pub fn render_surface(
             );
             return Fallible::Ok(false);
         }
+        surface_data.need_rerender = false;
 
         let texture = if let Some(buffer) = surface_state.wl_buffer() {
             let buffer = render.import_buffer(buffer, Some(states), &damages);
@@ -325,8 +333,6 @@ pub fn render_surface(
             },
         );
 
-        let mut surface_data = get_component_locked::<SurfaceData>(states);
-
         dway.sender.send(WindowMessage {
             uuid,
             time: SystemTime::now(),
@@ -340,67 +346,73 @@ pub fn render_surface(
             },
         })?;
         Fallible::Ok(true)
-    });
+    })?;
     dway.render.images.clear();
-    match result {
-        Ok(_) => {
-            element.with_surfaces(|surface, states| {
-                let primary_scanout_output = update_surface_primary_scanout_output(
-                    surface,
-                    &dway.output,
-                    states,
-                    &render_state,
-                    default_primary_scanout_output_compare,
-                );
-
-                if let Some(output) = primary_scanout_output {
-                    with_fractional_scale(states, |fraction_scale| {
-                        fraction_scale
-                            .set_preferred_scale(output.current_scale().fractional_scale());
-                    });
-                }
-            });
-            element.send_frame(
-                &dway.output,
-                dway.clock.now(),
-                Some(Duration::from_secs(1)),
-                surface_primary_scanout_output,
-            );
-        }
-        Err(e) => return Err(e.into()),
-    }
-    Ok(())
+    Ok(render_state)
 }
 
 pub fn render_element(dway: &mut DWayState, element: &WindowElement) -> Fallible<()> {
     let Some(surface)=element.wl_surface()else{
-        slog::warn!(dway.log, "no wl_surface on {:?}",element.id());
+        // slog::debug!(dway.log, "no wl_surface on {:?}",element.id());
         return Ok(());
     };
+    let mut render_state = RenderElementStates {
+        states: Default::default(),
+    };
     let scale = Scale { x: 1, y: 1 };
-    let geo = dway
-        .space
-        .element_geometry(element)
-        .ok_or_else(|| format_err!("failed to get geometry"))?
-        .to_physical(scale);
-    let bbox = dway
-        .space
-        .element_bbox(element)
-        .ok_or_else(|| format_err!("failed to get geometry"))?
-        .to_physical(scale);
+    // let geo = element.geometry().to_physical(scale);
+    // let bbox = element.bbox().to_physical(scale);
+    let (geo, bbox) = match element {
+        WindowElement::Wayland(w) => {
+            DWaySurfaceData::get_physical_geometry_bbox(&element).unwrap_or_default()
+        }
+        WindowElement::X11(w) => {
+            let geo = w.geometry().to_physical(scale);
+            (geo, geo)
+        }
+    };
+    // dbg!((geo,bbox));
     for (popup, popup_offset) in PopupManager::popups_for_surface(&surface) {
         let offset: Point<i32, Physical> = (element.geometry().loc + popup_offset
             - popup.geometry().loc)
             .to_physical_precise_round(Scale { x: 1.0, y: 1.0 });
         let geo = Rectangle::from_loc_and_size(geo.loc + offset, geo.size);
         let bbox = Rectangle::from_loc_and_size(bbox.loc + offset, bbox.size);
-        render_surface(dway, &element, popup.wl_surface(), geo,bbox)?;
+        let render_result = render_surface(dway, popup.wl_surface(), geo, bbox)?;
+        render_state.states.extend(render_result.states.into_iter());
     }
-    render_surface(dway, &element, &surface, geo,bbox)?;
+    let render_result = render_surface(dway, &surface, geo, bbox)?;
+    render_state.states.extend(render_result.states.into_iter());
+    // with_surfaces_surface_tree(&surface, |surface, state| {
+    //     if let Err(e) = render_surface(dway, &element, &surface, geo, bbox) {
+    //         error!(dway.log, "error while render {:?} : {:?}", surface.id(), e);
+    //     }
+    // });
+    element.with_surfaces(|surface, states| {
+        let primary_scanout_output = update_surface_primary_scanout_output(
+            surface,
+            &dway.output,
+            states,
+            &render_state,
+            default_primary_scanout_output_compare,
+        );
+
+        if let Some(output) = primary_scanout_output {
+            with_fractional_scale(states, |fraction_scale| {
+                fraction_scale.set_preferred_scale(output.current_scale().fractional_scale());
+            });
+        }
+    });
+    element.send_frame(
+        &dway.output,
+        dway.clock.now(),
+        Some(Duration::from_secs(1)),
+        surface_primary_scanout_output,
+    );
     Ok(())
 }
 pub fn render_desktop(dway: &mut DWayState) -> Fallible<()> {
-    for element in dway.space.elements().cloned().collect::<Vec<_>>() {
+    for element in dway.element_map.values().cloned().collect::<Vec<_>>() {
         render_element(dway, &element)?;
     }
     Ok(())

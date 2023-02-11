@@ -1,16 +1,19 @@
 use std::time::{Instant, SystemTime};
 
+
 use bevy_input::{keyboard::KeyboardInput, mouse::{MouseButtonInput, MouseWheel}};
 use bevy_math::{IVec2, Rect, Vec2};
+use bevy_reflect::Reflect;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Reflect)]
 pub enum WindowState {
     Normal,
     Minimized,
     Maximized,
     FullScreen,
 }
+
 impl Default for WindowState {
     fn default() -> Self {
         WindowState::Normal
