@@ -1,4 +1,4 @@
-use std::time::{SystemTime};
+use std::time::SystemTime;
 
 use bevy::{
     input::{
@@ -28,13 +28,17 @@ pub struct DWayInputPlugin {
 }
 impl Plugin for DWayInputPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(print_pick_events.label(WindowLabel::Input));
+        // app.add_system(print_pick_events.label(WindowLabel::Input));
         app.add_system_set(
             SystemSet::on_update(DWayStage::Desktop)
                 .with_system(mouse_move_on_window.label(WindowLabel::Input)),
         );
-        app.add_system(mouse_button_on_window.label(WindowLabel::Input));
-        app.add_system(keyboard_input_system.label(WindowLabel::Input));
+        app.add_system_set(
+            SystemSet::new()
+                .with_system(mouse_button_on_window)
+                .with_system(keyboard_input_system)
+                .label(WindowLabel::Input),
+        );
         if self.debug {
             app.add_startup_system(setup_debug_cursor);
             app.add_system(debug_follow_cursor);

@@ -10,6 +10,7 @@ dway-client-core = { path="../dway-client-core/"}
 dway-ui = { path="../dway-ui/"}
 dway-util = {path="../dway-util/"}
 dway-server = {path="../dway-server/"}
+dway-udev = {path="../dway-udev/"}
 
 pretty_env_logger = "0.4.0"
 log = "0.4.17"
@@ -18,10 +19,15 @@ lazy_static = "1.4.0"
 crossbeam-channel = "0.5.6"
 uuid = "1.2.2"
 lru = "0.9.0"
-bevy = "0.9"
 rand = "0.8"
 bevy-inspector-egui = "0.14"
 bevy_framepace = "0.11.0"
+num_cpus = "1.15.0"
+
+[dependencies.bevy]
+version = "0.9"
+# default-features = false
+features = ["wayland", "serialize", "bevy_dynamic_plugin", "bevy_dylib"]
 
 [profile.dev.package.bevy]
 opt-level = 3
@@ -32,10 +38,11 @@ opt-level = 1
 # Enable high optimizations for dependencies (incl. Bevy), but not for our code:
 [profile.dev.package."*"]
 opt-level = 3
-[profile.dev.package."dway-client-core"]
-opt-level = 1
-[profile.dev.package."dway-server"]
-opt-level = 1
+# [profile.dev.package."dway-client-core"]
+# opt-level = 1
+# [profile.dev.package."dway-server"]
+# opt-level = 1
 
 [profile.release]
 lto = "thin"
+debug = true

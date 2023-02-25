@@ -32,7 +32,7 @@ pub struct DWayWindowPlugin;
 impl Plugin for DWayWindowPlugin {
     fn build(&self, app: &mut App) {
         app.add_system_to_stage(
-            CoreStage::PostUpdate,
+            CoreStage::Update,
             focus_on_new_window.label(WindowLabel::UpdateLogic),
         );
         app.add_system_to_stage(
@@ -103,12 +103,10 @@ pub fn receive_window_message(
     mut windows: Query<(&mut WindowMetadata, &mut UiImage)>,
     mut desktop: ResMut<WindowSet>,
     mut images: ResMut<Assets<Image>>,
-    _app_exit_events: EventWriter<AppExit>,
     mut message_count: Local<usize>,
     mut status: ResMut<State<DWayStage>>,
     mut resize_method: ResMut<ResizingMethod>,
 ) {
-    // info!("poll messages");
     let request = message.0;
     let _tick = *message_count;
     *message_count += 1;

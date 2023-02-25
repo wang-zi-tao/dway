@@ -1,9 +1,11 @@
 use std::{
-    time::Duration,
+    time::Duration, cell::RefCell,
 };
 
 
 use smithay::{
+
+    wayland::{compositor::SurfaceData as WlSurfaceData, seat::WaylandFocus},
     backend::renderer::{
         element::{
             memory::MemoryRenderBufferRenderElement, surface::WaylandSurfaceRenderElement,
@@ -14,15 +16,14 @@ use smithay::{
     desktop::{
         layer_map_for_output,
         space::SpaceElement,
-        utils::{send_frames_surface_tree, with_surfaces_surface_tree},
+        utils::{send_frames_surface_tree, with_surfaces_surface_tree, OutputPresentationFeedback, take_presentation_feedback_surface_tree},
         Space, Window,
     },
     input::{keyboard::KeyboardTarget, pointer::PointerTarget},
     output::Output,
-    reexports::wayland_server::{protocol::wl_surface::WlSurface, Resource},
+    reexports::{wayland_server::{protocol::wl_surface::WlSurface, Resource}, wayland_protocols::wp::presentation_time::server::wp_presentation_feedback},
     render_elements,
     utils::{user_data::UserDataMap, IsAlive, Logical, Point, Rectangle, Serial, Size},
-    wayland::seat::WaylandFocus,
     xwayland::{
         xwm::ResizeEdge,
         X11Surface,
@@ -106,6 +107,34 @@ impl WindowElement {
         match self {
             WindowElement::Wayland(w) => w.user_data(),
             WindowElement::X11(w) => w.user_data(),
+        }
+    }
+
+    pub fn take_presentation_feedback<F1, F2>(
+        &self,
+        output_feedback: &mut OutputPresentationFeedback,
+        primary_scan_out_output: F1,
+        presentation_feedback_flags: F2,
+    ) where
+        F1: FnMut(&WlSurface, &WlSurfaceData) -> Option<Output> + Copy,
+        F2: FnMut(&WlSurface, &WlSurfaceData) -> wp_presentation_feedback::Kind + Copy,
+    {
+        match self {
+            WindowElement::Wayland(w) => w.take_presentation_feedback(
+                output_feedback,
+                primary_scan_out_output,
+                presentation_feedback_flags,
+            ),
+            WindowElement::X11(w) => {
+                if let Some(surface) = w.wl_surface() {
+                    take_presentation_feedback_surface_tree(
+                        &surface,
+                        output_feedback,
+                        primary_scan_out_output,
+                        presentation_feedback_flags,
+                    );
+                }
+            }
         }
     }
 }
@@ -329,8 +358,9 @@ impl PointerTarget<DWayState> for WindowElement {
 pub fn place_new_window(
     space: &mut Space<WindowElement>,
     window: &WindowElement,
+    pos:Point<i32,Logical>,
     activate: bool,
-) -> Rectangle<i32, Logical> {
+)  {
     let output = space.outputs().next().cloned();
     let _output_geometry = output
         .and_then(|o| {
@@ -340,14 +370,9 @@ pub fn place_new_window(
             Some(Rectangle::from_loc_and_size(geo.loc + zone.loc, zone.size))
         })
         .unwrap_or_else(|| Rectangle::from_loc_and_size((0, 0), (800, 800)));
-    // let x= output_geometry.loc.x + output_geometry.size.w/2;
-    // let y= output_geometry.loc.y + output_geometry.size.h/2;
-    let x = 0;
-    let y = 75;
 
-    space.map_element(window.clone(), (x, y), activate);
+    space.map_element(window.clone(), (pos.x, pos.y), activate);
     
-    Rectangle::from_loc_and_size((x, y), (800, 600))
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -373,5 +398,62 @@ pub enum ResizeState {
 impl Default for ResizeState {
     fn default() -> Self {
         Self::NotResizing
+    }
+}
+
+#[derive(Default)]
+pub struct FullscreenSurface(RefCell<Option<WindowElement>>);
+
+impl FullscreenSurface {
+    pub fn set(&self, window: WindowElement) {
+        *self.0.borrow_mut() = Some(window);
+    }
+
+    pub fn get(&self) -> Option<WindowElement> {
+        self.0.borrow().clone()
+    }
+
+    pub fn clear(&self) -> Option<WindowElement> {
+        self.0.borrow_mut().take()
+    }
+}
+
+pub fn fixup_positions(space: &mut Space<WindowElement>) {
+    // fixup outputs
+    let mut offset = Point::<i32, Logical>::from((0, 0));
+    for output in space.outputs().cloned().collect::<Vec<_>>().into_iter() {
+        let size = space
+            .output_geometry(&output)
+            .map(|geo| geo.size)
+            .unwrap_or_else(|| Size::from((0, 0)));
+        space.map_output(&output, offset);
+        layer_map_for_output(&output).arrange();
+        offset.x += size.w;
+    }
+
+    // fixup windows
+    let mut orphaned_windows = Vec::new();
+    let outputs = space
+        .outputs()
+        .flat_map(|o| {
+            let geo = space.output_geometry(o)?;
+            let map = layer_map_for_output(o);
+            let zone = map.non_exclusive_zone();
+            Some(Rectangle::from_loc_and_size(geo.loc + zone.loc, zone.size))
+        })
+        .collect::<Vec<_>>();
+    for window in space.elements() {
+        let window_location = match space.element_location(window) {
+            Some(loc) => loc,
+            None => continue,
+        };
+        let geo_loc = window.bbox().loc + window_location;
+
+        if !outputs.iter().any(|o_geo| o_geo.contains(geo_loc)) {
+            orphaned_windows.push(window.clone());
+        }
+    }
+    for window in orphaned_windows.into_iter() {
+        place_new_window(space, &window,(0,0).into(), false);
     }
 }

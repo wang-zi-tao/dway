@@ -90,7 +90,6 @@ pub fn move_window(
 pub fn stop_moving(
     mut cursor_button_events: EventReader<MouseButtonInput>,
     mut stages: ResMut<State<DWayStage>>,
-    _move_relative: ResMut<MoveRelative>,
 ) {
     for event in cursor_button_events.iter() {
         if event.state == ButtonState::Released {

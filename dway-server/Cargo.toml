@@ -27,11 +27,27 @@ thiserror = "1"
 xcursor = {version = "0.3.3"}
 xkbcommon = "0.5.0"
 renderdoc = {version = "0.10.1", optional = true}
+bevy_app = "0.9.1"
+bevy_ecs = "0.9.1"
 
 [dependencies.smithay]
-default-features = false
-features = ["desktop","xwayland", "use_system_lib", "backend_egl", "slog-stdlog"]
-git = "https://github.com/Smithay/smithay"
+# default-features = false
+features = [
+    "backend_drm",
+    "backend_egl",
+    "backend_gbm",
+    "backend_libinput",
+    "backend_session_libseat",
+    "backend_udev",
+    "backend_vulkan",
+    "desktop",
+    "renderer_gl",
+    "renderer_multi",
+    "use_system_lib",
+    "xwayland",
+]
+path = "../../smithay"
+# git = "https://github.com/Smithay/smithay"
 
 [dependencies.x11rb]
 default-features = false

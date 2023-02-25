@@ -1,0 +1,57 @@
+[package]
+name = "dway-udev"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dway-util = {path="../dway-util/"}
+dway-protocol = {path="../dway-protocol/"}
+dway-server = {path="../dway-server/"}
+
+font-kit = "0.11.0"
+chrono = "0.4.23"
+log = "0.4.17"
+crossbeam-channel = "0.5.6"
+failure = "0.1.8"
+uuid = "1.2.2"
+lru = "0.9.0"
+rand = "0.8"
+slog = {version = "2.1.1",features = ["max_level_trace", "release_max_level_info"] }
+slog-async = "2.2"
+slog-scope = "4.4.0"
+slog-stdlog = "4.1.0"
+slog-term = "2.8"
+thiserror = "1"
+xcursor = {version = "0.3.3"}
+xkbcommon = "0.5.0"
+renderdoc = {version = "0.10.1", optional = true}
+raw-window-handle = "0.5.0"
+khronos-egl = { version="4.1",features= ["dynamic","static"] }
+send_wrapper = "0.6.0"
+nix = "0.26.2"
+
+[dependencies.smithay]
+# default-features = false
+features = ["desktop","xwayland", "use_system_lib", "backend_egl", "backend_drm", "slog-stdlog"]
+git = "https://github.com/Smithay/smithay"
+
+
+[dependencies.bevy]
+version = "0.9"
+features = ["jpeg"]
+
+[dependencies.wgpu-hal]
+version = "0.14.1"
+features = ["gles"]
+
+# [profile.dev]
+# opt-level = 1
+#
+# # Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+# [profile.dev.package."*"]
+# opt-level = 3
+#
+# [profile.release]
+# lto = "thin"

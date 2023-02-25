@@ -1,5 +1,18 @@
-use std::{time::Duration, io::Read};
+use std::{io::Read, time::Duration};
 
+use smithay::{
+    backend::renderer::{
+        element::{
+            surface::WaylandSurfaceRenderElement,
+            texture::{TextureBuffer, TextureRenderElement},
+            AsRenderElements,
+        },
+        ImportAll, Renderer, Texture,
+    },
+    input::pointer::CursorImageStatus,
+    render_elements,
+    utils::{Physical, Point, Scale},
+};
 use xcursor::{
     parser::{parse_xcursor, Image},
     CursorTheme,
@@ -22,7 +35,13 @@ impl Cursor {
 
         let theme = CursorTheme::load(&name);
         let icons = load_icon(&theme)
-            .map_err(|err| slog::warn!(log, "Unable to load xcursor: {}, using fallback cursor", err))
+            .map_err(|err| {
+                slog::warn!(
+                    log,
+                    "Unable to load xcursor: {}, using fallback cursor",
+                    err
+                )
+            })
             .unwrap_or_else(|_| {
                 vec![Image {
                     size: 32,
@@ -51,9 +70,9 @@ fn nearest_images(size: u32, images: &[Image]) -> impl Iterator<Item = &Image> {
         .min_by_key(|image| (size as i32 - image.size as i32).abs())
         .unwrap();
 
-    images
-        .iter()
-        .filter(move |image| image.width == nearest_image.width && image.height == nearest_image.height)
+    images.iter().filter(move |image| {
+        image.width == nearest_image.width && image.height == nearest_image.height
+    })
 }
 
 fn frame(mut millis: u32, size: u32, images: &[Image]) -> Image {
@@ -84,4 +103,79 @@ fn load_icon(theme: &CursorTheme) -> Result<Vec<Image>, Error> {
     let mut cursor_data = Vec::new();
     cursor_file.read_to_end(&mut cursor_data)?;
     parse_xcursor(&cursor_data).ok_or(Error::Parse)
+}
+
+pub static CLEAR_COLOR: [f32; 4] = [0.8, 0.8, 0.9, 1.0];
+pub struct PointerElement<T: Texture> {
+    texture: Option<TextureBuffer<T>>,
+    status: CursorImageStatus,
+}
+
+impl<T: Texture> Default for PointerElement<T> {
+    fn default() -> Self {
+        Self {
+            texture: Default::default(),
+            status: CursorImageStatus::Default,
+        }
+    }
+}
+
+impl<T: Texture> PointerElement<T> {
+    pub fn set_status(&mut self, status: CursorImageStatus) {
+        self.status = status;
+    }
+
+    pub fn set_texture(&mut self, texture: TextureBuffer<T>) {
+        self.texture = Some(texture);
+    }
+}
+
+render_elements! {
+    pub PointerRenderElement<R> where
+        R: ImportAll;
+    Surface=WaylandSurfaceRenderElement<R>,
+    Texture=TextureRenderElement<<R as Renderer>::TextureId>,
+}
+
+impl<T: Texture + Clone + 'static, R> AsRenderElements<R> for PointerElement<T>
+where
+    R: Renderer<TextureId = T> + ImportAll,
+{
+    type RenderElement = PointerRenderElement<R>;
+    fn render_elements<E>(
+        &self,
+        renderer: &mut R,
+        location: Point<i32, Physical>,
+        scale: Scale<f64>,
+    ) -> Vec<E>
+    where
+        E: From<PointerRenderElement<R>>,
+    {
+        match &self.status {
+            CursorImageStatus::Hidden => vec![],
+            CursorImageStatus::Default => {
+                if let Some(texture) = self.texture.as_ref() {
+                    vec![PointerRenderElement::<R>::from(
+                        TextureRenderElement::from_texture_buffer(
+                            location.to_f64(),
+                            texture,
+                            None,
+                            None,
+                            None,
+                        ),
+                    )
+                    .into()]
+                } else {
+                    vec![]
+                }
+            }
+            CursorImageStatus::Surface(surface) => {
+                let elements: Vec<PointerRenderElement<R>> =
+                    smithay::backend::renderer::element::surface::render_elements_from_surface_tree(
+                        renderer, surface, location, scale, 
+                    );
+                elements.into_iter().map(E::from).collect()
+            }
+        }
+    }
 }

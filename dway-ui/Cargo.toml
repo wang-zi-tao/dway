@@ -16,12 +16,16 @@ crossbeam-channel = "0.5.6"
 failure = "0.1.8"
 uuid = "1.2.2"
 lru = "0.9.0"
-bevy = { version="0.9" , features=["jpeg"] }
 bevy_mod_picking = "0.11.0"
 bevy_mod_raycast = "0.7"
 rand = "0.8"
 kayak_font = "0.2.0"
 kayak_ui = "0.2.0"
+
+[dependencies.bevy]
+version = "0.9"
+default-features = false
+features = ["jpeg"]
 
 [profile.dev]
 opt-level = 1

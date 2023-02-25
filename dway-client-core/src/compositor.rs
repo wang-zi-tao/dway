@@ -1,15 +1,7 @@
-
-
 use bevy::{
-    diagnostic::{
-        Diagnostics,
-    },
+    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
-
-
-
-
 
 pub struct CompositorPlugin;
 impl Plugin for CompositorPlugin {
@@ -39,19 +31,19 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             }),
         ])
         .with_style(Style {
-            margin:UiRect::top(Val::Px(32.0)),
+            margin: UiRect::top(Val::Px(32.0)),
             ..Default::default()
         })
         .with_text_alignment(TextAlignment::TOP_LEFT),
         FpsText,
     ));
 }
-fn fps_update_system(_diagnostics: Res<Diagnostics>, _query: Query<&mut Text, With<FpsText>>) {
-    // for mut text in &mut query {
-    //     if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-    //         if let Some(value) = fps.smoothed() {
-    //             text.sections[1].value = format!("{value:.2}");
-    //         }
-    //     }
-    // }
+fn fps_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text, With<FpsText>>) {
+    for mut text in &mut query {
+        if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+            if let Some(value) = fps.smoothed() {
+                text.sections[1].value = format!("{value:.2}");
+            }
+        }
+    }
 }

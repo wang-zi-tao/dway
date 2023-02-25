@@ -26,9 +26,9 @@ impl Plugin for WaylandPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_state(DWayStage::Desktop);
         app.add_plugin(compositor::CompositorPlugin);
-        app.add_plugin(DebugCursorPickingPlugin);
-        app.add_plugin(DebugEventsPickingPlugin);
-        app.add_plugins(DefaultPickingPlugins);
+        // app.add_plugin(DebugCursorPickingPlugin);
+        // app.add_plugin(DebugEventsPickingPlugin);
+        // app.add_plugins(DefaultPickingPlugins);
         app.add_startup_system(setup_2d);
         app.add_plugin(input::DWayInputPlugin { debug: true });
         app.add_plugin(desktop::DWayDesktop);

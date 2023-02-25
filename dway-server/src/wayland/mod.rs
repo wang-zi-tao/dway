@@ -1,4 +1,6 @@
+pub mod backend;
 pub mod cursor;
+pub mod ecs;
 pub mod focus;
 pub mod grabs;
 pub mod inputs;
@@ -7,36 +9,50 @@ pub mod shell;
 pub mod surface;
 pub mod x11;
 
+use std::sync::atomic::AtomicBool;
 use std::{
+    cell::RefCell,
     collections::HashMap,
     ffi::OsString,
-    os::unix::io::{AsRawFd, OwnedFd},
-    process::Command,
-    sync::{
-        Arc, Mutex,
+    os::{
+        fd::FromRawFd,
+        unix::{
+            io::{AsRawFd, OwnedFd},
+            raw::dev_t,
+        },
     },
+    path::PathBuf,
+    process::Command,
+    rc::Rc,
+    sync::{Arc, Mutex},
     time::{Duration, SystemTime},
 };
-use std::sync::atomic::AtomicBool;
-
 
 use bevy_math::Vec2;
 use crossbeam_channel::{Receiver, Sender};
 use failure::Fallible;
 use slog::{debug, error, info, trace, warn};
 use smithay::{
-    backend::renderer::{
-        damage::DamageTrackedRenderer, utils::on_commit_buffer_handler,
+    backend::{
+        allocator::dmabuf::Dmabuf,
+        drm::{DrmDevice, DrmDeviceFd, DrmError, DrmEvent, DrmEventMetadata, DrmNode},
+        renderer::{
+            damage::DamageTrackedRenderer, element::texture::TextureBuffer,
+            gles2::Gles2Renderbuffer, utils::on_commit_buffer_handler, ImportDma,
+        },
+        session::Session,
+        SwapBuffersError,
     },
-    delegate_compositor, delegate_data_device, delegate_fractional_scale,
+    delegate_compositor, delegate_data_device, delegate_dmabuf, delegate_fractional_scale,
     delegate_input_method_manager, delegate_keyboard_shortcuts_inhibit, delegate_layer_shell,
     delegate_output, delegate_presentation, delegate_primary_selection, delegate_seat,
     delegate_shm, delegate_tablet_manager, delegate_text_input_manager, delegate_viewporter,
     delegate_virtual_keyboard_manager, delegate_xdg_activation, delegate_xdg_decoration,
     delegate_xdg_shell,
     desktop::{
-        find_popup_root_surface, layer_map_for_output, utils::with_surfaces_surface_tree, PopupKeyboardGrab, PopupKind, PopupManager,
-        PopupPointerGrab, PopupUngrabStrategy, Window, WindowSurfaceType,
+        find_popup_root_surface, layer_map_for_output, utils::with_surfaces_surface_tree,
+        PopupKeyboardGrab, PopupKind, PopupManager, PopupPointerGrab, PopupUngrabStrategy, Space,
+        Window, WindowSurfaceType,
     },
     input::{
         keyboard::XkbConfig,
@@ -45,13 +61,23 @@ use smithay::{
     },
     output::{Mode, Output, PhysicalProperties, Subpixel},
     reexports::{
-        calloop::{generic::Generic, Interest, LoopHandle, PostAction},
-        wayland_protocols::xdg::{
-            decoration::{
-                self as xdg_decoration,
-                zv1::server::zxdg_toplevel_decoration_v1::Mode as DecorationMode,
+        calloop::{
+            generic::Generic,
+            timer::{TimeoutAction, Timer},
+            Dispatcher, Interest, LoopHandle, PostAction,
+        },
+        drm::{self, control::crtc},
+        gbm,
+        nix::fcntl::OFlag,
+        wayland_protocols::{
+            wp::presentation_time::server::wp_presentation_feedback,
+            xdg::{
+                decoration::{
+                    self as xdg_decoration,
+                    zv1::server::zxdg_toplevel_decoration_v1::Mode as DecorationMode,
+                },
+                shell::server::xdg_toplevel,
             },
-            shell::server::xdg_toplevel,
         },
         wayland_server::{
             backend::{ClientData, ClientId, DisconnectReason},
@@ -59,15 +85,14 @@ use smithay::{
             Display, DisplayHandle, Resource,
         },
     },
-    utils::{Clock, Logical, Monotonic, Point, Rectangle, Scale, Size, Transform},
+    utils::{Clock, DeviceFd, Logical, Monotonic, Point, Rectangle, Scale, Size, Transform},
     wayland::{
         buffer::BufferHandler,
-        compositor::{
-            is_sync_subsurface, CompositorHandler, CompositorState,
-        },
+        compositor::{is_sync_subsurface, CompositorHandler, CompositorState},
         data_device::{
             ClientDndGrabHandler, DataDeviceHandler, DataDeviceState, ServerDndGrabHandler,
         },
+        dmabuf::{DmabufGlobal, DmabufHandler, DmabufState, ImportError},
         fractional_scale::{FractionScaleHandler, FractionalScaleManagerState},
         input_method::{InputMethodManagerState, InputMethodSeat},
         keyboard_shortcuts_inhibit::{
@@ -79,8 +104,9 @@ use smithay::{
         shell::{
             wlr_layer::{WlrLayerShellHandler, WlrLayerShellState},
             xdg::{
-                decoration::{XdgDecorationHandler, XdgDecorationState}, ToplevelSurface,
-                XdgPopupSurfaceRoleAttributes, XdgShellHandler, XdgShellState, XdgToplevelSurfaceRoleAttributes,
+                decoration::{XdgDecorationHandler, XdgDecorationState},
+                ToplevelSurface, XdgPopupSurfaceRoleAttributes, XdgShellHandler, XdgShellState,
+                XdgToplevelSurfaceRoleAttributes,
             },
         },
         shm::{ShmHandler, ShmState},
@@ -99,24 +125,26 @@ use uuid::Uuid;
 
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
 
-
 use crate::{
-    math::{
-        point_to_vec2, rectangle_to_rect,
-    },
+    math::{point_to_vec2, rectangle_to_rect},
     wayland::{
+        backend::udev::schedule_initial_render,
         render::render_surface,
-        surface::{
-            ensure_initial_configure, try_get_component_locked,
-        },
+        shell::place_new_window,
+        surface::{ensure_initial_configure, try_get_component_locked},
     },
 };
 
+use self::inputs::process_input_event;
 use self::{
+    backend::{
+        udev::{scan_connectors, BackendData, UDevBackend, UdevOutputId},
+        Backend,
+    },
     cursor::Cursor,
     focus::FocusTarget,
     render::DummyRenderer,
-    shell::WindowElement,
+    shell::{fixup_positions, WindowElement},
     surface::{get_component_locked, with_states_locked, DWaySurfaceData},
 };
 
@@ -140,6 +168,8 @@ pub struct DWayState {
     pub outputs: Vec<Output>,
     pub tick: usize,
 
+    pub backend: Backend,
+
     pub display_number: Option<u32>,
     pub socket_name: String,
     pub display_handle: DisplayHandle,
@@ -147,7 +177,7 @@ pub struct DWayState {
     pub handle: LoopHandle<'static, CalloopData>,
 
     // desktop
-    // pub space: Space<WindowElement>,
+    pub space: Space<WindowElement>,
     pub popups: PopupManager,
 
     pub render: DummyRenderer,
@@ -178,7 +208,6 @@ pub struct DWayState {
     pub suppressed_keys: Vec<u32>,
     pub pointer_location: Point<f64, Logical>,
     pub cursor_status: Arc<Mutex<CursorImageStatus>>,
-    pub seat_name: String,
     pub seat: Seat<DWayState>,
     pub clock: Clock<Monotonic>,
 
@@ -189,6 +218,7 @@ impl DWayState {
     pub fn init(
         display: &mut Display<DWayState>,
         handle: LoopHandle<'static, CalloopData>,
+        backend: Backend,
         log: slog::Logger,
         receiver: Receiver<WindowMessage>,
         sender: Sender<WindowMessage>,
@@ -204,7 +234,6 @@ impl DWayState {
                 make: "output".into(),
                 model: "output".into(),
             },
-            log.clone(),
         );
         let _global = output.create_global::<DWayState>(&display.handle());
         let mode = Mode {
@@ -221,7 +250,7 @@ impl DWayState {
         let damage_render = DamageTrackedRenderer::from_output(&output);
 
         // init wayland clients
-        let source = ListeningSocketSource::new_auto(log.clone()).unwrap();
+        let source = ListeningSocketSource::new_auto().unwrap();
         let socket_name = source.socket_name().to_string_lossy().into_owned();
         handle
             .insert_source(source, |client_stream, _, data| {
@@ -251,20 +280,20 @@ impl DWayState {
 
         // init globals
         let dh = display.handle();
-        let compositor_state = CompositorState::new::<Self, _>(&dh, log.clone());
-        let data_device_state = DataDeviceState::new::<Self, _>(&dh, log.clone());
-        let layer_shell_state = WlrLayerShellState::new::<Self, _>(&dh, log.clone());
+        let compositor_state = CompositorState::new::<Self>(&dh);
+        let data_device_state = DataDeviceState::new::<Self>(&dh);
+        let layer_shell_state = WlrLayerShellState::new::<Self>(&dh, );
         let output_manager_state = OutputManagerState::new_with_xdg_output::<Self>(&dh);
-        let primary_selection_state = PrimarySelectionState::new::<Self, _>(&dh, log.clone());
+        let primary_selection_state = PrimarySelectionState::new::<Self>(&dh, );
         let mut seat_state = SeatState::new();
-        let shm_state = ShmState::new::<Self, _>(&dh, vec![], log.clone());
-        let viewporter_state = ViewporterState::new::<Self, _>(&dh, log.clone());
-        let xdg_activation_state = XdgActivationState::new::<Self, _>(&dh, log.clone());
-        let xdg_decoration_state = XdgDecorationState::new::<Self, _>(&dh, log.clone());
-        let xdg_shell_state = XdgShellState::new::<Self, _>(&dh, log.clone());
+        let shm_state = ShmState::new::<Self>(&dh, vec![]);
+        let viewporter_state = ViewporterState::new::<Self>(&dh);
+        let xdg_activation_state = XdgActivationState::new::<Self>(&dh);
+        let xdg_decoration_state = XdgDecorationState::new::<Self>(&dh);
+        let xdg_shell_state = XdgShellState::new::<Self>(&dh);
         let presentation_state = PresentationState::new::<Self>(&dh, clock.id() as u32);
         let fractional_scale_manager_state =
-            FractionalScaleManagerState::new::<Self, _>(&dh, log.clone());
+            FractionalScaleManagerState::new::<Self>(&dh);
         TextInputManagerState::new::<Self>(&dh);
         InputMethodManagerState::new::<Self>(&dh);
         VirtualKeyboardManagerState::new::<Self, _>(&dh, |_client| true);
@@ -272,8 +301,8 @@ impl DWayState {
         let render = DummyRenderer::default();
 
         // init input
-        let seat_name = "dway".to_owned();
-        let mut seat = seat_state.new_wl_seat(&dh, seat_name.clone(), log.clone());
+        let seat_name = backend.seat_name();
+        let mut seat = seat_state.new_wl_seat(&dh, seat_name.clone());
 
         let cursor_status = Arc::new(Mutex::new(CursorImageStatus::Default));
         seat.add_pointer();
@@ -293,7 +322,7 @@ impl DWayState {
         let keyboard_shortcuts_inhibit_state = KeyboardShortcutsInhibitState::new::<Self>(&dh);
 
         let xwayland = {
-            let (xwayland, channel) = XWayland::new(log.clone(), &dh);
+            let (xwayland, channel) = XWayland::new( &dh);
             let log2 = log.clone();
             let ret = handle.insert_source(channel, move |event, _, data| match event {
                 XWaylandEvent::Ready {
@@ -309,7 +338,6 @@ impl DWayState {
                         dh.clone(),
                         connection,
                         client,
-                        log2.clone(),
                     )
                     .expect("Failed to attach X11 Window Manager");
                     let cursor = Cursor::load(&log2);
@@ -347,7 +375,8 @@ impl DWayState {
             socket_name,
             running: Arc::new(AtomicBool::new(true)),
             handle,
-            // space: Space::new(log.clone()),
+            space: Space::new(log.clone()),
+            backend,
             popups: PopupManager::new(log.clone()),
             compositor_state,
             data_device_state,
@@ -368,7 +397,6 @@ impl DWayState {
             suppressed_keys: Vec::new(),
             pointer_location: (0.0, 0.0).into(),
             cursor_status,
-            seat_name,
             seat,
             clock,
             xwayland,
@@ -382,6 +410,20 @@ impl DWayState {
             element_map: Default::default(),
             x11_window_map: Default::default(),
             outputs: Default::default(),
+        }
+    }
+    pub fn udev_backend(&self) -> &UDevBackend {
+        match &self.backend {
+            Backend::UDev(u) => u,
+            Backend::Winit(_) => panic!(),
+            Backend::Headless => panic!(),
+        }
+    }
+    pub fn udev_backend_mut(&mut self) -> &mut UDevBackend {
+        match &mut self.backend {
+            Backend::UDev(u) => u,
+            Backend::Winit(_) => panic!(),
+            Backend::Headless => panic!(),
         }
     }
 
@@ -520,6 +562,359 @@ impl DWayState {
         // dbg!(&self.popups);
         // dbg!(&self.space);
     }
+
+    fn device_added(&mut self, display: &mut Display<Self>, device_id: dev_t, path: PathBuf) {
+        warn!(self.log, "add device {:?} {:?}", device_id, path);
+        // Try to open the device
+        let open_flags = OFlag::O_RDWR | OFlag::O_CLOEXEC | OFlag::O_NOCTTY | OFlag::O_NONBLOCK;
+        let device_fd = self.udev_backend_mut().session.open(&path, open_flags).ok();
+        let devices = device_fd
+            .map(|fd| DrmDeviceFd::new(unsafe { DeviceFd::from_raw_fd(fd) }))
+            .map(|fd| {
+                (
+                    DrmDevice::new(fd.clone(), true),
+                    gbm::Device::new(fd),
+                )
+            });
+
+        // Report device open failures.
+        let (device, gbm) = match devices {
+            Some((Ok(drm), Ok(gbm))) => (drm, gbm),
+            Some((Err(err), _)) => {
+                warn!(
+                    self.log,
+                    "Skipping device {:?}, because of drm error: {}", device_id, err
+                );
+                return;
+            }
+            Some((_, Err(err))) => {
+                // TODO try DumbBuffer allocator in this case
+                warn!(
+                    self.log,
+                    "Skipping device {:?}, because of gbm error: {}", device_id, err
+                );
+                return;
+            }
+            None => return,
+        };
+
+        let node = match DrmNode::from_dev_id(device_id) {
+            Ok(node) => node,
+            Err(err) => {
+                warn!(
+                    self.log,
+                    "Failed to access drm node for {}: {}", device_id, err
+                );
+                return;
+            }
+        };
+        let backends = Rc::new(RefCell::new(scan_connectors(
+            node,
+            &device,
+            &gbm,
+            display,
+            &mut self.space,
+            &self.log,
+        )));
+
+        let event_dispatcher = Dispatcher::new(
+            device,
+            move |event, metadata, data: &mut CalloopData| match event {
+                DrmEvent::VBlank(crtc) => {
+                    data.state.frame_finish(node, crtc, metadata);
+                }
+                DrmEvent::Error(error) => {
+                    error!(data.state.log, "{:?}", error);
+                }
+            },
+        );
+        let registration_token = self
+            .handle
+            .register_dispatcher(event_dispatcher.clone())
+            .unwrap();
+
+        for backend in backends.borrow_mut().values() {
+            // render first frame
+            trace!(self.log, "Scheduling frame");
+            let handle = &self.handle.clone();
+            let log = self.log.clone();
+            schedule_initial_render(
+                &mut self.udev_backend_mut().gpus,
+                backend.clone(),
+                handle,
+                log,
+            );
+        }
+
+        self.udev_backend_mut().backends.insert(
+            node,
+            BackendData {
+                registration_token,
+                event_dispatcher,
+                surfaces: backends,
+                gbm,
+            },
+        );
+    }
+
+    fn device_changed(&mut self, display: &mut Display<Self>, device: dev_t) {
+        let udev = {
+            match &mut self.backend {
+                Backend::UDev(u) => u,
+                Backend::Winit(_) => panic!(),
+                Backend::Headless => panic!(),
+            }
+        };
+        let node = match DrmNode::from_dev_id(device).ok() {
+            Some(node) => node,
+            None => return, // we already logged a warning on device_added
+        };
+        let logger = self.log.clone();
+        let loop_handle = self.handle.clone();
+
+        //quick and dirty, just re-init all backends
+        if let Some(ref mut backend_data) = udev.backends.get_mut(&node) {
+            // scan_connectors will recreate the outputs (and sadly also reset the scales)
+            for output in self
+                .space
+                .outputs()
+                .filter(|o| {
+                    o.user_data()
+                        .get::<UdevOutputId>()
+                        .map(|id| id.device_id == node)
+                        .unwrap_or(false)
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+                .into_iter()
+            {
+                self.space.unmap_output(&output);
+            }
+
+            let source = backend_data.event_dispatcher.as_source_mut();
+            let mut backends = backend_data.surfaces.borrow_mut();
+            *backends = scan_connectors(
+                node,
+                &source,
+                &backend_data.gbm,
+                display,
+                &mut self.space,
+                &logger,
+            );
+
+            // fixup window coordinates
+            fixup_positions(&mut self.space);
+
+            for surface in backends.values() {
+                let logger = logger.clone();
+                // render first frame
+                schedule_initial_render(&mut udev.gpus, surface.clone(), &loop_handle, logger);
+            }
+        }
+    }
+
+    fn device_removed(&mut self, device: dev_t) {
+        let node = match DrmNode::from_dev_id(device).ok() {
+            Some(node) => node,
+            None => return, // we already logged a warning on device_added
+        };
+        // drop the backends on this side
+        if let Some(backend_data) = self.udev_backend_mut().backends.remove(&node) {
+            // drop surfaces
+            backend_data.surfaces.borrow_mut().clear();
+            debug!(self.log, "Surfaces dropped");
+
+            for output in self
+                .space
+                .outputs()
+                .filter(|o| {
+                    o.user_data()
+                        .get::<UdevOutputId>()
+                        .map(|id: &UdevOutputId| id.device_id == node)
+                        .unwrap_or(false)
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+                .into_iter()
+            {
+                self.space.unmap_output(&output);
+            }
+            fixup_positions(&mut self.space);
+
+            self.handle.remove(backend_data.registration_token);
+            let _device = backend_data.event_dispatcher.into_source_inner();
+
+            debug!(self.log, "Dropping device");
+        }
+    }
+
+    fn frame_finish(
+        &mut self,
+        dev_id: DrmNode,
+        crtc: crtc::Handle,
+        metadata: &mut Option<DrmEventMetadata>,
+    ) {
+        let log = self.log.clone();
+        let device_backend = match self.udev_backend().backends.get(&dev_id) {
+            Some(backend) => backend,
+            None => {
+                error!(
+                    self.log,
+                    "Trying to finish frame on non-existent backend {}", dev_id
+                );
+                return;
+            }
+        };
+
+        let surfaces = device_backend.surfaces.borrow();
+        let surface = match surfaces.get(&crtc) {
+            Some(surface) => surface.clone(),
+            None => {
+                error!(
+                    log,
+                    "Trying to finish frame on non-existent crtc {:?}", crtc
+                );
+                return;
+            }
+        };
+
+        let mut surface = surface.borrow_mut();
+
+        let output = if let Some(output) = self.space.outputs().find(|o| {
+            o.user_data().get::<UdevOutputId>()
+                == Some(&UdevOutputId {
+                    device_id: surface.device_id,
+                    crtc,
+                })
+        }) {
+            output.clone()
+        } else {
+            // somehow we got called with an invalid output
+            return;
+        };
+
+        let schedule_render = match surface
+            .surface
+            .frame_submitted()
+            .map_err(Into::<SwapBuffersError>::into)
+        {
+            Ok(user_data) => {
+                if let Some(mut feedback) = user_data.flatten() {
+                    let tp = metadata.as_ref().and_then(|metadata| match metadata.time {
+                        smithay::backend::drm::DrmEventTime::Monotonic(tp) => Some(tp),
+                        smithay::backend::drm::DrmEventTime::Realtime(_) => None,
+                    });
+                    let seq = metadata
+                        .as_ref()
+                        .map(|metadata| metadata.sequence)
+                        .unwrap_or(0);
+
+                    let (clock, flags) = if let Some(tp) = tp {
+                        (
+                            tp.into(),
+                            wp_presentation_feedback::Kind::Vsync
+                                | wp_presentation_feedback::Kind::HwClock
+                                | wp_presentation_feedback::Kind::HwCompletion,
+                        )
+                    } else {
+                        (self.clock.now(), wp_presentation_feedback::Kind::Vsync)
+                    };
+
+                    feedback.presented(
+                        clock,
+                        output
+                            .current_mode()
+                            .map(|mode| mode.refresh as u32)
+                            .unwrap_or_default(),
+                        seq as u64,
+                        flags,
+                    );
+                }
+
+                true
+            }
+            Err(err) => {
+                warn!(self.log, "Error during rendering: {:?}", err);
+                match err {
+                    SwapBuffersError::AlreadySwapped => true,
+                    SwapBuffersError::TemporaryFailure(err) => matches!(
+                        err.downcast_ref::<DrmError>(),
+                        Some(&DrmError::DeviceInactive)
+                            | Some(&DrmError::Access {
+                                source: drm::SystemError::PermissionDenied,
+                                ..
+                            })
+                    ),
+                    SwapBuffersError::ContextLost(err) => panic!("Rendering loop lost: {}", err),
+                }
+            }
+        };
+
+        if schedule_render {
+            let output_refresh = match output.current_mode() {
+                Some(mode) => mode.refresh,
+                None => return,
+            };
+            // What are we trying to solve by introducing a delay here:
+            //
+            // Basically it is all about latency of client provided buffers.
+            // A client driven by frame callbacks will wait for a frame callback
+            // to repaint and submit a new buffer. As we send frame callbacks
+            // as part of the repaint in the compositor the latency would always
+            // be approx. 2 frames. By introducing a delay before we repaint in
+            // the compositor we can reduce the latency to approx. 1 frame + the
+            // remaining duration from the repaint to the next VBlank.
+            //
+            // With the delay it is also possible to further reduce latency if
+            // the client is driven by presentation feedback. As the presentation
+            // feedback is directly sent after a VBlank the client can submit a
+            // new buffer during the repaint delay that can hit the very next
+            // VBlank, thus reducing the potential latency to below one frame.
+            //
+            // Choosing a good delay is a topic on its own so we just implement
+            // a simple strategy here. We just split the duration between two
+            // VBlanks into two steps, one for the client repaint and one for the
+            // compositor repaint. Theoretically the repaint in the compositor should
+            // be faster so we give the client a bit more time to repaint. On a typical
+            // modern system the repaint in the compositor should not take more than 2ms
+            // so this should be safe for refresh rates up to at least 120 Hz. For 120 Hz
+            // this results in approx. 3.33ms time for repainting in the compositor.
+            // A too big delay could result in missing the next VBlank in the compositor.
+            //
+            // A more complete solution could work on a sliding window analyzing past repaints
+            // and do some prediction for the next repaint.
+            let repaint_delay =
+                Duration::from_millis(((1_000_000f32 / output_refresh as f32) * 0.6f32) as u64);
+
+            let timer = if self.udev_backend().primary_gpu != surface.render_node {
+                // However, if we need to do a copy, that might not be enough.
+                // (And without actual comparision to previous frames we cannot really know.)
+                // So lets ignore that in those cases to avoid thrashing performance.
+                trace!(
+                    self.log,
+                    "scheduling repaint timer immediately on {:?}",
+                    crtc
+                );
+                Timer::immediate()
+            } else {
+                trace!(
+                    self.log,
+                    "scheduling repaint timer with delay {:?} on {:?}",
+                    repaint_delay,
+                    crtc
+                );
+                Timer::from_duration(repaint_delay)
+            };
+
+            self.handle
+                .insert_source(timer, move |_, _, data| {
+                    render::render(&mut data.state, dev_id, Some(crtc));
+                    TimeoutAction::Drop
+                })
+                .expect("failed to schedule frame timer");
+        }
+    }
+
 }
 impl SeatHandler for DWayState {
     type KeyboardFocus = FocusTarget;
@@ -742,14 +1137,14 @@ impl XdgShellHandler for DWayState {
 
     fn new_toplevel(&mut self, surface: ToplevelSurface) {
         debug!(self.log, "new_toplevel");
-        // let rect = place_new_window(&mut self.space, &window, true);
         let rect = Rectangle::<i32, Logical>::from_loc_and_size((75, 75), (800, 600));
+        let element = WindowElement::Wayland(Window::new(surface.clone()));
+        place_new_window(&mut self.space, &element,rect.loc, true);
         with_surfaces_surface_tree(surface.wl_surface(), |s, states| {
             states.data_map.insert_if_missing(|| {
                 let uuid = Uuid::new_v4();
                 if s == surface.wl_surface() {
-                    self.element_map
-                        .insert(uuid, WindowElement::Wayland(Window::new(surface.clone())));
+                    self.element_map.insert(uuid, element.clone());
                 }
                 self.surface_map.insert(uuid, s.clone());
                 self.send(WindowMessage {
@@ -1450,3 +1845,24 @@ impl XwmHandler for CalloopData {
         }
     }
 }
+
+impl DmabufHandler for DWayState {
+    fn dmabuf_state(&mut self) -> &mut DmabufState {
+        &mut self.udev_backend_mut().dmabuf_state.as_mut().unwrap().0
+    }
+
+    fn dmabuf_imported(
+        &mut self,
+        _global: &DmabufGlobal,
+        dmabuf: Dmabuf,
+    ) -> Result<(), ImportError> {
+        let primary_gpu = self.udev_backend().primary_gpu.clone();
+        self.udev_backend_mut()
+            .gpus
+            .renderer::<Gles2Renderbuffer>(&primary_gpu, &primary_gpu)
+            .and_then(|mut renderer| renderer.import_dmabuf(&dmabuf, None))
+            .map(|_| ())
+            .map_err(|_| ImportError::Failed)
+    }
+}
+delegate_dmabuf!(DWayState);
