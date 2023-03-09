@@ -34,7 +34,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             margin: UiRect::top(Val::Px(32.0)),
             ..Default::default()
         })
-        .with_text_alignment(TextAlignment::TOP_LEFT),
+        .with_text_alignment(TextAlignment::Left),
         FpsText,
     ));
 }

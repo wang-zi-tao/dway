@@ -28,7 +28,6 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use bevy_math::Vec2;
 use crossbeam_channel::{Receiver, Sender};
 use failure::Fallible;
 use slog::{debug, error, info, trace, warn};
@@ -269,7 +268,7 @@ impl DWayState {
                 Generic::new(
                     display.backend().poll_fd().as_raw_fd(),
                     Interest::READ,
-                    smithay::reexports::calloop::Mode::Level,
+                    Mode::Level,
                 ),
                 |_, _, data| {
                     data.display.dispatch_clients(&mut data.state).unwrap();
@@ -282,9 +281,9 @@ impl DWayState {
         let dh = display.handle();
         let compositor_state = CompositorState::new::<Self>(&dh);
         let data_device_state = DataDeviceState::new::<Self>(&dh);
-        let layer_shell_state = WlrLayerShellState::new::<Self>(&dh, );
+        let layer_shell_state = WlrLayerShellState::new::<Self>(&dh);
         let output_manager_state = OutputManagerState::new_with_xdg_output::<Self>(&dh);
-        let primary_selection_state = PrimarySelectionState::new::<Self>(&dh, );
+        let primary_selection_state = PrimarySelectionState::new::<Self>(&dh);
         let mut seat_state = SeatState::new();
         let shm_state = ShmState::new::<Self>(&dh, vec![]);
         let viewporter_state = ViewporterState::new::<Self>(&dh);
@@ -292,8 +291,7 @@ impl DWayState {
         let xdg_decoration_state = XdgDecorationState::new::<Self>(&dh);
         let xdg_shell_state = XdgShellState::new::<Self>(&dh);
         let presentation_state = PresentationState::new::<Self>(&dh, clock.id() as u32);
-        let fractional_scale_manager_state =
-            FractionalScaleManagerState::new::<Self>(&dh);
+        let fractional_scale_manager_state = FractionalScaleManagerState::new::<Self>(&dh);
         TextInputManagerState::new::<Self>(&dh);
         InputMethodManagerState::new::<Self>(&dh);
         VirtualKeyboardManagerState::new::<Self, _>(&dh, |_client| true);
@@ -322,7 +320,7 @@ impl DWayState {
         let keyboard_shortcuts_inhibit_state = KeyboardShortcutsInhibitState::new::<Self>(&dh);
 
         let xwayland = {
-            let (xwayland, channel) = XWayland::new( &dh);
+            let (xwayland, channel) = XWayland::new(&dh);
             let log2 = log.clone();
             let ret = handle.insert_source(channel, move |event, _, data| match event {
                 XWaylandEvent::Ready {
@@ -333,13 +331,9 @@ impl DWayState {
                 } => {
                     info!(log2, "xwayland ready");
                     data.state.display_number = Some(display);
-                    let mut wm = X11Wm::start_wm(
-                        data.state.handle.clone(),
-                        dh.clone(),
-                        connection,
-                        client,
-                    )
-                    .expect("Failed to attach X11 Window Manager");
+                    let mut wm =
+                        X11Wm::start_wm(data.state.handle.clone(), dh.clone(), connection, client)
+                            .expect("Failed to attach X11 Window Manager");
                     let cursor = Cursor::load(&log2);
                     let image = cursor.get_image(1, Duration::ZERO);
                     wm.set_cursor(
@@ -570,12 +564,7 @@ impl DWayState {
         let device_fd = self.udev_backend_mut().session.open(&path, open_flags).ok();
         let devices = device_fd
             .map(|fd| DrmDeviceFd::new(unsafe { DeviceFd::from_raw_fd(fd) }))
-            .map(|fd| {
-                (
-                    DrmDevice::new(fd.clone(), true),
-                    gbm::Device::new(fd),
-                )
-            });
+            .map(|fd| (DrmDevice::new(fd.clone(), true), gbm::Device::new(fd)));
 
         // Report device open failures.
         let (device, gbm) = match devices {
@@ -914,7 +903,6 @@ impl DWayState {
                 .expect("failed to schedule frame timer");
         }
     }
-
 }
 impl SeatHandler for DWayState {
     type KeyboardFocus = FocusTarget;
@@ -1139,7 +1127,7 @@ impl XdgShellHandler for DWayState {
         debug!(self.log, "new_toplevel");
         let rect = Rectangle::<i32, Logical>::from_loc_and_size((75, 75), (800, 600));
         let element = WindowElement::Wayland(Window::new(surface.clone()));
-        place_new_window(&mut self.space, &element,rect.loc, true);
+        place_new_window(&mut self.space, &element, rect.loc, true);
         with_surfaces_surface_tree(surface.wl_surface(), |s, states| {
             states.data_map.insert_if_missing(|| {
                 let uuid = Uuid::new_v4();

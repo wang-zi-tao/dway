@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 dway-client-core = { path="../dway-client-core/"}
-dway-ui = { path="../dway-ui/"}
+# dway-ui = { path="../dway-ui/"}
 dway-util = {path="../dway-util/"}
 dway-server = {path="../dway-server/"}
 dway-udev = {path="../dway-udev/"}
@@ -23,11 +23,11 @@ rand = "0.8"
 bevy-inspector-egui = "0.14"
 bevy_framepace = "0.11.0"
 num_cpus = "1.15.0"
+# bevy={}
 
 [dependencies.bevy]
-version = "0.9"
-# default-features = false
-features = ["wayland", "serialize", "bevy_dynamic_plugin", "bevy_dylib"]
+features = ["jpeg"]
+path = "../../bevy"
 
 [profile.dev.package.bevy]
 opt-level = 3

@@ -1,24 +1,24 @@
-use std::time::{SystemTime};
+use std::time::SystemTime;
 
-
-use bevy_input::{keyboard::KeyboardInput, mouse::{MouseButtonInput, MouseWheel}};
-use bevy_math::{IVec2, Rect, Vec2};
-use bevy_reflect::Reflect;
+use bevy::{
+    input::{
+        keyboard::KeyboardInput,
+        mouse::{MouseButtonInput, MouseWheel},
+    },
+    prelude::{default, Component, IVec2, Rect, Vec2},
+    reflect::Reflect,
+};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, Reflect)]
+#[derive(Debug, Clone, Copy, Reflect, Default, Component, PartialEq, Eq)]
 pub enum WindowState {
+    #[default]
     Normal,
     Minimized,
     Maximized,
     FullScreen,
 }
 
-impl Default for WindowState {
-    fn default() -> Self {
-        WindowState::Normal
-    }
-}
 #[derive(Debug)]
 pub struct WindowMessage {
     pub uuid: Uuid,
@@ -49,11 +49,11 @@ pub enum WindowMessageKind {
     },
     Move(IVec2),
     MoveRequest,
-    ResizeRequest{
-        top:bool,
+    ResizeRequest {
+        top: bool,
         bottom: bool,
-        left:bool,
-        right:bool,
+        left: bool,
+        right: bool,
     },
     SetRect(Rect),
     Normal,

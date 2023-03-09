@@ -1,11 +1,9 @@
 use std::time::SystemTime;
 
 use bevy::{
-    input::{
-        mouse::{MouseButtonInput},
-        ButtonState,
-    },
+    input::{mouse::MouseButtonInput, ButtonState},
     prelude::*,
+    winit::WinitWindows,
 };
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
 
@@ -54,7 +52,7 @@ pub fn move_window(
     mut cursor_move_events: EventReader<CursorMoved>,
     mut windows: Query<(&mut WindowMetadata, &mut Style)>,
     sender: Res<WindowMessageSender>,
-    physical_windows: Res<Windows>,
+    physical_windows: NonSend<WinitWindows>,
     move_relative: Res<MoveRelative>,
     mut output_focus: ResMut<CursorOnOutput>,
 ) {
@@ -69,13 +67,15 @@ pub fn move_window(
         return;
     };
     for event in cursor_move_events.iter() {
-        let Some( window )=physical_windows.get(event.id)else{
-            error!("failed to get window {}",event.id);
+        let Some( window )=physical_windows.get_window(event.window)else{
+            error!("failed to get window {:?}",event.window);
             continue;
         };
-        let pos: Vec2 =
-            Vec2::new(event.position.x, window.height() - event.position.y) - move_relative.0;
-        output_focus.0 = Some((event.id, pos.as_ivec2()));
+        let pos: Vec2 = Vec2::new(
+            event.position.x,
+            window.outer_size().height as f32 - event.position.y,
+        ) - move_relative.0;
+        output_focus.0 = Some((event.window, pos.as_ivec2()));
         crate::window::set_window_position(&mut meta, pos);
         if let Err(e) = sender.0.send(WindowMessage {
             uuid: meta.uuid,

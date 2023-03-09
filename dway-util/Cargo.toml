@@ -6,10 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-log = "0.4.17"
-failure = "0.1.8"
-lazy_static = "1.4.0"
-uuid = "1.2.2"
-memory-stats = "1.1.0"
-rand = "0.8"
-bevy_math = "0.9"
+log = {}
+failure = {}
+lazy_static = {}
+uuid = {}
+memory-stats = {}
+rand = {}
+bevy_math = {}

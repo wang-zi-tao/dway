@@ -23,9 +23,7 @@ impl KayakUIPlugin for DWayPanelPlugin {
 }
 
 #[derive(Component, Clone, PartialEq, Default)]
-pub struct DWayPanelProps {
-    
-}
+pub struct DWayPanelProps {}
 impl Widget for DWayPanelProps {}
 #[derive(Component, Clone, PartialEq, Default)]
 pub struct DWayPanelStates {}

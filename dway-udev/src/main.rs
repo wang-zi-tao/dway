@@ -17,7 +17,7 @@ use bevy::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
         settings::{Backends, WgpuSettings},
-        RenderApp, RenderPlugin, RenderStage,
+        RenderApp, RenderPlugin,
     },
     scene::ScenePlugin,
     sprite::SpritePlugin,
@@ -52,56 +52,54 @@ fn main() {
     // });
     // app.add_plugins(MinimalPlugins);
 
-    app.add_plugin(CorePlugin {
-        task_pool_options: TaskPoolOptions {
-            compute: TaskPoolThreadAssignmentPolicy {
-                min_threads: 0,
-                max_threads: 0,
-                percent: 2.0,
+    app.add_plugin(TaskPoolPlugin::default())
+        .add_plugin(TypeRegistrationPlugin::default())
+        .add_plugin(FrameCountPlugin::default())
+        .add_plugin(ScheduleRunnerPlugin::default())
+        //     .add_plugin(CorePlugin {
+        //     task_pool_options: TaskPoolOptions {
+        //         compute: TaskPoolThreadAssignmentPolicy {
+        //             min_threads: 0,
+        //             max_threads: 0,
+        //             percent: 2.0,
+        //         },
+        //         ..CorePlugin::default().task_pool_options
+        //     },
+        // })
+        .add_plugin(LogPlugin {
+            level: Level::INFO,
+            filter: "dway=debug,wgpu_core=warn,wgpu_hal=warn".to_string(),
+        })
+        .add_plugin(TimePlugin::default())
+        // .add_plugin(ScheduleRunnerPlugin::default())
+        .add_plugin(TransformPlugin::default())
+        .add_plugin(HierarchyPlugin::default())
+        .add_plugin(DiagnosticsPlugin::default())
+        .add_plugin(InputPlugin::default())
+        .add_plugin(WindowPlugin { ..default() })
+        .add_plugin(AssetPlugin::default())
+        .add_plugin(ScenePlugin::default())
+        // .add_plugin(WinitPlugin::default())
+        // .insert_resource(WgpuSettings{
+        //         // backends:None,
+        //         ..Default::default()})
+        .add_plugin(UDevBackendPlugin::default())
+        .add_plugin(RenderPlugin {
+            wgpu_settings: WgpuSettings {
+                backends: Some(Backends::GL),
+                ..Default::default()
             },
-            ..CorePlugin::default().task_pool_options
-        },
-    })
-    .add_plugin(LogPlugin {
-        level: Level::INFO,
-        filter: "dway=debug,wgpu_core=warn,wgpu_hal=warn".to_string(),
-    })
-    .add_plugin(TimePlugin::default())
-    // .add_plugin(ScheduleRunnerPlugin::default())
-    .add_plugin(TransformPlugin::default())
-    .add_plugin(HierarchyPlugin::default())
-    .add_plugin(DiagnosticsPlugin::default())
-    .add_plugin(InputPlugin::default())
-    .add_plugin(WindowPlugin {
-        window: WindowDescriptor {
-            title: "dway".to_string(),
-            present_mode: PresentMode::AutoVsync,
-            ..default()
-        },
-        ..default()
-    })
-    .add_plugin(AssetPlugin::default())
-    .add_plugin(ScenePlugin::default())
-    // .add_plugin(WinitPlugin::default())
-    // .insert_resource(WgpuSettings{
-    //         // backends:None,
-    //         ..Default::default()})
-    .add_plugin(UDevBackendPlugin::default())
-    .insert_resource(WgpuSettings {
-        backends: Some(Backends::GL),
-        ..Default::default()
-    })
-    .add_plugin(RenderPlugin::default())
-    .add_plugin(ImagePlugin::default())
-    .add_plugin(CorePipelinePlugin::default())
-    .add_plugin(SpritePlugin::default())
-    .add_plugin(TextPlugin::default())
-    .add_plugin(UiPlugin::default())
-    .add_plugin(PbrPlugin::default())
-    .add_plugin(GltfPlugin::default())
-    .add_plugin(AudioPlugin::default())
-    .add_plugin(GilrsPlugin::default())
-    .add_plugin(AnimationPlugin::default());
+        })
+        .add_plugin(ImagePlugin::default())
+        .add_plugin(CorePipelinePlugin::default())
+        .add_plugin(SpritePlugin::default())
+        .add_plugin(TextPlugin::default())
+        .add_plugin(UiPlugin::default())
+        .add_plugin(PbrPlugin::default())
+        .add_plugin(GltfPlugin::default())
+        .add_plugin(AudioPlugin::default())
+        .add_plugin(GilrsPlugin::default())
+        .add_plugin(AnimationPlugin::default());
 
     app.add_plugin(bevy::diagnostic::LogDiagnosticsPlugin::default());
     app.add_plugin(bevy::diagnostic::EntityCountDiagnosticsPlugin::default());
@@ -113,9 +111,10 @@ fn main() {
     // .add_startup_system(hello_world)
 
     let render_app = app.sub_app_mut(RenderApp);
-    render_app.add_system_to_stage(
-        RenderStage::Extract,
-        debug.before(bevy::render::view::WindowSystem::Prepare),
+    render_app.add_system(
+        debug
+            .before(bevy::render::view::WindowSystem::Prepare)
+            .in_schedule(ExtractSchedule),
     );
 
     app.add_startup_system(setup);
@@ -145,11 +144,12 @@ fn debug(
             dbg!("create_surface");
             let surface = instance
                 .0
-                .create_surface(&window.raw_handle.as_ref().unwrap().get_handle());
+                .create_surface(&window.handle.get_handle())
+                .unwrap();
             dbg!(&surface);
             dbg!(render_adapter.0.features());
-            let format = surface.get_supported_formats(&render_adapter);
-            dbg!(&format);
+            // let format = surface.get_supported_formats(&render_adapter);
+            // dbg!(&format);
             panic!();
         }
     }
@@ -180,6 +180,7 @@ fn setup(
             usage: TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_DST
                 | TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[TextureFormat::Bgra8UnormSrgb],
         },
         ..default()
     };
@@ -193,7 +194,7 @@ fn setup(
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         camera: Camera {
             // render before the "main pass" camera
-            priority: -1,
+            // priority: -1,
             target: RenderTarget::Image(image_handle.clone()),
             ..default()
         },
@@ -301,7 +302,7 @@ fn setup(
         .with_children(|p| {
             // This entity is just used for animation, but doesn't display anything
             p.spawn((
-                SpatialBundle::VISIBLE_IDENTITY,
+                SpatialBundle::INHERITED_IDENTITY,
                 // Add the Name component
                 orbit_controller,
             ))

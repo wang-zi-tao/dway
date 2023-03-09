@@ -1,24 +1,23 @@
-use bevy::{prelude::*};
+use bevy::prelude::*;
 use bevy_mod_picking::{
-    DebugCursorPickingPlugin, DebugEventsPickingPlugin, DefaultPickingPlugins,
-    PickingCameraBundle,
+    DebugCursorPickingPlugin, DebugEventsPickingPlugin, DefaultPickingPlugins, PickingCameraBundle,
 };
 use log::info;
 use stages::DWayStage;
 
-
-pub mod debug;
+pub mod components;
 pub mod compositor;
+pub mod debug;
 pub mod desktop;
 pub mod input;
+pub mod moving;
 pub mod protocol;
 pub mod render;
+pub mod resizing;
 pub mod screen;
 pub mod stages;
 pub mod window;
 pub mod workspace;
-pub mod moving;
-pub mod resizing;
 
 pub struct WaylandPlugin;
 
@@ -30,7 +29,7 @@ impl Plugin for WaylandPlugin {
         // app.add_plugin(DebugEventsPickingPlugin);
         // app.add_plugins(DefaultPickingPlugins);
         app.add_startup_system(setup_2d);
-        app.add_plugin(input::DWayInputPlugin { debug: true });
+        app.add_plugin(input::DWayInputPlugin { debug: false });
         app.add_plugin(desktop::DWayDesktop);
         app.add_plugin(window::DWayWindowPlugin);
         app.add_plugin(moving::DWayMovingPlugin::default());
@@ -60,9 +59,10 @@ fn setup_2d(
     //     PickableBundle::default(), // <- Makes the mesh pickable.
     // ));
     // // camera
-    let camera=Camera2dBundle::default();
+    // let camera=Camera2dBundle::default();
     // camera.camera.priority=0;
     // camera.camera_2d.clear_color=ClearColorConfig::None;
     // camera.transform.translation.z=1024.0;
-    commands.spawn((camera, PickingCameraBundle::default()));
+    commands.spawn(Camera2dBundle::default());
+    // commands.spawn((camera, PickingCameraBundle::default()));
 }

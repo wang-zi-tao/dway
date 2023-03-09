@@ -1,3 +1,3 @@
+pub mod math;
 pub mod rect;
 pub mod stat;
-pub mod math;

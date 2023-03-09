@@ -1,7 +1,7 @@
 use std::{cell::RefCell, os::fd::FromRawFd, path::PathBuf, rc::Rc, sync::Mutex};
 
 use bevy::{prelude::*, utils::HashMap};
-use dway_server::log::logger;
+// use dway_server::log::logger;
 use failure::Fallible;
 use nix::{fcntl::OFlag, sys::stat::stat};
 use smithay::{
@@ -14,7 +14,10 @@ use smithay::{
     utils::DeviceFd,
 };
 
-use crate::seat::{SeatSession, SeatSessions};
+use crate::{
+    logger::logger,
+    seat::{SeatSession, SeatSessions},
+};
 
 pub struct DeviceSet {
     devices: HashMap<PathBuf, Entity>,
@@ -34,7 +37,7 @@ pub fn scan_devices(
     mut commands: Commands,
 ) {
     for seat in seates.iter_mut() {
-        let mut raw_seat = seat.raw.lock().unwrap();
+        let raw_seat = &mut seat.inner.lock().unwrap().raw;
         let all_gpus = match all_gpus(&raw_seat.seat()) {
             Ok(o) => o,
             Err(e) => {
@@ -50,7 +53,7 @@ pub fn scan_devices(
         }
         for gpu_path in all_gpus.iter() {
             if !device_set.devices.contains_key(gpu_path) {
-                match scan_gpu(gpu_path, &mut raw_seat) {
+                match scan_gpu(gpu_path, raw_seat) {
                     Ok(o) => {
                         let entity = commands.spawn(o).id();
                         device_set.devices.insert(gpu_path.clone(), entity);
@@ -74,8 +77,8 @@ pub fn scan_gpu(gpu_path: &PathBuf, raw_seat: &mut LibSeatSession) -> Fallible<D
     let open_flags = OFlag::O_RDWR | OFlag::O_CLOEXEC | OFlag::O_NOCTTY | OFlag::O_NONBLOCK;
     let fd = raw_seat.open(&gpu_path, open_flags)?;
     let logger = logger();
-    let drm_fd = DrmDeviceFd::new(unsafe { DeviceFd::from_raw_fd(fd) }, Some(logger.clone()));
-    let drm = DrmDevice::new(drm_fd.clone(), true, logger.clone())?;
+    let drm_fd = DrmDeviceFd::new(unsafe { DeviceFd::from_raw_fd(fd) });
+    let (drm, notifier) = DrmDevice::new(drm_fd.clone(), true)?;
     let gbm = gbm::Device::new(drm_fd)?;
     Ok(Device {
         path: gpu_path.clone(),

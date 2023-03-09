@@ -1,8 +1,5 @@
 use bevy::prelude::*;
-use kayak_ui::{
-    prelude::*,
-    KayakUIPlugin,
-};
+use kayak_ui::{prelude::*, KayakUIPlugin};
 
 #[derive(Default)]
 pub struct DWayBackgroundPlugin {}
@@ -50,12 +47,12 @@ pub fn add_background(mut commands: Commands, assets: ResMut<AssetServer>) {
     let image = assets.load("background.jpg");
     commands.spawn(ImageBundle {
         style: Style {
-            position_type:PositionType::Absolute,
-            position:UiRect::all(Val::Px(0.0)),
+            position_type: PositionType::Absolute,
+            position: UiRect::all(Val::Px(0.0)),
             ..Default::default()
         },
-        image_mode: bevy::ui::widget::ImageMode::KeepAspect,
-        image: UiImage(image),
+        // image_mode: bevy::ui::widget::ImageMode::KeepAspect,
+        image: UiImage::new(image),
         focus_policy: bevy::ui::FocusPolicy::Pass,
         ..Default::default()
     });

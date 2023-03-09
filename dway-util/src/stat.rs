@@ -1,7 +1,6 @@
 use std::time::Instant;
 
-use log::{info, warn, debug};
-
+use log::{debug, info, warn};
 
 pub fn memory_profile() {
     if let Some(usage) = memory_stats::memory_stats() {
@@ -15,14 +14,18 @@ pub fn memory_profile() {
     }
 }
 
-pub struct PerfLog(Instant,String);
-impl PerfLog{
-    pub fn new(name:&str)->Self{
-        Self(Instant::now(),name.to_string())
+pub struct PerfLog(Instant, String);
+impl PerfLog {
+    pub fn new(name: &str) -> Self {
+        Self(Instant::now(), name.to_string())
     }
 }
-impl Drop for PerfLog{
+impl Drop for PerfLog {
     fn drop(&mut self) {
-        debug!("PERF: PerfLog {:?}: {}",self.1,( Instant::now()-self.0 ).as_millis());
+        debug!(
+            "PERF: PerfLog {:?}: {}",
+            self.1,
+            (Instant::now() - self.0).as_millis()
+        );
     }
 }

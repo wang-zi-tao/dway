@@ -10,22 +10,21 @@ dway-util = {path="../dway-util/"}
 dway-protocol = {path="../dway-protocol/"}
 
 font-kit = "0.11.0"
-chrono = "0.4.23"
-log = "0.4.17"
-crossbeam-channel = "0.5.6"
-failure = "0.1.8"
-uuid = "1.2.2"
-lru = "0.9.0"
+chrono = {}
+log = {}
+crossbeam-channel = {}
+failure = {}
+uuid = {}
+lru = {}
 bevy_mod_picking = "0.11.0"
 bevy_mod_raycast = "0.7"
-rand = "0.8"
+rand = {}
 kayak_font = "0.2.0"
-kayak_ui = "0.2.0"
-
+kayak_ui = {}
+# bevy = {}
 [dependencies.bevy]
-version = "0.9"
-default-features = false
 features = ["jpeg"]
+path = "../../bevy"
 
 [profile.dev]
 opt-level = 1

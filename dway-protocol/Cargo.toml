@@ -8,11 +8,13 @@ edition = "2021"
 [dependencies]
 dway-util = {path="../dway-util/"}
 
-log = "0.4.17"
-failure = "0.1.8"
-lazy_static = "1.4.0"
-crossbeam-channel = "0.5.6"
-uuid = "1.2.2"
-bevy_math = "0.9"
-bevy_input = "0.9"
-bevy_reflect = "0.9.1"
+log = {}
+failure = {}
+lazy_static = {}
+crossbeam-channel = {}
+uuid = {}
+# bevy = {}
+[dependencies.bevy]
+features = ["jpeg"]
+path = "../../bevy"
+

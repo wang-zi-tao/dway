@@ -13,8 +13,6 @@ failure = "0.1.8"
 lazy_static = "1.4.0"
 crossbeam-channel = "0.5.6"
 uuid = "1.2.2"
-bevy_math = "0.9"
-bevy_input = "0.9"
 memory-stats = "1.1.0"
 image = {version = "0.24.0", default-features = false, optional = true}
 rand = "0.8"
@@ -27,8 +25,17 @@ thiserror = "1"
 xcursor = {version = "0.3.3"}
 xkbcommon = "0.5.0"
 renderdoc = {version = "0.10.1", optional = true}
-bevy_app = "0.9.1"
-bevy_ecs = "0.9.1"
+# bevy={}
+wgpu={}
+wgpu-hal={}
+glow = {version="0.12.1"}
+khronos-egl = {}
+tracing-subscriber = "0.3.16"
+send_wrapper = "0.6.0"
+
+[dependencies.bevy]
+features = ["jpeg"]
+path = "../../bevy"
 
 [dependencies.smithay]
 # default-features = false

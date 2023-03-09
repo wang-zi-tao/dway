@@ -7,7 +7,6 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use bevy_math::Vec2;
 use dway_protocol::window::{ImageBuffer, WindowMessage, WindowMessageKind};
 use failure::Fallible;
 use slog::{error, trace, warn};

@@ -1,5 +1,5 @@
-use bevy::{prelude::*};
-use chrono::{Local};
+use bevy::prelude::*;
+use chrono::Local;
 use kayak_ui::{
     prelude::*,
     widgets::{TextProps, TextWidgetBundle},
@@ -24,10 +24,10 @@ impl KayakUIPlugin for DWayClockPlugin {
         );
     }
 }
-pub fn update(mut clock_states: Query<&mut ClockState,Without<PreviousWidget>>) {
+pub fn update(mut clock_states: Query<&mut ClockState, Without<PreviousWidget>>) {
     for mut state in clock_states.iter_mut() {
         let date = Local::now().naive_local();
-        state.time=date.format(&state.format).to_string();
+        state.time = date.format(&state.format).to_string();
     }
 }
 
@@ -94,7 +94,8 @@ pub fn render(
     let date = state_query
         .get(state_entity)
         .map(|s| &*s.time)
-        .unwrap_or_else(|_| "").to_string();
+        .unwrap_or_else(|_| "")
+        .to_string();
     // let date = date.format(&props.format).to_string();
     rsx! {
         <TextWidgetBundle

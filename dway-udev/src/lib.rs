@@ -1,8 +1,10 @@
-pub mod ecs;
-pub mod surface;
 pub mod device;
-pub mod seat;
+pub mod ecs;
+pub mod input;
+pub mod logger;
 pub mod output;
+pub mod seat;
+pub mod surface;
 
 use std::ffi::{c_uint, c_void};
 use std::fs::OpenOptions;
@@ -13,7 +15,7 @@ use std::time::{Duration, Instant};
 use bevy::render::renderer::{RenderAdapter, RenderInstance};
 
 use bevy::{app::AppExit, ecs::event::ManualEventReader, prelude::*, window::RequestRedraw};
-use khronos_egl::{EGLClientBuffer, EGLContext, EGLDisplay};
+use khronos_egl::{EGLClientBuffer, EGLContext, EGLDisplay, EGLImage};
 use log::info;
 use raw_window_handle::{DrmDisplayHandle, DrmWindowHandle};
 
@@ -31,15 +33,12 @@ impl Plugin for UDevBackendPlugin {
         app.set_runner(main_loop);
     }
 }
-pub type EGLImage = *const c_void;
-pub type EGLInt = i32;
-pub type EGLEnum = c_uint;
 
 pub fn main_loop(mut app: App) {
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
     let _redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
 
-    let (session, _notifier) = match LibSeatSession::new(None) {
+    let (session, _notifier) = match LibSeatSession::new() {
         Ok(ret) => ret,
         Err(err) => {
             error!("Could not initialize a session: {}", err);
@@ -119,12 +118,12 @@ pub fn main_loop(mut app: App) {
             let fn_import_image: extern "system" fn(
                 EGLDisplay,
                 EGLContext,
-                EGLEnum,
+                khronos_egl::Enum,
                 EGLClientBuffer,
-                *const EGLInt,
+                *const khronos_egl::Int,
             ) -> EGLImage = std::mem::transmute(egl.get_proc_address("eglCreateImageKHR").unwrap());
         });
-        
+
         // let gl_instace: &<Gles as Api>::Instance =
         //     render_instance.as_hal::<Gles>().expect("need gles backend");
     }

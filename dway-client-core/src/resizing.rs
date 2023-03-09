@@ -1,11 +1,9 @@
 use std::time::SystemTime;
 
 use bevy::{
-    input::{
-        mouse::{MouseButtonInput},
-        ButtonState,
-    },
+    input::{mouse::MouseButtonInput, ButtonState},
     prelude::*,
+    winit::WinitWindows,
 };
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
 
@@ -40,8 +38,8 @@ pub fn resize_window(
     focused_window: Res<FocusedWindow>,
     mut cursor_move_events: EventReader<CursorMoved>,
     mut windows: Query<&mut WindowMetadata>,
-    sender: Res<WindowMessageSender>,
-    physical_windows: Res<Windows>,
+    // sender: Res<WindowMessageSender>,
+    physical_windows: NonSend<WinitWindows>,
     resize_method: Res<ResizingMethod>,
     mut output_focus: ResMut<CursorOnOutput>,
 ) {
@@ -56,12 +54,15 @@ pub fn resize_window(
         return;
     };
     for event in cursor_move_events.iter() {
-        let Some( window )=physical_windows.get(event.id)else{
-            error!("failed to get window {}",event.id);
+        let Some( window )=physical_windows.get_window(event.window)else{
+            error!("failed to get window {:?}",event.window);
             continue;
         };
-        let pos: Vec2 = Vec2::new(event.position.x, window.height() - event.position.y);
-        output_focus.0 = Some((event.id, pos.as_ivec2()));
+        let pos: Vec2 = Vec2::new(
+            event.position.x,
+            window.outer_size().height as f32 - event.position.y,
+        );
+        output_focus.0 = Some((event.window, pos.as_ivec2()));
         let mut geo = meta.geo;
         if resize_method.top {
             geo.min.y = pos.y;
@@ -76,14 +77,14 @@ pub fn resize_window(
             geo.max.x = pos.x;
         }
         set_window_rect(&mut meta, geo);
-        if let Err(e) = sender.0.send(WindowMessage {
-            uuid: meta.uuid,
-            time: SystemTime::now(),
-            data: WindowMessageKind::SetRect(geo),
-        }) {
-            error!("failed to send message: {}", e);
-            continue;
-        };
+        // if let Err(e) = sender.0.send(WindowMessage {
+        //     uuid: meta.uuid,
+        //     time: SystemTime::now(),
+        //     data: WindowMessageKind::SetRect(geo),
+        // }) {
+        //     error!("failed to send message: {}", e);
+        //     continue;
+        // };
     }
 }
 pub fn stop_resizing(

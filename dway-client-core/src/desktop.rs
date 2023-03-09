@@ -1,6 +1,6 @@
 use std::{collections::HashMap, num::NonZeroUsize};
 
-use bevy::{prelude::*, window::WindowId};
+use bevy::prelude::*;
 use lru::LruCache;
 use uuid::Uuid;
 
@@ -35,7 +35,7 @@ impl Default for WindowStack {
 pub struct FocusedWindow(pub Option<Entity>);
 
 #[derive(Resource, Default)]
-pub struct CursorOnOutput(pub Option<(WindowId, IVec2)>);
+pub struct CursorOnOutput(pub Option<(Entity, IVec2)>);
 
 #[derive(Resource)]
 pub struct WindowHistory(pub LruCache<Entity, ()>);
@@ -51,22 +51,22 @@ pub fn update_window_stack_by_focus(
 ) {
     if window_focus.is_changed() {
         if let Some(focused_window) = window_focus.0.as_ref() {
-            window_stack.0.push(*focused_window,());
+            window_stack.0.push(*focused_window, ());
         }
     }
 }
 pub fn update_z_index(
     window_stack: Res<WindowStack>,
-    mut window_meta_query: Query<(&WindowMetadata, &mut ZIndex,&mut Transform)>,
+    mut window_meta_query: Query<(&WindowMetadata, &mut ZIndex, &mut Transform)>,
 ) {
     if !window_stack.is_changed() {
         return;
     }
     for (i, (&window_entity, ())) in window_stack.0.iter().enumerate() {
-        if let Ok((_window, _z_index,mut transform)) = window_meta_query.get_mut(window_entity) {
+        if let Ok((_window, _z_index, mut transform)) = window_meta_query.get_mut(window_entity) {
             // *z_index = ZIndex::Global(65536-(i as i32));
             // *z_index = ZIndex::Local(0);
-            transform.translation.z=256.0-( i as f32) ;
+            transform.translation.z = 256.0 - (i as f32);
             // transform.rotation=Default::default();
             // transform.rotate_local_y(1.0);
         }

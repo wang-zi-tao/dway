@@ -6,15 +6,24 @@ use bevy::{
         mouse::{MouseButtonInput, MouseMotion, MouseWheel},
     },
     prelude::*,
+    winit::WinitWindows,
 };
 use bevy_mod_picking::{PickingEvent, PickingRaycastSet};
 
 use bevy_mod_raycast::Intersection;
+use dway_server::{
+    components::{PhysicalRect, SurfaceId, WindowMark, WindowScale},
+    events::{MouseButtonOnWindow, MouseMoveOnWindow},
+    math::ivec2_to_point,
+};
 use log::info;
 
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
 
-use crate::{stages::DWayStage, window::WindowLabel};
+use crate::{
+    stages::DWayStage,
+    window::{Backend, WindowLabel},
+};
 
 use super::{
     desktop::{CursorOnOutput, FocusedWindow},
@@ -31,7 +40,9 @@ impl Plugin for DWayInputPlugin {
         // app.add_system(print_pick_events.label(WindowLabel::Input));
         app.add_system_set(
             SystemSet::on_update(DWayStage::Desktop)
-                .with_system(mouse_move_on_window.label(WindowLabel::Input)),
+                .label(WindowLabel::Input)
+                .with_system(on_window_cursor_move)
+                .with_system(on_mouse_button_on_window),
         );
         app.add_system_set(
             SystemSet::new()
@@ -69,15 +80,19 @@ pub fn setup_debug_cursor(mut commands: Commands) {
 }
 pub fn debug_follow_cursor(
     mut cursor_moved_events: EventReader<CursorMoved>,
-    windows: Res<Windows>,
+    windows: NonSend<WinitWindows>,
     mut cursor: Query<&mut Style, With<DebugCursor>>,
 ) {
     for event in cursor_moved_events.iter() {
-        let Some( window )=windows.get(event.id)else{
-            error!("failed to get window {}",event.id);
+        let Some( window )=windows.get_window(event.window)else{
+            error!("failed to get window {:?}",event.window);
             continue;
         };
-        let pos: Vec2 = (event.position.x, window.height() - event.position.y).into();
+        let pos: Vec2 = (
+            event.position.x,
+            window.inner_size().height as f32 - event.position.y,
+        )
+            .into();
         let mut cursor = cursor.single_mut();
         cursor.position = UiRect {
             left: Val::Px(pos.x),
@@ -87,22 +102,6 @@ pub fn debug_follow_cursor(
     }
 }
 
-pub fn print_pick_events(
-    mut events: EventReader<PickingEvent>,
-    cursors: Query<(Entity, &Intersection<PickingRaycastSet>)>,
-) {
-    for event in events.iter() {
-        match event {
-            PickingEvent::Selection(e) => info!("A selection event happened: {:?}", e),
-            PickingEvent::Hover(e) => info!("Egads! A hover event!? {:?}", e),
-            PickingEvent::Clicked(e) => info!(
-                "Gee Willikers, it's a click! {:?} at {:?}",
-                e,
-                cursors.single().1.position()
-            ),
-        }
-    }
-}
 pub fn print_mouse_events_system(
     mut mouse_button_input_events: EventReader<MouseButtonInput>,
     mut mouse_motion_events: EventReader<MouseMotion>,
@@ -126,7 +125,7 @@ pub fn print_mouse_events_system(
     }
 }
 pub fn keyboard_input_system(
-    sender: Res<WindowMessageSender>,
+    // sender: Res<WindowMessageSender>,
     mut keyboard_evens: EventReader<KeyboardInput>,
     output_focus: Res<FocusedWindow>,
     windows: Query<&WindowMetadata>,
@@ -142,46 +141,20 @@ pub fn keyboard_input_system(
         return;
     };
     for event in keyboard_evens.iter() {
-        if let Err(e) = sender.0.send(WindowMessage {
-            uuid: meta.uuid,
-            time: SystemTime::now(),
-            data: WindowMessageKind::KeyboardInput(*event),
-        }) {
-            error!("failed to send message: {}", e);
-        };
-    }
-}
-pub fn mouse_move_on_window(
-    mut cursor_moved_events: EventReader<CursorMoved>,
-    sender: Res<WindowMessageSender>,
-    windows: Res<Windows>,
-    elements: Query<(Entity, &WindowMetadata, &ZIndex)>,
-    mut output_focus: ResMut<CursorOnOutput>,
-) {
-    for event in cursor_moved_events.iter() {
-        let Some( window )=windows.get(event.id)else{
-            error!("failed to get window {}",event.id);
-            continue;
-        };
-        let pos: Vec2 = (event.position.x, window.height() - event.position.y).into();
-        output_focus.0 = Some((event.id, pos.as_ivec2()));
-        let min_z_element = window_unser_position(pos, &elements);
-        if let Some((_element, meta, _z_index)) = min_z_element {
-            if let Err(e) = sender.0.send(WindowMessage {
-                uuid: meta.uuid,
-                time: SystemTime::now(),
-                data: WindowMessageKind::MouseMove(pos - meta.bbox.min),
-            }) {
-                error!("failed to send message: {}", e);
-            };
-        }
+        // if let Err(e) = sender.0.send(WindowMessage {
+        //     uuid: meta.uuid,
+        //     time: SystemTime::now(),
+        //     data: WindowMessageKind::KeyboardInput(*event),
+        // }) {
+        //     error!("failed to send message: {}", e);
+        // };
     }
 }
 fn mouse_button_on_window(
     mut cursor_button_events: EventReader<MouseButtonInput>,
     mut mouse_wheel_events: EventReader<MouseWheel>,
-    sender: Res<WindowMessageSender>,
-    windows: Res<Windows>,
+    // sender: Res<WindowMessageSender>,
+    windows: NonSend<WinitWindows>,
     elements: Query<(Entity, &WindowMetadata, &ZIndex)>,
     output_focus: Res<CursorOnOutput>,
     mut focus: ResMut<FocusedWindow>,
@@ -192,8 +165,8 @@ fn mouse_button_on_window(
     let Some(( window_id,pos ))=&output_focus.0 else{
         return;
     };
-    let Some( _window )=windows.get(*window_id)else{
-        error!("failed to get window {}",window_id);
+    let Some( _window )=windows.get_window(*window_id)else{
+        error!("failed to get window {:?}",window_id);
         return;
     };
     let pos = pos.as_vec2();
@@ -201,26 +174,26 @@ fn mouse_button_on_window(
     if let Some((element, meta, _z_index)) = min_z_element {
         focus.0 = Some(element);
         for event in cursor_button_events.iter() {
-            if let Err(e) = sender.0.send(WindowMessage {
-                uuid: meta.uuid,
-                time: SystemTime::now(),
-                data: WindowMessageKind::MouseButton(*event),
-            }) {
-                error!("failed to send message: {}", e);
-            };
+            // if let Err(e) = sender.0.send(WindowMessage {
+            //     uuid: meta.uuid,
+            //     time: SystemTime::now(),
+            //     data: WindowMessageKind::MouseButton(*event),
+            // }) {
+            //     error!("failed to send message: {}", e);
+            // };
         }
         for event in mouse_wheel_events.iter() {
-            if let Err(e) = sender.0.send(WindowMessage {
-                uuid: meta.uuid,
-                time: SystemTime::now(),
-                data: WindowMessageKind::MouseWheel(MouseWheel {
-                    unit: event.unit,
-                    x: event.x * 4.0,
-                    y: -event.y * 4.0,
-                }),
-            }) {
-                error!("failed to send message: {}", e);
-            };
+            // if let Err(e) = sender.0.send(WindowMessage {
+            //     uuid: meta.uuid,
+            //     time: SystemTime::now(),
+            //     data: WindowMessageKind::MouseWheel(MouseWheel {
+            //         unit: event.unit,
+            //         x: event.x * 4.0,
+            //         y: -event.y * 4.0,
+            //     }),
+            // }) {
+            //     error!("failed to send message: {}", e);
+            // };
         }
     }
 }
@@ -249,4 +222,55 @@ fn window_unser_position<'f>(
         }
     }
     min_z_element
+}
+fn on_window_cursor_move(
+    mut interaction_query: Query<(&Interaction, &Backend), (With<Button>)>,
+    mut surfaces_query: Query<(&SurfaceId, &PhysicalRect, Option<&WindowScale>), With<WindowMark>>,
+    mut cursor: Res<CursorOnOutput>,
+    mut events: EventWriter<MouseMoveOnWindow>,
+) {
+    for (interaction, backend) in &mut interaction_query {
+        match *interaction {
+            Interaction::None => {}
+            _ => {
+                let Ok((id, rect, window_scale)) = surfaces_query.get(backend.0) else{
+                    warn!("failed to get backend");
+                    continue;
+                };
+                let Some((output, pos)) = &cursor.0  else {
+                    warn!("no cursor position data");
+                    continue;
+                };
+                let relative = ivec2_to_point(*pos) - rect.0.loc;
+                let scale = window_scale.cloned().unwrap_or_default().0;
+                let logical = relative.to_f64().to_logical(scale).to_i32_round();
+                events.send(MouseMoveOnWindow(id.clone(), logical));
+            }
+        }
+    }
+}
+fn on_mouse_button_on_window(
+    mut interaction_query: Query<(&Interaction, &Backend), (With<Button>)>,
+    mut surfaces_query: Query<(&SurfaceId, &PhysicalRect, Option<&WindowScale>), With<WindowMark>>,
+    mut events: EventReader<MouseButtonInput>,
+    mut cursor: Res<CursorOnOutput>,
+    mut events_writer: EventWriter<MouseButtonOnWindow>,
+) {
+    for e in events.iter() {
+        for (interaction, backend) in &mut interaction_query {
+            if let Ok((id, rect, window_scale)) = surfaces_query.get(backend.0) {
+                if let Some((output, pos)) = &cursor.0 {
+                    match *interaction {
+                        _ => {
+                            let relative = ivec2_to_point(*pos) - rect.0.loc;
+                            let scale = window_scale.cloned().unwrap_or_default().0;
+                            let logical = relative.to_f64().to_logical(scale).to_i32_round();
+                            events_writer.send(MouseButtonOnWindow(id.clone(), logical, e.clone()));
+                        }
+                        Interaction::None => {}
+                    }
+                }
+            }
+        }
+    }
 }

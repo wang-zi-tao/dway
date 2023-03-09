@@ -1,8 +1,7 @@
-use bevy::prelude::{StageLabel};
+use bevy::prelude::StageLabel;
 
-
-#[derive(Hash,Debug,PartialEq,Eq,Clone,StageLabel)]
-pub enum DWayStage{
+#[derive(Hash, Debug, PartialEq, Eq, Clone, StageLabel)]
+pub enum DWayStage {
     Init,
     Desktop,
     Locked,
