@@ -12,24 +12,17 @@ use bevy_mod_picking::{PickingEvent, PickingRaycastSet};
 
 use bevy_mod_raycast::Intersection;
 use dway_server::{
-    components::{PhysicalRect, SurfaceId, WindowMark, WindowScale},
-    events::{MouseButtonOnWindow, MouseMoveOnWindow},
+    components::{Id, PhysicalRect, SurfaceId, WindowMark, WindowScale},
+    events::{KeyboardInputOnWindw, MouseButtonOnWindow, MouseMoveOnWindow},
     math::ivec2_to_point,
 };
 use log::info;
 
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
 
-use crate::{
-    stages::DWayStage,
-    window::{Backend, WindowLabel},
-};
+use crate::{window::Backend, DWayClientSystem};
 
-use super::{
-    desktop::{CursorOnOutput, FocusedWindow},
-    protocol::WindowMessageSender,
-    window::WindowMetadata,
-};
+use super::desktop::{CursorOnOutput, FocusedWindow};
 
 #[derive(Default)]
 pub struct DWayInputPlugin {
@@ -38,21 +31,14 @@ pub struct DWayInputPlugin {
 impl Plugin for DWayInputPlugin {
     fn build(&self, app: &mut App) {
         // app.add_system(print_pick_events.label(WindowLabel::Input));
-        app.add_system_set(
-            SystemSet::on_update(DWayStage::Desktop)
-                .label(WindowLabel::Input)
-                .with_system(on_window_cursor_move)
-                .with_system(on_mouse_button_on_window),
-        );
-        app.add_system_set(
-            SystemSet::new()
-                .with_system(mouse_button_on_window)
-                .with_system(keyboard_input_system)
-                .label(WindowLabel::Input),
-        );
+        use DWayClientSystem::*;
+        app.add_system(mouse_move_on_winit_window.in_set(Create));
+        app.add_system(cursor_move_on_window.in_set(Input));
+        app.add_system(mouse_button_on_window.in_set(Input));
+        app.add_system(keyboard_input_system.in_set(Input));
         if self.debug {
             app.add_startup_system(setup_debug_cursor);
-            app.add_system(debug_follow_cursor);
+            app.add_system(debug_follow_cursor.in_set(UpdateUI));
         }
     }
 }
@@ -125,10 +111,10 @@ pub fn print_mouse_events_system(
     }
 }
 pub fn keyboard_input_system(
-    // sender: Res<WindowMessageSender>,
     mut keyboard_evens: EventReader<KeyboardInput>,
     output_focus: Res<FocusedWindow>,
-    windows: Query<&WindowMetadata>,
+    surface_id_query: Query<&SurfaceId>,
+    mut sender: EventWriter<KeyboardInputOnWindw>,
 ) {
     if keyboard_evens.is_empty() {
         return;
@@ -136,98 +122,37 @@ pub fn keyboard_input_system(
     let Some(focus_window)=&output_focus.0 else{
         return;
     };
-    let Ok( meta )=windows.get(*focus_window)else {
+    let Ok( id )=surface_id_query.get(*focus_window)else {
         error!("window entity {focus_window:?} not found");
         return;
     };
     for event in keyboard_evens.iter() {
-        // if let Err(e) = sender.0.send(WindowMessage {
-        //     uuid: meta.uuid,
-        //     time: SystemTime::now(),
-        //     data: WindowMessageKind::KeyboardInput(*event),
-        // }) {
-        //     error!("failed to send message: {}", e);
-        // };
+        sender.send(KeyboardInputOnWindw(id.clone(), event.clone()));
     }
 }
-fn mouse_button_on_window(
-    mut cursor_button_events: EventReader<MouseButtonInput>,
-    mut mouse_wheel_events: EventReader<MouseWheel>,
-    // sender: Res<WindowMessageSender>,
+pub fn mouse_move_on_winit_window(
+    mut cursor_moved_events: EventReader<CursorMoved>,
     windows: NonSend<WinitWindows>,
-    elements: Query<(Entity, &WindowMetadata, &ZIndex)>,
-    output_focus: Res<CursorOnOutput>,
-    mut focus: ResMut<FocusedWindow>,
+    mut focus: ResMut<CursorOnOutput>,
 ) {
-    if cursor_button_events.is_empty() && mouse_wheel_events.is_empty() {
-        return;
-    }
-    let Some(( window_id,pos ))=&output_focus.0 else{
-        return;
-    };
-    let Some( _window )=windows.get_window(*window_id)else{
-        error!("failed to get window {:?}",window_id);
-        return;
-    };
-    let pos = pos.as_vec2();
-    let min_z_element = window_unser_position(pos, &elements);
-    if let Some((element, meta, _z_index)) = min_z_element {
-        focus.0 = Some(element);
-        for event in cursor_button_events.iter() {
-            // if let Err(e) = sender.0.send(WindowMessage {
-            //     uuid: meta.uuid,
-            //     time: SystemTime::now(),
-            //     data: WindowMessageKind::MouseButton(*event),
-            // }) {
-            //     error!("failed to send message: {}", e);
-            // };
-        }
-        for event in mouse_wheel_events.iter() {
-            // if let Err(e) = sender.0.send(WindowMessage {
-            //     uuid: meta.uuid,
-            //     time: SystemTime::now(),
-            //     data: WindowMessageKind::MouseWheel(MouseWheel {
-            //         unit: event.unit,
-            //         x: event.x * 4.0,
-            //         y: -event.y * 4.0,
-            //     }),
-            // }) {
-            //     error!("failed to send message: {}", e);
-            // };
-        }
+    for event in cursor_moved_events.iter() {
+        let Some( window )=windows.get_window(event.window)else{
+            error!("failed to get window {:?}",event.window);
+            continue;
+        };
+        let pos: IVec2 = (
+            event.position.x as i32,
+            window.inner_size().height as i32 - event.position.y as i32,
+        )
+            .into();
+        focus.0 = Some((event.window, pos));
     }
 }
-fn window_unser_position<'f>(
-    pos: Vec2,
-    elements: &'f Query<(Entity, &WindowMetadata, &ZIndex)>,
-) -> Option<(Entity, &'f WindowMetadata, &'f ZIndex)> {
-    let mut min_z = None;
-    let mut min_z_element = None;
-    for (element, meta, z_index) in elements.iter() {
-        if meta.geo.contains(pos) {
-            let update_min_z = if let Some(min_z_value) = &min_z {
-                match (min_z_value, &z_index) {
-                    (ZIndex::Local(_), ZIndex::Global(z)) if z <= &0 => true,
-                    (ZIndex::Global(m), ZIndex::Global(z)) if z >= m => true,
-                    (ZIndex::Local(m), ZIndex::Local(z)) if z >= m => true,
-                    _ => false,
-                }
-            } else {
-                true
-            };
-            if update_min_z {
-                min_z = Some(*z_index);
-                min_z_element = Some((element, meta, z_index));
-            }
-        }
-    }
-    min_z_element
-}
-fn on_window_cursor_move(
+fn cursor_move_on_window(
     mut interaction_query: Query<(&Interaction, &Backend), (With<Button>)>,
     mut surfaces_query: Query<(&SurfaceId, &PhysicalRect, Option<&WindowScale>), With<WindowMark>>,
     mut cursor: Res<CursorOnOutput>,
-    mut events: EventWriter<MouseMoveOnWindow>,
+    mut events_writer: EventWriter<MouseMoveOnWindow>,
 ) {
     for (interaction, backend) in &mut interaction_query {
         match *interaction {
@@ -244,12 +169,12 @@ fn on_window_cursor_move(
                 let relative = ivec2_to_point(*pos) - rect.0.loc;
                 let scale = window_scale.cloned().unwrap_or_default().0;
                 let logical = relative.to_f64().to_logical(scale).to_i32_round();
-                events.send(MouseMoveOnWindow(id.clone(), logical));
+                events_writer.send(MouseMoveOnWindow(id.clone(), logical));
             }
         }
     }
 }
-fn on_mouse_button_on_window(
+fn mouse_button_on_window(
     mut interaction_query: Query<(&Interaction, &Backend), (With<Button>)>,
     mut surfaces_query: Query<(&SurfaceId, &PhysicalRect, Option<&WindowScale>), With<WindowMark>>,
     mut events: EventReader<MouseButtonInput>,
@@ -258,17 +183,21 @@ fn on_mouse_button_on_window(
 ) {
     for e in events.iter() {
         for (interaction, backend) in &mut interaction_query {
-            if let Ok((id, rect, window_scale)) = surfaces_query.get(backend.0) {
-                if let Some((output, pos)) = &cursor.0 {
-                    match *interaction {
-                        _ => {
-                            let relative = ivec2_to_point(*pos) - rect.0.loc;
-                            let scale = window_scale.cloned().unwrap_or_default().0;
-                            let logical = relative.to_f64().to_logical(scale).to_i32_round();
-                            events_writer.send(MouseButtonOnWindow(id.clone(), logical, e.clone()));
-                        }
-                        Interaction::None => {}
-                    }
+            match *interaction {
+                Interaction::None => {}
+                _ => {
+                    let Ok((id, rect, window_scale)) = surfaces_query.get(backend.0) else{
+                    warn!("failed to get backend");
+                    continue;
+                };
+                    let Some((output, pos)) = &cursor.0  else {
+                    warn!("no cursor position data");
+                    continue;
+                };
+                    let relative = ivec2_to_point(*pos) - rect.0.loc;
+                    let scale = window_scale.cloned().unwrap_or_default().0;
+                    let logical = relative.to_f64().to_logical(scale).to_i32_round();
+                    events_writer.send(MouseButtonOnWindow(id.clone(), logical, e.clone()));
                 }
             }
         }

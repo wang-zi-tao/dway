@@ -4,9 +4,11 @@ use smithay::{
     delegate_seat,
     input::{keyboard::KeyboardTarget, pointer::PointerTarget, SeatHandler},
     utils::IsAlive,
-    wayland::seat::WaylandFocus,
+    wayland::{seat::WaylandFocus, shell::xdg::PopupSurface},
+    xwayland::X11Surface,
 };
 use smithay::{
+    desktop::Window,
     reexports::{
         wayland_protocols::xdg::shell::server::xdg_toplevel::{self, ResizeEdge},
         wayland_server::protocol::wl_surface::WlSurface,
@@ -16,7 +18,7 @@ use smithay::{
 };
 
 #[derive(PartialEq, Clone)]
-pub struct KeyboardFocus {}
+pub enum KeyboardFocus {}
 impl WaylandFocus for KeyboardFocus {
     fn wl_surface(&self) -> Option<WlSurface> {
         todo!()
@@ -79,15 +81,27 @@ impl KeyboardTarget<DWay> for KeyboardFocus {
     }
 }
 #[derive(PartialEq, Clone)]
-pub struct PointerFocus {}
+pub enum PointerFocus {
+    WaylandWindow(Window),
+    X11Window(X11Surface),
+    Popup(PopupSurface),
+}
 impl IsAlive for PointerFocus {
     fn alive(&self) -> bool {
-        todo!()
+        match self {
+            PointerFocus::WaylandWindow(w) => IsAlive::alive(w),
+            PointerFocus::X11Window(w) => IsAlive::alive(w),
+            PointerFocus::Popup(w) => IsAlive::alive(w.wl_surface()),
+        }
     }
 }
 impl WaylandFocus for PointerFocus {
     fn wl_surface(&self) -> Option<WlSurface> {
-        todo!()
+        match self {
+            PointerFocus::WaylandWindow(w) => w.wl_surface(),
+            PointerFocus::X11Window(w) => w.wl_surface(),
+            PointerFocus::Popup(w) => Some(w.wl_surface().clone()),
+        }
     }
 
     fn same_client_as(
@@ -106,7 +120,11 @@ impl PointerTarget<DWay> for PointerFocus {
         data: &mut DWay,
         event: &smithay::input::pointer::MotionEvent,
     ) {
-        todo!()
+        match self {
+            PointerFocus::WaylandWindow(w) => PointerTarget::enter(w, seat, data, event),
+            PointerFocus::X11Window(w) => PointerTarget::enter(w, seat, data, event),
+            PointerFocus::Popup(w) => PointerTarget::enter(w.wl_surface(), seat, data, event),
+        }
     }
 
     fn motion(
@@ -115,7 +133,11 @@ impl PointerTarget<DWay> for PointerFocus {
         data: &mut DWay,
         event: &smithay::input::pointer::MotionEvent,
     ) {
-        todo!()
+        match self {
+            PointerFocus::WaylandWindow(w) => PointerTarget::motion(w, seat, data, event),
+            PointerFocus::X11Window(w) => PointerTarget::motion(w, seat, data, event),
+            PointerFocus::Popup(w) => PointerTarget::motion(w.wl_surface(), seat, data, event),
+        }
     }
 
     fn relative_motion(
@@ -124,7 +146,13 @@ impl PointerTarget<DWay> for PointerFocus {
         data: &mut DWay,
         event: &smithay::input::pointer::RelativeMotionEvent,
     ) {
-        todo!()
+        match self {
+            PointerFocus::WaylandWindow(w) => PointerTarget::relative_motion(w, seat, data, event),
+            PointerFocus::X11Window(w) => PointerTarget::relative_motion(w, seat, data, event),
+            PointerFocus::Popup(w) => {
+                PointerTarget::relative_motion(w.wl_surface(), seat, data, event)
+            }
+        }
     }
 
     fn button(
@@ -133,7 +161,11 @@ impl PointerTarget<DWay> for PointerFocus {
         data: &mut DWay,
         event: &smithay::input::pointer::ButtonEvent,
     ) {
-        todo!()
+        match self {
+            PointerFocus::WaylandWindow(w) => PointerTarget::button(w, seat, data, event),
+            PointerFocus::X11Window(w) => PointerTarget::button(w, seat, data, event),
+            PointerFocus::Popup(w) => PointerTarget::button(w.wl_surface(), seat, data, event),
+        }
     }
 
     fn axis(
@@ -142,7 +174,11 @@ impl PointerTarget<DWay> for PointerFocus {
         data: &mut DWay,
         frame: smithay::input::pointer::AxisFrame,
     ) {
-        todo!()
+        match self {
+            PointerFocus::WaylandWindow(w) => PointerTarget::axis(w, seat, data, frame),
+            PointerFocus::X11Window(w) => PointerTarget::axis(w, seat, data, frame),
+            PointerFocus::Popup(w) => PointerTarget::axis(w.wl_surface(), seat, data, frame),
+        }
     }
 
     fn leave(
@@ -152,7 +188,13 @@ impl PointerTarget<DWay> for PointerFocus {
         serial: smithay::utils::Serial,
         time: u32,
     ) {
-        todo!()
+        match self {
+            PointerFocus::WaylandWindow(w) => PointerTarget::leave(w, seat, data, serial, time),
+            PointerFocus::X11Window(w) => PointerTarget::leave(w, seat, data, serial, time),
+            PointerFocus::Popup(w) => {
+                PointerTarget::leave(w.wl_surface(), seat, data, serial, time)
+            }
+        }
     }
 }
 

@@ -35,10 +35,7 @@ libloading = "0.7.4"
 glow = {}
 wgpu = {}
 wgpu-hal = {}
-
-[dependencies.bevy]
-features = ["jpeg"]
-path = "../../bevy"
+bevy = {}
 
 [dependencies.smithay]
 # default-features = false

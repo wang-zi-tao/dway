@@ -1,3 +1,4 @@
+use dway_util::ecs::QueryResultExt;
 use std::{mem::replace, time::SystemTime};
 
 use bevy::{
@@ -5,6 +6,7 @@ use bevy::{
     input::mouse::{MouseButtonInput, MouseMotion},
     prelude::*,
     render::render_resource::{TextureDimension, TextureFormat},
+    ui::FocusPolicy,
     window::WindowMode,
     winit::WinitWindows,
 };
@@ -13,10 +15,9 @@ use crossbeam_channel::TryRecvError;
 use dway_protocol::window::WindowState;
 use dway_protocol::window::{ImageBuffer, WindowMessage, WindowMessageKind};
 use dway_server::{
-    components::WindowScale,
+    components::{Id, SurfaceOffset, WindowScale},
     events::{CreateWindow, MouseButtonOnWindow, MouseMoveOnWindow},
-    math::{ivec2_to_point, rectangle_i32_center, vec2_to_point},
-    DWayServerLabel, DWayServerStage,
+    math::{ivec2_to_point, point_to_ivec2, rectangle_i32_center, vec2_to_point},
 };
 
 use dway_server::{
@@ -28,6 +29,7 @@ use dway_server::{
     math::{rect_to_rectangle, rectangle_i32_to_rect},
     surface::ImportedSurface,
 };
+use dway_util::rect;
 use smallvec::SmallVec;
 use uuid::Uuid;
 
@@ -36,47 +38,22 @@ use crate::{
     desktop::{CursorOnOutput, FocusedWindow, WindowSet},
     protocol::{WindowMessageReceiver, WindowMessageSender},
     resizing::ResizingMethod,
-    stages::DWayStage,
+    DWayClientSystem,
 };
-
-#[derive(SystemLabel)]
-pub enum WindowLabel {
-    Input,
-    Receive,
-    UpdateLogic,
-    UpdateUi,
-}
 
 pub struct DWayWindowPlugin;
 impl Plugin for DWayWindowPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_to_stage(
-            CoreStage::Update,
-            focus_on_new_window.label(WindowLabel::UpdateLogic),
-        );
-        app.add_system_to_stage(
-            CoreStage::Update,
-            create_window_ui.label(WindowLabel::UpdateLogic),
-        );
-        app.add_system_set_to_stage(
-            CoreStage::PostUpdate,
-            SystemSet::new()
-                .with_system(on_window_state_changed.label(WindowLabel::UpdateUi))
-                .with_system(update_window_ui.label(WindowLabel::UpdateUi)),
-        );
-        app.add_system_to_stage(
-            DWayServerStage::Send,
-            destroy_window_ui.label(DWayServerLabel::Destroy),
-        );
-        // app.add_system_to_stage(
-        //     CoreStage::PreUpdate,
-        //     receive_window_messages.label(WindowLabel::Receive),
-        // );
-        // app.add_system(update_window_ui_rect.label(WindowLabel::UpdateUi));
+        use DWayClientSystem::*;
+        app.add_system(focus_on_new_window.in_set(DWayClientSystem::UpdateFocus));
+        app.add_system(create_window_ui.in_set(Create));
+        app.add_system(update_window_state.in_set(UpdateState));
+        app.add_system(update_window_geo.in_set(UpdateState));
+        app.add_system(destroy_window_ui.in_set(Destroy));
     }
 }
 
-#[derive(Component, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Component, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct Frontends(pub SmallVec<[Entity; 1]>);
 
 impl std::ops::Deref for Frontends {
@@ -86,7 +63,7 @@ impl std::ops::Deref for Frontends {
         &self.0
     }
 }
-#[derive(Component, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Backend(pub Entity);
 impl Backend {
     pub fn new(entity: Entity) -> Self {
@@ -97,59 +74,146 @@ impl Backend {
     }
 }
 
-#[derive(Component)]
-pub struct WindowMetadata {
-    pub id: SurfaceId,
-    pub uuid: Uuid,
-    pub title: String,
-    pub state: WindowState,
-    pub backup_geo: Option<Rect>,
-    pub bbox: Rect,
-    pub geo: Rect,
+#[derive(Component, Debug)]
+pub struct WindowUiRoot {
+    pub input_rect_entity: Entity,
+    pub surface_rect_entity: Entity,
 }
 
 #[derive(Bundle)]
 pub struct WindowBundle {
-    pub metadata: WindowMetadata,
+    pub root: WindowUiRoot,
     pub display: ImageBundle,
     pub backend: Backend,
 }
 pub fn focus_on_new_window(
     mut focus: ResMut<FocusedWindow>,
-    new_winodws: Query<Entity, Added<WindowMetadata>>,
+    new_winodws: Query<Entity, Added<Backend>>,
 ) {
     if let Some(new_window) = new_winodws.iter().last() {
         focus.0 = Some(new_window);
     }
 }
-pub fn move_window(meta: &mut Mut<WindowMetadata>, delta: Vec2) {
-    set_window_position(meta, meta.geo.min + delta)
-}
-pub fn set_window_position(meta: &mut Mut<WindowMetadata>, pos: Vec2) {
-    let vec = pos - meta.geo.min;
-    if vec != Vec2::ZERO {
-        let meta = &mut **meta;
-        meta.geo.min += vec;
-        meta.geo.max += vec;
-        meta.bbox.min += vec;
-        meta.bbox.max += vec;
+
+pub fn create_window_ui(
+    surface_query: Query<
+        (
+            Entity,
+            &GlobalPhysicalRect,
+            &SurfaceId,
+            &ImportedSurface,
+            Option<&SurfaceOffset>,
+        ),
+        With<WindowMark>,
+    >,
+    mut events: EventReader<CreateWindow>,
+    window_index: Res<WindowIndex>,
+    mut commands: Commands,
+) {
+    for CreateWindow(id) in events.iter() {
+        if let Some((entity, rect, id, surface, offset)) = window_index
+            .get(id)
+            .and_then(|&e| surface_query.get(e).map_err(|e| error!("{e}")).ok())
+        {
+            let backend = Backend::new(entity);
+            let offset = offset.cloned().unwrap_or_default().0;
+            let input_rect_entity = commands
+                .spawn((
+                    ButtonBundle {
+                        style: Style {
+                            position: UiRect {
+                                left: Val::Px(-offset.loc.x as f32),
+                                right: Val::Auto,
+                                top: Val::Px(-offset.loc.y as f32),
+                                bottom: Val::Auto,
+                            },
+                            size: Size::new(
+                                Val::Px(rect.0.size.w as f32),
+                                Val::Px(rect.0.size.h as f32),
+                            ),
+                            ..default()
+                        },
+                        background_color: BackgroundColor(Color::NONE),
+                        ..default()
+                    },
+                    backend,
+                    id.clone(),
+                ))
+                .id();
+            let bbox_loc = rect.0.loc + offset.loc;
+            let bbox_size = rect.0.size.to_point() - offset.loc - offset.loc;
+            dbg!(offset, bbox_loc, bbox_size);
+            let surface_rect_entity = commands
+                .spawn((
+                    ImageBundle {
+                        style: Style {
+                            position: UiRect {
+                                left: Val::Px(bbox_loc.x as f32),
+                                right: Val::Auto,
+                                top: Val::Px(bbox_loc.y as f32),
+                                bottom: Val::Auto,
+                            },
+                            size: Size::new(
+                                Val::Px(bbox_size.x as f32),
+                                Val::Px(bbox_size.y as f32),
+                            ),
+                            ..default()
+                        },
+                        focus_policy: FocusPolicy::Pass,
+                        image: UiImage::new(surface.texture.clone()),
+                        ..default()
+                    },
+                    backend,
+                    id.clone(),
+                ))
+                .add_child(input_rect_entity)
+                .id();
+            let ui_entity = commands
+                .spawn((
+                    NodeBundle {
+                        style: Style {
+                            position_type: PositionType::Absolute,
+                            ..default()
+                        },
+                        focus_policy: FocusPolicy::Pass,
+                        ..Default::default()
+                    },
+                    WindowUiRoot {
+                        input_rect_entity,
+                        surface_rect_entity,
+                    },
+                    backend,
+                    id.clone(),
+                ))
+                .add_child(surface_rect_entity)
+                .id();
+            commands.entity(ui_entity).log_components();
+            commands
+                .entity(entity)
+                .insert(Frontends(SmallVec::from_buf([ui_entity])));
+            info!("create front end of {id:?} on {entity:?},texture:{:?}, rect:{rect:?}, ui: [{ui_entity:?}]",&surface.texture);
+        }
     }
 }
-pub fn set_window_rect(meta: &mut Mut<WindowMetadata>, geo: Rect) {
-    let scala_x = geo.width() / meta.geo.width();
-    let scala_y = geo.height() / meta.geo.height();
-    let bbox = Rect::new(
-        geo.min.x - scala_x * (meta.geo.min.x - meta.bbox.min.x),
-        geo.min.y - scala_y * (meta.geo.min.y - meta.bbox.min.y),
-        geo.max.x - scala_x * (meta.geo.max.x - meta.bbox.max.x),
-        geo.max.y - scala_y * (meta.geo.max.y - meta.bbox.max.y),
-    );
-    if meta.geo != geo || meta.bbox != bbox {
-        meta.geo = geo;
-        meta.bbox = bbox;
+pub fn destroy_window_ui(
+    mut events: EventReader<DestroyWlSurface>,
+    window_index: Res<WindowIndex>,
+    mut window_query: Query<&mut Frontends, With<WindowMark>>,
+    mut commands: Commands,
+) {
+    for DestroyWlSurface(id) in events.iter() {
+        if let Some(mut frontends) = window_index
+            .get(id)
+            .and_then(|e| window_query.get_mut(*e).ok())
+        {
+            for frontend in frontends.0.drain(..) {
+                commands.entity(frontend).despawn_recursive();
+            }
+        }
     }
 }
-pub fn on_window_state_changed(
+
+pub fn update_window_state(
     mut surface_query: Query<
         (
             &Frontends,
@@ -214,123 +278,41 @@ pub fn on_window_state_changed(
     }
 }
 
-pub fn create_window_ui(
+pub fn update_window_geo(
+    window_query: Query<(&Backend, &WindowUiRoot)>,
+    mut style_query: Query<&mut Style>,
     surface_query: Query<
-        (
-            Entity,
-            &GlobalPhysicalRect,
-            &SurfaceId,
-            &ImportedSurface,
-            &UUID,
-            Option<&WindowState>,
-        ),
-        With<WindowMark>,
-    >,
-    mut events: EventReader<CreateWindow>,
-    window_index: Res<WindowIndex>,
-    mut commands: Commands,
-) {
-    for CreateWindow(id) in events.iter() {
-        if let Some((entity, rect, id, surface, uuid, state)) = window_index
-            .get(id)
-            .and_then(|&e| surface_query.get(e).ok())
-        {
-            let state = state.cloned().unwrap_or_default();
-            let style = Style {
-                position: UiRect {
-                    left: Val::Px(rect.0.loc.y as f32),
-                    right: Val::Auto,
-                    top: Val::Px(rect.0.loc.x as f32),
-                    bottom: Val::Auto,
-                },
-                position_type: PositionType::Absolute,
-                size: Size::new(Val::Px(rect.0.size.w as f32), Val::Px(rect.0.size.h as f32)),
-                ..Default::default()
-            };
-            let backend = Backend::new(entity);
-            let ui_entity = commands
-                .spawn((
-                    // WindowMetadata {
-                    //     bbox: rect.to_rect(),
-                    //     geo: rect.to_rect(),
-                    //     backup_geo: None,
-                    //     uuid: uuid.0,
-                    //     title: "".to_string(),
-                    //     state,
-                    //     id: id.clone(),
-                    // },
-                    ButtonBundle {
-                        style: style.clone(),
-                        image: UiImage::new(surface.texture.clone()),
-                        ..Default::default()
-                    },
-                    backend,
-                ))
-                .id();
-            commands
-                .entity(entity)
-                .insert(Frontends(SmallVec::from_buf([ui_entity])));
-            info!("create front end of {id:?} on {entity:?},texture:{:?}, rect:{rect:?}, ui: [{ui_entity:?}]",&surface.texture);
-        }
-    }
-}
-pub fn destroy_window_ui(
-    mut events: EventReader<DestroyWlSurface>,
-    window_index: Res<WindowIndex>,
-    mut window_query: Query<&mut Frontends, With<WindowMark>>,
-    mut commands: Commands,
-) {
-    for DestroyWlSurface(id) in events.iter() {
-        if let Some(mut frontends) = window_index
-            .get(id)
-            .and_then(|e| window_query.get_mut(*e).ok())
-        {
-            for frontend in frontends.0.drain(..) {
-                commands.entity(frontend).despawn_recursive();
-            }
-        }
-    }
-}
-pub fn update_window_ui(
-    mut window_query: Query<(&Backend, &mut WindowMetadata, &mut Style, &mut Visibility)>,
-    surface_query: Query<
-        (&GlobalPhysicalRect, Option<&WindowState>),
+        (&GlobalPhysicalRect, Option<&SurfaceOffset>),
         (
             With<WindowMark>,
-            Or<(Changed<ImportedSurface>, Changed<GlobalPhysicalRect>)>,
+            Or<(Changed<GlobalPhysicalRect>, Changed<SurfaceOffset>)>,
         ),
     >,
 ) {
-    for (backend, mut meta, mut style, mut visibility) in window_query.iter_mut() {
-        if let Ok((rect, state)) = surface_query.get(backend.get()) {
-            if let Some(state) = state {
-                if state != &meta.state {
-                    match state {
-                        WindowState::Normal => {
-                            *visibility = Visibility::Visible;
-                        }
-                        WindowState::Minimized => {
-                            *visibility = Visibility::Hidden;
-                        }
-                        WindowState::Maximized => {
-                            *visibility = Visibility::Visible;
-                        }
-                        WindowState::FullScreen => {
-                            *visibility = Visibility::Visible;
-                        }
-                    }
-                }
-                meta.state = *state;
+    for (backend, ui_root) in window_query.iter() {
+        if let Ok((rect, surface_offset)) = surface_query.get(backend.get()) {
+            let offset = surface_offset.cloned().unwrap_or_default();
+            let bbox_loc = rect.0.loc + offset.0.loc;
+            let bbox_size = rect.0.size.to_point() - offset.0.loc - offset.0.loc;
+            if let Ok(mut style) = style_query.get_mut(ui_root.input_rect_entity) {
+                style.position = UiRect {
+                    left: Val::Px(offset.loc.x as f32),
+                    right: Val::Auto,
+                    top: Val::Px(offset.loc.y as f32),
+                    bottom: Val::Auto,
+                };
+                style.size =
+                    Size::new(Val::Px(rect.0.size.w as f32), Val::Px(rect.0.size.h as f32));
             }
-            meta.bbox = rect.to_rect();
-            meta.geo = rect.to_rect();
-            style.position = UiRect {
-                left: Val::Px(rect.0.loc.y as f32),
-                right: Val::Auto,
-                top: Val::Px(rect.0.loc.x as f32),
-                bottom: Val::Auto,
-            };
-            style.size = Size::new(Val::Px(rect.0.size.w as f32), Val::Px(rect.0.size.h as f32));
+            if let Ok(mut style) = style_query.get_mut(ui_root.surface_rect_entity) {
+                style.position = UiRect {
+                    left: Val::Px(bbox_loc.x as f32),
+                    right: Val::Auto,
+                    top: Val::Px(bbox_loc.y as f32),
+                    bottom: Val::Auto,
+                };
+                style.size = Size::new(Val::Px(bbox_size.x as f32), Val::Px(bbox_size.y as f32));
+            }
         }
     }
 }

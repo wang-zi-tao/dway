@@ -365,6 +365,7 @@ pub unsafe fn create_gpu_image(
         texture_format,
         sampler: sampler.into(),
         size: Vec2::new(size.w as f32, size.h as f32),
+        mip_level_count: 1,
     };
     Ok(image)
 }

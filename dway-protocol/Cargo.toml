@@ -13,8 +13,4 @@ failure = {}
 lazy_static = {}
 crossbeam-channel = {}
 uuid = {}
-# bevy = {}
-[dependencies.bevy]
-features = ["jpeg"]
-path = "../../bevy"
-
+bevy = {}

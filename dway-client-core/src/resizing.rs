@@ -6,12 +6,13 @@ use bevy::{
     winit::WinitWindows,
 };
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
+use dway_server::components::{PhysicalRect, WindowMark, WindowScale};
 
 use crate::{
     desktop::{CursorOnOutput, FocusedWindow},
     protocol::WindowMessageSender,
-    stages::DWayStage,
-    window::{set_window_rect, WindowMetadata},
+    window::Backend,
+    DWayClientState,
 };
 
 #[derive(Resource, Default)]
@@ -27,18 +28,15 @@ pub struct DWayResizingPlugin {}
 impl Plugin for DWayResizingPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ResizingMethod::default());
-        app.add_system_set(
-            SystemSet::on_update(DWayStage::Resizing)
-                .with_system(resize_window)
-                .with_system(stop_resizing),
-        );
+        app.add_system(resize_window.in_set(OnUpdate(DWayClientState::Resizing)));
+        app.add_system(stop_resizing.in_set(OnUpdate(DWayClientState::Resizing)));
     }
 }
 pub fn resize_window(
     focused_window: Res<FocusedWindow>,
     mut cursor_move_events: EventReader<CursorMoved>,
-    mut windows: Query<&mut WindowMetadata>,
-    // sender: Res<WindowMessageSender>,
+    mut window_query: Query<(&mut Backend, &mut Style)>,
+    mut surface_query: Query<(&mut PhysicalRect, Option<&WindowScale>), With<WindowMark>>,
     physical_windows: NonSend<WinitWindows>,
     resize_method: Res<ResizingMethod>,
     mut output_focus: ResMut<CursorOnOutput>,
@@ -49,8 +47,12 @@ pub fn resize_window(
     let Some(focus_window)=&focused_window.0 else{
         return;
     };
-    let Ok( mut meta )=windows.get_mut(*focus_window)else {
+    let Ok((  backend,style  ))=window_query.get_mut(*focus_window)else {
         error!("window entity {focus_window:?} not found");
+        return;
+    };
+    let Ok((mut rect,window_scale))=surface_query.get_mut(backend.get())else{
+        error!("window backend entity {focus_window:?} not found");
         return;
     };
     for event in cursor_move_events.iter() {
@@ -63,43 +65,32 @@ pub fn resize_window(
             window.outer_size().height as f32 - event.position.y,
         );
         output_focus.0 = Some((event.window, pos.as_ivec2()));
-        let mut geo = meta.geo;
         if resize_method.top {
-            geo.min.y = pos.y;
+            rect.loc.y = pos.y as i32;
         }
         if resize_method.bottom {
-            geo.max.y = pos.y;
+            rect.size.h = pos.y as i32 - rect.loc.y;
         }
         if resize_method.left {
-            geo.min.x = pos.x;
+            rect.loc.x = pos.x as i32;
         }
         if resize_method.right {
-            geo.max.x = pos.x;
+            rect.size.w = pos.x as i32 - rect.loc.x;
         }
-        set_window_rect(&mut meta, geo);
-        // if let Err(e) = sender.0.send(WindowMessage {
-        //     uuid: meta.uuid,
-        //     time: SystemTime::now(),
-        //     data: WindowMessageKind::SetRect(geo),
-        // }) {
-        //     error!("failed to send message: {}", e);
-        //     continue;
-        // };
     }
 }
 pub fn stop_resizing(
     mut cursor_button_events: EventReader<MouseButtonInput>,
-    mut status: ResMut<State<DWayStage>>,
+    mut state: ResMut<State<DWayClientState>>,
     mut resize_method: ResMut<ResizingMethod>,
+    mut commands: Commands,
 ) {
     if cursor_button_events.is_empty() {
         return;
     }
     for event in cursor_button_events.iter() {
         if event.state == ButtonState::Released {
-            if let Err(e) = status.pop() {
-                error!("failed to leave resizing stage: {}", e);
-            };
+            commands.insert_resource(NextState(Some(DWayClientState::Desktop)));
             *resize_method = ResizingMethod::default();
             return;
         }

@@ -25,13 +25,8 @@ khronos-egl = { version="4.1",features= ["dynamic","static"] }
 kayak_ui = "0.2.0"
 
 [workspace.dependencies.bevy]
-# version = "0.9.1"
-# default-features = false
-# beanch = "main"
+version = "0.10"
 features = ["jpeg","wayland", "serialize", "bevy_dynamic_plugin"]
-# path = "../bevy"
-git = "https://github.com/bevyengine/bevy"
-rev="bfd1d4b0a7731cf96e430d54397e7078e06c65e9"
 
 [workspace.dependencies.wgpu]
 version = "0.15"
@@ -62,5 +57,4 @@ path = "../smithay"
 # git = "https://github.com/Smithay/smithay"
 
 [patch.crates-io]
-# bevy = {path="../bevy/"}
 smithay = {path="../smithay/"}

@@ -1,9 +1,9 @@
-use bevy::input::mouse::MouseButtonInput;
+use bevy::input::{keyboard::KeyboardInput, mouse::MouseButtonInput};
 use dway_protocol::window::WindowState;
 use smithay::{
     reexports::{wayland_server::protocol::wl_surface::WlSurface, x11rb::protocol::xproto::Window},
     utils::{Logical, Physical, Point, Rectangle},
-    wayland::shell::xdg::{PopupSurface, PositionerState, ToplevelSurface},
+    wayland::shell::xdg::{Configure, PopupSurface, PositionerState, ToplevelSurface},
     xwayland::{xwm::Reorder, X11Surface},
 };
 
@@ -12,7 +12,7 @@ use crate::components::SurfaceId;
 pub struct CreateWindow(pub SurfaceId);
 pub struct DestroyWindow(pub SurfaceId);
 pub struct CreateTopLevelEvent(pub ToplevelSurface);
-pub struct ConfigureWindowNotify(pub ToplevelSurface);
+pub struct ConfigureWindowNotify(pub SurfaceId, pub Configure);
 pub struct CreatePopup(pub PopupSurface, pub PositionerState);
 pub struct DestroyPopup(pub SurfaceId);
 pub struct DestroyWlSurface(pub SurfaceId);
@@ -67,6 +67,7 @@ pub struct CloseWindowRequest(pub SurfaceId);
 
 pub struct MouseMoveOnWindow(pub SurfaceId, pub Point<i32, Logical>);
 pub struct MouseButtonOnWindow(pub SurfaceId, pub Point<i32, Logical>, pub MouseButtonInput);
+pub struct KeyboardInputOnWindw(pub SurfaceId, pub KeyboardInput);
 
 pub struct NewDecoration(pub SurfaceId);
 pub struct UnsetMode(pub SurfaceId);

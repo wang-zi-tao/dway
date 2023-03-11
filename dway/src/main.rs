@@ -12,7 +12,6 @@ use bevy::{
     diagnostic::{
         DiagnosticsPlugin, FrameTimeDiagnosticsPlugin, SystemInformationDiagnosticsPlugin,
     },
-    ecs::schedule::ReportExecutionOrderAmbiguities,
     gltf::GltfPlugin,
     input::InputPlugin,
     log::{Level, LogPlugin},
@@ -39,7 +38,7 @@ fn main() {
 
     let mut app = App::new();
     app.insert_resource(ClearColor(Color::BLACK));
-    app.insert_resource(ReportExecutionOrderAmbiguities);
+    // app.insert_resource(ReportExecutionOrderAmbiguities);
     app.add_plugins(
         DefaultPlugins
             .set(RenderPlugin {

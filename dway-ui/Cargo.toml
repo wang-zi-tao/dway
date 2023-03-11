@@ -21,10 +21,7 @@ bevy_mod_raycast = "0.7"
 rand = {}
 kayak_font = "0.2.0"
 kayak_ui = {}
-# bevy = {}
-[dependencies.bevy]
-features = ["jpeg"]
-path = "../../bevy"
+bevy = {}
 
 [profile.dev]
 opt-level = 1

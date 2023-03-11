@@ -1,9 +1,11 @@
+use std::default;
+
 use bevy::prelude::*;
 use bevy_mod_picking::{
     DebugCursorPickingPlugin, DebugEventsPickingPlugin, DefaultPickingPlugins, PickingCameraBundle,
 };
+use dway_server::DWayServerSystem;
 use log::info;
-use stages::DWayStage;
 
 pub mod components;
 pub mod compositor;
@@ -15,15 +17,77 @@ pub mod protocol;
 pub mod render;
 pub mod resizing;
 pub mod screen;
-pub mod stages;
 pub mod window;
 pub mod workspace;
 
-pub struct WaylandPlugin;
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum DWayClientSystem {
+    FromServer,
+    Create,
+    CreateFlush,
+    CreateComponent,
+    CreateComponentFlush,
+    Input,
+    UpdateState,
+    UpdateFocus,
+    UpdateUI,
+    PostUpdate,
+    DestroyComponent,
+    Destroy,
+    DestroyFlush,
+    ToServer,
+}
 
+#[derive(Hash, Default, Debug, PartialEq, Eq, Clone, States)]
+pub enum DWayClientState {
+    Init,
+    #[default]
+    Desktop,
+    Locked,
+    Overview,
+    Fullscreen,
+    Moving,
+    Resizing,
+    Eixt,
+}
+
+pub struct WaylandPlugin;
 impl Plugin for WaylandPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_state(DWayStage::Desktop);
+        app.add_state::<DWayClientState>();
+        use DWayClientSystem::*;
+        app.configure_sets(
+            (
+                FromServer.after(DWayServerSystem::Update),
+                Create,
+                CreateFlush,
+                CreateComponent,
+                CreateComponentFlush,
+                Input,
+                UpdateState,
+                UpdateFocus,
+                UpdateUI,
+            )
+                .in_base_set(CoreSet::PreUpdate)
+                .chain()
+                .ambiguous_with_all(),
+        );
+        app.configure_sets(
+            (
+                PostUpdate,
+                DestroyComponent,
+                Destroy,
+                DestroyFlush,
+                ToServer.before(DWayServerSystem::PostUpdate),
+            )
+                .in_base_set(CoreSet::PostUpdate)
+                .chain()
+                .ambiguous_with_all(),
+        );
+        app.add_system(apply_system_buffers.in_set(CreateFlush));
+        app.add_system(apply_system_buffers.in_set(CreateComponentFlush));
+        app.add_system(apply_system_buffers.in_set(DestroyFlush));
+
         app.add_plugin(compositor::CompositorPlugin);
         // app.add_plugin(DebugCursorPickingPlugin);
         // app.add_plugin(DebugEventsPickingPlugin);

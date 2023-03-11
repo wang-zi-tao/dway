@@ -13,3 +13,4 @@ uuid = {}
 memory-stats = {}
 rand = {}
 bevy_math = {}
+bevy={}

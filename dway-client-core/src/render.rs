@@ -17,7 +17,7 @@ use bevy::{
         render_resource::{BindGroup, BufferVec, CachedRenderPipelineId},
         renderer::{RenderAdapter, RenderDevice, RenderQueue},
         texture::GpuImage,
-        Extract, RenderApp, RenderStage,
+        Extract, RenderApp,
     },
     utils::{FloatOrd, HashMap},
 };
@@ -35,7 +35,7 @@ impl Plugin for DWayRender {
 
         render_app.init_resource::<DrawFunctions<WindowRenderPhase>>();
         // render_app.add_render_command::<WindowRenderPhase, DrawWindowNode>();
-        render_app.add_system_to_stage(RenderStage::Prepare, prepare_window);
+        render_app.add_system(prepare_window.in_schedule(ExtractSchedule));
     }
 }
 

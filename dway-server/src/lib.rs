@@ -36,9 +36,9 @@ use std::{
 };
 
 use bevy::{
-    ecs::{query::WorldQuery, schedule::ReportExecutionOrderAmbiguities},
+    ecs::query::WorldQuery,
     prelude::*,
-    render::{RenderApp, RenderStage},
+    render::{pipelined_rendering::RenderExtractApp, RenderApp},
     sprite::SpriteSystem,
     ui::RenderUiSystem,
 };
@@ -60,7 +60,7 @@ use smithay::{
     backend::renderer::utils::RendererSurfaceState,
     delegate_fractional_scale, delegate_input_method_manager, delegate_presentation,
     delegate_text_input_manager,
-    input::{Seat, SeatState},
+    input::{keyboard::XkbConfig, pointer::CursorImageStatus, Seat, SeatState},
     output::{Output, PhysicalProperties, Subpixel},
     reexports::{
         calloop::{generic::Generic, EventLoop, Interest, LoopHandle, Mode, PostAction},
@@ -74,7 +74,7 @@ use smithay::{
         compositor::{with_states, CompositorState},
         data_device::DataDeviceState,
         fractional_scale::FractionalScaleManagerState,
-        input_method::InputMethodManagerState,
+        input_method::{InputMethodManagerState, InputMethodSeat},
         keyboard_shortcuts_inhibit::KeyboardShortcutsInhibitState,
         output::OutputManagerState,
         presentation::PresentationState,
@@ -160,6 +160,12 @@ impl DWay {
 
         let mut seat_state = SeatState::new();
         let mut seat = seat_state.new_wl_seat(&dh, "winit");
+        let cursor_status = Arc::new(Mutex::new(CursorImageStatus::Default));
+        seat.add_pointer();
+        seat.add_keyboard(XkbConfig::default(), 200, 25)
+            .expect("Failed to initialize the keyboard");
+
+        seat.add_input_method(XkbConfig::default(), 200, 25);
 
         handle.insert_source(source, |client_stream, _, data| {
             if let Err(err) = data
@@ -244,14 +250,6 @@ pub struct DWayServerComponent {
 pub fn new_backend(event_loop: NonSend<EventLoopResource>, mut commands: Commands) {
     let mut display = Display::new().unwrap();
     let handle = event_loop.0.handle();
-    let dway = DWay::new(&mut display, &handle).unwrap();
-    let mut command = process::Command::new("gnome-system-monitor");
-    let mut command = process::Command::new("gnome-calculator");
-    let mut command = process::Command::new("alacritty");
-    command.args(&["-e", "htop", "-d", "2"]);
-    command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
-    dway.spawn(command);
-    commands.spawn(DWayServerComponent { dway, display });
 
     let size = (1920, 1080);
     let output = Output::new(
@@ -263,7 +261,23 @@ pub fn new_backend(event_loop: NonSend<EventLoopResource>, mut commands: Command
             model: "output".into(),
         },
     );
+    let _global = output.create_global::<DWay>(&display.handle());
+    let mode = smithay::output::Mode {
+        size: size.into(),
+        refresh: 60_000,
+    };
+    output.change_current_state(Some(mode), None, None, Some((0, 0).into()));
+    output.set_preferred(mode);
     commands.spawn(OutputWrapper(output));
+
+    let dway = DWay::new(&mut display, &handle).unwrap();
+    let mut command = process::Command::new("gnome-calculator");
+    let mut command = process::Command::new("alacritty");
+    command.args(&["-e", "htop", "-d", "2"]);
+    command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+    let mut command = process::Command::new("gnome-system-monitor");
+    dway.spawn(command);
+    commands.spawn(DWayServerComponent { dway, display });
 }
 pub fn spawn(dway_query: Query<&DWayServerComponent>) {
     let dway = dway_query.single();
@@ -296,58 +310,52 @@ pub fn flush(world: &mut World) {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-pub enum DWayInitLabel {
-    Server,
-    Process,
-}
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-pub enum DWayRenderLabel {
-    Import,
-    SendFrame,
-}
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-pub enum DWayServerLabel {
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum DWayServerSystem {
     Dispatch,
     Flush,
     Create,
+    CreateFlush,
+    CreateComponent,
+    CreateComponentFlush,
+    PreUpdate,
     Update,
+    PostUpdate,
+    DestroyComponent,
     Destroy,
-}
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-pub enum DWayServerStage {
-    Receive,
-    Send,
-}
-
-pub fn print_window_list(
-    window_index: Res<WindowIndex>,
-    mut query: Query<(&WlSurfaceWrapper)>,
-    mut commands: Commands,
-    ui_query: Query<(Entity, &Node, &UiImage)>,
-) {
-    // for (id, entity) in window_index.0.iter() {
-    //     if let Ok((surface))=query.get(*entity){
-    //         with_states(surface, |s| {
-    //             dbg!(s);
-    //             dbg!(s as *const _);
-    //             dbg!(s.data_map.get::<RefCell<RendererSurfaceState>>());
-    //         });
-    //     }
-    //     info!("surface {id:?} on {entity:?}");
-    //     commands.entity(*entity).log_components();
-    // }
-    for e in ui_query.iter() {
-        info!("ui image: {e:?}");
-    }
+    DestroyFlush,
 }
 
 #[derive(Default)]
 pub struct DWayServerPlugin {}
 impl Plugin for DWayServerPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        use DWayServerLabel::*;
+        use DWayServerSystem::*;
+
+        app.configure_sets(
+            (
+                Dispatch,
+                Flush,
+                Create,
+                CreateFlush,
+                CreateComponent,
+                CreateComponentFlush,
+                PreUpdate,
+                Update,
+            )
+                .in_base_set(CoreSet::PreUpdate)
+                .chain()
+                .ambiguous_with_all(),
+        );
+        app.configure_sets(
+            (PostUpdate, DestroyComponent, Destroy, DestroyFlush)
+                .in_base_set(CoreSet::PostUpdate)
+                .chain()
+                .ambiguous_with_all(),
+        );
+        app.add_system(apply_system_buffers.in_set(CreateFlush));
+        app.add_system(apply_system_buffers.in_set(CreateComponentFlush));
+        app.add_system(apply_system_buffers.in_set(DestroyFlush));
 
         app.add_event::<events::CreateWindow>();
         app.add_event::<events::DestroyWindow>();
@@ -375,6 +383,7 @@ impl Plugin for DWayServerPlugin {
         app.add_event::<events::CloseWindowRequest>();
         app.add_event::<events::MouseMoveOnWindow>();
         app.add_event::<events::MouseButtonOnWindow>();
+        app.add_event::<events::KeyboardInputOnWindw>();
         app.add_event::<events::NewDecoration>();
         app.add_event::<events::UnsetMode>();
 
@@ -382,119 +391,85 @@ impl Plugin for DWayServerPlugin {
 
         app.insert_non_send_resource(EventLoopResource(EventLoop::try_new().unwrap()));
 
-        let mut receive_stage = SystemStage::single_threaded();
-        app.add_stage_before(
-            CoreStage::PreUpdate,
-            DWayServerStage::Receive,
-            receive_stage,
-        );
-        let mut send_stage = SystemStage::parallel();
-        app.add_stage_after(CoreStage::PostUpdate, DWayServerStage::Send, send_stage);
+        app.add_startup_system(new_backend);
+        app.add_system(dispatch.in_set(Dispatch));
+        app.add_system(flush.in_set(Flush));
 
-        app.add_startup_system(new_backend.label(DWayInitLabel::Server));
-        // app.add_startup_system(
-        //     spawn
-        //         .label(DWayInitLabel::Process)
-        //         .after(DWayInitLabel::Server),
-        // );
-        app.add_system_to_stage(DWayServerStage::Receive, dispatch.label(Dispatch));
-        app.add_system_to_stage(
-            DWayServerStage::Receive,
-            flush.label(Flush).before(Create).after(Dispatch),
-        );
+        app.add_system(wayland_window::create_top_level.in_set(Create));
+        app.add_system(wayland_window::destroy_wl_surface.in_set(Destroy));
+        app.add_system(wayland_window::on_close_window_request.in_set(PostUpdate));
+        app.add_system(wayland_window::on_state_changed.in_set(PostUpdate));
+        app.add_system(wayland_window::on_rect_changed.in_set(PostUpdate));
 
-        app.add_system_to_stage(
-            DWayServerStage::Receive,
-            wayland_window::create_top_level
-                .label(Create)
-                .before(Update),
-        );
-        app.add_system_to_stage(
-            DWayServerStage::Send,
-            wayland_window::destroy_wl_surface
-                .label(Destroy)
-                .after(Update),
-        );
-        app.add_system(wayland_window::on_close_window_request.label(Update));
-        app.add_system(wayland_window::on_state_changed.label(Update));
-        app.add_system(wayland_window::on_rect_changed.label(Update));
+        app.add_system(x11_window::create_x11_surface.in_set(Create));
+        app.add_system(x11_window::map_x11_surface.in_set(PreUpdate));
+        app.add_system(x11_window::unmap_x11_surface.in_set(PreUpdate));
+        app.add_system(x11_window::configure_notify.in_set(PreUpdate));
+        app.add_system(x11_window::configure_request.in_set(PreUpdate));
+        app.add_system(x11_window::on_rect_changed.in_set(PostUpdate));
+        app.add_system(x11_window::on_state_changed.in_set(PostUpdate));
+        app.add_system(x11_window::on_close_window_request.in_set(PostUpdate));
 
-        app.add_system_to_stage(
-            DWayServerStage::Receive,
-            x11_window::create_x11_surface.label(Create),
-        );
-        app.add_system(x11_window::map_x11_surface.label(Update));
-        app.add_system(x11_window::unmap_x11_surface.label(Update));
-        app.add_system(x11_window::configure_notify.label(Update));
-        app.add_system(x11_window::configure_request.label(Update));
-        app.add_system_to_stage(
-            DWayServerStage::Send,
-            x11_window::on_rect_changed.label(Update),
-        );
-        app.add_system_to_stage(
-            DWayServerStage::Send,
-            x11_window::on_state_changed.label(Update),
-        );
-        app.add_system_to_stage(
-            DWayServerStage::Send,
-            x11_window::on_close_window_request.label(Update),
-        );
+        app.add_system(popup::create_popup.in_set(Create));
+        app.add_system(popup::reposition_request.in_set(PreUpdate));
+        app.add_system(popup::on_commit.in_set(PreUpdate));
 
-        app.add_system_to_stage(
-            DWayServerStage::Receive,
-            popup::create_popup.label(Create).before(Update),
-        );
-        app.add_system(popup::reposition_request.label(Update));
-        app.add_system(popup::on_commit.label(Update));
+        app.add_system(surface::on_commit.in_set(PreUpdate));
+        app.add_system(surface::create_surface.in_set(CreateComponent));
+        app.add_system(surface::change_size.in_set(PostUpdate));
+        // app.add_system( surface::clean_damage.in_set(Destroy));
+        // app.add_system( surface::send_frame);
 
-        app.add_system(surface::on_commit.label(Update));
-        app.add_system_to_stage(
-            DWayServerStage::Receive,
-            surface::create_surface.before(Update).after(Create),
-        );
-        app.add_system_to_stage(
-            DWayServerStage::Send,
-            surface::change_size.before(Destroy).after(Update),
-        );
-        // app.add_system_to_stage(DWayServerStage::Send, surface::clean_damage.label(Destroy));
-        // app.add_system_to_stage(DWayServerStage::Receive, surface::send_frame);
+        app.add_system(placement::place_new_window.in_set(CreateComponent));
+        app.add_system(placement::update_global_physical_rect.in_set(Update));
+        app.add_system(placement::update_physical_rect.in_set(PostUpdate));
 
-        app.add_system_to_stage(
-            DWayServerStage::Receive,
-            placement::place_new_window.before(Update).after(Create),
-        );
-        app.add_system_to_stage(
-            DWayServerStage::Receive,
-            placement::update_global_physical_rect.label(Update),
-        );
-        app.add_system_to_stage(
-            DWayServerStage::Send,
-            placement::update_physical_rect.label(Update),
-        );
+        app.add_system(input::on_mouse_move.in_set(PostUpdate));
+        app.add_system(input::on_mouse_button.in_set(PostUpdate));
 
         // app.add_system(print_window_list.before(Update));
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.insert_resource(ReportExecutionOrderAmbiguities);
-            render_app.add_system_to_stage(
-                RenderStage::Extract,
+            render_app.add_system(
                 surface::import_surface
+                    .in_schedule(ExtractSchedule)
                     // .pipe(surface::send_frame)
-                    // .label(DWayRenderLabel::Import)
+                    // .in_set(DWayRenderin_set::Import)
                     .after(RenderUiSystem::ExtractNode)
-                    .after(SpriteSystem::ExtractSprites), // .before(DWayRenderLabel::SendFrame),
+                    .after(SpriteSystem::ExtractSprites), // .before(DWayRenderin_set::SendFrame),
             );
-            // render_app.add_system_to_stage(
+            // render_app.add_system(
             //     RenderStage::Extract,
             //     surface::debug_texture
-            //         .label(DWayRenderLabel::SendFrame)
-            //         .after(DWayRenderLabel::Import),
+            //         .in_set(DWayRenderin_set::SendFrame)
+            //         .after(DWayRenderin_set::Import),
             // );
-            // render_app.add_system_to_stage(
+            // render_app.add_system(
             //     RenderStage::Extract,
-            //     surface::send_frame.after(DWayRenderLabel::Import),
+            //     surface::send_frame.after(DWayRenderin_set::Import),
             // );
         }
+    }
+}
+pub fn print_window_list(
+    window_index: Res<WindowIndex>,
+    mut query: Query<(&WlSurfaceWrapper)>,
+    mut commands: Commands,
+    ui_query: Query<(Entity, &Node, &UiImage)>,
+) {
+    // for (id, entity) in window_index.0.iter() {
+    //     if let Ok((surface))=query.get(*entity){
+    //         with_states(surface, |s| {
+    //             dbg!(s);
+    //             dbg!(s as *const _);
+    //             dbg!(s.data_map.get::<RefCell<RendererSurfaceState>>());
+    //         });
+    //     }
+    //     info!("surface {id:?} on {entity:?}");
+    //     commands.entity(*entity).log_components();
+    // }
+    for e in ui_query.iter() {
+        info!("ui image: {e:?}");
     }
 }
 delegate_presentation!(DWay);

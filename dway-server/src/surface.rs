@@ -10,8 +10,8 @@ use std::{
 
 use crate::{
     components::{
-        OutputWrapper, PopupWindow, SurfaceId, WaylandWindow, WindowIndex, WindowMark, WindowScale,
-        WlSurfaceWrapper, X11Window,
+        OutputWrapper, PhysicalRect, PopupWindow, SurfaceId, SurfaceOffset, WaylandWindow,
+        WindowIndex, WindowMark, WindowScale, WlSurfaceWrapper, X11Window,
     },
     egl::{gl_debug_message_callback, import_wl_surface},
     events::{CommitSurface, CreateTopLevelEvent, CreateWindow, CreateX11WindowEvent},
@@ -74,6 +74,7 @@ use smithay::{
         },
         data_device::{ClientDndGrabHandler, DataDeviceHandler, ServerDndGrabHandler},
         fractional_scale::with_fractional_scale,
+        shell::xdg::XdgToplevelSurfaceRoleAttributes,
         shm::{ShmHandler, ShmState},
     },
 };
@@ -177,12 +178,26 @@ pub fn create_surface(
 pub fn on_commit(
     time: Res<Time>,
     mut events: EventReader<CommitSurface>,
-    mut surface_query: Query<(&mut WlSurfaceWrapper, &mut ImportedSurface)>,
-    window_query: Query<&WaylandWindow>,
+    mut surface_query: Query<(
+        &mut WlSurfaceWrapper,
+        &mut ImportedSurface,
+        Option<&mut WaylandWindow>,
+        Option<&WindowScale>,
+        Option<&mut PhysicalRect>,
+        Option<&mut SurfaceOffset>,
+    )>,
     window_index: Res<WindowIndex>,
 ) {
+    let mut update_window_query = vec![];
     for CommitSurface(id) in events.iter() {
-        if let Some((mut wl_surface_wrapper, mut imported_surface)) = window_index
+        if let Some((
+            mut wl_surface_wrapper,
+            mut imported_surface,
+            window,
+            window_scale,
+            physical_rect,
+            surface_offset,
+        )) = window_index
             .get(id)
             .and_then(|&e| surface_query.get_mut(e).ok())
         {
@@ -193,19 +208,56 @@ pub fn on_commit(
                 while let Some(parent) = get_parent(&root) {
                     root = parent;
                 }
-                if let Some(window) = window_index
-                    .get(&root.into())
-                    .and_then(|&e| window_query.get(e).ok())
-                {
-                    window.on_commit();
-                } else {
-                    warn!("surface root not found");
-                }
+                update_window_query.push(root);
             };
             imported_surface.flush.store(true, Ordering::Release);
+            if let Some(window) = window {
+                window.on_commit();
+                let initial_configure_sent =
+                    with_states_locked(surface, |s: &mut XdgToplevelSurfaceRoleAttributes| {
+                        s.initial_configure_sent
+                    });
+                if !initial_configure_sent {
+                    window.toplevel().send_configure();
+                }
+            }
             trace!("commit finish {:?}", id);
         } else {
             warn!("surface entity not found {:?}", id);
+        }
+    }
+    for root in update_window_query {
+        if let Some((
+            mut wl_surface_wrapper,
+            mut imported_surface,
+            window,
+            window_scale,
+            physical_rect,
+            surface_offset,
+        )) = window_index
+            .get(&root.into())
+            .and_then(|&e| surface_query.get_mut(e).ok())
+        {
+            if let Some(window) = window {
+                window.on_commit();
+                let geo = window.geometry();
+                let bbox = window.bbox();
+                let scale = window_scale.cloned().unwrap_or_default().0;
+                let offset = bbox.loc - geo.loc;
+                surface_offset.map(|mut r| {
+                    r.0 = Rectangle::from_loc_and_size(offset, geo.size)
+                        .to_f64()
+                        .to_physical_precise_round(scale)
+                        .to_i32_round();
+                });
+                physical_rect.map(|mut r| {
+                    r.0 = geo.to_f64().to_physical_precise_round(scale).to_i32_round();
+                });
+            } else {
+                error!("window not found");
+            }
+        } else {
+            error!("surface root not found");
         }
     }
 }

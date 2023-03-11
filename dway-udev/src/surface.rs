@@ -174,6 +174,7 @@ pub fn generate_surface_image(
                         texture_format,
                         sampler,
                         size: rect.size_vec2(),
+                        mip_level_count: 1,
                     };
                     // let texture=;
                     // let image: wgpu::Texture;

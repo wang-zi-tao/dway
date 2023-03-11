@@ -9,17 +9,21 @@ use bevy_input::{
     prelude::MouseButton,
 };
 
-use dway_protocol::window::{WindowMessageKind, WindowMessage};
+use dway_protocol::window::{WindowMessage, WindowMessageKind};
 use failure::Fallible;
-use slog::{debug, error, trace, info};
+use slog::{debug, error, info, trace};
 use smithay::{
-    backend::{input::{ButtonState, InputEvent}, },
+    backend::input::{ButtonState, InputEvent},
     input::{
         keyboard::FilterResult,
         pointer::{ButtonEvent, MotionEvent},
     },
-    reexports::{wayland_protocols::xdg::shell::server::xdg_toplevel, wayland_server::DisplayHandle, },
-    utils::{Point, SERIAL_COUNTER}, wayland::tablet_manager::{TabletSeatTrait, TabletDescriptor},
+    reexports::{
+        input::DeviceCapability, wayland_protocols::xdg::shell::server::xdg_toplevel,
+        wayland_server::DisplayHandle,
+    },
+    utils::{Point, SERIAL_COUNTER},
+    wayland::tablet_manager::{TabletDescriptor, TabletSeatTrait},
 };
 
 pub fn receive_messages(dway: &mut DWayState, deadline: Instant) -> Fallible<()> {
@@ -341,8 +345,9 @@ pub fn receive_message(dway: &mut DWayState, message: WindowMessage) -> Fallible
     Ok(())
 }
 
-    pub fn process_input_event(dway:&mut DWayState, dh: &DisplayHandle,  event: smithay::backend::input::InputEvent<
-            smithay::backend::libinput::LibinputInputBackend,
-        >) {
-
-    }
+pub fn process_input_event(
+    dway: &mut DWayState,
+    dh: &DisplayHandle,
+    event: smithay::backend::input::InputEvent<smithay::backend::libinput::LibinputInputBackend>,
+) {
+}

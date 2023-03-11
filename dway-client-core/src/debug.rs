@@ -1,20 +1,24 @@
 use std::any::type_name;
 
-use bevy::{ecs::schedule::StateData, prelude::*};
+use bevy::prelude::*;
 
-use crate::{stages::DWayStage, window::WindowLabel};
+use crate::{DWayClientState, DWayClientSystem};
 
 #[derive(Default)]
 pub struct DebugPlugin {}
 
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_system(pring_stage_stack::<DWayStage>.after(WindowLabel::UpdateUi));
+        app.add_system(
+            pring_stage_stack::<DWayClientState>
+                .in_base_set(CoreSet::PostUpdate)
+                .after(DWayClientSystem::UpdateState),
+        );
     }
 }
 
-pub fn pring_stage_stack<S: StateData>(stages: Res<State<S>>) {
-    if stages.is_changed() && !stages.inactives().is_empty() {
+pub fn pring_stage_stack<S: States>(stages: Res<State<S>>) {
+    if stages.is_changed() {
         let type_name = type_name::<S>();
         info!("stages {} {:?}", type_name, &*stages);
     }

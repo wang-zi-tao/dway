@@ -7,6 +7,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use bevy_math::Vec2;
 use dway_protocol::window::{ImageBuffer, WindowMessage, WindowMessageKind};
 use failure::Fallible;
 use slog::{error, trace, warn};
@@ -543,12 +544,7 @@ where
             .chain(window_render_elements.iter())
             .collect::<Vec<_>>();
 
-        damage_tracked_renderer.render_output(
-            renderer,
-            age,
-            &render_elements,
-            CLEAR_COLOR,
-        )
+        damage_tracked_renderer.render_output(renderer, age, &render_elements, CLEAR_COLOR)
     } else {
         let mut output_render_elements = custom_elements
             .iter()

@@ -84,7 +84,6 @@ fn frame(mut millis: u32, size: u32, images: &[Image]) -> Image {
 
     unreachable!()
 }
-
 fn load_icon(theme: &CursorTheme) -> Result<Vec<Image>, Error> {
     let icon_path = theme
         .load_icon("default")

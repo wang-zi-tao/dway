@@ -172,7 +172,7 @@ where
             CursorImageStatus::Surface(surface) => {
                 let elements: Vec<PointerRenderElement<R>> =
                     smithay::backend::renderer::element::surface::render_elements_from_surface_tree(
-                        renderer, surface, location, scale, 
+                        renderer, surface, location, scale, None,
                     );
                 elements.into_iter().map(E::from).collect()
             }

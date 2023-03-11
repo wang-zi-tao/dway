@@ -49,75 +49,9 @@ use smithay::{
     },
 };
 
-// use super::{backend::{},  cursor::{PointerElement, Cursor}, CalloopData};
-
-// pub struct Element(pub WindowElement);
 pub struct Id(Uuid);
-pub struct Geometry(pub Rectangle<i32, Logical>);
-pub struct ElementScale(pub Scale<i32>);
-pub struct ElementCommit();
-pub struct BBox(pub Scale<i32>);
 
-pub struct ElementRemoteDisplay();
-pub struct ElementState(pub WindowState);
-pub struct ElementMouseGrab();
-pub struct ElementKeyGrab();
-pub struct ElementFullScreen;
-pub struct ElementVisibility(pub bool);
-pub struct PopupList {
-    popups: SmallVec<[Entity; 1]>,
-}
-
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-#[reflect(Debug, PartialEq)]
-pub enum WindowMode {
-    #[default]
-    Normal,
-    Minimized,
-    Maximized,
-    FullScreen,
-}
-
-pub struct Screen {}
-pub struct Gpu {}
-// struct UDevSurface {
-//     dh: DisplayHandle,
-//     device_id: DrmNode,
-//     render_node: DrmNode,
-//     surface: RenderSurface,
-//     global: Option<GlobalId>,
-// }
-// struct BackendData {
-//     surfaces: Rc<RefCell<HashMap<crtc::Handle, Rc<RefCell<SurfaceData>>>>>,
-//     gbm: gbm::Device<DrmDeviceFd>,
-//     registration_token: RegistrationToken,
-//     event_dispatcher: Dispatcher<'static, DrmDevice, CalloopData>,
-// }
-// pub struct UDevSession {
-//     pub session: LibSeatSession,
-//     dh: DisplayHandle,
-//     dmabuf_state: Option<(DmabufState, DmabufGlobal)>,
-//     primary_gpu: DrmNode,
-//     gpus: GpuManager<EglGlesBackend<Gles2Renderer>>,
-//     backends: HashMap<DrmNode, BackendData>,
-//     pointer_images: Vec<(xcursor::parser::Image, TextureBuffer<MultiTexture>)>,
-//     pointer_element: PointerElement<MultiTexture>,
-//     pointer_image: Cursor,
-//     logger: slog::Logger,
-// }
-pub struct RenderState {
-    damage_tracked_renderer: DamageTrackedRenderer,
-}
-pub struct ConnectionId(pub Uuid);
-pub struct ConnectionIds(pub SmallVec<[ConnectionId; 1]>);
-pub struct Connection();
-
-#[derive(Component, Clone, Hash, PartialEq, Eq, Debug)]
+#[derive(Component, Debug, Clone, Hash, PartialEq, Eq)]
 pub enum SurfaceId {
     Wayland(ObjectId),
     X11(u32),
@@ -171,10 +105,10 @@ impl From<&ToplevelSurface> for SurfaceId {
 #[derive(Resource, Default, Debug, Deref, DerefMut)]
 pub struct WindowIndex(pub HashMap<SurfaceId, Entity>);
 
-#[derive(Component, Default, Debug)]
+#[derive(Component, Debug, Default)]
 pub struct WindowMark;
 
-#[derive(Component, Default, Debug, Deref, DerefMut)]
+#[derive(Component, Debug, Default, Deref, DerefMut)]
 pub struct WindowZIndex(pub i32);
 
 #[derive(Component, Debug, Deref, DerefMut)]
@@ -204,7 +138,7 @@ pub struct NameIndex(pub HashMap<String, Entity>);
 #[derive(Component, Debug, Deref, DerefMut)]
 pub struct XdgPopupWrapper(pub XdgPopup);
 
-#[derive(Component, Clone, Copy, Debug, Deref, DerefMut)]
+#[derive(Component, Debug, Clone, Copy, Deref, DerefMut)]
 pub struct WindowScale(pub Scale<f64>);
 
 impl Default for WindowScale {
@@ -212,10 +146,10 @@ impl Default for WindowScale {
         Self(Scale { x: 1.0, y: 1.0 })
     }
 }
-#[derive(Component, Default, Clone, Copy, Debug, Deref, DerefMut)]
+#[derive(Component, Debug, Default, Clone, Copy, Deref, DerefMut)]
 pub struct NormalModeGlobalRect(pub Rectangle<i32, Physical>);
 
-#[derive(Component, Default, Clone, Copy, Debug, Deref, DerefMut)]
+#[derive(Component, Debug, Default, Clone, Copy, Deref, DerefMut)]
 pub struct GlobalPhysicalRect(pub Rectangle<i32, Physical>);
 
 impl GlobalPhysicalRect {
@@ -240,7 +174,7 @@ impl GlobalPhysicalRect {
     }
 }
 
-#[derive(Component, Default, Clone, Copy, Deref, DerefMut)]
+#[derive(Component, Debug, Default, Clone, Copy, Deref, DerefMut)]
 pub struct PhysicalRect(pub Rectangle<i32, Physical>);
 impl PhysicalRect {
     pub fn width(&self) -> u32 {
@@ -255,7 +189,7 @@ impl PhysicalRect {
         Vec2::new(self.0.size.w as f32, self.0.size.h as f32)
     }
 }
-#[derive(Component, Default, Deref, DerefMut)]
+#[derive(Component, Debug, Default, Deref, DerefMut)]
 pub struct LogicalRect(pub Rectangle<i32, Logical>);
 impl LogicalRect {
     pub fn width(&self) -> u32 {
@@ -271,7 +205,7 @@ impl LogicalRect {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct PopupWindow {
     pub kind: PopupKind,
     pub position: PositionerState,
@@ -291,5 +225,8 @@ impl PopupWindow {
     }
 }
 
-#[derive(Component, Clone, Deref, DerefMut)]
+#[derive(Component, Debug, Clone, Deref, DerefMut)]
 pub struct OutputWrapper(pub Output);
+
+#[derive(Component, Debug, Clone, Copy, Default, Deref, DerefMut)]
+pub struct SurfaceOffset(pub Rectangle<i32, Physical>);

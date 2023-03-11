@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use lru::LruCache;
 use uuid::Uuid;
 
-use crate::window::WindowMetadata;
+use crate::DWayClientSystem;
 
 pub struct DWayDesktop;
 impl Plugin for DWayDesktop {
@@ -14,8 +14,8 @@ impl Plugin for DWayDesktop {
         app.insert_resource(FocusedWindow::default());
         app.insert_resource(CursorOnOutput::default());
         app.insert_resource(WindowHistory::default());
-        app.add_system(update_window_stack_by_focus);
-        app.add_system(update_z_index);
+        app.add_system(update_window_stack_by_focus.in_set(DWayClientSystem::UpdateState));
+        app.add_system(update_z_index.in_set(DWayClientSystem::UpdateState));
     }
 }
 
@@ -57,18 +57,14 @@ pub fn update_window_stack_by_focus(
 }
 pub fn update_z_index(
     window_stack: Res<WindowStack>,
-    mut window_meta_query: Query<(&WindowMetadata, &mut ZIndex, &mut Transform)>,
+    mut window_meta_query: Query<(&mut Transform)>,
 ) {
     if !window_stack.is_changed() {
         return;
     }
     for (i, (&window_entity, ())) in window_stack.0.iter().enumerate() {
-        if let Ok((_window, _z_index, mut transform)) = window_meta_query.get_mut(window_entity) {
-            // *z_index = ZIndex::Global(65536-(i as i32));
-            // *z_index = ZIndex::Local(0);
+        if let Ok((mut transform)) = window_meta_query.get_mut(window_entity) {
             transform.translation.z = 256.0 - (i as f32);
-            // transform.rotation=Default::default();
-            // transform.rotate_local_y(1.0);
         }
     }
 }

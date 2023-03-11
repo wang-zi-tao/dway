@@ -10,6 +10,7 @@ use crate::{
 pub struct PlacementBundle {
     pub physical: PhysicalRect,
     pub global: GlobalPhysicalRect,
+    pub surface_offset: SurfaceOffset,
 }
 
 pub fn place_new_window(
@@ -23,9 +24,13 @@ pub fn place_new_window(
             let size = (800, 600);
             let physical = PhysicalRect(Rectangle::from_loc_and_size(pos, size));
             let global = GlobalPhysicalRect(Rectangle::from_loc_and_size(pos, size));
+            let surface_offset = SurfaceOffset(Rectangle::from_loc_and_size((0, 0), size));
             commands.command_scope(move |mut c| {
-                c.entity(entity)
-                    .insert(PlacementBundle { global, physical });
+                c.entity(entity).insert(PlacementBundle {
+                    global,
+                    physical,
+                    surface_offset,
+                });
             });
             info!("placement window on {entity:?}");
         }
@@ -55,8 +60,9 @@ fn do_update_node(
         With<Parent>,
     >,
 ) {
-    context_rect.0.loc += relative.0.loc;
+    context_rect.loc += relative.loc;
     *dest = context_rect;
+    dest.size = relative.size;
     if let Some(c) = children {
         for child in c.iter() {
             if let Ok((global, relative, children)) =
