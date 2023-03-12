@@ -1,6 +1,6 @@
 use std::{thread, time::Duration};
 
-use bevy_inspector_egui::WorldInspectorPlugin;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use dway_client_core::protocol::{WindowMessageReceiver, WindowMessageSender};
 // use dway_ui::kayak_ui::{prelude::KayakContextPlugin, widgets::KayakWidgets};
 
@@ -127,8 +127,8 @@ fn main() {
     // app.add_plugin(bevy_framepace::FramepacePlugin);
     //
 
-    // app.add_plugin(bevy::diagnostic::LogDiagnosticsPlugin::default());
-    // app.add_plugin(bevy::diagnostic::EntityCountDiagnosticsPlugin::default());
+    app.add_plugin(bevy::diagnostic::LogDiagnosticsPlugin::default());
+    app.add_plugin(bevy::diagnostic::EntityCountDiagnosticsPlugin::default());
 
     // .add_plugin(AssetCountDiagnosticsPlugin::<Image>::default())
 
@@ -138,7 +138,7 @@ fn main() {
     // app.add_plugin(KayakWidgets);
     // app.add_plugin(KayakContextPlugin);
 
-    // app.add_plugin(WorldInspectorPlugin::new());
+    app.add_plugin(WorldInspectorPlugin::new());
     // .add_startup_system(hello_world)
 
     app.add_plugin(dway_server::DWayServerPlugin::default());

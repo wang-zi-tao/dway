@@ -1,9 +1,9 @@
 use std::default;
 
 use bevy::prelude::*;
-use bevy_mod_picking::{
-    DebugCursorPickingPlugin, DebugEventsPickingPlugin, DefaultPickingPlugins, PickingCameraBundle,
-};
+// use bevy_mod_picking::{
+//     DebugCursorPickingPlugin, DebugEventsPickingPlugin, DefaultPickingPlugins, PickingCameraBundle,
+// };
 use dway_server::DWayServerSystem;
 use log::info;
 

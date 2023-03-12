@@ -11,13 +11,14 @@ use std::{
 use crate::{
     components::{
         OutputWrapper, PhysicalRect, PopupWindow, SurfaceId, SurfaceOffset, WaylandWindow,
-        WindowIndex, WindowMark, WindowScale, WlSurfaceWrapper, X11Window,
+        WindowIndex, WindowMark, WindowScale, WlSurfaceWrapper, X11Window, XdgPopupWrapper,
     },
     egl::{gl_debug_message_callback, import_wl_surface},
     events::{CommitSurface, CreateTopLevelEvent, CreateWindow, CreateX11WindowEvent},
     DWay,
 };
 use bevy::{
+    log::Level,
     prelude::*,
     render::{
         render_asset::RenderAssets,
@@ -28,6 +29,7 @@ use bevy::{
     },
     sprite::SpriteAssetEvents,
     ui::UiImageBindGroups,
+    utils::tracing::{self, span},
 };
 use failure::Fallible;
 use glow::HasContext;
@@ -39,13 +41,15 @@ use smithay::{
             RenderElementState, RenderElementStates,
         },
         gles2::Gles2Renderer,
-        utils::{on_commit_buffer_handler, RendererSurfaceState},
+        utils::{on_commit_buffer_handler, with_renderer_surface_state, RendererSurfaceState},
         BufferType,
     },
     delegate_compositor, delegate_data_device, delegate_shm,
     desktop::{
+        find_popup_root_surface,
         space::SpaceElement,
         utils::{surface_primary_scanout_output, update_surface_primary_scanout_output},
+        PopupKind,
     },
     output::{Output, PhysicalProperties, Subpixel},
     reexports::{
@@ -74,7 +78,9 @@ use smithay::{
         },
         data_device::{ClientDndGrabHandler, DataDeviceHandler, ServerDndGrabHandler},
         fractional_scale::with_fractional_scale,
-        shell::xdg::XdgToplevelSurfaceRoleAttributes,
+        shell::xdg::{
+            XdgPopupSurfaceData, XdgPopupSurfaceRoleAttributes, XdgToplevelSurfaceRoleAttributes,
+        },
         shm::{ShmHandler, ShmState},
     },
 };
@@ -168,32 +174,43 @@ pub fn create_surface(
         if let Some(entity) = window_index.get(&new_surface) {
             let imported = ImportedSurface::new(&mut images, (512, 512).into());
             info!(
-                "create surface of {:?} on {:?}, texture: {:?}",
-                new_surface, entity, &imported.texture
+                surface=?new_surface,
+                ?entity,
+                texture=?&imported.texture,
+                "create surface.",
             );
             commands.entity(*entity).insert(imported);
         }
     }
 }
-pub fn on_commit(
-    time: Res<Time>,
+pub fn do_commit(
     mut events: EventReader<CommitSurface>,
     mut surface_query: Query<(
         &mut WlSurfaceWrapper,
         &mut ImportedSurface,
         Option<&mut WaylandWindow>,
+        Option<&mut PopupWindow>,
+        Option<&mut X11Window>,
         Option<&WindowScale>,
         Option<&mut PhysicalRect>,
         Option<&mut SurfaceOffset>,
     )>,
     window_index: Res<WindowIndex>,
 ) {
-    let mut update_window_query = vec![];
-    for CommitSurface(id) in events.iter() {
+    let span = span!(Level::ERROR, "do commit");
+    let _enter = span.enter();
+    for CommitSurface {
+        surface: id,
+        surface_size,
+    } in events.iter()
+    {
+        let mut tree_root = None;
         if let Some((
             mut wl_surface_wrapper,
-            mut imported_surface,
+            imported_surface,
             window,
+            popup,
+            x11_window,
             window_scale,
             physical_rect,
             surface_offset,
@@ -202,17 +219,13 @@ pub fn on_commit(
             .and_then(|&e| surface_query.get_mut(e).ok())
         {
             let surface = &mut wl_surface_wrapper;
-            // on_commit_buffer_handler(surface);
-            if !is_sync_subsurface(surface) {
-                let mut root = surface.0.clone();
-                while let Some(parent) = get_parent(&root) {
-                    root = parent;
-                }
-                update_window_query.push(root);
-            };
+            let mut root = surface.0.clone();
+            while let Some(parent) = get_parent(&root) {
+                root = parent;
+            }
+            tree_root = Some(root);
             imported_surface.flush.store(true, Ordering::Release);
             if let Some(window) = window {
-                window.on_commit();
                 let initial_configure_sent =
                     with_states_locked(surface, |s: &mut XdgToplevelSurfaceRoleAttributes| {
                         s.initial_configure_sent
@@ -220,43 +233,187 @@ pub fn on_commit(
                 if !initial_configure_sent {
                     window.toplevel().send_configure();
                 }
-            }
-            trace!("commit finish {:?}", id);
+            } else if let Some(popup) = popup {
+                let initial_configure_sent =
+                    with_states_locked(surface, |s: &mut XdgPopupSurfaceRoleAttributes| {
+                        s.initial_configure_sent
+                    });
+                if !initial_configure_sent {
+                    let PopupKind::Xdg(ref xdg_popup) = &popup.kind;
+                    if let Err(error) = xdg_popup.send_configure() {
+                        error!(surface = id.to_string(), %error, "initial configure failed");
+                    };
+                }
+            };
+            trace!(surface = id.to_string(), "commit finish");
         } else {
-            warn!("surface entity not found {:?}", id);
+            warn!(surface = id.to_string(), "surface entity not found.");
+            continue;
         }
-    }
-    for root in update_window_query {
+        if let Some(root) = tree_root {
+            let root_id = SurfaceId::from(&root);
+            if let Some((
+                mut wl_surface_wrapper,
+                imported_surface,
+                wayland_window,
+                popup,
+                x11_window,
+                window_scale,
+                physical_rect,
+                surface_offset,
+            )) = window_index
+                .get(&root_id)
+                .and_then(|&e| surface_query.get_mut(e).ok())
+            {
+                if let Some(window) = wayland_window {
+                    window.on_commit();
+                    let geo = window.geometry();
+                    let bbox = window.bbox();
+                    let scale = window_scale.cloned().unwrap_or_default().0;
+                    let offset = bbox.loc - geo.loc;
+                    surface_offset.map(|mut r| {
+                        r.0 = Rectangle::from_loc_and_size(offset, geo.size)
+                            .to_f64()
+                            .to_physical_precise_round(scale)
+                            .to_i32_round();
+                    });
+                    physical_rect.map(|mut r| {
+                        r.0 = geo.to_f64().to_physical_precise_round(scale).to_i32_round();
+                    });
+                } else if let Some(window) = x11_window {
+                } else {
+                    error!(surface =? root_id, "surface root is not window");
+                }
+            } else {
+                error!(surface =? root_id, "surface root not found");
+            }
+        };
         if let Some((
             mut wl_surface_wrapper,
-            mut imported_surface,
+            imported_surface,
             window,
+            popup,
+            x11_window,
             window_scale,
             physical_rect,
             surface_offset,
         )) = window_index
-            .get(&root.into())
+            .get(&id)
             .and_then(|&e| surface_query.get_mut(e).ok())
         {
-            if let Some(window) = window {
-                window.on_commit();
-                let geo = window.geometry();
-                let bbox = window.bbox();
+            let surface = &mut wl_surface_wrapper;
+            let mut root = surface.0.clone();
+            if let (Some(mut surface_offset), Some(surface_size)) = (surface_offset, surface_size) {
                 let scale = window_scale.cloned().unwrap_or_default().0;
-                let offset = bbox.loc - geo.loc;
-                surface_offset.map(|mut r| {
-                    r.0 = Rectangle::from_loc_and_size(offset, geo.size)
-                        .to_f64()
-                        .to_physical_precise_round(scale)
-                        .to_i32_round();
-                });
-                physical_rect.map(|mut r| {
-                    r.0 = geo.to_f64().to_physical_precise_round(scale).to_i32_round();
+                surface_offset.size = surface_size.to_f64().to_physical(scale).to_i32_round();
+            }
+        }
+    }
+}
+pub fn import_surface(
+    _: NonSend<NonSendMarker>,
+    time: Extract<Res<Time>>,
+    query: Extract<Query<(Entity, &WlSurfaceWrapper, &ImportedSurface)>>,
+    output_query: Extract<Query<&OutputWrapper>>,
+    window_quert: Extract<Query<&WaylandWindow>>,
+    render_device: Res<RenderDevice>,
+    mut render_images: ResMut<RenderAssets<Image>>,
+    mut events: ResMut<SpriteAssetEvents>,
+) {
+    let span = span!(Level::ERROR, "import surface");
+    let _enter = span.enter();
+    let output = output_query.single();
+    let mut render_states = RenderElementStates {
+        states: HashMap::new(),
+    };
+    for (entity, surface, imported) in query.iter() {
+        let gpu_image: Option<GpuImage> = imported.flush.load(Ordering::Acquire).then_some(()).and_then(|()|{
+with_states(surface, |s| {
+            let Some( mut surface_state )=s.data_map.get::<RefCell<RendererSurfaceState>>().map(|c|c.borrow_mut())else{
+                error!(
+                    surface = ?surface.id(),
+                    ?entity,
+                    "RendererSurfaceState not found in surface.",
+                );
+                return None
+            } ;
+            match import_wl_surface(
+                &mut surface_state,
+                &imported.damages,
+                &render_device.wgpu_device(),
+            ) {
+                Ok(o) => Some(o),
+                Err(e) => {
+                    error!(
+                        surface = ?surface.id(),
+                        ?entity,
+                        error = %e,
+                        "failed to import surface.",
+                    );
+                    None
+                }
+            }
+            })
+        }) ;
+        render_states.states.insert(
+            Id::from_wayland_resource(&surface.0),
+            if imported.flush.load(Ordering::Acquire) {
+                RenderElementState {
+                    visible_area: (imported.size.w * imported.size.h) as usize,
+                    presentation_state: RenderElementPresentationState::Rendering { reason: None },
+                }
+            } else {
+                RenderElementState {
+                    visible_area: 0,
+                    presentation_state: RenderElementPresentationState::Skipped,
+                }
+            },
+        );
+        if let Some(gpu_image) = gpu_image {
+            trace!(
+                surface = ?surface.id(),
+                gpu_image = ?gpu_image.texture.id(),
+                image = ?&imported.texture,
+                "import surface",
+            );
+            events.images.push(AssetEvent::Modified {
+                handle: imported.texture.clone(),
+            });
+            render_images.insert(imported.texture.clone(), gpu_image);
+            imported.flush.store(false, Ordering::Release);
+        }
+    }
+    unsafe {
+        render_device
+            .wgpu_device()
+            .as_hal::<wgpu_hal::api::Gles, _, _>(|hal_device| {
+                if let Some(hal_device) = hal_device {
+                    let gl: &glow::Context = &hal_device.context().lock();
+                    gl.flush();
+                    gl.finish();
+                }
+            });
+    }
+    for window in window_quert.iter() {
+        window.with_surfaces(|surface, states| {
+            if let Some(output) = update_surface_primary_scanout_output(
+                surface,
+                &output,
+                states,
+                &render_states,
+                default_primary_scanout_output_compare,
+            ) {
+                with_fractional_scale(states, |fraction_scale| {
+                    fraction_scale.set_preferred_scale(output.current_scale().fractional_scale());
                 });
             }
-        } else {
-            error!("surface root not found");
-        }
+        });
+        window.send_frame(
+            &output,
+            time.elapsed(),
+            None,
+            surface_primary_scanout_output,
+        );
     }
 }
 
@@ -316,108 +473,6 @@ pub fn debug_texture(
         }
     }
 }
-pub fn import_surface(
-    _: NonSend<NonSendMarker>,
-    time: Extract<Res<Time>>,
-    query: Extract<Query<(Entity, &WlSurfaceWrapper, &ImportedSurface)>>,
-    output_query: Extract<Query<&OutputWrapper>>,
-    window_quert: Extract<Query<&WaylandWindow>>,
-    render_device: Res<RenderDevice>,
-    mut render_images: ResMut<RenderAssets<Image>>,
-    mut events: ResMut<SpriteAssetEvents>,
-) {
-    let output = output_query.single();
-    let mut render_states = RenderElementStates {
-        states: HashMap::new(),
-    };
-    for (entity, surface, imported) in query.iter() {
-        on_commit_buffer_handler(&surface.0);
-        let gpu_image: Option<GpuImage> = imported.flush.load(Ordering::Acquire).then_some(()).and_then(|()|{
-with_states(surface, |s| {
-            let Some( mut surface_state )=s.data_map.get::<RefCell<RendererSurfaceState>>().map(|c|c.borrow_mut())else{
-                error!(
-                    "RendererSurfaceState not found in surface {} on {entity:?}",
-                    surface.id()
-                );
-                return None
-            } ;
-            match import_wl_surface(
-                &mut surface_state,
-                &imported.damages,
-                &render_device.wgpu_device(),
-            ) {
-                Ok(o) => Some(o),
-                Err(e) => {
-                    error!(
-                        "failed to import surface of {} on {entity:?}: {e}",
-                        surface.id()
-                    );
-                    None
-                }
-            }
-            })
-        }) ;
-        render_states.states.insert(
-            Id::from_wayland_resource(&surface.0),
-            if imported.flush.load(Ordering::Acquire) {
-                RenderElementState {
-                    visible_area: (imported.size.w * imported.size.h) as usize,
-                    presentation_state: RenderElementPresentationState::Rendering { reason: None },
-                }
-            } else {
-                RenderElementState {
-                    visible_area: 0,
-                    presentation_state: RenderElementPresentationState::Skipped,
-                }
-            },
-        );
-        if let Some(gpu_image) = gpu_image {
-            trace!(
-                "import surface of {} on {entity:?}, gpu_image: {:?}, image: {:?}",
-                surface.id(),
-                gpu_image.texture.id(),
-                &imported.texture,
-            );
-            events.images.push(AssetEvent::Modified {
-                handle: imported.texture.clone(),
-            });
-            render_images.insert(imported.texture.clone(), gpu_image);
-            imported.flush.store(false, Ordering::Release);
-        }
-    }
-    unsafe {
-        render_device
-            .wgpu_device()
-            .as_hal::<wgpu_hal::api::Gles, _, _>(|hal_device| {
-                if let Some(hal_device) = hal_device {
-                    let gl: &glow::Context = &hal_device.context().lock();
-                    gl.flush();
-                    gl.finish();
-                }
-            });
-    }
-    for window in window_quert.iter() {
-        window.with_surfaces(|surface, states| {
-            if let Some(output) = update_surface_primary_scanout_output(
-                surface,
-                &output,
-                states,
-                &render_states,
-                default_primary_scanout_output_compare,
-            ) {
-                with_fractional_scale(states, |fraction_scale| {
-                    fraction_scale.set_preferred_scale(output.current_scale().fractional_scale());
-                });
-            }
-        });
-        window.send_frame(
-            &output,
-            time.elapsed(),
-            None,
-            surface_primary_scanout_output,
-        );
-    }
-}
 
 delegate_compositor!(DWay);
 impl CompositorHandler for DWay {
@@ -429,8 +484,19 @@ impl CompositorHandler for DWay {
         &mut self,
         surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
     ) {
-        trace!("commit {:?}", surface.id());
-        self.send_ecs_event(CommitSurface(surface.into()));
+        trace!(surface=?SurfaceId::from(surface),"commit");
+        on_commit_buffer_handler(&surface);
+        let surface_size = with_states(&surface, |states| {
+            let surface_size = states
+                .data_map
+                .get::<RefCell<RendererSurfaceState>>()
+                .and_then(|r| r.borrow().surface_size());
+            surface_size
+        });
+        self.send_ecs_event(CommitSurface {
+            surface: surface.into(),
+            surface_size,
+        });
     }
 }
 
@@ -512,7 +578,7 @@ impl ShmHandler for DWay {
 }
 impl BufferHandler for DWay {
     fn buffer_destroyed(&mut self, buffer: &WlBuffer) {
-        info!("buffer destroyed");
+        info!(buffer=?buffer.id(),"buffer destroyed");
     }
 }
 

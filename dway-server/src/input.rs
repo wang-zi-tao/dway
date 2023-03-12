@@ -21,7 +21,10 @@ use crate::{
     components::{
         SurfaceOffset, WaylandWindow, WindowIndex, WindowMark, WindowScale, WlSurfaceWrapper,
     },
-    events::{KeyboardInputOnWindow, MouseButtonOnWindow, MouseMoveOnWindow, MouseWheelOnWindow, MouseMotionOnWindow},
+    events::{
+        KeyboardInputOnWindow, MouseButtonOnWindow, MouseMotionOnWindow, MouseMoveOnWindow,
+        MouseWheelOnWindow,
+    },
     seat::PointerFocus,
     DWayServerComponent, EventLoopResource,
 };
@@ -63,6 +66,7 @@ pub fn on_mouse_move(
                 .to_i32_round();
             let serial = SERIAL_COUNTER.next_serial();
             let point = Point::from((pos.x as f64, pos.y as f64));
+            trace!(surface=?surface.id(),?point,"mouse move");
             if let Some(ptr) = dway.seat.get_pointer() {
                 ptr.motion(
                     dway,
@@ -119,7 +123,7 @@ pub fn on_mouse_motion(
                     dway,
                     Some((surface.0.clone(), offset)),
                     &RelativeMotionEvent {
-                        delta: delta,
+                        delta,
                         delta_unaccel: delta,
                         utime: time as u64,
                     },
@@ -229,7 +233,6 @@ pub fn on_keyboard(
         },
     ) in events.iter()
     {
-        dbg!(*scan_code, key_code, state);
         if let Some(surface) = window_index
             .get(id)
             .and_then(|&e| surface_query.get(e).ok())

@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use std::borrow::Cow;
@@ -51,10 +52,36 @@ use smithay::{
 
 pub struct Id(Uuid);
 
-#[derive(Component, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Component,Reflect, Clone, Hash, PartialEq, Eq)]
 pub enum SurfaceId {
     Wayland(ObjectId),
     X11(u32),
+}
+
+impl std::fmt::Debug for SurfaceId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Wayland(arg0) => {
+                f.write_str("Wl@")?;
+                f.write_str(&arg0.to_string()[11..])?;
+                Ok(())
+            }
+            Self::X11(arg0) => {
+                f.write_str("X@")?;
+                arg0.fmt(f)?;
+                Ok(())
+            }
+        }
+    }
+}
+
+impl ToString for SurfaceId {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Wayland(arg0) => format!("Wl@{}", &arg0.to_string()[11..]),
+            Self::X11(arg0) => format!("X@{arg0}"),
+        }
+    }
 }
 impl From<&WlSurfaceWrapper> for SurfaceId {
     fn from(value: &WlSurfaceWrapper) -> Self {
@@ -119,7 +146,11 @@ pub struct X11Window(pub X11Surface);
 
 #[derive(Component, Debug, Clone, Deref, DerefMut)]
 pub struct WlSurfaceWrapper(pub WlSurface);
-impl WlSurfaceWrapper {}
+impl WlSurfaceWrapper {
+    pub fn id(&self) -> SurfaceId {
+        self.into()
+    }
+}
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deref, DerefMut)]
 pub struct UUID(pub Uuid);

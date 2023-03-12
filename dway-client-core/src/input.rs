@@ -8,9 +8,8 @@ use bevy::{
     prelude::*,
     winit::WinitWindows,
 };
-use bevy_mod_picking::{PickingEvent, PickingRaycastSet};
-
-use bevy_mod_raycast::Intersection;
+// use bevy_mod_picking::{PickingEvent, PickingRaycastSet};
+// use bevy_mod_raycast::Intersection;
 use dway_server::{
     components::{Id, PhysicalRect, SurfaceId, WindowMark, WindowScale},
     events::{
@@ -162,32 +161,30 @@ fn cursor_move_on_window(
     mut motion_events_writer: EventWriter<MouseMotionOnWindow>,
     mut events: EventReader<MouseMotion>,
 ) {
-    for (interaction, backend) in &mut interaction_query {
-        for MouseMotion { delta } in events.iter() {
-            {
-                match *interaction {
-                    Interaction::None => {}
-                    _ => {
-                        let Ok((id, rect, window_scale)) = surfaces_query.get(backend.0) else{
-                    warn!("failed to get backend");
-                    continue;
-                };
-                        let Some((output, pos)) = &cursor.0  else {
-                    warn!("no cursor position data");
-                    continue;
-                };
-                        let relative = ivec2_to_point(*pos) - rect.0.loc;
-                        let scale = window_scale.cloned().unwrap_or_default().0;
-                        let logical = relative.to_f64().to_logical(scale).to_i32_round();
-                        events_writer.send(MouseMoveOnWindow(id.clone(), logical));
-                        motion_events_writer.send(MouseMotionOnWindow(
-                            id.clone(),
-                            vec2_to_point::<Physical>(*delta)
-                                .to_f64()
-                                .to_logical(scale)
-                                .to_i32_round(),
-                        ));
-                    }
+    for MouseMotion { delta } in events.iter() {
+        for (interaction, backend) in &mut interaction_query {
+            match *interaction {
+                Interaction::None => {}
+                _ => {
+                    let Ok((id, rect, window_scale)) = surfaces_query.get(backend.0) else{
+                        warn!("failed to get backend");
+                        continue;
+                    };
+                    let Some((output, pos)) = &cursor.0  else {
+                        warn!("no cursor position data");
+                        continue;
+                    };
+                    let relative = ivec2_to_point(*pos) - rect.0.loc;
+                    let scale = window_scale.cloned().unwrap_or_default().0;
+                    let logical = relative.to_f64().to_logical(scale).to_i32_round();
+                    events_writer.send(MouseMoveOnWindow(id.clone(), logical));
+                    motion_events_writer.send(MouseMotionOnWindow(
+                        id.clone(),
+                        vec2_to_point::<Physical>(*delta)
+                            .to_f64()
+                            .to_logical(scale)
+                            .to_i32_round(),
+                    ));
                 }
             }
         }

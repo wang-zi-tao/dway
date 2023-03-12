@@ -115,7 +115,7 @@ pub fn on_commit(
     window_query: Query<&WaylandWindow>,
     window_index: Res<WindowIndex>,
 ) {
-    for CommitSurface(id) in events.iter() {
+    for CommitSurface { surface: id, .. } in events.iter() {
         if let Some((mut wl_surface_wrapper, mut popup, mut imported_surface)) = window_index
             .get(id)
             .and_then(|&e| surface_query.get_mut(e).ok())

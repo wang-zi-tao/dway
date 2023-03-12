@@ -22,6 +22,24 @@ bytemuck = "1.13.0"
 smallvec = "1.10.0"
 bevy = {}
 
+[dependencies.smithay]
+# default-features = false
+features = [
+    "backend_drm",
+    "backend_egl",
+    "backend_gbm",
+    "backend_libinput",
+    "backend_session_libseat",
+    "backend_udev",
+    "backend_vulkan",
+    "desktop",
+    "renderer_gl",
+    "renderer_multi",
+    "use_system_lib",
+    "xwayland",
+]
+path = "../../smithay"
+
 [profile.dev]
 opt-level = 1
 

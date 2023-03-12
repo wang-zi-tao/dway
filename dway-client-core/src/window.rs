@@ -1,4 +1,5 @@
 use dway_util::ecs::QueryResultExt;
+use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use std::{mem::replace, time::SystemTime};
 
 use bevy::{
@@ -15,7 +16,7 @@ use crossbeam_channel::TryRecvError;
 use dway_protocol::window::WindowState;
 use dway_protocol::window::{ImageBuffer, WindowMessage, WindowMessageKind};
 use dway_server::{
-    components::{Id, SurfaceOffset, WindowScale},
+    components::{Id, SurfaceOffset, WindowScale, WlSurfaceWrapper},
     events::{CreateWindow, MouseButtonOnWindow, MouseMoveOnWindow},
     math::{ivec2_to_point, point_to_ivec2, rectangle_i32_center, vec2_to_point},
 };
@@ -44,6 +45,9 @@ use crate::{
 pub struct DWayWindowPlugin;
 impl Plugin for DWayWindowPlugin {
     fn build(&self, app: &mut App) {
+        app.register_type::<ZIndex>();
+        app.register_type::<WindowUiRoot>();
+
         use DWayClientSystem::*;
         app.add_system(focus_on_new_window.in_set(DWayClientSystem::UpdateFocus));
         app.add_system(create_window_ui.in_set(Create));
@@ -74,7 +78,7 @@ impl Backend {
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Reflect)]
 pub struct WindowUiRoot {
     pub input_rect_entity: Entity,
     pub surface_rect_entity: Entity,
@@ -113,7 +117,7 @@ pub fn create_window_ui(
     for CreateWindow(id) in events.iter() {
         if let Some((entity, rect, id, surface, offset)) = window_index
             .get(id)
-            .and_then(|&e| surface_query.get(e).map_err(|e| error!("{e}")).ok())
+            .and_then(|&e| surface_query.get(e).map_err(|e| error!(error=%e)).ok())
         {
             let backend = Backend::new(entity);
             let offset = offset.cloned().unwrap_or_default().0;
@@ -133,7 +137,7 @@ pub fn create_window_ui(
                             ),
                             ..default()
                         },
-                        background_color: BackgroundColor(Color::WHITE.with_a(0.2)),
+                        background_color: BackgroundColor(Color::NONE),
                         ..default()
                     },
                     backend,
@@ -150,7 +154,7 @@ pub fn create_window_ui(
                                 left: Val::Px(bbox_loc.x as f32),
                                 right: Val::Auto,
                                 top: Val::Px(bbox_loc.y as f32),
-                               bottom: Val::Auto,
+                                bottom: Val::Auto,
                             },
                             size: Size::new(
                                 Val::Px(bbox_size.x as f32),
@@ -186,11 +190,15 @@ pub fn create_window_ui(
                 ))
                 .add_child(surface_rect_entity)
                 .id();
-            commands.entity(ui_entity).log_components();
             commands
                 .entity(entity)
                 .insert(Frontends(SmallVec::from_buf([ui_entity])));
-            info!("create front end of {id:?} on {entity:?},texture:{:?}, rect:{rect:?}, ui: [{ui_entity:?}]",&surface.texture);
+            info!(
+                surface=?id,
+                ?entity,
+                texture=?&surface.texture,
+                ui=?[ui_entity],
+                "create ui for surface");
         }
     }
 }
@@ -278,22 +286,22 @@ pub fn update_window_state(
 }
 
 pub fn update_window_geo(
-    window_query: Query<(&Backend, &WindowUiRoot)>,
-    mut style_query: Query<&mut Style>,
+    mut window_query: Query<(&Backend, &WindowUiRoot,&mut ZIndex)>,
+    mut style_query: Query<(&mut Style, &mut ZIndex),Without<WindowUiRoot>>,
     surface_query: Query<
-        (&GlobalPhysicalRect, Option<&SurfaceOffset>),
+        (&GlobalPhysicalRect, &WlSurfaceWrapper, Option<&SurfaceOffset>),
         (
             With<WindowMark>,
             Or<(Changed<GlobalPhysicalRect>, Changed<SurfaceOffset>)>,
         ),
     >,
 ) {
-    for (backend, ui_root) in window_query.iter() {
-        if let Ok((rect, surface_offset)) = surface_query.get(backend.get()) {
+    for (backend, ui_root,mut z_index) in window_query.iter_mut() {
+        if let Ok((rect, surface, surface_offset)) = surface_query.get(backend.get()) {
             let offset = surface_offset.cloned().unwrap_or_default();
             let bbox_loc = rect.0.loc + offset.0.loc;
             let bbox_size = rect.0.size.to_point() - offset.0.loc - offset.0.loc;
-            if let Ok(mut style) = style_query.get_mut(ui_root.input_rect_entity) {
+            if let Ok((mut style, mut z_index)) = style_query.get_mut(ui_root.input_rect_entity) {
                 style.position = UiRect {
                     left: Val::Px(-offset.loc.x as f32),
                     right: Val::Auto,
@@ -303,7 +311,7 @@ pub fn update_window_geo(
                 style.size =
                     Size::new(Val::Px(rect.0.size.w as f32), Val::Px(rect.0.size.h as f32));
             }
-            if let Ok(mut style) = style_query.get_mut(ui_root.surface_rect_entity) {
+            if let Ok((mut style, mut z_index)) = style_query.get_mut(ui_root.surface_rect_entity) {
                 style.position = UiRect {
                     left: Val::Px(bbox_loc.x as f32),
                     right: Val::Auto,

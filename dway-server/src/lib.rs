@@ -85,15 +85,19 @@ use smithay::{
         },
         shm::ShmState,
         socket::ListeningSocketSource,
+        tablet_manager::TabletSeatTrait,
         text_input::TextInputManagerState,
         viewporter::ViewporterState,
         virtual_keyboard::VirtualKeyboardManagerState,
-        xdg_activation::XdgActivationState, tablet_manager::TabletSeatTrait,
+        xdg_activation::XdgActivationState,
     },
     xwayland::{X11Wm, XWayland, XWaylandEvent},
 };
 
-use crate::{components::WindowIndex, cursor::Cursor};
+use crate::{
+    components::{PhysicalRect, SurfaceId, WindowIndex},
+    cursor::Cursor,
+};
 
 // pub fn main_loop(receiver: Receiver<WindowMessage>, sender: Sender<WindowMessage>) {
 //     let log = logger();
@@ -426,9 +430,9 @@ impl Plugin for DWayServerPlugin {
 
         app.add_system(popup::create_popup.in_set(Create));
         app.add_system(popup::reposition_request.in_set(PreUpdate));
-        app.add_system(popup::on_commit.in_set(PreUpdate));
+        app.add_system(popup::on_commit.in_set(PreUpdate).after(surface::do_commit));
 
-        app.add_system(surface::on_commit.in_set(PreUpdate));
+        app.add_system(surface::do_commit.in_set(PreUpdate));
         app.add_system(surface::create_surface.in_set(CreateComponent));
         app.add_system(surface::change_size.in_set(PostUpdate));
 
@@ -437,7 +441,11 @@ impl Plugin for DWayServerPlugin {
         app.add_system(placement::update_physical_rect.in_set(PostUpdate));
 
         app.add_system(input::on_mouse_move.in_set(PostUpdate));
-        app.add_system(input::on_mouse_motion.in_set(PostUpdate));
+        app.add_system(
+            input::on_mouse_motion
+                .in_set(PostUpdate)
+                .before(input::on_mouse_move),
+        );
         app.add_system(input::on_mouse_button.in_set(PostUpdate));
         app.add_system(input::on_mouse_wheel.in_set(PostUpdate));
         app.add_system(input::on_keyboard.in_set(PostUpdate));
