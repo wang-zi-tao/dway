@@ -2592,6 +2592,7 @@ dependencies = [
  "lru 0.10.0",
  "rand",
  "smallvec",
+ "smithay",
  "uuid",
 ]
 

@@ -88,7 +88,7 @@ use smithay::{
         text_input::TextInputManagerState,
         viewporter::ViewporterState,
         virtual_keyboard::VirtualKeyboardManagerState,
-        xdg_activation::XdgActivationState,
+        xdg_activation::XdgActivationState, tablet_manager::TabletSeatTrait,
     },
     xwayland::{X11Wm, XWayland, XWaylandEvent},
 };
@@ -126,6 +126,7 @@ pub struct DWay {
     pub display_number: Option<u32>,
     pub seat: Seat<Self>,
 
+    pub xwayland: XWayland,
     pub seat_state: SeatState<Self>,
     pub xdg_shell: XdgShellState,
     pub xwm: Option<X11Wm>,
@@ -165,6 +166,12 @@ impl DWay {
         seat.add_keyboard(XkbConfig::default(), 200, 25)
             .expect("Failed to initialize the keyboard");
 
+        let cursor_status2 = cursor_status.clone();
+        seat.tablet_seat()
+            .on_cursor_surface(move |_tool, new_status| {
+                // TODO: tablet tools should have their own cursors
+                *cursor_status2.lock().unwrap() = new_status;
+            });
         seat.add_input_method(XkbConfig::default(), 200, 25);
 
         handle.insert_source(source, |client_stream, _, data| {
@@ -189,11 +196,9 @@ impl DWay {
                 Ok(PostAction::Continue)
             },
         )?;
-        let (xwayland, channel) = XWayland::new(&dh);
-        x11_window::init(channel, &dh, handle);
 
-        VirtualKeyboardManagerState::new::<Self, _>(&dh, |_client| true);
-        // let keyboard_shortcuts_inhibit_state = KeyboardShortcutsInhibitState::new::<Self>(&dh);
+        VirtualKeyboardManagerState::new::<Self, _>(&dh, |client| true);
+        let keyboard_shortcuts_inhibit_state = KeyboardShortcutsInhibitState::new::<Self>(&dh);
         Ok(DWay {
             // backend: todo!(),
             commands: Default::default(),
@@ -203,6 +208,7 @@ impl DWay {
             xwm: None,
             seat_state,
             seat,
+            xwayland: x11_window::init(&dh, handle),
             data_device_state: DataDeviceState::new::<Self>(&dh),
             compositor: CompositorState::new::<Self>(&dh),
             xdg_shell: XdgShellState::new::<Self>(&dh),
@@ -247,6 +253,11 @@ pub struct DWayServerComponent {
     pub dway: DWay,
     pub display: Display<DWay>,
 }
+#[derive(Resource)]
+pub struct SeatWrapper {
+    pub seat: Seat<DWay>,
+}
+
 pub fn new_backend(event_loop: NonSend<EventLoopResource>, mut commands: Commands) {
     let mut display = Display::new().unwrap();
     let handle = event_loop.0.handle();
@@ -271,11 +282,12 @@ pub fn new_backend(event_loop: NonSend<EventLoopResource>, mut commands: Command
     commands.spawn(OutputWrapper(output));
 
     let dway = DWay::new(&mut display, &handle).unwrap();
-    let mut command = process::Command::new("gnome-calculator");
     let mut command = process::Command::new("alacritty");
     command.args(&["-e", "htop", "-d", "2"]);
     command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+    let mut command = process::Command::new("weston-terminal");
     let mut command = process::Command::new("gnome-system-monitor");
+    let mut command = process::Command::new("gnome-calculator");
     dway.spawn(command);
     commands.spawn(DWayServerComponent { dway, display });
 }
@@ -382,8 +394,10 @@ impl Plugin for DWayServerPlugin {
         app.add_event::<events::UpdatePopupPosition>();
         app.add_event::<events::CloseWindowRequest>();
         app.add_event::<events::MouseMoveOnWindow>();
+        app.add_event::<events::MouseMotionOnWindow>();
         app.add_event::<events::MouseButtonOnWindow>();
-        app.add_event::<events::KeyboardInputOnWindw>();
+        app.add_event::<events::MouseWheelOnWindow>();
+        app.add_event::<events::KeyboardInputOnWindow>();
         app.add_event::<events::NewDecoration>();
         app.add_event::<events::UnsetMode>();
 
@@ -417,15 +431,16 @@ impl Plugin for DWayServerPlugin {
         app.add_system(surface::on_commit.in_set(PreUpdate));
         app.add_system(surface::create_surface.in_set(CreateComponent));
         app.add_system(surface::change_size.in_set(PostUpdate));
-        // app.add_system( surface::clean_damage.in_set(Destroy));
-        // app.add_system( surface::send_frame);
 
         app.add_system(placement::place_new_window.in_set(CreateComponent));
         app.add_system(placement::update_global_physical_rect.in_set(Update));
         app.add_system(placement::update_physical_rect.in_set(PostUpdate));
 
         app.add_system(input::on_mouse_move.in_set(PostUpdate));
+        app.add_system(input::on_mouse_motion.in_set(PostUpdate));
         app.add_system(input::on_mouse_button.in_set(PostUpdate));
+        app.add_system(input::on_mouse_wheel.in_set(PostUpdate));
+        app.add_system(input::on_keyboard.in_set(PostUpdate));
 
         // app.add_system(print_window_list.before(Update));
 
@@ -433,21 +448,9 @@ impl Plugin for DWayServerPlugin {
             render_app.add_system(
                 surface::import_surface
                     .in_schedule(ExtractSchedule)
-                    // .pipe(surface::send_frame)
-                    // .in_set(DWayRenderin_set::Import)
                     .after(RenderUiSystem::ExtractNode)
                     .after(SpriteSystem::ExtractSprites), // .before(DWayRenderin_set::SendFrame),
             );
-            // render_app.add_system(
-            //     RenderStage::Extract,
-            //     surface::debug_texture
-            //         .in_set(DWayRenderin_set::SendFrame)
-            //         .after(DWayRenderin_set::Import),
-            // );
-            // render_app.add_system(
-            //     RenderStage::Extract,
-            //     surface::send_frame.after(DWayRenderin_set::Import),
-            // );
         }
     }
 }

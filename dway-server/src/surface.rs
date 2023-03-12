@@ -253,8 +253,6 @@ pub fn on_commit(
                 physical_rect.map(|mut r| {
                     r.0 = geo.to_f64().to_physical_precise_round(scale).to_i32_round();
                 });
-            } else {
-                error!("window not found");
             }
         } else {
             error!("surface root not found");

@@ -133,7 +133,7 @@ pub fn create_window_ui(
                             ),
                             ..default()
                         },
-                        background_color: BackgroundColor(Color::NONE),
+                        background_color: BackgroundColor(Color::WHITE.with_a(0.2)),
                         ..default()
                     },
                     backend,
@@ -142,7 +142,6 @@ pub fn create_window_ui(
                 .id();
             let bbox_loc = rect.0.loc + offset.loc;
             let bbox_size = rect.0.size.to_point() - offset.loc - offset.loc;
-            dbg!(offset, bbox_loc, bbox_size);
             let surface_rect_entity = commands
                 .spawn((
                     ImageBundle {
@@ -151,7 +150,7 @@ pub fn create_window_ui(
                                 left: Val::Px(bbox_loc.x as f32),
                                 right: Val::Auto,
                                 top: Val::Px(bbox_loc.y as f32),
-                                bottom: Val::Auto,
+                               bottom: Val::Auto,
                             },
                             size: Size::new(
                                 Val::Px(bbox_size.x as f32),
@@ -296,9 +295,9 @@ pub fn update_window_geo(
             let bbox_size = rect.0.size.to_point() - offset.0.loc - offset.0.loc;
             if let Ok(mut style) = style_query.get_mut(ui_root.input_rect_entity) {
                 style.position = UiRect {
-                    left: Val::Px(offset.loc.x as f32),
+                    left: Val::Px(-offset.loc.x as f32),
                     right: Val::Auto,
-                    top: Val::Px(offset.loc.y as f32),
+                    top: Val::Px(-offset.loc.y as f32),
                     bottom: Val::Auto,
                 };
                 style.size =

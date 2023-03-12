@@ -65,6 +65,7 @@ pub fn create_popup(
                         },
                     })
                     .id();
+                info!("create popup for {id:?} at {entity:?}");
                 windows.0.insert(id, entity);
             });
         };

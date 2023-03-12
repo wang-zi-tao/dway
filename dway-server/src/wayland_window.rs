@@ -165,6 +165,8 @@ impl XdgShellHandler for DWay {
         surface: smithay::wayland::shell::xdg::PopupSurface,
         positioner: smithay::wayland::shell::xdg::PositionerState,
     ) {
+        trace!("new popup {:?}", surface.wl_surface().id());
+        self.send_ecs_event(CreateWindow((&surface).into()));
         self.send_ecs_event(CreatePopup(surface, positioner));
     }
 
@@ -295,7 +297,7 @@ impl XdgShellHandler for DWay {
     }
 
     fn toplevel_destroyed(&mut self, surface: ToplevelSurface) {
-        self.send_ecs_event(DestroyPopup(surface.into()));
+        self.send_ecs_event(DestroyWlSurface(surface.into()));
     }
 
     fn popup_destroyed(&mut self, surface: smithay::wayland::shell::xdg::PopupSurface) {

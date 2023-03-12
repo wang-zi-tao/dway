@@ -61,7 +61,7 @@ pub unsafe fn import_dma(
         khronos_egl::HEIGHT as i32,
         dma_buffer.height() as i32,
         LINUX_DRM_FOURCC_EXT as i32,
-        dma_buffer.format().code as u32 as i32,
+        dma_buffer.format().code as i32,
     ]);
 
     let names = [
@@ -214,7 +214,6 @@ pub unsafe fn import_memory(
             glow::UNSIGNED_BYTE,
             Some(buffer),
         );
-        gl.generate_mipmap(glow::TEXTURE_2D);
     } else {
         for region in damage.iter() {
             gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, region.loc.x);
@@ -234,6 +233,7 @@ pub unsafe fn import_memory(
             gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);
         }
     }
+    gl.generate_mipmap(glow::TEXTURE_2D);
     gl.bind_texture(glow::TEXTURE_2D, None);
     Ok((texture, Size::from((metadata.width, metadata.height))))
 }
@@ -301,7 +301,7 @@ pub unsafe fn create_gpu_image(
     raw_image: NonZeroU32,
     size: Size<i32, Physical>,
 ) -> Fallible<GpuImage> {
-    let texture_format = wgpu::TextureFormat::Rgba8Snorm;
+    let texture_format = wgpu::TextureFormat::Rgba8UnormSrgb;
     let hal_texture: <Gles as Api>::Texture = device.as_hal::<Gles, _, _>(|hal_device| {
         Fallible::Ok(
             hal_device
@@ -320,7 +320,7 @@ pub unsafe fn create_gpu_image(
                         dimension: wgpu::TextureDimension::D2,
                         format: texture_format,
                         memory_flags: MemoryFlags::empty(),
-                        usage: TextureUses::COPY_DST | TextureUses::all(),
+                        usage: TextureUses::COPY_DST,
                         view_formats: vec![texture_format],
                     },
                     None,
@@ -342,15 +342,14 @@ pub unsafe fn create_gpu_image(
             format: texture_format,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT
                 | wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::STORAGE_BINDING
-                | wgpu::TextureUsages::all(),
+                | wgpu::TextureUsages::STORAGE_BINDING,
             view_formats: &[texture_format],
         },
     );
     let texture: wgpu::Texture = wgpu_texture.into();
     let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
         label: None,
-        format: None,
+        format: Some(texture_format),
         dimension: None,
         aspect: TextureAspect::All,
         base_mip_level: 0,
@@ -451,7 +450,6 @@ pub fn import_wl_surface(
                             return Err(format_err!("unnkown buffer type"));
                         }
                     };
-                    gl.finish();
                     Ok((raw_image, size))
                 })
             }?;

@@ -3,4 +3,4 @@ trace-*.json
 perf.data
 perf.data.old
 flamegraph.svg
-*.rs~
+*\~

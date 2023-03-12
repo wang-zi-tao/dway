@@ -385,11 +385,8 @@ impl XwmHandler for DWayServerComponent {
         self.dway.send_ecs_event(MoveRequest((&window).into()));
     }
 }
-pub fn init(
-    channel: XWaylandSource,
-    dh: &DisplayHandle,
-    handle: &LoopHandle<'static, DWayServerComponent>,
-) {
+pub fn init(dh: &DisplayHandle, handle: &LoopHandle<'static, DWayServerComponent>)->XWayland {
+    let (xwayland, channel) = XWayland::new(&dh);
     let dh2 = dh.clone();
     let handle2 = handle.clone();
     let ret = handle.insert_source(channel, move |event, _, data| match event {
@@ -424,4 +421,5 @@ pub fn init(
             e
         );
     }
+    xwayland
 }

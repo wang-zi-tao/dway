@@ -199,9 +199,9 @@ impl PointerTarget<DWay> for PointerFocus {
 }
 
 impl SeatHandler for DWay {
-    type KeyboardFocus = KeyboardFocus;
+    type KeyboardFocus = WlSurface;
 
-    type PointerFocus = PointerFocus;
+    type PointerFocus = WlSurface;
 
     fn seat_state(&mut self) -> &mut smithay::input::SeatState<Self> {
         &mut self.seat_state

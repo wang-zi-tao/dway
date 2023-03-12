@@ -6,7 +6,7 @@ impl PrimarySelectionHandler for DWay {
     fn primary_selection_state(
         &self,
     ) -> &smithay::wayland::primary_selection::PrimarySelectionState {
-        todo!()
+        &self.primary_selection_state
     }
 
     fn send_selection(&mut self, mime_type: String, fd: std::os::fd::OwnedFd) {}
