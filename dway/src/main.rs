@@ -49,7 +49,7 @@ fn main() {
             })
             .set(LogPlugin {
                 level: Level::INFO,
-                filter: "dway=trace,bevy_ecs=trace,smithay=info,wgpu=warn,nega=info,nega::front=info,bevy_render=debug,bevy_ui=trace".to_string(),
+                filter: "dway=trace,bevy_ecs=debug,smithay=info,wgpu=warn,nega=info,nega::front=info,bevy_render=debug,bevy_ui=trace".to_string(),
             }),
     );
     // .insert_resource(ClearColor(Color::rgb(0.0, 0.388, 1.0)))

@@ -50,10 +50,18 @@ impl Plugin for DWayWindowPlugin {
 
         use DWayClientSystem::*;
         app.add_system(focus_on_new_window.in_set(DWayClientSystem::UpdateFocus));
-        app.add_system(create_window_ui.in_set(Create));
+        app.add_system(
+            create_window_ui
+                .run_if(on_event::<CreateWindow>())
+                .in_set(Create),
+        );
         app.add_system(update_window_state.in_set(UpdateState));
         app.add_system(update_window_geo.in_set(UpdateState));
-        app.add_system(destroy_window_ui.in_set(Destroy));
+        app.add_system(
+            destroy_window_ui
+                .run_if(on_event::<DestroyWlSurface>())
+                .in_set(Destroy),
+        );
     }
 }
 
@@ -137,7 +145,7 @@ pub fn create_window_ui(
                             ),
                             ..default()
                         },
-                        background_color: BackgroundColor(Color::NONE),
+                        background_color: BackgroundColor(Color::RED.with_a(0.1)),
                         ..default()
                     },
                     backend,
@@ -286,21 +294,25 @@ pub fn update_window_state(
 }
 
 pub fn update_window_geo(
-    mut window_query: Query<(&Backend, &WindowUiRoot,&mut ZIndex)>,
-    mut style_query: Query<(&mut Style, &mut ZIndex),Without<WindowUiRoot>>,
+    mut window_query: Query<(&Backend, &WindowUiRoot, &mut ZIndex)>,
+    mut style_query: Query<(&mut Style, &mut ZIndex), Without<WindowUiRoot>>,
     surface_query: Query<
-        (&GlobalPhysicalRect, &WlSurfaceWrapper, Option<&SurfaceOffset>),
+        (
+            &GlobalPhysicalRect,
+            &WlSurfaceWrapper,
+            Option<&SurfaceOffset>,
+        ),
         (
             With<WindowMark>,
             Or<(Changed<GlobalPhysicalRect>, Changed<SurfaceOffset>)>,
         ),
     >,
 ) {
-    for (backend, ui_root,mut z_index) in window_query.iter_mut() {
+    for (backend, ui_root, mut z_index) in window_query.iter_mut() {
         if let Ok((rect, surface, surface_offset)) = surface_query.get(backend.get()) {
             let offset = surface_offset.cloned().unwrap_or_default();
             let bbox_loc = rect.0.loc + offset.0.loc;
-            let bbox_size = rect.0.size.to_point() - offset.0.loc - offset.0.loc;
+            let bbox_size = offset.0.size.to_point();
             if let Ok((mut style, mut z_index)) = style_query.get_mut(ui_root.input_rect_entity) {
                 style.position = UiRect {
                     left: Val::Px(-offset.loc.x as f32),

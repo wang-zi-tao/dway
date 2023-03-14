@@ -35,11 +35,31 @@ impl Plugin for DWayInputPlugin {
     fn build(&self, app: &mut App) {
         // app.add_system(print_pick_events.label(WindowLabel::Input));
         use DWayClientSystem::*;
-        app.add_system(mouse_move_on_winit_window.in_set(Create));
-        app.add_system(cursor_move_on_window.in_set(Input));
-        app.add_system(mouse_button_on_window.in_set(Input));
-        app.add_system(mouse_wheel_on_window.in_set(Input));
-        app.add_system(keyboard_input_system.in_set(Input));
+        app.add_system(
+            mouse_move_on_winit_window
+                .run_if(on_event::<CursorMoved>())
+                .in_set(Create),
+        );
+        app.add_system(
+            cursor_move_on_window
+                .run_if(on_event::<MouseMotion>())
+                .in_set(Input),
+        );
+        app.add_system(
+            mouse_button_on_window
+                .run_if(on_event::<MouseButtonInput>())
+                .in_set(Input),
+        );
+        app.add_system(
+            mouse_wheel_on_window
+                .run_if(on_event::<MouseWheel>())
+                .in_set(Input),
+        );
+        app.add_system(
+            keyboard_input_system
+                .run_if(on_event::<KeyboardInput>())
+                .in_set(Input),
+        );
         if self.debug {
             app.add_startup_system(setup_debug_cursor);
             app.add_system(debug_follow_cursor.in_set(UpdateUI));

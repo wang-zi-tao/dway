@@ -49,7 +49,7 @@ use smithay::{
         find_popup_root_surface,
         space::SpaceElement,
         utils::{surface_primary_scanout_output, update_surface_primary_scanout_output},
-        PopupKind,
+        PopupKind, PopupManager,
     },
     output::{Output, PhysicalProperties, Subpixel},
     reexports::{
@@ -69,7 +69,7 @@ use smithay::{
             Display, DisplayHandle, Resource,
         },
     },
-    utils::{Logical, Physical, Rectangle},
+    utils::{Logical, Physical, Point, Rectangle},
     wayland::{
         buffer::BufferHandler,
         compositor::{
@@ -219,13 +219,14 @@ pub fn do_commit(
             .and_then(|&e| surface_query.get_mut(e).ok())
         {
             let surface = &mut wl_surface_wrapper;
-            let mut root = surface.0.clone();
-            while let Some(parent) = get_parent(&root) {
-                root = parent;
-            }
-            tree_root = Some(root);
             imported_surface.flush.store(true, Ordering::Release);
             if let Some(window) = window {
+                let mut root = surface.0.clone();
+                while let Some(parent) = get_parent(&root) {
+                    root = parent;
+                }
+                tree_root = Some(root);
+
                 let initial_configure_sent =
                     with_states_locked(surface, |s: &mut XdgToplevelSurfaceRoleAttributes| {
                         s.initial_configure_sent
@@ -234,6 +235,14 @@ pub fn do_commit(
                     window.toplevel().send_configure();
                 }
             } else if let Some(popup) = popup {
+                let PopupKind::Xdg(popup_surface) = popup.kind.clone();
+                if let Some(mut root) = popup_surface.get_parent_surface() {
+                    while let Some(parent) = get_parent(&root) {
+                        root = parent;
+                    }
+                    tree_root = Some(root);
+                }
+
                 let initial_configure_sent =
                     with_states_locked(surface, |s: &mut XdgPopupSurfaceRoleAttributes| {
                         s.initial_configure_sent
@@ -250,8 +259,9 @@ pub fn do_commit(
             warn!(surface = id.to_string(), "surface entity not found.");
             continue;
         }
-        if let Some(root) = tree_root {
-            let root_id = SurfaceId::from(&root);
+        let mut root_surface_offset = None;
+        if let Some(root) = tree_root.as_ref() {
+            let root_id = SurfaceId::from(root);
             if let Some((
                 mut wl_surface_wrapper,
                 imported_surface,
@@ -265,6 +275,7 @@ pub fn do_commit(
                 .get(&root_id)
                 .and_then(|&e| surface_query.get_mut(e).ok())
             {
+                root_surface_offset = surface_offset.as_ref().map(|s| s.0.clone());
                 if let Some(window) = wayland_window {
                     window.on_commit();
                     let geo = window.geometry();
@@ -272,13 +283,17 @@ pub fn do_commit(
                     let scale = window_scale.cloned().unwrap_or_default().0;
                     let offset = bbox.loc - geo.loc;
                     surface_offset.map(|mut r| {
-                        r.0 = Rectangle::from_loc_and_size(offset, geo.size)
+                        r.0.loc = offset
                             .to_f64()
                             .to_physical_precise_round(scale)
                             .to_i32_round();
                     });
                     physical_rect.map(|mut r| {
-                        r.0 = geo.to_f64().to_physical_precise_round(scale).to_i32_round();
+                        r.0.size = geo
+                            .size
+                            .to_f64()
+                            .to_physical_precise_round(scale)
+                            .to_i32_round();
                     });
                 } else if let Some(window) = x11_window {
                 } else {
@@ -295,17 +310,79 @@ pub fn do_commit(
             popup,
             x11_window,
             window_scale,
-            physical_rect,
-            surface_offset,
+            mut physical_rect,
+            mut surface_offset,
         )) = window_index
             .get(&id)
             .and_then(|&e| surface_query.get_mut(e).ok())
         {
-            let surface = &mut wl_surface_wrapper;
-            let mut root = surface.0.clone();
-            if let (Some(mut surface_offset), Some(surface_size)) = (surface_offset, surface_size) {
+            let surface = &mut wl_surface_wrapper.0;
+            if let Some(popup) = popup {
+                let PopupKind::Xdg(popup_surface) = popup.kind.clone();
+                let offset = popup.position.offset;
+                let geo = popup.kind.geometry();
+                let anchor_rect = popup.position.anchor_rect;
+                // let bbox = popup.kind.bbox();
                 let scale = window_scale.cloned().unwrap_or_default().0;
-                surface_offset.size = surface_size.to_f64().to_physical(scale).to_i32_round();
+                // let offset = bbox.loc - geo.loc;
+                // surface_offset.map(|mut r| {
+                //     r.0 = Rectangle::from_loc_and_size(offset, surface_size.unwrap_or_default())
+                //         .to_f64()
+                //         .to_physical_precise_round(scale)
+                //         .to_i32_round();
+                // });
+
+                let geometry=with_states(&surface, |states| {
+                    states
+                        .data_map
+                        .get::<XdgPopupSurfaceData>()
+                        .unwrap()
+                        .lock()
+                        .unwrap()
+                        .current
+                        
+                });
+                dbg!(&surface, &popup,geometry, popup.position.get_geometry());
+                if let Some(tree_root) = tree_root.as_ref() {
+                    dbg!(&tree_root);
+                    if let Some((_, popup_offset)) = PopupManager::popups_for_surface(&tree_root)
+                        .into_iter()
+                        .find(|(sub, offset)| {
+                            dbg!(sub, &surface);
+                            sub.wl_surface() == &*surface
+                        })
+                    {
+                        dbg!(offset);
+                        // let offset = (popup_offset - popup.kind.geometry().loc)
+                        //     .to_f64()
+                        //     .to_physical(scale)
+                        //     .to_i32_round();
+                        if let Some(root_surface_offset) = root_surface_offset {
+                            if let Some(mut surface_offset) = surface_offset.as_mut() {
+                                surface_offset.loc =
+                                    popup_offset.to_f64().to_physical(scale).to_i32_round();
+                                dbg!(surface_offset, popup_offset);
+                                // surface_offset.loc = root_surface_offset.loc;
+                            }
+                        }
+                    }
+                }
+                physical_rect.as_mut().map(|mut r| {
+                    r.0 = popup
+                        .position
+                        .get_geometry()
+                        .to_f64()
+                        .to_physical_precise_round(scale)
+                        .to_i32_round();
+                });
+            }
+            if let Some(mut surface_offset) = surface_offset {
+                if let Some(surface_size) = surface_size {
+                    let scale = window_scale.cloned().unwrap_or_default().0;
+                    surface_offset.size = surface_size.to_f64().to_physical(scale).to_i32_round();
+                } else {
+                    error!("no surface size");
+                }
             }
         }
     }

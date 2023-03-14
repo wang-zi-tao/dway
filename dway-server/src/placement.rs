@@ -37,19 +37,6 @@ pub fn place_new_window(
     }
 }
 
-pub fn update_physical_rect(
-    mut root_query: Query<
-        (&mut PhysicalRect, &LogicalRect, Option<&WindowScale>),
-        Or<(Changed<LogicalRect>, Changed<WindowScale>)>,
-    >,
-) {
-    for (mut physical_rect, logical_rect, scale) in root_query.iter_mut() {
-        physical_rect.0 = logical_rect
-            .0
-            .to_physical_precise_round(scale.cloned().unwrap_or_default().0);
-    }
-}
-
 fn do_update_node(
     mut dest: Mut<GlobalPhysicalRect>,
     relative: PhysicalRect,
@@ -85,5 +72,19 @@ pub fn update_global_physical_rect(
 ) {
     for (global, rect, children) in root_query.iter_mut() {
         do_update_node(global, *rect, Default::default(), children, &children_query);
+    }
+}
+pub fn update_logical_rect(
+    mut rect_query: Query<
+        (&mut LogicalRect, &PhysicalRect, Option<&WindowScale>),
+        Or<(Changed<PhysicalRect>, Changed<WindowScale>)>,
+    >,
+) {
+    for (mut logical, physical, scale) in &mut rect_query {
+        let scale = scale.cloned().unwrap_or_default().0;
+        let new_logical = physical.to_f64().to_logical(scale).to_i32_round();
+        if new_logical != logical.0 {
+            logical.0 = new_logical;
+        }
     }
 }

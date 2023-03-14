@@ -97,6 +97,12 @@ use smithay::{
 use crate::{
     components::{PhysicalRect, SurfaceId, WindowIndex},
     cursor::Cursor,
+    events::{
+        CloseWindowRequest, CommitSurface, ConfigureX11WindowRequest, CreateTopLevelEvent,
+        CreateWindow, CreateX11WindowEvent, DestroyWlSurface, KeyboardInputOnWindow,
+        MouseButtonOnWindow, MouseMotionOnWindow, MouseWheelOnWindow, UnmapX11Window,
+        UpdatePopupPosition, X11WindowSetSurfaceEvent,
+    },
 };
 
 // pub fn main_loop(receiver: Receiver<WindowMessage>, sender: Sender<WindowMessage>) {
@@ -413,42 +419,116 @@ impl Plugin for DWayServerPlugin {
         app.add_system(dispatch.in_set(Dispatch));
         app.add_system(flush.in_set(Flush));
 
-        app.add_system(wayland_window::create_top_level.in_set(Create));
-        app.add_system(wayland_window::destroy_wl_surface.in_set(Destroy));
-        app.add_system(wayland_window::on_close_window_request.in_set(PostUpdate));
+        app.add_system(
+            wayland_window::create_top_level
+                .run_if(on_event::<CreateTopLevelEvent>())
+                .in_set(Create),
+        );
+        app.add_system(
+            wayland_window::destroy_wl_surface
+                .run_if(on_event::<DestroyWlSurface>())
+                .in_set(Destroy),
+        );
+        app.add_system(
+            wayland_window::on_close_window_request
+                .run_if(on_event::<CloseWindowRequest>())
+                .in_set(PostUpdate),
+        );
         app.add_system(wayland_window::on_state_changed.in_set(PostUpdate));
         app.add_system(wayland_window::on_rect_changed.in_set(PostUpdate));
 
-        app.add_system(x11_window::create_x11_surface.in_set(Create));
-        app.add_system(x11_window::map_x11_surface.in_set(PreUpdate));
-        app.add_system(x11_window::unmap_x11_surface.in_set(PreUpdate));
+        app.add_system(
+            x11_window::create_x11_surface
+                .run_if(on_event::<CreateX11WindowEvent>())
+                .in_set(Create),
+        );
+        app.add_system(
+            x11_window::map_x11_surface
+                .run_if(on_event::<X11WindowSetSurfaceEvent>())
+                .in_set(PreUpdate),
+        );
+        app.add_system(
+            x11_window::unmap_x11_surface
+                .run_if(on_event::<UnmapX11Window>())
+                .in_set(PreUpdate),
+        );
         app.add_system(x11_window::configure_notify.in_set(PreUpdate));
-        app.add_system(x11_window::configure_request.in_set(PreUpdate));
+        app.add_system(
+            x11_window::configure_request
+                .run_if(on_event::<ConfigureX11WindowRequest>())
+                .in_set(PreUpdate),
+        );
         app.add_system(x11_window::on_rect_changed.in_set(PostUpdate));
         app.add_system(x11_window::on_state_changed.in_set(PostUpdate));
-        app.add_system(x11_window::on_close_window_request.in_set(PostUpdate));
+        app.add_system(
+            x11_window::on_close_window_request
+                .run_if(on_event::<CloseWindowRequest>())
+                .in_set(PostUpdate),
+        );
 
-        app.add_system(popup::create_popup.in_set(Create));
-        app.add_system(popup::reposition_request.in_set(PreUpdate));
-        app.add_system(popup::on_commit.in_set(PreUpdate).after(surface::do_commit));
+        app.add_system(
+            popup::create_popup
+                .run_if(on_event::<CreateWindow>())
+                .in_set(Create),
+        );
+        app.add_system(
+            popup::reposition_request
+                .run_if(on_event::<UpdatePopupPosition>())
+                .in_set(PreUpdate),
+        );
+        app.add_system(
+            popup::on_commit
+                .run_if(on_event::<CommitSurface>())
+                .in_set(PreUpdate)
+                .after(surface::do_commit),
+        );
 
-        app.add_system(surface::do_commit.in_set(PreUpdate));
-        app.add_system(surface::create_surface.in_set(CreateComponent));
+        app.add_system(
+            surface::do_commit
+                .run_if(on_event::<CommitSurface>())
+                .in_set(PreUpdate),
+        );
+        app.add_system(
+            surface::create_surface
+                .run_if(on_event::<CreateWindow>())
+                .in_set(CreateComponent),
+        );
         app.add_system(surface::change_size.in_set(PostUpdate));
 
-        app.add_system(placement::place_new_window.in_set(CreateComponent));
-        app.add_system(placement::update_global_physical_rect.in_set(Update));
-        app.add_system(placement::update_physical_rect.in_set(PostUpdate));
+        app.add_system(
+            placement::place_new_window
+                .run_if(on_event::<CreateWindow>())
+                .in_set(CreateComponent),
+        );
+        app.add_system(placement::update_logical_rect.in_set(Update));
+        app.add_system(
+            placement::update_global_physical_rect
+                .after(placement::update_logical_rect)
+                .in_set(Update),
+        );
 
         app.add_system(input::on_mouse_move.in_set(PostUpdate));
         app.add_system(
             input::on_mouse_motion
+                .run_if(on_event::<MouseMotionOnWindow>())
                 .in_set(PostUpdate)
                 .before(input::on_mouse_move),
         );
-        app.add_system(input::on_mouse_button.in_set(PostUpdate));
-        app.add_system(input::on_mouse_wheel.in_set(PostUpdate));
-        app.add_system(input::on_keyboard.in_set(PostUpdate));
+        app.add_system(
+            input::on_mouse_button
+                .run_if(on_event::<MouseButtonOnWindow>())
+                .in_set(PostUpdate),
+        );
+        app.add_system(
+            input::on_mouse_wheel
+                .run_if(on_event::<MouseWheelOnWindow>())
+                .in_set(PostUpdate),
+        );
+        app.add_system(
+            input::on_keyboard
+                .run_if(on_event::<KeyboardInputOnWindow>())
+                .in_set(PostUpdate),
+        );
 
         // app.add_system(print_window_list.before(Update));
 

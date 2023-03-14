@@ -36,6 +36,9 @@ pub fn create_popup(
         let id = surface.into();
         let uuid = UUID::new();
         let logical_rect = e.1.get_geometry();
+        surface.with_pending_state(|state| {
+            state.geometry = e.1.get_geometry();
+        });
         if let Some((entity, scale)) = surface
             .get_parent_surface()
             .and_then(|p| windows.get(&p.into()))

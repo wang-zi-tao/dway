@@ -15,7 +15,7 @@ use smithay::{
 
 use crate::{
     components::{
-        LogicalRect, PhysicalRect, SurfaceId, WaylandWindow, WindowIndex, WindowMark,
+        LogicalRect, PhysicalRect, SurfaceId, WaylandWindow, WindowIndex, WindowMark, WindowScale,
         WlSurfaceWrapper, UUID,
     },
     events::{
@@ -95,14 +95,22 @@ pub fn on_close_window_request(
     }
 }
 pub fn on_rect_changed(
-    window_query: Query<(&LogicalRect, &WaylandWindow), (With<WindowMark>, Changed<LogicalRect>)>,
+    window_query: Query<
+        (&PhysicalRect, Option<&WindowScale>, &WaylandWindow),
+        (
+            With<WindowMark>,
+            Or<(Changed<PhysicalRect>, Changed<WindowScale>)>,
+        ),
+    >,
 ) {
-    for (rect, window) in window_query.iter() {
+    for (rect, scale, window) in window_query.iter() {
+        let scale = scale.cloned().unwrap_or_default().0;
         let toplevel = window.toplevel();
+        let logical = rect.to_f64().to_logical(scale).to_i32_round();
         let changed = toplevel.with_pending_state(|state| {
-            let changed = state.size == Some(rect.0.size);
+            let changed = state.size == Some(logical.size);
             if !changed {
-                state.size = Some(rect.0.size);
+                state.size = Some(logical.size);
             }
             changed
         });
