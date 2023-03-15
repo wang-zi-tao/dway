@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{ffi::OsString, time::Duration};
 
 use bevy::prelude::*;
 use dway_protocol::window::WindowState;
@@ -52,14 +52,16 @@ pub fn create_x11_surface(
         let id = SurfaceId::from(x11_surface);
         let uuid = UUID::new();
         window_index.0.entry(id.clone()).or_insert_with(|| {
-            commands
+            let entity = commands
                 .spawn(X11WindowBundle {
                     mark: WindowMark,
                     window: X11Window(x11_surface.clone()),
                     uuid,
                     id: id.clone(),
                 })
-                .id()
+                .id();
+            info!(surface=?id,?entity,"create x11 window");
+            entity
         });
     }
 }
@@ -73,6 +75,7 @@ pub fn map_x11_surface(
         let id = &e.0;
         if let Some((entity, surface)) = window_index.get(id).and_then(|&e| windows.get(e).ok()) {
             if let Some(wl_surface) = surface.wl_surface() {
+                info!(surface=?id,?entity,"create surface for x11 window");
                 commands.entity(entity).insert(WlSurfaceWrapper(wl_surface));
             }
         }
@@ -104,6 +107,7 @@ pub fn configure_request(
                 geo.size.h = *h as i32;
             }
             let physical_rect = geo.to_physical_precise_round(scale.cloned().unwrap_or_default().0);
+            info!(surface=?window,?entity,"configure x11 window request");
             commands.entity(entity).insert(PhysicalRect(physical_rect));
         }
     }
@@ -123,6 +127,8 @@ pub fn configure_notify(
         if let Some((entity, scale)) = window_index.get(window).and_then(|&e| windows.get(e).ok()) {
             let physical_rect =
                 geometry.to_physical_precise_round(scale.cloned().unwrap_or_default().0);
+
+            info!(surface=?window,?entity,"configure x11 window notify");
             commands.entity(entity).insert(PhysicalRect(physical_rect));
         }
     }
@@ -135,6 +141,7 @@ pub fn unmap_x11_surface(
     for e in events.iter() {
         let id = &e.0;
         if let Some(entity) = window_index.get(id) {
+            info!(surface=?id,?entity,"unmap x11 window");
             commands.entity(*entity).remove::<WlSurfaceWrapper>();
         }
     }
@@ -146,7 +153,9 @@ pub fn on_close_window_request(
 ) {
     for CloseWindowRequest(id) in events.iter() {
         if let Some(window) = window_index.get(id).and_then(|e| window_query.get(*e).ok()) {
-            window.close();
+            if let Err(error) = window.close() {
+                error!(%error,"failed to close x11 window");
+            }
         }
     }
 }
@@ -154,21 +163,26 @@ pub fn on_rect_changed(
     window_query: Query<(&LogicalRect, &X11Window), (With<WindowMark>, Changed<LogicalRect>)>,
 ) {
     for (rect, window) in window_query.iter() {
-        window.configure(Some(rect.0));
+        if let Err(error) = window.configure(Some(rect.0)) {
+            error!(%error,"failed to configure x11 window");
+        }
     }
 }
 pub fn on_state_changed(
     window_query: Query<(&WindowState, &X11Window), (With<WindowMark>, Changed<WindowState>)>,
 ) {
     for (window_state, window) in window_query.iter() {
-        if window.is_maximized() != (*window_state == WindowState::Maximized) {
-            window.set_maximized(*window_state == WindowState::Maximized);
-        }
-        if window.is_fullscreen() != (*window_state == WindowState::FullScreen) {
-            window.set_fullscreen(*window_state == WindowState::FullScreen);
-        }
-        if window.is_minimized() != (*window_state == WindowState::Minimized) {
-            window.set_minimized(*window_state == WindowState::Minimized);
+        let result = if window.is_maximized() != (*window_state == WindowState::Maximized) {
+            window.set_maximized(*window_state == WindowState::Maximized)
+        } else if window.is_fullscreen() != (*window_state == WindowState::FullScreen) {
+            window.set_fullscreen(*window_state == WindowState::FullScreen)
+        } else if window.is_minimized() != (*window_state == WindowState::Minimized) {
+            window.set_minimized(*window_state == WindowState::Minimized)
+        } else {
+            Ok(())
+        };
+        if let Err(e) = result {
+            error!(error=%e,"failed to set state of x11 window");
         }
     }
 }
@@ -385,7 +399,7 @@ impl XwmHandler for DWayServerComponent {
         self.dway.send_ecs_event(MoveRequest((&window).into()));
     }
 }
-pub fn init(dh: &DisplayHandle, handle: &LoopHandle<'static, DWayServerComponent>) -> XWayland {
+pub fn init(dh: &DisplayHandle, handle: &LoopHandle<'static, DWayServerComponent>) -> ( XWayland,Option<u32> ) {
     let (xwayland, channel) = XWayland::new(&dh);
     let dh2 = dh.clone();
     let handle2 = handle.clone();
@@ -421,5 +435,17 @@ pub fn init(dh: &DisplayHandle, handle: &LoopHandle<'static, DWayServerComponent
             e
         );
     }
-    xwayland
+    let display_number = match xwayland.start(
+        handle.clone(),
+        None,
+        std::iter::empty::<(OsString, OsString)>(),
+        |_| {},
+    ) {
+        Ok(o) => Some(o),
+        Err(error) => {
+            error!(%error,"Failed to start XWayland");
+            None
+        }
+    };
+    ( xwayland,display_number )
 }

@@ -204,16 +204,15 @@ pub fn do_commit(
         surface_size,
     } in events.iter()
     {
-        let mut tree_root = None;
         if let Some((
             mut wl_surface_wrapper,
             imported_surface,
             window,
             popup,
-            x11_window,
+            _x11_window,
             window_scale,
-            physical_rect,
-            surface_offset,
+            mut physical_rect,
+            mut surface_offset,
         )) = window_index
             .get(id)
             .and_then(|&e| surface_query.get_mut(e).ok())
@@ -225,7 +224,6 @@ pub fn do_commit(
                 while let Some(parent) = get_parent(&root) {
                     root = parent;
                 }
-                tree_root = Some(root);
 
                 let initial_configure_sent =
                     with_states_locked(surface, |s: &mut XdgToplevelSurfaceRoleAttributes| {
@@ -234,13 +232,31 @@ pub fn do_commit(
                 if !initial_configure_sent {
                     window.toplevel().send_configure();
                 }
+
+                window.on_commit();
+                let geo = window.geometry();
+                let bbox = window.bbox();
+                let scale = window_scale.cloned().unwrap_or_default().0;
+                let offset = bbox.loc - geo.loc;
+                surface_offset.as_mut().map(|r| {
+                    r.0.loc = offset
+                        .to_f64()
+                        .to_physical_precise_round(scale)
+                        .to_i32_round();
+                });
+                physical_rect.as_mut().map(|r| {
+                    r.0.size = geo
+                        .size
+                        .to_f64()
+                        .to_physical_precise_round(scale)
+                        .to_i32_round();
+                });
             } else if let Some(popup) = popup {
                 let PopupKind::Xdg(popup_surface) = popup.kind.clone();
                 if let Some(mut root) = popup_surface.get_parent_surface() {
                     while let Some(parent) = get_parent(&root) {
                         root = parent;
                     }
-                    tree_root = Some(root);
                 }
 
                 let initial_configure_sent =
@@ -253,121 +269,18 @@ pub fn do_commit(
                         error!(surface = id.to_string(), %error, "initial configure failed");
                     };
                 }
-            };
-            trace!(surface = id.to_string(), "commit finish");
-        } else {
-            warn!(surface = id.to_string(), "surface entity not found.");
-            continue;
-        }
-        let mut root_surface_offset = None;
-        if let Some(root) = tree_root.as_ref() {
-            let root_id = SurfaceId::from(root);
-            if let Some((
-                mut wl_surface_wrapper,
-                imported_surface,
-                wayland_window,
-                popup,
-                x11_window,
-                window_scale,
-                physical_rect,
-                surface_offset,
-            )) = window_index
-                .get(&root_id)
-                .and_then(|&e| surface_query.get_mut(e).ok())
-            {
-                root_surface_offset = surface_offset.as_ref().map(|s| s.0.clone());
-                if let Some(window) = wayland_window {
-                    window.on_commit();
-                    let geo = window.geometry();
-                    let bbox = window.bbox();
-                    let scale = window_scale.cloned().unwrap_or_default().0;
-                    let offset = bbox.loc - geo.loc;
-                    surface_offset.map(|mut r| {
-                        r.0.loc = offset
-                            .to_f64()
-                            .to_physical_precise_round(scale)
-                            .to_i32_round();
-                    });
-                    physical_rect.map(|mut r| {
-                        r.0.size = geo
-                            .size
-                            .to_f64()
-                            .to_physical_precise_round(scale)
-                            .to_i32_round();
-                    });
-                } else if let Some(window) = x11_window {
-                } else {
-                    error!(surface =? root_id, "surface root is not window");
-                }
-            } else {
-                error!(surface =? root_id, "surface root not found");
-            }
-        };
-        if let Some((
-            mut wl_surface_wrapper,
-            imported_surface,
-            window,
-            popup,
-            x11_window,
-            window_scale,
-            mut physical_rect,
-            mut surface_offset,
-        )) = window_index
-            .get(&id)
-            .and_then(|&e| surface_query.get_mut(e).ok())
-        {
-            let surface = &mut wl_surface_wrapper.0;
-            if let Some(popup) = popup {
-                let PopupKind::Xdg(popup_surface) = popup.kind.clone();
-                let offset = popup.position.offset;
-                let geo = popup.kind.geometry();
-                let anchor_rect = popup.position.anchor_rect;
-                // let bbox = popup.kind.bbox();
                 let scale = window_scale.cloned().unwrap_or_default().0;
-                // let offset = bbox.loc - geo.loc;
-                // surface_offset.map(|mut r| {
-                //     r.0 = Rectangle::from_loc_and_size(offset, surface_size.unwrap_or_default())
-                //         .to_f64()
-                //         .to_physical_precise_round(scale)
-                //         .to_i32_round();
-                // });
-
-                let geometry=with_states(&surface, |states| {
-                    states
-                        .data_map
-                        .get::<XdgPopupSurfaceData>()
-                        .unwrap()
-                        .lock()
-                        .unwrap()
-                        .current
-                        
-                });
-                dbg!(&surface, &popup,geometry, popup.position.get_geometry());
-                if let Some(tree_root) = tree_root.as_ref() {
-                    dbg!(&tree_root);
-                    if let Some((_, popup_offset)) = PopupManager::popups_for_surface(&tree_root)
-                        .into_iter()
-                        .find(|(sub, offset)| {
-                            dbg!(sub, &surface);
-                            sub.wl_surface() == &*surface
-                        })
-                    {
-                        dbg!(offset);
-                        // let offset = (popup_offset - popup.kind.geometry().loc)
-                        //     .to_f64()
-                        //     .to_physical(scale)
-                        //     .to_i32_round();
-                        if let Some(root_surface_offset) = root_surface_offset {
-                            if let Some(mut surface_offset) = surface_offset.as_mut() {
-                                surface_offset.loc =
-                                    popup_offset.to_f64().to_physical(scale).to_i32_round();
-                                dbg!(surface_offset, popup_offset);
-                                // surface_offset.loc = root_surface_offset.loc;
-                            }
-                        }
-                    }
+                if let Some(surface_offset) = surface_offset.as_mut() {
+                    surface_offset.loc = Point::default()
+                        - popup
+                            .kind
+                            .geometry()
+                            .loc
+                            .to_f64()
+                            .to_physical(scale)
+                            .to_i32_round();
                 }
-                physical_rect.as_mut().map(|mut r| {
+                physical_rect.as_mut().map(|r| {
                     r.0 = popup
                         .position
                         .get_geometry()
@@ -375,7 +288,7 @@ pub fn do_commit(
                         .to_physical_precise_round(scale)
                         .to_i32_round();
                 });
-            }
+            };
             if let Some(mut surface_offset) = surface_offset {
                 if let Some(surface_size) = surface_size {
                     let scale = window_scale.cloned().unwrap_or_default().0;
@@ -384,6 +297,10 @@ pub fn do_commit(
                     error!("no surface size");
                 }
             }
+            trace!(surface = id.to_string(), "commit finish");
+        } else {
+            warn!(surface = id.to_string(), "surface entity not found.");
+            continue;
         }
     }
 }
@@ -405,31 +322,31 @@ pub fn import_surface(
     };
     for (entity, surface, imported) in query.iter() {
         let gpu_image: Option<GpuImage> = imported.flush.load(Ordering::Acquire).then_some(()).and_then(|()|{
-with_states(surface, |s| {
-            let Some( mut surface_state )=s.data_map.get::<RefCell<RendererSurfaceState>>().map(|c|c.borrow_mut())else{
-                error!(
-                    surface = ?surface.id(),
-                    ?entity,
-                    "RendererSurfaceState not found in surface.",
-                );
-                return None
-            } ;
-            match import_wl_surface(
-                &mut surface_state,
-                &imported.damages,
-                &render_device.wgpu_device(),
-            ) {
-                Ok(o) => Some(o),
-                Err(e) => {
+            with_states(surface, |s| {
+                let Some( mut surface_state )=s.data_map.get::<RefCell<RendererSurfaceState>>().map(|c|c.borrow_mut())else{
                     error!(
                         surface = ?surface.id(),
                         ?entity,
-                        error = %e,
-                        "failed to import surface.",
+                        "RendererSurfaceState not found in surface.",
                     );
-                    None
+                    return None
+                } ;
+                match import_wl_surface(
+                    &mut surface_state,
+                    &imported.damages,
+                    &render_device.wgpu_device(),
+                ) {
+                    Ok(o) => Some(o),
+                    Err(e) => {
+                        error!(
+                            surface = ?surface.id(),
+                            ?entity,
+                            error = %e,
+                            "failed to import surface.",
+                        );
+                        None
+                    }
                 }
-            }
             })
         }) ;
         render_states.states.insert(

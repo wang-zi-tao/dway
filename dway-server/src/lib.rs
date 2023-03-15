@@ -163,7 +163,6 @@ impl DWay {
         handle: &LoopHandle<'static, DWayServerComponent>,
     ) -> Fallible<DWay> {
         let clock = Clock::new().expect("failed to initialize clock");
-        let logger = logger();
         let dh = display.handle();
 
         let source = ListeningSocketSource::new_auto().unwrap();
@@ -179,7 +178,6 @@ impl DWay {
         let cursor_status2 = cursor_status.clone();
         seat.tablet_seat()
             .on_cursor_surface(move |_tool, new_status| {
-                // TODO: tablet tools should have their own cursors
                 *cursor_status2.lock().unwrap() = new_status;
             });
         seat.add_input_method(XkbConfig::default(), 200, 25);
@@ -209,16 +207,17 @@ impl DWay {
 
         VirtualKeyboardManagerState::new::<Self, _>(&dh, |client| true);
         let keyboard_shortcuts_inhibit_state = KeyboardShortcutsInhibitState::new::<Self>(&dh);
+        let (xwayland, display_number) = x11_window::init(&dh, handle);
         Ok(DWay {
             // backend: todo!(),
             commands: Default::default(),
             socket_name,
-            display_number: None,
+            display_number,
 
             xwm: None,
             seat_state,
             seat,
-            xwayland: x11_window::init(&dh, handle),
+            xwayland,
             data_device_state: DataDeviceState::new::<Self>(&dh),
             compositor: CompositorState::new::<Self>(&dh),
             xdg_shell: XdgShellState::new::<Self>(&dh),
@@ -294,10 +293,11 @@ pub fn new_backend(event_loop: NonSend<EventLoopResource>, mut commands: Command
     let dway = DWay::new(&mut display, &handle).unwrap();
     let mut command = process::Command::new("alacritty");
     command.args(&["-e", "htop", "-d", "2"]);
-    command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
     let mut command = process::Command::new("weston-terminal");
     let mut command = process::Command::new("gnome-system-monitor");
     let mut command = process::Command::new("gnome-calculator");
+    let mut command = process::Command::new("glxgears");
+    command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
     dway.spawn(command);
     commands.spawn(DWayServerComponent { dway, display });
 }

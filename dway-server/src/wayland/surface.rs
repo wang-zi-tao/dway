@@ -2,13 +2,6 @@ use std::{
     cell::{RefCell, RefMut},
     sync::{Mutex, MutexGuard},
 };
-
-
-
-
-
-
-
 use smithay::{
     desktop::{
         space::SpaceElement, utils::with_surfaces_surface_tree, PopupKind, Window,

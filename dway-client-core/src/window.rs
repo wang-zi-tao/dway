@@ -145,7 +145,7 @@ pub fn create_window_ui(
                             ),
                             ..default()
                         },
-                        background_color: BackgroundColor(Color::RED.with_a(0.1)),
+                        background_color: BackgroundColor(Color::NONE),
                         ..default()
                     },
                     backend,

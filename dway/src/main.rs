@@ -138,7 +138,7 @@ fn main() {
     // app.add_plugin(KayakWidgets);
     // app.add_plugin(KayakContextPlugin);
 
-    app.add_plugin(WorldInspectorPlugin::new());
+    // app.add_plugin(WorldInspectorPlugin::new());
     // .add_startup_system(hello_world)
 
     app.add_plugin(dway_server::DWayServerPlugin::default());

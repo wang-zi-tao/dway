@@ -116,7 +116,6 @@ pub fn on_mouse_motion(
                 .to_f64()
                 .to_logical(scale)
                 .to_i32_round();
-            let serial = SERIAL_COUNTER.next_serial();
             let delta = Point::from((delta.x as f64, delta.y as f64));
             if let Some(ptr) = dway.seat.get_pointer() {
                 ptr.relative_motion(

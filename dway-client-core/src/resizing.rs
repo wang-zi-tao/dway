@@ -28,8 +28,18 @@ pub struct DWayResizingPlugin {}
 impl Plugin for DWayResizingPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ResizingMethod::default());
-        app.add_system(resize_window.in_set(OnUpdate(DWayClientState::Resizing)));
-        app.add_system(stop_resizing.in_set(OnUpdate(DWayClientState::Resizing)));
+        app.add_system(
+            resize_window
+                .run_if(in_state(DWayClientState::Resizing).and_then(on_event::<CursorMoved>()))
+                .in_set(OnUpdate(DWayClientState::Resizing)),
+        );
+        app.add_system(
+            stop_resizing
+                .run_if(
+                    in_state(DWayClientState::Resizing).and_then(on_event::<MouseButtonInput>()),
+                )
+                .in_set(OnUpdate(DWayClientState::Resizing)),
+        );
     }
 }
 pub fn resize_window(
