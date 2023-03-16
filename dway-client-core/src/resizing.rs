@@ -51,9 +51,6 @@ pub fn resize_window(
     resize_method: Res<ResizingMethod>,
     mut output_focus: ResMut<CursorOnOutput>,
 ) {
-    if cursor_move_events.is_empty() {
-        return;
-    }
     let Some(focus_window)=&focused_window.0 else{
         return;
     };
@@ -95,9 +92,6 @@ pub fn stop_resizing(
     mut resize_method: ResMut<ResizingMethod>,
     mut commands: Commands,
 ) {
-    if cursor_button_events.is_empty() {
-        return;
-    }
     for event in cursor_button_events.iter() {
         if event.state == ButtonState::Released {
             commands.insert_resource(NextState(Some(DWayClientState::Desktop)));

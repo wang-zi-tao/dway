@@ -42,9 +42,6 @@ pub fn on_mouse_move(
         With<WindowMark>,
     >,
 ) {
-    if events.is_empty() {
-        return;
-    }
     let time = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -94,9 +91,6 @@ pub fn on_mouse_motion(
         With<WindowMark>,
     >,
 ) {
-    if events.is_empty() {
-        return;
-    }
     let time = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -138,9 +132,6 @@ pub fn on_mouse_button(
     window_index: Res<WindowIndex>,
     surface_query: Query<&WlSurfaceWrapper, With<WindowMark>>,
 ) {
-    if events.is_empty() {
-        return;
-    }
     let time = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -179,9 +170,6 @@ pub fn on_mouse_wheel(
     window_index: Res<WindowIndex>,
     surface_query: Query<&WlSurfaceWrapper, With<WindowMark>>,
 ) {
-    if events.is_empty() {
-        return;
-    }
     let time = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -215,9 +203,6 @@ pub fn on_keyboard(
     window_index: Res<WindowIndex>,
     surface_query: Query<&WlSurfaceWrapper, With<WindowMark>>,
 ) {
-    if events.is_empty() {
-        return;
-    }
     let time = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()

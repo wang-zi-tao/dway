@@ -99,7 +99,7 @@ use crate::{
     cursor::Cursor,
     events::{
         CloseWindowRequest, CommitSurface, ConfigureX11WindowRequest, CreateTopLevelEvent,
-        CreateWindow, CreateX11WindowEvent, DestroyWlSurface, KeyboardInputOnWindow,
+        CreateWindow, CreateX11WindowEvent, DestroyWlSurface, KeyboardInputOnWindow, MapX11Window,
         MouseButtonOnWindow, MouseMotionOnWindow, MouseWheelOnWindow, UnmapX11Window,
         UpdatePopupPosition, X11WindowSetSurfaceEvent,
     },
@@ -247,11 +247,28 @@ impl DWay {
             .spawn()
             .unwrap();
     }
+    fn spawn_wayland(&self, mut command: process::Command) {
+        command
+            .env("WAYLAND_DISPLAY", self.socket_name.clone())
+            .spawn()
+            .unwrap();
+    }
     pub fn update(&mut self) {}
     pub fn send_ecs_event<E: Send + Sync + 'static>(&mut self, e: E) {
         self.commands.push(Box::new(move |world| {
             world.send_event(e);
         }))
+    }
+
+    fn spawn_x11(&self, mut command: process::Command)  {
+        if let Some(display_number) = self.display_number {
+            command.env("DISPLAY", ":".to_string() + &display_number.to_string());
+        } else {
+            command.env_remove("DISPLAY");
+        }
+        command
+            .spawn()
+            .unwrap();
     }
 }
 #[derive(Resource)]
@@ -296,9 +313,12 @@ pub fn new_backend(event_loop: NonSend<EventLoopResource>, mut commands: Command
     let mut command = process::Command::new("weston-terminal");
     let mut command = process::Command::new("gnome-system-monitor");
     let mut command = process::Command::new("gnome-calculator");
-    let mut command = process::Command::new("glxgears");
+    // let mut command = process::Command::new("glxgears");
+    let mut command = process::Command::new("google-chrome-stable");
     command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
-    dway.spawn(command);
+    // dway.spawn(command);
+    // dway.spawn_wayland(command);
+    dway.spawn_x11(command);
     commands.spawn(DWayServerComponent { dway, display });
 }
 pub fn spawn(dway_query: Query<&DWayServerComponent>) {
@@ -443,8 +463,13 @@ impl Plugin for DWayServerPlugin {
                 .in_set(Create),
         );
         app.add_system(
-            x11_window::map_x11_surface
+            x11_window::map_x11_surface_notify
                 .run_if(on_event::<X11WindowSetSurfaceEvent>())
+                .in_set(CreateComponent),
+        );
+        app.add_system(
+            x11_window::map_x11_window
+                .run_if(on_event::<MapX11Window>())
                 .in_set(PreUpdate),
         );
         app.add_system(

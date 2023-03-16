@@ -127,7 +127,7 @@ fn main() {
     // app.add_plugin(bevy_framepace::FramepacePlugin);
     //
 
-    app.add_plugin(bevy::diagnostic::LogDiagnosticsPlugin::default());
+    // app.add_plugin(bevy::diagnostic::LogDiagnosticsPlugin::default());
     app.add_plugin(bevy::diagnostic::EntityCountDiagnosticsPlugin::default());
 
     // .add_plugin(AssetCountDiagnosticsPlugin::<Image>::default())

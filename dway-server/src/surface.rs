@@ -15,7 +15,7 @@ use crate::{
     },
     egl::{gl_debug_message_callback, import_wl_surface},
     events::{CommitSurface, CreateTopLevelEvent, CreateWindow, CreateX11WindowEvent},
-    DWay,
+    wayland_window, DWay, DWayServerComponent,
 };
 use bevy::{
     log::Level,
@@ -48,7 +48,10 @@ use smithay::{
     desktop::{
         find_popup_root_surface,
         space::SpaceElement,
-        utils::{surface_primary_scanout_output, update_surface_primary_scanout_output},
+        utils::{
+            send_frames_surface_tree, surface_primary_scanout_output,
+            update_surface_primary_scanout_output, with_surfaces_surface_tree,
+        },
         PopupKind, PopupManager,
     },
     output::{Output, PhysicalProperties, Subpixel},
@@ -82,7 +85,7 @@ use smithay::{
             XdgPopupSurfaceData, XdgPopupSurfaceRoleAttributes, XdgToplevelSurfaceRoleAttributes,
         },
         shm::{ShmHandler, ShmState},
-    },
+    }, xwayland::X11Wm,
 };
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 
@@ -186,6 +189,7 @@ pub fn create_surface(
 pub fn do_commit(
     mut events: EventReader<CommitSurface>,
     mut surface_query: Query<(
+        Entity,
         &mut WlSurfaceWrapper,
         &mut ImportedSurface,
         Option<&mut WaylandWindow>,
@@ -196,6 +200,7 @@ pub fn do_commit(
         Option<&mut SurfaceOffset>,
     )>,
     window_index: Res<WindowIndex>,
+    mut commands: Commands,
 ) {
     let span = span!(Level::ERROR, "do commit");
     let _enter = span.enter();
@@ -205,11 +210,12 @@ pub fn do_commit(
     } in events.iter()
     {
         if let Some((
+            entity,
             mut wl_surface_wrapper,
             imported_surface,
             window,
             popup,
-            _x11_window,
+            x11_window,
             window_scale,
             mut physical_rect,
             mut surface_offset,
@@ -220,11 +226,6 @@ pub fn do_commit(
             let surface = &mut wl_surface_wrapper;
             imported_surface.flush.store(true, Ordering::Release);
             if let Some(window) = window {
-                let mut root = surface.0.clone();
-                while let Some(parent) = get_parent(&root) {
-                    root = parent;
-                }
-
                 let initial_configure_sent =
                     with_states_locked(surface, |s: &mut XdgToplevelSurfaceRoleAttributes| {
                         s.initial_configure_sent
@@ -251,19 +252,28 @@ pub fn do_commit(
                         .to_physical_precise_round(scale)
                         .to_i32_round();
                 });
+            } else if let Some(window) = x11_window {
+                let geo = window.geometry();
+                let bbox = window.bbox();
+                let scale = window_scale.cloned().unwrap_or_default().0;
+                let offset = bbox.loc - geo.loc;
+                surface_offset.as_mut().map(|r| {
+                    r.0.loc = offset
+                        .to_f64()
+                        .to_physical_precise_round(scale)
+                        .to_i32_round();
+                });
+                physical_rect.as_mut().map(|r| {
+                    r.0.size = geo
+                        .size
+                        .to_f64()
+                        .to_physical_precise_round(scale)
+                        .to_i32_round();
+                });
             } else if let Some(popup) = popup {
-                let PopupKind::Xdg(popup_surface) = popup.kind.clone();
-                if let Some(mut root) = popup_surface.get_parent_surface() {
-                    while let Some(parent) = get_parent(&root) {
-                        root = parent;
-                    }
-                }
-
-                let initial_configure_sent =
-                    with_states_locked(surface, |s: &mut XdgPopupSurfaceRoleAttributes| {
-                        s.initial_configure_sent
-                    });
-                if !initial_configure_sent {
+                if !with_states_locked(surface, |s: &mut XdgPopupSurfaceRoleAttributes| {
+                    s.initial_configure_sent
+                }) {
                     let PopupKind::Xdg(ref xdg_popup) = &popup.kind;
                     if let Err(error) = xdg_popup.send_configure() {
                         error!(surface = id.to_string(), %error, "initial configure failed");
@@ -297,7 +307,8 @@ pub fn do_commit(
                     error!("no surface size");
                 }
             }
-            trace!(surface = id.to_string(), "commit finish");
+            commands.entity(entity).log_components();
+            trace!(surface = id.to_string(), ?entity, "commit finish");
         } else {
             warn!(surface = id.to_string(), "surface entity not found.");
             continue;
@@ -309,7 +320,7 @@ pub fn import_surface(
     time: Extract<Res<Time>>,
     query: Extract<Query<(Entity, &WlSurfaceWrapper, &ImportedSurface)>>,
     output_query: Extract<Query<&OutputWrapper>>,
-    window_quert: Extract<Query<&WaylandWindow>>,
+    window_quert: Extract<Query<(Option<&WaylandWindow>, Option<&X11Window>)>>,
     render_device: Res<RenderDevice>,
     mut render_images: ResMut<RenderAssets<Image>>,
     mut events: ResMut<SpriteAssetEvents>,
@@ -388,26 +399,52 @@ pub fn import_surface(
                 }
             });
     }
-    for window in window_quert.iter() {
-        window.with_surfaces(|surface, states| {
-            if let Some(output) = update_surface_primary_scanout_output(
-                surface,
+    for (wayland_window, x11_window) in window_quert.iter() {
+        if let Some(window) = wayland_window {
+            window.with_surfaces(|surface, states| {
+                if let Some(output) = update_surface_primary_scanout_output(
+                    surface,
+                    &output,
+                    states,
+                    &render_states,
+                    default_primary_scanout_output_compare,
+                ) {
+                    with_fractional_scale(states, |fraction_scale| {
+                        fraction_scale
+                            .set_preferred_scale(output.current_scale().fractional_scale());
+                    });
+                }
+            });
+            window.send_frame(
                 &output,
-                states,
-                &render_states,
-                default_primary_scanout_output_compare,
-            ) {
-                with_fractional_scale(states, |fraction_scale| {
-                    fraction_scale.set_preferred_scale(output.current_scale().fractional_scale());
-                });
-            }
-        });
-        window.send_frame(
-            &output,
-            time.elapsed(),
-            None,
-            surface_primary_scanout_output,
-        );
+                time.elapsed(),
+                None,
+                surface_primary_scanout_output,
+            );
+        };
+        if let Some(surface) = x11_window.and_then(|w| w.wl_surface()) {
+            with_surfaces_surface_tree(&surface, |surface, states| {
+                if let Some(output) = update_surface_primary_scanout_output(
+                    surface,
+                    &output,
+                    states,
+                    &render_states,
+                    default_primary_scanout_output_compare,
+                ) {
+                    with_fractional_scale(states, |fraction_scale| {
+                        fraction_scale
+                            .set_preferred_scale(output.current_scale().fractional_scale());
+                    });
+                }
+            });
+            send_frames_surface_tree(
+                &surface,
+                &output,
+                time.elapsed(),
+                None,
+                surface_primary_scanout_output,
+            );
+        };
     }
 }
 
@@ -479,6 +516,7 @@ impl CompositorHandler for DWay {
         surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
     ) {
         trace!(surface=?SurfaceId::from(surface),"commit");
+        X11Wm::commit_hook::<DWayServerComponent>(surface);
         on_commit_buffer_handler(&surface);
         let surface_size = with_states(&surface, |states| {
             let surface_size = states
