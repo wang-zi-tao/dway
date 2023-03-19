@@ -78,7 +78,10 @@ pub fn destroy_wl_surface(
     for e in create_top_level_event.iter() {
         let id = &e.0;
         if let Some(entity) = window_index.0.get(&id) {
+            trace!(surface=?id,?entity,"destroy surface");
             commands.entity(*entity).despawn_recursive();
+        }else{
+            error!(surface=?id,"window index not found");
         }
         window_index.0.remove(&id);
     }

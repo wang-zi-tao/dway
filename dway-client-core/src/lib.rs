@@ -7,6 +7,8 @@ use bevy::prelude::*;
 use dway_server::DWayServerSystem;
 use log::info;
 
+use crate::window::{Backend, Frontends, WindowUiRoot};
+
 pub mod components;
 pub mod compositor;
 pub mod debug;
@@ -100,6 +102,10 @@ impl Plugin for WaylandPlugin {
         app.add_plugin(resizing::DWayResizingPlugin::default());
         app.add_plugin(debug::DebugPlugin::default());
         // app.add_system(debug_info);
+        //
+        app.register_type::<Backend>();
+        app.register_type::<Frontends>();
+        app.register_type::<WindowUiRoot>();
     }
 }
 

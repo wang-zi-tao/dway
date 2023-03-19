@@ -22,7 +22,7 @@ glow = "0.12.1"
 nix = "0.26.2"
 khronos-egl = { version="4.1",features= ["dynamic","static"] }
 
-kayak_ui = "0.2.0"
+kayak_ui ={ version= "0.2.0", rev="50bdb6098ad8a736e9c1faf8fe089670238eb4c3"}
 
 [workspace.dependencies.bevy]
 version = "0.10"

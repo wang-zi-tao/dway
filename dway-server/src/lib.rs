@@ -250,6 +250,7 @@ impl DWay {
     fn spawn_wayland(&self, mut command: process::Command) {
         command
             .env("WAYLAND_DISPLAY", self.socket_name.clone())
+            .env_remove("DISPLAY")
             .spawn()
             .unwrap();
     }
@@ -260,15 +261,12 @@ impl DWay {
         }))
     }
 
-    fn spawn_x11(&self, mut command: process::Command)  {
+    fn spawn_x11(&self, mut command: process::Command) {
+        command.env_remove("DISPLAY");
         if let Some(display_number) = self.display_number {
             command.env("DISPLAY", ":".to_string() + &display_number.to_string());
-        } else {
-            command.env_remove("DISPLAY");
         }
-        command
-            .spawn()
-            .unwrap();
+        command.env_remove("WAYLAND_DISPLAY").spawn().unwrap();
     }
 }
 #[derive(Resource)]
@@ -309,12 +307,13 @@ pub fn new_backend(event_loop: NonSend<EventLoopResource>, mut commands: Command
 
     let dway = DWay::new(&mut display, &handle).unwrap();
     let mut command = process::Command::new("alacritty");
-    command.args(&["-e", "htop", "-d", "2"]);
-    let mut command = process::Command::new("weston-terminal");
-    let mut command = process::Command::new("gnome-system-monitor");
+    // command.args(&["-e", "htop", "-d", "2"]);
+    // let mut command = process::Command::new("weston-terminal");
+    // let mut command = process::Command::new("gnome-system-monitor");
     let mut command = process::Command::new("gnome-calculator");
     // let mut command = process::Command::new("glxgears");
-    let mut command = process::Command::new("google-chrome-stable");
+    // let mut command = process::Command::new("gedit");
+    // let mut command = process::Command::new("google-chrome-stable");
     command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
     // dway.spawn(command);
     // dway.spawn_wayland(command);

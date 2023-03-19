@@ -41,6 +41,7 @@ pub fn on_mouse_move(
         ),
         With<WindowMark>,
     >,
+    mut commands: Commands,
 ) {
     let time = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -48,10 +49,15 @@ pub fn on_mouse_move(
         .as_millis() as u32;
     let dway = &mut dway_query.single_mut().dway;
     for MouseMoveOnWindow(id, pos) in events.iter() {
-        if let Some((surface, offset, scale)) = window_index
-            .get(id)
-            .and_then(|&e| surface_query.get(e).ok())
-        {
+        if let Some((surface, offset, scale)) = window_index.get(id).and_then(|&e| {
+            surface_query
+                .get(e)
+                .map_err(|error| {
+                    commands.entity(e).log_components();
+                    error!(%error)
+                })
+                .ok()
+        }) {
             let scale = scale.cloned().unwrap_or_default().0;
             let offset = offset
                 .cloned()
@@ -75,6 +81,9 @@ pub fn on_mouse_move(
                     },
                 );
             }
+        } else {
+            warn!(surface = ?id, "surface entity not found.");
+            continue;
         }
     }
 }
@@ -97,10 +106,12 @@ pub fn on_mouse_motion(
         .as_millis() as u32;
     let dway = &mut dway_query.single_mut().dway;
     for MouseMotionOnWindow(id, delta) in events.iter() {
-        if let Some((surface, offset, scale)) = window_index
-            .get(id)
-            .and_then(|&e| surface_query.get(e).ok())
-        {
+        if let Some((surface, offset, scale)) = window_index.get(id).and_then(|&entity| {
+            surface_query
+                .get(entity)
+                .map_err(|error| error!(%error,?entity))
+                .ok()
+        }) {
             let scale = scale.cloned().unwrap_or_default().0;
             let offset = offset
                 .cloned()
@@ -110,6 +121,7 @@ pub fn on_mouse_motion(
                 .to_f64()
                 .to_logical(scale)
                 .to_i32_round();
+            trace!(surface=?surface.id(),?offset,"mouse motion");
             let delta = Point::from((delta.x as f64, delta.y as f64));
             if let Some(ptr) = dway.seat.get_pointer() {
                 ptr.relative_motion(
@@ -122,6 +134,9 @@ pub fn on_mouse_motion(
                     },
                 );
             }
+        } else {
+            warn!(surface = ?id, "surface entity not found.");
+            continue;
         }
     }
 }
@@ -138,11 +153,14 @@ pub fn on_mouse_button(
         .as_millis() as u32;
     let dway = &mut dway_query.single_mut().dway;
     for MouseButtonOnWindow(id, pos, MouseButtonInput { button, state }) in events.iter() {
-        if let Some(surface) = window_index
-            .get(id)
-            .and_then(|&e| surface_query.get(e).ok())
-        {
+        if let Some(surface) = window_index.get(id).and_then(|&entity| {
+            surface_query
+                .get(entity)
+                .map_err(|error| error!(%error,?entity))
+                .ok()
+        }) {
             let serial = SERIAL_COUNTER.next_serial();
+            trace!(surface=?id,"mouse button event at {pos:?}, button:{button:?}, state:{state:?}");
             surface.button(
                 &dway.seat.clone(),
                 dway,
@@ -161,6 +179,9 @@ pub fn on_mouse_button(
                     },
                 },
             );
+        } else {
+            warn!(surface = ?id, "surface entity not found.");
+            continue;
         }
     }
 }
@@ -176,10 +197,12 @@ pub fn on_mouse_wheel(
         .as_millis() as u32;
     let dway = &mut dway_query.single_mut().dway;
     for MouseWheelOnWindow(id, pos, MouseWheel { unit, x, y }) in events.iter().cloned() {
-        if let Some(surface) = window_index
-            .get(&id)
-            .and_then(|&e| surface_query.get(e).ok())
-        {
+        if let Some(surface) = window_index.get(&id).and_then(|&entity| {
+            surface_query
+                .get(entity)
+                .map_err(|error| error!(%error,?entity))
+                .ok()
+        }) {
             surface.axis(
                 &dway.seat.clone(),
                 dway,
@@ -194,6 +217,9 @@ pub fn on_mouse_wheel(
                     stop: (false, false),
                 },
             );
+        } else {
+            warn!(surface = ?id, "surface entity not found.");
+            continue;
         }
     }
 }
@@ -217,10 +243,12 @@ pub fn on_keyboard(
         },
     ) in events.iter()
     {
-        if let Some(surface) = window_index
-            .get(id)
-            .and_then(|&e| surface_query.get(e).ok())
-        {
+        if let Some(surface) = window_index.get(id).and_then(|&entity| {
+            surface_query
+                .get(entity)
+                .map_err(|error| error!(%error,?entity))
+                .ok()
+        }) {
             let serial = SERIAL_COUNTER.next_serial();
             let keyboard = dway.seat.get_keyboard().unwrap();
             keyboard.set_focus(dway, Some(surface.0.clone()), serial);
@@ -236,6 +264,9 @@ pub fn on_keyboard(
                 time,
                 |_, _, _| FilterResult::<()>::Forward,
             );
+        } else {
+            warn!(surface = ?id, "surface entity not found.");
+            continue;
         }
     }
 }

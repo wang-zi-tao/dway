@@ -11,7 +11,7 @@ use bevy::{
 // use bevy_mod_picking::{PickingEvent, PickingRaycastSet};
 // use bevy_mod_raycast::Intersection;
 use dway_server::{
-    components::{Id, PhysicalRect, SurfaceId, WindowMark, WindowScale, GlobalPhysicalRect},
+    components::{Id, PhysicalRect, SurfaceId, WindowMark, WindowScale, GlobalPhysicalRect, WlSurfaceWrapper},
     events::{
         KeyboardInputOnWindow, MouseButtonOnWindow, MouseMotionOnWindow, MouseMoveOnWindow,
         MouseWheelOnWindow,
@@ -175,7 +175,7 @@ pub fn mouse_move_on_winit_window(
 }
 fn cursor_move_on_window(
     mut interaction_query: Query<(&Interaction, &Backend), With<Button>>,
-    mut surfaces_query: Query<(&SurfaceId, &GlobalPhysicalRect, Option<&WindowScale>), With<WindowMark>>,
+    mut surfaces_query: Query<(&SurfaceId, &GlobalPhysicalRect, Option<&WindowScale>), (With<WindowMark>,With<WlSurfaceWrapper>)>,
     mut cursor: Res<CursorOnOutput>,
     mut events_writer: EventWriter<MouseMoveOnWindow>,
     mut motion_events_writer: EventWriter<MouseMotionOnWindow>,
@@ -212,7 +212,7 @@ fn cursor_move_on_window(
 }
 fn mouse_button_on_window(
     mut interaction_query: Query<(&Interaction, &Backend), With<Button>>,
-    mut surfaces_query: Query<(&SurfaceId, &GlobalPhysicalRect, Option<&WindowScale>), With<WindowMark>>,
+    mut surfaces_query: Query<(&SurfaceId, &GlobalPhysicalRect, Option<&WindowScale>), (With<WindowMark>,With<WlSurfaceWrapper>)>,
     mut events: EventReader<MouseButtonInput>,
     mut cursor: Res<CursorOnOutput>,
     mut output_focus: ResMut<FocusedWindow>,
@@ -243,7 +243,7 @@ fn mouse_button_on_window(
 }
 fn mouse_wheel_on_window(
     mut interaction_query: Query<(&Interaction, &Backend), With<Button>>,
-    mut surfaces_query: Query<(&SurfaceId, &GlobalPhysicalRect, Option<&WindowScale>), With<WindowMark>>,
+    mut surfaces_query: Query<(&SurfaceId, &GlobalPhysicalRect, Option<&WindowScale>), (With<WindowMark>,With<WlSurfaceWrapper>)>,
     mut events: EventReader<MouseWheel>,
     mut cursor: Res<CursorOnOutput>,
     mut output_focus: ResMut<FocusedWindow>,

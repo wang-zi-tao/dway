@@ -49,7 +49,7 @@ fn main() {
             })
             .set(LogPlugin {
                 level: Level::INFO,
-                filter: "dway=trace,bevy_ecs=debug,smithay=info,wgpu=warn,nega=info,nega::front=info,bevy_render=debug,bevy_ui=trace".to_string(),
+                filter: "dway=trace,dway_server::surface=debug,bevy_ecs=debug,smithay=info,wgpu=warn,nega=info,nega::front=info,bevy_render=debug,bevy_ui=trace".to_string(),
             }),
     );
     // .insert_resource(ClearColor(Color::rgb(0.0, 0.388, 1.0)))
@@ -138,7 +138,7 @@ fn main() {
     // app.add_plugin(KayakWidgets);
     // app.add_plugin(KayakContextPlugin);
 
-    // app.add_plugin(WorldInspectorPlugin::new());
+    app.add_plugin(WorldInspectorPlugin::new());
     // .add_startup_system(hello_world)
 
     app.add_plugin(dway_server::DWayServerPlugin::default());

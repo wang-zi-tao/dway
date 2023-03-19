@@ -65,7 +65,7 @@ impl Plugin for DWayWindowPlugin {
     }
 }
 
-#[derive(Component, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Component,Reflect, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct Frontends(pub SmallVec<[Entity; 1]>);
 
 impl std::ops::Deref for Frontends {
@@ -75,7 +75,7 @@ impl std::ops::Deref for Frontends {
         &self.0
     }
 }
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Component,Reflect, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Backend(pub Entity);
 impl Backend {
     pub fn new(entity: Entity) -> Self {
@@ -145,6 +145,7 @@ pub fn create_window_ui(
                             ),
                             ..default()
                         },
+                        focus_policy: FocusPolicy::Pass,
                         background_color: BackgroundColor(Color::NONE),
                         ..default()
                     },
@@ -236,18 +237,40 @@ pub fn update_window_state(
             &WindowState,
             Option<&NormalModeGlobalRect>,
             Option<&AttachToOutput>,
+            Option<&WlSurfaceWrapper>,
         ),
-        (Changed<WindowState>, With<WindowMark>),
+        (
+            Or<(
+                Changed<WindowState>,
+                Changed<AttachToOutput>,
+                Added<WlSurfaceWrapper>,
+            )>,
+            With<WindowMark>,
+        ),
     >,
-    mut window_ui_query: Query<(&mut Visibility, &mut Style)>,
+    mut window_ui_query: Query<(&mut Visibility, &mut Style, &WindowUiRoot)>,
+    mut focus_policy_query: Query<&mut FocusPolicy>,
     output_query: Query<&GlobalPhysicalRect, With<OutputMark>>,
     mut commands: Commands,
 ) {
-    for (frontends, mut physical_rect, state, normal_rect, attach_to_output) in
+    for (frontends, mut physical_rect, state, normal_rect, attach_to_output, surface) in
         surface_query.iter_mut()
     {
         for frontend in frontends.iter() {
-            if let Ok((mut visibility, mut style)) = window_ui_query.get_mut(*frontend) {
+            if let Ok((mut visibility, mut style, window_ui_root)) =
+                window_ui_query.get_mut(*frontend)
+            {
+                if let Ok(mut focus_policy) = focus_policy_query
+                    .get_mut(window_ui_root.input_rect_entity)
+                    .map_err(|error| error!(%error))
+                {
+                    if surface.is_some() {
+                        *focus_policy = FocusPolicy::Block;
+                    } else {
+                        *focus_policy = FocusPolicy::Pass;
+                    }
+                    debug!(?surface,?focus_policy,);
+                }
                 match state {
                     WindowState::Normal => {
                         *visibility = Visibility::Inherited;
@@ -294,8 +317,8 @@ pub fn update_window_state(
 }
 
 pub fn update_window_geo(
-    mut window_query: Query<(&Backend, &WindowUiRoot, &mut ZIndex)>,
     mut style_query: Query<(&mut Style, &mut ZIndex), Without<WindowUiRoot>>,
+    mut window_query: Query<(&Backend, &WindowUiRoot, &mut ZIndex)>,
     surface_query: Query<
         (
             &GlobalPhysicalRect,

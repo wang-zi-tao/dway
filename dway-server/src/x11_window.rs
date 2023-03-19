@@ -51,18 +51,26 @@ pub fn create_x11_surface(
         let x11_surface = &e.window;
         let id = SurfaceId::from(x11_surface);
         let uuid = UUID::new();
-        window_index.0.entry(id.clone()).or_insert_with(|| {
-            let entity = commands
-                .spawn(X11WindowBundle {
-                    mark: WindowMark,
-                    window: X11Window(x11_surface.clone()),
-                    uuid,
-                    id: id.clone(),
-                })
-                .id();
-            info!(surface=?id,?entity,"create x11 window");
+        let wl_surface = x11_surface.wl_surface();
+        let entity = *window_index.0.entry(id.clone()).or_insert_with(|| {
+            let mut c = commands.spawn(X11WindowBundle {
+                mark: WindowMark,
+                window: X11Window(x11_surface.clone()),
+                uuid,
+                id: id.clone(),
+            });
+            if let Some(wl_surface) = wl_surface.as_ref() {
+                c.insert(WlSurfaceWrapper(wl_surface.clone()));
+            }
+            let entity = c.id();
+            info!(surface=?id,?entity,"create x11 window, surface: {:?}",wl_surface.as_ref().map(|s|s.id()));
+            dbg!(x11_surface.title());
             entity
         });
+        if let Some(wl_surface) = wl_surface.as_ref() {
+            dbg!((entity,wl_surface));
+            window_index.0.insert(wl_surface.into(), entity);
+        }
     }
 }
 pub fn map_x11_surface_notify(
@@ -75,9 +83,10 @@ pub fn map_x11_surface_notify(
         let id = &e.0;
         if let Some((entity, surface)) = window_index.get(id).and_then(|&e| windows.get(e).ok()) {
             if let Some(wl_surface) = surface.wl_surface() {
+                trace!(surface=?SurfaceId::from(&surface.0),surface=?SurfaceId::from(&wl_surface),?entity,"mapped x11 window");
+                dbg!((entity,&surface,&wl_surface));
                 window_index.insert(SurfaceId::from(&wl_surface), entity);
                 commands.entity(entity).insert(WlSurfaceWrapper(wl_surface));
-                trace!(surface=?id,?entity,"create surface for x11 window");
             } else {
                 error!(surface=?id,?entity,"no wl_surface");
             }
@@ -302,7 +311,8 @@ impl XwmHandler for DWayServerComponent {
         xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
     ) {
-        self.dway.send_ecs_event(DestroyWindow((&window).into()));
+        debug!("destroyed x11 window");
+        self.dway.send_ecs_event(DestroyWlSurface((&window).into()));
     }
 
     fn configure_request(

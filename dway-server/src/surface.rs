@@ -85,7 +85,8 @@ use smithay::{
             XdgPopupSurfaceData, XdgPopupSurfaceRoleAttributes, XdgToplevelSurfaceRoleAttributes,
         },
         shm::{ShmHandler, ShmState},
-    }, xwayland::X11Wm,
+    },
+    xwayland::X11Wm,
 };
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 
@@ -219,10 +220,12 @@ pub fn do_commit(
             window_scale,
             mut physical_rect,
             mut surface_offset,
-        )) = window_index
-            .get(id)
-            .and_then(|&e| surface_query.get_mut(e).ok())
-        {
+        )) = window_index.get(id).and_then(|&e| {
+            surface_query
+                .get_mut(e)
+                .map_err(|error| error!(%error))
+                .ok()
+        }) {
             let surface = &mut wl_surface_wrapper;
             imported_surface.flush.store(true, Ordering::Release);
             if let Some(window) = window {
@@ -307,7 +310,6 @@ pub fn do_commit(
                     error!("no surface size");
                 }
             }
-            commands.entity(entity).log_components();
             trace!(surface = id.to_string(), ?entity, "commit finish");
         } else {
             warn!(surface = id.to_string(), "surface entity not found.");
@@ -320,7 +322,17 @@ pub fn import_surface(
     time: Extract<Res<Time>>,
     query: Extract<Query<(Entity, &WlSurfaceWrapper, &ImportedSurface)>>,
     output_query: Extract<Query<&OutputWrapper>>,
-    window_quert: Extract<Query<(Option<&WaylandWindow>, Option<&X11Window>)>>,
+    window_quert: Extract<
+        Query<
+            (
+                Entity,
+                &SurfaceId,
+                Option<&WaylandWindow>,
+                Option<&X11Window>,
+            ),
+            (With<WindowMark>, With<WlSurfaceWrapper>),
+        >,
+    >,
     render_device: Res<RenderDevice>,
     mut render_images: ResMut<RenderAssets<Image>>,
     mut events: ResMut<SpriteAssetEvents>,
@@ -399,7 +411,7 @@ pub fn import_surface(
                 }
             });
     }
-    for (wayland_window, x11_window) in window_quert.iter() {
+    for (entity, id, wayland_window, x11_window) in window_quert.iter() {
         if let Some(window) = wayland_window {
             window.with_surfaces(|surface, states| {
                 if let Some(output) = update_surface_primary_scanout_output(
@@ -421,8 +433,7 @@ pub fn import_surface(
                 None,
                 surface_primary_scanout_output,
             );
-        };
-        if let Some(surface) = x11_window.and_then(|w| w.wl_surface()) {
+        } else if let Some(surface) = x11_window.and_then(|w| w.wl_surface()) {
             with_surfaces_surface_tree(&surface, |surface, states| {
                 if let Some(output) = update_surface_primary_scanout_output(
                     surface,
@@ -444,6 +455,8 @@ pub fn import_surface(
                 None,
                 surface_primary_scanout_output,
             );
+        } else {
+            error!(surface=?id,?entity,"can not send frame");
         };
     }
 }
