@@ -187,7 +187,7 @@ fn cursor_move_on_window(
                 Interaction::None => {}
                 _ => {
                     let Ok((id, rect, window_scale)) = surfaces_query.get(backend.0) else{
-                        warn!("failed to get backend");
+                        // warn!("failed to get backend");
                         continue;
                     };
                     let Some((output, pos)) = &cursor.0  else {

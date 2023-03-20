@@ -21,7 +21,7 @@ pub fn place_new_window(
     for e in events.iter() {
         if let Some(&entity) = window_index.0.get(&e.0) {
             let pos = (0, 0);
-            let size = (800, 600);
+            let size = (1000, 700);
             let physical = PhysicalRect(Rectangle::from_loc_and_size(pos, size));
             let global = GlobalPhysicalRect(Rectangle::from_loc_and_size(pos, size));
             let surface_offset = SurfaceOffset(Rectangle::from_loc_and_size((0, 0), size));

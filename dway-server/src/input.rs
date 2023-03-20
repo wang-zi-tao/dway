@@ -53,8 +53,8 @@ pub fn on_mouse_move(
             surface_query
                 .get(e)
                 .map_err(|error| {
-                    commands.entity(e).log_components();
-                    error!(%error)
+                    // commands.entity(e).log_components();
+                    // error!(%error)
                 })
                 .ok()
         }) {
@@ -69,7 +69,7 @@ pub fn on_mouse_move(
                 .to_i32_round();
             let serial = SERIAL_COUNTER.next_serial();
             let point = Point::from((pos.x as f64, pos.y as f64));
-            trace!(surface=?surface.id(),?point,"mouse move");
+            // trace!(surface=?surface.id(),?point,"mouse move");
             if let Some(ptr) = dway.seat.get_pointer() {
                 ptr.motion(
                     dway,
@@ -82,7 +82,7 @@ pub fn on_mouse_move(
                 );
             }
         } else {
-            warn!(surface = ?id, "surface entity not found.");
+            // warn!(surface = ?id, "surface entity not found.");
             continue;
         }
     }
@@ -109,7 +109,7 @@ pub fn on_mouse_motion(
         if let Some((surface, offset, scale)) = window_index.get(id).and_then(|&entity| {
             surface_query
                 .get(entity)
-                .map_err(|error| error!(%error,?entity))
+                // .map_err(|error| error!(%error,?entity))
                 .ok()
         }) {
             let scale = scale.cloned().unwrap_or_default().0;
@@ -121,7 +121,7 @@ pub fn on_mouse_motion(
                 .to_f64()
                 .to_logical(scale)
                 .to_i32_round();
-            trace!(surface=?surface.id(),?offset,"mouse motion");
+            // trace!(surface=?surface.id(),?offset,"mouse motion");
             let delta = Point::from((delta.x as f64, delta.y as f64));
             if let Some(ptr) = dway.seat.get_pointer() {
                 ptr.relative_motion(
@@ -135,7 +135,7 @@ pub fn on_mouse_motion(
                 );
             }
         } else {
-            warn!(surface = ?id, "surface entity not found.");
+            // warn!(surface = ?id, "surface entity not found.");
             continue;
         }
     }

@@ -81,6 +81,7 @@ use smithay::{
         },
         data_device::{ClientDndGrabHandler, DataDeviceHandler, ServerDndGrabHandler},
         fractional_scale::with_fractional_scale,
+        seat::WaylandFocus,
         shell::xdg::{
             XdgPopupSurfaceData, XdgPopupSurfaceRoleAttributes, XdgToplevelSurfaceRoleAttributes,
         },
@@ -191,7 +192,7 @@ pub fn do_commit(
     mut events: EventReader<CommitSurface>,
     mut surface_query: Query<(
         Entity,
-        &mut WlSurfaceWrapper,
+        Option<&mut WlSurfaceWrapper>,
         &mut ImportedSurface,
         Option<&mut WaylandWindow>,
         Option<&mut PopupWindow>,
@@ -228,7 +229,7 @@ pub fn do_commit(
         }) {
             let surface = &mut wl_surface_wrapper;
             imported_surface.flush.store(true, Ordering::Release);
-            if let Some(window) = window {
+            if let (Some(window), Some(surface)) = (window, wl_surface_wrapper.as_ref()) {
                 let initial_configure_sent =
                     with_states_locked(surface, |s: &mut XdgToplevelSurfaceRoleAttributes| {
                         s.initial_configure_sent
@@ -259,9 +260,9 @@ pub fn do_commit(
                 let geo = window.geometry();
                 let bbox = window.bbox();
                 let scale = window_scale.cloned().unwrap_or_default().0;
-                let offset = bbox.loc - geo.loc;
                 surface_offset.as_mut().map(|r| {
-                    r.0.loc = offset
+                    r.0.size = bbox
+                        .size
                         .to_f64()
                         .to_physical_precise_round(scale)
                         .to_i32_round();
@@ -273,7 +274,7 @@ pub fn do_commit(
                         .to_physical_precise_round(scale)
                         .to_i32_round();
                 });
-            } else if let Some(popup) = popup {
+            } else if let (Some(popup), Some(surface)) = (popup, wl_surface_wrapper.as_ref()) {
                 if !with_states_locked(surface, |s: &mut XdgPopupSurfaceRoleAttributes| {
                     s.initial_configure_sent
                 }) {
@@ -312,7 +313,11 @@ pub fn do_commit(
             }
             trace!(surface = id.to_string(), ?entity, "commit finish");
         } else {
-            warn!(surface = id.to_string(), "surface entity not found.");
+            error!(surface = id.to_string(), "surface entity not found.");
+            dbg!(&window_index);
+            for e in surface_query.iter() {
+                dbg!(e.0, &e.1.map(|s| s.id()));
+            }
             continue;
         }
     }
@@ -487,34 +492,6 @@ pub fn change_size(
         //     imported.size = (size.w, size.h).into();
         //     // imported.resize(&mut assets, (size.w, size.h).into());
         // }
-    }
-}
-
-pub fn debug_texture(
-    render_adapter: Res<RenderAdapter>,
-    mut render_images: ResMut<RenderAssets<Image>>,
-) {
-    unsafe {
-        render_adapter.as_hal::<wgpu_hal::api::Gles, _, _>(|hal_adapter| {
-            let hal_adapter = hal_adapter.unwrap();
-            let gl: &glow::Context = &hal_adapter.adapter_context().lock();
-
-            gl.enable(glow::DEBUG_OUTPUT);
-            gl.debug_message_callback(gl_debug_message_callback);
-            gl.disable(glow::DEBUG_OUTPUT);
-        });
-        for image in render_images.values() {
-            let image: &GpuImage = image;
-            image.texture.as_hal::<wgpu_hal::api::Gles, _>(|hal_image| {
-                let hal_image = hal_image.unwrap();
-                dbg!(
-                    (
-                        &hal_image.inner
-                        // gl.get_tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WIDTH,)
-                    )
-                );
-            });
-        }
     }
 }
 

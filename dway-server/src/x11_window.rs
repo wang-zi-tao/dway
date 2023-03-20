@@ -68,7 +68,7 @@ pub fn create_x11_surface(
             entity
         });
         if let Some(wl_surface) = wl_surface.as_ref() {
-            dbg!((entity,wl_surface));
+            dbg!((entity, wl_surface));
             window_index.0.insert(wl_surface.into(), entity);
         }
     }
@@ -84,7 +84,7 @@ pub fn map_x11_surface_notify(
         if let Some((entity, surface)) = window_index.get(id).and_then(|&e| windows.get(e).ok()) {
             if let Some(wl_surface) = surface.wl_surface() {
                 trace!(surface=?SurfaceId::from(&surface.0),surface=?SurfaceId::from(&wl_surface),?entity,"mapped x11 window");
-                dbg!((entity,&surface,&wl_surface));
+                dbg!((entity, &surface, &wl_surface));
                 window_index.insert(SurfaceId::from(&wl_surface), entity);
                 commands.entity(entity).insert(WlSurfaceWrapper(wl_surface));
             } else {
@@ -100,7 +100,6 @@ pub fn map_x11_window(
     mut events: EventReader<MapX11Window>,
     window_index: Res<WindowIndex>,
     windows: Query<(Entity, &X11Window, &PhysicalRect, Option<&WindowScale>)>,
-    mut commands: Commands,
 ) {
     for e in events.iter() {
         let id = &e.0;
@@ -174,7 +173,9 @@ pub fn configure_notify(
             .and_then(|&e| windows_query.get_mut(e).ok())
         {
             rect.as_mut().map(|r| {
+                dbg!(r.0);
                 r.0 = geometry.to_physical_precise_round(scale.cloned().unwrap_or_default().0);
+                dbg!(r.0);
             });
             info!(surface=?window,?entity,"configure x11 window notify");
         } else {

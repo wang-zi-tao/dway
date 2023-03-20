@@ -17,7 +17,7 @@ use dway_protocol::window::WindowState;
 use dway_protocol::window::{ImageBuffer, WindowMessage, WindowMessageKind};
 use dway_server::{
     components::{Id, SurfaceOffset, WindowScale, WlSurfaceWrapper},
-    events::{CreateWindow, MouseButtonOnWindow, MouseMoveOnWindow},
+    events::{CreateWindow, MouseButtonOnWindow, MouseMoveOnWindow, UnmapX11Window},
     math::{ivec2_to_point, point_to_ivec2, rectangle_i32_center, vec2_to_point},
 };
 
@@ -58,6 +58,11 @@ impl Plugin for DWayWindowPlugin {
         app.add_system(update_window_state.in_set(UpdateState));
         app.add_system(update_window_geo.in_set(UpdateState));
         app.add_system(
+            unmap_window
+                .run_if(on_event::<UnmapX11Window>())
+                .in_set(Destroy),
+        );
+        app.add_system(
             destroy_window_ui
                 .run_if(on_event::<DestroyWlSurface>())
                 .in_set(Destroy),
@@ -65,7 +70,7 @@ impl Plugin for DWayWindowPlugin {
     }
 }
 
-#[derive(Component,Reflect, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Component, Reflect, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct Frontends(pub SmallVec<[Entity; 1]>);
 
 impl std::ops::Deref for Frontends {
@@ -75,7 +80,7 @@ impl std::ops::Deref for Frontends {
         &self.0
     }
 }
-#[derive(Component,Reflect, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Component, Reflect, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Backend(pub Entity);
 impl Backend {
     pub fn new(entity: Entity) -> Self {
@@ -228,7 +233,37 @@ pub fn destroy_window_ui(
         }
     }
 }
-
+pub fn unmap_window(
+    mut events: EventReader<UnmapX11Window>,
+    surface_query: Query<(&Frontends, Option<&WlSurfaceWrapper>), With<WindowMark>>,
+    mut window_ui_query: Query<(&mut Visibility, &WindowUiRoot)>,
+    mut focus_policy_query: Query<&mut FocusPolicy>,
+    window_index: Res<WindowIndex>,
+) {
+    for UnmapX11Window(id) in events.iter() {
+        if let Some((frontends, surface)) = window_index
+            .get(id)
+            .and_then(|&e| surface_query.get(e).ok())
+        {
+            for frontend in frontends.iter() {
+                if let Ok((mut visibility, window_ui_root)) = window_ui_query.get_mut(*frontend) {
+                    if let Ok(mut focus_policy) = focus_policy_query
+                        .get_mut(window_ui_root.input_rect_entity)
+                        .map_err(|error| error!(%error))
+                    {
+                        if surface.is_some() {
+                            *focus_policy = FocusPolicy::Block;
+                            *visibility = Visibility::Inherited;
+                        } else {
+                            *focus_policy = FocusPolicy::Pass;
+                            *visibility = Visibility::Hidden;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 pub fn update_window_state(
     mut surface_query: Query<
         (
@@ -269,7 +304,7 @@ pub fn update_window_state(
                     } else {
                         *focus_policy = FocusPolicy::Pass;
                     }
-                    debug!(?surface,?focus_policy,);
+                    debug!(?surface, ?focus_policy,);
                 }
                 match state {
                     WindowState::Normal => {
@@ -320,11 +355,7 @@ pub fn update_window_geo(
     mut style_query: Query<(&mut Style, &mut ZIndex), Without<WindowUiRoot>>,
     mut window_query: Query<(&Backend, &WindowUiRoot, &mut ZIndex)>,
     surface_query: Query<
-        (
-            &GlobalPhysicalRect,
-            &WlSurfaceWrapper,
-            Option<&SurfaceOffset>,
-        ),
+        (&GlobalPhysicalRect, Option<&SurfaceOffset>),
         (
             With<WindowMark>,
             Or<(Changed<GlobalPhysicalRect>, Changed<SurfaceOffset>)>,
@@ -332,7 +363,7 @@ pub fn update_window_geo(
     >,
 ) {
     for (backend, ui_root, mut z_index) in window_query.iter_mut() {
-        if let Ok((rect, surface, surface_offset)) = surface_query.get(backend.get()) {
+        if let Ok((rect, surface_offset)) = surface_query.get(backend.get()) {
             let offset = surface_offset.cloned().unwrap_or_default();
             let bbox_loc = rect.0.loc + offset.0.loc;
             let bbox_size = offset.0.size.to_point();

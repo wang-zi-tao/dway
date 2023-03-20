@@ -91,11 +91,11 @@ use smithay::{
         virtual_keyboard::VirtualKeyboardManagerState,
         xdg_activation::XdgActivationState,
     },
-    xwayland::{X11Wm, XWayland, XWaylandEvent},
+    xwayland::{X11Wm, XWayland, XWaylandEvent}, desktop::utils::with_surfaces_surface_tree,
 };
 
 use crate::{
-    components::{PhysicalRect, SurfaceId, WindowIndex},
+    components::{PhysicalRect, SurfaceId, WindowIndex, WaylandWindow, X11Window},
     cursor::Cursor,
     events::{
         CloseWindowRequest, CommitSurface, ConfigureX11WindowRequest, CreateTopLevelEvent,
@@ -552,6 +552,17 @@ impl Plugin for DWayServerPlugin {
             input::on_keyboard
                 .run_if(on_event::<KeyboardInputOnWindow>())
                 .in_set(PostUpdate),
+        );
+        app.add_system(
+            (|surface_query: Query<(Entity, &WlSurfaceWrapper,Option<&WaylandWindow>,Option<&X11Window>)>| {
+                for (e,s,w,x) in surface_query.iter() {
+                    with_surfaces_surface_tree(&s, |surface,state|{
+                        dbg!(SurfaceId::from(s));
+                    });
+                }
+            })
+            .run_if(on_event::<CommitSurface>())
+            .in_set(PostUpdate),
         );
 
         // app.add_system(print_window_list.before(Update));
