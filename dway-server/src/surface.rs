@@ -185,6 +185,8 @@ pub fn create_surface(
                 "create surface.",
             );
             commands.entity(*entity).insert(imported);
+        } else {
+            error!(surface=?new_surface,"window index not found");
         }
     }
 }
@@ -202,7 +204,6 @@ pub fn do_commit(
         Option<&mut SurfaceOffset>,
     )>,
     window_index: Res<WindowIndex>,
-    mut commands: Commands,
 ) {
     let span = span!(Level::ERROR, "do commit");
     let _enter = span.enter();
@@ -221,12 +222,8 @@ pub fn do_commit(
             window_scale,
             mut physical_rect,
             mut surface_offset,
-        )) = window_index.get(id).and_then(|&e| {
-            surface_query
-                .get_mut(e)
-                .map_err(|error| error!(%error))
-                .ok()
-        }) {
+        )) = window_index.query_mut(id, &mut surface_query)
+        {
             let surface = &mut wl_surface_wrapper;
             imported_surface.flush.store(true, Ordering::Release);
             if let (Some(window), Some(surface)) = (window, wl_surface_wrapper.as_ref()) {
@@ -312,13 +309,6 @@ pub fn do_commit(
                 }
             }
             trace!(surface = id.to_string(), ?entity, "commit finish");
-        } else {
-            error!(surface = id.to_string(), "surface entity not found.");
-            dbg!(&window_index);
-            for e in surface_query.iter() {
-                dbg!(e.0, &e.1.map(|s| s.id()));
-            }
-            continue;
         }
     }
 }
@@ -460,9 +450,7 @@ pub fn import_surface(
                 None,
                 surface_primary_scanout_output,
             );
-        } else {
-            error!(surface=?id,?entity,"can not send frame");
-        };
+        }
     }
 }
 

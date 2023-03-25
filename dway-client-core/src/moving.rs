@@ -97,7 +97,6 @@ pub fn stop_moving(
     mut commands: Commands,
 ) {
     for event in cursor_button_events.iter() {
-        dbg!(event);
         if event.state == ButtonState::Released {
             trace!("stop moving");
             commands.insert_resource(NextState::<DWayClientState>(Some(DWayClientState::Desktop)));

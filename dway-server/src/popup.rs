@@ -78,7 +78,7 @@ pub fn create_popup(
 pub fn reposition_request(
     mut events: EventReader<UpdatePopupPosition>,
     window_index: Res<WindowIndex>,
-    mut surfaces: Query<
+    mut surface_query: Query<
         (
             Entity,
             &mut PopupWindow,
@@ -97,7 +97,7 @@ pub fn reposition_request(
     {
         if let Some((entity, mut popup, mut logical_rect, mut physical_rect, scale)) = window_index
             .get(surface_id)
-            .and_then(|&e| surfaces.get_mut(e).ok())
+            .and_then(|&e| surface_query.get_mut(e).ok())
         {
             popup.as_mut().update_with_rect(
                 *positioner,

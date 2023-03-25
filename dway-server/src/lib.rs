@@ -99,7 +99,7 @@ use crate::{
     cursor::Cursor,
     events::{
         CloseWindowRequest, CommitSurface, ConfigureX11WindowRequest, CreateTopLevelEvent,
-        CreateWindow, CreateX11WindowEvent, DestroyWlSurface, KeyboardInputOnWindow, MapX11Window,
+        CreateWindow, CreateX11WindowEvent, DestroyWlSurface, KeyboardInputOnWindow, MapX11WindowRequest,
         MouseButtonOnWindow, MouseMotionOnWindow, MouseWheelOnWindow, UnmapX11Window,
         UpdatePopupPosition, X11WindowSetSurfaceEvent,
     },
@@ -406,7 +406,7 @@ impl Plugin for DWayServerPlugin {
         app.add_event::<events::DestroyPopup>();
         app.add_event::<events::DestroyWlSurface>();
         app.add_event::<events::CreateX11WindowEvent>();
-        app.add_event::<events::MapX11Window>();
+        app.add_event::<events::MapX11WindowRequest>();
         app.add_event::<events::UnmapX11Window>();
         app.add_event::<events::MapOverrideX11Window>();
         app.add_event::<events::X11WindowSetSurfaceEvent>();
@@ -468,13 +468,13 @@ impl Plugin for DWayServerPlugin {
         );
         app.add_system(
             x11_window::map_x11_window
-                .run_if(on_event::<MapX11Window>())
+                .run_if(on_event::<MapX11WindowRequest>())
                 .in_set(PreUpdate),
         );
         app.add_system(
             x11_window::unmap_x11_surface
                 .run_if(on_event::<UnmapX11Window>())
-                .in_set(PreUpdate),
+                .in_set(DestroyComponent),
         );
         app.add_system(x11_window::configure_notify.in_set(PreUpdate));
         app.add_system(
@@ -553,17 +553,17 @@ impl Plugin for DWayServerPlugin {
                 .run_if(on_event::<KeyboardInputOnWindow>())
                 .in_set(PostUpdate),
         );
-        app.add_system(
-            (|surface_query: Query<(Entity, &WlSurfaceWrapper,Option<&WaylandWindow>,Option<&X11Window>)>| {
-                for (e,s,w,x) in surface_query.iter() {
-                    with_surfaces_surface_tree(&s, |surface,state|{
-                        dbg!(SurfaceId::from(s));
-                    });
-                }
-            })
-            .run_if(on_event::<CommitSurface>())
-            .in_set(PostUpdate),
-        );
+        // app.add_system(
+        //     (|surface_query: Query<(Entity, &WlSurfaceWrapper,Option<&WaylandWindow>,Option<&X11Window>)>| {
+        //         for (e,s,w,x) in surface_query.iter() {
+        //             with_surfaces_surface_tree(&s, |surface,state|{
+        //                 dbg!(SurfaceId::from(s));
+        //             });
+        //         }
+        //     })
+        //     .run_if(on_event::<CommitSurface>())
+        //     .in_set(PostUpdate),
+        // );
 
         // app.add_system(print_window_list.before(Update));
 

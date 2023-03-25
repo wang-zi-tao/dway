@@ -32,7 +32,7 @@ pub struct CreateX11WindowEvent {
     pub is_override_redirect: bool,
 }
 #[derive(Clone, Debug)]
-pub struct MapX11Window(pub SurfaceId);
+pub struct MapX11WindowRequest(pub SurfaceId);
 #[derive(Clone, Debug)]
 pub struct UnmapX11Window(pub SurfaceId);
 #[derive(Clone, Debug)]

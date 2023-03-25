@@ -1,9 +1,12 @@
+use std::any::type_name;
 use std::fmt::Write;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use std::borrow::Cow;
 
+use bevy::ecs::query::{QueryEntityError, QueryItem, ROQueryItem, ReadOnlyWorldQuery, WorldQuery};
 use bevy::prelude::*;
+use failure::{format_err, Error};
 use smithay::desktop::PopupKind;
 use smithay::output::Output;
 use smithay::reexports::wayland_server::backend::ObjectId;
@@ -52,9 +55,9 @@ use smithay::{
 
 pub struct Id(Uuid);
 
-#[derive(Component,Reflect, Clone, Hash, PartialEq, Eq)]
+#[derive(Component, Reflect, Clone, Hash, PartialEq, Eq)]
 pub enum SurfaceId {
-    Wayland(ObjectId),
+    Wayland(u32),
     X11(u32),
 }
 
@@ -63,7 +66,7 @@ impl std::fmt::Debug for SurfaceId {
         match self {
             Self::Wayland(arg0) => {
                 f.write_str("Wl@")?;
-                f.write_str(&arg0.to_string()[11..])?;
+                arg0.fmt(f)?;
                 Ok(())
             }
             Self::X11(arg0) => {
@@ -78,24 +81,24 @@ impl std::fmt::Debug for SurfaceId {
 impl ToString for SurfaceId {
     fn to_string(&self) -> String {
         match self {
-            Self::Wayland(arg0) => format!("Wl@{}", &arg0.to_string()[11..]),
+            Self::Wayland(arg0) => format!("Wl@{arg0}"),
             Self::X11(arg0) => format!("X@{arg0}"),
         }
     }
 }
 impl From<&WlSurfaceWrapper> for SurfaceId {
     fn from(value: &WlSurfaceWrapper) -> Self {
-        Self::Wayland(value.0.id())
+        Self::from(&value.0)
     }
 }
 impl From<WlSurface> for SurfaceId {
     fn from(value: WlSurface) -> Self {
-        Self::Wayland(value.id())
+        Self::from(&value)
     }
 }
 impl From<&WlSurface> for SurfaceId {
     fn from(value: &WlSurface) -> Self {
-        Self::Wayland(value.id())
+        Self::Wayland(value.id().to_string()[11..].parse().unwrap())
     }
 }
 impl From<X11Surface> for SurfaceId {
@@ -110,27 +113,82 @@ impl From<&X11Surface> for SurfaceId {
 }
 impl From<&PopupSurface> for SurfaceId {
     fn from(value: &PopupSurface) -> Self {
-        Self::Wayland(value.wl_surface().id())
+        Self::from(value.wl_surface())
     }
 }
 impl From<PopupSurface> for SurfaceId {
     fn from(value: PopupSurface) -> Self {
-        Self::Wayland(value.wl_surface().id())
+        Self::from(value.wl_surface())
     }
 }
 impl From<ToplevelSurface> for SurfaceId {
     fn from(value: ToplevelSurface) -> Self {
-        Self::Wayland(value.wl_surface().id())
+        Self::from(value.wl_surface())
     }
 }
 impl From<&ToplevelSurface> for SurfaceId {
     fn from(value: &ToplevelSurface) -> Self {
-        Self::Wayland(value.wl_surface().id())
+        Self::from(value.wl_surface())
     }
 }
 
 #[derive(Resource, Default, Debug, Deref, DerefMut)]
 pub struct WindowIndex(pub HashMap<SurfaceId, Entity>);
+impl WindowIndex {
+    pub fn get(&self, surface: &SurfaceId) -> Option<&Entity> {
+        if let Some(o) = self.0.get(surface) {
+            Some(o)
+        } else {
+            error!(?surface, "surface entity not found");
+            None
+        }
+    }
+    pub fn query<'w, Q: WorldQuery, F: ReadOnlyWorldQuery>(
+        &self,
+        surface: &SurfaceId,
+        query: &'w Query<Q, F>,
+    ) -> Option<ROQueryItem<'w, Q>> {
+        self.0
+            .get(surface)
+            .cloned()
+            .or_else(|| {
+                error!(
+                    ?surface,
+                    query = type_name::<Query<Q, F>>(),
+                    "window index not found: {surface:?}"
+                );
+                None
+            })
+            .and_then(|e| {
+                query
+                    .get(e)
+                    .map_err(|error| {
+                        error!(entity=?e,surface=?surface,query=type_name::<Query<Q, F>>(),?error);
+                    })
+                    .ok()
+            })
+    }
+    pub fn query_mut<'w, Q: WorldQuery, F: ReadOnlyWorldQuery>(
+        &self,
+        surface: &SurfaceId,
+        query: &'w mut Query<Q, F>,
+    ) -> Option<QueryItem<'w, Q>> {
+        self.0
+            .get(surface)
+            .or_else(|| {
+                error!(surface=?surface,query=type_name::<Query<Q, F>>(),"window index not found");
+                None
+            })
+            .and_then(|&e| {
+                query
+                    .get_mut(e)
+                    .map_err(|error| {
+                        error!(entity=?e,surface=?surface,query=type_name::<Query<Q, F>>(),?error);
+                    })
+                    .ok()
+            })
+    }
+}
 
 #[derive(Component, Debug, Default)]
 pub struct WindowMark;

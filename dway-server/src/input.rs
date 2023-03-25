@@ -41,7 +41,6 @@ pub fn on_mouse_move(
         ),
         With<WindowMark>,
     >,
-    mut commands: Commands,
 ) {
     let time = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -49,15 +48,7 @@ pub fn on_mouse_move(
         .as_millis() as u32;
     let dway = &mut dway_query.single_mut().dway;
     for MouseMoveOnWindow(id, pos) in events.iter() {
-        if let Some((surface, offset, scale)) = window_index.get(id).and_then(|&e| {
-            surface_query
-                .get(e)
-                .map_err(|error| {
-                    // commands.entity(e).log_components();
-                    // error!(%error)
-                })
-                .ok()
-        }) {
+        if let Some((surface, offset, scale)) = window_index.query(id,&surface_query) {
             let scale = scale.cloned().unwrap_or_default().0;
             let offset = offset
                 .cloned()

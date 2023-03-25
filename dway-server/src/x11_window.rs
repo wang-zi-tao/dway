@@ -23,7 +23,7 @@ use crate::{
     events::{
         CloseWindowRequest, ConfigureX11WindowNotify, ConfigureX11WindowRequest,
         CreateTopLevelEvent, CreateWindow, CreateX11WindowEvent, DestroyWindow, DestroyWlSurface,
-        DestroyX11WindowEvent, MapOverrideX11Window, MapX11Window, MoveRequest, ResizeRequest,
+        DestroyX11WindowEvent, MapOverrideX11Window, MapX11WindowRequest, MoveRequest, ResizeRequest,
         SetState, UnmapX11Window, X11WindowSetSurfaceEvent,
     },
     DWay,
@@ -47,15 +47,18 @@ pub fn create_x11_surface(
     mut window_index: ResMut<WindowIndex>,
     mut commands: Commands,
 ) {
-    for e in events.iter() {
-        let x11_surface = &e.window;
-        let id = SurfaceId::from(x11_surface);
+    for CreateX11WindowEvent {
+        window,
+        is_override_redirect,
+    } in events.iter()
+    {
+        let id = SurfaceId::from(window);
         let uuid = UUID::new();
-        let wl_surface = x11_surface.wl_surface();
+        let wl_surface = window.wl_surface();
         let entity = *window_index.0.entry(id.clone()).or_insert_with(|| {
             let mut c = commands.spawn(X11WindowBundle {
                 mark: WindowMark,
-                window: X11Window(x11_surface.clone()),
+                window: X11Window(window.clone()),
                 uuid,
                 id: id.clone(),
             });
@@ -64,11 +67,9 @@ pub fn create_x11_surface(
             }
             let entity = c.id();
             info!(surface=?id,?entity,"create x11 window, surface: {:?}",wl_surface.as_ref().map(|s|s.id()));
-            dbg!(x11_surface.title());
             entity
         });
         if let Some(wl_surface) = wl_surface.as_ref() {
-            dbg!((entity, wl_surface));
             window_index.0.insert(wl_surface.into(), entity);
         }
     }
@@ -76,56 +77,47 @@ pub fn create_x11_surface(
 pub fn map_x11_surface_notify(
     mut events: EventReader<X11WindowSetSurfaceEvent>,
     mut window_index: ResMut<WindowIndex>,
-    windows: Query<(Entity, &X11Window)>,
+    window_query: Query<(Entity, &X11Window)>,
     mut commands: Commands,
 ) {
     for e in events.iter() {
         let id = &e.0;
-        if let Some((entity, surface)) = window_index.get(id).and_then(|&e| windows.get(e).ok()) {
+        if let Some((entity, surface)) = window_index.query(id, &window_query) {
             if let Some(wl_surface) = surface.wl_surface() {
-                trace!(surface=?SurfaceId::from(&surface.0),surface=?SurfaceId::from(&wl_surface),?entity,"mapped x11 window");
-                dbg!((entity, &surface, &wl_surface));
+                trace!(surface=?SurfaceId::from(&surface.0),surface=?SurfaceId::from(&wl_surface),?entity,"mapped x11 window to wl_surface");
                 window_index.insert(SurfaceId::from(&wl_surface), entity);
                 commands.entity(entity).insert(WlSurfaceWrapper(wl_surface));
             } else {
-                error!(surface=?id,?entity,"no wl_surface");
+                error!(wl_surface=?surface,?entity,"no wl_surface");
             }
-        } else {
-            warn!(surface = ?id, "surface entity not found.");
-            continue;
         }
     }
 }
 pub fn map_x11_window(
-    mut events: EventReader<MapX11Window>,
+    mut events: EventReader<MapX11WindowRequest>,
     window_index: Res<WindowIndex>,
     windows: Query<(Entity, &X11Window, &PhysicalRect, Option<&WindowScale>)>,
 ) {
     for e in events.iter() {
         let id = &e.0;
-        if let Some((entity, window, rect, scale)) =
-            window_index.get(id).and_then(|&e| windows.get(e).ok())
-        {
+        if let Some((entity, window, rect, scale)) = window_index.query(id, &windows) {
             let scale = scale.cloned().unwrap_or_default().0;
             window.set_mapped(true).unwrap();
             window
                 .configure(Some(rect.to_f64().to_logical(scale).to_i32_round()))
                 .unwrap();
-            info!(surface=?id,?entity,"map x11 window");
-        } else {
-            warn!(surface = ?id, "surface entity not found.");
-            continue;
+            info!(surface=?id,?entity,"map x11 window request");
         }
     }
 }
 pub fn configure_request(
     mut events: EventReader<ConfigureX11WindowRequest>,
     window_index: Res<WindowIndex>,
-    windows: Query<(Entity, &X11Window, Option<&WindowScale>)>,
+    mut window_query: Query<(Entity, &X11Window, &mut PhysicalRect, Option<&WindowScale>)>,
     mut commands: Commands,
 ) {
     for ConfigureX11WindowRequest {
-        window,
+        window:id,
         x,
         y,
         w,
@@ -133,22 +125,26 @@ pub fn configure_request(
         reorder,
     } in events.iter()
     {
-        if let Some((entity, x11_surface, scale)) =
-            window_index.get(window).and_then(|&e| windows.get(e).ok())
+        if let Some((entity, window, mut rect, scale)) =
+            window_index.query_mut(id, &mut window_query)
         {
-            let mut geo = x11_surface.geometry();
+            let mut geo = window.geometry();
             if let Some(w) = w {
                 geo.size.w = *w as i32;
             }
             if let Some(h) = h {
                 geo.size.h = *h as i32;
             }
+            if let Some(x) = x {
+                geo.loc.x = *x as i32;
+            }
+            if let Some(y) = y {
+                geo.loc.y = *y as i32;
+            }
+            let _ = window.configure(geo);
             let physical_rect = geo.to_physical_precise_round(scale.cloned().unwrap_or_default().0);
-            info!(surface=?window,?entity,"configure x11 window request");
-            commands.entity(entity).insert(PhysicalRect(physical_rect));
-        } else {
-            warn!(surface = ?window, "surface entity not found.");
-            continue;
+            info!(surface=?id,?entity,"configure x11 window request");
+            rect.0 = physical_rect;
         }
     }
 }
@@ -157,46 +153,52 @@ pub fn configure_notify(
     window_index: Res<WindowIndex>,
     mut windows_query: Query<(
         Entity,
-        &X11Window,
-        Option<&mut PhysicalRect>,
+        &mut PhysicalRect,
         Option<&WindowScale>,
+        Option<&Parent>,
     )>,
+    mut commands: Commands,
 ) {
     for ConfigureX11WindowNotify {
-        window,
+        window: id,
         geometry,
         above,
     } in events.iter()
     {
-        if let Some((entity, x11_window, mut rect, scale)) = window_index
-            .get(window)
-            .and_then(|&e| windows_query.get_mut(e).ok())
+        if let Some((entity, mut rect, scale, parent)) =
+            window_index.query_mut(id, &mut windows_query)
         {
-            rect.as_mut().map(|r| {
-                dbg!(r.0);
-                r.0 = geometry.to_physical_precise_round(scale.cloned().unwrap_or_default().0);
-                dbg!(r.0);
-            });
-            info!(surface=?window,?entity,"configure x11 window notify");
-        } else {
-            warn!(surface = ?window, "surface entity not found.");
-            continue;
+            rect.0 = geometry.to_physical_precise_round(scale.cloned().unwrap_or_default().0);
+            if let Some(above) = above {
+                if let Some(parent_entity) = window_index.get(&SurfaceId::X11(*above)) {
+                    if let Ok(_) = windows_query.get(*parent_entity) {
+                        commands.entity(entity).remove_parent();
+                        commands.entity(*parent_entity).add_child(entity);
+                    }
+                } else {
+                    error!(surface=?SurfaceId::X11(*above),"window entity not found");
+                }
+            } else {
+                if let Some(_parent) = parent {
+                    commands.entity(entity).remove_parent();
+                }
+            }
+            info!(surface=?id,?entity,"configure x11 window notify");
         }
     }
 }
 pub fn unmap_x11_surface(
     mut events: EventReader<UnmapX11Window>,
-    window_index: Res<WindowIndex>,
+    mut window_index: ResMut<WindowIndex>,
+    surface_query: Query<(Entity, &WlSurfaceWrapper), With<WindowMark>>,
     mut commands: Commands,
 ) {
     for e in events.iter() {
         let id = &e.0;
-        if let Some(entity) = window_index.get(id) {
-            info!(surface=?id,?entity,"unmap x11 window");
-            commands.entity(*entity).remove::<WlSurfaceWrapper>();
-        } else {
-            warn!(surface = ?id, "surface entity not found.");
-            continue;
+        if let Some((entity, surface)) = window_index.query(id, &surface_query) {
+            info!(surface=?id,wl_surface=?SurfaceId::from(surface),?entity,"unmap x11 window");
+            commands.entity(entity).remove::<WlSurfaceWrapper>();
+            window_index.remove(&surface.into());
         }
     }
 }
@@ -206,13 +208,10 @@ pub fn on_close_window_request(
     window_query: Query<&X11Window, With<WindowMark>>,
 ) {
     for CloseWindowRequest(id) in events.iter() {
-        if let Some(window) = window_index.get(id).and_then(|e| window_query.get(*e).ok()) {
+        if let Some(window) = window_index.query(id, &window_query) {
             if let Err(error) = window.close() {
                 error!(%error,"failed to close x11 window");
             }
-        } else {
-            warn!(surface = ?id, "surface entity not found.");
-            continue;
         }
     }
 }
@@ -220,6 +219,7 @@ pub fn on_rect_changed(
     window_query: Query<(&LogicalRect, &X11Window), (With<WindowMark>, Changed<LogicalRect>)>,
 ) {
     for (rect, window) in window_query.iter() {
+        info!(surface=?SurfaceId::from(&window.0),"configure x11 window: {:?}",rect);
         if let Err(error) = window.configure(Some(rect.0)) {
             error!(%error,"failed to configure x11 window");
         }
@@ -278,7 +278,7 @@ impl XwmHandler for DWayServerComponent {
         xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
     ) {
-        self.dway.send_ecs_event(MapX11Window((&window).into()));
+        self.dway.send_ecs_event(MapX11WindowRequest((&window).into()));
     }
 
     fn map_window_notify(
@@ -312,7 +312,6 @@ impl XwmHandler for DWayServerComponent {
         xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
     ) {
-        debug!("destroyed x11 window");
         self.dway.send_ecs_event(DestroyWlSurface((&window).into()));
     }
 

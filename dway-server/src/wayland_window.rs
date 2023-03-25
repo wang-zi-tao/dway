@@ -92,7 +92,7 @@ pub fn on_close_window_request(
     window_query: Query<&WaylandWindow, With<WindowMark>>,
 ) {
     for CloseWindowRequest(id) in events.iter() {
-        if let Some(window) = window_index.get(id).and_then(|e| window_query.get(*e).ok()) {
+        if let Some(window) = window_index.query(id, &window_query) {
             window.toplevel().send_close();
         }
     }

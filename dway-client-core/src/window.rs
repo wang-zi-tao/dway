@@ -17,7 +17,7 @@ use dway_protocol::window::WindowState;
 use dway_protocol::window::{ImageBuffer, WindowMessage, WindowMessageKind};
 use dway_server::{
     components::{Id, SurfaceOffset, WindowScale, WlSurfaceWrapper},
-    events::{CreateWindow, MouseButtonOnWindow, MouseMoveOnWindow, UnmapX11Window},
+    events::{CreateWindow, MapX11WindowRequest, MouseButtonOnWindow, MouseMoveOnWindow, UnmapX11Window, X11WindowSetSurfaceEvent},
     math::{ivec2_to_point, point_to_ivec2, rectangle_i32_center, vec2_to_point},
 };
 
@@ -58,9 +58,15 @@ impl Plugin for DWayWindowPlugin {
         app.add_system(update_window_state.in_set(UpdateState));
         app.add_system(update_window_geo.in_set(UpdateState));
         app.add_system(
+            map_window
+                .run_if(on_event::<X11WindowSetSurfaceEvent>())
+                .in_set(UpdateUI),
+        );
+        app.add_system(
             unmap_window
+                .before(map_window)
                 .run_if(on_event::<UnmapX11Window>())
-                .in_set(Destroy),
+                .in_set(UpdateUI),
         );
         app.add_system(
             destroy_window_ui
@@ -119,6 +125,7 @@ pub fn create_window_ui(
             &GlobalPhysicalRect,
             &SurfaceId,
             &ImportedSurface,
+            Option<&WlSurfaceWrapper>,
             Option<&SurfaceOffset>,
         ),
         With<WindowMark>,
@@ -128,9 +135,8 @@ pub fn create_window_ui(
     mut commands: Commands,
 ) {
     for CreateWindow(id) in events.iter() {
-        if let Some((entity, rect, id, surface, offset)) = window_index
-            .get(id)
-            .and_then(|&e| surface_query.get(e).map_err(|e| error!(error=%e)).ok())
+        if let Some((entity, rect, id, surface, wl_surface, offset)) =
+            window_index.query(id, &surface_query)
         {
             let backend = Backend::new(entity);
             let offset = offset.cloned().unwrap_or_default().0;
@@ -151,7 +157,7 @@ pub fn create_window_ui(
                             ..default()
                         },
                         focus_policy: FocusPolicy::Pass,
-                        background_color: BackgroundColor(Color::NONE),
+                        background_color: BackgroundColor(Color::BLUE.with_a(0.1)),
                         ..default()
                     },
                     backend,
@@ -192,6 +198,11 @@ pub fn create_window_ui(
                             position_type: PositionType::Absolute,
                             ..default()
                         },
+                        visibility: if wl_surface.is_some() {
+                            Visibility::Visible
+                        } else {
+                            Visibility::Hidden
+                        },
                         focus_policy: FocusPolicy::Pass,
                         ..Default::default()
                     },
@@ -223,42 +234,59 @@ pub fn destroy_window_ui(
     mut commands: Commands,
 ) {
     for DestroyWlSurface(id) in events.iter() {
-        if let Some(mut frontends) = window_index
-            .get(id)
-            .and_then(|e| window_query.get_mut(*e).ok())
-        {
+        if let Some(mut frontends) = window_index.query_mut(id, &mut window_query) {
             for frontend in frontends.0.drain(..) {
                 commands.entity(frontend).despawn_recursive();
             }
         }
     }
 }
+pub fn map_window(
+    mut events: EventReader<X11WindowSetSurfaceEvent>,
+    surface_query: Query<&Frontends, With<WindowMark>>,
+    mut window_ui_query: Query<(&mut Visibility, &WindowUiRoot)>,
+    mut focus_policy_query: Query<&mut FocusPolicy>,
+    window_index: Res<WindowIndex>,
+) {
+    for X11WindowSetSurfaceEvent(id) in events.iter() {
+        if let Some(frontends) = window_index.query(id, &surface_query) {
+            for frontend in frontends.iter() {
+                if let Ok((mut visibility, window_ui_root)) = window_ui_query
+                    .get_mut(*frontend)
+                    .map_err(|error| error!(?error))
+                {
+                    if let Ok(mut focus_policy) = focus_policy_query
+                        .get_mut(window_ui_root.input_rect_entity)
+                        .map_err(|error| error!(%error))
+                    {
+                        *focus_policy = FocusPolicy::Block;
+                    }
+                    *visibility = Visibility::Visible;
+                    info!(entity=?frontend,surface=?id,"map ui window");
+                }
+            }
+        }
+    }
+}
 pub fn unmap_window(
     mut events: EventReader<UnmapX11Window>,
-    surface_query: Query<(&Frontends, Option<&WlSurfaceWrapper>), With<WindowMark>>,
+    surface_query: Query<&Frontends, With<WindowMark>>,
     mut window_ui_query: Query<(&mut Visibility, &WindowUiRoot)>,
     mut focus_policy_query: Query<&mut FocusPolicy>,
     window_index: Res<WindowIndex>,
 ) {
     for UnmapX11Window(id) in events.iter() {
-        if let Some((frontends, surface)) = window_index
-            .get(id)
-            .and_then(|&e| surface_query.get(e).ok())
-        {
+        if let Some(frontends) = window_index.query(id, &surface_query) {
             for frontend in frontends.iter() {
                 if let Ok((mut visibility, window_ui_root)) = window_ui_query.get_mut(*frontend) {
                     if let Ok(mut focus_policy) = focus_policy_query
                         .get_mut(window_ui_root.input_rect_entity)
                         .map_err(|error| error!(%error))
                     {
-                        if surface.is_some() {
-                            *focus_policy = FocusPolicy::Block;
-                            *visibility = Visibility::Inherited;
-                        } else {
-                            *focus_policy = FocusPolicy::Pass;
-                            *visibility = Visibility::Hidden;
-                        }
+                        *focus_policy = FocusPolicy::Pass;
                     }
+                    *visibility = Visibility::Hidden;
+                    info!(entity=?frontend,surface=?id,"unmap ui window");
                 }
             }
         }
@@ -269,7 +297,7 @@ pub fn update_window_state(
         (
             &Frontends,
             &mut PhysicalRect,
-            &WindowState,
+            Option<&WindowState>,
             Option<&NormalModeGlobalRect>,
             Option<&AttachToOutput>,
             Option<&WlSurfaceWrapper>,
@@ -304,21 +332,20 @@ pub fn update_window_state(
                     } else {
                         *focus_policy = FocusPolicy::Pass;
                     }
-                    debug!(?surface, ?focus_policy,);
                 }
                 match state {
-                    WindowState::Normal => {
-                        *visibility = Visibility::Inherited;
+                    Some(WindowState::Normal) => {
+                        *visibility = Visibility::Visible;
                         if let Some(rect) = normal_rect {
                             physical_rect.0 = rect.0;
                             commands.entity(*frontend).remove::<NormalModeGlobalRect>();
                         }
                     }
-                    WindowState::Minimized => {
+                    Some(WindowState::Minimized) => {
                         *visibility = Visibility::Hidden;
                     }
-                    WindowState::Maximized | WindowState::FullScreen => {
-                        *visibility = Visibility::Inherited;
+                    Some(WindowState::Maximized) | Some(WindowState::FullScreen) => {
+                        *visibility = Visibility::Visible;
                         let center = rectangle_i32_center(physical_rect.0);
                         let output = attach_to_output
                             .and_then(|o| o.get(1).copied())
@@ -335,6 +362,7 @@ pub fn update_window_state(
                             physical_rect.0 = output_rect.0;
                         }
                     }
+                    None => {}
                 }
                 style.size = Size::new(
                     Val::Px(physical_rect.0.size.w as f32),
