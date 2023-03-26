@@ -14,7 +14,7 @@ lazy_static = "1.4.0"
 crossbeam-channel = "0.5.6"
 uuid = "1.2.2"
 memory-stats = "1.1.0"
-image = {version = "0.24.0", default-features = false, optional = true}
+image = "0.24.6"
 rand = "0.8"
 slog = {version = "2.1.1",features = ["max_level_trace", "release_max_level_info"] }
 slog-async = "2.2"
@@ -68,3 +68,5 @@ opt-level = 3
 
 [profile.release]
 lto = "thin"
+
+

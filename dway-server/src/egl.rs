@@ -1,7 +1,9 @@
 use std::{
+    default,
     ffi::{c_int, c_uint, c_void},
     num::NonZeroU32,
     os::fd::AsRawFd,
+    path::Path,
     ptr::null_mut,
 };
 
@@ -13,6 +15,7 @@ use failure::{format_err, Fallible};
 use glow::{
     Fence, HasContext, NativeFence, NativeRenderbuffer, NativeTexture, PixelPackData, TEXTURE_2D,
 };
+use image::ImageBuffer;
 use khronos_egl::{EGLClientBuffer, EGLContext, EGLDisplay, EGLImage, EGLSurface, Enum, Int};
 use smithay::{
     backend::{
@@ -35,7 +38,7 @@ use smithay::{
         shm::{with_buffer_contents, BufferData},
     },
 };
-use wgpu::{SamplerDescriptor, TextureAspect};
+use wgpu::{util::DeviceExt, FilterMode, SamplerDescriptor, TextureAspect};
 use wgpu_hal::Api;
 use wgpu_hal::{api::Gles, MemoryFlags, TextureUses};
 
@@ -206,13 +209,43 @@ pub unsafe fn import_memory(
         gl.tex_image_2d(
             glow::TEXTURE_2D,
             0,
-            gl_format as i32,
+            glow::RGBA as i32,
             width,
             height,
             0,
             gl_format,
             glow::UNSIGNED_BYTE,
             Some(buffer),
+        );
+
+        //      let mut output_buffer = vec![255; buffer.len()];
+        //      let pixels = PixelPackData::Slice(&mut output_buffer);
+        //      let framebuffer = gl.create_framebuffer().unwrap();
+        //      gl.bind_framebuffer(glow::FRAMEBUFFER, Some(framebuffer));
+        //      gl.framebuffer_texture_2d(
+        //          glow::FRAMEBUFFER,
+        //          glow::COLOR_ATTACHMENT0,
+        //          glow::TEXTURE_2D,
+        //          Some(texture),
+        //          0,
+        //      );
+        //      gl.read_pixels(0, 0, width, height, glow::RGBA, glow::UNSIGNED_BYTE, pixels);
+        //      dbg!(output_buffer == buffer);
+        //      let image: ImageBuffer<image::Rgba<u8>, Vec<u8>> =
+        //          ImageBuffer::from_raw(width as u32, height as u32, output_buffer).unwrap();
+        //      image.save("/tmp/import_buffer.png").unwrap();
+        gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, 0);
+        gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);
+        gl.tex_sub_image_2d(
+            glow::TEXTURE_2D,
+            0,
+            0,
+            0,
+            width,
+            height,
+            gl_format,
+            glow::UNSIGNED_BYTE,
+            glow::PixelUnpackData::Slice(buffer),
         );
     } else {
         for region in damage.iter() {
@@ -234,6 +267,7 @@ pub unsafe fn import_memory(
         }
     }
     gl.generate_mipmap(glow::TEXTURE_2D);
+    //glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
     gl.bind_texture(glow::TEXTURE_2D, None);
     Ok((texture, Size::from((metadata.width, metadata.height))))
 }
@@ -353,11 +387,26 @@ pub unsafe fn create_gpu_image(
         dimension: None,
         aspect: TextureAspect::All,
         base_mip_level: 0,
-        mip_level_count: None,
+        mip_level_count: Some(1.try_into().unwrap()),
         base_array_layer: 0,
         array_layer_count: None,
     });
-    let sampler: wgpu::Sampler = device.create_sampler(&SamplerDescriptor::default()).into();
+    let sampler: wgpu::Sampler = device
+        .create_sampler(&SamplerDescriptor {
+            label: None,
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Nearest,
+            mipmap_filter: FilterMode::Nearest,
+            compare: None,
+            anisotropy_clamp: None,
+            border_color: None,
+            address_mode_u: Default::default(),
+            address_mode_v: Default::default(),
+            address_mode_w: Default::default(),
+            lod_min_clamp: Default::default(),
+            lod_max_clamp: Default::default(),
+        })
+        .into();
     let image = GpuImage {
         texture: texture.into(),
         texture_view: texture_view.into(),
@@ -373,6 +422,7 @@ pub fn import_wl_surface(
     surface_state: &mut RendererSurfaceState,
     damage: &[Rectangle<i32, Physical>],
     device: &wgpu::Device,
+    queue: &wgpu::Queue,
 ) -> Fallible<GpuImage> {
     if let Some(buffer) = surface_state.buffer() {
         unsafe {
@@ -384,6 +434,77 @@ pub fn import_wl_surface(
                     .cloned()
                     .ok_or_else(|| format_err!("no opengl display available"))
             })?;
+            // if let Some(BufferType::Shm) = buffer_type(buffer) {
+            //     return with_buffer_contents(buffer, |ptr, len, metadata| {
+            //         let texture_format = match metadata.format {
+            //             wl_shm::Format::Abgr8888 => wgpu::TextureFormat::Rgba8UnormSrgb,
+            //             wl_shm::Format::Xbgr8888 => wgpu::TextureFormat::Rgba8UnormSrgb,
+            //             wl_shm::Format::Argb8888 => wgpu::TextureFormat::Bgra8UnormSrgb,
+            //             wl_shm::Format::Xrgb8888 => wgpu::TextureFormat::Bgra8UnormSrgb,
+            //             format => {
+            //                 panic!("unsupported format: {:?}", format);
+            //             }
+            //         };
+            //         let width = metadata.width as i32;
+            //         let height = metadata.height as i32;
+            //         let texture = device.create_texture_with_data(
+            //             queue,
+            //             &wgpu::TextureDescriptor {
+            //                 label: None,
+            //                 size: wgpu::Extent3d {
+            //                     width: width as u32,
+            //                     height: height as u32,
+            //                     depth_or_array_layers: 1,
+            //                 },
+            //                 mip_level_count: 1,
+            //                 sample_count: 1,
+            //                 dimension: wgpu::TextureDimension::D2,
+            //                 format: texture_format,
+            //                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+            //                     | wgpu::TextureUsages::TEXTURE_BINDING
+            //                     | wgpu::TextureUsages::STORAGE_BINDING,
+            //                 view_formats: &[wgpu::TextureFormat::Rgba8UnormSrgb],
+            //             },
+            //             std::slice::from_raw_parts(ptr, len),
+            //         );
+            //         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
+            //             label: None,
+            //             format: Some(wgpu::TextureFormat::Rgba8UnormSrgb),
+            //             dimension: None,
+            //             aspect: TextureAspect::All,
+            //             base_mip_level: 0,
+            //             mip_level_count: Some(1.try_into().unwrap()),
+            //             base_array_layer: 0,
+            //             array_layer_count: None,
+            //         });
+            //         let sampler: wgpu::Sampler = device
+            //             .create_sampler(&SamplerDescriptor {
+            //                 label: None,
+            //                 mag_filter: FilterMode::Linear,
+            //                 min_filter: FilterMode::Nearest,
+            //                 mipmap_filter: FilterMode::Nearest,
+            //                 compare: None,
+            //                 anisotropy_clamp: None,
+            //                 border_color: None,
+            //                 address_mode_u: Default::default(),
+            //                 address_mode_v: Default::default(),
+            //                 address_mode_w: Default::default(),
+            //                 lod_min_clamp: Default::default(),
+            //                 lod_max_clamp: Default::default(),
+            //             })
+            //             .into();
+            //         let image = GpuImage {
+            //             texture: texture.into(),
+            //             texture_view: texture_view.into(),
+            //             texture_format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            //             sampler: sampler.into(),
+            //             size: Vec2::new(width as f32, height as f32),
+            //             mip_level_count: 1,
+            //         };
+            //         image
+            //     })
+            //     .map_err(|e| format_err!("{e:?}"));
+            // }
             let (raw_image, size) = {
                 device.as_hal::<Gles, _, _>(|hal_device| {
                     let hal_device =
@@ -415,6 +536,7 @@ pub fn import_wl_surface(
                     let (raw_image, size) = match buffer_type(buffer) {
                         Some(BufferType::Shm) => {
                             with_buffer_contents(buffer, |ptr, len, metadata| {
+                                // device.create_texture_with_data(queue, desc, data)
                                 import_memory(
                                     std::slice::from_raw_parts(ptr, len),
                                     metadata,

@@ -52,7 +52,7 @@ fn main() {
                 filter: "dway=trace,dway_server::surface=debug,bevy_ecs=debug,smithay=info,wgpu=warn,nega=info,nega::front=info,bevy_render=debug,bevy_ui=trace".to_string(),
             }),
     );
-    // .insert_resource(ClearColor(Color::rgb(0.0, 0.388, 1.0)))
+    // app.insert_resource(ClearColor(Color::rgb(0.0, 0.388, 1.0)));
     // app.insert_resource(Time::default());
     // app.insert_resource(WinitSettings::game());
     // app.insert_resource(WinitSettings {

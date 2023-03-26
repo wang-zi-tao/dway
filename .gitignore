@@ -1,4 +1,5 @@
 /target
+/output
 trace-*.json
 perf.data
 perf.data.old

@@ -15,26 +15,29 @@ impl Plugin for CompositorPlugin {
 struct FpsText;
 pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
-        TextBundle::from_sections([
-            TextSection::new(
-                "FPS: ",
-                TextStyle {
+        TextBundle {
+            z_index: ZIndex::Global(1),
+            ..TextBundle::from_sections([
+                TextSection::new(
+                    "FPS: ",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 30.0,
+                        color: Color::WHITE,
+                    },
+                ),
+                TextSection::from_style(TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 30.0,
-                    color: Color::WHITE,
-                },
-            ),
-            TextSection::from_style(TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 30.0,
-                color: Color::GOLD,
-            }),
-        ])
-        .with_style(Style {
-            margin: UiRect::top(Val::Px(32.0)),
-            ..Default::default()
-        })
-        .with_text_alignment(TextAlignment::Left),
+                    color: Color::GOLD,
+                }),
+            ])
+            .with_style(Style {
+                margin: UiRect::top(Val::Px(32.0)),
+                ..Default::default()
+            })
+            .with_text_alignment(TextAlignment::Left)
+        },
         FpsText,
     ));
 }

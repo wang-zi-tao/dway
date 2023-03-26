@@ -60,6 +60,7 @@ use smithay::{
     backend::renderer::utils::RendererSurfaceState,
     delegate_fractional_scale, delegate_input_method_manager, delegate_presentation,
     delegate_text_input_manager,
+    desktop::utils::with_surfaces_surface_tree,
     input::{keyboard::XkbConfig, pointer::CursorImageStatus, Seat, SeatState},
     output::{Output, PhysicalProperties, Subpixel},
     reexports::{
@@ -91,17 +92,17 @@ use smithay::{
         virtual_keyboard::VirtualKeyboardManagerState,
         xdg_activation::XdgActivationState,
     },
-    xwayland::{X11Wm, XWayland, XWaylandEvent}, desktop::utils::with_surfaces_surface_tree,
+    xwayland::{X11Wm, XWayland, XWaylandEvent},
 };
 
 use crate::{
-    components::{PhysicalRect, SurfaceId, WindowIndex, WaylandWindow, X11Window},
+    components::{PhysicalRect, SurfaceId, WaylandWindow, WindowIndex, X11Window},
     cursor::Cursor,
     events::{
         CloseWindowRequest, CommitSurface, ConfigureX11WindowRequest, CreateTopLevelEvent,
-        CreateWindow, CreateX11WindowEvent, DestroyWlSurface, KeyboardInputOnWindow, MapX11WindowRequest,
-        MouseButtonOnWindow, MouseMotionOnWindow, MouseWheelOnWindow, UnmapX11Window,
-        UpdatePopupPosition, X11WindowSetSurfaceEvent,
+        CreateWindow, CreateX11WindowEvent, DestroyWlSurface, KeyboardInputOnWindow,
+        MapX11WindowRequest, MouseButtonOnWindow, MouseMotionOnWindow, MouseWheelOnWindow,
+        UnmapX11Window, UpdatePopupPosition, X11WindowSetSurfaceEvent,
     },
 };
 
@@ -310,10 +311,11 @@ pub fn new_backend(event_loop: NonSend<EventLoopResource>, mut commands: Command
     // command.args(&["-e", "htop", "-d", "2"]);
     // let mut command = process::Command::new("weston-terminal");
     // let mut command = process::Command::new("gnome-system-monitor");
-    let mut command = process::Command::new("gnome-calculator");
+    // let mut command = process::Command::new("gnome-calculator");
     // let mut command = process::Command::new("glxgears");
     // let mut command = process::Command::new("gedit");
-    // let mut command = process::Command::new("google-chrome-stable");
+    let mut command = process::Command::new("google-chrome-stable");
+    // command.args(["https://www.w3schools.com/colors/colors_rgb.asp"]);
     command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
     // dway.spawn(command);
     // dway.spawn_wayland(command);

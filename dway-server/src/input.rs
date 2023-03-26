@@ -204,7 +204,7 @@ pub fn on_mouse_wheel(
                 smithay::input::pointer::AxisFrame {
                     source: None,
                     time,
-                    axis: ((x * 4.0) as f64, (y * 4.0) as f64),
+                    axis: ((x * 4.0) as f64, (-y * 4.0) as f64),
                     discrete: match unit {
                         MouseScrollUnit::Line => None,
                         MouseScrollUnit::Pixel => Some((x as i32, y as i32)),

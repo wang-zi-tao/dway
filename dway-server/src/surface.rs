@@ -22,7 +22,7 @@ use bevy::{
     prelude::*,
     render::{
         render_asset::RenderAssets,
-        renderer::{RenderAdapter, RenderDevice},
+        renderer::{RenderAdapter, RenderDevice, RenderQueue},
         texture::GpuImage,
         view::NonSendMarker,
         Extract,
@@ -241,36 +241,49 @@ pub fn do_commit(
                 let scale = window_scale.cloned().unwrap_or_default().0;
                 let offset = bbox.loc - geo.loc;
                 surface_offset.as_mut().map(|r| {
-                    r.0.loc = offset
+                    let value = offset
                         .to_f64()
                         .to_physical_precise_round(scale)
                         .to_i32_round();
+                    if r.0.loc != value {
+                        r.0.loc = value;
+                    }
                 });
                 physical_rect.as_mut().map(|r| {
-                    r.0.size = geo
+                    let value = geo
                         .size
                         .to_f64()
                         .to_physical_precise_round(scale)
                         .to_i32_round();
+                    if r.0.size != value {
+                        r.0.size = value;
+                    }
                 });
             } else if let Some(window) = x11_window {
                 let geo = window.geometry();
                 let bbox = window.bbox();
                 let scale = window_scale.cloned().unwrap_or_default().0;
                 surface_offset.as_mut().map(|r| {
-                    r.0.loc = Default::default();
-                    r.0.size = bbox
-                        .size
-                        .to_f64()
-                        .to_physical_precise_round(scale)
-                        .to_i32_round();
+                    let value = Rectangle::from_loc_and_size(
+                        (0, 0),
+                        bbox.size
+                            .to_f64()
+                            .to_physical_precise_round(scale)
+                            .to_i32_round(),
+                    );
+                    if value != r.0 {
+                        r.0 = value;
+                    }
                 });
                 physical_rect.as_mut().map(|r| {
-                    r.0.size = geo
+                    let value = geo
                         .size
                         .to_f64()
                         .to_physical_precise_round(scale)
                         .to_i32_round();
+                    if value != r.0.size {
+                        r.0.size = value;
+                    }
                 });
             } else if let (Some(popup), Some(surface)) = (popup, wl_surface_wrapper.as_ref()) {
                 if !with_states_locked(surface, |s: &mut XdgPopupSurfaceRoleAttributes| {
@@ -283,7 +296,7 @@ pub fn do_commit(
                 }
                 let scale = window_scale.cloned().unwrap_or_default().0;
                 if let Some(surface_offset) = surface_offset.as_mut() {
-                    surface_offset.loc = Point::default()
+                    let value = Point::default()
                         - popup
                             .kind
                             .geometry()
@@ -291,20 +304,29 @@ pub fn do_commit(
                             .to_f64()
                             .to_physical(scale)
                             .to_i32_round();
+                    if value != surface_offset.loc {
+                        surface_offset.loc = value;
+                    }
                 }
                 physical_rect.as_mut().map(|r| {
-                    r.0 = popup
+                    let value = popup
                         .position
                         .get_geometry()
                         .to_f64()
                         .to_physical_precise_round(scale)
                         .to_i32_round();
+                    if value != r.0 {
+                        r.0 = value;
+                    }
                 });
             };
             if let Some(mut surface_offset) = surface_offset {
                 if let Some(surface_size) = surface_size {
                     let scale = window_scale.cloned().unwrap_or_default().0;
-                    surface_offset.size = surface_size.to_f64().to_physical(scale).to_i32_round();
+                    let value = surface_size.to_f64().to_physical(scale).to_i32_round();
+                    if value != surface_offset.size {
+                        surface_offset.size = value;
+                    }
                 } else {
                     error!("no surface size");
                 }
@@ -331,6 +353,7 @@ pub fn import_surface(
         >,
     >,
     render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
     mut render_images: ResMut<RenderAssets<Image>>,
     mut events: ResMut<SpriteAssetEvents>,
 ) {
@@ -353,6 +376,7 @@ pub fn import_surface(
                     &mut surface_state,
                     &imported.damages,
                     &render_device.wgpu_device(),
+                    &render_queue,
                 ) {
                     Ok(o) => Some(o),
                     Err(e) => {
@@ -395,17 +419,17 @@ pub fn import_surface(
             imported.flush.store(false, Ordering::Release);
         }
     }
-    unsafe {
-        render_device
-            .wgpu_device()
-            .as_hal::<wgpu_hal::api::Gles, _, _>(|hal_device| {
-                if let Some(hal_device) = hal_device {
-                    let gl: &glow::Context = &hal_device.context().lock();
-                    gl.flush();
-                    gl.finish();
-                }
-            });
-    }
+    // unsafe {
+    //     render_device
+    //         .wgpu_device()
+    //         .as_hal::<wgpu_hal::api::Gles, _, _>(|hal_device| {
+    //             if let Some(hal_device) = hal_device {
+    //                 let gl: &glow::Context = &hal_device.context().lock();
+    //                 gl.flush();
+    //                 gl.finish();
+    //             }
+    //         });
+    // }
     for (entity, id, wayland_window, x11_window) in window_quert.iter() {
         if let Some(window) = wayland_window {
             window.with_surfaces(|surface, states| {

@@ -67,7 +67,7 @@ pub fn create_x11_surface(
                 c.insert(WlSurfaceWrapper(wl_surface.clone()));
             }
             let entity = c.id();
-            info!(surface=?id,?entity,"create x11 window, surface: {:?}",wl_surface.as_ref().map(|s|s.id()));
+            info!(surface=?id,?entity,"create x11 window, surface: {:?}, is_override_redirect: {is_override_redirect}, is popup : {}",wl_surface.as_ref().map(|s|s.id()),window.is_popup());
             entity
         });
         if let Some(wl_surface) = wl_surface.as_ref() {
@@ -138,13 +138,13 @@ pub fn configure_request(
             if let Some(h) = h {
                 geo.size.h = *h as i32;
             }
-            dbg!(&window,x,y,w,h,reorder);
-            // if let Some(x) = x {
-            //     geo.loc.x = *x as i32;
-            // }
-            // if let Some(y) = y {
-            //     geo.loc.y = *y as i32;
-            // }
+            dbg!(&window, x, y, w, h, reorder);
+            if let Some(x) = x {
+                geo.loc.x = *x as i32;
+            }
+            if let Some(y) = y {
+                geo.loc.y = *y as i32;
+            }
             let _ = window.configure(geo);
             let physical_rect = geo.to_physical_precise_round(scale.cloned().unwrap_or_default().0);
             info!(surface=?id,?entity,"configure x11 window request");
@@ -171,22 +171,22 @@ pub fn configure_notify(
         above,
     } in events.iter()
     {
-        if let Some((entity,window, mut rect, scale, parent)) =
+        if let Some((entity, window, mut rect, scale, parent)) =
             window_index.query_mut(id, &mut windows_query)
         {
             rect.0 = geometry.to_physical_precise_round(scale.cloned().unwrap_or_default().0);
-            dbg!(&window,geometry);
-            if let Some(above) = above {
+            dbg!(&window, geometry,window.is_transient_for(),window.is_popup());
+            if let Some(parent_window_id) = window.is_transient_for() {
                 if let Some(parent_entity) =
-                    window_index.query(&SurfaceId::X11(*above), &windows_query)
+                    window_index.get(&SurfaceId::X11(parent_window_id))
                 {
                     dbg!(above);
-                    // commands.entity(entity).remove_parent();
-                    // commands.entity(*parent_entity).add_child(entity);
+                    commands.entity(entity).remove_parent();
+                    commands.entity(*parent_entity).add_child(entity);
                 }
             } else {
                 if let Some(_parent) = parent {
-                    // commands.entity(entity).remove_parent();
+                    commands.entity(entity).remove_parent();
                 }
             }
             info!(surface=?id,?entity,"configure x11 window notify");
@@ -225,14 +225,19 @@ pub fn on_close_window_request(
 }
 #[tracing::instrument(skip_all)]
 pub fn on_rect_changed(
-    window_query: Query<(&X11Window,&PhysicalRect,Option<&WindowScale>), (With<WindowMark>, Changed<PhysicalRect>)>,
+    window_query: Query<
+        (&X11Window, &PhysicalRect, Option<&WindowScale>),
+        (With<WindowMark>, Changed<PhysicalRect>),
+    >,
 ) {
-    for (window,rect,scale) in window_query.iter() {
-        let scale=scale.cloned().unwrap_or_default().0;
-        let logical=rect.to_f64().to_logical(scale).to_i32_round();
-        info!(surface=?SurfaceId::from(&window.0),"set rect of x11 window: {:?}",rect);
-        if let Err(error) = window.configure(Some(logical)) {
-            error!(%error,"failed to configure x11 window");
+    for (window, rect, scale) in window_query.iter() {
+        let scale = scale.cloned().unwrap_or_default().0;
+        let logical = rect.to_f64().to_logical(scale).to_i32_round();
+        if !window.is_override_redirect() {
+            info!(surface=?SurfaceId::from(&window.0),"set rect of x11 window: {:?} -> {:?}",window.geometry(),rect);
+            if let Err(error) = window.configure(Some(logical)) {
+                error!(surface=?SurfaceId::from(&window.0),%error,"failed to configure x11 window");
+            }
         }
     }
 }
