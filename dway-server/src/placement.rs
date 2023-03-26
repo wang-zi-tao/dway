@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::tracing};
 use smithay::{desktop::Window, utils::Rectangle};
 
 use crate::{
@@ -13,6 +13,7 @@ pub struct PlacementBundle {
     pub surface_offset: SurfaceOffset,
 }
 
+#[tracing::instrument(skip_all)]
 pub fn place_new_window(
     mut events: EventReader<CreateWindow>,
     window_index: Res<WindowIndex>,
@@ -60,6 +61,7 @@ fn do_update_node(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn update_global_physical_rect(
     mut root_query: Query<
         (&mut GlobalPhysicalRect, &PhysicalRect, Option<&Children>),
@@ -74,6 +76,7 @@ pub fn update_global_physical_rect(
         do_update_node(global, *rect, Default::default(), children, &children_query);
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn update_logical_rect(
     mut rect_query: Query<
         (&mut LogicalRect, &PhysicalRect, Option<&WindowScale>),

@@ -9,7 +9,7 @@ use bevy::{
     render::render_resource::{TextureDimension, TextureFormat},
     ui::FocusPolicy,
     window::WindowMode,
-    winit::WinitWindows,
+    winit::WinitWindows, utils::tracing,
 };
 
 use crossbeam_channel::TryRecvError;
@@ -17,7 +17,10 @@ use dway_protocol::window::WindowState;
 use dway_protocol::window::{ImageBuffer, WindowMessage, WindowMessageKind};
 use dway_server::{
     components::{Id, SurfaceOffset, WindowScale, WlSurfaceWrapper},
-    events::{CreateWindow, MapX11WindowRequest, MouseButtonOnWindow, MouseMoveOnWindow, UnmapX11Window, X11WindowSetSurfaceEvent},
+    events::{
+        CreateWindow, MapX11WindowRequest, MouseButtonOnWindow, MouseMoveOnWindow, UnmapX11Window,
+        X11WindowSetSurfaceEvent,
+    },
     math::{ivec2_to_point, point_to_ivec2, rectangle_i32_center, vec2_to_point},
 };
 
@@ -109,6 +112,8 @@ pub struct WindowBundle {
     pub display: ImageBundle,
     pub backend: Backend,
 }
+
+#[tracing::instrument(skip_all)]
 pub fn focus_on_new_window(
     mut focus: ResMut<FocusedWindow>,
     new_winodws: Query<Entity, Added<Backend>>,
@@ -118,6 +123,7 @@ pub fn focus_on_new_window(
     }
 }
 
+#[tracing::instrument(skip_all)]
 pub fn create_window_ui(
     surface_query: Query<
         (
@@ -227,6 +233,7 @@ pub fn create_window_ui(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn destroy_window_ui(
     mut events: EventReader<DestroyWlSurface>,
     window_index: Res<WindowIndex>,
@@ -241,6 +248,7 @@ pub fn destroy_window_ui(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn map_window(
     mut events: EventReader<X11WindowSetSurfaceEvent>,
     surface_query: Query<&Frontends, With<WindowMark>>,
@@ -268,6 +276,7 @@ pub fn map_window(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn unmap_window(
     mut events: EventReader<UnmapX11Window>,
     surface_query: Query<&Frontends, With<WindowMark>>,
@@ -292,6 +301,7 @@ pub fn unmap_window(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn update_window_state(
     mut surface_query: Query<
         (
@@ -311,7 +321,7 @@ pub fn update_window_state(
             With<WindowMark>,
         ),
     >,
-    mut window_ui_query: Query<(&mut Visibility, &mut Style, &WindowUiRoot)>,
+    mut window_ui_query: Query<(&mut Visibility, &WindowUiRoot)>,
     mut focus_policy_query: Query<&mut FocusPolicy>,
     output_query: Query<&GlobalPhysicalRect, With<OutputMark>>,
     mut commands: Commands,
@@ -320,9 +330,7 @@ pub fn update_window_state(
         surface_query.iter_mut()
     {
         for frontend in frontends.iter() {
-            if let Ok((mut visibility, mut style, window_ui_root)) =
-                window_ui_query.get_mut(*frontend)
-            {
+            if let Ok((mut visibility, window_ui_root)) = window_ui_query.get_mut(*frontend) {
                 if let Ok(mut focus_policy) = focus_policy_query
                     .get_mut(window_ui_root.input_rect_entity)
                     .map_err(|error| error!(%error))
@@ -364,21 +372,12 @@ pub fn update_window_state(
                     }
                     None => {}
                 }
-                style.size = Size::new(
-                    Val::Px(physical_rect.0.size.w as f32),
-                    Val::Px(physical_rect.0.size.h as f32),
-                );
-                style.position = UiRect {
-                    left: Val::Px(physical_rect.0.loc.x as f32),
-                    right: Val::Auto,
-                    top: Val::Px(physical_rect.0.loc.y as f32),
-                    bottom: Val::Auto,
-                };
             }
         }
     }
 }
 
+#[tracing::instrument(skip_all)]
 pub fn update_window_geo(
     mut style_query: Query<(&mut Style, &mut ZIndex), Without<WindowUiRoot>>,
     mut window_query: Query<(&Backend, &WindowUiRoot, &mut ZIndex)>,

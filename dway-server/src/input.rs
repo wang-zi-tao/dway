@@ -7,7 +7,7 @@ use bevy::{
         mouse::{MouseButtonInput, MouseScrollUnit, MouseWheel},
         ButtonState,
     },
-    prelude::*,
+    prelude::*, utils::tracing,
 };
 use smithay::{
     input::{
@@ -29,6 +29,7 @@ use crate::{
     DWayServerComponent, EventLoopResource,
 };
 
+#[tracing::instrument(skip_all)]
 pub fn on_mouse_move(
     mut dway_query: Query<&mut DWayServerComponent>,
     mut events: EventReader<MouseMoveOnWindow>,
@@ -78,6 +79,7 @@ pub fn on_mouse_move(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn on_mouse_motion(
     mut dway_query: Query<&mut DWayServerComponent>,
     mut events: EventReader<MouseMotionOnWindow>,
@@ -132,6 +134,7 @@ pub fn on_mouse_motion(
     }
 }
 
+#[tracing::instrument(skip_all)]
 pub fn on_mouse_button(
     mut dway_query: Query<&mut DWayServerComponent>,
     mut events: EventReader<MouseButtonOnWindow>,
@@ -176,6 +179,7 @@ pub fn on_mouse_button(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn on_mouse_wheel(
     mut dway_query: Query<&mut DWayServerComponent>,
     mut events: EventReader<MouseWheelOnWindow>,
@@ -214,6 +218,7 @@ pub fn on_mouse_wheel(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn on_keyboard(
     mut dway_query: Query<&mut DWayServerComponent>,
     mut events: EventReader<KeyboardInputOnWindow>,

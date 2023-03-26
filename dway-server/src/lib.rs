@@ -432,6 +432,9 @@ impl Plugin for DWayServerPlugin {
 
         app.init_resource::<WindowIndex>();
 
+        app.register_type::<SurfaceId>();
+        app.register_type::<WindowIndex>();
+
         app.insert_non_send_resource(EventLoopResource(EventLoop::try_new().unwrap()));
 
         app.add_startup_system(new_backend);

@@ -169,6 +169,7 @@ impl ImportedSurface {
     }
 }
 
+#[tracing::instrument(skip_all)]
 pub fn create_surface(
     mut events: EventReader<CreateWindow>,
     window_index: Res<WindowIndex>,
@@ -190,6 +191,7 @@ pub fn create_surface(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn do_commit(
     mut events: EventReader<CommitSurface>,
     mut surface_query: Query<(
@@ -205,8 +207,6 @@ pub fn do_commit(
     )>,
     window_index: Res<WindowIndex>,
 ) {
-    let span = span!(Level::ERROR, "do commit");
-    let _enter = span.enter();
     for CommitSurface {
         surface: id,
         surface_size,
@@ -258,6 +258,7 @@ pub fn do_commit(
                 let bbox = window.bbox();
                 let scale = window_scale.cloned().unwrap_or_default().0;
                 surface_offset.as_mut().map(|r| {
+                    r.0.loc = Default::default();
                     r.0.size = bbox
                         .size
                         .to_f64()
@@ -312,6 +313,7 @@ pub fn do_commit(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn import_surface(
     _: NonSend<NonSendMarker>,
     time: Extract<Res<Time>>,
@@ -332,8 +334,6 @@ pub fn import_surface(
     mut render_images: ResMut<RenderAssets<Image>>,
     mut events: ResMut<SpriteAssetEvents>,
 ) {
-    let span = span!(Level::ERROR, "import surface");
-    let _enter = span.enter();
     let output = output_query.single();
     let mut render_states = RenderElementStates {
         states: HashMap::new(),

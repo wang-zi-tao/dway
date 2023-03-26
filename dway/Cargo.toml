@@ -24,6 +24,7 @@ bevy-inspector-egui = "0.18"
 # bevy_framepace = "0.11.0"
 num_cpus = "1.15.0"
 bevy={features = ["jpeg","wayland", "serialize", "bevy_dynamic_plugin"]}
+serde={}
 
 [profile.dev.package.bevy]
 opt-level = 3

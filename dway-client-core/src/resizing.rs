@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use bevy::{
     input::{mouse::MouseButtonInput, ButtonState},
     prelude::*,
-    winit::WinitWindows,
+    winit::WinitWindows, utils::tracing,
 };
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
 use dway_server::components::{PhysicalRect, WindowMark, WindowScale};
@@ -42,6 +42,7 @@ impl Plugin for DWayResizingPlugin {
         );
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn resize_window(
     focused_window: Res<FocusedWindow>,
     mut cursor_move_events: EventReader<CursorMoved>,
@@ -86,6 +87,7 @@ pub fn resize_window(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn stop_resizing(
     mut cursor_button_events: EventReader<MouseButtonInput>,
     mut state: ResMut<State<DWayClientState>>,

@@ -1,6 +1,6 @@
 use std::{ffi::OsString, time::Duration};
 
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::tracing};
 use dway_protocol::window::WindowState;
 use failure::Fallible;
 use smithay::{
@@ -23,8 +23,8 @@ use crate::{
     events::{
         CloseWindowRequest, ConfigureX11WindowNotify, ConfigureX11WindowRequest,
         CreateTopLevelEvent, CreateWindow, CreateX11WindowEvent, DestroyWindow, DestroyWlSurface,
-        DestroyX11WindowEvent, MapOverrideX11Window, MapX11WindowRequest, MoveRequest, ResizeRequest,
-        SetState, UnmapX11Window, X11WindowSetSurfaceEvent,
+        DestroyX11WindowEvent, MapOverrideX11Window, MapX11WindowRequest, MoveRequest,
+        ResizeRequest, SetState, UnmapX11Window, X11WindowSetSurfaceEvent,
     },
     DWay,
     // wayland::{
@@ -42,6 +42,7 @@ pub struct X11WindowBundle {
     pub id: SurfaceId,
 }
 
+#[tracing::instrument(skip_all)]
 pub fn create_x11_surface(
     mut events: EventReader<CreateX11WindowEvent>,
     mut window_index: ResMut<WindowIndex>,
@@ -74,6 +75,7 @@ pub fn create_x11_surface(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn map_x11_surface_notify(
     mut events: EventReader<X11WindowSetSurfaceEvent>,
     mut window_index: ResMut<WindowIndex>,
@@ -84,7 +86,7 @@ pub fn map_x11_surface_notify(
         let id = &e.0;
         if let Some((entity, surface)) = window_index.query(id, &window_query) {
             if let Some(wl_surface) = surface.wl_surface() {
-                trace!(surface=?SurfaceId::from(&surface.0),surface=?SurfaceId::from(&wl_surface),?entity,"mapped x11 window to wl_surface");
+                info!(surface=?SurfaceId::from(&surface.0),surface=?SurfaceId::from(&wl_surface),?entity,"mapped x11 window to wl_surface");
                 window_index.insert(SurfaceId::from(&wl_surface), entity);
                 commands.entity(entity).insert(WlSurfaceWrapper(wl_surface));
             } else {
@@ -93,6 +95,7 @@ pub fn map_x11_surface_notify(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn map_x11_window(
     mut events: EventReader<MapX11WindowRequest>,
     window_index: Res<WindowIndex>,
@@ -110,14 +113,14 @@ pub fn map_x11_window(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn configure_request(
     mut events: EventReader<ConfigureX11WindowRequest>,
     window_index: Res<WindowIndex>,
     mut window_query: Query<(Entity, &X11Window, &mut PhysicalRect, Option<&WindowScale>)>,
-    mut commands: Commands,
 ) {
     for ConfigureX11WindowRequest {
-        window:id,
+        window: id,
         x,
         y,
         w,
@@ -135,12 +138,13 @@ pub fn configure_request(
             if let Some(h) = h {
                 geo.size.h = *h as i32;
             }
-            if let Some(x) = x {
-                geo.loc.x = *x as i32;
-            }
-            if let Some(y) = y {
-                geo.loc.y = *y as i32;
-            }
+            dbg!(&window,x,y,w,h,reorder);
+            // if let Some(x) = x {
+            //     geo.loc.x = *x as i32;
+            // }
+            // if let Some(y) = y {
+            //     geo.loc.y = *y as i32;
+            // }
             let _ = window.configure(geo);
             let physical_rect = geo.to_physical_precise_round(scale.cloned().unwrap_or_default().0);
             info!(surface=?id,?entity,"configure x11 window request");
@@ -148,11 +152,13 @@ pub fn configure_request(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn configure_notify(
     mut events: EventReader<ConfigureX11WindowNotify>,
     window_index: Res<WindowIndex>,
     mut windows_query: Query<(
         Entity,
+        &X11Window,
         &mut PhysicalRect,
         Option<&WindowScale>,
         Option<&Parent>,
@@ -165,28 +171,29 @@ pub fn configure_notify(
         above,
     } in events.iter()
     {
-        if let Some((entity, mut rect, scale, parent)) =
+        if let Some((entity,window, mut rect, scale, parent)) =
             window_index.query_mut(id, &mut windows_query)
         {
             rect.0 = geometry.to_physical_precise_round(scale.cloned().unwrap_or_default().0);
+            dbg!(&window,geometry);
             if let Some(above) = above {
-                if let Some(parent_entity) = window_index.get(&SurfaceId::X11(*above)) {
-                    if let Ok(_) = windows_query.get(*parent_entity) {
-                        commands.entity(entity).remove_parent();
-                        commands.entity(*parent_entity).add_child(entity);
-                    }
-                } else {
-                    error!(surface=?SurfaceId::X11(*above),"window entity not found");
+                if let Some(parent_entity) =
+                    window_index.query(&SurfaceId::X11(*above), &windows_query)
+                {
+                    dbg!(above);
+                    // commands.entity(entity).remove_parent();
+                    // commands.entity(*parent_entity).add_child(entity);
                 }
             } else {
                 if let Some(_parent) = parent {
-                    commands.entity(entity).remove_parent();
+                    // commands.entity(entity).remove_parent();
                 }
             }
             info!(surface=?id,?entity,"configure x11 window notify");
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn unmap_x11_surface(
     mut events: EventReader<UnmapX11Window>,
     mut window_index: ResMut<WindowIndex>,
@@ -202,6 +209,7 @@ pub fn unmap_x11_surface(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn on_close_window_request(
     mut events: EventReader<CloseWindowRequest>,
     window_index: Res<WindowIndex>,
@@ -215,16 +223,20 @@ pub fn on_close_window_request(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn on_rect_changed(
-    window_query: Query<(&LogicalRect, &X11Window), (With<WindowMark>, Changed<LogicalRect>)>,
+    window_query: Query<(&X11Window,&PhysicalRect,Option<&WindowScale>), (With<WindowMark>, Changed<PhysicalRect>)>,
 ) {
-    for (rect, window) in window_query.iter() {
-        info!(surface=?SurfaceId::from(&window.0),"configure x11 window: {:?}",rect);
-        if let Err(error) = window.configure(Some(rect.0)) {
+    for (window,rect,scale) in window_query.iter() {
+        let scale=scale.cloned().unwrap_or_default().0;
+        let logical=rect.to_f64().to_logical(scale).to_i32_round();
+        info!(surface=?SurfaceId::from(&window.0),"set rect of x11 window: {:?}",rect);
+        if let Err(error) = window.configure(Some(logical)) {
             error!(%error,"failed to configure x11 window");
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn on_state_changed(
     window_query: Query<(&WindowState, &X11Window), (With<WindowMark>, Changed<WindowState>)>,
 ) {
@@ -278,7 +290,8 @@ impl XwmHandler for DWayServerComponent {
         xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
     ) {
-        self.dway.send_ecs_event(MapX11WindowRequest((&window).into()));
+        self.dway
+            .send_ecs_event(MapX11WindowRequest((&window).into()));
     }
 
     fn map_window_notify(

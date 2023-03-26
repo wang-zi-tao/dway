@@ -1,6 +1,6 @@
 use std::sync::atomic::Ordering;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::tracing};
 use smithay::{
     desktop::PopupKind,
     wayland::{compositor::get_role, shell::xdg::XDG_POPUP_ROLE},
@@ -25,6 +25,7 @@ pub struct PopupBundle {
     pub logical_rect: LogicalRect,
 }
 
+#[tracing::instrument(skip_all)]
 pub fn create_popup(
     mut events: EventReader<CreatePopup>,
     mut windows: ResMut<WindowIndex>,
@@ -75,6 +76,7 @@ pub fn create_popup(
     }
 }
 
+#[tracing::instrument(skip_all)]
 pub fn reposition_request(
     mut events: EventReader<UpdatePopupPosition>,
     window_index: Res<WindowIndex>,
@@ -108,6 +110,7 @@ pub fn reposition_request(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn on_commit(
     mut events: EventReader<CommitSurface>,
     mut surface_query: Query<(

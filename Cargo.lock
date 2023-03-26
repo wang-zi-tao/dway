@@ -2560,6 +2560,7 @@ dependencies = [
  "num_cpus",
  "pretty_env_logger",
  "rand",
+ "serde",
  "uuid",
 ]
 
@@ -2577,6 +2578,7 @@ dependencies = [
  "log",
  "lru 0.10.0",
  "rand",
+ "serde",
  "smallvec",
  "smithay",
  "uuid",
@@ -2612,6 +2614,7 @@ dependencies = [
  "rand",
  "renderdoc",
  "send_wrapper",
+ "serde",
  "slog",
  "slog-async",
  "slog-scope",
@@ -2682,6 +2685,7 @@ dependencies = [
  "log",
  "lru 0.10.0",
  "rand",
+ "serde",
  "uuid",
 ]
 

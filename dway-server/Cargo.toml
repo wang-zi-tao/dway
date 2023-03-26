@@ -32,6 +32,7 @@ glow = {version="0.12.1"}
 khronos-egl = {}
 tracing-subscriber = "0.3.16"
 send_wrapper = "0.6.0"
+serde={}
 
 [dependencies.smithay]
 # default-features = false

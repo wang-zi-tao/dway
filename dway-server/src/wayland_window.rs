@@ -1,6 +1,6 @@
 use std::mem;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::tracing};
 use dway_protocol::window::WindowState;
 use failure::Fallible;
 use smithay::{
@@ -43,6 +43,7 @@ pub struct WaylandWindowBundle {
     pub window: WaylandWindow,
 }
 
+#[tracing::instrument(skip_all)]
 pub fn create_top_level(
     mut create_top_level_event: EventReader<CreateTopLevelEvent>,
     mut window_index: ResMut<WindowIndex>,
@@ -70,6 +71,7 @@ pub fn create_top_level(
         });
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn destroy_wl_surface(
     mut create_top_level_event: EventReader<DestroyWlSurface>,
     mut window_index: ResMut<WindowIndex>,
@@ -86,6 +88,7 @@ pub fn destroy_wl_surface(
         window_index.0.remove(&id);
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn on_close_window_request(
     mut events: EventReader<CloseWindowRequest>,
     window_index: Res<WindowIndex>,
@@ -97,6 +100,7 @@ pub fn on_close_window_request(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn on_rect_changed(
     window_query: Query<
         (&PhysicalRect, Option<&WindowScale>, &WaylandWindow),
@@ -122,6 +126,7 @@ pub fn on_rect_changed(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn on_state_changed(
     window_query: Query<(&WindowState, &WaylandWindow), (With<WindowMark>, Changed<WindowState>)>,
 ) {

@@ -22,6 +22,8 @@ rand = {}
 kayak_font = "0.2.0"
 kayak_ui = {}
 bevy = {}
+serde={}
+
 
 [profile.dev]
 opt-level = 1

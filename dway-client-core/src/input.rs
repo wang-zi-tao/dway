@@ -6,7 +6,7 @@ use bevy::{
         mouse::{MouseButtonInput, MouseMotion, MouseWheel},
     },
     prelude::*,
-    winit::WinitWindows,
+    winit::WinitWindows, utils::tracing,
 };
 // use bevy_mod_picking::{PickingEvent, PickingRaycastSet};
 // use bevy_mod_raycast::Intersection;
@@ -68,6 +68,8 @@ impl Plugin for DWayInputPlugin {
 }
 #[derive(Component)]
 pub struct DebugCursor;
+
+#[tracing::instrument(skip_all)]
 pub fn setup_debug_cursor(mut commands: Commands) {
     commands.spawn((
         DebugCursor,
@@ -88,6 +90,7 @@ pub fn setup_debug_cursor(mut commands: Commands) {
         },
     ));
 }
+#[tracing::instrument(skip_all)]
 pub fn debug_follow_cursor(
     mut cursor_moved_events: EventReader<CursorMoved>,
     windows: NonSend<WinitWindows>,
@@ -112,6 +115,7 @@ pub fn debug_follow_cursor(
     }
 }
 
+#[tracing::instrument(skip_all)]
 pub fn print_mouse_events_system(
     mut mouse_button_input_events: EventReader<MouseButtonInput>,
     mut mouse_motion_events: EventReader<MouseMotion>,
@@ -134,6 +138,7 @@ pub fn print_mouse_events_system(
         info!("{:?}", event);
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn keyboard_input_system(
     mut keyboard_evens: EventReader<KeyboardInput>,
     output_focus: Res<FocusedWindow>,
@@ -155,6 +160,7 @@ pub fn keyboard_input_system(
         sender.send(KeyboardInputOnWindow(id.clone(), event.clone()));
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn mouse_move_on_winit_window(
     mut cursor_moved_events: EventReader<CursorMoved>,
     windows: NonSend<WinitWindows>,

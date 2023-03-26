@@ -6,7 +6,7 @@ use bevy::{
         ButtonState,
     },
     prelude::*,
-    winit::WinitWindows,
+    winit::WinitWindows, utils::tracing,
 };
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
 use dway_server::{
@@ -49,6 +49,7 @@ impl Plugin for DWayMovingPlugin {
         );
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn start_moving(
     output_focus: Res<CursorOnOutput>,
     mut events: EventReader<MoveRequest>,
@@ -74,6 +75,7 @@ pub fn start_moving(
         }
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn move_window(
     output_focus: Res<CursorOnOutput>,
     moving_state: Res<MovingState>,
@@ -92,6 +94,7 @@ pub fn move_window(
         rect.loc = ivec2_to_point(*pos - moving_state.relatice);
     }
 }
+#[tracing::instrument(skip_all)]
 pub fn stop_moving(
     mut cursor_button_events: EventReader<MouseButtonInput>,
     mut commands: Commands,

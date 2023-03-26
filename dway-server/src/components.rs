@@ -6,6 +6,9 @@ use std::borrow::Cow;
 
 use bevy::ecs::query::{QueryEntityError, QueryItem, ROQueryItem, ReadOnlyWorldQuery, WorldQuery};
 use bevy::prelude::*;
+use bevy::reflect::erased_serde::__private::serde::{Deserialize, Serialize};
+use bevy::render::extract_component::ExtractComponent;
+use bevy::render::extract_resource::ExtractResource;
 use failure::{format_err, Error};
 use smithay::desktop::PopupKind;
 use smithay::output::Output;
@@ -55,10 +58,27 @@ use smithay::{
 
 pub struct Id(Uuid);
 
-#[derive(Component, Reflect, Clone, Hash, PartialEq, Eq)]
+#[derive(
+    Component,
+    Reflect,
+    Serialize,
+    Deserialize,
+    ExtractComponent,
+    FromReflect,
+    Clone,
+    Hash,
+    PartialEq,
+    Eq,
+)]
+#[reflect(Component, Serialize, Deserialize)]
 pub enum SurfaceId {
     Wayland(u32),
     X11(u32),
+}
+impl Default for SurfaceId {
+    fn default() -> Self {
+        Self::Wayland(u32::MAX)
+    }
 }
 
 impl std::fmt::Debug for SurfaceId {
@@ -132,7 +152,8 @@ impl From<&ToplevelSurface> for SurfaceId {
     }
 }
 
-#[derive(Resource, Default, Debug, Deref, DerefMut)]
+#[derive(Resource, Reflect, ExtractResource, Default, Debug, Deref, DerefMut)]
+#[reflect(Resource)]
 pub struct WindowIndex(pub HashMap<SurfaceId, Entity>);
 impl WindowIndex {
     pub fn get(&self, surface: &SurfaceId) -> Option<&Entity> {
