@@ -36,11 +36,18 @@ use std::{
 };
 
 use bevy::{
+    core::NonSendMarker,
+    core_pipeline::core_2d,
     ecs::query::WorldQuery,
     prelude::*,
-    render::{pipelined_rendering::RenderExtractApp, RenderApp},
+    render::{
+        pipelined_rendering::RenderExtractApp,
+        render_graph::{RenderGraph, RunGraphOnViewNode},
+        render_phase::{AddRenderCommand, DrawFunctions},
+        RenderApp, RenderSet,
+    },
     sprite::SpriteSystem,
-    ui::RenderUiSystem,
+    ui::{draw_ui_graph, RenderUiSystem},
 };
 use components::{OutputWrapper, WlSurfaceWrapper};
 // use bevy::prelude::*;
@@ -67,7 +74,7 @@ use smithay::{
         calloop::{generic::Generic, EventLoop, Interest, LoopHandle, Mode, PostAction},
         wayland_server::{
             backend::{smallvec::SmallVec, ClientData, ClientId, DisconnectReason},
-            Display,
+            Display, Resource,
         },
     },
     utils::{Clock, Monotonic, Point},
@@ -311,15 +318,15 @@ pub fn new_backend(event_loop: NonSend<EventLoopResource>, mut commands: Command
     // command.args(&["-e", "htop", "-d", "2"]);
     // let mut command = process::Command::new("weston-terminal");
     // let mut command = process::Command::new("gnome-system-monitor");
-    // let mut command = process::Command::new("gnome-calculator");
+    let mut command = process::Command::new("gnome-calculator");
     // let mut command = process::Command::new("glxgears");
     // let mut command = process::Command::new("gedit");
-    let mut command = process::Command::new("google-chrome-stable");
+    // let mut command = process::Command::new("google-chrome-stable");
     // command.args(["https://www.w3schools.com/colors/colors_rgb.asp"]);
     command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
-    // dway.spawn(command);
+    dway.spawn(command);
     // dway.spawn_wayland(command);
-    dway.spawn_x11(command);
+    // dway.spawn_x11(command);
     commands.spawn(DWayServerComponent { dway, display });
 }
 pub fn spawn(dway_query: Query<&DWayServerComponent>) {
@@ -570,15 +577,33 @@ impl Plugin for DWayServerPlugin {
         //     .in_set(PostUpdate),
         // );
 
-        // app.add_system(print_window_list.before(Update));
+        // app.add_system(print_window_list);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system(
-                surface::import_surface
-                    .in_schedule(ExtractSchedule)
-                    .after(RenderUiSystem::ExtractNode)
-                    .after(SpriteSystem::ExtractSprites), // .before(DWayRenderin_set::SendFrame),
-            );
+            render_app.init_resource::<surface::ImportSurfaceFeedback>();
+            render_app.init_resource::<DrawFunctions<surface::ImportedSurfacePhaseItem>>();
+            render_app
+                .add_render_command::<surface::ImportedSurfacePhaseItem, surface::ImportSurface>();
+            render_app.add_system(surface::extract_surface.in_schedule(ExtractSchedule));
+            render_app.add_system(surface::queue_import.in_set(RenderSet::Queue));
+            // render_app.add_system(surface::prepare_import_surface.in_set(RenderSet::Prepare));
+            //
+
+            let import_node = surface::ImportSurfacePassNode::new(&mut render_app.world);
+            let mut graph = render_app.world.resource_mut::<RenderGraph>();
+            if let Some(graph_2d) =
+                graph.get_sub_graph_mut(bevy::core_pipeline::core_2d::graph::NAME)
+            {
+                graph_2d.add_node(surface::node::NAME, import_node);
+                graph_2d.add_node_edge(core_2d::graph::node::MAIN_PASS, surface::node::NAME);
+                graph_2d.add_slot_edge(
+                    graph_2d.input_node().id,
+                    core_2d::graph::input::VIEW_ENTITY,
+                    surface::node::NAME,
+                    surface::ImportSurfacePassNode::IN_VIEW,
+                );
+                graph_2d.add_node_edge(surface::node::NAME, draw_ui_graph::node::UI_PASS);
+            }
         }
     }
 }
@@ -588,19 +613,15 @@ pub fn print_window_list(
     mut commands: Commands,
     ui_query: Query<(Entity, &Node, &UiImage)>,
 ) {
-    // for (id, entity) in window_index.0.iter() {
-    //     if let Ok((surface))=query.get(*entity){
-    //         with_states(surface, |s| {
-    //             dbg!(s);
-    //             dbg!(s as *const _);
-    //             dbg!(s.data_map.get::<RefCell<RendererSurfaceState>>());
-    //         });
-    //     }
-    //     info!("surface {id:?} on {entity:?}");
-    //     commands.entity(*entity).log_components();
-    // }
-    for e in ui_query.iter() {
-        info!("ui image: {e:?}");
+    for (id, entity) in window_index.0.iter() {
+        if let Ok(surface) = query.get(*entity) {
+            trace!("{:?} on {entity:?}", surface.id());
+            with_surfaces_surface_tree(surface, |sub_surface, statts| {
+                trace!("> {:?}", sub_surface.id());
+            });
+        }
+        info!("surface {id:?} on {entity:?}");
+        commands.entity(*entity).log_components();
     }
 }
 delegate_presentation!(DWay);

@@ -3,8 +3,9 @@ use std::{
     collections::HashMap,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Mutex, MutexGuard,
+        Arc, Mutex, MutexGuard,
     },
+    thread,
     time::Duration,
 };
 
@@ -18,18 +19,26 @@ use crate::{
     wayland_window, DWay, DWayServerComponent,
 };
 use bevy::{
+    core_pipeline::{clear_color::ClearColorConfig, core_2d::Transparent2d},
+    ecs::system::lifetimeless::{Read, SRes, SResMut},
     log::Level,
     prelude::*,
     render::{
+        camera::ExtractedCamera,
         render_asset::RenderAssets,
+        render_graph::{Node, RenderGraph, SlotInfo, SlotType},
+        render_phase::{DrawFunctionId, DrawFunctions, PhaseItem, RenderCommand, RenderPhase},
         renderer::{RenderAdapter, RenderDevice, RenderQueue},
         texture::GpuImage,
-        view::NonSendMarker,
+        view::{ExtractedView, NonSendMarker, ViewTarget},
         Extract,
     },
     sprite::SpriteAssetEvents,
     ui::UiImageBindGroups,
-    utils::tracing::{self, span},
+    utils::{
+        tracing::{self, span},
+        HashSet,
+    },
 };
 use failure::Fallible;
 use glow::HasContext;
@@ -40,7 +49,6 @@ use smithay::{
             default_primary_scanout_output_compare, Id, RenderElementPresentationState,
             RenderElementState, RenderElementStates,
         },
-        gles2::Gles2Renderer,
         utils::{on_commit_buffer_handler, with_renderer_surface_state, RendererSurfaceState},
         BufferType,
     },
@@ -77,7 +85,7 @@ use smithay::{
         buffer::BufferHandler,
         compositor::{
             get_parent, is_sync_subsurface, with_states, with_surface_tree_downward,
-            CompositorHandler, SurfaceAttributes, TraversalAction,
+            with_surface_tree_upward, CompositorHandler, SurfaceAttributes, TraversalAction,
         },
         data_device::{ClientDndGrabHandler, DataDeviceHandler, ServerDndGrabHandler},
         fractional_scale::with_fractional_scale,
@@ -89,14 +97,17 @@ use smithay::{
     },
     xwayland::X11Wm,
 };
-use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
+use wgpu::{
+    Extent3d, LoadOp, Operations, RenderPass, RenderPassDescriptor, TextureDescriptor,
+    TextureDimension, TextureFormat, TextureUsages,
+};
 
-#[derive(Component, Debug)]
+#[derive(Component, Clone, Debug)]
 pub struct ImportedSurface {
     pub texture: Handle<Image>,
     pub damages: Vec<Rectangle<i32, Physical>>,
     pub size: smithay::utils::Size<i32, Physical>,
-    pub flush: AtomicBool,
+    pub flush: Arc<AtomicBool>,
 }
 impl ImportedSurface {
     pub fn changed(&self) -> bool {
@@ -108,6 +119,22 @@ impl ImportedSurface {
     }
 }
 impl ImportedSurface {
+    fn texture_descriptor<'a>(image_size: Extent3d) -> TextureDescriptor<'a> {
+        TextureDescriptor {
+            label: None,
+            size: image_size,
+            dimension: TextureDimension::D2,
+            format: TextureFormat::Bgra8UnormSrgb,
+            mip_level_count: 1,
+            sample_count: 1,
+            usage: TextureUsages::TEXTURE_BINDING
+                    | TextureUsages::COPY_DST
+                    // | TextureUsages::STORAGE_BINDING
+                    | TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        }
+    }
+
     pub fn new(assets: &mut Assets<Image>, size: smithay::utils::Size<i32, Physical>) -> Self {
         let image_size = Extent3d {
             width: size.w as u32,
@@ -115,18 +142,7 @@ impl ImportedSurface {
             ..default()
         };
         let mut image = Image {
-            texture_descriptor: TextureDescriptor {
-                label: None,
-                size: image_size,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Bgra8UnormSrgb,
-                mip_level_count: 1,
-                sample_count: 1,
-                usage: TextureUsages::TEXTURE_BINDING
-                    | TextureUsages::COPY_DST
-                    | TextureUsages::RENDER_ATTACHMENT,
-                view_formats: &[],
-            },
+            texture_descriptor: Self::texture_descriptor(image_size),
             ..default()
         };
         image.resize(image_size);
@@ -134,7 +150,7 @@ impl ImportedSurface {
             size,
             texture: assets.add(image),
             damages: Default::default(),
-            flush: true.into(),
+            flush: Arc::new(AtomicBool::new(false)),
         }
     }
     pub fn resize(
@@ -148,20 +164,10 @@ impl ImportedSurface {
             ..default()
         };
         let mut image = Image {
-            texture_descriptor: TextureDescriptor {
-                label: None,
-                size: image_size,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Bgra8UnormSrgb,
-                mip_level_count: 1,
-                sample_count: 1,
-                usage: TextureUsages::TEXTURE_BINDING
-                    | TextureUsages::COPY_DST
-                    | TextureUsages::RENDER_ATTACHMENT,
-                view_formats: &[],
-            },
+            texture_descriptor: Self::texture_descriptor(image_size),
             ..default()
         };
+        dbg!("resize", image_size);
         image.resize(image_size);
         let _ = assets.set(self.texture.clone(), image);
         self.size = size;
@@ -193,6 +199,7 @@ pub fn create_surface(
 }
 #[tracing::instrument(skip_all)]
 pub fn do_commit(
+    _: Option<NonSend<bevy::core::NonSendMarker>>,
     mut events: EventReader<CommitSurface>,
     mut surface_query: Query<(
         Entity,
@@ -206,16 +213,14 @@ pub fn do_commit(
         Option<&mut SurfaceOffset>,
     )>,
     window_index: Res<WindowIndex>,
+    mut assets: ResMut<Assets<Image>>,
 ) {
-    for CommitSurface {
-        surface: id,
-        surface_size,
-    } in events.iter()
-    {
+    let mut toplevels = HashSet::new();
+    for CommitSurface { surface: id } in events.iter() {
         if let Some((
             entity,
             mut wl_surface_wrapper,
-            imported_surface,
+            mut imported_surface,
             window,
             popup,
             x11_window,
@@ -224,7 +229,7 @@ pub fn do_commit(
             mut surface_offset,
         )) = window_index.query_mut(id, &mut surface_query)
         {
-            let surface = &mut wl_surface_wrapper;
+            let scale = window_scale.cloned().unwrap_or_default().0;
             imported_surface.flush.store(true, Ordering::Release);
             if let (Some(window), Some(surface)) = (window, wl_surface_wrapper.as_ref()) {
                 let initial_configure_sent =
@@ -249,42 +254,41 @@ pub fn do_commit(
                         r.0.loc = value;
                     }
                 });
-                physical_rect.as_mut().map(|r| {
-                    let value = geo
-                        .size
-                        .to_f64()
-                        .to_physical_precise_round(scale)
-                        .to_i32_round();
-                    if r.0.size != value {
-                        r.0.size = value;
-                    }
-                });
+                //physical_rect.as_mut().map(|r| {
+                //    let value = geo
+                //        .size
+                //        .to_f64()
+                //        .to_physical_precise_round(scale)
+                //        .to_i32_round();
+                //    if r.0.size != value {
+                //        r.0.size = value;
+                //    }
+                //});
             } else if let Some(window) = x11_window {
-                let geo = window.geometry();
-                let bbox = window.bbox();
-                let scale = window_scale.cloned().unwrap_or_default().0;
-                surface_offset.as_mut().map(|r| {
-                    let value = Rectangle::from_loc_and_size(
-                        (0, 0),
-                        bbox.size
-                            .to_f64()
-                            .to_physical_precise_round(scale)
-                            .to_i32_round(),
-                    );
-                    if value != r.0 {
-                        r.0 = value;
-                    }
-                });
-                physical_rect.as_mut().map(|r| {
-                    let value = geo
-                        .size
-                        .to_f64()
-                        .to_physical_precise_round(scale)
-                        .to_i32_round();
-                    if value != r.0.size {
-                        r.0.size = value;
-                    }
-                });
+                //let geo = window.geometry();
+                //let bbox = window.bbox();
+                //surface_offset.as_mut().map(|r| {
+                //    let value = Rectangle::from_loc_and_size(
+                //        (0, 0),
+                //        bbox.size
+                //            .to_f64()
+                //            .to_physical_precise_round(scale)
+                //            .to_i32_round(),
+                //    );
+                //    if value != r.0 {
+                //        r.0 = value;
+                //    }
+                //});
+                //physical_rect.as_mut().map(|r| {
+                //    let value = geo
+                //        .size
+                //        .to_f64()
+                //        .to_physical_precise_round(scale)
+                //        .to_i32_round();
+                //    if value != r.0.size {
+                //        r.0.size = value;
+                //    }
+                //});
             } else if let (Some(popup), Some(surface)) = (popup, wl_surface_wrapper.as_ref()) {
                 if !with_states_locked(surface, |s: &mut XdgPopupSurfaceRoleAttributes| {
                     s.initial_configure_sent
@@ -293,8 +297,15 @@ pub fn do_commit(
                     if let Err(error) = xdg_popup.send_configure() {
                         error!(surface = id.to_string(), %error, "initial configure failed");
                     };
+                    trace!(surface=?SurfaceId::from(&surface.0),"send configuring");
                 }
-                let scale = window_scale.cloned().unwrap_or_default().0;
+                if !is_sync_subsurface(surface) {
+                    let mut root = surface.0.clone();
+                    while let Some(parent) = get_parent(&root) {
+                        root = parent;
+                    }
+                    toplevels.insert(SurfaceId::from(&root));
+                }
                 if let Some(surface_offset) = surface_offset.as_mut() {
                     let value = Point::default()
                         - popup
@@ -320,160 +331,54 @@ pub fn do_commit(
                     }
                 });
             };
-            if let Some(mut surface_offset) = surface_offset {
-                if let Some(surface_size) = surface_size {
+            if let Some(surface) = wl_surface_wrapper.as_ref() {
+                with_states(surface, |s| {
+                    let Some( state )=s.data_map.get::<RefCell<RendererSurfaceState>>().map(|c|c.borrow_mut())else{
+                    error!(?entity,surface=?id,thread=?thread::current().id(),"RendererSurfaceState not found in surface.");
+                    return
+                };
+                    let Some(surface_size)=state.buffer_size()else{
+                    error!(?entity,surface=?id,thread=?thread::current().id(),"buffer not found in surface.");
+                    return
+                };
                     let scale = window_scale.cloned().unwrap_or_default().0;
                     let value = surface_size.to_f64().to_physical(scale).to_i32_round();
-                    if value != surface_offset.size {
-                        surface_offset.size = value;
+                    if let Some(surface_offset) = surface_offset.as_mut() {
+                        if value != surface_offset.size {
+                            surface_offset.size = value;
+                        }
                     }
-                } else {
-                    error!("no surface size");
-                }
+                    if let Some(physical_rect) = physical_rect.as_mut() {
+                        if value != physical_rect.size {
+                            physical_rect.size = value;
+                        }
+                    }
+                    let physical_size = surface_size.to_f64().to_physical(scale).to_i32_round();
+                    if physical_size != imported_surface.size {
+                        imported_surface.resize(&mut assets, physical_size);
+                    }
+                });
             }
             trace!(surface = id.to_string(), ?entity, "commit finish");
         }
     }
-}
-#[tracing::instrument(skip_all)]
-pub fn import_surface(
-    _: NonSend<NonSendMarker>,
-    time: Extract<Res<Time>>,
-    query: Extract<Query<(Entity, &WlSurfaceWrapper, &ImportedSurface)>>,
-    output_query: Extract<Query<&OutputWrapper>>,
-    window_quert: Extract<
-        Query<
-            (
-                Entity,
-                &SurfaceId,
-                Option<&WaylandWindow>,
-                Option<&X11Window>,
-            ),
-            (With<WindowMark>, With<WlSurfaceWrapper>),
-        >,
-    >,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut render_images: ResMut<RenderAssets<Image>>,
-    mut events: ResMut<SpriteAssetEvents>,
-) {
-    let output = output_query.single();
-    let mut render_states = RenderElementStates {
-        states: HashMap::new(),
-    };
-    for (entity, surface, imported) in query.iter() {
-        let gpu_image: Option<GpuImage> = imported.flush.load(Ordering::Acquire).then_some(()).and_then(|()|{
-            with_states(surface, |s| {
-                let Some( mut surface_state )=s.data_map.get::<RefCell<RendererSurfaceState>>().map(|c|c.borrow_mut())else{
-                    error!(
-                        surface = ?surface.id(),
-                        ?entity,
-                        "RendererSurfaceState not found in surface.",
-                    );
-                    return None
-                } ;
-                match import_wl_surface(
-                    &mut surface_state,
-                    &imported.damages,
-                    &render_device.wgpu_device(),
-                    &render_queue,
-                ) {
-                    Ok(o) => Some(o),
-                    Err(e) => {
-                        error!(
-                            surface = ?surface.id(),
-                            ?entity,
-                            error = %e,
-                            "failed to import surface.",
-                        );
-                        None
-                    }
-                }
-            })
-        }) ;
-        render_states.states.insert(
-            Id::from_wayland_resource(&surface.0),
-            if imported.flush.load(Ordering::Acquire) {
-                RenderElementState {
-                    visible_area: (imported.size.w * imported.size.h) as usize,
-                    presentation_state: RenderElementPresentationState::Rendering { reason: None },
-                }
-            } else {
-                RenderElementState {
-                    visible_area: 0,
-                    presentation_state: RenderElementPresentationState::Skipped,
-                }
-            },
-        );
-        if let Some(gpu_image) = gpu_image {
-            trace!(
-                surface = ?surface.id(),
-                gpu_image = ?gpu_image.texture.id(),
-                image = ?&imported.texture,
-                "import surface",
-            );
-            events.images.push(AssetEvent::Modified {
-                handle: imported.texture.clone(),
-            });
-            render_images.insert(imported.texture.clone(), gpu_image);
-            imported.flush.store(false, Ordering::Release);
-        }
-    }
-    // unsafe {
-    //     render_device
-    //         .wgpu_device()
-    //         .as_hal::<wgpu_hal::api::Gles, _, _>(|hal_device| {
-    //             if let Some(hal_device) = hal_device {
-    //                 let gl: &glow::Context = &hal_device.context().lock();
-    //                 gl.flush();
-    //                 gl.finish();
-    //             }
-    //         });
-    // }
-    for (entity, id, wayland_window, x11_window) in window_quert.iter() {
-        if let Some(window) = wayland_window {
-            window.with_surfaces(|surface, states| {
-                if let Some(output) = update_surface_primary_scanout_output(
-                    surface,
-                    &output,
-                    states,
-                    &render_states,
-                    default_primary_scanout_output_compare,
-                ) {
-                    with_fractional_scale(states, |fraction_scale| {
-                        fraction_scale
-                            .set_preferred_scale(output.current_scale().fractional_scale());
-                    });
-                }
-            });
-            window.send_frame(
-                &output,
-                time.elapsed(),
-                None,
-                surface_primary_scanout_output,
-            );
-        } else if let Some(surface) = x11_window.and_then(|w| w.wl_surface()) {
-            with_surfaces_surface_tree(&surface, |surface, states| {
-                if let Some(output) = update_surface_primary_scanout_output(
-                    surface,
-                    &output,
-                    states,
-                    &render_states,
-                    default_primary_scanout_output_compare,
-                ) {
-                    with_fractional_scale(states, |fraction_scale| {
-                        fraction_scale
-                            .set_preferred_scale(output.current_scale().fractional_scale());
-                    });
-                }
-            });
-            send_frames_surface_tree(
-                &surface,
-                &output,
-                time.elapsed(),
-                None,
-                surface_primary_scanout_output,
-            );
+    for (
+        entity,
+        mut wl_surface_wrapper,
+        mut imported_surface,
+        window,
+        popup,
+        x11_window,
+        window_scale,
+        mut physical_rect,
+        mut surface_offset,
+    ) in surface_query.iter()
+    {
+        if let (Some(window), Some(surface)) = (window, wl_surface_wrapper) {
+            if toplevels.contains(&SurfaceId::from(surface)) {
+                window.on_commit();
+                trace!(surface=?SurfaceId::from(surface),"toplevel commit")
+            }
         }
     }
 }
@@ -517,19 +422,26 @@ impl CompositorHandler for DWay {
         &mut self,
         surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
     ) {
-        trace!(surface=?SurfaceId::from(surface),"commit");
+        trace!(surface=?SurfaceId::from(surface),thread=?thread::current().id(),"commit");
         X11Wm::commit_hook::<DWayServerComponent>(surface);
         on_commit_buffer_handler(&surface);
-        let surface_size = with_states(&surface, |states| {
-            let surface_size = states
+        let (buffer, buffer_size) = with_states(&surface, |states| {
+            let render_state = states
                 .data_map
                 .get::<RefCell<RendererSurfaceState>>()
-                .and_then(|r| r.borrow().surface_size());
-            surface_size
+                .unwrap()
+                .borrow();
+            (render_state.buffer().cloned(), render_state.buffer_size())
         });
+
+        trace!(surface=?SurfaceId::from(surface),"commit {:?}",buffer);
+
+        dbg!(SurfaceId::from(surface));
+        dbg!(smithay::wayland::compositor::get_role(surface));
+        dbg!(get_parent(surface));
+
         self.send_ecs_event(CommitSurface {
             surface: surface.into(),
-            surface_size,
         });
     }
 }
@@ -626,9 +538,15 @@ impl DataDeviceHandler for DWay {
         smithay::wayland::data_device::default_action_chooser(available, preferred)
     }
 
-    fn new_selection(&mut self, source: Option<WlDataSource>) {}
+    fn new_selection(&mut self, source: Option<WlDataSource>, seat: smithay::input::Seat<Self>) {}
 
-    fn send_selection(&mut self, mime_type: String, fd: std::os::fd::OwnedFd) {}
+    fn send_selection(
+        &mut self,
+        mime_type: String,
+        fd: std::os::fd::OwnedFd,
+        seat: smithay::input::Seat<Self>,
+    ) {
+    }
 }
 impl ClientDndGrabHandler for DWay {
     fn started(
@@ -642,13 +560,305 @@ impl ClientDndGrabHandler for DWay {
     fn dropped(&mut self, seat: smithay::input::Seat<Self>) {}
 }
 impl ServerDndGrabHandler for DWay {
-    fn action(&mut self, action: DndAction) {}
+    fn action(&mut self, action: DndAction, seat: smithay::input::Seat<Self>) {}
 
-    fn dropped(&mut self) {}
+    fn dropped(&mut self, seat: smithay::input::Seat<Self>) {}
 
-    fn cancelled(&mut self) {}
+    fn cancelled(&mut self, seat: smithay::input::Seat<Self>) {}
 
-    fn send(&mut self, mime_type: String, fd: std::os::fd::OwnedFd) {}
+    fn send(
+        &mut self,
+        mime_type: String,
+        fd: std::os::fd::OwnedFd,
+        seat: smithay::input::Seat<Self>,
+    ) {
+    }
 
-    fn finished(&mut self) {}
+    fn finished(&mut self, seat: smithay::input::Seat<Self>) {}
+}
+
+pub struct ImportedSurfacePhaseItem {
+    pub entity: Entity,
+    pub draw_function: DrawFunctionId,
+}
+impl PhaseItem for ImportedSurfacePhaseItem {
+    type SortKey = u32;
+
+    fn entity(&self) -> bevy::prelude::Entity {
+        self.entity
+    }
+
+    fn sort_key(&self) -> Self::SortKey {
+        1
+    }
+
+    fn draw_function(&self) -> bevy::render::render_phase::DrawFunctionId {
+        self.draw_function
+    }
+}
+#[derive(Component)]
+pub struct ExtractedBuffer {
+    pub buffer: smithay::backend::renderer::utils::Buffer,
+}
+
+#[tracing::instrument(skip_all)]
+pub fn extract_surface(
+    _: NonSend<NonSendMarker>,
+    surface_query: Extract<Query<(Entity, &WlSurfaceWrapper, &ImportedSurface)>>,
+    mut feedback: ResMut<ImportSurfaceFeedback>,
+    mut commands: Commands,
+) {
+    let mut values = Vec::new();
+    feedback.surfaces.clear();
+    feedback.render_state.lock().unwrap().states.clear();
+    for (entity, surface, imported) in surface_query.iter() {
+        feedback.surfaces.push(surface.0.clone());
+        if imported.flush.load(Ordering::Acquire) {
+            with_states(surface, |s| {
+                let Some( state )=s.data_map.get::<RefCell<RendererSurfaceState>>().map(|c|c.borrow_mut())else{
+                    error!(?entity,surface=?SurfaceId::from(surface),thread=?thread::current().id(),"RendererSurfaceState not found in surface.");
+                    return
+                };
+                let Some(buffer)=state.buffer()else{
+                    error!(?entity,surface=?SurfaceId::from(surface),thread=?thread::current().id(),"buffer not found in surface.");
+                    return
+                };
+                values.push((
+                    entity,
+                    (
+                        imported.clone(),
+                        ExtractedBuffer {
+                            buffer: buffer.clone(),
+                        },
+                        surface.clone(),
+                    ),
+                ));
+            });
+        }
+    }
+    commands.insert_or_spawn_batch(values);
+    commands.spawn(RenderPhase::<ImportedSurfacePhaseItem>::default());
+    feedback.render_state.lock().unwrap().states.clear();
+}
+
+pub fn queue_import(
+    draw_functions: Res<DrawFunctions<ImportedSurfacePhaseItem>>,
+    mut phase_query: Query<&mut RenderPhase<ImportedSurfacePhaseItem>>,
+    surface_query: Query<Entity, (With<ExtractedBuffer>, With<ImportedSurface>)>,
+) {
+    let function = draw_functions.read().id::<ImportSurface>();
+    let mut phase = phase_query.single_mut();
+    for entity in &surface_query {
+        phase.add(ImportedSurfacePhaseItem {
+            draw_function: function,
+            entity,
+        });
+    }
+}
+
+#[derive(Debug, Resource)]
+pub struct ImportSurfaceFeedback {
+    pub render_state: Mutex<RenderElementStates>,
+    pub surfaces: Vec<WlSurface>,
+    pub output: Output,
+}
+impl ImportSurfaceFeedback {
+    pub fn send_frame(&self, time: &Time) {
+        let render_state = self.render_state.lock().unwrap();
+        for surface in self.surfaces.iter() {
+            with_surfaces_surface_tree(&surface, |surface, states| {
+                if let Some(output) = update_surface_primary_scanout_output(
+                    surface,
+                    &self.output,
+                    states,
+                    &render_state,
+                    default_primary_scanout_output_compare,
+                ) {
+                    with_fractional_scale(states, |fraction_scale| {
+                        fraction_scale
+                            .set_preferred_scale(output.current_scale().fractional_scale());
+                    });
+                }
+            });
+            send_frames_surface_tree(
+                &surface,
+                &self.output,
+                time.elapsed(),
+                None,
+                surface_primary_scanout_output,
+            );
+        }
+    }
+}
+
+impl Default for ImportSurfaceFeedback {
+    fn default() -> Self {
+        let output = Output::new(
+            "output".to_string(),
+            PhysicalProperties {
+                size: (i32::MAX, i32::MAX).into(),
+                subpixel: Subpixel::Unknown,
+                make: "output".into(),
+                model: "output".into(),
+            },
+        );
+        Self {
+            render_state: Mutex::new(RenderElementStates {
+                states: HashMap::new(),
+            }),
+            surfaces: Default::default(),
+            output,
+        }
+    }
+}
+
+pub struct ImportSurface;
+impl<P: PhaseItem> RenderCommand<P> for ImportSurface {
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<ImportSurfaceFeedback>,
+        SRes<RenderAssets<Image>>,
+    );
+    type ItemWorldQuery = (
+        Read<ExtractedBuffer>,
+        Read<WlSurfaceWrapper>,
+        Read<ImportedSurface>,
+    );
+    type ViewWorldQuery = ();
+
+    #[tracing::instrument(skip_all)]
+    fn render<'w>(
+        item: &P,
+        view: bevy::ecs::query::ROQueryItem<'w, Self::ViewWorldQuery>,
+        (buffer, surface, imported): bevy::ecs::query::ROQueryItem<'w, Self::ItemWorldQuery>,
+        (render_device, feedback, textures): bevy::ecs::system::SystemParamItem<
+            'w,
+            '_,
+            Self::Param,
+        >,
+        pass: &mut bevy::render::render_phase::TrackedRenderPass<'w>,
+    ) -> bevy::render::render_phase::RenderCommandResult {
+        let success = if imported.flush.load(Ordering::Acquire) {
+            let texture = textures.get(&imported.texture).unwrap();
+            match import_wl_surface(
+                &buffer.buffer,
+                &texture.texture,
+                &imported.damages,
+                render_device.wgpu_device(),
+            ) {
+                Ok(_) => true,
+                Err(e) => {
+                    error!(
+                        surface = ?surface.id(),
+                        error = %e,
+                        entity=?item.entity(),
+                        "failed to import surface.",
+                    );
+                    false
+                }
+            }
+        } else {
+            false
+        };
+        feedback.render_state.lock().unwrap().states.insert(
+            Id::from_wayland_resource(&surface.0),
+            if imported.flush.load(Ordering::Acquire) {
+                RenderElementState {
+                    visible_area: (imported.size.w * imported.size.h) as usize,
+                    presentation_state: RenderElementPresentationState::Rendering { reason: None },
+                }
+            } else {
+                RenderElementState {
+                    visible_area: 0,
+                    presentation_state: RenderElementPresentationState::Skipped,
+                }
+            },
+        );
+        if success {
+            trace!(
+                surface = ?surface.id(),
+                image = ?&imported.texture,
+                "import surface",
+            );
+            imported.flush.store(false, Ordering::Release);
+        }
+        bevy::render::render_phase::RenderCommandResult::Success
+    }
+}
+
+pub struct ImportSurfacePassNode {
+    query: QueryState<(Entity, &'static RenderPhase<ImportedSurfacePhaseItem>)>,
+    view_query: QueryState<
+        (
+            &'static ExtractedCamera,
+            &'static ViewTarget,
+            &'static Camera2d,
+        ),
+        With<ExtractedView>,
+    >,
+}
+impl ImportSurfacePassNode {
+    pub const IN_VIEW: &'static str = "view";
+    pub fn new(world: &mut World) -> Self {
+        Self {
+            query: world.query(),
+            view_query: world.query_filtered(),
+        }
+    }
+}
+impl Node for ImportSurfacePassNode {
+    fn run(
+        &self,
+        graph: &mut bevy::render::render_graph::RenderGraphContext,
+        render_context: &mut bevy::render::renderer::RenderContext,
+        world: &bevy::prelude::World,
+    ) -> Result<(), bevy::render::render_graph::NodeRunError> {
+        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let (camera, target, camera_2d) =
+            if let Ok(result) = self.view_query.get_manual(world, view_entity) {
+                result
+            } else {
+                return Ok(());
+            };
+        {
+            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                label: Some("main_pass_2d"),
+                color_attachments: &[Some(target.get_color_attachment(Operations {
+                    load: match camera_2d.clear_color {
+                        ClearColorConfig::Default => {
+                            LoadOp::Clear(world.resource::<ClearColor>().0.into())
+                        }
+                        ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
+                        ClearColorConfig::None => LoadOp::Load,
+                    },
+                    store: true,
+                }))],
+                depth_stencil_attachment: None,
+            });
+
+            if let Some(viewport) = camera.viewport.as_ref() {
+                render_pass.set_camera_viewport(viewport);
+            }
+
+            for (entity, phase) in self.query.iter_manual(world) {
+                phase.render(&mut render_pass, world, entity);
+            }
+        }
+        let time = world.resource::<Time>();
+        let feedback = world.resource::<ImportSurfaceFeedback>();
+        feedback.send_frame(time);
+        Ok(())
+    }
+
+    fn input(&self) -> Vec<SlotInfo> {
+        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
+    }
+
+    fn update(&mut self, world: &mut bevy::prelude::World) {
+        self.query.update_archetypes(world);
+        self.view_query.update_archetypes(world);
+    }
+}
+pub mod node {
+    pub const NAME: &'static str = "import_wayland_surface";
 }

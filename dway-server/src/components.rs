@@ -33,9 +33,7 @@ use smithay::{
     backend::{
         drm::{DrmDevice, DrmDeviceFd, DrmNode},
         renderer::{
-            damage::DamageTrackedRenderer,
             element::texture::TextureBuffer,
-            gles2::Gles2Renderer,
             multigpu::{egl::EglGlesBackend, GpuManager, MultiTexture},
         },
         session::libseat::LibSeatSession,
@@ -217,10 +215,10 @@ pub struct WindowMark;
 #[derive(Component, Debug, Default, Deref, DerefMut)]
 pub struct WindowZIndex(pub i32);
 
-#[derive(Component, Debug, Deref, DerefMut)]
+#[derive(Component, Clone, Debug, Deref, DerefMut)]
 pub struct WaylandWindow(pub Window);
 
-#[derive(Component, Debug, Deref, DerefMut)]
+#[derive(Component, Clone, Debug, Deref, DerefMut)]
 pub struct X11Window(pub X11Surface);
 
 #[derive(Component, Debug, Clone, Deref, DerefMut)]

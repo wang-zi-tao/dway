@@ -72,7 +72,10 @@ fn setup(
     // font_mapping.set_default(asset_server.load("roboto.kayak_font"));
     // let font=asset_server.load("fonts/FiraSans-Bold.ttf");
     font_mapping.set_default(asset_server.load("roboto.kttf"));
-    let mut widget_context = KayakRootContext::new();
+    let camera_entity = commands
+        .spawn((Camera2dBundle::default(), CameraUIKayak))
+        .id();
+    let mut widget_context = KayakRootContext::new(camera_entity);
     widget_context.add_plugin(KayakWidgetsContextPlugin);
     widget_context.add_plugin(panel::DWayPanelPlugin::default());
     widget_context.add_plugin(widgets::DWayWidgetsPlugin::default());
@@ -131,7 +134,4 @@ fn setup(
             />
         </KayakAppBundle>
     };
-
-    let camera = UICameraBundle::new(widget_context);
-    commands.spawn(camera);
 }

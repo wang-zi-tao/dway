@@ -10,7 +10,7 @@ dway-client-core = { path="../dway-client-core/"}
 # dway-ui = { path="../dway-ui/"}
 dway-util = {path="../dway-util/"}
 dway-server = {path="../dway-server/"}
-dway-udev = {path="../dway-udev/"}
+# dway-udev = {path="../dway-udev/"}
 
 pretty_env_logger = "0.4.0"
 log = "0.4.17"

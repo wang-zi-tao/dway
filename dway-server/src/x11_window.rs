@@ -175,11 +175,14 @@ pub fn configure_notify(
             window_index.query_mut(id, &mut windows_query)
         {
             rect.0 = geometry.to_physical_precise_round(scale.cloned().unwrap_or_default().0);
-            dbg!(&window, geometry,window.is_transient_for(),window.is_popup());
+            dbg!(
+                &window,
+                geometry,
+                window.is_transient_for(),
+                window.is_popup()
+            );
             if let Some(parent_window_id) = window.is_transient_for() {
-                if let Some(parent_entity) =
-                    window_index.get(&SurfaceId::X11(parent_window_id))
-                {
+                if let Some(parent_entity) = window_index.get(&SurfaceId::X11(parent_window_id)) {
                     dbg!(above);
                     commands.entity(entity).remove_parent();
                     commands.entity(*parent_entity).add_child(entity);
@@ -517,6 +520,7 @@ pub fn init(
         handle.clone(),
         None,
         std::iter::empty::<(OsString, OsString)>(),
+        false,
         |_| {
             info!("x11 client attached");
         },

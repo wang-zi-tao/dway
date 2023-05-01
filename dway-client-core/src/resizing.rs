@@ -3,7 +3,8 @@ use std::time::SystemTime;
 use bevy::{
     input::{mouse::MouseButtonInput, ButtonState},
     prelude::*,
-    winit::WinitWindows, utils::tracing,
+    utils::tracing,
+    winit::WinitWindows,
 };
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
 use dway_server::components::{PhysicalRect, WindowMark, WindowScale};

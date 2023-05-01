@@ -6,7 +6,8 @@ use bevy::{
         ButtonState,
     },
     prelude::*,
-    winit::WinitWindows, utils::tracing,
+    utils::tracing,
+    winit::WinitWindows,
 };
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
 use dway_server::{

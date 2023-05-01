@@ -72,6 +72,8 @@ pub fn create_popup(
                 info!("create popup for {id:?} at {entity:?}");
                 windows.0.insert(id, entity);
             });
+        } else {
+            error!(surface=?id,"popup has not parent");
         };
     }
 }

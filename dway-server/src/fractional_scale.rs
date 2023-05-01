@@ -1,4 +1,4 @@
-use smithay::{delegate_fractional_scale, wayland::fractional_scale::FractionScaleHandler};
+use smithay::{delegate_fractional_scale, wayland::fractional_scale::FractionalScaleHandler};
 
 use crate::DWay;
 use smithay::{
@@ -10,7 +10,7 @@ use smithay::{
     xwayland::X11Surface,
 };
 
-impl FractionScaleHandler for DWay {
+impl FractionalScaleHandler for DWay {
     fn new_fractional_scale(&mut self, surface: WlSurface) {
         todo!()
     }

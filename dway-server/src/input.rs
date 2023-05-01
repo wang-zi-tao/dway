@@ -7,7 +7,8 @@ use bevy::{
         mouse::{MouseButtonInput, MouseScrollUnit, MouseWheel},
         ButtonState,
     },
-    prelude::*, utils::tracing,
+    prelude::*,
+    utils::tracing,
 };
 use smithay::{
     input::{
@@ -49,7 +50,7 @@ pub fn on_mouse_move(
         .as_millis() as u32;
     let dway = &mut dway_query.single_mut().dway;
     for MouseMoveOnWindow(id, pos) in events.iter() {
-        if let Some((surface, offset, scale)) = window_index.query(id,&surface_query) {
+        if let Some((surface, offset, scale)) = window_index.query(id, &surface_query) {
             let scale = scale.cloned().unwrap_or_default().0;
             let offset = offset
                 .cloned()

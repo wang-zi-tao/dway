@@ -1,4 +1,6 @@
+use image::io::Reader as ImageReader;
 use std::{
+    collections::HashMap,
     default,
     ffi::{c_int, c_uint, c_void},
     num::NonZeroU32,
@@ -8,8 +10,17 @@ use std::{
 };
 
 use bevy::{
-    prelude::{debug, info, Vec2},
-    render::texture::GpuImage,
+    ecs::system::lifetimeless::{Read, SQuery, SRes, Write},
+    prelude::{debug, info, Component, Query, QueryState, Res, UiCameraConfig, Vec2},
+    render::{
+        render_graph::Node,
+        render_phase::{DrawFunctions, PhaseItem, RenderCommand, RenderPhase},
+        render_resource::PipelineCache,
+        renderer::RenderDevice,
+        texture::GpuImage,
+        view::ViewTarget,
+    },
+    sprite::SpritePipeline,
 };
 use failure::{format_err, Fallible};
 use glow::{
@@ -23,10 +34,14 @@ use smithay::{
         egl::ffi::egl::{LINUX_DMA_BUF_EXT, WAYLAND_PLANE_WL},
         renderer::{
             buffer_type,
-            gles2::{ffi::BGRA_EXT, Gles2Renderer},
+            element::{default_primary_scanout_output_compare, RenderElementStates},
             utils::RendererSurfaceState,
             BufferType,
         },
+    },
+    desktop::utils::{
+        send_frames_surface_tree, surface_primary_scanout_output,
+        update_surface_primary_scanout_output,
     },
     reexports::wayland_server::{
         protocol::{wl_buffer::WlBuffer, wl_shm, wl_surface::WlSurface},
@@ -35,14 +50,20 @@ use smithay::{
     utils::{Physical, Rectangle, Size},
     wayland::{
         dmabuf::get_dmabuf,
+        fractional_scale::with_fractional_scale,
         shm::{with_buffer_contents, BufferData},
     },
 };
-use wgpu::{util::DeviceExt, FilterMode, SamplerDescriptor, TextureAspect};
+use wgpu::{util::DeviceExt, FilterMode, SamplerDescriptor, Texture, TextureAspect};
 use wgpu_hal::Api;
 use wgpu_hal::{api::Gles, MemoryFlags, TextureUses};
 
-use crate::surface::{try_with_states_borrowed, with_states_borrowed};
+use crate::{
+    components::{SurfaceId, WaylandWindow, WlSurfaceWrapper, X11Window},
+    surface::{try_with_states_borrowed, with_states_borrowed, ImportedSurface},
+};
+
+pub type TextureId = (NativeTexture, u32);
 
 pub unsafe fn import_dma(
     dma_buffer: Dmabuf,
@@ -163,26 +184,16 @@ pub unsafe fn import_memory(
     metadata: BufferData,
     gl: &glow::Context,
     damage: &[Rectangle<i32, Physical>],
-) -> Fallible<(NativeTexture, Size<i32, Physical>)> {
+    dest: TextureId,
+) -> Fallible<()> {
     let offset = metadata.offset as i32;
     let width = metadata.width as i32;
     let height = metadata.height as i32;
     let stride = metadata.stride as i32;
     let pixelsize = 4i32;
     assert!((offset + (height - 1) * stride + width * pixelsize) as usize <= buffer.len());
-    let (gl_format, shader_idx) = match metadata.format {
-        wl_shm::Format::Abgr8888 => (glow::RGBA, 0),
-        wl_shm::Format::Xbgr8888 => (glow::RGBA, 1),
-        wl_shm::Format::Argb8888 => (glow::BGRA, 0),
-        wl_shm::Format::Xrgb8888 => (glow::BGRA, 1),
-        format => return Err(format_err!("unsupported format: {:?}", format)),
-    };
-
-    let mut upload_full = true;
-    let texture = gl
-        .create_texture()
-        .map_err(|e| format_err!("failed to create texture: {e}"))?;
-    gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+    dbg!(buffer.iter().map(|d| *d as usize).sum::<usize>() / buffer.len());
+    gl.bind_texture(dest.1, Some(dest.0));
     gl.tex_parameter_i32(
         glow::TEXTURE_2D,
         glow::TEXTURE_WRAP_S,
@@ -205,35 +216,15 @@ pub unsafe fn import_memory(
     );
 
     gl.pixel_store_i32(glow::UNPACK_ROW_LENGTH, stride / pixelsize);
-    if upload_full {
-        gl.tex_image_2d(
-            glow::TEXTURE_2D,
-            0,
-            glow::RGBA as i32,
-            width,
-            height,
-            0,
-            gl_format,
-            glow::UNSIGNED_BYTE,
-            Some(buffer),
-        );
 
-        //      let mut output_buffer = vec![255; buffer.len()];
-        //      let pixels = PixelPackData::Slice(&mut output_buffer);
-        //      let framebuffer = gl.create_framebuffer().unwrap();
-        //      gl.bind_framebuffer(glow::FRAMEBUFFER, Some(framebuffer));
-        //      gl.framebuffer_texture_2d(
-        //          glow::FRAMEBUFFER,
-        //          glow::COLOR_ATTACHMENT0,
-        //          glow::TEXTURE_2D,
-        //          Some(texture),
-        //          0,
-        //      );
-        //      gl.read_pixels(0, 0, width, height, glow::RGBA, glow::UNSIGNED_BYTE, pixels);
-        //      dbg!(output_buffer == buffer);
-        //      let image: ImageBuffer<image::Rgba<u8>, Vec<u8>> =
-        //          ImageBuffer::from_raw(width as u32, height as u32, output_buffer).unwrap();
-        //      image.save("/tmp/import_buffer.png").unwrap();
+    let (gl_format, shader_idx) = match metadata.format {
+        wl_shm::Format::Abgr8888 => (glow::RGBA, 0),
+        wl_shm::Format::Xbgr8888 => (glow::RGBA, 1),
+        wl_shm::Format::Argb8888 => (glow::BGRA, 0),
+        wl_shm::Format::Xrgb8888 => (glow::BGRA, 1),
+        format => return Err(format_err!("unsupported format: {:?}", format)),
+    };
+    if damage.len() == 0 {
         gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, 0);
         gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);
         gl.tex_sub_image_2d(
@@ -247,6 +238,8 @@ pub unsafe fn import_memory(
             glow::UNSIGNED_BYTE,
             glow::PixelUnpackData::Slice(buffer),
         );
+        gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, 0);
+        gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);
     } else {
         for region in damage.iter() {
             gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, region.loc.x);
@@ -269,7 +262,7 @@ pub unsafe fn import_memory(
     gl.generate_mipmap(glow::TEXTURE_2D);
     //glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
     gl.bind_texture(glow::TEXTURE_2D, None);
-    Ok((texture, Size::from((metadata.width, metadata.height))))
+    Ok(())
 }
 
 pub unsafe fn import_egl(
@@ -335,7 +328,7 @@ pub unsafe fn create_gpu_image(
     raw_image: NonZeroU32,
     size: Size<i32, Physical>,
 ) -> Fallible<GpuImage> {
-    let texture_format = wgpu::TextureFormat::Rgba8UnormSrgb;
+    let texture_format = wgpu::TextureFormat::Rgba8Unorm;
     let hal_texture: <Gles as Api>::Texture = device.as_hal::<Gles, _, _>(|hal_device| {
         Fallible::Ok(
             hal_device
@@ -419,167 +412,95 @@ pub unsafe fn create_gpu_image(
 }
 
 pub fn import_wl_surface(
-    surface_state: &mut RendererSurfaceState,
+    buffer: &WlBuffer,
+    texture: &Texture,
     damage: &[Rectangle<i32, Physical>],
     device: &wgpu::Device,
-    queue: &wgpu::Queue,
-) -> Fallible<GpuImage> {
-    if let Some(buffer) = surface_state.buffer() {
-        unsafe {
-            let display: khronos_egl::Display = device.as_hal::<Gles, _, _>(|hal_device| {
-                hal_device
-                    .ok_or_else(|| format_err!("gpu backend is not egl"))?
-                    .context()
-                    .raw_display()
-                    .cloned()
-                    .ok_or_else(|| format_err!("no opengl display available"))
-            })?;
-            // if let Some(BufferType::Shm) = buffer_type(buffer) {
-            //     return with_buffer_contents(buffer, |ptr, len, metadata| {
-            //         let texture_format = match metadata.format {
-            //             wl_shm::Format::Abgr8888 => wgpu::TextureFormat::Rgba8UnormSrgb,
-            //             wl_shm::Format::Xbgr8888 => wgpu::TextureFormat::Rgba8UnormSrgb,
-            //             wl_shm::Format::Argb8888 => wgpu::TextureFormat::Bgra8UnormSrgb,
-            //             wl_shm::Format::Xrgb8888 => wgpu::TextureFormat::Bgra8UnormSrgb,
-            //             format => {
-            //                 panic!("unsupported format: {:?}", format);
-            //             }
-            //         };
-            //         let width = metadata.width as i32;
-            //         let height = metadata.height as i32;
-            //         let texture = device.create_texture_with_data(
-            //             queue,
-            //             &wgpu::TextureDescriptor {
-            //                 label: None,
-            //                 size: wgpu::Extent3d {
-            //                     width: width as u32,
-            //                     height: height as u32,
-            //                     depth_or_array_layers: 1,
-            //                 },
-            //                 mip_level_count: 1,
-            //                 sample_count: 1,
-            //                 dimension: wgpu::TextureDimension::D2,
-            //                 format: texture_format,
-            //                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-            //                     | wgpu::TextureUsages::TEXTURE_BINDING
-            //                     | wgpu::TextureUsages::STORAGE_BINDING,
-            //                 view_formats: &[wgpu::TextureFormat::Rgba8UnormSrgb],
-            //             },
-            //             std::slice::from_raw_parts(ptr, len),
-            //         );
-            //         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
-            //             label: None,
-            //             format: Some(wgpu::TextureFormat::Rgba8UnormSrgb),
-            //             dimension: None,
-            //             aspect: TextureAspect::All,
-            //             base_mip_level: 0,
-            //             mip_level_count: Some(1.try_into().unwrap()),
-            //             base_array_layer: 0,
-            //             array_layer_count: None,
-            //         });
-            //         let sampler: wgpu::Sampler = device
-            //             .create_sampler(&SamplerDescriptor {
-            //                 label: None,
-            //                 mag_filter: FilterMode::Linear,
-            //                 min_filter: FilterMode::Nearest,
-            //                 mipmap_filter: FilterMode::Nearest,
-            //                 compare: None,
-            //                 anisotropy_clamp: None,
-            //                 border_color: None,
-            //                 address_mode_u: Default::default(),
-            //                 address_mode_v: Default::default(),
-            //                 address_mode_w: Default::default(),
-            //                 lod_min_clamp: Default::default(),
-            //                 lod_max_clamp: Default::default(),
-            //             })
-            //             .into();
-            //         let image = GpuImage {
-            //             texture: texture.into(),
-            //             texture_view: texture_view.into(),
-            //             texture_format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            //             sampler: sampler.into(),
-            //             size: Vec2::new(width as f32, height as f32),
-            //             mip_level_count: 1,
-            //         };
-            //         image
-            //     })
-            //     .map_err(|e| format_err!("{e:?}"));
-            // }
-            let (raw_image, size) = {
-                device.as_hal::<Gles, _, _>(|hal_device| {
-                    let hal_device =
-                        hal_device.ok_or_else(|| format_err!("render device is not egl"))?;
-                    let egl_context = hal_device.context();
-                    let gl: &glow::Context = &egl_context.lock();
-                    let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> = egl_context
-                        .egl_instance()
-                        .ok_or_else(|| format_err!("render adapter is not egl"))?;
-                    let egl_create_image_khr: extern "system" fn(
-                        EGLDisplay,
-                        EGLContext,
-                        Enum,
-                        EGLClientBuffer,
-                        *const Int,
-                    ) -> EGLImage =
-                        std::mem::transmute(egl.get_proc_address("eglCreateImageKHR").ok_or_else(
-                            || format_err!("failed to get function eglCreateImageKHR"),
-                        )?);
-                    let gl_eglimage_target_texture2_does: extern "system" fn(
-                        target: Enum,
-                        image: *const c_void,
-                    ) = std::mem::transmute(
-                        egl.get_proc_address("glEGLImageTargetTexture2DOES")
-                            .ok_or_else(|| {
-                                format_err!("failed to get function glEGLImageTargetTexture2DOES")
-                            })?,
-                    );
-                    let (raw_image, size) = match buffer_type(buffer) {
-                        Some(BufferType::Shm) => {
-                            with_buffer_contents(buffer, |ptr, len, metadata| {
-                                // device.create_texture_with_data(queue, desc, data)
-                                import_memory(
-                                    std::slice::from_raw_parts(ptr, len),
-                                    metadata,
-                                    gl,
-                                    damage,
-                                )
-                            })
-                            .map_err(|e| format_err!("{e}"))
-                            .flatten()?
-                        }
-                        Some(BufferType::Egl) => {
-                            let (raw_image, size) =
-                                import_egl(buffer, egl, display, egl_create_image_khr, damage)?;
-                            let texture = image_target_texture_oes(
-                                gl_eglimage_target_texture2_does,
-                                gl,
-                                raw_image,
-                            )?;
-                            (texture, size)
-                        }
-                        Some(BufferType::Dma) => {
-                            let dmabuf = get_dmabuf(buffer)?;
-                            let (raw_image, size) =
-                                import_dma(dmabuf, egl_create_image_khr, display.as_ptr())?;
-                            let texture = image_target_texture_oes(
-                                gl_eglimage_target_texture2_does,
-                                gl,
-                                raw_image,
-                            )?;
-                            (texture, size)
-                        }
-                        _ => {
-                            return Err(format_err!("unnkown buffer type"));
-                        }
-                    };
-                    Ok((raw_image, size))
-                })
-            }?;
-            let gpu_image = create_gpu_image(device, damage, raw_image.0, size)?;
-            Ok(gpu_image)
-        }
-    } else {
-        Fallible::Err(format_err!("no buffer available"))
+) -> Fallible<()> {
+    unsafe {
+        let display: khronos_egl::Display = device.as_hal::<Gles, _, _>(|hal_device| {
+            hal_device
+                .ok_or_else(|| format_err!("gpu backend is not egl"))?
+                .context()
+                .raw_display()
+                .cloned()
+                .ok_or_else(|| format_err!("no opengl display available"))
+        })?;
+        let mut texture_id = None;
+        texture.as_hal::<Gles, _>(|texture| {
+            let texture = texture.unwrap();
+            match &texture.inner {
+                wgpu_hal::gles::TextureInner::Texture { raw, target } => {
+                    texture_id = Some((*raw, *target));
+                }
+                _ => {}
+            }
+        });
+        let Some( texture_id )=texture_id else{
+            return Err(format_err!("failed to get raw texture"));
+        };
+        device.as_hal::<Gles, _, _>(|hal_device| {
+            let hal_device = hal_device.ok_or_else(|| format_err!("render device is not egl"))?;
+            let egl_context = hal_device.context();
+            let gl: &glow::Context = &egl_context.lock();
+            // gl.enable(glow::DEBUG_OUTPUT);
+            // gl.debug_message_callback(gl_debug_message_callback);
+            let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> = egl_context
+                .egl_instance()
+                .ok_or_else(|| format_err!("render adapter is not egl"))?;
+            let egl_create_image_khr: extern "system" fn(
+                EGLDisplay,
+                EGLContext,
+                Enum,
+                EGLClientBuffer,
+                *const Int,
+            ) -> EGLImage = std::mem::transmute(
+                egl.get_proc_address("eglCreateImageKHR")
+                    .ok_or_else(|| format_err!("failed to get function eglCreateImageKHR"))?,
+            );
+            let gl_eglimage_target_texture2_does: extern "system" fn(
+                target: Enum,
+                image: *const c_void,
+            ) = std::mem::transmute(
+                egl.get_proc_address("glEGLImageTargetTexture2DOES")
+                    .ok_or_else(|| {
+                        format_err!("failed to get function glEGLImageTargetTexture2DOES")
+                    })?,
+            );
+            match buffer_type(buffer) {
+                Some(BufferType::Shm) => {
+                    with_buffer_contents(buffer, |ptr, len, metadata| {
+                        // device.create_texture_with_data(queue, desc, data)
+                        import_memory(
+                            std::slice::from_raw_parts(ptr, len),
+                            metadata,
+                            gl,
+                            damage,
+                            texture_id,
+                        )
+                    })
+                    .map_err(|e| format_err!("{e}"))
+                    .flatten()?;
+                }
+                Some(BufferType::Egl) => {
+                    let (raw_image, size) =
+                        import_egl(buffer, egl, display, egl_create_image_khr, damage)?;
+                    let texture =
+                        image_target_texture_oes(gl_eglimage_target_texture2_does, gl, raw_image)?;
+                }
+                Some(BufferType::Dma) => {
+                    let dmabuf = get_dmabuf(buffer)?;
+                    let (raw_image, size) =
+                        import_dma(dmabuf, egl_create_image_khr, display.as_ptr())?;
+                    let texture =
+                        image_target_texture_oes(gl_eglimage_target_texture2_does, gl, raw_image)?;
+                }
+                _ => {
+                    return Err(format_err!("unnkown buffer type"));
+                }
+            };
+            Ok(())
+        })
     }
 }
 pub fn gl_debug_message_callback(source: u32, gltype: u32, id: u32, severity: u32, message: &str) {

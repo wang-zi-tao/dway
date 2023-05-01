@@ -62,7 +62,6 @@ pub struct WindowSetGeometryEvent(pub SurfaceId, pub Rectangle<i32, Physical>);
 #[derive(Clone, Debug)]
 pub struct CommitSurface {
     pub surface: SurfaceId,
-    pub surface_size: Option<Size<i32,Logical> >,
 }
 #[derive(Clone, Debug)]
 pub struct ShowWindowMenu(pub SurfaceId);

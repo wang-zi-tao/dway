@@ -140,7 +140,6 @@ pub fn create_window_ui(
     mut events: EventReader<CreateWindow>,
     window_index: Res<WindowIndex>,
     mut commands: Commands,
-    mut assets: ResMut<AssetServer>,
 ) {
     for CreateWindow(id) in events.iter() {
         if let Some((entity, rect, id, surface, wl_surface, offset)) =
@@ -192,7 +191,6 @@ pub fn create_window_ui(
                         },
                         focus_policy: FocusPolicy::Pass,
                         image: UiImage::new(surface.texture.clone()),
-                        // image: UiImage::new(assets.load("/tmp/import_buffer.png")),
                         ..default()
                     },
                     backend,
