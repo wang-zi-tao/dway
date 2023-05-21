@@ -1,15 +1,19 @@
 #![feature(arc_unwrap_or_clone)]
 pub mod background;
+pub mod context;
 pub mod contexts;
 pub mod dock;
 pub mod lock;
 pub mod overview;
 pub mod panel;
 pub mod title_bar;
+pub mod util;
 pub mod widgets;
+pub mod windows_area;
 
 use std::sync::Arc;
 
+use dway_client_core::DWayClientSystem;
 use failure::Fallible;
 pub use kayak_ui;
 
@@ -26,10 +30,13 @@ use kayak_ui::{prelude::*, widgets::*};
 pub struct DWayUiPlugin;
 impl Plugin for DWayUiPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_startup_system(setup);
+        app.add_plugin(KayakContextPlugin);
+        app.add_plugin(KayakWidgets);
+        app.init_resource::<FontMapping>();
+        app.add_startup_system(setup.after(DWayClientSystem::Init));
         app.add_plugin(panel::DWayPanelPlugin::default());
         app.add_plugin(widgets::DWayWidgetsPlugin::default());
-        app.add_plugin(background::DWayBackgroundPlugin::default());
+        // app.add_plugin(background::DWayBackgroundPlugin::default());
     }
 }
 pub fn default_system_font() -> Result<Handle, SelectionError> {
@@ -46,9 +53,11 @@ pub fn default_system_font() -> Result<Handle, SelectionError> {
 fn setup(
     mut commands: Commands,
     mut font_mapping: ResMut<FontMapping>,
+    camera_query: Query<Entity, With<Camera2d>>,
     _font_resource: ResMut<Assets<Font>>,
     asset_server: Res<AssetServer>,
 ) {
+    info!("setup kayak");
     match default_system_font()
         .map_err(|e| e.into())
         .and_then(|font| font.load().map_err(|e| e.into()))
@@ -72,6 +81,7 @@ fn setup(
     // font_mapping.set_default(asset_server.load("roboto.kayak_font"));
     // let font=asset_server.load("fonts/FiraSans-Bold.ttf");
     font_mapping.set_default(asset_server.load("roboto.kttf"));
+    info!("create kayak ui camera");
     let camera_entity = commands
         .spawn((Camera2dBundle::default(), CameraUIKayak))
         .id();
@@ -80,58 +90,61 @@ fn setup(
     widget_context.add_plugin(panel::DWayPanelPlugin::default());
     widget_context.add_plugin(widgets::DWayWidgetsPlugin::default());
     widget_context.add_plugin(background::DWayBackgroundPlugin::default());
+    widget_context.add_plugin(windows_area::WindowAreaPlugin::default());
+    let panel_style = KStyle {
+        top: StyleProp::Value(Units::Pixels(0.0)),
+        height: Units::Percentage(100.0).into(),
+        // z_index: 256.into(),
+        position_type: KPositionType::SelfDirected.into(),
+        ..Default::default()
+    };
+    let windows_area_style = KStyle {
+        // top:StyleProp::Value(Units::Pixels(0.0)),
+        // height: Units::Percentage(100.0).into(),
+        // z_index: (-1024).into(),
+        left: StyleProp::Inherit,
+        right: StyleProp::Inherit,
+        top: StyleProp::Inherit,
+        bottom: StyleProp::Inherit,
+        position_type: KPositionType::SelfDirected.into(),
+        ..Default::default()
+    };
+    let background_style = KStyle {
+        left: StyleProp::Inherit,
+        right: StyleProp::Inherit,
+        top: StyleProp::Inherit,
+        bottom: StyleProp::Inherit,
+        position_type: KPositionType::SelfDirected.into(),
+        // z_index: (-256).into(),
+        background_color: Color::rgba_u8(0, 0, 0, 0).into(),
+        ..Default::default()
+    };
+    let root_styles = KStyle {
+        ..Default::default()
+    };
     let parent_id = None;
     // let image = asset_server.load("background.jpg");
     rsx! {
-        <KayakAppBundle
-        styles={KStyle {
-            layout_type:LayoutType::Column.into(),
-            position_type: KPositionType::SelfDirected.into(),
-            ..Default::default()
-        }}
-        >
-            // <background::DWayBackgroundBundle
-            // styles={KStyle {
-            //     // left:Units::Pixels(0.0).into(),
-            //     // right:Units::Pixels(100.0).into(),
-            //     // top:Units::Pixels(100.0).into(),
-            //     // bottom:Units::Percentage(100.0).into(),
-            //     // z_index: (-1024).into(),
-            //     position_type: KPositionType::ParentDirected.into(),
-            //         background_color: StyleProp::Value(Color::rgba(1.0, 1.0, 1.0, 0.5)),
-            //         color: StyleProp::Value(Color::rgba(0.0, 0.0, 0.0, 1.0)),
-            //         layout_type: LayoutType::Row.into(),
-            //         // top: StyleProp::Value(Units::Pixels(4.0)),
-            //         // left: StyleProp::Value(Units::Pixels(4.0)),
-            //         // right: StyleProp::Value(Units::Pixels(4.0)),
-            //         padding: StyleProp::Value(Edge::axis( Units::Pixels(2.0) , Units::Pixels(16.0) )),
-            //         width: StyleProp::Value(Units::Pixels(1.0)),
-            //         height: StyleProp::Value(Units::Pixels(32.0)),
-            //         border_radius: StyleProp::Value(Corner::all(100.0)),
-            //
-            //         ..Default::default()
-            //     }}
-            // />
-                // <KImageBundle
-                // image={KImage(image)}
-                // styles={KStyle{
-                //     left:Units::Pixels(0.0).into(),
-                //     right:Units::Pixels(0.0).into(),
-                //     top:Units::Pixels(0.0).into(),
-                //     bottom:Units::Pixels(0.0).into(),
-                // position_type: KPositionType::SelfDirected.into(),
-                //     // z_index: (-1024).into(),
-                //     ..Default::default()
-                // }}
-                // />
-            <panel::DWayPanelBundle
-            styles={KStyle {
-                height:Units::Percentage(100.0).into(),
-                // z_index: (-1024).into(),
-                position_type: KPositionType::SelfDirected.into(),
-                ..Default::default()
-            }}
+        <KayakAppBundle styles={root_styles} >
+            <KImageBundle
+            image={KImage(asset_server.load("background.jpg"))}
+            styles={background_style.clone()}
             />
+            // <windows_area::WindowAreaBundle styles={windows_area_style}/>
+            <ElementBundle
+            styles={KStyle {
+                left: StyleProp::Inherit,
+                right: StyleProp::Inherit,
+                top: StyleProp::Inherit,
+                height: StyleProp::Value(Units::Auto),
+                position_type: KPositionType::SelfDirected.into(),
+                background_color: Color::rgba_u8(0, 0, 0, 0).into(),
+                ..Default::default()
+            }} >
+                <panel::DWayPanelBundle />
+            </ElementBundle>
         </KayakAppBundle>
+
     };
+    commands.spawn((widget_context, EventDispatcher::default()));
 }

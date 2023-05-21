@@ -8,7 +8,7 @@ use bevy::{
     prelude::*,
     render::render_resource::{TextureDimension, TextureFormat},
     ui::FocusPolicy,
-    utils::tracing,
+    utils::{tracing, HashMap},
     window::WindowMode,
     winit::WinitWindows,
 };
@@ -17,7 +17,9 @@ use crossbeam_channel::TryRecvError;
 use dway_protocol::window::WindowState;
 use dway_protocol::window::{ImageBuffer, WindowMessage, WindowMessageKind};
 use dway_server::{
-    components::{Id, SurfaceOffset, WindowScale, WlSurfaceWrapper},
+    components::{
+        Id, SurfaceOffset, WaylandWindow, WindowDecoration, WindowScale, WlSurfaceWrapper,
+    },
     events::{
         CreateWindow, MapX11WindowRequest, MouseButtonOnWindow, MouseMoveOnWindow, UnmapX11Window,
         X11WindowSetSurfaceEvent,
@@ -133,7 +135,9 @@ pub fn create_window_ui(
             &SurfaceId,
             &ImportedSurface,
             Option<&WlSurfaceWrapper>,
+            Option<&WaylandWindow>,
             Option<&SurfaceOffset>,
+            Option<&WindowDecoration>,
         ),
         With<WindowMark>,
     >,
@@ -142,7 +146,7 @@ pub fn create_window_ui(
     mut commands: Commands,
 ) {
     for CreateWindow(id) in events.iter() {
-        if let Some((entity, rect, id, surface, wl_surface, offset)) =
+        if let Some((entity, rect, id, surface, wl_surface, wl_window, offset, decoration)) =
             window_index.query(id, &surface_query)
         {
             let backend = Backend::new(entity);

@@ -10,18 +10,18 @@ use smithay::{
         wayland_protocols::xdg::shell::server::xdg_toplevel::{self, ResizeEdge},
         wayland_server::Resource,
     },
-    wayland::shell::xdg::{ToplevelStateSet, ToplevelSurface, XdgShellHandler},
+    wayland::shell::xdg::{Configure, ToplevelStateSet, ToplevelSurface, XdgShellHandler},
 };
 
 use crate::{
     components::{
-        LogicalRect, PhysicalRect, SurfaceId, WaylandWindow, WindowIndex, WindowMark, WindowScale,
-        WlSurfaceWrapper, UUID,
+        LogicalRect, PhysicalRect, SurfaceId, WaylandWindow, WindowDecoration, WindowIndex,
+        WindowMark, WindowScale, WlSurfaceWrapper, UUID,
     },
     events::{
-        CloseWindowRequest, CreatePopup, CreateTopLevelEvent, CreateWindow, DestroyPopup,
-        DestroyWlSurface, GrabPopup, MoveRequest, ResizeRequest, SetState, ShowWindowMenu,
-        UpdatePopupPosition,
+        AckConfigure, CloseWindowRequest, CreatePopup, CreateSurface, CreateTopLevelEvent,
+        CreateWindow, DestroyPopup, DestroyWlSurface, GrabPopup, MoveRequest, ResizeRequest,
+        SetState, ShowWindowMenu, UpdatePopupPosition,
     },
     DWay,
     // wayland::{
@@ -41,6 +41,7 @@ pub struct WaylandSurfaceBundle {
 pub struct WaylandWindowBundle {
     pub surface_bundle: WaylandSurfaceBundle,
     pub window: WaylandWindow,
+    pub decoration: WindowDecoration,
 }
 
 #[tracing::instrument(skip_all)]
@@ -64,6 +65,7 @@ pub fn create_top_level(
                         id: id.clone(),
                         window: WlSurfaceWrapper(wl_surface.clone()),
                     },
+                    decoration: WindowDecoration::Disable,
                 })
                 .id();
             info!("create toplevel of {:?} on {:?}", id, entity);
@@ -88,7 +90,21 @@ pub fn destroy_wl_surface(
         window_index.0.remove(&id);
     }
 }
-#[tracing::instrument(skip_all)]
+pub fn on_ack_configure(
+    mut events: EventReader<AckConfigure>,
+    window_index: Res<WindowIndex>,
+    mut window_query: Query<(&WaylandWindow, &mut WindowDecoration), With<WindowMark>>,
+) {
+    for AckConfigure {
+        surface,
+        is_server_decoration,
+    } in events.iter()
+    {
+        if let Some((window, mut decoration)) = window_index.query_mut(surface, &mut window_query) {
+            *decoration = Default::default();
+        }
+    }
+}
 pub fn on_close_window_request(
     mut events: EventReader<CloseWindowRequest>,
     window_index: Res<WindowIndex>,
@@ -123,6 +139,7 @@ pub fn on_rect_changed(
         });
         if changed {
             toplevel.send_configure();
+            info!(surface=?SurfaceId::from(toplevel.wl_surface()),"change size to {:?}",logical.size);
         }
     }
 }
@@ -173,7 +190,9 @@ impl XdgShellHandler for DWay {
     fn new_toplevel(&mut self, surface: ToplevelSurface) {
         trace!("new toplevel {:?}", surface.wl_surface().id());
         self.send_ecs_event(CreateWindow((&surface).into()));
-        self.send_ecs_event(CreateTopLevelEvent(surface));
+        self.send_ecs_event(CreateSurface((&surface).into()));
+        self.send_ecs_event(CreateTopLevelEvent(surface.clone()));
+        self.wayland_windows.insert((&surface).into(), surface);
     }
 
     fn new_popup(
@@ -183,7 +202,9 @@ impl XdgShellHandler for DWay {
     ) {
         trace!("new popup {:?}", surface.wl_surface().id());
         self.send_ecs_event(CreateWindow((&surface).into()));
-        self.send_ecs_event(CreatePopup(surface, positioner));
+        self.send_ecs_event(CreateSurface((&surface).into()));
+        self.send_ecs_event(CreatePopup(surface.clone(), positioner));
+        self.popups.insert((&surface).into(), surface);
     }
 
     fn grab(
@@ -297,6 +318,17 @@ impl XdgShellHandler for DWay {
         surface: smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
         configure: smithay::wayland::shell::xdg::Configure,
     ) {
+        if let Configure::Toplevel(configure) = configure {
+            let is_ssd = configure
+                    .state
+                    .decoration_mode
+                    .map(|mode| mode == smithay::reexports::wayland_protocols::xdg::decoration::zv1::server::zxdg_toplevel_decoration_v1::Mode::ServerSide)
+                    .unwrap_or(false);
+            self.send_ecs_event(AckConfigure {
+                surface: surface.into(),
+                is_server_decoration: is_ssd,
+            });
+        }
     }
 
     fn reposition_request(
@@ -313,10 +345,12 @@ impl XdgShellHandler for DWay {
     }
 
     fn toplevel_destroyed(&mut self, surface: ToplevelSurface) {
-        self.send_ecs_event(DestroyWlSurface(surface.into()));
+        self.send_ecs_event(DestroyWlSurface((&surface).into()));
+        self.wayland_windows.remove(&SurfaceId::from(&surface));
     }
 
     fn popup_destroyed(&mut self, surface: smithay::wayland::shell::xdg::PopupSurface) {
+        self.popups.remove(&SurfaceId::from(&surface));
         self.send_ecs_event(DestroyPopup((&surface).into()));
         self.send_ecs_event(DestroyWlSurface(surface.into()));
     }

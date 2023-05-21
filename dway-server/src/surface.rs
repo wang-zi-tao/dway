@@ -167,7 +167,6 @@ impl ImportedSurface {
             texture_descriptor: Self::texture_descriptor(image_size),
             ..default()
         };
-        dbg!("resize", image_size);
         image.resize(image_size);
         let _ = assets.set(self.texture.clone(), image);
         self.size = size;
@@ -232,15 +231,7 @@ pub fn do_commit(
             let scale = window_scale.cloned().unwrap_or_default().0;
             imported_surface.flush.store(true, Ordering::Release);
             if let (Some(window), Some(surface)) = (window, wl_surface_wrapper.as_ref()) {
-                let initial_configure_sent =
-                    with_states_locked(surface, |s: &mut XdgToplevelSurfaceRoleAttributes| {
-                        s.initial_configure_sent
-                    });
-                if !initial_configure_sent {
-                    window.toplevel().send_configure();
-                }
-
-                window.on_commit();
+                // window.on_commit();
                 let geo = window.geometry();
                 let bbox = window.bbox();
                 let scale = window_scale.cloned().unwrap_or_default().0;
@@ -254,16 +245,17 @@ pub fn do_commit(
                         r.0.loc = value;
                     }
                 });
-                //physical_rect.as_mut().map(|r| {
-                //    let value = geo
-                //        .size
-                //        .to_f64()
-                //        .to_physical_precise_round(scale)
-                //        .to_i32_round();
-                //    if r.0.size != value {
-                //        r.0.size = value;
-                //    }
-                //});
+
+                physical_rect.as_mut().map(|r| {
+                    let value = geo
+                        .size
+                        .to_f64()
+                        .to_physical_precise_round(scale)
+                        .to_i32_round();
+                    if r.0.size != value {
+                        r.0.size = value;
+                    }
+                });
             } else if let Some(window) = x11_window {
                 //let geo = window.geometry();
                 //let bbox = window.bbox();
@@ -290,15 +282,6 @@ pub fn do_commit(
                 //    }
                 //});
             } else if let (Some(popup), Some(surface)) = (popup, wl_surface_wrapper.as_ref()) {
-                if !with_states_locked(surface, |s: &mut XdgPopupSurfaceRoleAttributes| {
-                    s.initial_configure_sent
-                }) {
-                    let PopupKind::Xdg(ref xdg_popup) = &popup.kind;
-                    if let Err(error) = xdg_popup.send_configure() {
-                        error!(surface = id.to_string(), %error, "initial configure failed");
-                    };
-                    trace!(surface=?SurfaceId::from(&surface.0),"send configuring");
-                }
                 if !is_sync_subsurface(surface) {
                     let mut root = surface.0.clone();
                     while let Some(parent) = get_parent(&root) {
@@ -347,15 +330,14 @@ pub fn do_commit(
                         if value != surface_offset.size {
                             surface_offset.size = value;
                         }
-                    }
-                    if let Some(physical_rect) = physical_rect.as_mut() {
+                    } else if let Some(physical_rect) = physical_rect.as_mut() {
                         if value != physical_rect.size {
                             physical_rect.size = value;
                         }
                     }
-                    let physical_size = surface_size.to_f64().to_physical(scale).to_i32_round();
-                    if physical_size != imported_surface.size {
-                        imported_surface.resize(&mut assets, physical_size);
+                    let bbox_size = surface_size.to_f64().to_physical(scale).to_i32_round();
+                    if bbox_size != imported_surface.size {
+                        imported_surface.resize(&mut assets, bbox_size);
                     }
                 });
             }
@@ -434,11 +416,27 @@ impl CompositorHandler for DWay {
             (render_state.buffer().cloned(), render_state.buffer_size())
         });
 
-        trace!(surface=?SurfaceId::from(surface),"commit {:?}",buffer);
-
-        dbg!(SurfaceId::from(surface));
-        dbg!(smithay::wayland::compositor::get_role(surface));
-        dbg!(get_parent(surface));
+        if let Some(window) = self.wayland_windows.get(&SurfaceId::from(surface)) {
+            let initial_configure_sent =
+                with_states_locked(surface, |s: &mut XdgToplevelSurfaceRoleAttributes| {
+                    s.initial_configure_sent
+                });
+            if !initial_configure_sent {
+                window.send_configure();
+                trace!(window=?SurfaceId::from(surface),"send configuring");
+            }
+        }
+        if let Some(xdg_popup) = self.popups.get(&SurfaceId::from(surface)) {
+            if !with_states_locked(surface, |s: &mut XdgPopupSurfaceRoleAttributes| {
+                s.initial_configure_sent
+            }) {
+                if let Err(error) = xdg_popup.send_configure() {
+                    error!(surface=?SurfaceId::from(surface), %error, "initial configure failed");
+                } else {
+                    trace!(popup=?SurfaceId::from(surface),"send configuring");
+                };
+            }
+        }
 
         self.send_ecs_event(CommitSurface {
             surface: surface.into(),
@@ -598,7 +596,7 @@ impl PhaseItem for ImportedSurfacePhaseItem {
 }
 #[derive(Component)]
 pub struct ExtractedBuffer {
-    pub buffer: smithay::backend::renderer::utils::Buffer,
+    pub buffer: Option<smithay::backend::renderer::utils::Buffer>,
 }
 
 #[tracing::instrument(skip_all)]
@@ -608,35 +606,42 @@ pub fn extract_surface(
     mut feedback: ResMut<ImportSurfaceFeedback>,
     mut commands: Commands,
 ) {
-    let mut values = Vec::new();
     feedback.surfaces.clear();
     feedback.render_state.lock().unwrap().states.clear();
     for (entity, surface, imported) in surface_query.iter() {
+        dbg!(SurfaceId::from(surface));
         feedback.surfaces.push(surface.0.clone());
-        if imported.flush.load(Ordering::Acquire) {
+        let do_import = if imported.flush.load(Ordering::Acquire) {
             with_states(surface, |s| {
                 let Some( state )=s.data_map.get::<RefCell<RendererSurfaceState>>().map(|c|c.borrow_mut())else{
                     error!(?entity,surface=?SurfaceId::from(surface),thread=?thread::current().id(),"RendererSurfaceState not found in surface.");
-                    return
+                    return false;
                 };
                 let Some(buffer)=state.buffer()else{
                     error!(?entity,surface=?SurfaceId::from(surface),thread=?thread::current().id(),"buffer not found in surface.");
-                    return
+                    return false;
                 };
-                values.push((
-                    entity,
-                    (
-                        imported.clone(),
-                        ExtractedBuffer {
-                            buffer: buffer.clone(),
-                        },
-                        surface.clone(),
-                    ),
+                commands.get_or_spawn(entity).insert((
+                    imported.clone(),
+                    ExtractedBuffer {
+                        buffer: Some(buffer.clone()),
+                    },
+                    surface.clone(),
                 ));
-            });
+                true
+            })
+        } else {
+            false
+        };
+        dbg!(SurfaceId::from(surface), do_import);
+        if !do_import {
+            commands.get_or_spawn(entity).insert((
+                imported.clone(),
+                ExtractedBuffer { buffer: None },
+                surface.clone(),
+            ));
         }
     }
-    commands.insert_or_spawn_batch(values);
     commands.spawn(RenderPhase::<ImportedSurfacePhaseItem>::default());
     feedback.render_state.lock().unwrap().states.clear();
 }
@@ -644,16 +649,28 @@ pub fn extract_surface(
 pub fn queue_import(
     draw_functions: Res<DrawFunctions<ImportedSurfacePhaseItem>>,
     mut phase_query: Query<&mut RenderPhase<ImportedSurfacePhaseItem>>,
-    surface_query: Query<Entity, (With<ExtractedBuffer>, With<ImportedSurface>)>,
+    surface_query: Query<(Entity, &ImportedSurface), With<ExtractedBuffer>>,
+    mut image_bind_groups: Option<ResMut<kayak_ui::render::unified::pipeline::ImageBindGroups>>,
 ) {
     let function = draw_functions.read().id::<ImportSurface>();
     let mut phase = phase_query.single_mut();
-    for entity in &surface_query {
+    for (entity, imported_surface) in &surface_query {
+        if let Some(image_bind_groups) = image_bind_groups.as_mut() {
+            image_bind_groups.values.remove(&imported_surface.texture);
+        }
         phase.add(ImportedSurfacePhaseItem {
             draw_function: function,
             entity,
         });
     }
+}
+pub fn send_frame(
+    _: NonSend<NonSendMarker>,
+    time: Res<Time>,
+    feedback: ResMut<ImportSurfaceFeedback>,
+) {
+    feedback.send_frame(&time);
+    trace!(thread=?thread::current().id(),"send frame");
 }
 
 #[derive(Debug, Resource)]
@@ -666,6 +683,14 @@ impl ImportSurfaceFeedback {
     pub fn send_frame(&self, time: &Time) {
         let render_state = self.render_state.lock().unwrap();
         for surface in self.surfaces.iter() {
+            dbg!(std::thread::current().id());
+            send_frames_surface_tree(
+                &surface,
+                &self.output,
+                time.elapsed(),
+                None,
+                surface_primary_scanout_output,
+            );
             with_surfaces_surface_tree(&surface, |surface, states| {
                 if let Some(output) = update_surface_primary_scanout_output(
                     surface,
@@ -674,19 +699,15 @@ impl ImportSurfaceFeedback {
                     &render_state,
                     default_primary_scanout_output_compare,
                 ) {
+                    dbg!(surface.id());
                     with_fractional_scale(states, |fraction_scale| {
                         fraction_scale
                             .set_preferred_scale(output.current_scale().fractional_scale());
                     });
+                } else {
+                    dbg!(surface.id());
                 }
             });
-            send_frames_surface_tree(
-                &surface,
-                &self.output,
-                time.elapsed(),
-                None,
-                surface_primary_scanout_output,
-            );
         }
     }
 }
@@ -739,38 +760,52 @@ impl<P: PhaseItem> RenderCommand<P> for ImportSurface {
         pass: &mut bevy::render::render_phase::TrackedRenderPass<'w>,
     ) -> bevy::render::render_phase::RenderCommandResult {
         let success = if imported.flush.load(Ordering::Acquire) {
+            dbg!(SurfaceId::from(surface), &buffer.buffer.is_some());
             let texture = textures.get(&imported.texture).unwrap();
-            match import_wl_surface(
-                &buffer.buffer,
-                &texture.texture,
-                &imported.damages,
-                render_device.wgpu_device(),
-            ) {
-                Ok(_) => true,
-                Err(e) => {
-                    error!(
-                        surface = ?surface.id(),
-                        error = %e,
-                        entity=?item.entity(),
-                        "failed to import surface.",
-                    );
-                    false
+            if let Some(buffer) = &buffer.buffer {
+                match import_wl_surface(
+                    &buffer,
+                    &texture.texture,
+                    &imported.damages,
+                    render_device.wgpu_device(),
+                ) {
+                    Ok(_) => true,
+                    Err(e) => {
+                        error!(
+                            surface = ?surface.id(),
+                            error = %e,
+                            entity=?item.entity(),
+                            "failed to import surface.",
+                        );
+                        false
+                    }
                 }
+            } else {
+                false
             }
         } else {
             false
         };
+        dbg!(
+            SurfaceId::from(surface),
+            success,
+            imported.flush.load(Ordering::Acquire)
+        );
+        let s = imported.flush.load(Ordering::Acquire);
+        // let s = success;
         feedback.render_state.lock().unwrap().states.insert(
             Id::from_wayland_resource(&surface.0),
-            if imported.flush.load(Ordering::Acquire) {
+            if s {
                 RenderElementState {
                     visible_area: (imported.size.w * imported.size.h) as usize,
                     presentation_state: RenderElementPresentationState::Rendering { reason: None },
                 }
             } else {
                 RenderElementState {
-                    visible_area: 0,
-                    presentation_state: RenderElementPresentationState::Skipped,
+                    visible_area: (imported.size.w * imported.size.h) as usize,
+                    // presentation_state: RenderElementPresentationState::ZeroCopy,
+                    // presentation_state: RenderElementPresentationState::ZeroCopy,
+                    presentation_state: RenderElementPresentationState::Rendering { reason: None },
                 }
             },
         );
@@ -844,9 +879,12 @@ impl Node for ImportSurfacePassNode {
                 phase.render(&mut render_pass, world, entity);
             }
         }
-        let time = world.resource::<Time>();
-        let feedback = world.resource::<ImportSurfaceFeedback>();
-        feedback.send_frame(time);
+        // let time = world.resource::<Time>();
+        // let feedback = world.resource::<ImportSurfaceFeedback>();
+        // dbg!(&feedback.surfaces);
+        // dbg!(&feedback.render_state);
+        // feedback.send_frame(time);
+
         Ok(())
     }
 

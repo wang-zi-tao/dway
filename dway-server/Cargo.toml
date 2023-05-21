@@ -34,6 +34,11 @@ tracing-subscriber = "0.3.16"
 send_wrapper = "0.6.0"
 serde={}
 
+[dependencies.kayak_ui]
+# version = "0.4.0"
+path="../../../../Code/bevy-kayak/"
+
+
 [dependencies.smithay]
 # default-features = false
 features = [

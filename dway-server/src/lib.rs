@@ -15,6 +15,7 @@ pub mod surface;
 pub mod cursor;
 pub mod events;
 pub mod fractional_scale;
+pub mod index;
 pub mod input;
 pub mod output;
 pub mod placement;
@@ -48,8 +49,9 @@ use bevy::{
     },
     sprite::SpriteSystem,
     ui::{draw_ui_graph, RenderUiSystem},
+    utils::HashMap,
 };
-use components::{OutputWrapper, WlSurfaceWrapper};
+use components::{OutputWrapper, PopupWindow, WlSurfaceWrapper};
 // use bevy::prelude::*;
 use failure::Fallible;
 use log::logger;
@@ -89,7 +91,7 @@ use smithay::{
         primary_selection::PrimarySelectionState,
         shell::{
             wlr_layer::WlrLayerShellState,
-            xdg::{decoration::XdgDecorationState, XdgShellState},
+            xdg::{decoration::XdgDecorationState, PopupSurface, ToplevelSurface, XdgShellState},
         },
         shm::ShmState,
         socket::ListeningSocketSource,
@@ -106,10 +108,10 @@ use crate::{
     components::{PhysicalRect, SurfaceId, WaylandWindow, WindowIndex, X11Window},
     cursor::Cursor,
     events::{
-        CloseWindowRequest, CommitSurface, ConfigureX11WindowRequest, CreateTopLevelEvent,
-        CreateWindow, CreateX11WindowEvent, DestroyWlSurface, KeyboardInputOnWindow,
-        MapX11WindowRequest, MouseButtonOnWindow, MouseMotionOnWindow, MouseWheelOnWindow,
-        UnmapX11Window, UpdatePopupPosition, X11WindowSetSurfaceEvent,
+        AckConfigure, CloseWindowRequest, CommitSurface, ConfigureX11WindowRequest,
+        CreateTopLevelEvent, CreateWindow, CreateX11WindowEvent, DestroyWlSurface,
+        KeyboardInputOnWindow, MapX11WindowRequest, MouseButtonOnWindow, MouseMotionOnWindow,
+        MouseWheelOnWindow, UnmapX11Window, UpdatePopupPosition, X11WindowSetSurfaceEvent,
     },
 };
 
@@ -161,6 +163,9 @@ pub struct DWay {
     pub fractional_scale_manager_state: FractionalScaleManagerState,
     pub text_input_manger: TextInputManagerState,
     pub input_method_manager: InputMethodManagerState,
+    pub wayland_windows: HashMap<SurfaceId, ToplevelSurface>,
+    pub x11_windows: HashMap<SurfaceId, X11Window>,
+    pub popups: HashMap<SurfaceId, PopupSurface>,
     // pub virtual_keyboard:VirtualKeyboardManagerState,
     // pub keyboard_shortcuts_inhibit_state : KeyboardShortcutsInhibitState,
 }
@@ -242,6 +247,10 @@ impl DWay {
             input_method_manager: InputMethodManagerState::new::<Self>(&dh),
 
             clock,
+
+            wayland_windows: Default::default(),
+            x11_windows: Default::default(),
+            popups: Default::default(),
         })
     }
     pub fn spawn(&self, mut command: process::Command) {
@@ -408,9 +417,11 @@ impl Plugin for DWayServerPlugin {
         app.add_system(apply_system_buffers.in_set(DestroyFlush));
 
         app.add_event::<events::CreateWindow>();
+        app.add_event::<events::CreateSurface>();
         app.add_event::<events::DestroyWindow>();
         app.add_event::<events::CreateTopLevelEvent>();
         app.add_event::<events::ConfigureWindowNotify>();
+        app.add_event::<events::AckConfigure>();
         app.add_event::<events::CreatePopup>();
         app.add_event::<events::DestroyPopup>();
         app.add_event::<events::DestroyWlSurface>();
@@ -454,6 +465,11 @@ impl Plugin for DWayServerPlugin {
             wayland_window::create_top_level
                 .run_if(on_event::<CreateTopLevelEvent>())
                 .in_set(Create),
+        );
+        app.add_system(
+            wayland_window::on_ack_configure
+                .run_if(on_event::<AckConfigure>())
+                .in_set(PreUpdate),
         );
         app.add_system(
             wayland_window::destroy_wl_surface
@@ -586,6 +602,7 @@ impl Plugin for DWayServerPlugin {
                 .add_render_command::<surface::ImportedSurfacePhaseItem, surface::ImportSurface>();
             render_app.add_system(surface::extract_surface.in_schedule(ExtractSchedule));
             render_app.add_system(surface::queue_import.in_set(RenderSet::Queue));
+            render_app.add_system(surface::send_frame.in_set(RenderSet::Cleanup));
             // render_app.add_system(surface::prepare_import_surface.in_set(RenderSet::Prepare));
             //
 
@@ -595,7 +612,7 @@ impl Plugin for DWayServerPlugin {
                 graph.get_sub_graph_mut(bevy::core_pipeline::core_2d::graph::NAME)
             {
                 graph_2d.add_node(surface::node::NAME, import_node);
-                graph_2d.add_node_edge(core_2d::graph::node::MAIN_PASS, surface::node::NAME);
+                // graph_2d.add_node_edge(core_2d::graph::node::MAIN_PASS, surface::node::NAME);
                 graph_2d.add_slot_edge(
                     graph_2d.input_node().id,
                     core_2d::graph::input::VIEW_ENTITY,

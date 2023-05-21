@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use chrono::Local;
+use dway_server::components::WindowMark;
 use kayak_ui::{
     prelude::*,
     widgets::{TextProps, TextWidgetBundle},
@@ -12,6 +13,17 @@ impl Plugin for DWayClockPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_system(update);
     }
+}
+pub fn widget_update2<
+    Props: PartialEq + Component + Clone,
+    State: PartialEq + Component + Clone,
+>(
+    In((widget_context, entity, previous_entity)): In<(KayakWidgetContext, Entity, Entity)>,
+    widget_param: WidgetParam<Props, State>,
+) -> bool {
+    let should_update = widget_param.has_changed(&widget_context, entity, previous_entity);
+    // dbg!(should_update);
+    should_update
 }
 
 impl KayakUIPlugin for DWayClockPlugin {
@@ -75,7 +87,8 @@ impl Default for ClockBundle {
     }
 }
 pub fn render(
-    In((widget_context, entity)): In<(KayakWidgetContext, Entity)>,
+    In(entity): In<Entity>,
+    widget_context: Res<KayakWidgetContext>,
     mut commands: Commands,
     props_query: Query<&Clock>,
     state_query: Query<&ClockState>,

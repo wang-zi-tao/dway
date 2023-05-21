@@ -1,8 +1,13 @@
 use std::{thread, time::Duration};
 
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_prototype_lyon::{
+    prelude::{Fill, GeometryBuilder, ShapeBundle, ShapePlugin},
+    render::ShapeMaterial,
+    shapes,
+};
 use dway_client_core::protocol::{WindowMessageReceiver, WindowMessageSender};
-// use dway_ui::kayak_ui::{prelude::KayakContextPlugin, widgets::KayakWidgets};
+use dway_ui::kayak_ui::{prelude::KayakContextPlugin, widgets::KayakWidgets};
 
 use bevy::{
     app::ScheduleRunnerPlugin,
@@ -19,7 +24,7 @@ use bevy::{
     prelude::*,
     render::{settings::Backends, RenderPlugin},
     scene::ScenePlugin,
-    sprite::SpritePlugin,
+    sprite::{MaterialMesh2dBundle, SpritePlugin},
     text::TextPlugin,
     time::TimePlugin,
     ui::UiPlugin,
@@ -28,6 +33,8 @@ use bevy::{
 };
 
 fn main() {
+    std::env::remove_var("DISPLAY");
+    std::env::set_var("WAYLAND_DISPLAY", "/run/user/1000/wayland-1");
     // let (wayland_sender, client_receiver) = crossbeam_channel::unbounded();
     // let (client_sender, wawyland_receiver) = crossbeam_channel::unbounded();
 
@@ -37,7 +44,7 @@ fn main() {
     //     .unwrap();
 
     let mut app = App::new();
-    app.insert_resource(ClearColor(Color::BLACK));
+    app.insert_resource(ClearColor(Color::NONE));
     // app.insert_resource(ReportExecutionOrderAmbiguities);
     app.add_plugins(
         DefaultPlugins
@@ -142,19 +149,13 @@ fn main() {
     // .add_startup_system(hello_world)
 
     app.add_plugin(dway_server::DWayServerPlugin::default());
-    app.add_plugin(dway_client_core::WaylandPlugin);
-    // app.add_plugin(dway_ui::DWayUiPlugin);
+    app.add_plugin(dway_client_core::DWayClientPlugin);
+    app.add_plugin(dway_ui::DWayUiPlugin);
 
     // app.insert_resource(WindowMessageReceiver(client_receiver));
     // app.insert_resource(WindowMessageSender(client_sender));
 
-    app.add_startup_system(hello_world);
-
     app.run();
 
     // wayland_thread.join().unwrap();
-}
-
-pub fn hello_world() {
-    info!("hello world");
 }

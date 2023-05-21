@@ -46,7 +46,8 @@ impl Default for DWayPanelBundle {
     }
 }
 pub fn panel_render(
-    In((widget_context, entity)): In<(KayakWidgetContext, Entity)>,
+    In(entity): In<Entity>,
+    widget_context: Res<KayakWidgetContext>,
     mut commands: Commands,
     query: Query<&DWayPanelStates>,
 ) -> bool {
@@ -56,6 +57,7 @@ pub fn panel_render(
         rsx! {
             <BackgroundBundle
                 styles={KStyle {
+                    position_type: KPositionType::SelfDirected.into(),
                     background_color: StyleProp::Value(Color::rgba(1.0, 1.0, 1.0, 0.5)),
                     color: StyleProp::Value(Color::rgba(0.0, 0.0, 0.0, 1.0)),
                     layout_type: LayoutType::Row.into(),

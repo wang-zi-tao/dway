@@ -338,3 +338,23 @@ pub struct OutputWrapper(pub Output);
 
 #[derive(Component, Debug, Clone, Copy, Default, Deref, DerefMut)]
 pub struct SurfaceOffset(pub Rectangle<i32, Physical>);
+
+#[derive(Component, Debug, Clone, Copy, Default)]
+pub enum WindowDecoration {
+    #[default]
+    Disable,
+    Enable {
+        enable_close_button: bool,
+        enable_hide_button: bool,
+        enable_max_button: bool,
+    },
+}
+impl WindowDecoration {
+    pub fn enable() -> Self {
+        Self::Enable {
+            enable_close_button: true,
+            enable_hide_button: true,
+            enable_max_button: true,
+        }
+    }
+}

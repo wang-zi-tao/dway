@@ -1,4 +1,5 @@
 pub mod clock;
+pub mod window;
 
 use bevy::prelude::*;
 use kayak_ui::{prelude::*, KayakUIPlugin};
@@ -13,5 +14,6 @@ impl Plugin for DWayWidgetsPlugin {
 impl KayakUIPlugin for DWayWidgetsPlugin {
     fn build(&self, context: &mut KayakRootContext) {
         context.add_plugin(clock::DWayClockPlugin::default());
+        context.add_plugin(window::DWayWindowPlugin::default());
     }
 }

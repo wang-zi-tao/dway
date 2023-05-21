@@ -1,19 +1,30 @@
 use std::default;
 
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+};
+use bevy_prototype_lyon::{
+    prelude::{Fill, GeometryBuilder, ShapeBundle, ShapePlugin},
+    render::ShapeMaterial,
+    shapes,
+};
 // use bevy_mod_picking::{
 //     DebugCursorPickingPlugin, DebugEventsPickingPlugin, DefaultPickingPlugins, PickingCameraBundle,
 // };
 use dway_server::DWayServerSystem;
 use log::info;
+pub mod widgets;
 
 use crate::window::{Backend, Frontends, WindowUiRoot};
 
 pub mod components;
 pub mod compositor;
 pub mod debug;
+pub mod decoration;
 pub mod desktop;
 pub mod input;
+pub mod materials;
 pub mod moving;
 pub mod protocol;
 pub mod render;
@@ -24,6 +35,7 @@ pub mod workspace;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum DWayClientSystem {
+    Init,
     FromServer,
     Create,
     CreateFlush,
@@ -53,11 +65,14 @@ pub enum DWayClientState {
     Eixt,
 }
 
-pub struct WaylandPlugin;
-impl Plugin for WaylandPlugin {
+pub struct DWayClientPlugin;
+impl Plugin for DWayClientPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        // app.insert_resource(Msaa::Off);
+        app.add_plugin(ShapePlugin);
         app.add_state::<DWayClientState>();
         use DWayClientSystem::*;
+        app.configure_set(Init);
         app.configure_sets(
             (
                 FromServer.after(DWayServerSystem::Update),
@@ -94,10 +109,11 @@ impl Plugin for WaylandPlugin {
         // app.add_plugin(DebugCursorPickingPlugin);
         // app.add_plugin(DebugEventsPickingPlugin);
         // app.add_plugins(DefaultPickingPlugins);
-        app.add_startup_system(setup_2d);
+        app.add_startup_system((setup_2d.pipe(apply_system_buffers)).in_set(Init));
         app.add_plugin(input::DWayInputPlugin { debug: false });
         app.add_plugin(desktop::DWayDesktop);
         app.add_plugin(window::DWayWindowPlugin);
+        app.add_plugin(decoration::DWayDecorationPlugin::default());
         app.add_plugin(moving::DWayMovingPlugin::default());
         app.add_plugin(resizing::DWayResizingPlugin::default());
         app.add_plugin(debug::DebugPlugin::default());
@@ -116,23 +132,8 @@ pub fn debug_info(cameras: Query<&Camera>, cameras2d: Query<&Camera2d>) {
 /// set up a simple 2D scene
 fn setup_2d(
     mut commands: Commands,
-    _meshes: ResMut<Assets<Mesh>>,
-    _materials: ResMut<Assets<ColorMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
-    // commands.spawn((
-    //     MaterialMesh2dBundle {
-    //         mesh: meshes.add(Mesh::from(shape::Quad::default())).into(),
-    //         transform: Transform::default().with_scale(Vec3::splat(128.)),
-    //         material: materials.add(ColorMaterial::from(Color::PURPLE)),
-    //         ..default()
-    //     },
-    //     PickableBundle::default(), // <- Makes the mesh pickable.
-    // ));
-    // // camera
-    // let camera=Camera2dBundle::default();
-    // camera.camera.priority=0;
-    // camera.camera_2d.clear_color=ClearColorConfig::None;
-    // camera.transform.translation.z=1024.0;
-    commands.spawn(Camera2dBundle::default());
-    // commands.spawn((camera, PickingCameraBundle::default()));
 }

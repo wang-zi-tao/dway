@@ -21,7 +21,7 @@ use crate::{
     },
     cursor::Cursor,
     events::{
-        CloseWindowRequest, ConfigureX11WindowNotify, ConfigureX11WindowRequest,
+        CloseWindowRequest, ConfigureX11WindowNotify, ConfigureX11WindowRequest, CreateSurface,
         CreateTopLevelEvent, CreateWindow, CreateX11WindowEvent, DestroyWindow, DestroyWlSurface,
         DestroyX11WindowEvent, MapOverrideX11Window, MapX11WindowRequest, MoveRequest,
         ResizeRequest, SetState, UnmapX11Window, X11WindowSetSurfaceEvent,
@@ -307,6 +307,8 @@ impl XwmHandler for DWayServerComponent {
         xwm: smithay::xwayland::xwm::XwmId,
         window: smithay::xwayland::X11Surface,
     ) {
+        self.dway
+            .send_ecs_event(CreateSurface((&window.wl_surface().unwrap()).into()));
         self.dway
             .send_ecs_event(X11WindowSetSurfaceEvent((&window).into()));
     }

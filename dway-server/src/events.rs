@@ -13,6 +13,8 @@ use smithay::{
 use crate::components::SurfaceId;
 
 #[derive(Clone, Debug)]
+pub struct CreateSurface(pub SurfaceId);
+#[derive(Clone, Debug)]
 pub struct CreateWindow(pub SurfaceId);
 #[derive(Clone, Debug)]
 pub struct DestroyWindow(pub SurfaceId);
@@ -20,6 +22,11 @@ pub struct DestroyWindow(pub SurfaceId);
 pub struct CreateTopLevelEvent(pub ToplevelSurface);
 #[derive(Debug)]
 pub struct ConfigureWindowNotify(pub SurfaceId, pub Configure);
+#[derive(Debug)]
+pub struct AckConfigure{
+    pub surface: SurfaceId,
+    pub is_server_decoration:bool,
+}
 #[derive(Clone, Debug)]
 pub struct CreatePopup(pub PopupSurface, pub PositionerState);
 #[derive(Clone, Debug)]

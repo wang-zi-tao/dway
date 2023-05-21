@@ -192,7 +192,6 @@ pub unsafe fn import_memory(
     let stride = metadata.stride as i32;
     let pixelsize = 4i32;
     assert!((offset + (height - 1) * stride + width * pixelsize) as usize <= buffer.len());
-    dbg!(buffer.iter().map(|d| *d as usize).sum::<usize>() / buffer.len());
     gl.bind_texture(dest.1, Some(dest.0));
     gl.tex_parameter_i32(
         glow::TEXTURE_2D,
