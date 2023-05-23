@@ -679,35 +679,104 @@ pub struct ImportSurfaceFeedback {
     pub surfaces: Vec<WlSurface>,
     pub output: Output,
 }
+#[derive(Debug, Default)]
+struct SurfaceFrameThrottlingState(Mutex<Option<Duration>>);
+impl SurfaceFrameThrottlingState {
+    pub fn update(&self, time: Duration, throttle: Option<Duration>) -> bool {
+        if let Some(throttle) = throttle {
+            let mut guard = self.0.lock().unwrap();
+            let send_throttled_frame = guard
+                .map(|last| time.saturating_sub(last) > throttle)
+                .unwrap_or(true);
+            if send_throttled_frame {
+                *guard = Some(time);
+            }
+            send_throttled_frame
+        } else {
+            false
+        }
+    }
+}
 impl ImportSurfaceFeedback {
     pub fn send_frame(&self, time: &Time) {
+        let throttle = Some(Duration::from_secs(1));
         let render_state = self.render_state.lock().unwrap();
         for surface in self.surfaces.iter() {
             dbg!(std::thread::current().id());
-            send_frames_surface_tree(
-                &surface,
-                &self.output,
-                time.elapsed(),
-                None,
-                surface_primary_scanout_output,
-            );
-            with_surfaces_surface_tree(&surface, |surface, states| {
-                if let Some(output) = update_surface_primary_scanout_output(
-                    surface,
-                    &self.output,
-                    states,
-                    &render_state,
-                    default_primary_scanout_output_compare,
-                ) {
-                    dbg!(surface.id());
-                    with_fractional_scale(states, |fraction_scale| {
-                        fraction_scale
-                            .set_preferred_scale(output.current_scale().fractional_scale());
-                    });
-                } else {
-                    dbg!(surface.id());
-                }
-            });
+            dbg!("send_frame",SurfaceId::from(surface));
+            // send_frames_surface_tree(
+            //     &surface,
+            //     &self.output,
+            //     time.elapsed(),
+            //     throttle,
+            //     // surface_primary_scanout_output,
+            //     |_,_|Some(self.output.clone())
+            // );
+            {
+                with_surface_tree_downward(
+                    &surface,
+                    (),
+                    |_, _, &()| TraversalAction::DoChildren(()),
+                    |surface, states, &()| {
+                            println!("surface tree {:?}",SurfaceId::from(surface));
+                        states
+                            .data_map
+                            .insert_if_missing_threadsafe(SurfaceFrameThrottlingState::default);
+                        let surface_frame_throttling_state =
+                            states.data_map.get::<SurfaceFrameThrottlingState>().unwrap();
+
+
+                        let frame_overdue = surface_frame_throttling_state.update(time.elapsed().into(), throttle);
+
+                        // We only want to send frame callbacks on the primary scan-out output
+                        // or if we have no output and the frame is overdue, this can only
+                        // happen if the surface is completely occluded on all outputs
+                        let send_frame_callback = true ;
+                        // let send_frame_callback = on_primary_scanout_output || frame_overdue;
+
+                        if send_frame_callback {
+                            println!("send_frame_callback {:?}",SurfaceId::from(surface));
+                            // the surface may not have any user_data if it is a subsurface and has not
+                            // yet been commited
+                            for callback in states
+                                .cached_state
+                                .current::<SurfaceAttributes>()
+                                .frame_callbacks
+                                .drain(..)
+                            {
+                            println!("run callback {:?} {callback:?} {:?}",SurfaceId::from(surface),time.elapsed().as_millis());
+                                callback.done(time.elapsed().as_millis() as u32);
+                            }
+                        }
+                    },
+                    |_, _, &()| true,
+                );
+            };
+            // send_frames_surface_tree(
+            //     &surface,
+            //     &self.output,
+            //     time.elapsed(),
+            //     throttle,
+            //     // surface_primary_scanout_output,
+            //     |_,_|Some(self.output.clone())
+            // );
+            // with_surfaces_surface_tree(&surface, |surface, states| {
+            //     if let Some(output) = update_surface_primary_scanout_output(
+            //         surface,
+            //         &self.output,
+            //         states,
+            //         &render_state,
+            //         default_primary_scanout_output_compare,
+            //     ) {
+            //         dbg!(surface.id());
+            //         with_fractional_scale(states, |fraction_scale| {
+            //             fraction_scale
+            //                 .set_preferred_scale(output.current_scale().fractional_scale());
+            //         });
+            //     } else {
+            //         dbg!(surface.id());
+            //     }
+            // });
         }
     }
 }
