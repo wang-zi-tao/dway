@@ -1,257 +1,78 @@
-#![feature(drain_filter)]
-#![feature(result_flattening)]
-#![feature(trivial_bounds)]
-pub mod components;
-pub mod egl;
-pub mod keyboard;
-pub mod layer;
-pub mod log;
-pub mod math;
-pub mod pointer;
-pub mod popup;
-pub mod render;
-pub mod surface;
-// pub mod wayland;
-pub mod cursor;
-pub mod events;
-pub mod fractional_scale;
-pub mod index;
-pub mod input;
-pub mod output;
-pub mod placement;
-pub mod presentation;
-pub mod seat;
-pub mod selection;
-pub mod viewporter;
-pub mod virtual_keyboard;
-pub mod wayland_window;
-pub mod x11_window;
-pub mod xdg;
-
+#![feature(ptr_metadata)]
 use std::{
-    cell::RefCell,
-    os::fd::AsRawFd,
+    any::type_name,
+    io,
+    os::{fd::AsRawFd, unix::net::UnixStream},
     process::{self, Stdio},
+    ptr::null_mut,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
 use bevy::{
-    core::NonSendMarker,
-    core_pipeline::core_2d,
-    ecs::query::WorldQuery,
+    ecs::{query::WorldQuery, world::EntityMut},
     prelude::*,
-    render::{
-        pipelined_rendering::RenderExtractApp,
-        render_graph::{RenderGraph, RunGraphOnViewNode},
-        render_phase::{AddRenderCommand, DrawFunctions},
-        RenderApp, RenderSet,
-    },
-    sprite::SpriteSystem,
-    ui::{draw_ui_graph, RenderUiSystem},
-    utils::HashMap,
+    utils::Instant,
 };
-use components::{OutputWrapper, PopupWindow, WlSurfaceWrapper};
-// use bevy::prelude::*;
-use failure::Fallible;
-use log::logger;
-use send_wrapper::SendWrapper;
-use slog::Logger;
-// use wayland::{
-//     inputs::{receive_message, receive_messages},
-//     render::render_desktop,
-// };
-
-// use self::wayland::{CalloopData, DWayState};
-use crossbeam_channel::{Receiver, Sender};
-use dway_protocol::window::WindowMessage;
-use smithay::{
-    backend::renderer::utils::RendererSurfaceState,
-    delegate_fractional_scale, delegate_input_method_manager, delegate_presentation,
-    delegate_text_input_manager,
-    desktop::utils::with_surfaces_surface_tree,
-    input::{keyboard::XkbConfig, pointer::CursorImageStatus, Seat, SeatState},
-    output::{Output, PhysicalProperties, Subpixel},
-    reexports::{
-        calloop::{generic::Generic, EventLoop, Interest, LoopHandle, Mode, PostAction},
-        wayland_server::{
-            backend::{smallvec::SmallVec, ClientData, ClientId, DisconnectReason},
-            Display, Resource,
-        },
-    },
-    utils::{Clock, Monotonic, Point},
-    wayland::{
-        compositor::{with_states, CompositorState},
-        data_device::DataDeviceState,
-        fractional_scale::FractionalScaleManagerState,
-        input_method::{InputMethodManagerState, InputMethodSeat},
-        keyboard_shortcuts_inhibit::KeyboardShortcutsInhibitState,
-        output::OutputManagerState,
-        presentation::PresentationState,
-        primary_selection::PrimarySelectionState,
-        shell::{
-            wlr_layer::WlrLayerShellState,
-            xdg::{decoration::XdgDecorationState, PopupSurface, ToplevelSurface, XdgShellState},
-        },
-        shm::ShmState,
-        socket::ListeningSocketSource,
-        tablet_manager::TabletSeatTrait,
-        text_input::TextInputManagerState,
-        viewporter::ViewporterState,
-        virtual_keyboard::VirtualKeyboardManagerState,
-        xdg_activation::XdgActivationState,
-    },
-    xwayland::{X11Wm, XWayland, XWaylandEvent},
+use calloop::{
+    generic::Generic, EventLoop, EventSource, Interest, Mode, Poll, PostAction, Readiness, Token,
+    TokenFactory,
+};
+use eventloop::ListeningSocketEvent;
+use failure::Error;
+use inlinable_string::InlinableString;
+use wayland_server::{
+    backend::{ClientData, ClientId, DisconnectReason},
+    protocol::wl_output,
+    DataInit, ListeningSocket, New,
 };
 
-use crate::{
-    components::{PhysicalRect, SurfaceId, WaylandWindow, WindowIndex, X11Window},
-    cursor::Cursor,
-    events::{
-        AckConfigure, CloseWindowRequest, CommitSurface, ConfigureX11WindowRequest,
-        CreateTopLevelEvent, CreateWindow, CreateX11WindowEvent, DestroyWlSurface,
-        KeyboardInputOnWindow, MapX11WindowRequest, MouseButtonOnWindow, MouseMotionOnWindow,
-        MouseWheelOnWindow, UnmapX11Window, UpdatePopupPosition, X11WindowSetSurfaceEvent,
-    },
-};
-
-// pub fn main_loop(receiver: Receiver<WindowMessage>, sender: Sender<WindowMessage>) {
-//     let log = logger();
-//     // crate::wayland::backend::udev::run_udev(log,receiver, sender);
-// }
-
-#[derive(Resource)]
-pub struct DWayBackend {
-    pub log: Logger,
-}
+use crate::{geometry::GeometryPlugin, schedule::DWayServerSet};
+mod prelude;
+pub mod client;
+pub mod dispatch;
+pub mod display;
+pub mod eventloop;
+pub mod events;
+pub mod geometry;
+pub mod input;
+pub mod render;
+pub mod resource;
+pub mod schedule;
+pub mod util;
+pub mod wl;
+pub mod x11;
+pub mod xdg;
+pub mod zxdg;
 
 #[derive(Debug, Default)]
 pub struct ClientState;
 impl ClientData for ClientState {
     /// Notification that a client was initialized
-    fn initialized(&self, client_id: ClientId) {
-        info!("client {client_id:?} initialized");
-    }
+    fn initialized(&self, _client_id: ClientId) {}
     /// Notification that a client is disconnected
-    fn disconnected(&self, client_id: ClientId, reason: DisconnectReason) {
-        info!("disconnected client {client_id:?} , reason {reason:?}");
-    }
+    fn disconnected(&self, _client_id: ClientId, _reason: DisconnectReason) {}
+}
+
+#[derive(Resource)]
+pub struct DWayCalloopData {
+    pub state: Box<DWay>,
+    pub display: Box<wayland_server::Display<DWay>>,
 }
 
 pub struct DWay {
-    // pub backend: Box<DWayBackend>,
-    pub clock: Clock<Monotonic>,
-    pub commands: Vec<Box<dyn FnOnce(&mut World) + Send + Sync>>,
-    pub socket_name: String,
-    pub display_number: Option<u32>,
-    pub seat: Seat<Self>,
-
-    pub xwayland: XWayland,
-    pub seat_state: SeatState<Self>,
-    pub xdg_shell: XdgShellState,
-    pub xwm: Option<X11Wm>,
-    pub compositor: CompositorState,
-    pub shm_state: ShmState,
-    pub data_device_state: DataDeviceState,
-    pub wlr_layer_shell_state: WlrLayerShellState,
-    pub output_manager_state: OutputManagerState,
-    pub primary_selection_state: PrimarySelectionState,
-    pub viewporter_state: ViewporterState,
-    pub xdg_activation_state: XdgActivationState,
-    pub xdg_decoration_state: XdgDecorationState,
-    pub presentation_state: PresentationState,
-    pub fractional_scale_manager_state: FractionalScaleManagerState,
-    pub text_input_manger: TextInputManagerState,
-    pub input_method_manager: InputMethodManagerState,
-    pub wayland_windows: HashMap<SurfaceId, ToplevelSurface>,
-    pub x11_windows: HashMap<SurfaceId, X11Window>,
-    pub popups: HashMap<SurfaceId, PopupSurface>,
-    // pub virtual_keyboard:VirtualKeyboardManagerState,
-    // pub keyboard_shortcuts_inhibit_state : KeyboardShortcutsInhibitState,
+    pub world: *mut World,
+    pub socket_name: InlinableString,
+    pub display_number: Option<usize>,
 }
-
+unsafe impl Sync for DWay {}
+unsafe impl Send for DWay {}
 impl DWay {
-    pub fn new(
-        display: &mut Display<Self>,
-        handle: &LoopHandle<'static, DWayServerComponent>,
-    ) -> Fallible<DWay> {
-        let clock = Clock::new().expect("failed to initialize clock");
-        let dh = display.handle();
-
-        let source = ListeningSocketSource::new_auto().unwrap();
-        let socket_name = source.socket_name().to_string_lossy().into_owned();
-
-        let mut seat_state = SeatState::new();
-        let mut seat = seat_state.new_wl_seat(&dh, "winit");
-        let cursor_status = Arc::new(Mutex::new(CursorImageStatus::Default));
-        seat.add_pointer();
-        seat.add_keyboard(XkbConfig::default(), 200, 25)
-            .expect("Failed to initialize the keyboard");
-
-        let cursor_status2 = cursor_status.clone();
-        seat.tablet_seat()
-            .on_cursor_surface(move |_tool, new_status| {
-                *cursor_status2.lock().unwrap() = new_status;
-            });
-        seat.add_input_method(XkbConfig::default(), 200, 25);
-
-        handle.insert_source(source, |client_stream, _, data| {
-            if let Err(err) = data
-                .display
-                .handle()
-                .insert_client(client_stream, Arc::new(ClientState))
-            {
-                warn!("Error adding wayland client: {}", err);
-            } else {
-                info!("client connected");
-            }
-        })?;
-        handle.insert_source(
-            Generic::new(
-                display.backend().poll_fd().as_raw_fd(),
-                Interest::READ,
-                Mode::Level,
-            ),
-            |_, _, data| {
-                data.display.dispatch_clients(&mut data.dway).unwrap();
-                Ok(PostAction::Continue)
-            },
-        )?;
-
-        VirtualKeyboardManagerState::new::<Self, _>(&dh, |client| true);
-        let keyboard_shortcuts_inhibit_state = KeyboardShortcutsInhibitState::new::<Self>(&dh);
-        let (xwayland, display_number) = x11_window::init(&dh, handle);
-        Ok(DWay {
-            // backend: todo!(),
-            commands: Default::default(),
-            socket_name,
-            display_number,
-
-            xwm: None,
-            seat_state,
-            seat,
-            xwayland,
-            data_device_state: DataDeviceState::new::<Self>(&dh),
-            compositor: CompositorState::new::<Self>(&dh),
-            xdg_shell: XdgShellState::new::<Self>(&dh),
-            shm_state: ShmState::new::<Self>(&dh, vec![]),
-            wlr_layer_shell_state: WlrLayerShellState::new::<Self>(&dh),
-            output_manager_state: OutputManagerState::new_with_xdg_output::<Self>(&dh),
-            primary_selection_state: PrimarySelectionState::new::<Self>(&dh),
-            viewporter_state: ViewporterState::new::<Self>(&dh),
-            xdg_activation_state: XdgActivationState::new::<Self>(&dh),
-            xdg_decoration_state: XdgDecorationState::new::<Self>(&dh),
-            presentation_state: PresentationState::new::<Self>(&dh, clock.id() as u32),
-            fractional_scale_manager_state: FractionalScaleManagerState::new::<Self>(&dh),
-            text_input_manger: TextInputManagerState::new::<Self>(&dh),
-            input_method_manager: InputMethodManagerState::new::<Self>(&dh),
-
-            clock,
-
-            wayland_windows: Default::default(),
-            x11_windows: Default::default(),
-            popups: Default::default(),
-        })
+    pub fn world(&self) -> &World {
+        unsafe { self.world.as_ref().unwrap() }
+    }
+    pub fn world_mut(&mut self) -> &mut World {
+        unsafe { self.world.as_mut().unwrap() }
     }
     pub fn spawn(&self, mut command: process::Command) {
         if let Some(display_number) = self.display_number {
@@ -260,387 +81,314 @@ impl DWay {
             command.env_remove("DISPLAY");
         }
         command
-            .env("WAYLAND_DISPLAY", self.socket_name.clone())
+            .env("WAYLAND_DISPLAY", &*self.socket_name)
             .spawn()
             .unwrap();
     }
-    fn spawn_wayland(&self, mut command: process::Command) {
+    pub fn spawn_wayland(&self, mut command: process::Command) {
         command
-            .env("WAYLAND_DISPLAY", self.socket_name.clone())
+            .env("WAYLAND_DISPLAY", &*self.socket_name)
             .env_remove("DISPLAY")
             .spawn()
             .unwrap();
     }
-    pub fn update(&mut self) {}
-    pub fn send_ecs_event<E: Send + Sync + 'static>(&mut self, e: E) {
-        self.commands.push(Box::new(move |world| {
-            world.send_event(e);
-        }))
+    pub fn destroy_object<C>(&mut self, object: &impl wayland_server::Resource) {
+        let entity = DWay::get_entity(object);
+        let world = self.world_mut();
+        trace!(?entity,resource=?wayland_server::Resource::id(object),"destroy wayland object");
+        world.entity_mut(entity).despawn_recursive();
     }
-
-    fn spawn_x11(&self, mut command: process::Command) {
-        command.env_remove("DISPLAY");
-        if let Some(display_number) = self.display_number {
-            command.env("DISPLAY", ":".to_string() + &display_number.to_string());
-        }
-        command.env_remove("WAYLAND_DISPLAY").spawn().unwrap();
+    pub fn init_object<T, C, F>(
+        &mut self,
+        resource: New<T>,
+        data_init: &mut DataInit<'_, Self>,
+        f: F,
+    ) -> Entity
+    where
+        DWay: wayland_server::Dispatch<T, Entity>,
+        C: bevy::prelude::Component,
+        T: wayland_server::Resource + 'static,
+        F: FnOnce(T) -> C,
+    {
+        let world = self.world_mut();
+        let mut entity_command = world.spawn_empty();
+        let entity = entity_command.id();
+        let object = data_init.init(resource, entity);
+        trace!(?entity,object=?wayland_server::Resource::id(&object),"spawn object");
+        entity_command.insert(f(object));
+        entity
+    }
+    pub fn insert_object_bundle<T, C, B, F>(
+        &mut self,
+        entity: Entity,
+        resource: New<T>,
+        data_init: &mut DataInit<'_, Self>,
+        f: F,
+    ) -> Entity
+    where
+        DWay: wayland_server::Dispatch<T, Entity>,
+        C: bevy::prelude::Component,
+        T: wayland_server::Resource + 'static,
+        B: bevy::prelude::Bundle,
+        F: FnOnce(T) -> (C, B),
+    {
+        let world = self.world_mut();
+        assert!(
+            !world.entity_mut(entity).contains::<C>(),
+            "component {} already exist in entity {entity:?}",
+            type_name::<C>()
+        );
+        let object = data_init.init(resource, entity);
+        trace!(?entity,object=?wayland_server::Resource::id(&object),"insert object");
+        world.entity_mut(entity).insert(f(object));
+        entity
+    }
+    pub fn insert_object<T, C, F>(
+        &mut self,
+        entity: Entity,
+        resource: New<T>,
+        data_init: &mut DataInit<'_, Self>,
+        f: F,
+    ) -> Entity
+    where
+        DWay: wayland_server::Dispatch<T, Entity>,
+        C: bevy::prelude::Component,
+        T: wayland_server::Resource + 'static,
+        F: FnOnce(T) -> C,
+    {
+        let world = self.world_mut();
+        assert!(
+            !world.entity_mut(entity).contains::<C>(),
+            "component {} already exist in entity {entity:?}",
+            type_name::<C>()
+        );
+        let object = data_init.init(resource, entity);
+        trace!(?entity,object=?wayland_server::Resource::id(&object),"insert object");
+        world.entity_mut(entity).insert(f(object));
+        entity
+    }
+    pub fn spawn_child_object<T, C, F>(
+        &mut self,
+        parent: Entity,
+        resource: New<T>,
+        data_init: &mut DataInit<'_, Self>,
+        f: F,
+    ) -> Entity
+    where
+        DWay: wayland_server::Dispatch<T, Entity>,
+        C: bevy::prelude::Component,
+        T: wayland_server::Resource + 'static,
+        F: FnOnce(T) -> C,
+    {
+        let world = self.world_mut();
+        let mut entity_command = world.spawn_empty();
+        let entity = entity_command.id();
+        let object = data_init.init(resource, entity);
+        trace!(parent=?parent,?entity,object=?wayland_server::Resource::id(&object),"spawn object");
+        entity_command.insert(f(object));
+        world.entity_mut(parent).add_child(entity);
+        entity
+    }
+    pub fn insert_child_object<T, C, F>(
+        &mut self,
+        parent: Entity,
+        entity: Entity,
+        resource: New<T>,
+        data_init: &mut DataInit<'_, Self>,
+        f: F,
+    ) -> Entity
+    where
+        DWay: wayland_server::Dispatch<T, Entity>,
+        C: bevy::prelude::Component,
+        T: wayland_server::Resource + 'static,
+        F: FnOnce(T) -> C,
+    {
+        let world = self.world_mut();
+        let mut entity_command = world.entity_mut(entity);
+        let object = data_init.init(resource, entity);
+        trace!(parent=?parent,?entity,object=?wayland_server::Resource::id(&object),"spawn object");
+        entity_command.insert(f(object));
+        world.entity_mut(parent).add_child(entity);
+        entity
+    }
+    pub fn get_entity(object: &impl wayland_server::Resource) -> Entity {
+        *object.data::<Entity>().unwrap()
+    }
+    pub fn component<T: Component>(&self, entity: Entity) -> &T {
+        self.world().entity(entity).get::<T>().unwrap()
+    }
+    pub fn object_component<T: Component>(&self, object: &impl wayland_server::Resource) -> &T {
+        self.world()
+            .entity(DWay::get_entity(object))
+            .get::<T>()
+            .unwrap()
+    }
+    pub fn despawn_tree(&mut self, entity: Entity) {
+        self.world_mut().entity_mut(entity).despawn_recursive();
+    }
+    pub fn despawn(&mut self, entity: Entity) {
+        self.world_mut().get_entity_mut(entity).map(EntityMut::despawn);
+    }
+    pub fn despawn_object(&mut self, entity: Entity, id:wayland_backend::server::ObjectId) {
+        trace!(entity=?entity,resource=%id,"despawn object");
+        self.world_mut().get_entity_mut(entity).map(EntityMut::despawn);
+    }
+    pub fn with_component<T, F, R>(&mut self, object: &impl wayland_server::Resource, f: F) -> R
+    where
+        T: Component,
+        F: FnOnce(&mut T) -> R,
+    {
+        let world = self.world_mut();
+        let entity = Self::get_entity(object);
+        let mut entity_mut = world.entity_mut(entity);
+        let mut component = entity_mut.get_mut::<T>().unwrap();
+        f(&mut component)
+    }
+    pub fn query<B, F, R>(&mut self, entity:Entity, f: F) -> R
+    where
+        B: WorldQuery,
+        F: FnOnce(<B as WorldQuery>::Item<'_>) -> R,
+    {
+        let world = self.world_mut();
+        let mut query = world.query::<B>();
+        f(query.get_mut(world, entity).unwrap())
+    }
+    pub fn query_object<B, F, R>(&mut self, object: &impl wayland_server::Resource, f: F) -> R
+    where
+        B: WorldQuery,
+        F: FnOnce(<B as WorldQuery>::Item<'_>) -> R,
+    {
+        let world = self.world_mut();
+        let entity = Self::get_entity(object);
+        let mut query = world.query::<B>();
+        f(query.get_mut(world, entity).unwrap())
+    }
+    pub fn send_event<T: Event>(&mut self, event: T) {
+        let world = self.world_mut();
+        world.send_event(event);
     }
 }
-#[derive(Resource)]
-pub struct EventLoopResource(pub EventLoop<'static, DWayServerComponent>);
-
-#[derive(Component)]
-pub struct DWayServerComponent {
-    pub dway: DWay,
-    pub display: Display<DWay>,
-}
-#[derive(Resource)]
-pub struct SeatWrapper {
-    pub seat: Seat<DWay>,
-}
-
-pub fn new_backend(event_loop: NonSend<EventLoopResource>, mut commands: Commands) {
-    let mut display = Display::new().unwrap();
-    let handle = event_loop.0.handle();
-
-    let size = (1920, 1080);
-    let output = Output::new(
-        "output".to_string(),
-        PhysicalProperties {
-            size: size.into(),
-            subpixel: Subpixel::Unknown,
-            make: "output".into(),
-            model: "output".into(),
-        },
-    );
-    let _global = output.create_global::<DWay>(&display.handle());
-    let mode = smithay::output::Mode {
-        size: size.into(),
-        refresh: 60_000,
-    };
-    output.change_current_state(Some(mode), None, None, Some((0, 0).into()));
-    output.set_preferred(mode);
-    commands.spawn(OutputWrapper(output));
-
-    let dway = DWay::new(&mut display, &handle).unwrap();
-    let mut command = process::Command::new("alacritty");
-    // command.args(&["-e", "htop", "-d", "2"]);
-    // let mut command = process::Command::new("weston-terminal");
-    // let mut command = process::Command::new("gnome-system-monitor");
-    let mut command = process::Command::new("gnome-calculator");
-    // let mut command = process::Command::new("glxgears");
-    // let mut command = process::Command::new("gedit");
-    // let mut command = process::Command::new("google-chrome-stable");
-    // command.args(["https://www.w3schools.com/colors/colors_rgb.asp"]);
-    command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
-    dway.spawn(command);
-    // dway.spawn_wayland(command);
-    // dway.spawn_x11(command);
-    commands.spawn(DWayServerComponent { dway, display });
-}
-pub fn spawn(dway_query: Query<&DWayServerComponent>) {
-    let dway = dway_query.single();
-    let mut command = process::Command::new("gnome-calculator");
-    command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
-    dway.dway.spawn(command);
-}
-pub fn dispatch(
-    mut event_loop: NonSendMut<EventLoopResource>,
-    mut dway_query: Query<&mut DWayServerComponent>,
-) {
-    for mut dway in dway_query.iter_mut() {
-        let result = event_loop
-            .0
-            .dispatch(Some(Duration::from_millis(16)), &mut dway);
-        dway.display.flush_clients().unwrap();
-        if let Err(e) = result {
-            error!("{e}");
-        }
-    }
-}
-pub fn flush(world: &mut World) {
-    let mut query: QueryState<&mut DWayServerComponent> = world.query();
-    let mut commands = SmallVec::<[Box<dyn FnOnce(&mut World) + Send + Sync>; 8]>::new();
-    for mut dway in query.iter_mut(world) {
-        commands.extend(dway.dway.commands.drain(..));
-    }
-    for command in commands {
-        command(world);
-    }
-}
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum DWayServerSystem {
-    Dispatch,
-    Flush,
-    Create,
-    CreateFlush,
-    CreateComponent,
-    CreateComponentFlush,
-    PreUpdate,
-    Update,
-    PostUpdate,
-    DestroyComponent,
-    Destroy,
-    DestroyFlush,
-}
+pub struct DWayEventLoop(pub EventLoop<'static, DWayCalloopData>);
 
 #[derive(Default)]
-pub struct DWayServerPlugin {}
+pub struct DWayServerPlugin;
 impl Plugin for DWayServerPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        use DWayServerSystem::*;
+    fn build(&self, app: &mut App) {
+        let mut event_loop = EventLoop::try_new().unwrap();
+        let mut display = wayland_server::Display::<DWay>::new().unwrap();
 
-        app.configure_sets(
-            (
-                Dispatch,
-                Flush,
-                Create,
-                CreateFlush,
-                CreateComponent,
-                CreateComponentFlush,
-                PreUpdate,
-                Update,
+        let handle = Arc::new(display.handle());
+        handle.create_global::<DWay, wl_output::WlOutput, _>(4, ());
+        let source = ListeningSocketEvent::new();
+        let socket_name = source.filename();
+
+        info!("listening on {}", &socket_name);
+        event_loop
+            .handle()
+            .insert_source(
+                source,
+                move |client_stream, _, data: &mut DWayCalloopData| {
+                    if let Err(err) = data
+                        .display
+                        .handle()
+                        .insert_client(client_stream, Arc::new(ClientState))
+                    {
+                        warn!("Error adding wayland client: {}", err);
+                    };
+                },
             )
-                .in_base_set(CoreSet::PreUpdate)
-                .chain()
-                .ambiguous_with_all(),
-        );
-        app.configure_sets(
-            (PostUpdate, DestroyComponent, Destroy, DestroyFlush)
-                .in_base_set(CoreSet::PostUpdate)
-                .chain()
-                .ambiguous_with_all(),
-        );
-        app.add_system(apply_system_buffers.in_set(CreateFlush));
-        app.add_system(apply_system_buffers.in_set(CreateComponentFlush));
-        app.add_system(apply_system_buffers.in_set(DestroyFlush));
+            .expect("Failed to init wayland socket source");
+        event_loop
+            .handle()
+            .insert_source(
+                Generic::new(
+                    display.backend().poll_fd().as_raw_fd(),
+                    Interest::READ,
+                    Mode::Level,
+                ),
+                |_, _, state| {
+                    state.display.dispatch_clients(&mut state.state).unwrap();
+                    Ok(PostAction::Continue)
+                },
+            )
+            .unwrap();
 
-        app.add_event::<events::CreateWindow>();
-        app.add_event::<events::CreateSurface>();
-        app.add_event::<events::DestroyWindow>();
-        app.add_event::<events::CreateTopLevelEvent>();
-        app.add_event::<events::ConfigureWindowNotify>();
-        app.add_event::<events::AckConfigure>();
-        app.add_event::<events::CreatePopup>();
-        app.add_event::<events::DestroyPopup>();
-        app.add_event::<events::DestroyWlSurface>();
-        app.add_event::<events::CreateX11WindowEvent>();
-        app.add_event::<events::MapX11WindowRequest>();
-        app.add_event::<events::UnmapX11Window>();
-        app.add_event::<events::MapOverrideX11Window>();
-        app.add_event::<events::X11WindowSetSurfaceEvent>();
-        app.add_event::<events::ConfigureX11WindowRequest>();
-        app.add_event::<events::ConfigureX11WindowNotify>();
-        app.add_event::<events::DestroyX11WindowEvent>();
-        app.add_event::<events::WindowSetGeometryEvent>();
-        app.add_event::<events::CommitSurface>();
-        app.add_event::<events::ShowWindowMenu>();
-        app.add_event::<events::MoveRequest>();
-        app.add_event::<events::ResizeRequest>();
-        app.add_event::<events::SetState>();
-        app.add_event::<events::GrabPopup>();
-        app.add_event::<events::UpdatePopupPosition>();
-        app.add_event::<events::CloseWindowRequest>();
-        app.add_event::<events::MouseMoveOnWindow>();
-        app.add_event::<events::MouseMotionOnWindow>();
-        app.add_event::<events::MouseButtonOnWindow>();
-        app.add_event::<events::MouseWheelOnWindow>();
-        app.add_event::<events::KeyboardInputOnWindow>();
-        app.add_event::<events::NewDecoration>();
-        app.add_event::<events::UnsetMode>();
+        app.insert_non_send_resource(DWayEventLoop(event_loop));
+        app.insert_resource(DWayCalloopData {
+            display: Box::new(display),
+            state: Box::new(DWay {
+                world: null_mut(),
+                socket_name,
+                display_number: None,
+            }),
+        });
 
-        app.init_resource::<WindowIndex>();
-
-        app.register_type::<SurfaceId>();
-        app.register_type::<WindowIndex>();
-
-        app.insert_non_send_resource(EventLoopResource(EventLoop::try_new().unwrap()));
-
-        app.add_startup_system(new_backend);
-        app.add_system(dispatch.in_set(Dispatch));
-        app.add_system(flush.in_set(Flush));
-
-        app.add_system(
-            wayland_window::create_top_level
-                .run_if(on_event::<CreateTopLevelEvent>())
-                .in_set(Create),
-        );
-        app.add_system(
-            wayland_window::on_ack_configure
-                .run_if(on_event::<AckConfigure>())
-                .in_set(PreUpdate),
-        );
-        app.add_system(
-            wayland_window::destroy_wl_surface
-                .run_if(on_event::<DestroyWlSurface>())
-                .in_set(Destroy),
-        );
-        app.add_system(
-            wayland_window::on_close_window_request
-                .run_if(on_event::<CloseWindowRequest>())
-                .in_set(PostUpdate),
-        );
-        app.add_system(wayland_window::on_state_changed.in_set(PostUpdate));
-        app.add_system(wayland_window::on_rect_changed.in_set(PostUpdate));
-
-        app.add_system(
-            x11_window::create_x11_surface
-                .run_if(on_event::<CreateX11WindowEvent>())
-                .in_set(Create),
-        );
-        app.add_system(
-            x11_window::map_x11_surface_notify
-                .run_if(on_event::<X11WindowSetSurfaceEvent>())
-                .in_set(CreateComponent),
-        );
-        app.add_system(
-            x11_window::map_x11_window
-                .run_if(on_event::<MapX11WindowRequest>())
-                .in_set(PreUpdate),
-        );
-        app.add_system(
-            x11_window::unmap_x11_surface
-                .run_if(on_event::<UnmapX11Window>())
-                .in_set(DestroyComponent),
-        );
-        app.add_system(x11_window::configure_notify.in_set(PreUpdate));
-        app.add_system(
-            x11_window::configure_request
-                .run_if(on_event::<ConfigureX11WindowRequest>())
-                .in_set(PreUpdate),
-        );
-        app.add_system(x11_window::on_rect_changed.in_set(PostUpdate));
-        app.add_system(x11_window::on_state_changed.in_set(PostUpdate));
-        app.add_system(
-            x11_window::on_close_window_request
-                .run_if(on_event::<CloseWindowRequest>())
-                .in_set(PostUpdate),
-        );
-
-        app.add_system(
-            popup::create_popup
-                .run_if(on_event::<CreateWindow>())
-                .in_set(Create),
-        );
-        app.add_system(
-            popup::reposition_request
-                .run_if(on_event::<UpdatePopupPosition>())
-                .in_set(PreUpdate),
-        );
-        app.add_system(
-            popup::on_commit
-                .run_if(on_event::<CommitSurface>())
-                .in_set(PreUpdate)
-                .after(surface::do_commit),
-        );
-
-        app.add_system(
-            surface::do_commit
-                .run_if(on_event::<CommitSurface>())
-                .in_set(PreUpdate),
-        );
-        app.add_system(
-            surface::create_surface
-                .run_if(on_event::<CreateWindow>())
-                .in_set(CreateComponent),
-        );
-        app.add_system(surface::change_size.in_set(PostUpdate));
-
-        app.add_system(
-            placement::place_new_window
-                .run_if(on_event::<CreateWindow>())
-                .in_set(CreateComponent),
-        );
-        app.add_system(placement::update_logical_rect.in_set(Update));
-        app.add_system(
-            placement::update_global_physical_rect
-                .after(placement::update_logical_rect)
-                .in_set(Update),
-        );
-
-        app.add_system(input::on_mouse_move.in_set(PostUpdate));
-        app.add_system(
-            input::on_mouse_motion
-                .run_if(on_event::<MouseMotionOnWindow>())
-                .in_set(PostUpdate)
-                .before(input::on_mouse_move),
-        );
-        app.add_system(
-            input::on_mouse_button
-                .run_if(on_event::<MouseButtonOnWindow>())
-                .in_set(PostUpdate),
-        );
-        app.add_system(
-            input::on_mouse_wheel
-                .run_if(on_event::<MouseWheelOnWindow>())
-                .in_set(PostUpdate),
-        );
-        app.add_system(
-            input::on_keyboard
-                .run_if(on_event::<KeyboardInputOnWindow>())
-                .in_set(PostUpdate),
-        );
-        // app.add_system(
-        //     (|surface_query: Query<(Entity, &WlSurfaceWrapper,Option<&WaylandWindow>,Option<&X11Window>)>| {
-        //         for (e,s,w,x) in surface_query.iter() {
-        //             with_surfaces_surface_tree(&s, |surface,state|{
-        //                 dbg!(SurfaceId::from(s));
-        //             });
-        //         }
-        //     })
-        //     .run_if(on_event::<CommitSurface>())
-        //     .in_set(PostUpdate),
-        // );
-
-        // app.add_system(print_window_list);
-
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<surface::ImportSurfaceFeedback>();
-            render_app.init_resource::<DrawFunctions<surface::ImportedSurfacePhaseItem>>();
-            render_app
-                .add_render_command::<surface::ImportedSurfacePhaseItem, surface::ImportSurface>();
-            render_app.add_system(surface::extract_surface.in_schedule(ExtractSchedule));
-            render_app.add_system(surface::queue_import.in_set(RenderSet::Queue));
-            render_app.add_system(surface::send_frame.in_set(RenderSet::Cleanup));
-            // render_app.add_system(surface::prepare_import_surface.in_set(RenderSet::Prepare));
-            //
-
-            let import_node = surface::ImportSurfacePassNode::new(&mut render_app.world);
-            let mut graph = render_app.world.resource_mut::<RenderGraph>();
-            if let Some(graph_2d) =
-                graph.get_sub_graph_mut(bevy::core_pipeline::core_2d::graph::NAME)
-            {
-                graph_2d.add_node(surface::node::NAME, import_node);
-                // graph_2d.add_node_edge(core_2d::graph::node::MAIN_PASS, surface::node::NAME);
-                graph_2d.add_slot_edge(
-                    graph_2d.input_node().id,
-                    core_2d::graph::input::VIEW_ENTITY,
-                    surface::node::NAME,
-                    surface::ImportSurfacePassNode::IN_VIEW,
-                );
-                graph_2d.add_node_edge(surface::node::NAME, draw_ui_graph::node::UI_PASS);
-            }
-        }
+        app.add_plugin(geometry::GeometryPlugin);
+        app.add_plugin(schedule::DWayServerSchedulePlugin);
+        app.add_plugin(events::EventPlugin);
+        app.add_plugin(wl::output::WlOutputPlugin(handle.clone()));
+        app.add_plugin(wl::surface::WlSurfacePlugin(handle.clone()));
+        app.add_plugin(wl::buffer::WlBufferPlugin(handle.clone()));
+        app.add_plugin(wl::region::WlRegionPlugin(handle.clone()));
+        app.add_plugin(wl::compositor::WlCompositorPlugin(handle.clone()));
+        app.add_plugin(input::seat::WlSeatPlugin(handle.clone()));
+        app.add_plugin(render::DWayServerRenderPlugin);
+        app.add_plugin(xdg::XdgShellPlugin(handle.clone()));
+        app.add_plugin(xdg::toplevel::XdgToplevelPlugin(handle.clone()));
+        app.add_plugin(xdg::popup::XdgPopupPlugin(handle.clone()));
+        app.add_plugin(zxdg::outputmanager::XdgOutputManagerPlugin(handle.clone()));
+        app.add_system(receive_event.in_set(DWayServerSet::Dispatch));
+        app.add_startup_system(init);
     }
 }
-pub fn print_window_list(
-    window_index: Res<WindowIndex>,
-    mut query: Query<(&WlSurfaceWrapper)>,
-    mut commands: Commands,
-    ui_query: Query<(Entity, &Node, &UiImage)>,
-) {
-    for (id, entity) in window_index.0.iter() {
-        if let Ok(surface) = query.get(*entity) {
-            trace!("{:?} on {entity:?}", surface.id());
-            with_surfaces_surface_tree(surface, |sub_surface, statts| {
-                trace!("> {:?}", sub_surface.id());
-            });
+pub fn receive_event(world: &mut World) {
+    let mut event_loop = world.remove_non_send_resource::<DWayEventLoop>().unwrap();
+    let mut calloop = world.remove_resource::<DWayCalloopData>().unwrap();
+    calloop.state.world = world as *mut World;
+    let start_time = Instant::now();
+    let duration = Duration::from_secs_f32(0.004);
+    let end_time = start_time + duration;
+    event_loop.0.dispatch(Some(duration), &mut calloop).unwrap();
+    calloop
+        .display
+        .dispatch_clients(&mut calloop.state)
+        .unwrap();
+    loop {
+        let now = Instant::now();
+        if now > end_time {
+            break;
         }
-        info!("surface {id:?} on {entity:?}");
-        commands.entity(*entity).log_components();
+        event_loop
+            .0
+            .dispatch(Some(end_time - now), &mut calloop)
+            .unwrap();
+        calloop
+            .display
+            .dispatch_clients(&mut calloop.state)
+            .unwrap();
     }
+    calloop.display.flush_clients().unwrap();
+    calloop.state.world = null_mut();
+    world.insert_resource(calloop);
+    world.insert_non_send_resource(event_loop);
 }
-delegate_presentation!(DWay);
-delegate_text_input_manager!(DWay);
-delegate_input_method_manager!(DWay);
+pub fn init(calloop: Res<DWayCalloopData>) {
+    let compositor = &calloop.state;
+    let mut command = process::Command::new("gnome-calculator");
+    let mut command = process::Command::new("gedit");
+    let mut command = process::Command::new("gnome-system-monitor");
+    let mut command = process::Command::new(
+        "/home/wangzi/workspace/waylandcompositor/conrod/target/debug/examples/all_winit_glium",
+    );
+    let mut command= process::Command::new("alacritty");
+    command.args([ "-e","htop" ]);
+    // command.current_dir("/home/wangzi/workspace/waylandcompositor/conrod/");
+    // let mut command = process::Command::new("/nix/store/gfn9ya0rwaffhfkpbbc3pynk247xap1h-qt5ct-1.5/bin/qt5ct");
+    // let mut command = process::Command::new("/home/wangzi/workspace/waylandcompositor/wayland-rs/wayland-client/../target/debug/examples/simple_window");
+    // let mut command = process::Command::new("/home/wangzi/.build/0bd4966a8a745859d01236fd5f997041598cc31-bevy/debug/examples/animated_transform");
+    let mut command = process::Command::new(
+        "/home/wangzi/workspace/waylandcompositor/winit_demo/target/debug/winit_demo",
+    );
+    command.stdout(Stdio::inherit());
+    compositor.spawn(command);
+}

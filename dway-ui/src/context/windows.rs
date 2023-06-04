@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use dway_server::events::CreateWindow;
 
 
 #[derive(Component,Default)]
@@ -8,8 +7,7 @@ pub struct WindowsList{
 }
 
 pub fn update_window_list(
-    events:EventReader<CreateWindow>,
+    // events:EventReader<Insert<XdgSurface>>,
     windows_list_query:Query<&mut WindowsList>
 ){
-
 }

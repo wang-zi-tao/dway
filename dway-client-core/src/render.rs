@@ -21,11 +21,6 @@ use bevy::{
     },
     utils::{FloatOrd, HashMap},
 };
-use dway_server::{
-    components::{GlobalPhysicalRect, WlSurfaceWrapper},
-    egl::import_wl_surface,
-    surface::ImportedSurface,
-};
 
 pub struct DWayRender;
 impl Plugin for DWayRender {

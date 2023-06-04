@@ -10,13 +10,7 @@ use bevy::{
     winit::WinitWindows,
 };
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
-use dway_server::{
-    components::{
-        GlobalPhysicalRect, PhysicalRect, SurfaceId, WindowIndex, WindowMark, WindowScale,
-    },
-    events::MoveRequest,
-    math::{ivec2_to_point, point_i32_to_vec2, point_to_ivec2, point_to_vec2, vec2_to_point},
-};
+use dway_server::{geometry::GlobalGeometry, events::MoveRequest, };
 
 use crate::{
     desktop::{CursorOnOutput, FocusedWindow},
@@ -50,52 +44,49 @@ impl Plugin for DWayMovingPlugin {
         );
     }
 }
-#[tracing::instrument(skip_all)]
+// #[tracing::instrument(skip_all)]
 pub fn start_moving(
     output_focus: Res<CursorOnOutput>,
     mut events: EventReader<MoveRequest>,
-    window_index: Res<WindowIndex>,
-    surface_query: Query<(Entity, &PhysicalRect)>,
+    surface_query: Query<&GlobalGeometry>,
     mut commands: Commands,
 ) {
     let Some(( _,pos ))=&output_focus.0 else{
         error!("cursor not found");
         return;
     };
-    for MoveRequest(id) in &mut events {
-        if let Some((entity, geo)) = window_index
-            .get(id)
-            .and_then(|e| surface_query.get(*e).ok())
+    for MoveRequest(entity) in &mut events {
+        if let Ok(geo) = surface_query.get(*entity)
         {
             commands.insert_resource(MovingState {
-                relatice: *pos - point_to_ivec2(geo.loc),
-                backend: entity,
+                relatice: *pos - geo.position,
+                backend: *entity,
             });
             commands.insert_resource(NextState(Some(DWayClientState::Moving)));
             trace!("start moving");
         }
     }
 }
-#[tracing::instrument(skip_all)]
+// #[tracing::instrument(skip_all)]
 pub fn move_window(
     output_focus: Res<CursorOnOutput>,
     moving_state: Res<MovingState>,
     mut cursor_move_events: EventReader<CursorMoved>,
-    mut surface_query: Query<(&mut PhysicalRect, Option<&WindowScale>), With<WindowMark>>,
+    mut surface_query: Query<(&mut GlobalGeometry), With<GlobalGeometry>>,
 ) {
     let Some(( _,pos ))=&output_focus.0 else{
         error!("cursor not found");
         return;
     };
-    let Ok((mut rect,_window_scale))=surface_query.get_mut(moving_state.backend)else{
+    let Ok((mut rect))=surface_query.get_mut(moving_state.backend)else{
         error!(entity=?moving_state.backend,"window backend not found");
         return;
     };
     for event in cursor_move_events.iter() {
-        rect.loc = ivec2_to_point(*pos - moving_state.relatice);
+        // rect.loc = ivec2_to_point(*pos - moving_state.relatice);
     }
 }
-#[tracing::instrument(skip_all)]
+// #[tracing::instrument(skip_all)]
 pub fn stop_moving(
     mut cursor_button_events: EventReader<MouseButtonInput>,
     mut commands: Commands,

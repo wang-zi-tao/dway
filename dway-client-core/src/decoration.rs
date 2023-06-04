@@ -1,12 +1,4 @@
 use bevy::prelude::*;
-use dway_server::{
-    components::{
-        GlobalPhysicalRect, SurfaceId, SurfaceOffset, WaylandWindow, WindowDecoration, WindowIndex,
-        WindowMark, WlSurfaceWrapper,
-    },
-    events::CreateWindow,
-    surface::ImportedSurface,
-};
 
 #[derive(Default)]
 pub struct DWayDecorationPlugin {}

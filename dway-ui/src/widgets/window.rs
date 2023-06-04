@@ -4,11 +4,7 @@ use bevy::{
     render::texture::{BevyDefault, ImageSampler, TextureFormatPixelInfo},
 };
 use dway_client_core::desktop::{FocusedWindow, WindowStack};
-use dway_server::{
-    components::{GlobalPhysicalRect, SurfaceId, SurfaceOffset, WindowMark},
-    events::{KeyboardInputOnWindow, MouseButtonOnWindow},
-    surface::ImportedSurface,
-};
+use dway_server::{geometry::GlobalGeometry, wl::surface::WlSurface, xdg::XdgSurface};
 use kayak_ui::{
     prelude::{
         rsx, EventType, KChildren, KEvent, KPositionType, KStyle, KayakWidgetContext, OnEvent,
@@ -20,7 +16,6 @@ use kayak_ui::{
     },
     KayakUIPlugin,
 };
-use smithay::{backend::input::InputEvent, utils::Point};
 
 #[derive(Default)]
 pub struct DWayWindowPlugin {}
@@ -42,9 +37,9 @@ pub fn widget_update(
     window_query: Query<
         Entity,
         Or<(
-            Changed<SurfaceId>,
-            Changed<SurfaceOffset>,
-            Changed<GlobalPhysicalRect>,
+            Changed<XdgSurface>,
+            Changed<GlobalGeometry>,
+            Changed<WlSurface>,
         )>,
     >,
 ) -> bool {
@@ -96,26 +91,23 @@ pub fn render(
     props_query: Query<&Window>,
     state_query: Query<&WindowState>,
     window_query: Query<
-        (
-            &ImportedSurface,
-            &GlobalPhysicalRect,
-            &SurfaceOffset,
-            &SurfaceId,
-        ),
-        With<WindowMark>,
+        (&XdgSurface, &GlobalGeometry, &WlSurface),
+        // With<WindowMark>,
     >,
     mut assets: ResMut<Assets<Image>>,
 ) -> bool {
     let Ok(props)=props_query.get(entity)else{
+        error!("no props");
         return true;
     };
     let state_entity = widget_context.use_state(&mut commands, entity, WindowState::default());
-    let Ok((imported,rect,offset,surface_id))=window_query.get(props.entity)else{
-        return false;
+    let Ok((xdg_surface,rect,surface))=window_query.get(props.entity)else{
+        error!("surface error component {:?}",props.entity);
+        return true;
     };
-    let surface_id = surface_id.clone();
-    let bbox_loc = rect.0.loc + offset.0.loc;
-    let bbox_size = offset.0.size.to_point();
+    // let bbox_loc = rect.0.loc + offset.0.loc;
+    let bbox_loc = xdg_surface.geometry.unwrap_or_default().pos();
+    let bbox_size = xdg_surface.geometry.unwrap_or_default().size();
     let root_style = KStyle {
         left: StyleProp::Inherit,
         right: StyleProp::Inherit,
@@ -130,19 +122,19 @@ pub fn render(
         top: StyleProp::Value(Units::Pixels(bbox_loc.y as f32)),
         width: StyleProp::Value(Units::Pixels(bbox_size.x as f32)),
         height: StyleProp::Value(Units::Pixels(bbox_size.y as f32)),
-        // background_color: Color::WHITE.into(),
+        background_color: Color::WHITE.with_a(0.1).into(),
         position_type: KPositionType::SelfDirected.into(),
         ..Default::default()
     };
-    let geo_style = KStyle {
-        position_type: StyleProp::Value(KPositionType::SelfDirected),
-        left: StyleProp::Value(Units::Pixels(rect.loc.x as f32)),
-        top: StyleProp::Value(Units::Pixels(rect.loc.x as f32)),
-        width: StyleProp::Value(Units::Pixels(rect.size.w as f32)),
-        height: StyleProp::Value(Units::Pixels(rect.size.h as f32)),
-        background_color: Color::rgba_u8(255, 0, 0, 64).into(),
-        ..Default::default()
-    };
+    // let geo_style = KStyle {
+    //     position_type: StyleProp::Value(KPositionType::SelfDirected),
+    //     left: StyleProp::Value(Units::Pixels(rect.loc.x as f32)),
+    //     top: StyleProp::Value(Units::Pixels(rect.loc.x as f32)),
+    //     width: StyleProp::Value(Units::Pixels(rect.size.w as f32)),
+    //     height: StyleProp::Value(Units::Pixels(rect.size.h as f32)),
+    //     background_color: Color::rgba_u8(255, 0, 0, 64).into(),
+    //     ..Default::default()
+    // };
     let parent_id = Some(entity);
     let background_style = KStyle {
         left: StyleProp::Inherit,
@@ -155,13 +147,13 @@ pub fn render(
     };
 
     let backend_entity = props.entity;
-    let surface_id_clone = surface_id.clone();
+    // let surface_id_clone = surface_id.clone();
     let on_event = OnEvent::new(
         move |In(_entity): In<Entity>,
               mut event: ResMut<KEvent>,
               mut state_query: Query<&mut WindowState>,
-              mut mouse_button_events: EventWriter<MouseButtonOnWindow>,
-              mut keyboard_events: EventWriter<KeyboardInputOnWindow>,
+              // mut mouse_button_events: EventWriter<MouseButtonOnWindow>,
+              // mut keyboard_events: EventWriter<KeyboardInputOnWindow>,
               mut stack: ResMut<WindowStack>,
               mut output_focus: ResMut<FocusedWindow>,
               // mut mouse_events:Res<InputEvent<MouseButton>>,
@@ -181,16 +173,20 @@ pub fn render(
     );
     rsx! {
         <ElementBundle styles={root_style.clone()} >
+            <BackgroundBundle
+                // image={KImage( image )}
+                styles={bbox_style.clone()}
+            />
             <KImageBundle
                 // image={KImage( image )}
-                image={KImage(imported.texture.clone())}
+                image={KImage(surface.image.clone())}
                 styles={bbox_style}
             />
-            <ElementBundle
-                styles={geo_style.clone()}
-                    on_event={on_event}
-            >
-            </ElementBundle>
+            // <ElementBundle
+            //     // styles={geo_style.clone()}
+            //         on_event={on_event}
+            // >
+            // </ElementBundle>
         </ElementBundle>
     };
     true

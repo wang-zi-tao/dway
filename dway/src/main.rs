@@ -6,8 +6,8 @@ use bevy_prototype_lyon::{
     render::ShapeMaterial,
     shapes,
 };
-use dway_client_core::protocol::{WindowMessageReceiver, WindowMessageSender};
-use dway_ui::kayak_ui::{prelude::KayakContextPlugin, widgets::KayakWidgets};
+// use dway_client_core::protocol::{WindowMessageReceiver, WindowMessageSender};
+// use dway_ui::kayak_ui::{prelude::KayakContextPlugin, widgets::KayakWidgets};
 
 use bevy::{
     app::ScheduleRunnerPlugin,
@@ -56,7 +56,7 @@ fn main() {
             })
             .set(LogPlugin {
                 level: Level::INFO,
-                filter: "dway=trace,dway_server::surface=debug,bevy_ecs=debug,smithay=info,wgpu=warn,nega=info,nega::front=info,bevy_render=debug,bevy_ui=trace".to_string(),
+                filter: "dway=trace,dway_server::surface=debug,bevy_ecs=info,wgpu=warn,nega=info,nega::front=info,bevy_render=debug,bevy_ui=trace".to_string(),
             }),
     );
     // app.insert_resource(ClearColor(Color::rgb(0.0, 0.388, 1.0)));

@@ -7,7 +7,10 @@ use bevy::{
     winit::WinitWindows,
 };
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
-use dway_server::components::{PhysicalRect, WindowMark, WindowScale};
+use dway_server::{
+    wl::surface::WlSurface,
+    xdg::{toplevel::XdgToplevel, XdgSurface}, events::ResizeWindow,
+};
 
 use crate::{
     desktop::{CursorOnOutput, FocusedWindow},
@@ -43,15 +46,16 @@ impl Plugin for DWayResizingPlugin {
         );
     }
 }
-#[tracing::instrument(skip_all)]
+// #[tracing::instrument(skip_all)]
 pub fn resize_window(
     focused_window: Res<FocusedWindow>,
     mut cursor_move_events: EventReader<CursorMoved>,
     mut window_query: Query<(&mut Backend, &mut Style)>,
-    mut surface_query: Query<(&mut PhysicalRect, Option<&WindowScale>), With<WindowMark>>,
+    mut surface_query: Query<(&mut XdgToplevel, &XdgSurface), With<WlSurface>>,
     physical_windows: NonSend<WinitWindows>,
     resize_method: Res<ResizingMethod>,
     mut output_focus: ResMut<CursorOnOutput>,
+    mut events: EventWriter<ResizeWindow>,
 ) {
     let Some(focus_window)=&focused_window.0 else{
         return;
@@ -60,8 +64,11 @@ pub fn resize_window(
         error!("window entity {focus_window:?} not found");
         return;
     };
-    let Ok((mut rect,window_scale))=surface_query.get_mut(backend.get())else{
+    let Ok((mut toplevel,surface))=surface_query.get_mut(backend.get())else{
         error!("window backend entity {focus_window:?} not found");
+        return;
+    };
+    let Some( mut rect )=surface.geometry else{
         return;
     };
     for event in cursor_move_events.iter() {
@@ -75,20 +82,19 @@ pub fn resize_window(
         );
         output_focus.0 = Some((event.window, pos.as_ivec2()));
         if resize_method.top {
-            rect.loc.y = pos.y as i32;
+            rect.set_y(pos.y as i32);
         }
         if resize_method.bottom {
-            rect.size.h = pos.y as i32 - rect.loc.y;
+            rect.set_height(pos.y as i32 - rect.pos().y);
         }
         if resize_method.left {
-            rect.loc.x = pos.x as i32;
+            rect.set_x(pos.x as i32);
         }
         if resize_method.right {
-            rect.size.w = pos.x as i32 - rect.loc.x;
+            rect.set_width(pos.x as i32 - rect.pos().x);
         }
     }
 }
-#[tracing::instrument(skip_all)]
 pub fn stop_resizing(
     mut cursor_button_events: EventReader<MouseButtonInput>,
     mut state: ResMut<State<DWayClientState>>,

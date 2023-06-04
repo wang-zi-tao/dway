@@ -33,30 +33,20 @@ khronos-egl = {}
 tracing-subscriber = "0.3.16"
 send_wrapper = "0.6.0"
 serde={}
+wayland-server = "0.30.0"
+wayland-backend = { version="0.1.2", features = ["server_system"] }
+wayland-protocols = { version = "0.30.0", features = ["unstable", "staging", "server"]}
+calloop = "0.10.5"
+inlinable_string = "0.1.15"
+nix = "0.26.2"
+phf = { version = "0.11", features = ["macros"] }
+bitflags = "2.3.1"
+drm-fourcc = "^2.2.0"
 
 [dependencies.kayak_ui]
 # version = "0.4.0"
 path="../../../../Code/bevy-kayak/"
 
-
-[dependencies.smithay]
-# default-features = false
-features = [
-    "backend_drm",
-    "backend_egl",
-    "backend_gbm",
-    "backend_libinput",
-    "backend_session_libseat",
-    "backend_udev",
-    "backend_vulkan",
-    "desktop",
-    "renderer_gl",
-    "renderer_multi",
-    "use_system_lib",
-    "xwayland",
-]
-path = "../../smithay"
-# git = "https://github.com/Smithay/smithay"
 
 [dependencies.x11rb]
 default-features = false

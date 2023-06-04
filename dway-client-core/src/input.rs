@@ -9,22 +9,12 @@ use bevy::{
     utils::tracing,
     winit::WinitWindows,
 };
+use dway_server::{geometry::GlobalGeometry, xdg::XdgSurface};
 // use bevy_mod_picking::{PickingEvent, PickingRaycastSet};
 // use bevy_mod_raycast::Intersection;
-use dway_server::{
-    components::{
-        GlobalPhysicalRect, Id, PhysicalRect, SurfaceId, WindowMark, WindowScale, WlSurfaceWrapper,
-    },
-    events::{
-        KeyboardInputOnWindow, MouseButtonOnWindow, MouseMotionOnWindow, MouseMoveOnWindow,
-        MouseWheelOnWindow,
-    },
-    math::{ivec2_to_point, vec2_to_point},
-};
 use log::info;
 
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
-use smithay::utils::Physical;
 
 use crate::{window::Backend, DWayClientSystem};
 
@@ -72,7 +62,7 @@ impl Plugin for DWayInputPlugin {
 #[derive(Component)]
 pub struct DebugCursor;
 
-#[tracing::instrument(skip_all)]
+// #[tracing::instrument(skip_all)]
 pub fn setup_debug_cursor(mut commands: Commands) {
     commands.spawn((
         DebugCursor,
@@ -93,7 +83,7 @@ pub fn setup_debug_cursor(mut commands: Commands) {
         },
     ));
 }
-#[tracing::instrument(skip_all)]
+// #[tracing::instrument(skip_all)]
 pub fn debug_follow_cursor(
     mut cursor_moved_events: EventReader<CursorMoved>,
     windows: NonSend<WinitWindows>,
@@ -118,7 +108,7 @@ pub fn debug_follow_cursor(
     }
 }
 
-#[tracing::instrument(skip_all)]
+// #[tracing::instrument(skip_all)]
 pub fn print_mouse_events_system(
     mut mouse_button_input_events: EventReader<MouseButtonInput>,
     mut mouse_motion_events: EventReader<MouseMotion>,
@@ -141,12 +131,13 @@ pub fn print_mouse_events_system(
         info!("{:?}", event);
     }
 }
-#[tracing::instrument(skip_all)]
+// #[tracing::instrument(skip_all)]
 pub fn keyboard_input_system(
     mut keyboard_evens: EventReader<KeyboardInput>,
     output_focus: Res<FocusedWindow>,
-    surface_id_query: Query<&SurfaceId>,
-    mut sender: EventWriter<KeyboardInputOnWindow>,
+    surface_query: Query<&XdgSurface>,
+    // surface_id_query: Query<&SurfaceId>,
+    // mut sender: EventWriter<KeyboardInputOnWindow>,
 ) {
     if keyboard_evens.is_empty() {
         return;
@@ -155,15 +146,12 @@ pub fn keyboard_input_system(
         warn!("no focus window");
         return;
     };
-    let Ok( id )=surface_id_query.get(*focus_window)else {
-        error!("window entity {focus_window:?} not found");
-        return;
-    };
     for event in keyboard_evens.iter() {
-        sender.send(KeyboardInputOnWindow(id.clone(), event.clone()));
+        todo!();
+        // sender.send(KeyboardInputOnWindow(id.clone(), event.clone()));
     }
 }
-#[tracing::instrument(skip_all)]
+// #[tracing::instrument(skip_all)]
 pub fn mouse_move_on_winit_window(
     mut cursor_moved_events: EventReader<CursorMoved>,
     windows: NonSend<WinitWindows>,
@@ -184,13 +172,10 @@ pub fn mouse_move_on_winit_window(
 }
 fn cursor_move_on_window(
     mut interaction_query: Query<(&Interaction, &Backend), With<Button>>,
-    mut surfaces_query: Query<
-        (&SurfaceId, &GlobalPhysicalRect, Option<&WindowScale>),
-        (With<WindowMark>, With<WlSurfaceWrapper>),
-    >,
+    mut surfaces_query: Query<(&XdgSurface, &GlobalGeometry)>,
     mut cursor: Res<CursorOnOutput>,
-    mut events_writer: EventWriter<MouseMoveOnWindow>,
-    mut motion_events_writer: EventWriter<MouseMotionOnWindow>,
+    // mut events_writer: EventWriter<MouseMoveOnWindow>,
+    // mut motion_events_writer: EventWriter<MouseMotionOnWindow>,
     mut events: EventReader<MouseMotion>,
 ) {
     for MouseMotion { delta } in events.iter() {
@@ -198,7 +183,7 @@ fn cursor_move_on_window(
             match *interaction {
                 Interaction::None => {}
                 _ => {
-                    let Ok((id, rect, window_scale)) = surfaces_query.get(backend.0) else{
+                    let Ok((id, rect)) = surfaces_query.get(backend.0) else{
                         // warn!("failed to get backend");
                         continue;
                     };
@@ -206,17 +191,17 @@ fn cursor_move_on_window(
                         warn!("no cursor position data");
                         continue;
                     };
-                    let relative = ivec2_to_point(*pos) - rect.0.loc;
-                    let scale = window_scale.cloned().unwrap_or_default().0;
-                    let logical = relative.to_f64().to_logical(scale).to_i32_round();
-                    events_writer.send(MouseMoveOnWindow(id.clone(), logical));
-                    motion_events_writer.send(MouseMotionOnWindow(
-                        id.clone(),
-                        vec2_to_point::<Physical>(*delta)
-                            .to_f64()
-                            .to_logical(scale)
-                            .to_i32_round(),
-                    ));
+                    let relative = *pos - rect.position;
+                    // let scale = window_scale.cloned().unwrap_or_default().0;
+                    // let logical = relative.to_f64().to_logical(scale).to_i32_round();
+                    // events_writer.send(MouseMoveOnWindow(id.clone(), logical));
+                    // motion_events_writer.send(MouseMotionOnWindow(
+                    //     id.clone(),
+                    //     vec2_to_point::<Physical>(*delta)
+                    //         .to_f64()
+                    //         .to_logical(scale)
+                    //         .to_i32_round(),
+                    // ));
                 }
             }
         }
@@ -224,21 +209,18 @@ fn cursor_move_on_window(
 }
 fn mouse_button_on_window(
     mut interaction_query: Query<(&Interaction, &Backend), With<Button>>,
-    mut surfaces_query: Query<
-        (&SurfaceId, &GlobalPhysicalRect, Option<&WindowScale>),
-        (With<WindowMark>, With<WlSurfaceWrapper>),
-    >,
+    mut surfaces_query: Query<(&XdgSurface, &GlobalGeometry)>,
     mut events: EventReader<MouseButtonInput>,
     mut cursor: Res<CursorOnOutput>,
     mut output_focus: ResMut<FocusedWindow>,
-    mut events_writer: EventWriter<MouseButtonOnWindow>,
+    // mut events_writer: EventWriter<MouseButtonOnWindow>,
 ) {
     for e in events.iter() {
         for (interaction, backend) in &mut interaction_query {
             match *interaction {
                 Interaction::None => {}
                 _ => {
-                    let Ok((id, rect, window_scale)) = surfaces_query.get(backend.0) else{
+                    let Ok((id, rect)) = surfaces_query.get(backend.0) else{
                         warn!("failed to get backend");
                         continue;
                     };
@@ -246,10 +228,10 @@ fn mouse_button_on_window(
                         warn!("no cursor position data");
                         continue;
                     };
-                    let relative = ivec2_to_point(*pos) - rect.0.loc;
-                    let scale = window_scale.cloned().unwrap_or_default().0;
-                    let logical = relative.to_f64().to_logical(scale).to_i32_round();
-                    events_writer.send(MouseButtonOnWindow(id.clone(), logical, e.clone()));
+                    let relative = *pos - rect.position;
+                    // let scale = window_scale.cloned().unwrap_or_default().0;
+                    // let logical = relative.to_f64().to_logical(scale).to_i32_round();
+                    // events_writer.send(MouseButtonOnWindow(id.clone(), logical, e.clone()));
                     output_focus.0 = Some(backend.get());
                 }
             }
@@ -258,21 +240,18 @@ fn mouse_button_on_window(
 }
 fn mouse_wheel_on_window(
     mut interaction_query: Query<(&Interaction, &Backend), With<Button>>,
-    mut surfaces_query: Query<
-        (&SurfaceId, &GlobalPhysicalRect, Option<&WindowScale>),
-        (With<WindowMark>, With<WlSurfaceWrapper>),
-    >,
+    mut surfaces_query: Query<(&XdgSurface, &GlobalGeometry)>,
     mut events: EventReader<MouseWheel>,
     mut cursor: Res<CursorOnOutput>,
     mut output_focus: ResMut<FocusedWindow>,
-    mut events_writer: EventWriter<MouseWheelOnWindow>,
+    // mut events_writer: EventWriter<MouseWheelOnWindow>,
 ) {
     for e in events.iter() {
         for (interaction, backend) in &mut interaction_query {
             match *interaction {
                 Interaction::None => {}
                 _ => {
-                    let Ok((id, rect, window_scale)) = surfaces_query.get(backend.0) else{
+                    let Ok((id, rect)) = surfaces_query.get(backend.0) else{
                         warn!("failed to get backend");
                         continue;
                     };
@@ -280,10 +259,10 @@ fn mouse_wheel_on_window(
                         warn!("no cursor position data");
                         continue;
                     };
-                    let relative = ivec2_to_point(*pos) - rect.0.loc;
-                    let scale = window_scale.cloned().unwrap_or_default().0;
-                    let logical = relative.to_f64().to_logical(scale).to_i32_round();
-                    events_writer.send(MouseWheelOnWindow(id.clone(), logical, e.clone()));
+                    let relative = *pos - rect.position;
+                    // let scale = window_scale.cloned().unwrap_or_default().0;
+                    // let logical = relative.to_f64().to_logical(scale).to_i32_round();
+                    // events_writer.send(MouseWheelOnWindow(id.clone(), logical, e.clone()));
                     output_focus.0 = Some(backend.get());
                 }
             }

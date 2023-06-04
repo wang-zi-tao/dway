@@ -130,7 +130,7 @@ fn setup(
             image={KImage(asset_server.load("background.jpg"))}
             styles={background_style.clone()}
             />
-            // <windows_area::WindowAreaBundle styles={windows_area_style}/>
+            <windows_area::WindowAreaBundle styles={windows_area_style}/>
             <ElementBundle
             styles={KStyle {
                 left: StyleProp::Inherit,

@@ -9,25 +9,27 @@ use bevy_prototype_lyon::{
     render::ShapeMaterial,
     shapes,
 };
+use dway_server::schedule::DWayServerSet;
 // use bevy_mod_picking::{
 //     DebugCursorPickingPlugin, DebugEventsPickingPlugin, DefaultPickingPlugins, PickingCameraBundle,
 // };
-use dway_server::DWayServerSystem;
 use log::info;
+
+use crate::window::{WindowUiRoot, Frontends, Backend};
 pub mod widgets;
 
-use crate::window::{Backend, Frontends, WindowUiRoot};
+// use crate::window::{Backend, Frontends, WindowUiRoot};
 
 pub mod components;
 pub mod compositor;
 pub mod debug;
-pub mod decoration;
+// pub mod decoration;
 pub mod desktop;
 pub mod input;
 pub mod materials;
 pub mod moving;
 pub mod protocol;
-pub mod render;
+// pub mod render;
 pub mod resizing;
 pub mod screen;
 pub mod window;
@@ -75,7 +77,7 @@ impl Plugin for DWayClientPlugin {
         app.configure_set(Init);
         app.configure_sets(
             (
-                FromServer.after(DWayServerSystem::Update),
+                FromServer.after(DWayServerSet::Update),
                 Create,
                 CreateFlush,
                 CreateComponent,
@@ -95,7 +97,7 @@ impl Plugin for DWayClientPlugin {
                 DestroyComponent,
                 Destroy,
                 DestroyFlush,
-                ToServer.before(DWayServerSystem::PostUpdate),
+                ToServer.before(DWayServerSet::PostUpdate),
             )
                 .in_base_set(CoreSet::PostUpdate)
                 .chain()
@@ -113,7 +115,7 @@ impl Plugin for DWayClientPlugin {
         app.add_plugin(input::DWayInputPlugin { debug: false });
         app.add_plugin(desktop::DWayDesktop);
         app.add_plugin(window::DWayWindowPlugin);
-        app.add_plugin(decoration::DWayDecorationPlugin::default());
+        // app.add_plugin(decoration::DWayDecorationPlugin::default());
         app.add_plugin(moving::DWayMovingPlugin::default());
         app.add_plugin(resizing::DWayResizingPlugin::default());
         app.add_plugin(debug::DebugPlugin::default());

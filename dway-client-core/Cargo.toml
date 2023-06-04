@@ -24,24 +24,6 @@ bevy = {}
 serde={}
 bevy_prototype_lyon = "0.8.0"
 
-[dependencies.smithay]
-# default-features = false
-features = [
-    "backend_drm",
-    "backend_egl",
-    "backend_gbm",
-    "backend_libinput",
-    "backend_session_libseat",
-    "backend_udev",
-    "backend_vulkan",
-    "desktop",
-    "renderer_gl",
-    "renderer_multi",
-    "use_system_lib",
-    "xwayland",
-]
-path = "../../smithay"
-
 [profile.dev]
 opt-level = 1
 
