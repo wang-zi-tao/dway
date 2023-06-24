@@ -1,11 +1,23 @@
+pub mod activation_token;
 pub mod popup;
 pub mod toplevel;
 pub mod wm;
 
+use wayland_protocols::xdg::activation::v1::server::xdg_activation_token_v1;
 use wayland_server::Resource;
 
-use crate::{prelude::*, resource::ResourceWrapper, util::rect::IRect, xdg::toplevel::XdgToplevel, input::keyboard::WlKeyboard};
+use crate::{
+    geometry::{Geometry, GlobalGeometry},
+    input::keyboard::WlKeyboard,
+    prelude::*,
+    resource::ResourceWrapper,
+    state::create_global_system_config,
+    util::{rect::IRect, serial::next_serial},
+    xdg::toplevel::XdgToplevel,
+};
 use std::sync::Arc;
+
+use self::wm::XdgWmBase;
 
 #[derive(Resource)]
 pub struct XdgDelegate {
@@ -16,7 +28,7 @@ pub struct XdgDelegate {
 pub struct XdgSurface {
     #[reflect(ignore)]
     pub raw: xdg_surface::XdgSurface,
-    pub geometry: Option<IRect>,
+    pub send_configure: bool,
 }
 impl ResourceWrapper for XdgSurface {
     type Resource = xdg_surface::XdgSurface;
@@ -25,12 +37,18 @@ impl ResourceWrapper for XdgSurface {
         &self.raw
     }
 }
+#[derive(Bundle)]
+pub struct XdgSurfaceBundle {
+    resource: XdgSurface,
+    geometry: Geometry,
+    global_geometry: GlobalGeometry,
+}
 
 impl XdgSurface {
     pub fn new(raw: xdg_surface::XdgSurface) -> Self {
         Self {
             raw,
-            geometry: None,
+            send_configure: false,
         }
     }
 }
@@ -53,8 +71,25 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
         match request {
             xdg_surface::Request::Destroy => todo!(),
             xdg_surface::Request::GetToplevel { id } => {
-                state.insert_object(*data, id, data_init, XdgToplevel::new);
+                state.insert_object(*data, id, data_init, |o| XdgToplevel::new(o));
                 state.send_event(Insert::<XdgSurface>::new(*data));
+                state.query_object::<(&Geometry, &mut XdgSurface, &mut XdgToplevel), _, _>(
+                    resource,
+                    |(geometry, mut xdg_surface, mut xdg_toplevel)| {
+                        let size = geometry.geometry.size();
+                        if !xdg_toplevel.send_configure {
+                            let size = geometry.geometry.size();
+                            debug!("toplevel send configure ({},{})", 800, 600);
+                            xdg_toplevel.raw.configure(800, 600, vec![4, 0, 0, 0]);
+                            xdg_toplevel.send_configure = true;
+                        }
+                        if !xdg_surface.send_configure {
+                            debug!("xdg_surface send configure");
+                            xdg_surface.raw.configure(next_serial());
+                            xdg_surface.send_configure = true;
+                        }
+                    },
+                );
             }
             xdg_surface::Request::GetPopup {
                 id,
@@ -67,14 +102,11 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                 width,
                 height,
             } => {
-                state.with_component(resource, |c: &mut XdgSurface| {
-                    c.geometry = Some(IRect::from_pos_size(
-                        IVec2::new(x, y),
-                        IVec2::new(width, height),
-                    ));
+                state.with_component(resource, |c: &mut Geometry| {
+                    c.geometry = IRect::from_pos_size(IVec2::new(x, y), IVec2::new(width, height));
                 });
             }
-            xdg_surface::Request::AckConfigure { serial } => todo!(),
+            xdg_surface::Request::AckConfigure { serial } => {}
             _ => todo!(),
         }
     }
@@ -84,18 +116,37 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data,resource);
+        state.despawn_object(*data, resource);
+    }
+}
+impl
+    wayland_server::GlobalDispatch<
+        wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,
+        bevy::prelude::Entity,
+    > for DWay
+{
+    fn bind(
+        state: &mut Self,
+        handle: &DisplayHandle,
+        client: &wayland_server::Client,
+        resource: wayland_server::New<
+            wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,
+        >,
+        global_data: &bevy::prelude::Entity,
+        data_init: &mut wayland_server::DataInit<'_, Self>,
+    ) {
+        state.bind(client, resource, data_init, XdgWmBase::new);
     }
 }
 
-pub struct XdgShellPlugin(pub Arc<DisplayHandle>);
+pub struct XdgShellPlugin;
 impl Plugin for XdgShellPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(XdgDelegate {
-            wm: self
-                .0
-                .create_global::<DWay, xdg_wm_base::XdgWmBase, ()>(5, ()),
-        });
+        app.add_system(create_global_system_config::<xdg_wm_base::XdgWmBase, 5>());
+        app.add_system(create_global_system_config::<
+            xdg_activation_token_v1::XdgActivationTokenV1,
+            1,
+        >());
         app.add_event::<Insert<XdgSurface>>();
         app.add_event::<Destroy<XdgSurface>>();
         app.register_type::<XdgSurface>();

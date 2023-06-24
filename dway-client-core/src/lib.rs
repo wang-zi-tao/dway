@@ -15,7 +15,7 @@ use dway_server::schedule::DWayServerSet;
 // };
 use log::info;
 
-use crate::window::{WindowUiRoot, Frontends, Backend};
+use crate::window::{Backend, Frontends, WindowUiRoot};
 pub mod widgets;
 
 // use crate::window::{Backend, Frontends, WindowUiRoot};

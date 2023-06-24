@@ -9,6 +9,7 @@ edition = "2021"
 dway-util = {path="../dway-util/"}
 dway-protocol = {path="../dway-protocol/"}
 dway-server = {path="../dway-server/"}
+bevy-relationship = {path="../bevy-relationship/"}
 
 log = {}
 crossbeam-channel = {}

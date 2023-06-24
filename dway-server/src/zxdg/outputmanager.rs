@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{prelude::*, state::create_global_system_config};
 use std::sync::Arc;
 
 #[derive(Component)]
@@ -32,7 +32,7 @@ impl
         match request {
             zxdg_output_manager_v1::Request::Destroy => todo!(),
             zxdg_output_manager_v1::Request::GetXdgOutput { id, output } => {
-                state.spawn_child_object(*data, id, data_init, |o| ZxdgOutput { raw: o });
+                state.insert_object(DWay::get_entity(&output), id, data_init, |o| ZxdgOutput { raw: o });
             }
             _ => todo!(),
         }
@@ -63,28 +63,28 @@ impl wayland_server::Dispatch<zxdg_output_v1::ZxdgOutputV1, Entity> for DWay {
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data,resource);
+        state.despawn_object(*data, resource);
     }
 }
-impl GlobalDispatch<zxdg_output_manager_v1::ZxdgOutputManagerV1, ()> for DWay {
+impl GlobalDispatch<zxdg_output_manager_v1::ZxdgOutputManagerV1, Entity> for DWay {
     fn bind(
         state: &mut Self,
         handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<zxdg_output_manager_v1::ZxdgOutputManagerV1>,
-        global_data: &(),
+        global_data: &Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
-        state.init_object(resource, data_init, |o| WlOutputManager { raw: o });
+        state.bind(client, resource, data_init, |o| WlOutputManager { raw: o });
     }
 }
 
-pub struct XdgOutputManagerPlugin(pub Arc<DisplayHandle>);
+pub struct XdgOutputManagerPlugin;
 impl Plugin for XdgOutputManagerPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(XdgOutputManagerDelegate(
-            self.0
-                .create_global::<DWay, zxdg_output_manager_v1::ZxdgOutputManagerV1, ()>(3, ()),
-        ));
+        app.add_system(create_global_system_config::<
+            zxdg_output_manager_v1::ZxdgOutputManagerV1,
+            3,
+        >());
     }
 }

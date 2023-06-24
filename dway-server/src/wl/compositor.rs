@@ -1,10 +1,12 @@
 use std::sync::Arc;
 
+use bevy_relationship::{relationship, AppExt};
 use wayland_server::delegate_global_dispatch;
 
 use crate::{
     prelude::*,
-    wl::surface::{WlSubsurface, WlSurface},
+    state::create_global_system_config,
+    wl::surface::{ClientHasSurface, WlSubsurface, WlSurface, WlSurfaceBundle},
 };
 
 #[derive(Component)]
@@ -15,6 +17,7 @@ pub struct WlCompositor {
 pub struct WlSubcompositor {
     raw: wl_subcompositor::WlSubcompositor,
 }
+relationship!(HasSubsurface=>SubsurfaceList-<ParentSurface);
 
 #[derive(Resource)]
 pub struct CompositorDelegate {
@@ -38,16 +41,20 @@ impl wayland_server::Dispatch<wl_compositor::WlCompositor, bevy::prelude::Entity
             wl_compositor::Request::CreateSurface { id } => {
                 let parent = *data;
                 let world = state.world_mut();
-                let entity = world.spawn_empty().id();
+                let entity_mut = world.spawn_empty();
+                let entity = entity_mut.id();
                 let object = data_init.init(id, entity);
                 trace!(parent=?parent,?entity,object=?wayland_server::Resource::id(&object),"spawn object");
                 let mut assets = world.resource_mut::<Assets<Image>>();
                 let component = WlSurface::new(object, &mut assets);
-                world.entity_mut(entity).insert(component);
+                world
+                    .entity_mut(entity)
+                    .insert(WlSurfaceBundle::new(component));
                 world.entity_mut(parent).add_child(entity);
+                state.connect::<ClientHasSurface>(DWay::client_entity(client), entity);
             }
             wl_compositor::Request::CreateRegion { id } => {
-                state.insert_object(*data, id, data_init, crate::wl::region::WlRegion::new);
+                state.spawn_child_object(*data, id, data_init, crate::wl::region::WlRegion::new);
             }
             _ => todo!(),
         }
@@ -58,7 +65,7 @@ impl wayland_server::Dispatch<wl_compositor::WlCompositor, bevy::prelude::Entity
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data,resource);
+        state.despawn_object(*data, resource);
     }
 }
 delegate_dispatch!(DWay: [wl_subcompositor::WlSubcompositor: Entity] => CompositorDelegate);
@@ -81,13 +88,14 @@ impl wayland_server::Dispatch<wl_subcompositor::WlSubcompositor, bevy::prelude::
                 surface,
                 parent,
             } => {
-                state.insert_child_object(
-                    DWay::get_entity(&parent),
+                let entity = state.insert_child_object(
                     DWay::get_entity(&surface),
+                    DWay::get_entity(&parent),
                     id,
                     data_init,
                     WlSubsurface::new,
                 );
+                state.connect::<HasSubsurface>(DWay::get_entity(&parent), entity);
             }
             _ => todo!(),
         }
@@ -98,11 +106,10 @@ impl wayland_server::Dispatch<wl_subcompositor::WlSubcompositor, bevy::prelude::
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data,resource);
+        state.despawn_object(*data, resource);
     }
 }
 
-delegate_global_dispatch!(DWay: [wl_compositor::WlCompositor: Entity] => CompositorDelegate);
 impl wayland_server::GlobalDispatch<wl_compositor::WlCompositor, bevy::prelude::Entity, DWay>
     for CompositorDelegate
 {
@@ -118,41 +125,39 @@ impl wayland_server::GlobalDispatch<wl_compositor::WlCompositor, bevy::prelude::
     }
 }
 
-impl wayland_server::GlobalDispatch<wl_compositor::WlCompositor, ()> for DWay {
+impl wayland_server::GlobalDispatch<wl_compositor::WlCompositor, Entity> for DWay {
     fn bind(
         state: &mut Self,
         handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<wl_compositor::WlCompositor>,
-        global_data: &(),
+        global_data: &Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
-        state.init_object(resource, data_init, |o| WlCompositor { raw: o });
+        state.bind(client, resource, data_init, |o| WlCompositor { raw: o });
     }
 }
-impl wayland_server::GlobalDispatch<wl_subcompositor::WlSubcompositor, ()> for DWay {
+impl wayland_server::GlobalDispatch<wl_subcompositor::WlSubcompositor, Entity> for DWay {
     fn bind(
         state: &mut Self,
         handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<wl_subcompositor::WlSubcompositor>,
-        global_data: &(),
+        global_data: &Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
-        state.init_object(resource, data_init, |o| WlSubcompositor { raw: o });
+        state.bind(client, resource, data_init, |o| WlSubcompositor { raw: o });
     }
 }
 
-pub struct WlCompositorPlugin(pub Arc<DisplayHandle>);
+pub struct WlCompositorPlugin;
 impl Plugin for WlCompositorPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(CompositorDelegate {
-            compositor: self
-                .0
-                .create_global::<DWay, wl_compositor::WlCompositor, ()>(5, ()),
-            sub_compositor: self
-                .0
-                .create_global::<DWay, wl_subcompositor::WlSubcompositor, ()>(1, ()),
-        });
+        app.add_system(create_global_system_config::<wl_compositor::WlCompositor, 5>());
+        app.add_system(create_global_system_config::<
+            wl_subcompositor::WlSubcompositor,
+            1,
+        >());
+        app.register_relation::<HasSubsurface>();
     }
 }

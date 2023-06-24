@@ -1,11 +1,21 @@
-use crate::{geometry::GlobalGeometry, prelude::*, xdg::toplevel::XdgToplevel};
+use crate::{
+    geometry::{Geometry, GlobalGeometry},
+    prelude::*,
+    xdg::xdg_toplevel::XdgToplevel,
+};
 use std::sync::Arc;
 
-use super::{XdgDelegate, XdgSurface};
+use super::{XdgDelegate, XdgSurface, XdgSurfaceBundle};
 
 #[derive(Component)]
 pub struct XdgWmBase {
-    raw: xdg_wm_base::XdgWmBase,
+    pub raw: xdg_wm_base::XdgWmBase,
+}
+
+impl XdgWmBase {
+    pub fn new(raw: xdg_wm_base::XdgWmBase) -> Self {
+        Self { raw }
+    }
 }
 
 delegate_dispatch!(DWay: [xdg_wm_base::XdgWmBase: Entity] => XdgDelegate);
@@ -24,8 +34,12 @@ impl wayland_server::Dispatch<xdg_wm_base::XdgWmBase, bevy::prelude::Entity, DWa
             xdg_wm_base::Request::CreatePositioner { id } => todo!(),
             xdg_wm_base::Request::GetXdgSurface { id, surface } => {
                 let entity = surface.data::<Entity>().unwrap();
-                state.insert_object_bundle(*entity, id, data_init, |o| {
-                    (XdgSurface::new(o), (GlobalGeometry::default()))
+                state.insert_object_bundle::<XdgSurface, _, _, _>(*entity, id, data_init, |o| {
+                    XdgSurfaceBundle {
+                        resource: XdgSurface::new(o),
+                        geometry: Geometry::default(),
+                        global_geometry: GlobalGeometry::default(),
+                    }
                 });
                 state.send_event(Insert::<XdgSurface>::new(*entity));
             }
@@ -52,6 +66,6 @@ impl wayland_server::GlobalDispatch<xdg_wm_base::XdgWmBase, ()> for DWay {
         global_data: &(),
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
-        state.init_object(resource, data_init, |o| XdgWmBase { raw: o });
+        state.bind(client, resource, data_init, |o| XdgWmBase { raw: o });
     }
 }

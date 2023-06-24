@@ -19,6 +19,7 @@ use std::{
 };
 
 use bevy::{
+    core::FrameCount,
     core_pipeline::{clear_color::ClearColorConfig, core_2d::Transparent2d},
     ecs::system::lifetimeless::{Read, SRes, SResMut},
     log::Level,
@@ -73,21 +74,30 @@ pub fn extract_surface(
     buffer_query: Extract<Query<(&WlBuffer, &Parent, Option<&DmaBuffer>, Option<&EGLBuffer>)>>,
     shm_pool_query: Extract<Query<&WlShmPool>>,
     mut commands: Commands,
+    mut image_bind_groups: Option<ResMut<kayak_ui::render::unified::pipeline::ImageBindGroups>>,
+    frame_count: Extract<Res<FrameCount>>,
 ) {
     for surface in surface_query.iter() {
-        if !surface.just_commit {
+        if !surface.just_commit && surface.commit_time + 2 < frame_count.0 {
             continue;
         }
+        if let Some(image_bind_groups) = image_bind_groups.as_mut() {
+            // debug!("remove bind group of {:?}", &surface.image);
+            // image_bind_groups.values.remove(&surface.image);
+        }
         let Some(buffer_entity)=surface.commited.buffer.flatten() else{
+            trace!("no wl_buffer {:?}", surface.raw.id());
             continue;
         };
         let Ok(( buffer,shm_pool_entity,dma_buffer,egl_buffer ))=buffer_query.get(buffer_entity)else{
+            trace!("no wl_shm_pool {:?}", surface.raw.id());
             continue;
         };
         let Ok(shm_pool)=shm_pool_query.get(shm_pool_entity.get())else{
+            trace!("no shm_pool_query {:?}", surface.raw.id());
             continue;
         };
-        trace!("extract {:?}",surface.raw.id());
+        // trace!("extract {:?}", surface.raw.id());
         let mut entity = commands.spawn((surface.clone(), buffer.clone(), shm_pool.clone()));
         if let Some(dma_buffer) = dma_buffer {
             entity.insert(dma_buffer.clone());
@@ -102,15 +112,11 @@ pub fn extract_surface(
 pub fn queue_import(
     draw_functions: Res<DrawFunctions<ImportedSurfacePhaseItem>>,
     mut phase_query: Query<&mut RenderPhase<ImportedSurfacePhaseItem>>,
-    surface_query: Query<(Entity, &WlSurface)>,
-    mut image_bind_groups: Option<ResMut<kayak_ui::render::unified::pipeline::ImageBindGroups>>,
+    surface_query: Query<Entity, With<WlSurface>>,
 ) {
     let function = draw_functions.read().id::<ImportSurface>();
     let mut phase = phase_query.single_mut();
-    for (entity, imported_surface) in &surface_query {
-        if let Some(image_bind_groups) = image_bind_groups.as_mut() {
-            image_bind_groups.values.remove(&imported_surface.image);
-        }
+    for entity in &surface_query {
         phase.add(ImportedSurfacePhaseItem {
             draw_function: function,
             entity,
@@ -162,12 +168,19 @@ impl<P: PhaseItem> RenderCommand<P> for ImportSurface {
                 surface = ?surface.raw.id(),
                 error = %e,
                 entity=?item.entity(),
-                "failed to import surface.",
+                texture = ?&texture.texture,
+                "failed to import buffer.",
             );
-            return bevy::render::render_phase::RenderCommandResult::Success;
+            return bevy::render::render_phase::RenderCommandResult::Failure;
         };
         buffer.raw.release();
-        debug!(surface=%WlResource::id(&surface.raw),entity=?DWay::get_entity(&surface.raw),"import buffer");
+        // debug!(
+        //     surface=%WlResource::id(&surface.raw),
+        //     entity=?DWay::get_entity(&surface.raw),
+        //     texture=?&texture.texture.id(),
+        //     handle=?&surface.image,
+        //     "import buffer"
+        // );
         bevy::render::render_phase::RenderCommandResult::Success
     }
 }
@@ -208,7 +221,7 @@ impl Node for ImportSurfacePassNode {
             };
         {
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some("main_pass_2d"),
+                label: Some("import_wayland_buffer"),
                 color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: match camera_2d.clear_color {
                         ClearColorConfig::Default => {

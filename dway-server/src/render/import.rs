@@ -8,7 +8,7 @@ use crate::{
 };
 
 use drm_fourcc::DrmModifier;
-use image::io::Reader as ImageReader;
+use image::{io::Reader as ImageReader, Rgba};
 use std::{
     collections::HashMap,
     default,
@@ -196,14 +196,17 @@ pub unsafe fn import_memory(
     let height = buffer.height;
     let stride = buffer.stride;
     let pixelsize = 4i32;
-    let shm_inner=shm.inner.read().unwrap();
+    let shm_inner = shm.inner.read().unwrap();
     let ptr = std::ptr::from_raw_parts::<[u8]>(
-        shm_inner.ptr.as_ptr().offset(buffer.offset as isize).cast(),
-        shm_inner.size,
+        shm_inner
+            .ptr
+            .as_ptr()
+            .offset(4 * buffer.offset as isize)
+            .cast(),
+        (width * height * 4) as usize,
     )
     .as_ref()
     .unwrap();
-    assert!((offset + (height - 1) * stride + width * pixelsize) as usize <= shm_inner.size);
     gl.bind_texture(dest.1, Some(dest.0));
     gl.tex_parameter_i32(
         glow::TEXTURE_2D,
@@ -228,6 +231,11 @@ pub unsafe fn import_memory(
 
     gl.pixel_store_i32(glow::UNPACK_ROW_LENGTH, stride / pixelsize);
 
+    // let image: ImageBuffer<Rgba<u8>, Vec<_>> =
+    //     image::ImageBuffer::from_vec(width as u32, height as u32, ptr.to_vec()).unwrap();
+    // let snapshtip_count = std::fs::read_dir(".snapshot").unwrap().count();
+    // image.save(format!(".snapshot/snapshot_{}.png", snapshtip_count + 1))?;
+
     let (gl_format, shader_idx) = match buffer.format {
         wl_shm::Format::Abgr8888 => (glow::RGBA, 0),
         wl_shm::Format::Xbgr8888 => (glow::RGBA, 1),
@@ -238,6 +246,7 @@ pub unsafe fn import_memory(
     if surface.commited.damages.len() == 0 {
         gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, 0);
         gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);
+        trace!("import buffer {:?}", IRect::new(0, 0, width, height));
         gl.tex_sub_image_2d(
             glow::TEXTURE_2D,
             0,
@@ -255,13 +264,14 @@ pub unsafe fn import_memory(
         for region in surface.commited.damages.iter() {
             gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, region.pos().x);
             gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, region.pos().y);
+            trace!("import buffer {:?}", IRect::new(0, 0, width, height));
             gl.tex_sub_image_2d(
                 glow::TEXTURE_2D,
                 0,
-                region.pos().x,
-                region.pos().y,
-                region.size().x,
-                region.size().y,
+                region.pos().x.max(0),
+                region.pos().y.max(0),
+                region.size().x.min(width),
+                region.size().y.min(height),
                 gl_format,
                 glow::UNSIGNED_BYTE,
                 glow::PixelUnpackData::Slice(ptr),
@@ -447,6 +457,7 @@ pub fn import_wl_surface(
         let mut texture_id = None;
         texture.as_hal::<Gles, _>(|texture| {
             let texture = texture.unwrap();
+            // debug!("dest texture: {:?}",texture);
             match &texture.inner {
                 wgpu_hal::gles::TextureInner::Texture { raw, target } => {
                     texture_id = Some((*raw, *target));
@@ -461,11 +472,13 @@ pub fn import_wl_surface(
             let hal_device = hal_device.ok_or_else(|| format_err!("render device is not egl"))?;
             let egl_context = hal_device.context();
             let gl: &glow::Context = &egl_context.lock();
-            // gl.enable(glow::DEBUG_OUTPUT);
-            // gl.debug_message_callback(gl_debug_message_callback);
-            let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> = egl_context
-                .egl_instance()
-                .ok_or_else(|| format_err!("render adapter is not egl"))?;
+            gl.enable(glow::DEBUG_OUTPUT);
+            gl.debug_message_callback(gl_debug_message_callback);
+            let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> =
+                egl_context.egl_instance().ok_or_else(|| {
+                    gl.disable(glow::DEBUG_OUTPUT);
+                    format_err!("render adapter is not egl")
+                })?;
             let egl_create_image_khr: extern "system" fn(
                 EGLDisplay,
                 EGLContext,
@@ -473,8 +486,10 @@ pub fn import_wl_surface(
                 EGLClientBuffer,
                 *const Int,
             ) -> EGLImage = std::mem::transmute(
-                egl.get_proc_address("eglCreateImageKHR")
-                    .ok_or_else(|| format_err!("failed to get function eglCreateImageKHR"))?,
+                egl.get_proc_address("eglCreateImageKHR").ok_or_else(|| {
+                    gl.disable(glow::DEBUG_OUTPUT);
+                    format_err!("failed to get function eglCreateImageKHR")
+                })?,
             );
             let gl_eglimage_target_texture2_does: extern "system" fn(
                 target: Enum,
@@ -482,6 +497,7 @@ pub fn import_wl_surface(
             ) = std::mem::transmute(
                 egl.get_proc_address("glEGLImageTargetTexture2DOES")
                     .ok_or_else(|| {
+                        gl.disable(glow::DEBUG_OUTPUT);
                         format_err!("failed to get function glEGLImageTargetTexture2DOES")
                     })?,
             );
@@ -496,8 +512,9 @@ pub fn import_wl_surface(
                 let texture =
                     image_target_texture_oes(gl_eglimage_target_texture2_does, gl, raw_image)?;
             } else {
-                import_memory(surface, buffer, shm_pool, gl, texture_id);
+                import_memory(surface, buffer, shm_pool, gl, texture_id)?;
             }
+            gl.disable(glow::DEBUG_OUTPUT);
             Ok(())
         })
     }

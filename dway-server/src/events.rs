@@ -37,15 +37,15 @@ pub struct ResizeWindow {
     pub delta: IVec2,
     pub size: IVec2,
 }
-pub struct MoveWindow{
+pub struct MoveWindow {
     pub entity: Entity,
-    pub delta:IVec2,
+    pub delta: IVec2,
 }
-pub struct MoveRequest( pub Entity );
-pub struct ResizeRequest( pub Entity );
+pub struct MoveRequest(pub Entity);
+pub struct ResizeRequest(pub Entity);
 
 pub struct EventPlugin;
-impl Plugin for EventPlugin{
+impl Plugin for EventPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<ResizeWindow>();
         app.add_event::<MoveWindow>();

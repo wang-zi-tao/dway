@@ -98,7 +98,11 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                     c.minSize = Some(IVec2::new(width, height))
                 });
             }
-            xdg_toplevel::Request::SetMaximized => todo!(),
+            xdg_toplevel::Request::SetMaximized => {
+                state.with_component(resource, |c: &mut XdgToplevel| {
+                    c.max = true;
+                });
+            }
             xdg_toplevel::Request::UnsetMaximized => {
                 state.with_component(resource, |c: &mut XdgToplevel| {
                     c.max = false;
@@ -120,12 +124,12 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data,resource);
+        state.despawn_object(*data, resource);
         state.send_event(Destroy::<XdgSurface>::new(*data));
     }
 }
 
-pub struct XdgToplevelPlugin(pub Arc<DisplayHandle>);
+pub struct XdgToplevelPlugin;
 impl Plugin for XdgToplevelPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<Insert<XdgToplevel>>();

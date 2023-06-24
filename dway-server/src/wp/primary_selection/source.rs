@@ -1,0 +1,48 @@
+use wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection_source_v1::{
+    self, ZwpPrimarySelectionSourceV1,
+};
+
+use crate::{create_dispatch, prelude::*};
+
+#[derive(Component, Reflect, Debug)]
+#[reflect(Debug)]
+pub struct PrimarySelectionSource {
+    #[reflect(ignore)]
+    pub raw: ZwpPrimarySelectionSourceV1,
+}
+impl PrimarySelectionSource {
+    pub fn new(raw: ZwpPrimarySelectionSourceV1) -> Self {
+        Self { raw }
+    }
+}
+impl Dispatch<ZwpPrimarySelectionSourceV1, Entity> for DWay {
+    fn request(
+        state: &mut Self,
+        client: &wayland_server::Client,
+        resource: &ZwpPrimarySelectionSourceV1,
+        request: <ZwpPrimarySelectionSourceV1 as WlResource>::Request,
+        data: &Entity,
+        dhandle: &DisplayHandle,
+        data_init: &mut wayland_server::DataInit<'_, Self>,
+    ) {
+        let span =
+            span!(Level::ERROR,"request",entity = ?data,resource = %WlResource::id(resource));
+        let _enter = span.enter();
+        debug!("request {:?}", &request);
+        match request {
+            zwp_primary_selection_source_v1::Request::Offer { mime_type } => {
+                warn!(" TODO: select {:?}", &mime_type);
+            }
+            zwp_primary_selection_source_v1::Request::Destroy => todo!(),
+            _ => todo!(),
+        }
+    }
+    fn destroyed(
+        state: &mut DWay,
+        _client: wayland_backend::server::ClientId,
+        resource: wayland_backend::server::ObjectId,
+        data: &bevy::prelude::Entity,
+    ) {
+        state.despawn_object(*data, resource);
+    }
+}

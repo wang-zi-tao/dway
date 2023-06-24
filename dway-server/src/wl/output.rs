@@ -1,12 +1,18 @@
 use bevy::utils::HashSet;
+use bevy_relationship::{ConnectCommand, Connectable, DisconnectCommand};
+use wayland_server::protocol::wl_output::Mode;
 
 use crate::{
-    geometry::GlobalGeometry, prelude::*, schedule::DWayServerSet, util::rect::IRect,
+    geometry::{Geometry, GlobalGeometry},
+    prelude::*,
+    schedule::DWayServerSet,
+    state::create_global_system_config,
+    util::rect::IRect,
     xdg::XdgSurface,
 };
 use std::sync::Arc;
 
-use super::surface::WlSurface;
+use super::surface::{ContainsSurface, InOutput, InOutputRelationship, WlSurface};
 
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
@@ -14,7 +20,6 @@ pub struct WlOutput {
     #[reflect(ignore)]
     pub raw: wl_output::WlOutput,
     pub rect: IRect,
-    pub surfaces: HashSet<Entity>,
 }
 
 impl WlOutput {
@@ -22,6 +27,20 @@ impl WlOutput {
         Self {
             raw,
             rect: IRect::new(0, 0, 1920, 1080),
+        }
+    }
+}
+
+#[derive(Bundle)]
+pub struct WlOutputBundle {
+    resource: WlOutput,
+    surfaces: ContainsSurface,
+}
+
+impl WlOutputBundle {
+    pub fn new(resource: WlOutput) -> Self {
+        Self {
+            resource,
             surfaces: Default::default(),
         }
     }
@@ -51,29 +70,48 @@ impl wayland_server::Dispatch<wl_output::WlOutput, bevy::prelude::Entity, DWay> 
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data,resource);
+        state.despawn_object(*data, resource);
     }
 }
-impl GlobalDispatch<wl_output::WlOutput, ()> for DWay {
+impl GlobalDispatch<wl_output::WlOutput, Entity> for DWay {
     fn bind(
         state: &mut Self,
         handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<wl_output::WlOutput>,
-        global_data: &(),
+        global_data: &Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
-        trace!("bind output");
-        state.init_object(resource, data_init, WlOutput::new);
+        state.bind_spawn(client, resource, data_init, |output| {
+            output.geometry(
+                0,
+                0,
+                1920,
+                1080,
+                wl_output::Subpixel::VerticalRgb,
+                "dway".to_string(),
+                "dway".to_string(),
+                wl_output::Transform::Normal,
+            );
+            output.mode(Mode::Current, 1920, 1080, 60000);
+            if output.version() >= 4 {
+                output.name("WL-1".to_string());
+                output.description("dway output".to_string())
+            }
+
+            if output.version() >= 2 {
+                output.scale(1);
+                output.done();
+            }
+            WlOutput::new(output)
+        });
     }
 }
 
-pub struct WlOutputPlugin(pub Arc<DisplayHandle>);
+pub struct WlOutputPlugin;
 impl Plugin for WlOutputPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(OutputDelegate(
-            self.0.create_global::<DWay, wl_output::WlOutput, ()>(3, ()),
-        ));
+        app.add_system(create_global_system_config::<wl_output::WlOutput, 4>());
         app.add_system(surface_enter_output.in_set(DWayServerSet::UpdateJoin));
         app.register_type::<HashSet<Entity>>();
         app.register_type::<WlOutput>();
@@ -81,46 +119,48 @@ impl Plugin for WlOutputPlugin {
 }
 
 pub fn surface_enter_output(
-    mut surfaces_query: Query<(Entity, &mut WlSurface, &XdgSurface, &GlobalGeometry)>,
-    mut output_query: Query<(&mut WlOutput)>,
+    mut surfaces_query: Query<(Entity, &WlSurface, &Geometry, &GlobalGeometry, &InOutput)>,
+    mut output_query: Query<(Entity, &WlOutput, &ContainsSurface)>,
+    mut commands: Commands,
 ) {
-    for mut output in output_query.iter_mut() {
+    for (output_entity, output, contains_surfaces) in output_query.iter_mut() {
+        let old_surface_set: HashSet<Entity> = contains_surfaces.iter().collect();
         let mut new_surface_set = HashSet::new();
         let output_rect = output.rect;
-        for (entity, surface, xdg_surface, global_geometry) in surfaces_query.iter() {
+        for (entity, surface, geometry, global_geometry, in_output) in surfaces_query.iter() {
             let Some( size )=surface.size else{
                 continue
             };
-            let rect = xdg_surface.geometry.unwrap_or_default();
+            let rect = geometry.geometry;
             if output_rect.intersection(rect).area() > 0 {
                 new_surface_set.insert(entity);
             }
         }
-        let mut changed = false;
         for entity in &new_surface_set {
-            if !output.surfaces.contains(&entity) {
-                if let Ok((entity, mut surface, xdg_surface, global_geometry)) =
+            if !old_surface_set.contains(&entity) {
+                if let Ok((entity, mut surface, xdg_surface, global_geometry, in_output)) =
                     surfaces_query.get_mut(*entity)
                 {
                     surface.raw.leave(&output.raw);
-                    surface.outputs.remove(&entity);
-                    changed = true;
+                    commands.add(DisconnectCommand::<InOutputRelationship>::new(
+                        output_entity,
+                        entity,
+                    ));
                 }
             }
         }
-        for entity in &output.surfaces {
+        for entity in contains_surfaces.iter() {
             if !new_surface_set.contains(&entity) {
-                if let Ok((entity, mut surface, xdg_surface, global_geometry)) =
-                    surfaces_query.get_mut(*entity)
+                if let Ok((entity, mut surface, xdg_surface, global_geometry, in_output)) =
+                    surfaces_query.get_mut(entity)
                 {
                     surface.raw.enter(&output.raw);
-                    surface.outputs.insert(entity);
-                    changed = true;
+                    commands.add(ConnectCommand::<InOutputRelationship>::new(
+                        output_entity,
+                        entity,
+                    ));
                 }
             }
-        }
-        if changed {
-            output.surfaces = new_surface_set;
         }
     }
 }

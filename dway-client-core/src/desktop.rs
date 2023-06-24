@@ -9,20 +9,17 @@ use crate::DWayClientSystem;
 pub struct DWayDesktop;
 impl Plugin for DWayDesktop {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.insert_resource(WindowSet::default());
         app.insert_resource(WindowStack::default());
         app.insert_resource(FocusedWindow::default());
         app.insert_resource(CursorOnOutput::default());
         app.insert_resource(WindowHistory::default());
         app.add_system(update_window_stack_by_focus.in_set(DWayClientSystem::UpdateState));
         app.add_system(update_z_index.in_set(DWayClientSystem::UpdateState));
+        app.register_type::<FocusedWindow>();
+        app.register_type::<CursorOnOutput>();
     }
 }
 
-#[derive(Resource, Default)]
-pub struct WindowSet {
-    pub window_set: HashMap<Uuid, Entity>,
-}
 #[derive(Resource)]
 pub struct WindowStack(pub LruCache<Entity, ()>);
 impl Default for WindowStack {
@@ -31,10 +28,10 @@ impl Default for WindowStack {
     }
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Reflect)]
 pub struct FocusedWindow(pub Option<Entity>);
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Reflect)]
 pub struct CursorOnOutput(pub Option<(Entity, IVec2)>);
 
 #[derive(Resource)]

@@ -6,6 +6,8 @@ members = [
     "dway-ui", "dway-protocol",
     "dway-server",
     "dway-util",
+    "bevy-relationship",
+    "bevy-relationship-derive",
 ]
 
 [workspace.dependencies]
@@ -32,11 +34,11 @@ version = "0.4.0"
 path="../../../Code/bevy-kayak/"
 
 [workspace.dependencies.wgpu]
-version = "0.15"
+version = "0.15.1"
 features = ["angle"]
 
 [workspace.dependencies.wgpu-hal]
-version = "0.15"
+version = "0.15.1"
 features = ["gles"]
 
 [workspace.dependencies.smithay]

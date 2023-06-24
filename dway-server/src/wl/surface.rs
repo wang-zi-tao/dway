@@ -1,15 +1,19 @@
-use bevy::{ecs::reflect, utils::HashSet};
+use bevy::{core::FrameCount, ecs::reflect, utils::HashSet};
+use bevy_relationship::{graph_query, relationship, AppExt};
 use wayland_server::backend::smallvec::SmallVec;
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 
 use crate::{
+    geometry::Geometry,
     prelude::*,
     schedule::DWayServerSet,
-    util::rect::IRect,
+    util::{rect::IRect, serial::next_serial},
     wl::buffer::WlBuffer,
     xdg::{toplevel::XdgToplevel, XdgSurface},
 };
-use std::{num::NonZeroUsize, sync::Arc};
+use std::{borrow::Cow, num::NonZeroUsize, sync::Arc};
+
+relationship!(ClientHasSurface=>SurfaceList-<Client);
 
 #[derive(Default, Reflect, Debug, Clone)]
 #[reflect(Debug)]
@@ -21,7 +25,8 @@ pub struct WlSurfaceUpdate {
     pub callbacks: SmallVec<[wl_callback::WlCallback; 1]>,
     pub opaque_region: Option<Entity>,
     pub input_region: Option<Entity>,
-    pub scale: Option<NonZeroUsize>,
+    pub scale: Option<i32>,
+    pub offset: Option<IVec2>,
 }
 
 #[derive(Component, Reflect, Debug, Clone)]
@@ -34,7 +39,29 @@ pub struct WlSurface {
     pub just_commit: bool,
     pub image: Handle<Image>,
     pub size: Option<IVec2>,
-    pub outputs: HashSet<Entity>,
+    pub commit_time: u32,
+}
+relationship!(AttachmentRelationship => Attach--AttachedBy);
+relationship!(InOutputRelationship => InOutput>-<ContainsSurface);
+#[derive(Bundle)]
+pub struct WlSurfaceBundle {
+    name: Name,
+    resource: WlSurface,
+    attach: Attach,
+    in_output: InOutput,
+    client: Client,
+}
+
+impl WlSurfaceBundle {
+    pub fn new(resource: WlSurface) -> Self {
+        Self {
+            name: Name::new(Cow::Owned(resource.raw.id().to_string())),
+            resource,
+            attach: Default::default(),
+            in_output: Default::default(),
+            client: Default::default(),
+        }
+    }
 }
 
 impl WlSurface {
@@ -56,7 +83,7 @@ impl WlSurface {
             just_commit: false,
             image: assets.add(image),
             size: Default::default(),
-            outputs: Default::default(),
+            commit_time: 0,
         }
     }
     pub fn texture_descriptor<'l>(image_size: Extent3d) -> TextureDescriptor<'l> {
@@ -101,6 +128,7 @@ pub struct WlSubsurface {
     pub position: Option<IVec2>,
     pub above: Option<Entity>,
     pub below: Option<Entity>,
+    pub sync: bool,
 }
 
 impl WlSubsurface {
@@ -110,6 +138,7 @@ impl WlSubsurface {
             position: None,
             above: None,
             below: None,
+            sync: false,
         }
     }
 }
@@ -185,16 +214,23 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                     c.pending.opaque_region = region.map(|region| DWay::get_entity(&region));
                 });
             }
-            wl_surface::Request::SetInputRegion { region } => todo!(),
+            wl_surface::Request::SetInputRegion { region } => {
+                state.with_component(resource, |c: &mut WlSurface| {
+                    c.pending.input_region = region.map(|region| DWay::get_entity(&region));
+                });
+            }
             wl_surface::Request::Commit => {
                 warn!(object=?wayland_server::Resource::id(resource),"commit");
-                let buffer_entity = state.query_object::<(
+                let frame_count = state.world().resource::<FrameCount>().0;
+                let (old_buffer_entity, buffer_entity) = state.query_object::<(
                     &mut WlSurface,
+                    Option<&mut Geometry>,
                     Option<&mut XdgSurface>,
                     Option<&mut XdgToplevel>,
                 ), _, _>(
                     resource,
-                    |(mut surface, mut xdg_surface, mut toplevel)| {
+                    |(mut surface, mut geometry, mut xdg_surface, mut toplevel)| {
+                        let old_buffer_entity = surface.commited.buffer.flatten();
                         if let Some(v) = surface.pending.buffer.take() {
                             if v.is_some() {
                                 surface.commited.buffer = Some(v);
@@ -214,31 +250,34 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                         if let Some(v) = surface.pending.scale.take() {
                             let _ = surface.commited.scale.insert(v);
                         }
+                        if let Some(offset) = surface.pending.offset.take() {
+                            *surface.commited.offset.get_or_insert_default() += offset;
+                        }
                         let damages = surface.pending.damages.drain(..).collect::<Vec<_>>();
                         surface.commited.damages.extend(damages);
                         let callbacks = surface.pending.callbacks.drain(..).collect::<Vec<_>>();
                         surface.commited.callbacks.extend(callbacks);
 
                         surface.just_commit = true;
+                        surface.commit_time = frame_count;
 
-                        if let Some(toplevel) = toplevel.as_mut() {
-                            if !toplevel.send_configure {
-                                if let Some(xdg_surface) = xdg_surface {
-                                    let size = xdg_surface
-                                        .geometry
-                                        .unwrap_or(IRect::new(0, 0, 512, 512))
-                                        .size();
-                                    debug!("send configure ({},{})", size.x, size.y);
-                                    toplevel.raw.configure(size.x, size.y, vec![]);
-                                    toplevel.send_configure = true;
-                                }
-                            }
-                        }
+                        (old_buffer_entity, surface.commited.buffer.flatten())
                     },
                 );
+                if let Some(buffer) = buffer_entity {
+                    if state.world_mut().get_entity(buffer).is_some() {
+                        state.connect::<AttachmentRelationship>(*data, buffer);
+                    }
+                } else if let Some(old_buffer) = old_buffer_entity {
+                    state.disconnect::<AttachmentRelationship>(*data, old_buffer);
+                }
             }
             wl_surface::Request::SetBufferTransform { transform } => todo!(),
-            wl_surface::Request::SetBufferScale { scale } => todo!(),
+            wl_surface::Request::SetBufferScale { scale } => {
+                state.with_component(resource, |c: &mut WlSurface| {
+                    c.pending.scale = Some(scale);
+                });
+            }
             wl_surface::Request::DamageBuffer {
                 x,
                 y,
@@ -249,7 +288,11 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                     c.pending.damages.push(IRect::new(x, y, width, height));
                 });
             }
-            wl_surface::Request::Offset { x, y } => todo!(),
+            wl_surface::Request::Offset { x, y } => {
+                state.with_component(resource, |c: &mut WlSurface| {
+                    let _ = c.pending.offset.insert(IVec2::new(x, y));
+                });
+            }
             _ => todo!(),
         }
     }
@@ -260,7 +303,7 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data,resource);
+        state.despawn_object(*data, resource);
     }
 }
 impl
@@ -287,8 +330,16 @@ impl
             }
             wl_subsurface::Request::PlaceAbove { sibling } => todo!(),
             wl_subsurface::Request::PlaceBelow { sibling } => todo!(),
-            wl_subsurface::Request::SetSync => todo!(),
-            wl_subsurface::Request::SetDesync => todo!(),
+            wl_subsurface::Request::SetSync => {
+                state.with_component(resource, |c: &mut WlSubsurface| {
+                    c.sync = true;
+                });
+            }
+            wl_subsurface::Request::SetDesync => {
+                state.with_component(resource, |c: &mut WlSubsurface| {
+                    c.sync = false;
+                });
+            }
             _ => todo!(),
         }
     }
@@ -299,7 +350,7 @@ impl
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data,resource);
+        state.despawn_object(*data, resource);
     }
 }
 
@@ -313,7 +364,9 @@ impl wayland_server::Dispatch<wl_callback::WlCallback, ()> for DWay {
         dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
-        todo!()
+        match request {
+            _ => todo!(),
+        }
     }
 }
 
@@ -333,32 +386,48 @@ pub fn cleanup_surface(
             surface.commited.damages.clear();
         }
         if surface.just_commit {
+            if let Some(buffer) = surface
+                .commited
+                .buffer
+                .flatten()
+                .and_then(|e| buffer_query.get(e).ok())
+            {
+                buffer.raw.release();
+            }
             surface.just_commit = false;
         }
     });
 }
 
-pub struct WlSurfacePlugin(pub Arc<DisplayHandle>);
+pub struct WlSurfacePlugin;
 impl Plugin for WlSurfacePlugin {
     fn build(&self, app: &mut App) {
         app.add_system(cleanup_surface.in_base_set(CoreSet::First));
         app.add_system(update_buffer_size.in_set(DWayServerSet::UpdateGeometry));
         app.register_type::<WlSurface>();
+        app.register_type::<Attach>();
+        app.register_type::<AttachedBy>();
+        app.register_type::<InOutput>();
+        app.register_type::<ContainsSurface>();
+        app.register_relation::<ClientHasSurface>();
     }
 }
 pub fn update_buffer_size(
     buffer_query: Query<&WlBuffer, Changed<WlBuffer>>,
-    mut surface_query: Query<&mut WlSurface>,
+    mut surface_query: Query<(&mut WlSurface, Option<&mut Geometry>)>,
     mut assets: ResMut<Assets<Image>>,
 ) {
     for buffer in buffer_query.iter() {
         let size = IVec2::new(buffer.width, buffer.height);
-        if let Some(mut surface) = buffer
+        if let Some((mut surface, mut geometry)) = buffer
             .attach_by
             .and_then(|entity| surface_query.get_mut(entity).ok())
         {
             if surface.size != Some(size) {
                 surface.resize(&mut assets, size);
+            }
+            if let Some(mut geometry) = geometry {
+                geometry.geometry.set_size(size);
             }
         }
     }

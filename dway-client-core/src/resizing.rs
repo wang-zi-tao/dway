@@ -8,8 +8,10 @@ use bevy::{
 };
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
 use dway_server::{
+    events::ResizeWindow,
+    geometry::GlobalGeometry,
     wl::surface::WlSurface,
-    xdg::{toplevel::XdgToplevel, XdgSurface}, events::ResizeWindow,
+    xdg::{toplevel::XdgToplevel, XdgSurface},
 };
 
 use crate::{
@@ -51,7 +53,7 @@ pub fn resize_window(
     focused_window: Res<FocusedWindow>,
     mut cursor_move_events: EventReader<CursorMoved>,
     mut window_query: Query<(&mut Backend, &mut Style)>,
-    mut surface_query: Query<(&mut XdgToplevel, &XdgSurface), With<WlSurface>>,
+    mut surface_query: Query<(&mut XdgToplevel, &GlobalGeometry), With<WlSurface>>,
     physical_windows: NonSend<WinitWindows>,
     resize_method: Res<ResizingMethod>,
     mut output_focus: ResMut<CursorOnOutput>,
@@ -64,13 +66,11 @@ pub fn resize_window(
         error!("window entity {focus_window:?} not found");
         return;
     };
-    let Ok((mut toplevel,surface))=surface_query.get_mut(backend.get())else{
+    let Ok((mut toplevel,geometry))=surface_query.get_mut(backend.get())else{
         error!("window backend entity {focus_window:?} not found");
         return;
     };
-    let Some( mut rect )=surface.geometry else{
-        return;
-    };
+    let mut rect = geometry.geometry;
     for event in cursor_move_events.iter() {
         let Some( window )=physical_windows.get_window(event.window)else{
             error!("failed to get window {:?}",event.window);

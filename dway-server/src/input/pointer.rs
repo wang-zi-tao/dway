@@ -1,19 +1,57 @@
 use std::{sync::Arc, time::SystemTime};
 
-use bevy::input::mouse::MouseButtonInput;
+use bevy::{input::mouse::MouseButtonInput, math::DVec2};
 
-use crate::{prelude::*, util::serial::next_serial, wl::surface::WlSurface};
+use crate::{
+    geometry::{Geometry, GlobalGeometry},
+    prelude::*,
+    util::serial::next_serial,
+    wl::{
+        cursor::{Cursor, PointerHasSurface},
+        surface::WlSurface,
+    },
+};
 
 #[derive(Component)]
 pub struct WlPointer {
     pub raw: wl_pointer::WlPointer,
+    pub focus: Option<wl_surface::WlSurface>,
+}
+#[derive(Bundle)]
+pub struct WlPointerBundle {
+    resource: WlPointer,
+    pos: Geometry,
+    global_pos: GlobalGeometry,
+}
+
+impl WlPointerBundle {
+    pub fn new(resource: WlPointer) -> Self {
+        Self {
+            resource,
+            pos: Default::default(),
+            global_pos: Default::default(),
+        }
+    }
 }
 
 impl WlPointer {
     pub fn new(raw: wl_pointer::WlPointer) -> Self {
-        Self { raw }
+        Self { raw, focus: None }
     }
-    pub fn button(&self, input: MouseButtonInput) {
+    pub fn set_focus(&mut self, surface: &WlSurface, position: DVec2) {
+        if let Some(focus) = &self.focus {
+            if &surface.raw != focus {
+                self.raw.leave(next_serial(), &focus);
+                self.raw
+                    .enter(next_serial(), &surface.raw, position.x, position.y);
+                self.focus = Some(surface.raw.clone());
+            }
+        } else {
+            self.raw
+                .enter(next_serial(), &surface.raw, position.x, position.y);
+        }
+    }
+    pub fn button(&self, input: &MouseButtonInput) {
         self.raw.button(
             next_serial(),
             SystemTime::now().elapsed().unwrap().as_millis() as u32,
@@ -29,7 +67,8 @@ impl WlPointer {
             },
         );
     }
-    pub fn move_cursor(&self, delta: Vec2) {
+    pub fn move_cursor(&mut self, surface: &WlSurface, delta: Vec2) {
+        self.set_focus(surface, delta.as_dvec2());
         self.raw.motion(
             SystemTime::now().elapsed().unwrap().as_millis() as u32,
             delta.x as f64,
@@ -48,20 +87,6 @@ impl WlPointer {
             SystemTime::now().elapsed().unwrap().as_millis() as u32,
             wl_pointer::Axis::HorizontalScroll,
             value,
-        );
-    }
-    pub fn enter(&self, surface: &WlSurface, position: Vec2) {
-        self.raw.enter(
-            next_serial(),
-            &surface.raw,
-            position.x as f64,
-            position.y as f64,
-        );
-    }
-    pub fn leave(&self, surface: &WlSurface) {
-        self.raw.leave(
-            next_serial(),
-            &surface.raw,
         );
     }
 }
@@ -88,6 +113,32 @@ impl
         data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         match request {
+            wl_pointer::Request::SetCursor {
+                serial,
+                surface,
+                hotspot_x,
+                hotspot_y,
+            } => {
+                if let Some(surface) = surface {
+                    debug!("set cursor to {}", surface.id());
+                    let entity = state.insert_child(
+                        *data,
+                        DWay::get_entity(&surface),
+                        (
+                            Geometry::new(crate::util::rect::IRect::new(
+                                -hotspot_x, -hotspot_y, 0, 0,
+                            )),
+                            GlobalGeometry::default(),
+                            Cursor {
+                                serial: Some(serial),
+                            },
+                        ),
+                    );
+                    state.connect::<PointerHasSurface>(*data, entity);
+                } else {
+                    state.disconnect_all::<PointerHasSurface>(*data);
+                }
+            }
             wl_pointer::Request::Release => todo!(),
             _ => todo!(),
         }
@@ -98,6 +149,6 @@ impl
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data,resource);
+        state.despawn_object(*data, resource);
     }
 }

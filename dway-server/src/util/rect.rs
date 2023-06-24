@@ -1,4 +1,7 @@
-use bevy::{prelude::IVec2, reflect::{Reflect, FromReflect}};
+use bevy::{
+    prelude::IVec2,
+    reflect::{FromReflect, Reflect},
+};
 
 #[derive(Default, Debug, Reflect, FromReflect, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct IRect {
@@ -68,6 +71,18 @@ impl IRect {
         let size = self.size();
         size.x * size.y
     }
+    pub fn x(&self)->i32{
+        self.min.x
+    }
+    pub fn y(&self)->i32{
+        self.min.y
+    }
+    pub fn width(&self)->i32{
+        self.max.x-self.min.x
+    }
+    pub fn height(&self)->i32{
+        self.max.y-self.min.y
+    }
     pub fn set_x(&mut self, value: i32) {
         self.min.x = value;
     }
@@ -80,10 +95,10 @@ impl IRect {
     pub fn set_height(&mut self, value: i32) {
         self.max.y = self.min.y + value;
     }
-    pub fn include_point(&self, pos: IVec2) ->bool{
-        self.min.x <= pos.x
-            && self.min.y <= pos.y
-            && pos.x < self.max.x
-            && pos.y < self.max.y
+    pub fn include_point(&self, pos: IVec2) -> bool {
+        self.min.x <= pos.x && self.min.y <= pos.y && pos.x < self.max.x && pos.y < self.max.y
+    }
+    pub fn set_size(&mut self, size: IVec2) {
+        self.max = self.min + size;
     }
 }

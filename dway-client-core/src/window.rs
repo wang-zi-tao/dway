@@ -1,3 +1,9 @@
+use dway_server::{
+    events::Insert,
+    geometry::GlobalGeometry,
+    wl::surface::WlSurface,
+    xdg::{toplevel::XdgToplevel, XdgSurface},
+};
 use dway_util::ecs::QueryResultExt;
 use std::{mem::replace, time::SystemTime};
 
@@ -22,7 +28,7 @@ use uuid::Uuid;
 
 use crate::{
     components::{AttachToOutput, OutputMark},
-    desktop::{CursorOnOutput, FocusedWindow, WindowSet},
+    desktop::{CursorOnOutput, FocusedWindow},
     protocol::{WindowMessageReceiver, WindowMessageSender},
     resizing::ResizingMethod,
     DWayClientSystem,
@@ -36,11 +42,11 @@ impl Plugin for DWayWindowPlugin {
 
         use DWayClientSystem::*;
         app.add_system(focus_on_new_window.in_set(DWayClientSystem::UpdateFocus));
-        // app.add_system(
-        //     create_window_ui
-        //         .run_if(on_event::<CreateWindow>())
-        //         .in_set(Create),
-        // );
+        app.add_system(
+            create_window_ui
+                .run_if(on_event::<Insert<XdgSurface>>())
+                .in_set(Create),
+        );
         // app.add_system(update_window_state.in_set(UpdateState));
         // app.add_system(update_window_geo.in_set(UpdateState));
         // app.add_system(
@@ -105,119 +111,79 @@ pub fn focus_on_new_window(
         focus.0 = Some(new_window);
     }
 }
-
-// #[tracing::instrument(skip_all)]
-// pub fn create_window_ui(
-//     surface_query: Query<
-//         (
-//             Entity,
-//             &GlobalPhysicalRect,
-//             &SurfaceId,
-//             &ImportedSurface,
-//             Option<&WlSurfaceWrapper>,
-//             Option<&WaylandWindow>,
-//             Option<&SurfaceOffset>,
-//             Option<&WindowDecoration>,
-//         ),
-//         With<WindowMark>,
-//     >,
-//     mut events: EventReader<CreateWindow>,
-//     window_index: Res<WindowIndex>,
-//     mut commands: Commands,
-// ) {
-//     for CreateWindow(id) in events.iter() {
-//         if let Some((entity, rect, id, surface, wl_surface, wl_window, offset, decoration)) =
-//             window_index.query(id, &surface_query)
-//         {
-//             let backend = Backend::new(entity);
-//             let offset = offset.cloned().unwrap_or_default().0;
-//             let input_rect_entity = commands
-//                 .spawn((
-//                     ButtonBundle {
-//                         style: Style {
-//                             position: UiRect {
-//                                 left: Val::Px(-offset.loc.x as f32),
-//                                 right: Val::Auto,
-//                                 top: Val::Px(-offset.loc.y as f32),
-//                                 bottom: Val::Auto,
-//                             },
-//                             size: Size::new(
-//                                 Val::Px(rect.0.size.w as f32),
-//                                 Val::Px(rect.0.size.h as f32),
-//                             ),
-//                             ..default()
-//                         },
-//                         focus_policy: FocusPolicy::Pass,
-//                         background_color: BackgroundColor(Color::NONE),
-//                         ..default()
-//                     },
-//                     backend,
-//                     id.clone(),
-//                 ))
-//                 .id();
-//             let bbox_loc = rect.0.loc + offset.loc;
-//             let bbox_size = rect.0.size.to_point() - offset.loc - offset.loc;
-//             let surface_rect_entity = commands
-//                 .spawn((
-//                     ImageBundle {
-//                         style: Style {
-//                             position: UiRect {
-//                                 left: Val::Px(bbox_loc.x as f32),
-//                                 right: Val::Auto,
-//                                 top: Val::Px(bbox_loc.y as f32),
-//                                 bottom: Val::Auto,
-//                             },
-//                             size: Size::new(
-//                                 Val::Px(bbox_size.x as f32),
-//                                 Val::Px(bbox_size.y as f32),
-//                             ),
-//                             ..default()
-//                         },
-//                         focus_policy: FocusPolicy::Pass,
-//                         image: UiImage::new(surface.texture.clone()),
-//                         ..default()
-//                     },
-//                     backend,
-//                     id.clone(),
-//                 ))
-//                 .add_child(input_rect_entity)
-//                 .id();
-//             let ui_entity = commands
-//                 .spawn((
-//                     NodeBundle {
-//                         style: Style {
-//                             position_type: PositionType::Absolute,
-//                             ..default()
-//                         },
-//                         visibility: if wl_surface.is_some() {
-//                             Visibility::Visible
-//                         } else {
-//                             Visibility::Hidden
-//                         },
-//                         focus_policy: FocusPolicy::Pass,
-//                         ..Default::default()
-//                     },
-//                     WindowUiRoot {
-//                         input_rect_entity,
-//                         surface_rect_entity,
-//                     },
-//                     backend,
-//                     id.clone(),
-//                 ))
-//                 .add_child(surface_rect_entity)
-//                 .id();
-//             commands
-//                 .entity(entity)
-//                 .insert(Frontends(SmallVec::from_buf([ui_entity])));
-//             info!(
-//                 surface=?id,
-//                 ?entity,
-//                 texture=?&surface.texture,
-//                 ui=?[ui_entity],
-//                 "create ui for surface");
-//         }
-//     }
-// }
+pub fn create_window_ui(
+    surface_query: Query<(Entity, &WlSurface, &XdgToplevel, &GlobalGeometry)>,
+    mut events: EventReader<Insert<XdgSurface>>,
+    mut commands: Commands,
+) {
+    for Insert { entity: id, .. } in events.iter() {
+        if let Ok((entity, surface, toplevel, geometry)) = surface_query.get(*id) {
+            let backend = Backend::new(entity);
+            let input_rect_entity = commands
+                .spawn((
+                    ButtonBundle {
+                        style: Style { ..default() },
+                        focus_policy: FocusPolicy::Pass,
+                        background_color: BackgroundColor(Color::NONE),
+                        ..default()
+                    },
+                    backend,
+                ))
+                .id();
+            let surface_rect_entity = commands
+                .spawn((
+                    ImageBundle {
+                        style: Style {
+                            position: UiRect {
+                                left: Val::Px(-geometry.x() as f32),
+                                right: Val::Auto,
+                                top: Val::Px(-geometry.y() as f32),
+                                bottom: Val::Auto,
+                            },
+                            size: Size::new(
+                                Val::Px(geometry.width() as f32),
+                                Val::Px(geometry.height() as f32),
+                            ),
+                            ..default()
+                        },
+                        focus_policy: FocusPolicy::Pass,
+                        image: UiImage::new(surface.image.clone()),
+                        ..default()
+                    },
+                    backend,
+                ))
+                .add_child(input_rect_entity)
+                .id();
+            let ui_entity = commands
+                .spawn((
+                    NodeBundle {
+                        style: Style {
+                            position_type: PositionType::Absolute,
+                            ..default()
+                        },
+                        focus_policy: FocusPolicy::Pass,
+                        ..Default::default()
+                    },
+                    WindowUiRoot {
+                        input_rect_entity,
+                        surface_rect_entity,
+                    },
+                    backend,
+                ))
+                .add_child(surface_rect_entity)
+                .id();
+            commands
+                .entity(entity)
+                .insert(Frontends(SmallVec::from_buf([ui_entity])));
+            info!(
+                surface=?id,
+                ?entity,
+                texture=?&surface.image,
+                ui=?[ui_entity],
+                "create ui for surface");
+        }
+    }
+}
 // #[tracing::instrument(skip_all)]
 // pub fn destroy_window_ui(
 //     mut events: EventReader<DestroyWlSurface>,

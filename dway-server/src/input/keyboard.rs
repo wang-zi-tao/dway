@@ -2,18 +2,34 @@ use std::{sync::Arc, time::SystemTime};
 
 use bevy::input::keyboard::KeyboardInput;
 
-use crate::{prelude::*, util::serial::next_serial};
+use crate::{prelude::*, util::serial::next_serial, wl::surface::WlSurface};
 
 #[derive(Component)]
 pub struct WlKeyboard {
     pub raw: wl_keyboard::WlKeyboard,
+    pub focus: Option<wl_surface::WlSurface>,
 }
 
 impl WlKeyboard {
-    pub fn new(raw: wl_keyboard::WlKeyboard) -> Self {
-        Self { raw }
+    pub fn new(kbd: wl_keyboard::WlKeyboard) -> Self {
+        Self {
+            raw: kbd,
+            focus: None,
+        }
     }
-    pub fn key(&self, input: KeyboardInput) {
+    pub fn set_focus(&mut self, surface: &WlSurface) {
+        if let Some(focus) = &self.focus {
+            if &surface.raw != focus {
+                self.raw.leave(next_serial(), &focus);
+                self.raw.enter(next_serial(), &surface.raw, Vec::new());
+                self.focus = Some(surface.raw.clone());
+            }
+        } else {
+            self.raw.enter(next_serial(), &surface.raw, Vec::new());
+        }
+    }
+    pub fn key(&self, surface: &WlSurface, input: &KeyboardInput) {
+        trace!(surface=?surface.raw.id(),"key evnet : {input:?}");
         self.raw.key(
             next_serial(),
             SystemTime::now().elapsed().unwrap().as_millis() as u32,

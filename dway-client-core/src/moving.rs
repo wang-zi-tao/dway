@@ -10,7 +10,7 @@ use bevy::{
     winit::WinitWindows,
 };
 use dway_protocol::window::{WindowMessage, WindowMessageKind};
-use dway_server::{geometry::GlobalGeometry, events::MoveRequest, };
+use dway_server::{events::MoveRequest, geometry::GlobalGeometry};
 
 use crate::{
     desktop::{CursorOnOutput, FocusedWindow},
@@ -56,10 +56,9 @@ pub fn start_moving(
         return;
     };
     for MoveRequest(entity) in &mut events {
-        if let Ok(geo) = surface_query.get(*entity)
-        {
+        if let Ok(geo) = surface_query.get(*entity) {
             commands.insert_resource(MovingState {
-                relatice: *pos - geo.position,
+                relatice: *pos - geo.geometry.pos(),
                 backend: *entity,
             });
             commands.insert_resource(NextState(Some(DWayClientState::Moving)));

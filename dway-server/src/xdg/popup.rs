@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{prelude::*, resource::ResourceWrapper};
+use crate::{prelude::*, resource::ResourceWrapper, state::create_global_system_config};
 
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
@@ -46,29 +46,14 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data,resource);
+        state.despawn_object(*data, resource);
     }
 }
 
-impl wayland_server::GlobalDispatch<xdg_popup::XdgPopup, ()> for DWay {
-    fn bind(
-        state: &mut Self,
-        handle: &DisplayHandle,
-        client: &wayland_server::Client,
-        resource: wayland_server::New<xdg_popup::XdgPopup>,
-        global_data: &(),
-        data_init: &mut wayland_server::DataInit<'_, Self>,
-    ) {
-        todo!()
-    }
-}
 
-pub struct XdgPopupPlugin(pub Arc<DisplayHandle>);
+pub struct XdgPopupPlugin;
 impl Plugin for XdgPopupPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(PopupDelegate(
-            self.0.create_global::<DWay, xdg_popup::XdgPopup, ()>(1, ()),
-        ));
         app.add_event::<Insert<XdgPopup>>();
         app.register_type::<XdgPopup>();
     }

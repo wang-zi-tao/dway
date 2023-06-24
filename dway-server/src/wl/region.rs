@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
-use crate::{prelude::*, util::rect::IRect};
+use bevy::math::Vec2Swizzles;
+use rstar::{PointDistance, RTree, RTreeObject, SelectionFunction, AABB};
+
+use crate::{prelude::*, state::create_global_system_config, util::rect::IRect};
 
 #[derive(Resource)]
 struct RegionDelegate(pub GlobalId);
 
-#[derive(Debug,Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect,FromReflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect, FromReflect)]
 pub enum RegionOperator {
     Add,
     Sub,
@@ -17,6 +20,84 @@ pub struct WlRegion {
     pub raw: wl_region::WlRegion,
     pub rects: Vec<(RegionOperator, IRect)>,
     pub union: IRect,
+}
+
+#[derive(Bundle)]
+pub struct WlRegionBundle {
+    pub wl_region: WlRegion,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct RectRTreeObject {
+    pub rect: IRect,
+    pub operator: RegionOperator,
+    pub index: usize,
+    pub entity: Entity,
+}
+impl RTreeObject for RectRTreeObject {
+    type Envelope = AABB<[i32; 2]>;
+
+    fn envelope(&self) -> Self::Envelope {
+        AABB::from_corners(
+            [self.rect.min.x, self.rect.min.y],
+            [self.rect.max.x, self.rect.max.y],
+        )
+    }
+}
+impl PointDistance for RectRTreeObject {
+    fn distance_2(
+        &self,
+        point: &<Self::Envelope as rstar::Envelope>::Point,
+    ) -> <<Self::Envelope as rstar::Envelope>::Point as rstar::Point>::Scalar {
+        self.envelope().distance_2(point)
+    }
+}
+
+pub struct RectAddEvent(pub RectRTreeObject);
+pub struct RectRemoveEvent(pub RectRTreeObject);
+pub struct RectRemoveAllEvent(pub Entity);
+
+#[derive(Resource, Component)]
+pub struct RTreeIndex {
+    pub rtree: RTree<RectRTreeObject>,
+}
+impl RTreeIndex {
+    pub fn find_all(&self, position: IVec2) {
+        self.rtree.locate_all_at_point(&[position.x, position.y]);
+    
+    }
+}
+
+pub fn update_region_index(
+    mut index: ResMut<RTreeIndex>,
+    mut add_event: EventReader<RectAddEvent>,
+    mut remove_event: EventReader<RectRemoveEvent>,
+    mut remove_entity_event: EventReader<RectRemoveAllEvent>,
+) {
+    for RectAddEvent(rect) in add_event.iter() {
+        index.rtree.insert(rect.clone());
+    }
+    for RectRemoveEvent(rect) in remove_event.iter() {
+        index.rtree.remove(rect);
+    }
+    struct Selection(pub Entity);
+    impl SelectionFunction<RectRTreeObject> for Selection {
+        fn should_unpack_parent(
+            &self,
+            envelope: &<RectRTreeObject as RTreeObject>::Envelope,
+        ) -> bool {
+            true
+        }
+
+        fn should_unpack_leaf(&self, leaf: &RectRTreeObject) -> bool {
+            leaf.entity == self.0
+        }
+    }
+    for RectRemoveAllEvent(entity) in remove_entity_event.iter() {
+        index
+            .rtree
+            .remove_with_selection_function(Selection(*entity));
+    }
 }
 
 impl WlRegion {
@@ -94,28 +175,28 @@ impl wayland_server::Dispatch<wl_region::WlRegion, bevy::prelude::Entity, DWay> 
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data,resource);
+        state.despawn_object(*data, resource);
     }
 }
-impl wayland_server::GlobalDispatch<wayland_server::protocol::wl_region::WlRegion, ()> for DWay {
+impl wayland_server::GlobalDispatch<wayland_server::protocol::wl_region::WlRegion, Entity>
+    for DWay
+{
     fn bind(
         state: &mut Self,
         handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<wayland_server::protocol::wl_region::WlRegion>,
-        global_data: &(),
+        global_data: &Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         todo!()
     }
 }
 
-pub struct WlRegionPlugin(pub Arc<DisplayHandle>);
+pub struct WlRegionPlugin;
 impl Plugin for WlRegionPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(RegionDelegate(
-            self.0.create_global::<DWay, wl_region::WlRegion, ()>(1, ()),
-        ));
+        app.add_system(create_global_system_config::<wl_region::WlRegion, 1>());
         app.register_type::<WlRegion>();
     }
 }

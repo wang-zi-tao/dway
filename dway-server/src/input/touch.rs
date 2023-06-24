@@ -3,12 +3,14 @@ use std::sync::Arc;
 use crate::prelude::*;
 
 #[derive(Component)]
-pub struct WlTouch{
-    raw:wl_touch::WlTouch,
+pub struct WlTouch {
+    raw: wl_touch::WlTouch,
 }
 
 impl WlTouch {
-    pub fn new(raw: wl_touch::WlTouch) -> Self { Self { raw } }
+    pub fn new(raw: wl_touch::WlTouch) -> Self {
+        Self { raw }
+    }
 }
 
 #[derive(Resource)]
@@ -16,7 +18,13 @@ pub struct SeatDelegate(pub GlobalId);
 
 delegate_dispatch!(DWay: [wl_touch::WlTouch: Entity] => SeatDelegate);
 
-impl wayland_server::Dispatch<wayland_server::protocol::wl_touch::WlTouch, bevy::prelude::Entity, DWay> for SeatDelegate{
+impl
+    wayland_server::Dispatch<
+        wayland_server::protocol::wl_touch::WlTouch,
+        bevy::prelude::Entity,
+        DWay,
+    > for SeatDelegate
+{
     fn request(
         state: &mut DWay,
         client: &wayland_server::Client,
@@ -26,7 +34,7 @@ impl wayland_server::Dispatch<wayland_server::protocol::wl_touch::WlTouch, bevy:
         dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
-        match request{
+        match request {
             wl_touch::Request::Release => todo!(),
             _ => todo!(),
         }
@@ -37,6 +45,6 @@ impl wayland_server::Dispatch<wayland_server::protocol::wl_touch::WlTouch, bevy:
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data,resource);
+        state.despawn_object(*data, resource);
     }
 }

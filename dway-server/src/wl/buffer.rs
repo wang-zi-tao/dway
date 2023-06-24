@@ -10,7 +10,12 @@ use khronos_egl::EGLDisplay;
 use nix::sys::mman;
 use wayland_server::{Resource, WEnum};
 
-use crate::prelude::*;
+use crate::{
+    prelude::*,
+    state::{create_global, create_global_system_config, DisplayCreated},
+};
+
+use super::surface::AttachedBy;
 
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
@@ -24,6 +29,20 @@ pub struct WlBuffer {
     #[reflect(ignore)]
     pub format: wl_shm::Format,
     pub attach_by: Option<Entity>,
+}
+#[derive(Bundle)]
+pub struct WlBufferBundle {
+    resource: WlBuffer,
+    attach_by: AttachedBy,
+}
+
+impl WlBufferBundle {
+    pub fn new(resource: WlBuffer) -> Self {
+        Self {
+            resource,
+            attach_by: Default::default(),
+        }
+    }
 }
 #[derive(Component, Clone)]
 pub struct DmaBuffer {
@@ -63,7 +82,22 @@ pub struct EGLBuffer {
     pub display: Option<Entity>,
     pub inner: Arc<EGLBufferInner>,
 }
-const FORMATS: [wl_shm::Format; 2] = [wl_shm::Format::Argb8888, wl_shm::Format::Xrgb8888];
+const FORMATS: [wl_shm::Format; 14] = [
+    wl_shm::Format::Argb8888,
+    wl_shm::Format::Xrgb8888,
+    wl_shm::Format::Rgb565,
+    wl_shm::Format::Yuv420,
+    wl_shm::Format::Yuv444,
+    wl_shm::Format::Nv12,
+    wl_shm::Format::Yuyv,
+    wl_shm::Format::Xyuv8888,
+    wl_shm::Format::Abgr2101010,
+    wl_shm::Format::Xbgr2101010,
+    wl_shm::Format::Abgr16161616f,
+    wl_shm::Format::Xbgr16161616f,
+    wl_shm::Format::Abgr16161616,
+    wl_shm::Format::Xbgr16161616,
+];
 
 #[derive(Debug)]
 pub struct WlShmPoolInner {
@@ -90,11 +124,7 @@ pub struct WlShmPool {
     pub inner: Arc<RwLock<WlShmPoolInner>>,
 }
 
-#[derive(Resource)]
-pub struct BufferDelegate {
-    // pub buffer: GlobalId,
-    pub shm: GlobalId,
-}
+pub struct BufferDelegate;
 delegate_dispatch!(DWay: [wl_buffer::WlBuffer: Entity] => BufferDelegate);
 impl wayland_server::Dispatch<wl_buffer::WlBuffer, bevy::prelude::Entity, DWay> for BufferDelegate {
     fn request(
@@ -109,7 +139,7 @@ impl wayland_server::Dispatch<wl_buffer::WlBuffer, bevy::prelude::Entity, DWay> 
         match request {
             wl_buffer::Request::Destroy => {
                 trace!(entity=?data,resource=%WlResource::id(resource),"destroy buffer");
-                state.despawn_tree(*data);
+                state.despawn(*data);
             }
             _ => todo!(),
         }
@@ -172,7 +202,7 @@ impl wayland_server::Dispatch<wl_shm::WlShm, Entity, DWay> for BufferDelegate {
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data,resource);
+        state.despawn_object(*data, resource);
     }
 }
 delegate_dispatch!(DWay: [wl_shm_pool::WlShmPool: Entity] => BufferDelegate);
@@ -227,8 +257,6 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                     return;
                 }
                 match format {
-                    WEnum::Value(wl_shm::Format::Argb8888) => {}
-                    WEnum::Value(wl_shm::Format::Xrgb8888) => {}
                     WEnum::Unknown(unknown) => {
                         resource.post_error(
                             wl_shm::Error::InvalidFormat,
@@ -237,10 +265,12 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                         return;
                     }
                     WEnum::Value(format) => {
-                        resource.post_error(
-                            wl_shm::Error::InvalidFormat,
-                            format!("format {:?} not supported", format),
-                        );
+                        if !FORMATS.contains(&format) {
+                            resource.post_error(
+                                wl_shm::Error::InvalidFormat,
+                                format!("format {:?} not supported", format),
+                            );
+                        }
                     }
                 }
                 let format = match format {
@@ -250,14 +280,16 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                         return;
                     }
                 };
-                state.spawn_child_object(*data, id, data_init, |o| WlBuffer {
-                    raw: o,
-                    offset,
-                    width,
-                    height,
-                    stride,
-                    format,
-                    attach_by: None,
+                state.spawn_child_object_bundle(*data, id, data_init, |o| {
+                    WlBufferBundle::new(WlBuffer {
+                        raw: o,
+                        offset,
+                        width,
+                        height,
+                        stride,
+                        format,
+                        attach_by: None,
+                    })
                 });
             }
             wl_shm_pool::Request::Destroy => {
@@ -307,19 +339,19 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data,resource);
+        state.despawn_object(*data, resource);
     }
 }
-impl wayland_server::GlobalDispatch<wl_shm::WlShm, ()> for DWay {
+impl wayland_server::GlobalDispatch<wl_shm::WlShm, Entity> for DWay {
     fn bind(
         state: &mut Self,
         handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<wl_shm::WlShm>,
-        global_data: &(),
+        global_data: &Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
-        state.init_object(resource, data_init, |o| {
+        state.bind(client, resource, data_init, |o| {
             for format in FORMATS {
                 o.format(format);
             }
@@ -328,13 +360,10 @@ impl wayland_server::GlobalDispatch<wl_shm::WlShm, ()> for DWay {
     }
 }
 
-pub struct WlBufferPlugin(pub Arc<DisplayHandle>);
+pub struct WlBufferPlugin;
 impl Plugin for WlBufferPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(BufferDelegate {
-            // buffer: self.0.create_global::<DWay, wl_buffer::WlBuffer, ()>(1, ()),
-            shm: self.0.create_global::<DWay, wl_shm::WlShm, ()>(1, ()),
-        });
+        app.add_system(create_global_system_config::<wl_shm::WlShm, 1>());
         app.register_type::<WlBuffer>();
     }
 }

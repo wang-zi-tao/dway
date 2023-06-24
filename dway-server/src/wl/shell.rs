@@ -26,6 +26,6 @@ impl wayland_server::Dispatch<wl_shell::WlShell, bevy::prelude::Entity, DWay> fo
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data,resource);
+        state.despawn_object(*data, resource);
     }
 }

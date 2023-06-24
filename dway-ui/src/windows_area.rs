@@ -1,7 +1,7 @@
 use crate::create_widget;
 use crate::widgets::window::{Window, WindowBundle};
 use bevy::prelude::*;
-use dway_server::events::{Insert, Destroy};
+use dway_server::events::{Destroy, Insert};
 use dway_server::wl::surface::WlSurface;
 use dway_server::xdg::XdgSurface;
 use kayak_ui::widgets::{BackgroundBundle, TextProps, TextWidgetBundle};
@@ -23,7 +23,7 @@ pub fn render(
     In(entity): In<Entity>,
     widget_context: Res<KayakWidgetContext>,
     mut commands: Commands,
-    windows_query: Query<Entity, ( With<WlSurface>,With<XdgSurface> )>,
+    windows_query: Query<Entity, (With<WlSurface>, With<XdgSurface>)>,
 ) -> bool {
     let parent_id = Some(entity);
     let background_style = KStyle {
@@ -32,7 +32,7 @@ pub fn render(
         top: StyleProp::Inherit,
         bottom: StyleProp::Inherit,
         position_type: KPositionType::SelfDirected.into(),
-        background_color:Color::rgba_u8(0, 0, 0, 0).into(),
+        background_color: Color::rgba_u8(0, 0, 0, 0).into(),
         ..Default::default()
     };
     rsx! {

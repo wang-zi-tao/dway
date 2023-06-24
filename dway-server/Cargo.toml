@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 dway-util = {path="../dway-util/"}
 dway-protocol = {path="../dway-protocol/"}
+bevy-relationship = {path="../bevy-relationship/"}
 
 failure = "0.1.8"
 lazy_static = "1.4.0"
@@ -24,12 +25,12 @@ slog-term = "2.8"
 thiserror = "1"
 xcursor = {version = "0.3.3"}
 xkbcommon = "0.5.0"
-renderdoc = {version = "0.10.1", optional = true}
+renderdoc = {version = "0.11.0", optional = true}
 bevy={}
-wgpu={}
-wgpu-hal={}
+wgpu={version="0.15.1",features=["angle"]}
+wgpu-hal={version="0.15.1",features=["gles"]}
 glow = {version="0.12.1"}
-khronos-egl = {}
+khronos-egl = { version="4.1",features= ["dynamic","static"] }
 tracing-subscriber = "0.3.16"
 send_wrapper = "0.6.0"
 serde={}
@@ -42,17 +43,18 @@ nix = "0.26.2"
 phf = { version = "0.11", features = ["macros"] }
 bitflags = "2.3.1"
 drm-fourcc = "^2.2.0"
+rstar = "0.11.0"
 
 [dependencies.kayak_ui]
-# version = "0.4.0"
-path="../../../../Code/bevy-kayak/"
+version = "0.4.1"
+# path="../../../../Code/bevy-kayak/"
 
 
 [dependencies.x11rb]
 default-features = false
 features = ["composite"]
 optional = true
-version = "0.10.0"
+version = "0.12.0"
 
 [profile.dev]
 opt-level = 1

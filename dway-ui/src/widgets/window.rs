@@ -101,13 +101,13 @@ pub fn render(
         return true;
     };
     let state_entity = widget_context.use_state(&mut commands, entity, WindowState::default());
-    let Ok((xdg_surface,rect,surface))=window_query.get(props.entity)else{
+    let Ok((geometry,rect,surface))=window_query.get(props.entity)else{
         error!("surface error component {:?}",props.entity);
         return true;
     };
     // let bbox_loc = rect.0.loc + offset.0.loc;
-    let bbox_loc = xdg_surface.geometry.unwrap_or_default().pos();
-    let bbox_size = xdg_surface.geometry.unwrap_or_default().size();
+    let bbox_loc = rect.geometry.pos();
+    let bbox_size = rect.geometry.size();
     let root_style = KStyle {
         left: StyleProp::Inherit,
         right: StyleProp::Inherit,
