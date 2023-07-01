@@ -1,25 +1,34 @@
 use std::{
     any::type_name,
     borrow::Cow,
+    io::BufRead,
     os::{fd::AsRawFd, unix::net::UnixStream},
-    process,
+    path::Path,
+    process::{self, Stdio},
     ptr::null_mut,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
-use bevy::ecs::{
-    query::WorldQuery,
-    system::{Command, LogComponents, Spawn},
-    world::EntityMut,
+use bevy::{
+    ecs::{
+        query::WorldQuery,
+        system::{Command, LogComponents, Spawn},
+        world::EntityMut,
+    },
+    tasks::AsyncComputeTaskPool,
+    utils::tracing,
 };
 use bevy_relationship::{
     ConnectCommand, ConnectableMut, DisconnectAllCommand, DisconnectCommand, Relationship,
     ReverseRelationship,
 };
+use bevy_tokio_tasks::TokioTasksRuntime;
+use bytes::BytesMut;
 use calloop::{generic::Generic, EventLoop, Interest, Mode, PostAction};
 use inlinable_string::InlinableString;
 use send_wrapper::SendWrapper;
+use tokio::io::AsyncReadExt;
 use wayland_backend::server::ClientId;
 use wayland_server::{DataInit, New};
 
@@ -77,16 +86,103 @@ impl DWay {
         info!(?entity, "create global: {}", type_name::<T>());
         self.globals.push(global_id);
     }
-    pub fn spawn(&self, mut command: process::Command) {
+    pub fn set_enum<T, R>(e: WEnum<T>, mut f: impl FnMut(T) -> R) -> Option<R> {
+        match e.into_result() {
+            Ok(e) => Some(f(e)),
+            Err(error) => {
+                error!(?error, "wrone enum");
+                None
+            }
+        }
+    }
+    pub fn spawn_process(&self, mut command: process::Command, tokio: &TokioTasksRuntime) {
         if let Some(display_number) = self.display_number {
             command.env("DISPLAY", ":".to_string() + &display_number.to_string());
         } else {
             command.env_remove("DISPLAY");
         }
+        command.env("WAYLAND_DISPLAY", &*self.socket_name);
+        self.do_spawn_process(command, tokio);
+    }
+    pub fn spawn_process_wayland(&self, mut command: process::Command, tokio: &TokioTasksRuntime) {
         command
             .env("WAYLAND_DISPLAY", &*self.socket_name)
-            .spawn()
-            .unwrap();
+            .env_remove("DISPLAY");
+        self.do_spawn_process(command, tokio);
+    }
+    fn do_spawn_process(&self, command: process::Command, tokio: &TokioTasksRuntime) {
+        tokio.spawn_background_task(|_ctx| async move {
+            let program = command.get_program().to_string_lossy();
+            let program = String::from(
+                Path::new(&*program)
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy(),
+            );
+            let mut command: tokio::process::Command = command.into();
+            command.stdout(Stdio::piped());
+            command.stderr(Stdio::piped());
+
+            let mut subprocess = match command.spawn() {
+                Ok(subprocess) => subprocess,
+                Err(error) => {
+                    error!(%error,?command,"failed to spawn process");
+                    return;
+                }
+            };
+            let mut stdout = subprocess.stdout.take().unwrap();
+            let mut stderr = subprocess.stderr.take().unwrap();
+
+            let id = subprocess.id().unwrap_or_default();
+            info!("process ({program}) [{id:?}] spawn");
+            let mut stdout_buffer = [0; 256];
+            let mut stderr_buffer = [0; 256];
+            let print_output = |buffer: &[u8; 256], result| {
+                let size = match result {
+                    Ok(size) => size,
+                    Err(e) => {
+                        error!("process ({program}) [{id:?}] io error: {e}");
+                        return;
+                    }
+                };
+                if size == 0 {
+                    return;
+                }
+                let buffer = &buffer[..size];
+                for line in buffer.lines() {
+                    if let Ok(line) = line {
+                        tracing::event!(
+                            target:"subprocess",
+                            tracing::Level::INFO,
+                            {},
+                            "({program}) [{id:?}] | {}",
+                            line
+                        );
+                    }
+                }
+            };
+            loop {
+                tokio::select! {
+                    o=subprocess.wait()=>{
+                        match o{
+                            Ok(o) => {
+                                info!("process ({program}) [{id:?}] exited with status: {o}");
+                            },
+                            Err(error) => {
+                                error!(%error);
+                            },
+                        }
+                        return;
+                    }
+                    size=stdout.read(&mut stdout_buffer)=>{
+                        print_output(&stdout_buffer,size);
+                    }
+                    size=stderr.read(&mut stderr_buffer)=>{
+                        print_output(&stdout_buffer,size);
+                    }
+                };
+            }
+        });
     }
     pub fn add_child(&mut self, parent: Entity, child: Entity) {
         let world = self.world_mut();
@@ -149,13 +245,6 @@ impl DWay {
         );
         command.write(world);
     }
-    pub fn spawn_wayland(&self, mut command: process::Command) {
-        command
-            .env("WAYLAND_DISPLAY", &*self.socket_name)
-            .env_remove("DISPLAY")
-            .spawn()
-            .unwrap();
-    }
     pub fn destroy_object<C>(&mut self, object: &impl wayland_server::Resource) {
         let entity = DWay::get_entity(object);
         let world = self.world_mut();
@@ -202,7 +291,7 @@ impl DWay {
         let mut entity_command = world.entity_mut(client_data.entity);
         let entity = entity_command.id();
         let object = data_init.init(resource, entity);
-        trace!(?entity,client=?client_name(&client.id()),object=%wayland_server::Resource::id(&object),"bind global object");
+        trace!(?entity,client=%client_name(&client.id()),object=%wayland_server::Resource::id(&object),"bind global object");
         entity_command.insert(f(object));
         entity
     }
@@ -405,6 +494,19 @@ where {
         let mut query = world.query::<B>();
         f(query.get_mut(world, entity).unwrap())
     }
+    pub fn query_object_component<C, F, R>(
+        &mut self,
+        object: &impl wayland_server::Resource,
+        f: F,
+    ) -> R
+    where
+        C: Component,
+        F: FnOnce(&mut C) -> R,
+    {
+        let world = self.world_mut();
+        let entity = Self::get_entity(object);
+        f(&mut world.get_mut(entity).unwrap())
+    }
     pub fn query_object<B, F, R>(&mut self, object: &impl wayland_server::Resource, f: F) -> R
     where
         B: WorldQuery,
@@ -438,6 +540,7 @@ impl Plugin for DWayStatePlugin {
                 .in_set(DWayServerSet::Create),
         );
         app.add_system(dispatch_events.in_set(DWayServerSet::Dispatch));
+        set_signal_handler();
     }
 }
 pub fn on_create_display_event(
@@ -565,4 +668,36 @@ where
 pub fn client_name(id: &ClientId) -> String {
     let name = format!("{:?}", id)[21..35].to_string();
     format!("client@{}", name)
+}
+
+pub fn set_signal_handler() {
+    use nix::sys::signal;
+    extern "C" fn handle_sigsegv(_: i32) {
+        std::env::set_var("RUST_BACKTRACE", "1");
+        panic!("signal::SIGSEGV {}", failure::Backtrace::new());
+    }
+    extern "C" fn handle_sig(s: i32) {
+        std::env::set_var("RUST_BACKTRACE", "1");
+        panic!("signal {} {}", s, failure::Backtrace::new());
+    }
+    unsafe {
+        signal::sigaction(
+            signal::SIGILL,
+            &signal::SigAction::new(
+                signal::SigHandler::Handler(handle_sig),
+                signal::SaFlags::SA_NODEFER,
+                signal::SigSet::all(),
+            ),
+        )
+        .unwrap();
+        signal::sigaction(
+            signal::SIGSEGV,
+            &signal::SigAction::new(
+                signal::SigHandler::Handler(handle_sigsegv),
+                signal::SaFlags::SA_NODEFER,
+                signal::SigSet::empty(),
+            ),
+        )
+        .unwrap();
+    }
 }

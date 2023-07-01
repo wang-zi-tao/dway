@@ -198,15 +198,15 @@ pub unsafe fn import_memory(
     let pixelsize = 4i32;
     let shm_inner = shm.inner.read().unwrap();
     let ptr = std::ptr::from_raw_parts::<[u8]>(
-        shm_inner
-            .ptr
-            .as_ptr()
-            .offset(4 * buffer.offset as isize)
-            .cast(),
+        shm_inner.ptr.as_ptr().offset(buffer.offset as isize).cast(),
         (width * height * 4) as usize,
     )
     .as_ref()
     .unwrap();
+    assert!(
+        (buffer.offset + (buffer.stride * height) - buffer.stride + width * pixelsize) as usize
+            <= shm_inner.size
+    );
     gl.bind_texture(dest.1, Some(dest.0));
     gl.tex_parameter_i32(
         glow::TEXTURE_2D,
@@ -246,7 +246,6 @@ pub unsafe fn import_memory(
     if surface.commited.damages.len() == 0 {
         gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, 0);
         gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);
-        trace!("import buffer {:?}", IRect::new(0, 0, width, height));
         gl.tex_sub_image_2d(
             glow::TEXTURE_2D,
             0,
@@ -262,9 +261,8 @@ pub unsafe fn import_memory(
         gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);
     } else {
         for region in surface.commited.damages.iter() {
-            gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, region.pos().x);
-            gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, region.pos().y);
-            trace!("import buffer {:?}", IRect::new(0, 0, width, height));
+            gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, region.pos().x.max(0));
+            gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, region.pos().y.max(0));
             gl.tex_sub_image_2d(
                 glow::TEXTURE_2D,
                 0,

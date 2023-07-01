@@ -3,9 +3,9 @@ use crate::{
     prelude::*,
     xdg::xdg_toplevel::XdgToplevel,
 };
-use std::sync::Arc;
+use std::{process::id, sync::Arc};
 
-use super::{XdgDelegate, XdgSurface, XdgSurfaceBundle};
+use super::{positioner::{XdgPositioner, XdgPositionerBundle}, XdgDelegate, XdgSurface, XdgSurfaceBundle};
 
 #[derive(Component)]
 pub struct XdgWmBase {
@@ -31,7 +31,11 @@ impl wayland_server::Dispatch<xdg_wm_base::XdgWmBase, bevy::prelude::Entity, DWa
     ) {
         match request {
             xdg_wm_base::Request::Destroy => todo!(),
-            xdg_wm_base::Request::CreatePositioner { id } => todo!(),
+            xdg_wm_base::Request::CreatePositioner { id } => {
+                state.spawn_child_object_bundle(*data, id, data_init, |o| {
+                    XdgPositionerBundle::new(XdgPositioner::new(o))
+                });
+            }
             xdg_wm_base::Request::GetXdgSurface { id, surface } => {
                 let entity = surface.data::<Entity>().unwrap();
                 state.insert_object_bundle::<XdgSurface, _, _, _>(*entity, id, data_init, |o| {

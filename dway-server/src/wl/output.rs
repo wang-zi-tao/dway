@@ -1,5 +1,7 @@
 use bevy::utils::HashSet;
-use bevy_relationship::{ConnectCommand, Connectable, DisconnectCommand};
+use bevy_relationship::{
+    graph_query, relationship, AppExt, ConnectCommand, Connectable, DisconnectCommand,
+};
 use wayland_server::protocol::wl_output::Mode;
 
 use crate::{
@@ -12,29 +14,27 @@ use crate::{
 };
 use std::sync::Arc;
 
-use super::surface::{ContainsSurface, InOutput, InOutputRelationship, WlSurface};
+use super::surface::{ClientHasSurface, WlSurface};
 
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct WlOutput {
     #[reflect(ignore)]
     pub raw: wl_output::WlOutput,
-    pub rect: IRect,
 }
 
 impl WlOutput {
     pub fn new(raw: wl_output::WlOutput) -> Self {
-        Self {
-            raw,
-            rect: IRect::new(0, 0, 1920, 1080),
-        }
+        Self { raw }
     }
 }
 
 #[derive(Bundle)]
 pub struct WlOutputBundle {
     resource: WlOutput,
-    surfaces: ContainsSurface,
+    surfaces: SurfaceList,
+    pub geo: Geometry,
+    pub global: GlobalGeometry,
 }
 
 impl WlOutputBundle {
@@ -42,9 +42,14 @@ impl WlOutputBundle {
         Self {
             resource,
             surfaces: Default::default(),
+            geo: Geometry::new(IRect::new(0, 0, 1920, 1080)),
+            global: Default::default(),
         }
     }
 }
+
+relationship!(ClientHasOutput=>EnteredOutputList-<ClientRef);
+relationship!(SurfaceInOutput => OutputList>-<SurfaceList);
 
 #[derive(Resource)]
 pub struct OutputDelegate(pub GlobalId);
@@ -115,52 +120,52 @@ impl Plugin for WlOutputPlugin {
         app.add_system(surface_enter_output.in_set(DWayServerSet::UpdateJoin));
         app.register_type::<HashSet<Entity>>();
         app.register_type::<WlOutput>();
+        app.register_relation::<ClientHasOutput>();
+        app.register_relation::<SurfaceInOutput>();
     }
 }
 
-pub fn surface_enter_output(
-    mut surfaces_query: Query<(Entity, &WlSurface, &Geometry, &GlobalGeometry, &InOutput)>,
-    mut output_query: Query<(Entity, &WlOutput, &ContainsSurface)>,
-    mut commands: Commands,
-) {
-    for (output_entity, output, contains_surfaces) in output_query.iter_mut() {
-        let old_surface_set: HashSet<Entity> = contains_surfaces.iter().collect();
-        let mut new_surface_set = HashSet::new();
-        let output_rect = output.rect;
-        for (entity, surface, geometry, global_geometry, in_output) in surfaces_query.iter() {
-            let Some( size )=surface.size else{
-                continue
-            };
-            let rect = geometry.geometry;
-            if output_rect.intersection(rect).area() > 0 {
-                new_surface_set.insert(entity);
+graph_query!(SurfaceToOutput=>[
+    surface=(Entity, &'static WlSurface, &'static GlobalGeometry, Option<&'static EnteredOutputList>),
+    client=Entity,
+    output=(Entity, &'static WlOutput, &'static GlobalGeometry),
+]=>{
+    new_connection=surface<-[ClientHasSurface]-client-[ClientHasOutput]->output,
+    old_connection=surface-[SurfaceInOutput]->output,
+});
+
+pub fn surface_enter_output(mut graph: SurfaceToOutput, mut commands: Commands) {
+    graph.for_each_new_connection(
+        |(surface_entity, surface, surface_rect, output_list),
+         _,
+         (output_entity, output, output_rect)| {
+            if output_rect.intersection(surface_rect.geometry).area() > 0
+                && !output_list
+                    .map(|o| o.contains(*output_entity))
+                    .unwrap_or_default()
+            {
+                surface.raw.enter(&output.raw);
+                commands.add(ConnectCommand::<SurfaceInOutput>::new(
+                    *surface_entity,
+                    *output_entity,
+                ));
             }
-        }
-        for entity in &new_surface_set {
-            if !old_surface_set.contains(&entity) {
-                if let Ok((entity, mut surface, xdg_surface, global_geometry, in_output)) =
-                    surfaces_query.get_mut(*entity)
-                {
-                    surface.raw.leave(&output.raw);
-                    commands.add(DisconnectCommand::<InOutputRelationship>::new(
-                        output_entity,
-                        entity,
-                    ));
-                }
+        },
+    );
+    graph.for_each_old_connection(
+        |(surface_entity, surface, surface_rect, output_list),
+         (output_entity, output, output_rect)| {
+            if output_rect.intersection(surface_rect.geometry).area() <= 0
+                && !output_list
+                    .map(|o| o.contains(*output_entity))
+                    .unwrap_or_default()
+            {
+                surface.raw.leave(&output.raw);
+                commands.add(DisconnectCommand::<SurfaceInOutput>::new(
+                    *surface_entity,
+                    *output_entity,
+                ));
             }
-        }
-        for entity in contains_surfaces.iter() {
-            if !new_surface_set.contains(&entity) {
-                if let Ok((entity, mut surface, xdg_surface, global_geometry, in_output)) =
-                    surfaces_query.get_mut(entity)
-                {
-                    surface.raw.enter(&output.raw);
-                    commands.add(ConnectCommand::<InOutputRelationship>::new(
-                        output_entity,
-                        entity,
-                    ));
-                }
-            }
-        }
-    }
+        },
+    );
 }

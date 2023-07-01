@@ -1,5 +1,6 @@
 pub mod activation_token;
 pub mod popup;
+pub mod positioner;
 pub mod toplevel;
 pub mod wm;
 
@@ -13,7 +14,8 @@ use crate::{
     resource::ResourceWrapper,
     state::create_global_system_config,
     util::{rect::IRect, serial::next_serial},
-    xdg::toplevel::XdgToplevel,
+    wl::surface::WlSurface,
+    xdg::{popup::XdgPopup, positioner::XdgPositioner, toplevel::XdgToplevel},
 };
 use std::sync::Arc;
 
@@ -79,7 +81,7 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                         let size = geometry.geometry.size();
                         if !xdg_toplevel.send_configure {
                             let size = geometry.geometry.size();
-                            debug!("toplevel send configure ({},{})", 800, 600);
+                            debug!("toplevel send configure ({},{})", 800, 800);
                             xdg_toplevel.raw.configure(800, 600, vec![4, 0, 0, 0]);
                             xdg_toplevel.send_configure = true;
                         }
@@ -95,15 +97,38 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                 id,
                 parent,
                 positioner,
-            } => todo!(),
+            } => {
+                let XdgPositioner {
+                    raw: _,
+                    anchor_rect,
+                    constraint_adjustment,
+                    anchor_kind,
+                    gravity,
+                    is_relative,
+                } = state.query_object_component(&positioner, |c: &mut XdgPositioner| c.clone());
+                let parent_entity = parent.map(|r| DWay::get_entity(&r)).unwrap_or(*data);
+                state.spawn_child_object(parent_entity, id, data_init, |o| {
+                    XdgPopup::new(
+                        o,
+                        anchor_rect,
+                        constraint_adjustment,
+                        anchor_kind,
+                        gravity,
+                        is_relative,
+                    )
+                });
+            }
             xdg_surface::Request::SetWindowGeometry {
                 x,
                 y,
                 width,
                 height,
             } => {
-                state.with_component(resource, |c: &mut Geometry| {
-                    c.geometry = IRect::from_pos_size(IVec2::new(x, y), IVec2::new(width, height));
+                state.with_component(resource, |c: &mut WlSurface| {
+                    c.pending.window_geometry = Some(IRect::from_pos_size(
+                        IVec2::new(x, y),
+                        IVec2::new(width, height),
+                    ));
                 });
             }
             xdg_surface::Request::AckConfigure { serial } => {}

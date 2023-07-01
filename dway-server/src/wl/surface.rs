@@ -17,7 +17,7 @@ relationship!(ClientHasSurface=>SurfaceList-<Client);
 
 #[derive(Default, Reflect, Debug, Clone)]
 #[reflect(Debug)]
-pub struct WlSurfaceUpdate {
+pub struct WlSurfacePeddingState {
     pub buffer: Option<Option<Entity>>,
     pub position: Option<IVec2>,
     pub damages: SmallVec<[IRect; 7]>,
@@ -27,6 +27,21 @@ pub struct WlSurfaceUpdate {
     pub input_region: Option<Entity>,
     pub scale: Option<i32>,
     pub offset: Option<IVec2>,
+    pub window_geometry: Option<IRect>,
+}
+#[derive(Default, Reflect, Debug, Clone)]
+#[reflect(Debug)]
+pub struct WlSurfaceCommitedState {
+    pub buffer: Option<Entity>,
+    pub position: Option<IVec2>,
+    pub damages: SmallVec<[IRect; 7]>,
+    #[reflect(ignore)]
+    pub callbacks: SmallVec<[wl_callback::WlCallback; 1]>,
+    pub opaque_region: Option<Entity>,
+    pub input_region: Option<Entity>,
+    pub scale: Option<i32>,
+    pub offset: Option<IVec2>,
+    pub window_geometry: Option<IRect>,
 }
 
 #[derive(Component, Reflect, Debug, Clone)]
@@ -34,21 +49,19 @@ pub struct WlSurfaceUpdate {
 pub struct WlSurface {
     #[reflect(ignore)]
     pub raw: wl_surface::WlSurface,
-    pub commited: WlSurfaceUpdate,
-    pub pending: WlSurfaceUpdate,
+    pub commited: WlSurfaceCommitedState,
+    pub pending: WlSurfacePeddingState,
     pub just_commit: bool,
     pub image: Handle<Image>,
     pub size: Option<IVec2>,
     pub commit_time: u32,
 }
 relationship!(AttachmentRelationship => Attach--AttachedBy);
-relationship!(InOutputRelationship => InOutput>-<ContainsSurface);
 #[derive(Bundle)]
 pub struct WlSurfaceBundle {
     name: Name,
     resource: WlSurface,
     attach: Attach,
-    in_output: InOutput,
     client: Client,
 }
 
@@ -58,7 +71,6 @@ impl WlSurfaceBundle {
             name: Name::new(Cow::Owned(resource.raw.id().to_string())),
             resource,
             attach: Default::default(),
-            in_output: Default::default(),
             client: Default::default(),
         }
     }
@@ -220,7 +232,7 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 });
             }
             wl_surface::Request::Commit => {
-                warn!(object=?wayland_server::Resource::id(resource),"commit");
+                debug!("commit");
                 let frame_count = state.world().resource::<FrameCount>().0;
                 let (old_buffer_entity, buffer_entity) = state.query_object::<(
                     &mut WlSurface,
@@ -230,13 +242,9 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 ), _, _>(
                     resource,
                     |(mut surface, mut geometry, mut xdg_surface, mut toplevel)| {
-                        let old_buffer_entity = surface.commited.buffer.flatten();
+                        let old_buffer_entity = surface.commited.buffer;
                         if let Some(v) = surface.pending.buffer.take() {
-                            if v.is_some() {
-                                surface.commited.buffer = Some(v);
-                            } else {
-                                surface.commited.buffer = None;
-                            }
+                            surface.commited.buffer = v;
                         }
                         if let Some(v) = surface.pending.position.take() {
                             let _ = surface.commited.position.insert(v);
@@ -253,6 +261,9 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                         if let Some(offset) = surface.pending.offset.take() {
                             *surface.commited.offset.get_or_insert_default() += offset;
                         }
+                        if let Some(window_geometry) = surface.pending.window_geometry.take() {
+                            *surface.commited.window_geometry.insert(window_geometry);
+                        }
                         let damages = surface.pending.damages.drain(..).collect::<Vec<_>>();
                         surface.commited.damages.extend(damages);
                         let callbacks = surface.pending.callbacks.drain(..).collect::<Vec<_>>();
@@ -261,7 +272,7 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                         surface.just_commit = true;
                         surface.commit_time = frame_count;
 
-                        (old_buffer_entity, surface.commited.buffer.flatten())
+                        (old_buffer_entity, surface.commited.buffer)
                     },
                 );
                 if let Some(buffer) = buffer_entity {
@@ -378,7 +389,7 @@ pub fn cleanup_surface(
     surface_query.iter_mut().for_each(|mut surface| {
         if surface.commited.callbacks.len() > 0 {
             for callback in surface.commited.callbacks.drain(..) {
-                debug!("{:?} done", WlResource::id(&callback));
+                debug!("{} done", WlResource::id(&callback));
                 callback.done(time.elapsed().as_millis() as u32);
             }
         }
@@ -389,7 +400,6 @@ pub fn cleanup_surface(
             if let Some(buffer) = surface
                 .commited
                 .buffer
-                .flatten()
                 .and_then(|e| buffer_query.get(e).ok())
             {
                 buffer.raw.release();
@@ -407,8 +417,7 @@ impl Plugin for WlSurfacePlugin {
         app.register_type::<WlSurface>();
         app.register_type::<Attach>();
         app.register_type::<AttachedBy>();
-        app.register_type::<InOutput>();
-        app.register_type::<ContainsSurface>();
+        app.register_type::<SurfaceList>();
         app.register_relation::<ClientHasSurface>();
     }
 }

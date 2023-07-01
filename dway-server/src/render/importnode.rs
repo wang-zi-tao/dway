@@ -83,9 +83,9 @@ pub fn extract_surface(
         }
         if let Some(image_bind_groups) = image_bind_groups.as_mut() {
             // debug!("remove bind group of {:?}", &surface.image);
-            // image_bind_groups.values.remove(&surface.image);
+            image_bind_groups.values.remove(&surface.image);
         }
-        let Some(buffer_entity)=surface.commited.buffer.flatten() else{
+        let Some(buffer_entity)=surface.commited.buffer else{
             trace!("no wl_buffer {:?}", surface.raw.id());
             continue;
         };
@@ -171,16 +171,9 @@ impl<P: PhaseItem> RenderCommand<P> for ImportSurface {
                 texture = ?&texture.texture,
                 "failed to import buffer.",
             );
-            return bevy::render::render_phase::RenderCommandResult::Failure;
+            return bevy::render::render_phase::RenderCommandResult::Success;
         };
         buffer.raw.release();
-        // debug!(
-        //     surface=%WlResource::id(&surface.raw),
-        //     entity=?DWay::get_entity(&surface.raw),
-        //     texture=?&texture.texture.id(),
-        //     handle=?&surface.image,
-        //     "import buffer"
-        // );
         bevy::render::render_phase::RenderCommandResult::Success
     }
 }
@@ -243,11 +236,6 @@ impl Node for ImportSurfacePassNode {
                 phase.render(&mut render_pass, world, entity);
             }
         }
-        // let time = world.resource::<Time>();
-        // let feedback = world.resource::<ImportSurfaceFeedback>();
-        // dbg!(&feedback.surfaces);
-        // dbg!(&feedback.render_state);
-        // feedback.send_frame(time);
 
         Ok(())
     }
@@ -261,6 +249,10 @@ impl Node for ImportSurfacePassNode {
         self.view_query.update_archetypes(world);
     }
 }
+pub const NAME: &'static str = "wayland_server_graph";
 pub mod node {
-    pub const NAME: &'static str = "import_wayland_surface";
+    pub const IMPORT_PASS: &'static str = "import_wayland_surface";
+}
+pub mod input {
+    pub const VIEW_ENTITY: &'static str = "view_entity";
 }

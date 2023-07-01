@@ -112,6 +112,10 @@ impl<T: Relationship> Relationship for ReserveRelationship<T> {
 pub trait Connectable: Component {
     type Iterator<'l>: Iterator<Item = Entity>;
     fn iter<'l>(&'l self) -> Self::Iterator<'l>;
+
+    fn contains(&self, entity: Entity) -> bool {
+        self.iter().find(|e| *e == entity).is_some()
+    }
 }
 pub trait ConnectableMut: Connectable {
     type Drain<'l>: Iterator<Item = Entity>;
@@ -119,4 +123,3 @@ pub trait ConnectableMut: Connectable {
     fn disconnect(&mut self, target: Entity) -> bool;
     fn drain<'l>(&'l mut self) -> Self::Drain<'l>;
 }
-

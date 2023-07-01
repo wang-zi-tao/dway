@@ -21,11 +21,15 @@ impl WlKeyboard {
         if let Some(focus) = &self.focus {
             if &surface.raw != focus {
                 self.raw.leave(next_serial(), &focus);
+                trace!("{} leave {}", self.raw.id(), focus.id());
                 self.raw.enter(next_serial(), &surface.raw, Vec::new());
+                trace!("{} enter {}", self.raw.id(), surface.raw.id());
                 self.focus = Some(surface.raw.clone());
             }
         } else {
             self.raw.enter(next_serial(), &surface.raw, Vec::new());
+            self.focus = Some(surface.raw.clone());
+            trace!("{} enter {}", self.raw.id(), surface.raw.id());
         }
     }
     pub fn key(&self, surface: &WlSurface, input: &KeyboardInput) {

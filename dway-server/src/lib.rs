@@ -3,6 +3,7 @@
 use std::process::{self, Stdio};
 
 use bevy::prelude::*;
+use bevy_tokio_tasks::TokioTasksRuntime;
 use schedule::DWayStartSet;
 use state::{create_display, DWayWrapper, DisplayCreated, NonSendMark};
 pub mod client;
@@ -29,6 +30,7 @@ pub mod zxdg;
 pub struct DWayServerPlugin;
 impl Plugin for DWayServerPlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugin(bevy_tokio_tasks::TokioTasksPlugin::default());
         app.add_plugin(state::DWayStatePlugin);
         app.add_plugin(geometry::GeometryPlugin);
         app.add_plugin(schedule::DWayServerSchedulePlugin);
@@ -56,7 +58,7 @@ pub fn init_display(
     let entity = create_display(&mut commands, &mut event_sender);
     commands.entity(entity).log_components();
 }
-pub fn spawn(query: Query<&DWayWrapper>) {
+pub fn spawn(query: Query<&DWayWrapper>,tokio:Res<TokioTasksRuntime>) {
     info!("spawn app");
     let compositor = query.single().0.lock().unwrap();
     let mut command = process::Command::new("gnome-calculator");
@@ -71,9 +73,8 @@ pub fn spawn(query: Query<&DWayWrapper>) {
     // let mut command = process::Command::new("/nix/store/gfn9ya0rwaffhfkpbbc3pynk247xap1h-qt5ct-1.5/bin/qt5ct");
     // let mut command = process::Command::new("/home/wangzi/.build/0bd4966a8a745859d01236fd5f997041598cc31-bevy/debug/examples/animated_transform");
     // let mut command = process::Command::new( "/home/wangzi/workspace/waylandcompositor/winit_demo/target/debug/winit_demo",);
-    // let mut command = process::Command::new("/home/wangzi/workspace/waylandcompositor/wayland-rs/wayland-client/../target/debug/examples/simple_window");
+    let mut command = process::Command::new("/home/wangzi/workspace/waylandcompositor/wayland-rs/wayland-client/../target/debug/examples/simple_window");
     // let mut command =
     //     process::Command::new("/home/wangzi/Code/winit/target/debug/examples/window_debug");
-    command.stdout(Stdio::inherit());
-    compositor.spawn(command);
+    compositor.spawn_process(command,&tokio);
 }

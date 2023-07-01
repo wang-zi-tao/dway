@@ -71,17 +71,17 @@ impl IRect {
         let size = self.size();
         size.x * size.y
     }
-    pub fn x(&self)->i32{
+    pub fn x(&self) -> i32 {
         self.min.x
     }
-    pub fn y(&self)->i32{
+    pub fn y(&self) -> i32 {
         self.min.y
     }
-    pub fn width(&self)->i32{
-        self.max.x-self.min.x
+    pub fn width(&self) -> i32 {
+        self.max.x - self.min.x
     }
-    pub fn height(&self)->i32{
-        self.max.y-self.min.y
+    pub fn height(&self) -> i32 {
+        self.max.y - self.min.y
     }
     pub fn set_x(&mut self, value: i32) {
         self.min.x = value;
@@ -97,6 +97,9 @@ impl IRect {
     }
     pub fn include_point(&self, pos: IVec2) -> bool {
         self.min.x <= pos.x && self.min.y <= pos.y && pos.x < self.max.x && pos.y < self.max.y
+    }
+    pub fn set_pos(&mut self, size: IVec2) {
+        self.min = size;
     }
     pub fn set_size(&mut self, size: IVec2) {
         self.max = self.min + size;

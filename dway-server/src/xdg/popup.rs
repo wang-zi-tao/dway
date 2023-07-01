@@ -1,17 +1,42 @@
 use std::sync::Arc;
 
-use crate::{prelude::*, resource::ResourceWrapper, state::create_global_system_config};
+use wayland_protocols::xdg::shell::server::xdg_positioner::{Gravity, Anchor};
+
+use crate::{
+    prelude::*, resource::ResourceWrapper, state::create_global_system_config, util::rect::IRect,
+};
 
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct XdgPopup {
     #[reflect(ignore)]
-    raw: xdg_popup::XdgPopup,
+    pub raw: xdg_popup::XdgPopup,
+    pub anchor_rect: Option<IRect>,
+    pub constraint_adjustment: Option<u32>,
+    #[reflect(ignore)]
+    pub anchor_kind: Option<Anchor>,
+    #[reflect(ignore)]
+    pub gravity: Option<Gravity>,
+    pub is_relative: bool,
 }
 
 impl XdgPopup {
-    pub fn new(raw: xdg_popup::XdgPopup) -> Self {
-        Self { raw }
+    pub fn new(
+        raw: xdg_popup::XdgPopup,
+        anchor_rect: Option<IRect>,
+        constraint_adjustment: Option<u32>,
+        anchor_kind: Option<Anchor>,
+        gravity: Option<Gravity>,
+        is_relative: bool,
+    ) -> Self {
+        Self {
+            raw,
+            anchor_rect,
+            constraint_adjustment,
+            anchor_kind,
+            gravity,
+            is_relative,
+        }
     }
 }
 impl ResourceWrapper for XdgPopup {
@@ -49,7 +74,6 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
         state.despawn_object(*data, resource);
     }
 }
-
 
 pub struct XdgPopupPlugin;
 impl Plugin for XdgPopupPlugin {
