@@ -1,5 +1,5 @@
 use bevy::{core::FrameCount, ecs::reflect, utils::HashSet};
-use bevy_relationship::{graph_query, relationship, AppExt};
+use bevy_relationship::{graph_query, relationship, AppExt, Connectable};
 use wayland_server::backend::smallvec::SmallVec;
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 
@@ -262,7 +262,10 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                             *surface.commited.offset.get_or_insert_default() += offset;
                         }
                         if let Some(window_geometry) = surface.pending.window_geometry.take() {
-                            *surface.commited.window_geometry.insert(window_geometry);
+                            let _ = *surface.commited.window_geometry.insert(window_geometry);
+                            if let Some(mut geometry) = geometry {
+                                geometry.geometry = window_geometry;
+                            }
                         }
                         let damages = surface.pending.damages.drain(..).collect::<Vec<_>>();
                         surface.commited.damages.extend(damages);
@@ -381,9 +384,17 @@ impl wayland_server::Dispatch<wl_callback::WlCallback, ()> for DWay {
     }
 }
 
+pub fn cleanup_buffer(buffer_query: Query<(&WlBuffer, &AttachedBy)>) {
+    buffer_query.for_each(|(buffer, attached_by)| {
+        if attached_by.iter().next().is_some() {
+            buffer.raw.release();
+        }
+    });
+}
+
 pub fn cleanup_surface(
     mut surface_query: Query<(&mut WlSurface)>,
-    mut buffer_query: Query<&mut WlBuffer>,
+    buffer_query: Query<&mut WlBuffer>,
     time: Res<Time>,
 ) {
     surface_query.iter_mut().for_each(|mut surface| {
@@ -403,6 +414,7 @@ pub fn cleanup_surface(
                 .and_then(|e| buffer_query.get(e).ok())
             {
                 buffer.raw.release();
+                debug!(resource=?&buffer.raw,"release buffer");
             }
             surface.just_commit = false;
         }
@@ -413,6 +425,7 @@ pub struct WlSurfacePlugin;
 impl Plugin for WlSurfacePlugin {
     fn build(&self, app: &mut App) {
         app.add_system(cleanup_surface.in_base_set(CoreSet::First));
+        // app.add_system(cleanup_buffer.in_base_set(CoreSet::First));
         app.add_system(update_buffer_size.in_set(DWayServerSet::UpdateGeometry));
         app.register_type::<WlSurface>();
         app.register_type::<Attach>();

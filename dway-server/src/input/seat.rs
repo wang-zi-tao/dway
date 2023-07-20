@@ -43,13 +43,10 @@ impl
                 state.connect::<SeatHasPointer>(*data, entity);
             }
             wl_seat::Request::GetKeyboard { id } => {
-                let entity = state.spawn_child_object(*data, id, data_init, |kbd| {
-                    if kbd.version() >= 4 {
-                        kbd.repeat_info(25, 200);
-                    }
-                    // kbd.keymap(format, fd, size)
-                    WlKeyboard::new(kbd)
-                });
+                let entity =
+                    state.spawn_child_object_with_world(*data, id, data_init, |kbd, world| {
+                        WlKeyboard::new(kbd, &world.resource()).unwrap()
+                    });
                 state.connect::<SeatHasKeyboard>(*data, entity);
             }
             wl_seat::Request::GetTouch { id } => {
@@ -89,5 +86,6 @@ impl Plugin for WlSeatPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(create_global_system_config::<wl_seat::WlSeat, 7>());
         app.register_relation::<SeatHasPointer>();
+        app.add_plugin(super::keyboard::WlKeyboardPlugin);
     }
 }

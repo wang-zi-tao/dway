@@ -143,7 +143,7 @@ impl
                     state.disconnect_all::<PointerHasSurface>(*data);
                 }
             }
-            wl_pointer::Request::Release => todo!(),
+            wl_pointer::Request::Release => state.destroy_object::<WlPointer>(resource),
             _ => todo!(),
         }
     }

@@ -33,8 +33,8 @@ use bevy::{
 };
 
 fn main() {
-    std::env::remove_var("DISPLAY");
-    std::env::set_var("WAYLAND_DISPLAY", "/run/user/1000/wayland-1");
+    // std::env::remove_var("DISPLAY");
+    // std::env::set_var("WAYLAND_DISPLAY", "/run/user/1000/wayland-1");
     // let (wayland_sender, client_receiver) = crossbeam_channel::unbounded();
     // let (client_sender, wawyland_receiver) = crossbeam_channel::unbounded();
 
