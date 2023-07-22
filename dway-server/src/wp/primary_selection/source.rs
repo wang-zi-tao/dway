@@ -33,7 +33,9 @@ impl Dispatch<ZwpPrimarySelectionSourceV1, Entity> for DWay {
             zwp_primary_selection_source_v1::Request::Offer { mime_type } => {
                 warn!(" TODO: select {:?}", &mime_type);
             }
-            zwp_primary_selection_source_v1::Request::Destroy => todo!(),
+            zwp_primary_selection_source_v1::Request::Destroy => {
+                state.despawn(*data);
+            },
             _ => todo!(),
         }
     }

@@ -192,8 +192,8 @@ pub unsafe fn import_memory(
     dest: TextureId,
 ) -> Fallible<()> {
     let offset = buffer.offset;
-    let width = buffer.width;
-    let height = buffer.height;
+    let width = buffer.size.x;
+    let height = buffer.size.y;
     let stride = buffer.stride;
     let pixelsize = 4i32;
     let shm_inner = shm.inner.read().unwrap();

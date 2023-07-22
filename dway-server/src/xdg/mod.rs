@@ -12,7 +12,7 @@ use crate::{
     input::keyboard::WlKeyboard,
     prelude::*,
     resource::ResourceWrapper,
-    state::create_global_system_config,
+    state::{create_global_system_config, EntityFactory},
     util::{rect::IRect, serial::next_serial},
     wl::surface::WlSurface,
     xdg::{popup::XdgPopup, positioner::XdgPositioner, toplevel::XdgToplevel},
@@ -71,16 +71,18 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
         let _enter = span.enter();
         debug!("request {:?}", &request);
         match request {
-            xdg_surface::Request::Destroy => todo!(),
+            xdg_surface::Request::Destroy => {
+                state.despawn(*data);
+                state.send_event(Destroy::<XdgSurface>::new(*data));
+            }
             xdg_surface::Request::GetToplevel { id } => {
                 state.insert_object(*data, id, data_init, |o| XdgToplevel::new(o));
                 state.send_event(Insert::<XdgSurface>::new(*data));
-                state.query_object::<(&Geometry, &mut XdgSurface, &mut XdgToplevel), _, _>(
+                state.query_object::<(&mut Geometry, &mut XdgSurface, &mut XdgToplevel), _, _>(
                     resource,
-                    |(geometry, mut xdg_surface, mut xdg_toplevel)| {
-                        let size = geometry.geometry.size();
+                    |(mut geometry, mut xdg_surface, mut xdg_toplevel)| {
+                        geometry.set_pos(IVec2::new(128, 128));
                         if !xdg_toplevel.send_configure {
-                            let size = geometry.geometry.size();
                             debug!("toplevel send configure ({},{})", 800, 800);
                             xdg_toplevel.raw.configure(800, 600, vec![4, 0, 0, 0]);
                             xdg_toplevel.send_configure = true;
@@ -107,16 +109,48 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                     is_relative,
                 } = state.query_object_component(&positioner, |c: &mut XdgPositioner| c.clone());
                 let parent_entity = parent.map(|r| DWay::get_entity(&r)).unwrap_or(*data);
-                state.spawn_child_object(parent_entity, id, data_init, |o| {
-                    XdgPopup::new(
-                        o,
-                        anchor_rect,
-                        constraint_adjustment,
-                        anchor_kind,
-                        gravity,
-                        is_relative,
-                    )
-                });
+                let pointer_entity = state.spawn_child(
+                    parent_entity,
+                    (
+                        Geometry::new(IRect::from_pos_size(
+                            anchor_rect.unwrap_or_default().max,
+                            IVec2::default(),
+                        )),
+                        GlobalGeometry::default(),
+                    ),
+                );
+                state.insert(
+                    *data,
+                    (id, data_init, |o| {
+                        XdgPopup::new(
+                            o,
+                            anchor_rect,
+                            constraint_adjustment,
+                            anchor_kind,
+                            gravity,
+                            is_relative,
+                        )
+                    })
+                        .with_parent(pointer_entity),
+                );
+                state.send_event(Insert::<XdgSurface>::new(*data));
+                state.query_object::<(&Geometry, &mut XdgSurface, &mut XdgPopup), _, _>(
+                    resource,
+                    |(geometry, mut xdg_surface, mut popup)| {
+                        let size = geometry.geometry.size();
+                        if !popup.send_configure {
+                            let size = geometry.geometry.size();
+                            debug!("popup send configure ({},{})", 100, 100);
+                            // popup.raw.configure(60,60,100,100);
+                            popup.send_configure = true;
+                        }
+                        if !xdg_surface.send_configure {
+                            debug!("xdg_surface send configure");
+                            xdg_surface.raw.configure(next_serial());
+                            xdg_surface.send_configure = true;
+                        }
+                    },
+                );
             }
             xdg_surface::Request::SetWindowGeometry {
                 x,
@@ -131,7 +165,9 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                     ));
                 });
             }
-            xdg_surface::Request::AckConfigure { serial } => {}
+            xdg_surface::Request::AckConfigure { serial } => {
+                info!("popup AckConfigure {serial}");
+            }
             _ => todo!(),
         }
     }

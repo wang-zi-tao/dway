@@ -5,7 +5,7 @@ use wayland_server::delegate_global_dispatch;
 
 use crate::{
     prelude::*,
-    state::create_global_system_config,
+    state::{create_global_system_config, EntityFactory},
     wl::surface::{ClientHasSurface, WlSubsurface, WlSurface, WlSurfaceBundle},
 };
 
@@ -37,6 +37,9 @@ impl wayland_server::Dispatch<wl_compositor::WlCompositor, bevy::prelude::Entity
         dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
+        let span = span!(Level::ERROR, "request", entity=?data, resource=%WlResource::id(resource));
+        let _enter = span.enter();
+        debug!("request {:?}", &request);
         match request {
             wl_compositor::Request::CreateSurface { id } => {
                 let parent = *data;
@@ -88,13 +91,12 @@ impl wayland_server::Dispatch<wl_subcompositor::WlSubcompositor, bevy::prelude::
                 surface,
                 parent,
             } => {
-                let entity = state.insert_child_object(
-                    DWay::get_entity(&surface),
-                    DWay::get_entity(&parent),
-                    id,
-                    data_init,
-                    WlSubsurface::new,
-                );
+                let entity = state
+                    .insert(
+                        DWay::get_entity(&parent),
+                        (id, data_init, WlSubsurface::new).with_parent(DWay::get_entity(&surface)),
+                    )
+                    .id();
                 state.connect::<HasSubsurface>(DWay::get_entity(&parent), entity);
             }
             _ => todo!(),

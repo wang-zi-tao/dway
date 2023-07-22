@@ -96,18 +96,17 @@ pub fn render(
     >,
     mut assets: ResMut<Assets<Image>>,
 ) -> bool {
-    let Ok(props)=props_query.get(entity)else{
+    let Ok(props) = props_query.get(entity) else {
         error!("no props");
         return true;
     };
     let state_entity = widget_context.use_state(&mut commands, entity, WindowState::default());
-    let Ok((geometry,rect,surface))=window_query.get(props.entity)else{
-        error!("surface error component {:?}",props.entity);
+    let Ok((geometry, rect, surface)) = window_query.get(props.entity) else {
+        error!("surface error component {:?}", props.entity);
         return true;
     };
     // let bbox_loc = rect.0.loc + offset.0.loc;
-    let bbox_loc = rect.geometry.pos();
-    let bbox_size = rect.geometry.size();
+    let image_rect = surface.image_rect().offset(rect.pos());
     let root_style = KStyle {
         left: StyleProp::Inherit,
         right: StyleProp::Inherit,
@@ -118,10 +117,10 @@ pub fn render(
         ..Default::default()
     };
     let bbox_style = KStyle {
-        left: StyleProp::Value(Units::Pixels(bbox_loc.x as f32)),
-        top: StyleProp::Value(Units::Pixels(bbox_loc.y as f32)),
-        width: StyleProp::Value(Units::Pixels(bbox_size.x as f32)),
-        height: StyleProp::Value(Units::Pixels(bbox_size.y as f32)),
+        left: StyleProp::Value(Units::Pixels(image_rect.pos().x as f32)),
+        top: StyleProp::Value(Units::Pixels(image_rect.pos().y as f32)),
+        width: StyleProp::Value(Units::Pixels(image_rect.size().x as f32)),
+        height: StyleProp::Value(Units::Pixels(image_rect.size().y as f32)),
         background_color: Color::WHITE.with_a(0.1).into(),
         position_type: KPositionType::SelfDirected.into(),
         ..Default::default()

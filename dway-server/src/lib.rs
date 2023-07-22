@@ -1,5 +1,6 @@
 #![feature(option_get_or_insert_default)]
 #![feature(ptr_metadata)]
+#![feature(trivial_bounds)]
 use std::process::{self, Stdio};
 
 use bevy::prelude::*;
@@ -63,7 +64,7 @@ pub fn spawn(query: Query<&DWayWrapper>,tokio:Res<TokioTasksRuntime>) {
     let compositor = query.single().0.lock().unwrap();
     let mut command = process::Command::new("gnome-calculator");
     let mut command = process::Command::new("gedit");
-    // let mut command = process::Command::new("gnome-system-monitor");
+    let mut command = process::Command::new("gnome-system-monitor");
     // let mut command = process::Command::new(
     // "/home/wangzi/workspace/waylandcompositor/conrod/target/debug/examples/all_winit_glium",
     // );
@@ -73,7 +74,8 @@ pub fn spawn(query: Query<&DWayWrapper>,tokio:Res<TokioTasksRuntime>) {
     // let mut command = process::Command::new("/nix/store/gfn9ya0rwaffhfkpbbc3pynk247xap1h-qt5ct-1.5/bin/qt5ct");
     // let mut command = process::Command::new("/home/wangzi/.build/0bd4966a8a745859d01236fd5f997041598cc31-bevy/debug/examples/animated_transform");
     // let mut command = process::Command::new( "/home/wangzi/workspace/waylandcompositor/winit_demo/target/debug/winit_demo",);
-    let mut command = process::Command::new("/home/wangzi/workspace/waylandcompositor/wayland-rs/wayland-client/../target/debug/examples/simple_window");
+    // let mut command = process::Command::new("/home/wangzi/workspace/waylandcompositor/wayland-rs/wayland-client/../target/debug/examples/simple_window");
+    // let mut command = process::Command::new("/mnt/weed/mount/wangzi-nuc/wangzi/workspace/waylandcompositor/GTK-Demo-Examples/guidemo/00_hello_world_classic/hello_world_classic");
     // let mut command =
     //     process::Command::new("/home/wangzi/Code/winit/target/debug/examples/window_debug");
     compositor.spawn_process(command,&tokio);

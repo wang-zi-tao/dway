@@ -9,6 +9,8 @@ use xkbcommon::xkb;
 
 use crate::{prelude::*, util::serial::next_serial, wl::surface::WlSurface};
 
+use super::grab::KeyboardGrab;
+
 #[derive(Resource, Reflect, Default)]
 pub struct Keymap {
     pub rate: i32,
@@ -24,6 +26,20 @@ pub struct Keymap {
 pub struct WlKeyboard {
     pub raw: wl_keyboard::WlKeyboard,
     pub focus: Option<wl_surface::WlSurface>,
+}
+#[derive(Bundle)]
+pub struct WlKeyboardBundle {
+    resource: WlKeyboard,
+    grab: KeyboardGrab,
+}
+
+impl WlKeyboardBundle {
+    pub fn new(resource: WlKeyboard) -> Self {
+        Self {
+            resource,
+            grab: Default::default(),
+        }
+    }
 }
 
 impl WlKeyboard {
@@ -77,8 +93,9 @@ impl WlKeyboard {
             trace!("{} enter {}", self.raw.id(), surface.raw.id());
         }
     }
-    pub fn key(&self, surface: &WlSurface, input: &KeyboardInput) {
+    pub fn key(&mut self, surface: &WlSurface, input: &KeyboardInput) {
         trace!(surface=?surface.raw.id(),"key evnet : {input:?}");
+        self.set_focus(surface);
         self.raw.key(
             next_serial(),
             SystemTime::now().elapsed().unwrap().as_millis() as u32,
@@ -113,7 +130,7 @@ impl
         data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         match request {
-            wl_keyboard::Request::Release => state.destroy_object::<WlKeyboard>(resource),
+            wl_keyboard::Request::Release => state.destroy_object(resource),
             _ => todo!(),
         }
     }

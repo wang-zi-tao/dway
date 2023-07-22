@@ -3,7 +3,7 @@ use bevy::ecs::schedule::{FreeSystemSet, ScheduleLabel};
 use crate::prelude::*;
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub enum DWayStartSet{
+pub enum DWayStartSet {
     CreateDisplay,
     Flush,
     Spawn,
@@ -18,6 +18,11 @@ pub enum DWayServerSet {
     UpdateJoin,
     Update,
     PostUpdate,
+    PostUpdateFlush,
+    Last,
+    LastFlush,
+
+    GrabInput,
 }
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum DWayServerSchedule {
@@ -31,20 +36,39 @@ impl Plugin for DWayServerSchedulePlugin {
     fn build(&self, app: &mut App) {
         use DWayServerSet::*;
         app.configure_sets(
-            (DWayStartSet::CreateDisplay,DWayStartSet::Flush,DWayStartSet::Spawn)
+            (
+                DWayStartSet::CreateDisplay,
+                DWayStartSet::Flush,
+                DWayStartSet::Spawn,
+            )
                 .chain()
                 .ambiguous_with_all(),
         );
         app.configure_sets(
-            (Create,CreateGlobal,Dispatch, UpdateGeometry, UpdateJoin, Update)
+            (
+                Create,
+                CreateGlobal,
+                Dispatch,
+                UpdateGeometry,
+                UpdateJoin,
+                Update,
+            )
                 .chain()
                 .in_base_set(CoreSet::PreUpdate)
                 .ambiguous_with_all(),
         );
         app.configure_sets(
-            (PostUpdate,)
+            (PostUpdate, PostUpdateFlush)
                 .chain()
                 .in_base_set(CoreSet::PostUpdate)
+                .ambiguous_with_all(),
+        );
+        app.configure_set(GrabInput.in_base_set(CoreSet::PostUpdate).after(PostUpdate).before(PostUpdateFlush));
+
+        app.configure_sets(
+            (Last, LastFlush)
+                .chain()
+                .in_base_set(CoreSet::Last)
                 .ambiguous_with_all(),
         );
     }

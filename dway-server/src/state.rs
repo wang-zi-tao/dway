@@ -1,7 +1,8 @@
 use std::{
-    any::type_name,
+    any::{type_name, TypeId},
     borrow::Cow,
     io::BufRead,
+    marker::PhantomData,
     os::{fd::AsRawFd, unix::net::UnixStream},
     path::Path,
     process::{self, Stdio},
@@ -12,24 +13,22 @@ use std::{
 
 use bevy::{
     ecs::{
-        query::WorldQuery,
-        system::{Command, LogComponents, Spawn},
+        query::{QueryEntityError, WorldQuery},
+        system::Command,
         world::EntityMut,
     },
-    tasks::AsyncComputeTaskPool,
-    utils::tracing,
+    utils::{tracing, HashMap},
 };
 use bevy_relationship::{
     ConnectCommand, ConnectableMut, DisconnectAllCommand, DisconnectCommand, Relationship,
-    ReverseRelationship,
+    ReserveRelationship, ReverseRelationship,
 };
 use bevy_tokio_tasks::TokioTasksRuntime;
-use bytes::BytesMut;
 use calloop::{generic::Generic, EventLoop, Interest, Mode, PostAction};
 use inlinable_string::InlinableString;
 use send_wrapper::SendWrapper;
 use tokio::io::AsyncReadExt;
-use wayland_backend::server::ClientId;
+use wayland_backend::server::{ClientId, ObjectId};
 use wayland_server::{DataInit, New};
 
 use crate::{
@@ -38,6 +37,11 @@ use crate::{
     prelude::*,
     schedule::DWayServerSet,
 };
+
+#[derive(Component, Default)]
+pub struct WlResourceIndex {
+    pub map: HashMap<ClientId, HashMap<TypeId, HashMap<ObjectId, Entity>>>,
+}
 
 #[derive(Default)]
 pub struct NonSendMark;
@@ -61,6 +65,22 @@ pub struct DWayDisplayBundle {
     display: DWayDisplay,
     event_loop: DWayEventLoop,
 }
+
+impl DWayDisplayBundle {
+    pub fn new(
+        name: Name,
+        dway: DWayWrapper,
+        display: DWayDisplay,
+        event_loop: DWayEventLoop,
+    ) -> Self {
+        Self {
+            name,
+            dway,
+            display,
+            event_loop,
+        }
+    }
+}
 pub struct DWay {
     pub(crate) world: *mut World,
     pub socket_name: InlinableString,
@@ -69,6 +89,19 @@ pub struct DWay {
 }
 unsafe impl Sync for DWay {}
 unsafe impl Send for DWay {}
+
+impl std::ops::Deref for DWay {
+    type Target = World;
+
+    fn deref(&self) -> &Self::Target {
+        self.world()
+    }
+}
+impl std::ops::DerefMut for DWay {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.world_mut()
+    }
+}
 
 impl DWay {
     pub fn world(&self) -> &World {
@@ -245,7 +278,7 @@ impl DWay {
         );
         command.write(world);
     }
-    pub fn destroy_object<C>(&mut self, object: &impl wayland_server::Resource) {
+    pub fn destroy_object(&mut self, object: &impl wayland_server::Resource) {
         let entity = DWay::get_entity(object);
         let world = self.world_mut();
         trace!(?entity,resource=%wayland_server::Resource::id(object),"destroy wayland object");
@@ -266,7 +299,7 @@ impl DWay {
             Ok(c) => {
                 entity.insert((Name::new(Cow::from(client_name(&c.id()))), Client::new(c)));
                 entity.set_parent(parent);
-                trace!(entity=?entity.id(),"add client");
+                info!(entity=?entity.id(),"add client");
             }
             Err(err) => {
                 error!("Error adding wayland client: {}", err);
@@ -291,7 +324,7 @@ impl DWay {
         let mut entity_command = world.entity_mut(client_data.entity);
         let entity = entity_command.id();
         let object = data_init.init(resource, entity);
-        trace!(?entity,client=%client_name(&client.id()),object=%wayland_server::Resource::id(&object),"bind global object");
+        debug!(?entity,client=%client_name(&client.id()),object=%wayland_server::Resource::id(&object),"bind global object");
         entity_command.insert(f(object));
         entity
     }
@@ -313,7 +346,7 @@ impl DWay {
         let mut entity_command = world.spawn_empty();
         let entity = entity_command.id();
         let object = data_init.init(resource, entity);
-        trace!(?entity,parent=?client_data.entity,client=%client_name(&client.id()),object=%wayland_server::Resource::id(&object),"bind global object");
+        debug!(?entity,parent=?client_data.entity,client=%client_name(&client.id()),object=%wayland_server::Resource::id(&object),"bind global object");
         entity_command.insert((Name::new(Cow::from(object.id().to_string())), f(object)));
         world.entity_mut(client_data.entity).add_child(entity);
         entity
@@ -331,39 +364,8 @@ impl DWay {
         B: Bundle,
         F: FnOnce(T) -> B,
     {
-        let world = self.world_mut();
-        let mut entity_mut = world.spawn_empty();
-        let object = data_init.init(resource, entity_mut.id());
-        trace!(entity=?entity_mut.id(),object=%wayland_server::Resource::id(&object),"insert object");
-        entity_mut.insert((Name::new(Cow::from(object.id().to_string())), f(object)));
-        let entity = entity_mut.id();
-        world.entity_mut(parent).add_child(entity);
-        entity
-    }
-    pub fn insert_object_bundle<C, T, B, F>(
-        &mut self,
-        entity: Entity,
-        resource: New<T>,
-        data_init: &mut DataInit<'_, Self>,
-        f: F,
-    ) -> Entity
-    where
-        DWay: wayland_server::Dispatch<T, Entity>,
-        C: bevy::prelude::Component,
-        T: wayland_server::Resource + 'static,
-        B: bevy::prelude::Bundle,
-        F: FnOnce(T) -> B,
-    {
-        let world = self.world_mut();
-        assert!(
-            !world.entity_mut(entity).contains::<C>(),
-            "component {} already exist in entity {entity:?}",
-            type_name::<C>()
-        );
-        let object = data_init.init(resource, entity);
-        trace!(?entity,object=%wayland_server::Resource::id(&object),"insert object");
-        world.entity_mut(entity).insert(f(object));
-        entity
+        self.spawn((resource, data_init, f).with_parent(parent))
+            .id()
     }
     pub fn insert_object<T, C, F>(
         &mut self,
@@ -378,16 +380,11 @@ impl DWay {
         T: wayland_server::Resource + 'static,
         F: FnOnce(T) -> C,
     {
-        let world = self.world_mut();
-        assert!(
-            !world.entity_mut(entity).contains::<C>(),
-            "component {} already exist in entity {entity:?}",
-            type_name::<C>()
-        );
-        let object = data_init.init(resource, entity);
-        trace!(?entity,object=%wayland_server::Resource::id(&object),"insert object");
-        world.entity_mut(entity).insert(f(object));
-        entity
+        self.insert(
+            entity,
+            (resource, data_init, f).check_component_not_exists::<C>(),
+        )
+        .id()
     }
     pub fn spawn_child_object<T, C, F>(
         &mut self,
@@ -402,45 +399,14 @@ impl DWay {
         T: wayland_server::Resource + 'static,
         F: FnOnce(T) -> C,
     {
-        let world = self.world_mut();
-        let mut entity_command = world.spawn_empty();
-        let entity = entity_command.id();
-        let object = data_init.init(resource, entity);
-        trace!(parent=?parent,?entity,object=%wayland_server::Resource::id(&object),"spawn object");
-        entity_command.insert((Name::new(Cow::from(object.id().to_string())), f(object)));
-        world.entity_mut(parent).add_child(entity);
-        entity
+        self.spawn((resource, data_init, f).with_parent(parent))
+            .id()
     }
-    pub fn insert_child(&mut self, parent: Entity, entity: Entity, b: impl Bundle) -> Entity
-where {
-        let world = self.world_mut();
-        let mut entity_command = world.entity_mut(entity);
-        trace!(parent=?parent,?entity,"move object");
-        entity_command.insert(b);
-        world.entity_mut(parent).add_child(entity);
-        entity
-    }
-    pub fn insert_child_object<T, C, F>(
-        &mut self,
-        parent: Entity,
-        entity: Entity,
-        resource: New<T>,
-        data_init: &mut DataInit<'_, Self>,
-        f: F,
-    ) -> Entity
+    pub fn spawn_child<B>(&mut self, parent: Entity, bundle: B) -> Entity
     where
-        DWay: wayland_server::Dispatch<T, Entity>,
-        C: bevy::prelude::Component,
-        T: wayland_server::Resource + 'static,
-        F: FnOnce(T) -> C,
+        B: Bundle,
     {
-        let world = self.world_mut();
-        let mut entity_command = world.entity_mut(entity);
-        let object = data_init.init(resource, entity);
-        trace!(parent=?parent,?entity,object=%wayland_server::Resource::id(&object),"move object");
-        entity_command.insert(f(object));
-        world.entity_mut(parent).add_child(entity);
-        entity
+        self.spawn(bundle.with_parent(parent)).id()
     }
     pub fn get_entity(object: &impl wayland_server::Resource) -> Entity {
         *object.data::<Entity>().unwrap()
@@ -472,7 +438,7 @@ where {
         trace!(entity=?entity,resource=%id,"despawn object");
         self.world_mut()
             .get_entity_mut(entity)
-            .map(EntityMut::despawn);
+            .map(|mut e| e.despawn_descendants());
     }
     pub fn with_component<T, F, R>(&mut self, object: &impl wayland_server::Resource, f: F) -> R
     where
@@ -493,6 +459,15 @@ where {
         let world = self.world_mut();
         let mut query = world.query::<B>();
         f(query.get_mut(world, entity).unwrap())
+    }
+    pub fn try_query<B, F, R>(&mut self, entity: Entity, f: F) -> Result<R, QueryEntityError>
+    where
+        B: WorldQuery,
+        F: FnOnce(<B as WorldQuery>::Item<'_>) -> R,
+    {
+        let world = self.world_mut();
+        let mut query = world.query::<B>();
+        query.get_mut(world, entity).map(|q| f(q))
     }
     pub fn query_object_component<C, F, R>(
         &mut self,
@@ -540,6 +515,8 @@ impl Plugin for DWayStatePlugin {
                 .in_set(DWayServerSet::Create),
         );
         app.add_system(dispatch_events.in_set(DWayServerSet::Dispatch));
+        // app.add_system(flush_display.in_set(DWayServerSet::PostUpdate));
+        // app.add_system(flush_display.in_set(DWayServerSet::Last));
         set_signal_handler();
     }
 }
@@ -549,19 +526,19 @@ pub fn on_create_display_event(
     mut commands: Commands,
     mut event_sender: EventWriter<DisplayCreated>,
 ) {
-    for event in events.iter() {
+    for _event in events.iter() {
         create_display(&mut commands, &mut event_sender);
     }
 }
 
 pub fn create_display(
-    mut commands: &mut Commands,
-    mut event_sender: &mut EventWriter<DisplayCreated>,
+    commands: &mut Commands,
+    event_sender: &mut EventWriter<DisplayCreated>,
 ) -> Entity {
     let mut entity_command = commands.spawn_empty();
     let entity = entity_command.id();
 
-    let mut event_loop = EventLoop::try_new().unwrap();
+    let event_loop = EventLoop::try_new().unwrap();
     let mut display = wayland_server::Display::<DWay>::new().unwrap();
 
     let handle: DisplayHandle = display.handle();
@@ -586,7 +563,9 @@ pub fn create_display(
             ),
             move |_, _, state| {
                 let display = state.component::<DWayDisplay>(entity).0.clone();
-                display.lock().unwrap().dispatch_clients(state).unwrap();
+                let mut guard = display.lock().unwrap();
+                guard.dispatch_clients(state).unwrap();
+                guard.flush_clients().unwrap();
                 Ok(PostAction::Continue)
             },
         )
@@ -599,12 +578,12 @@ pub fn create_display(
         display_number: None,
         globals: Vec::new(),
     };
-    entity_command.insert(DWayDisplayBundle {
-        dway: DWayWrapper(Arc::new(Mutex::new(state))),
-        display: DWayDisplay(Arc::new(Mutex::new(display))),
-        event_loop: DWayEventLoop(Arc::new(Mutex::new(SendWrapper::new(event_loop)))),
+    entity_command.insert(DWayDisplayBundle::new(
         name,
-    });
+        DWayWrapper(Arc::new(Mutex::new(state))),
+        DWayDisplay(Arc::new(Mutex::new(display))),
+        DWayEventLoop(Arc::new(Mutex::new(SendWrapper::new(event_loop)))),
+    ));
     event_sender.send(DisplayCreated(entity, handle));
     entity
 }
@@ -617,7 +596,7 @@ pub fn dispatch_events(world: &mut World) {
     let start_time = Instant::now();
     let duration = Duration::from_secs_f32(0.004);
     let end_time = start_time + duration;
-    for (dway, display, events) in &displays {
+    for (dway, _display, events) in &displays {
         let mut dway = dway.0.lock().unwrap();
         dway.world = world as *mut World;
         let mut event_loop = events.0.lock().unwrap();
@@ -632,12 +611,23 @@ pub fn dispatch_events(world: &mut World) {
         for (dway, display, events) in &displays {
             let mut dway = dway.0.lock().unwrap();
             dway.world = world as *mut World;
+            let mut event_loop = events.0.lock().unwrap();
+            event_loop.dispatch(Some(duration), &mut dway).unwrap();
             let mut display = display.0.lock().unwrap();
             display.dispatch_clients(&mut dway).unwrap();
             display.flush_clients().unwrap();
             dway.world = null_mut();
         }
     }
+    for (_dway, display, _events) in &displays {
+        let mut display = display.0.lock().unwrap();
+        display.flush_clients().unwrap();
+    }
+}
+pub fn flush_display(display_query: Query<&DWayDisplay>) {
+    display_query.for_each(|display| {
+        display.0.lock().unwrap().flush_clients().unwrap();
+    })
 }
 
 pub fn create_global<T, const VERSION: u32>(
@@ -699,5 +689,260 @@ pub fn set_signal_handler() {
             ),
         )
         .unwrap();
+    }
+}
+
+impl DWay {
+    pub fn insert<T>(&mut self, entity: Entity, f: impl EntityFactory<T>) -> EntityMut {
+        let world = self.world_mut();
+        f.insert(world, entity)
+    }
+    pub fn spawn<T>(&mut self, f: impl EntityFactory<T>) -> EntityMut {
+        f.spawn(self.world_mut())
+    }
+}
+
+pub trait EntityFactory<T> {
+    fn spawn<'w>(self, world: &'w mut World) -> EntityMut<'w>
+    where
+        Self: Sized;
+    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w>;
+
+    fn with_parent(self, parent: Entity) -> WithParent<Self, T>
+    where
+        Self: Sized,
+    {
+        WithParent {
+            inner: self,
+            parent,
+            phanton: PhantomData,
+        }
+    }
+    fn check_component_not_exists<C>(self) -> CheckNoComponent<Self, T, C>
+    where
+        Self: Sized,
+        C: Component,
+    {
+        CheckNoComponent {
+            inner: self,
+            phanton: PhantomData,
+        }
+    }
+    fn connect_to<R>(self, target: Entity) -> ConnectTo<Self, T, R>
+    where
+        Self: Sized,
+        R: Relationship + Send + Sync + 'static,
+        R::From: ConnectableMut + Default,
+        R::To: ConnectableMut + Default,
+    {
+        ConnectTo {
+            inner: self,
+            target,
+            phanton: PhantomData,
+        }
+    }
+    fn connect_from<R>(self, target: Entity) -> ConnectTo<Self, T, ReserveRelationship<R>>
+    where
+        Self: Sized,
+        R: Relationship + Send + Sync + 'static,
+        R::From: ConnectableMut + Default,
+        R::To: ConnectableMut + Default,
+    {
+        ConnectTo {
+            inner: self,
+            target,
+            phanton: PhantomData,
+        }
+    }
+}
+
+impl<T: Bundle> EntityFactory<(T,)> for T {
+    fn spawn(self, world: &mut World) -> EntityMut {
+        world.spawn(self)
+    }
+
+    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w> {
+        let mut entity_mut = world.entity_mut(entity);
+        entity_mut.insert(self);
+        entity_mut
+    }
+}
+impl<T: FnOnce() -> B, B: Bundle> EntityFactory<()> for T {
+    fn spawn(self, world: &mut World) -> EntityMut {
+        world.spawn(self())
+    }
+
+    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w> {
+        let mut entity_mut = world.entity_mut(entity);
+        entity_mut.insert(self());
+        entity_mut
+    }
+}
+impl<T: FnOnce(&mut World) -> B, B: Bundle> EntityFactory<(&mut World,)> for T {
+    fn spawn(self, world: &mut World) -> EntityMut {
+        let bundle = self(world);
+        world.spawn(bundle)
+    }
+
+    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w> {
+        let bundle = self(world);
+        let mut entity_mut = world.entity_mut(entity);
+        entity_mut.insert(bundle);
+        entity_mut
+    }
+}
+impl<'l, 'd, T, F, B> EntityFactory<(T,)> for (New<T>, &'l mut DataInit<'d, DWay>, F)
+where
+    F: FnOnce(T) -> B,
+    B: Bundle,
+    T: WlResource + 'static,
+    DWay: wayland_server::Dispatch<T, Entity>,
+{
+    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w> {
+        let (resource, data_init, f) = self;
+        let mut entity_mut = world.entity_mut(entity);
+        let object = data_init.init(resource, entity_mut.id());
+        debug!(entity=?entity_mut.id(),object=%wayland_server::Resource::id(&object),"new wayland object");
+        entity_mut.insert(f(object));
+        entity_mut
+    }
+
+    fn spawn<'w>(self, world: &'w mut World) -> EntityMut<'w>
+    where
+        Self: Sized,
+    {
+        let (resource, data_init, f) = self;
+        let mut entity_mut = world.spawn_empty();
+        let object = data_init.init(resource, entity_mut.id());
+        debug!(entity=?entity_mut.id(),object=%wayland_server::Resource::id(&object),"new wayland object");
+        entity_mut.insert((Name::new(Cow::from(object.id().to_string())), f(object)));
+        entity_mut
+    }
+}
+impl<'l, 'd, T, F, B> EntityFactory<(T, World)> for (New<T>, &'l mut DataInit<'d, DWay>, F)
+where
+    F: FnOnce(T, &mut World) -> B,
+    B: Bundle + 'static,
+    T: WlResource + 'static,
+    DWay: wayland_server::Dispatch<T, Entity>,
+{
+    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w> {
+        let (resource, data_init, f) = self;
+        let object = data_init.init(resource, entity);
+        debug!(entity=?entity,object=%wayland_server::Resource::id(&object),"new wayland object");
+        let bundle: B = f(object, world);
+        let mut entity_mut = world.entity_mut(entity);
+        entity_mut.insert(bundle);
+        entity_mut
+    }
+
+    fn spawn<'w>(self, world: &'w mut World) -> EntityMut<'w>
+    where
+        Self: Sized,
+    {
+        let entity = world.spawn_empty().id();
+        let (resource, data_init, f) = self;
+        let object = data_init.init(resource, entity);
+        let name = Name::new(Cow::from(object.id().to_string()));
+        debug!(entity=?entity,object=%wayland_server::Resource::id(&object),"new wayland object");
+        let bundle: B = f(object, world);
+        let mut entity_mut = world.entity_mut(entity);
+        entity_mut.insert((name, bundle));
+        entity_mut
+    }
+}
+pub struct WithParent<F: EntityFactory<T>, T> {
+    pub inner: F,
+    pub parent: Entity,
+    pub phanton: PhantomData<T>,
+}
+impl<F, T> EntityFactory<T> for WithParent<F, T>
+where
+    F: EntityFactory<T>,
+{
+    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w> {
+        let mut entity = self.inner.insert(world, entity);
+        entity.set_parent(self.parent);
+        entity
+    }
+
+    fn spawn(self, world: &mut World) -> EntityMut
+    where
+        Self: Sized,
+    {
+        let mut entity_mut = self.inner.spawn(world);
+        entity_mut.set_parent(self.parent);
+        entity_mut
+    }
+}
+pub struct CheckNoComponent<F: EntityFactory<T>, T, C: Component> {
+    pub inner: F,
+    pub phanton: PhantomData<(T, C)>,
+}
+impl<F, T, C> EntityFactory<T> for CheckNoComponent<F, T, C>
+where
+    F: EntityFactory<T>,
+    C: Component,
+{
+    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w> {
+        assert!(
+            !world.entity_mut(entity).contains::<C>(),
+            "component {} already exist in entity {entity:?}",
+            type_name::<C>()
+        );
+        self.inner.insert(world, entity)
+    }
+
+    fn spawn(self, world: &mut World) -> EntityMut
+    where
+        Self: Sized,
+    {
+        self.inner.spawn(world)
+    }
+}
+pub struct ConnectTo<F: EntityFactory<T>, T, R: Relationship> {
+    pub inner: F,
+    pub target: Entity,
+    pub phanton: PhantomData<(T, R)>,
+}
+
+impl<F, T, R> EntityFactory<T> for ConnectTo<F, T, R>
+where
+    F: EntityFactory<T>,
+    R: Relationship + Send + Sync + 'static,
+    R::From: ConnectableMut + Default,
+    R::To: ConnectableMut + Default,
+{
+    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w> {
+        let target = self.target;
+        let entity_mut = self.inner.insert(world, entity);
+        let entity = entity_mut.id();
+        let command = ConnectCommand::<R>::new(entity, target);
+        trace!(
+            "connect ({:?})-[{}]->({:?})",
+            entity,
+            type_name::<R>(),
+            target
+        );
+        command.write(world);
+        world.entity_mut(entity)
+    }
+
+    fn spawn(self, world: &mut World) -> EntityMut
+    where
+        Self: Sized,
+    {
+        let target = self.target;
+        let entity_mut = self.inner.spawn(world);
+        let entity = entity_mut.id();
+        let command = ConnectCommand::<R>::new(entity, target);
+        trace!(
+            "connect ({:?})-[{}]->({:?})",
+            entity,
+            type_name::<R>(),
+            target
+        );
+        command.write(world);
+        world.entity_mut(entity)
     }
 }

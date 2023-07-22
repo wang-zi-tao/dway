@@ -63,7 +63,7 @@ impl Dispatch<xdg_positioner::XdgPositioner, Entity> for DWay {
         debug!("request {:?}", &request);
         match request {
             xdg_positioner::Request::Destroy => {
-                state.destroy_object::<XdgPositioner>(resource);
+                state.destroy_object(resource);
             }
             xdg_positioner::Request::SetSize { width, height } => {
                 state.with_component(resource, |c: &mut Geometry| {

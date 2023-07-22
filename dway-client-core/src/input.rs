@@ -13,11 +13,15 @@ use bevy_relationship::{graph_query, Connectable, EntityHasChildren};
 use dway_server::{
     geometry::{Geometry, GlobalGeometry},
     input::seat::SeatHasKeyboard,
-    input::seat::SeatHasPointer,
+    input::{
+        grab::{PointerAxisGrabEvent, PointerButtonGrabEvent, PointerGrab, PointerMoveGrabEvent},
+        seat::SeatHasPointer,
+    },
     input::{keyboard::WlKeyboard, pointer::WlPointer},
+    util::rect::IRect,
     wl::surface::ClientHasSurface,
-    wl::surface::WlSurface,
-    xdg::XdgSurface,
+    wl::{region::WlRegion, surface::WlSurface},
+    xdg::{popup::XdgPopup, toplevel::XdgToplevel, XdgSurface},
 };
 // use bevy_mod_picking::{PickingEvent, PickingRaycastSet};
 // use bevy_mod_raycast::Intersection;
@@ -99,8 +103,8 @@ pub fn debug_follow_cursor(
     mut cursor: Query<&mut Style, With<DebugCursor>>,
 ) {
     for event in cursor_moved_events.iter() {
-        let Some( window )=windows.get_window(event.window)else{
-            error!("failed to get window {:?}",event.window);
+        let Some(window) = windows.get_window(event.window) else {
+            error!("failed to get window {:?}", event.window);
             continue;
         };
         let pos: Vec2 = (
@@ -132,7 +136,7 @@ pub fn keyboard_input_system(
     if keyboard_evens.is_empty() {
         return;
     }
-    let Some(focus_window)=&output_focus.0 else{
+    let Some(focus_window) = &output_focus.0 else {
         warn!("no focus window");
         return;
     };
@@ -149,8 +153,8 @@ pub fn mouse_move_on_winit_window(
     mut focus: ResMut<CursorOnOutput>,
 ) {
     for event in cursor_moved_events.iter() {
-        let Some( window )=windows.get_window(event.window)else{
-            error!("failed to get window {:?}",event.window);
+        let Some(window) = windows.get_window(event.window) else {
+            error!("failed to get window {:?}", event.window);
             continue;
         };
         let pos: IVec2 = (
@@ -162,60 +166,87 @@ pub fn mouse_move_on_winit_window(
     }
 }
 graph_query!(PointInputGraph=>[
-    surface=< (Entity, &'static WlSurface, &'static GlobalGeometry),With<WlSurface> >,
+    surface=< (Entity, &'static WlSurface, &'static GlobalGeometry, Option<&'static XdgToplevel>, Option<&'static XdgPopup>),With<WlSurface> >,
     client=Entity,
-    pointer=( &'static mut WlPointer,&'static mut Geometry ),
+    pointer=(Entity, &'static mut WlPointer,&'static mut Geometry ),
 ]=>{
     path=surface<-[ClientHasSurface]-client-[SeatHasPointer]->pointer
 });
 
 fn cursor_move_on_window(
     mut graph: PointInputGraph,
+    mut region_query: Query<&WlRegion>,
     mut cursor: Res<CursorOnOutput>,
-    // mut events_writer: EventWriter<MouseMoveOnWindow>,
-    // mut motion_events_writer: EventWriter<MouseMotionOnWindow>,
+    mut grab_events_writer: EventWriter<PointerMoveGrabEvent>,
     mut events: EventReader<MouseMotion>,
 ) {
-    let Some((output, pos)) = &cursor.0  else {
+    let Some((output, pos)) = &cursor.0 else {
         return;
     };
     for MouseMotion { delta } in events.iter() {
         graph.for_each_path_mut(
-            |(surface_entity, surface, rect),
+            |(surface_entity, surface, rect, toplevel, popup),
              _,
-             pointer: &mut (Mut<'_, WlPointer>, Mut<'_, Geometry>)| {
-                if !rect.include_point(*pos) {
-                    return;
-                };
-                let relative = *pos - rect.geometry.pos();
-                pointer.0.move_cursor(surface, relative.as_vec2());
-                pointer.1.min = *pos;
-                // info!("mouse move: {:?}", relative);
+             pointer: &mut (Entity, Mut<'_, WlPointer>, Mut<'_, Geometry>)| {
+                grab_events_writer.send(PointerMoveGrabEvent(pointer.0, pos.as_vec2()));
+
+                if popup.is_none() {
+                    if !rect.include_point(*pos)
+                        || surface
+                            .commited
+                            .input_region
+                            .and_then(|region| region_query.get(region).ok())
+                            .map(|region| {
+                                !region.is_inside(
+                                    *pos - rect.geometry.pos() - surface.image_rect().pos(),
+                                )
+                            })
+                            .unwrap_or(false)
+                    {
+                        pointer.1.leave();
+                        return;
+                    }
+                    let relative = *pos - rect.geometry.pos() - surface.image_rect().pos();
+                    pointer.1.move_cursor(surface, relative.as_vec2());
+                    pointer.2.set_pos(*pos);
+                    // info!("mouse move: {:?}", relative);
+                }
             },
         );
     }
 }
+
 fn mouse_button_on_window(
     mut graph: PointInputGraph,
     mut events: EventReader<MouseButtonInput>,
     mut cursor: Res<CursorOnOutput>,
     mut output_focus: ResMut<FocusedWindow>,
-    // mut events_writer: EventWriter<MouseButtonOnWindow>,
+    mut grab_events_writer: EventWriter<PointerButtonGrabEvent>,
 ) {
-    let Some((output, pos)) = &cursor.0  else {
+    let Some((output, pos)) = &cursor.0 else {
         warn!("no cursor position data");
         return;
     };
     for e in events.iter() {
-        graph.for_each_path(|(surface_entity, surface, rect), _, (pointer, _)| {
-            if !rect.include_point(*pos) {
-                return;
-            };
-            let relative = *pos - rect.geometry.pos();
-            output_focus.0 = Some(*surface_entity);
-            pointer.button(e);
-            debug!("mouse button: {:?}", e);
-        });
+        graph.for_each_path(
+            |(surface_entity, surface, rect, toplevel, popup), _, (pointer_entity, pointer, _)| {
+                grab_events_writer.send(PointerButtonGrabEvent(
+                    *pointer_entity,
+                    *e,
+                    pos.as_dvec2(),
+                ));
+
+                if true {
+                    if !rect.include_point(*pos) {
+                        return;
+                    };
+                    let relative = *pos - rect.geometry.pos();
+                    output_focus.0 = Some(*surface_entity);
+                    pointer.button(e);
+                    debug!("mouse button: {:?}", e);
+                }
+            },
+        );
     }
 }
 fn mouse_wheel_on_window(
@@ -223,26 +254,32 @@ fn mouse_wheel_on_window(
     mut events: EventReader<MouseWheel>,
     mut cursor: Res<CursorOnOutput>,
     mut output_focus: ResMut<FocusedWindow>,
-    // mut events_writer: EventWriter<MouseWheelOnWindow>,
+    mut grab_events_writer: EventWriter<PointerAxisGrabEvent>,
 ) {
-    let Some((output, pos)) = &cursor.0  else {
+    let Some((output, pos)) = &cursor.0 else {
         warn!("no cursor position data");
         return;
     };
     for e in events.iter() {
-        graph.for_each_path(|(surface_entity, surface, rect), _, (pointer, _)| {
-            if !rect.include_point(*pos) {
-                return;
-            };
-            let relative = *pos - rect.geometry.pos();
-            output_focus.0 = Some(*surface_entity);
-            if e.x != 0.0 {
-                pointer.horizontal_asix(e.x as f64);
-            }
-            if e.y != 0.0 {
-                pointer.horizontal_asix(e.y as f64);
-            }
-            debug!("mouse wheel: {:?}", e);
-        });
+        graph.for_each_path(
+            |(surface_entity, surface, rect, toplevel, popup), _, (pointer_entity, pointer, _)| {
+                grab_events_writer.send(PointerAxisGrabEvent(*pointer_entity, *e, pos.as_dvec2()));
+
+                if let Some(toplevel) = toplevel {
+                    if !rect.include_point(*pos) {
+                        return;
+                    };
+                    let relative = *pos - rect.geometry.pos();
+                    if e.x != 0.0 {
+                        pointer.horizontal_asix(e.x as f64);
+                    }
+                    if e.y != 0.0 {
+                        pointer.horizontal_asix(e.y as f64);
+                    }
+                    output_focus.0 = Some(*surface_entity);
+                }
+                debug!("mouse wheel: {:?}", e);
+            },
+        );
     }
 }

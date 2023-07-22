@@ -104,4 +104,7 @@ impl IRect {
     pub fn set_size(&mut self, size: IVec2) {
         self.max = self.min + size;
     }
+    pub fn offset(self, offset: IVec2) -> Self {
+        Self::from_pos_size(offset + self.pos(), self.size())
+    }
 }

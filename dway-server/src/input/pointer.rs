@@ -5,12 +5,15 @@ use bevy::{input::mouse::MouseButtonInput, math::DVec2};
 use crate::{
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
+    state::EntityFactory,
     util::serial::next_serial,
     wl::{
         cursor::{Cursor, PointerHasSurface},
         surface::WlSurface,
     },
 };
+
+use super::grab::PointerGrab;
 
 #[derive(Component)]
 pub struct WlPointer {
@@ -22,6 +25,7 @@ pub struct WlPointerBundle {
     resource: WlPointer,
     pos: Geometry,
     global_pos: GlobalGeometry,
+    grrab: PointerGrab,
 }
 
 impl WlPointerBundle {
@@ -30,6 +34,7 @@ impl WlPointerBundle {
             resource,
             pos: Default::default(),
             global_pos: Default::default(),
+            grrab: Default::default(),
         }
     }
 }
@@ -42,17 +47,17 @@ impl WlPointer {
         if let Some(focus) = &self.focus {
             if &surface.raw != focus {
                 self.raw.leave(next_serial(), &focus);
-                trace!("{} leave {}", self.raw.id(), focus.id());
+                debug!("{} leave {}", self.raw.id(), focus.id());
                 self.raw
                     .enter(next_serial(), &surface.raw, position.x, position.y);
                 self.focus = Some(surface.raw.clone());
-                trace!("{} enter {}", self.raw.id(), surface.raw.id());
+                debug!("{} enter {}", self.raw.id(), surface.raw.id());
             }
         } else {
             self.raw
                 .enter(next_serial(), &surface.raw, position.x, position.y);
             self.focus = Some(surface.raw.clone());
-            trace!("{} enter {}", self.raw.id(), surface.raw.id());
+            debug!("{} enter {}", self.raw.id(), surface.raw.id());
         }
     }
     pub fn button(&self, input: &MouseButtonInput) {
@@ -78,6 +83,13 @@ impl WlPointer {
             delta.x as f64,
             delta.y as f64,
         );
+    }
+    pub fn leave(&mut self) {
+        if let Some(focus) = &self.focus {
+            self.raw.leave(next_serial(), focus);
+            debug!("{} leave {}", self.raw.id(), focus.id());
+            self.focus = None;
+        }
     }
     pub fn vertical_asix(&self, value: f64) {
         self.raw.axis(
@@ -125,8 +137,7 @@ impl
             } => {
                 if let Some(surface) = surface {
                     debug!("set cursor to {}", surface.id());
-                    let entity = state.insert_child(
-                        *data,
+                    state.insert(
                         DWay::get_entity(&surface),
                         (
                             Geometry::new(crate::util::rect::IRect::new(
@@ -136,14 +147,15 @@ impl
                             Cursor {
                                 serial: Some(serial),
                             },
-                        ),
+                        )
+                            .with_parent(*data)
+                            .connect_from::<PointerHasSurface>(*data),
                     );
-                    state.connect::<PointerHasSurface>(*data, entity);
                 } else {
                     state.disconnect_all::<PointerHasSurface>(*data);
                 }
             }
-            wl_pointer::Request::Release => state.destroy_object::<WlPointer>(resource),
+            wl_pointer::Request::Release => state.destroy_object(resource),
             _ => todo!(),
         }
     }

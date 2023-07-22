@@ -149,7 +149,9 @@ impl wayland_server::Dispatch<wl_region::WlRegion, bevy::prelude::Entity, DWay> 
         data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         match request {
-            wl_region::Request::Destroy => {}
+            wl_region::Request::Destroy => {
+                state.destroy_object(resource);
+            }
             wl_region::Request::Add {
                 x,
                 y,

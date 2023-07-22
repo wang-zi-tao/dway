@@ -1,9 +1,14 @@
 use std::sync::Arc;
 
-use wayland_protocols::xdg::shell::server::xdg_positioner::{Gravity, Anchor};
+use bevy_relationship::Connectable;
+use wayland_protocols::xdg::shell::server::xdg_positioner::{Anchor, Gravity};
 
 use crate::{
-    prelude::*, resource::ResourceWrapper, state::create_global_system_config, util::rect::IRect,
+    input::{grab::PointerGrab, seat::PointerList},
+    prelude::*,
+    resource::ResourceWrapper,
+    state::create_global_system_config,
+    util::rect::IRect,
 };
 
 #[derive(Component, Reflect, Debug, Clone)]
@@ -18,6 +23,7 @@ pub struct XdgPopup {
     #[reflect(ignore)]
     pub gravity: Option<Gravity>,
     pub is_relative: bool,
+    pub send_configure: bool,
 }
 
 impl XdgPopup {
@@ -36,6 +42,7 @@ impl XdgPopup {
             anchor_kind,
             gravity,
             is_relative,
+            send_configure: false,
         }
     }
 }
@@ -61,7 +68,25 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
         data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         match request {
-            xdg_popup::Request::Destroy => todo!(),
+            xdg_popup::Request::Destroy => {
+                state.despawn(*data);
+            }
+            xdg_popup::Request::Grab { seat, serial } => {
+                let pointer_list = state
+                    .world_mut()
+                    .get::<PointerList>(DWay::get_entity(&seat))
+                    .unwrap()
+                    .clone();
+                for pointer in pointer_list.iter() {
+                    if let Some(mut grab) = state.world_mut().get_mut::<PointerGrab>(pointer) {
+                        *grab = PointerGrab::OnPopup {
+                            surface: *data,
+                            serial,
+                        }
+                    }
+                }
+            }
+            xdg_popup::Request::Reposition { positioner, token } => todo!(),
             _ => todo!(),
         }
     }

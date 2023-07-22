@@ -3,9 +3,13 @@ use std::sync::Arc;
 use bevy_relationship::{relationship, AppExt};
 use wayland_server::protocol::wl_seat::Capability;
 
-use crate::{input::pointer::WlPointerBundle, prelude::*, state::create_global_system_config};
+use crate::{
+    input::{keyboard::WlKeyboardBundle, pointer::WlPointerBundle, touch::WlTouchBundle},
+    prelude::*,
+    state::{create_global_system_config, EntityFactory},
+};
 
-use super::{keyboard::WlKeyboard, pointer::WlPointer, touch::WlTouch};
+use super::{keyboard::WlKeyboard, pointer::WlPointer, touch::WlTouch, grab::GrabPlugin};
 
 #[derive(Component)]
 pub struct WlSeat {
@@ -13,6 +17,7 @@ pub struct WlSeat {
 }
 relationship!(SeatHasPointer=>PointerList-<SeatOfPoint);
 relationship!(SeatHasKeyboard=>KeyboardList-<SeatOfKeyboard);
+relationship!(SeatHasTouch=>TouchList-<SeatOfTouch);
 
 #[derive(Resource)]
 pub struct SeatDelegate(pub GlobalId);
@@ -37,20 +42,29 @@ impl
         debug!("request {:?}", &request);
         match request {
             wl_seat::Request::GetPointer { id } => {
-                let entity = state.spawn_child_object_bundle(*data, id, data_init, |o| {
-                    WlPointerBundle::new(WlPointer::new(o))
-                });
+                let entity = state
+                    .spawn(
+                        (id, data_init, |o| WlPointerBundle::new(WlPointer::new(o)))
+                            .with_parent(*data),
+                    )
+                    .id();
                 state.connect::<SeatHasPointer>(*data, entity);
             }
             wl_seat::Request::GetKeyboard { id } => {
-                let entity =
-                    state.spawn_child_object_with_world(*data, id, data_init, |kbd, world| {
-                        WlKeyboard::new(kbd, &world.resource()).unwrap()
-                    });
+                let entity = state
+                    .spawn(
+                        (id, data_init, |kbd, world: &mut World| {
+                            WlKeyboardBundle::new(WlKeyboard::new(kbd, &world.resource()).unwrap())
+                        })
+                            .with_parent(*data),
+                    )
+                    .id();
                 state.connect::<SeatHasKeyboard>(*data, entity);
             }
             wl_seat::Request::GetTouch { id } => {
-                state.insert_object(*data, id, data_init, WlTouch::new);
+                state.spawn(
+                    (id, data_init, |o| WlTouchBundle::new(WlTouch::new(o))).with_parent(*data),
+                );
             }
             wl_seat::Request::Release => todo!(),
             _ => todo!(),
@@ -86,6 +100,9 @@ impl Plugin for WlSeatPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(create_global_system_config::<wl_seat::WlSeat, 7>());
         app.register_relation::<SeatHasPointer>();
+        app.register_relation::<SeatHasKeyboard>();
+        app.register_relation::<SeatHasTouch>();
         app.add_plugin(super::keyboard::WlKeyboardPlugin);
+        app.add_plugin(GrabPlugin);
     }
 }

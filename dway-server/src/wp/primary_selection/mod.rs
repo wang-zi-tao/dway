@@ -1,5 +1,6 @@
 use crate::prelude::*;
 
+use bevy_relationship::{relationship, AppExt};
 use wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 
 use crate::create_dispatch;
@@ -12,12 +13,14 @@ pub mod source;
 pub struct PrimarySelectionDevice {
     #[reflect(ignore)]
     pub raw: ZwpPrimarySelectionDeviceV1,
+    pub serial: Option<u32>,
 }
 impl PrimarySelectionDevice {
     pub fn new(raw: ZwpPrimarySelectionDeviceV1) -> Self {
-        Self { raw }
+        Self { raw, serial: None }
     }
 }
+relationship!(SourceOfSelection=>SourceRef>-Selection);
 impl Dispatch<ZwpPrimarySelectionDeviceV1, Entity> for DWay {
     fn request(
         state: &mut Self,
@@ -33,7 +36,15 @@ impl Dispatch<ZwpPrimarySelectionDeviceV1, Entity> for DWay {
         let _enter = span.enter();
         debug!("request {:?}", &request);
         match request {
-            wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection_device_v1::Request::SetSelection { source, serial } => todo!(),
+            wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection_device_v1::Request::SetSelection { source, serial } => {
+                if let Some(source)=source{
+                    state.connect::<SourceOfSelection>(*data, DWay::get_entity(&source));
+                    state.with_component(resource, |c:&mut PrimarySelectionDevice|{c.serial=Some(serial);})
+                }else{
+                    state.disconnect_all::<SourceOfSelection>(*data);
+                    state.with_component(resource, |c:&mut PrimarySelectionDevice|{c.serial=None;})
+                }
+            },
             wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection_device_v1::Request::Destroy => todo!(),
             _ => todo!(),
         }
@@ -55,5 +66,6 @@ impl Plugin for PrimarySelectionDevicePlugin {
             zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1,
             1,
         >());
+        app.register_relation::<SourceOfSelection>();
     }
 }

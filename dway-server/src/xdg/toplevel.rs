@@ -64,8 +64,8 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
             xdg_toplevel::Request::Destroy => todo!(),
             xdg_toplevel::Request::SetParent { parent } => {
                 let parent_entity = parent.as_ref().map(|p| DWay::get_entity(p));
-                if parent.is_some() {
-                    todo!();
+                if let Some(parent) = &parent {
+                    state.add_child(DWay::get_entity(parent), *data);
                 }
             }
             xdg_toplevel::Request::SetTitle { title } => {
@@ -76,7 +76,9 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                     c.app_id = Some(app_id.into())
                 });
             }
-            xdg_toplevel::Request::ShowWindowMenu { seat, serial, x, y } => todo!(),
+            xdg_toplevel::Request::ShowWindowMenu { seat, serial, x, y } => {
+                warn!("cannot show window menu");
+            },
             xdg_toplevel::Request::Move { seat, serial } => {
                 warn!("TODO: xdg_toplevel::Request::Move")
             }

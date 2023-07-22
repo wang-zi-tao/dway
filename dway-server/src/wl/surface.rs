@@ -133,6 +133,12 @@ impl WlSurface {
             .push(IRect::from_pos_size((0, 0).into(), size));
         self.just_commit = true;
     }
+    pub fn image_rect(&self) -> IRect {
+        IRect::from_pos_size(
+            -self.commited.window_geometry.unwrap_or_default().pos(),
+            self.size.unwrap_or_default(),
+        )
+    }
 }
 #[derive(Component)]
 pub struct WlSubsurface {
@@ -173,7 +179,9 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
         let _enter = span.enter();
         debug!("request {:?}", &request);
         match request {
-            wl_surface::Request::Destroy => todo!(),
+            wl_surface::Request::Destroy => {
+                state.despawn(*data);
+            }
             wl_surface::Request::Attach { buffer, x, y } => {
                 let buffer_entity = buffer.map(|buffer| DWay::get_entity(&buffer));
                 let origin_buffer_entity = state.with_component(resource, |c: &mut WlSurface| {
@@ -264,7 +272,7 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                         if let Some(window_geometry) = surface.pending.window_geometry.take() {
                             let _ = *surface.commited.window_geometry.insert(window_geometry);
                             if let Some(mut geometry) = geometry {
-                                geometry.geometry = window_geometry;
+                                geometry.geometry.set_size(window_geometry.size());
                             }
                         }
                         let damages = surface.pending.damages.drain(..).collect::<Vec<_>>();
@@ -336,7 +344,9 @@ impl
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         match request {
-            wl_subsurface::Request::Destroy => todo!(),
+            wl_subsurface::Request::Destroy => {
+                state.destroy_object(resource);
+            }
             wl_subsurface::Request::SetPosition { x, y } => {
                 state.with_component(resource, |c: &mut WlSubsurface| {
                     c.position = Some(IVec2::new(x, y));
@@ -440,7 +450,7 @@ pub fn update_buffer_size(
     mut assets: ResMut<Assets<Image>>,
 ) {
     for buffer in buffer_query.iter() {
-        let size = IVec2::new(buffer.width, buffer.height);
+        let size = buffer.size;
         if let Some((mut surface, mut geometry)) = buffer
             .attach_by
             .and_then(|entity| surface_query.get_mut(entity).ok())

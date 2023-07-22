@@ -56,7 +56,7 @@ fn main() {
             })
             .set(LogPlugin {
                 level: Level::INFO,
-                filter: "dway=trace,dway_server::surface=debug,bevy_ecs=info,wgpu=warn,nega=info,nega::front=info,bevy_render=debug,bevy_ui=trace".to_string(),
+                filter: std::env::var("RUST_LOG").unwrap_or_else(|_|"dway=debug,dway_server::surface=debug,bevy_ecs=info,wgpu=warn,nega=info,nega::front=info,bevy_render=debug,bevy_ui=trace,dway_server::wl::surface=info,dway_server::xdg=info".to_string()) ,
             }),
     );
     // app.insert_resource(ClearColor(Color::rgb(0.0, 0.388, 1.0)));

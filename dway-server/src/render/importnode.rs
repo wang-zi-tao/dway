@@ -85,15 +85,16 @@ pub fn extract_surface(
             // debug!("remove bind group of {:?}", &surface.image);
             image_bind_groups.values.remove(&surface.image);
         }
-        let Some(buffer_entity)=surface.commited.buffer else{
+        let Some(buffer_entity) = surface.commited.buffer else {
             trace!("no wl_buffer {:?}", surface.raw.id());
             continue;
         };
-        let Ok(( buffer,shm_pool_entity,dma_buffer,egl_buffer ))=buffer_query.get(buffer_entity)else{
+        let Ok((buffer, shm_pool_entity, dma_buffer, egl_buffer)) = buffer_query.get(buffer_entity)
+        else {
             trace!("no wl_shm_pool {:?}", surface.raw.id());
             continue;
         };
-        let Ok(shm_pool)=shm_pool_query.get(shm_pool_entity.get())else{
+        let Ok(shm_pool) = shm_pool_query.get(shm_pool_entity.get()) else {
             trace!("no shm_pool_query {:?}", surface.raw.id());
             continue;
         };
@@ -172,8 +173,14 @@ impl<P: PhaseItem> RenderCommand<P> for ImportSurface {
                 "failed to import buffer.",
             );
             return bevy::render::render_phase::RenderCommandResult::Success;
+        } else {
+            trace!(
+                surface = ?surface.raw.id(),
+                entity=?item.entity(),
+                texture = ?&texture.texture,
+                "import buffer",
+            );
         };
-        buffer.raw.release();
         bevy::render::render_phase::RenderCommandResult::Success
     }
 }

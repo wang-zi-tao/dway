@@ -12,7 +12,7 @@ use wayland_server::{Resource, WEnum};
 
 use crate::{
     prelude::*,
-    state::{create_global, create_global_system_config, DisplayCreated},
+    state::{create_global, create_global_system_config, DisplayCreated, EntityFactory},
 };
 
 use super::surface::AttachedBy;
@@ -23,8 +23,7 @@ pub struct WlBuffer {
     #[reflect(ignore)]
     pub raw: wl_buffer::WlBuffer,
     pub offset: i32,
-    pub width: i32,
-    pub height: i32,
+    pub size: IVec2,
     pub stride: i32,
     #[reflect(ignore)]
     pub format: wl_shm::Format,
@@ -281,17 +280,19 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                         return;
                     }
                 };
-                state.spawn_child_object_bundle(*data, id, data_init, |o| {
-                    WlBufferBundle::new(WlBuffer {
-                        raw: o,
-                        offset,
-                        width,
-                        height,
-                        stride,
-                        format,
-                        attach_by: None,
+                state.spawn(
+                    (id, data_init, |o| {
+                        WlBufferBundle::new(WlBuffer {
+                            raw: o,
+                            offset,
+                            size: IVec2::new(width, height),
+                            stride,
+                            format,
+                            attach_by: None,
+                        })
                     })
-                });
+                        .with_parent(*data),
+                );
             }
             wl_shm_pool::Request::Destroy => {
                 trace!(resource=%WlResource::id(resource),"destroy wl_shm_pool");
