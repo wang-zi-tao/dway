@@ -15,7 +15,11 @@ use crate::{
     state::{create_global_system_config, EntityFactory},
     util::{rect::IRect, serial::next_serial},
     wl::surface::WlSurface,
-    xdg::{popup::XdgPopup, positioner::XdgPositioner, toplevel::XdgToplevel},
+    xdg::{
+        popup::{XdgPopup, XdgPopupBundle},
+        positioner::XdgPositioner,
+        toplevel::XdgToplevel,
+    },
 };
 use std::sync::Arc;
 
@@ -52,6 +56,9 @@ impl XdgSurface {
             raw,
             send_configure: false,
         }
+    }
+    pub fn configure(&self){
+        self.raw.configure(next_serial());
     }
 }
 delegate_dispatch!(DWay: [xdg_surface::XdgSurface: Entity] => XdgDelegate);
@@ -109,29 +116,24 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                     is_relative,
                 } = state.query_object_component(&positioner, |c: &mut XdgPositioner| c.clone());
                 let parent_entity = parent.map(|r| DWay::get_entity(&r)).unwrap_or(*data);
-                let pointer_entity = state.spawn_child(
-                    parent_entity,
-                    (
-                        Geometry::new(IRect::from_pos_size(
-                            anchor_rect.unwrap_or_default().max,
-                            IVec2::default(),
-                        )),
-                        GlobalGeometry::default(),
-                    ),
-                );
                 state.insert(
                     *data,
-                    (id, data_init, |o| {
-                        XdgPopup::new(
+                    (id, data_init, |o| XdgPopupBundle {
+                        raw: XdgPopup::new(
                             o,
                             anchor_rect,
                             constraint_adjustment,
                             anchor_kind,
                             gravity,
                             is_relative,
-                        )
+                        ),
+                        geometry: Geometry::new(IRect::from_pos_size(
+                            anchor_rect.unwrap_or_default().max,
+                            IVec2::default(),
+                        )),
+                        global_geometry: GlobalGeometry::default(),
                     })
-                        .with_parent(pointer_entity),
+                        .with_parent(parent_entity),
                 );
                 state.send_event(Insert::<XdgSurface>::new(*data));
                 state.query_object::<(&Geometry, &mut XdgSurface, &mut XdgPopup), _, _>(

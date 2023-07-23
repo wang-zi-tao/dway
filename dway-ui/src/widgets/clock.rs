@@ -21,7 +21,6 @@ pub fn widget_update2<
     widget_param: WidgetParam<Props, State>,
 ) -> bool {
     let should_update = widget_param.has_changed(&widget_context, entity, previous_entity);
-    // dbg!(should_update);
     should_update
 }
 

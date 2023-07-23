@@ -7,7 +7,7 @@ pub struct WlGeometry {
     pub scale: f32,
 }
 
-#[derive(Default, Clone, Component, Reflect)]
+#[derive(Default, Debug, Clone, Component, Reflect)]
 pub struct GlobalGeometry {
     pub geometry: IRect,
 }
@@ -25,7 +25,7 @@ impl lazy_static::__Deref for GlobalGeometry {
         &self.geometry
     }
 }
-#[derive(Default, Clone, Component, Reflect)]
+#[derive(Default, Debug, Clone, Component, Reflect)]
 pub struct Geometry {
     pub geometry: IRect,
 }

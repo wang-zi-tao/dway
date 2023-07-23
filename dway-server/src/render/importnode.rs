@@ -78,7 +78,9 @@ pub fn extract_surface(
     frame_count: Extract<Res<FrameCount>>,
 ) {
     for surface in surface_query.iter() {
-        if !surface.just_commit && surface.commit_time + 2 < frame_count.0 {
+        if !(surface.just_commit
+            || surface.commit_time + 2 >= frame_count.0 && surface.commit_count <= 2)
+        {
             continue;
         }
         if let Some(image_bind_groups) = image_bind_groups.as_mut() {
@@ -166,7 +168,7 @@ impl<P: PhaseItem> RenderCommand<P> for ImportSurface {
             render_device.wgpu_device(),
         ) {
             error!(
-                surface = ?surface.raw.id(),
+                surface = %surface.raw.id(),
                 error = %e,
                 entity=?item.entity(),
                 texture = ?&texture.texture,
@@ -175,9 +177,8 @@ impl<P: PhaseItem> RenderCommand<P> for ImportSurface {
             return bevy::render::render_phase::RenderCommandResult::Success;
         } else {
             trace!(
-                surface = ?surface.raw.id(),
+                surface = %surface.raw.id(),
                 entity=?item.entity(),
-                texture = ?&texture.texture,
                 "import buffer",
             );
         };

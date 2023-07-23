@@ -4,6 +4,7 @@ use bevy_relationship::Connectable;
 use wayland_protocols::xdg::shell::server::xdg_positioner::{Anchor, Gravity};
 
 use crate::{
+    geometry::{Geometry, GlobalGeometry},
     input::{grab::PointerGrab, seat::PointerList},
     prelude::*,
     resource::ResourceWrapper,
@@ -52,6 +53,12 @@ impl ResourceWrapper for XdgPopup {
     fn get_resource(&self) -> &Self::Resource {
         &self.raw
     }
+}
+#[derive(Bundle)]
+pub struct XdgPopupBundle {
+    pub raw: XdgPopup,
+    pub geometry: Geometry,
+    pub global_geometry: GlobalGeometry,
 }
 
 #[derive(Resource)]

@@ -25,6 +25,7 @@ use bevy_relationship::{
 };
 use bevy_tokio_tasks::TokioTasksRuntime;
 use calloop::{generic::Generic, EventLoop, Interest, Mode, PostAction};
+use failure::format_err;
 use inlinable_string::InlinableString;
 use send_wrapper::SendWrapper;
 use tokio::io::AsyncReadExt;
@@ -447,7 +448,16 @@ impl DWay {
     {
         let world = self.world_mut();
         let entity = Self::get_entity(object);
-        let mut entity_mut = world.entity_mut(entity);
+        let mut entity_mut = world
+            .get_entity_mut(entity)
+            .ok_or_else(|| {
+                format_err!(
+                    "failed to query component {} entity {:?}",
+                    type_name::<T>(),
+                    entity
+                )
+            })
+            .unwrap();
         let mut component = entity_mut.get_mut::<T>().unwrap();
         f(&mut component)
     }
@@ -515,6 +525,7 @@ impl Plugin for DWayStatePlugin {
                 .in_set(DWayServerSet::Create),
         );
         app.add_system(dispatch_events.in_set(DWayServerSet::Dispatch));
+        // app.add_system(flush_display.in_set(DWayServerSet::InputFlush));
         // app.add_system(flush_display.in_set(DWayServerSet::PostUpdate));
         // app.add_system(flush_display.in_set(DWayServerSet::Last));
         set_signal_handler();

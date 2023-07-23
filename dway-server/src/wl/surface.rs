@@ -55,6 +55,7 @@ pub struct WlSurface {
     pub image: Handle<Image>,
     pub size: Option<IVec2>,
     pub commit_time: u32,
+    pub commit_count: u32,
 }
 relationship!(AttachmentRelationship => Attach--AttachedBy);
 #[derive(Bundle)]
@@ -96,6 +97,7 @@ impl WlSurface {
             image: assets.add(image),
             size: Default::default(),
             commit_time: 0,
+            commit_count: 0,
         }
     }
     pub fn texture_descriptor<'l>(image_size: Extent3d) -> TextureDescriptor<'l> {
@@ -249,7 +251,7 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                     Option<&mut XdgToplevel>,
                 ), _, _>(
                     resource,
-                    |(mut surface, mut geometry, mut xdg_surface, mut toplevel)| {
+                    |(mut surface, geometry, mut xdg_surface, mut toplevel)| {
                         let old_buffer_entity = surface.commited.buffer;
                         if let Some(v) = surface.pending.buffer.take() {
                             surface.commited.buffer = v;
@@ -282,13 +284,16 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
 
                         surface.just_commit = true;
                         surface.commit_time = frame_count;
+                        surface.commit_count += 1;
 
                         (old_buffer_entity, surface.commited.buffer)
                     },
                 );
-                if let Some(buffer) = buffer_entity {
-                    if state.world_mut().get_entity(buffer).is_some() {
-                        state.connect::<AttachmentRelationship>(*data, buffer);
+                if let Some(buffer_entity) = buffer_entity {
+                    if let Some(buffer) = state.get::<WlBuffer>(buffer_entity) {
+                        buffer.raw.release();
+                        debug!(resource=?&buffer.raw,"release buffer");
+                        state.connect::<AttachmentRelationship>(*data, buffer_entity);
                     }
                 } else if let Some(old_buffer) = old_buffer_entity {
                     state.disconnect::<AttachmentRelationship>(*data, old_buffer);
@@ -423,8 +428,8 @@ pub fn cleanup_surface(
                 .buffer
                 .and_then(|e| buffer_query.get(e).ok())
             {
-                buffer.raw.release();
-                debug!(resource=?&buffer.raw,"release buffer");
+                // buffer.raw.release();
+                // debug!(resource=?&buffer.raw,"release buffer");
             }
             surface.just_commit = false;
         }
@@ -446,20 +451,17 @@ impl Plugin for WlSurfacePlugin {
 }
 pub fn update_buffer_size(
     buffer_query: Query<&WlBuffer, Changed<WlBuffer>>,
-    mut surface_query: Query<(&mut WlSurface, Option<&mut Geometry>)>,
+    mut surface_query: Query<&mut WlSurface>,
     mut assets: ResMut<Assets<Image>>,
 ) {
     for buffer in buffer_query.iter() {
         let size = buffer.size;
-        if let Some((mut surface, mut geometry)) = buffer
+        if let Some(mut surface) = buffer
             .attach_by
             .and_then(|entity| surface_query.get_mut(entity).ok())
         {
             if surface.size != Some(size) {
                 surface.resize(&mut assets, size);
-            }
-            if let Some(mut geometry) = geometry {
-                geometry.geometry.set_size(size);
             }
         }
     }

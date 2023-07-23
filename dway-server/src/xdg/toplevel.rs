@@ -1,7 +1,18 @@
 use bevy::utils::tracing::Span;
+use bevy_relationship::Connectable;
 use inlinable_string::{InlinableString, InlineString};
 
-use crate::{prelude::*, resource::ResourceWrapper};
+use crate::{
+    geometry::Geometry,
+    input::{
+        grab::{PointerGrab, ResizeEdges},
+        pointer::WlPointer,
+        seat::PointerList,
+    },
+    prelude::*,
+    resource::ResourceWrapper,
+    wl::surface::WlSurface,
+};
 use std::sync::Arc;
 
 use super::XdgSurface;
@@ -41,6 +52,16 @@ impl XdgToplevel {
             send_configure: false,
         }
     }
+    pub fn resize(&self, size: IVec2) {
+        debug!(
+            "configure toplevel: {:?}",
+            (size.x, size.y, vec![4, 0, 0, 0])
+        );
+        if self.raw.version() >= xdg_toplevel::EVT_CONFIGURE_BOUNDS_SINCE {
+            self.raw.configure_bounds(size.x, size.y);
+        }
+        self.raw.configure(size.x, size.y, vec![4, 0, 0, 0]);
+    }
 }
 
 #[derive(Resource)]
@@ -61,7 +82,9 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
         let span = span!(Level::ERROR, "request", entity=?data, resource=%WlResource::id(resource));
         let _enter = span.enter();
         match request {
-            xdg_toplevel::Request::Destroy => todo!(),
+            xdg_toplevel::Request::Destroy => {
+                state.destroy_object(resource);
+            }
             xdg_toplevel::Request::SetParent { parent } => {
                 let parent_entity = parent.as_ref().map(|p| DWay::get_entity(p));
                 if let Some(parent) = &parent {
@@ -77,18 +100,81 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 });
             }
             xdg_toplevel::Request::ShowWindowMenu { seat, serial, x, y } => {
-                warn!("cannot show window menu");
-            },
+                warn!("TODO: xdg_toplevel::Request::ShowWindowMenu");
+            }
             xdg_toplevel::Request::Move { seat, serial } => {
-                warn!("TODO: xdg_toplevel::Request::Move")
+                let (surface, rect) = state
+                    .query::<(&WlSurface, &Geometry), _, _>(*data, |(s, r)| {
+                        (s.raw.clone(), r.geometry)
+                    });
+                let pos = rect.pos();
+                let pointer_list = state
+                    .world_mut()
+                    .get::<PointerList>(DWay::get_entity(&seat))
+                    .unwrap()
+                    .clone();
+                for pointer_entity in pointer_list.iter() {
+                    state.query::<(&mut PointerGrab, &Geometry, &mut WlPointer), _, _>(
+                        pointer_entity,
+                        |(mut grab, pointer_rect, mut pointer)| {
+                            *grab = PointerGrab::Moving {
+                                surface: *data,
+                                serial,
+                                relative: pos - pointer_rect.pos(),
+                            };
+                            pointer.grab_raw(&surface);
+                        },
+                    );
+                }
             }
             xdg_toplevel::Request::Resize {
                 seat,
                 serial,
                 edges,
             } => {
-                if let WEnum::Value(edges) = edges {}
-                warn!("TODO: xdg_toplevel::Request::Resize")
+                let edges = match edges {
+                    WEnum::Value(xdg_toplevel::ResizeEdge::Top) => ResizeEdges::TOP,
+                    WEnum::Value(xdg_toplevel::ResizeEdge::TopRight) => {
+                        ResizeEdges::TOP | ResizeEdges::RIGHT
+                    }
+                    WEnum::Value(xdg_toplevel::ResizeEdge::Right) => ResizeEdges::RIGHT,
+                    WEnum::Value(xdg_toplevel::ResizeEdge::BottomRight) => {
+                        ResizeEdges::BUTTOM | ResizeEdges::RIGHT
+                    }
+                    WEnum::Value(xdg_toplevel::ResizeEdge::Bottom) => ResizeEdges::BUTTOM,
+                    WEnum::Value(xdg_toplevel::ResizeEdge::BottomLeft) => {
+                        ResizeEdges::BUTTOM | ResizeEdges::LEFT
+                    }
+                    WEnum::Value(xdg_toplevel::ResizeEdge::Left) => ResizeEdges::LEFT,
+                    WEnum::Value(xdg_toplevel::ResizeEdge::TopLeft) => {
+                        ResizeEdges::TOP | ResizeEdges::LEFT
+                    }
+                    _ => return,
+                };
+                let pointer_list = state
+                    .world_mut()
+                    .get::<PointerList>(DWay::get_entity(&seat))
+                    .unwrap()
+                    .clone();
+                let (surface, rect) = state
+                    .query::<(&WlSurface, &Geometry), _, _>(*data, |(s, r)| {
+                        (s.raw.clone(), r.geometry)
+                    });
+                for pointer in pointer_list.iter() {
+                    state.query::<(&mut PointerGrab, &Geometry, &mut WlPointer), _, _>(
+                        pointer,
+                        |(mut grab, pointer_rect, mut pointer)| {
+                            *grab = PointerGrab::Resizing {
+                                surface: *data,
+                                serial,
+                                edges,
+                                relative: rect.pos() - pointer_rect.pos(),
+                                origin_rect: rect,
+                            };
+                            pointer.grab_raw(&surface);
+                        },
+                    );
+                }
             }
             xdg_toplevel::Request::SetMaxSize { width, height } => {
                 state.with_component(resource, |c: &mut XdgToplevel| {
@@ -110,13 +196,21 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                     c.max = false;
                 });
             }
-            xdg_toplevel::Request::SetFullscreen { output } => todo!(),
+            xdg_toplevel::Request::SetFullscreen { output } => {
+                state.with_component(resource, |c: &mut XdgToplevel| {
+                    c.fullscreen = true;
+                });
+            }
             xdg_toplevel::Request::UnsetFullscreen => {
                 state.with_component(resource, |c: &mut XdgToplevel| {
                     c.fullscreen = false;
                 });
             }
-            xdg_toplevel::Request::SetMinimized => todo!(),
+            xdg_toplevel::Request::SetMinimized => {
+                state.with_component(resource, |c: &mut XdgToplevel| {
+                    c.min = true;
+                });
+            }
             _ => todo!(),
         }
     }

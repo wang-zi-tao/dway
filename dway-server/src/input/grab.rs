@@ -1,16 +1,22 @@
 use bevy::{
-    input::mouse::{MouseButtonInput, MouseWheel},
+    input::{
+        mouse::{MouseButtonInput, MouseWheel},
+        ButtonState,
+    },
     math::DVec2,
     prelude::Component,
 };
 use bitflags::bitflags;
 use kayak_ui::prelude::OnEvent;
+use wayland_protocols::xdg::shell::server::xdg_toplevel::ResizeEdge;
 
 use crate::{
-    geometry::{GeometryPlugin, GlobalGeometry},
+    geometry::{Geometry, GeometryPlugin, GlobalGeometry},
     prelude::*,
     schedule::DWayServerSet,
+    util::rect::IRect,
     wl::surface::WlSurface,
+    xdg::{toplevel::XdgToplevel, XdgSurface},
 };
 
 use super::pointer::WlPointer;
@@ -54,31 +60,86 @@ pub enum PointerGrab {
     },
     Moving {
         surface: Entity,
+        serial: u32,
+        relative: IVec2,
     },
     Resizing {
         surface: Entity,
         #[reflect(ignore)]
         edges: ResizeEdges,
+        serial: u32,
+        relative: IVec2,
+        origin_rect: IRect,
     },
 }
 
 pub fn on_mouse_move(
     mut event: EventReader<PointerMoveGrabEvent>,
-    mut pointer_query: Query<(&mut WlPointer, &mut PointerGrab)>,
-    mut surface_query: Query<(&WlSurface, &GlobalGeometry)>,
+    mut pointer_query: Query<(&mut WlPointer, &mut PointerGrab, &Geometry, &GlobalGeometry)>,
+    mut surface_query: Query<
+        (
+            &WlSurface,
+            &mut Geometry,
+            &GlobalGeometry,
+            Option<&XdgToplevel>,
+            Option<&XdgSurface>,
+        ),
+        Without<WlPointer>,
+    >,
 ) {
     for PointerMoveGrabEvent(entity, pos) in event.iter() {
-        if let Ok((mut pointer, grab)) = pointer_query.get_mut(*entity) {
+        if let Ok((mut pointer, grab, pointer_rect, pointer_global_rect)) =
+            pointer_query.get_mut(*entity)
+        {
             match &*grab {
-                PointerGrab::OnPopup { surface, serial } => {
-                    let Ok((surface, rect)) = surface_query.get(*surface) else {
+                PointerGrab::ButtonDown { surface } | PointerGrab::OnPopup { surface, .. } => {
+                    let Ok((surface, rect, global, ..)) = surface_query.get(*surface) else {
                         continue;
                     };
-                    pointer.move_cursor(surface, *pos - rect.pos().as_vec2());
+                    let relative = pos.as_ivec2() - rect.geometry.pos() - surface.image_rect().pos();
+                    dbg!(relative);
+                    pointer.move_cursor(surface, relative.as_vec2());
                 }
-                PointerGrab::ButtonDown { surface } => todo!(),
-                PointerGrab::Moving { surface } => todo!(),
-                PointerGrab::Resizing { surface, edges } => todo!(),
+                PointerGrab::Moving {
+                    surface,
+                    serial,
+                    relative,
+                } => {
+                    let Ok((surface, mut rect, global, ..)) = surface_query.get_mut(*surface)
+                    else {
+                        continue;
+                    };
+                    rect.set_pos(*relative + pointer_rect.pos());
+                }
+                PointerGrab::Resizing {
+                    surface,
+                    edges,
+                    serial,
+                    relative,
+                    origin_rect,
+                } => {
+                    let Ok((surface, mut rect, global, toplevel, xdg_surface)) =
+                        surface_query.get_mut(*surface)
+                    else {
+                        continue;
+                    };
+                    let top_left = *relative + pointer_rect.pos();
+                    let buttom_right = top_left + origin_rect.size();
+                    if edges.contains(ResizeEdges::LEFT) {
+                        rect.min.x = top_left.x;
+                    }
+                    if edges.contains(ResizeEdges::TOP) {
+                        rect.min.y = top_left.y;
+                    }
+                    if edges.contains(ResizeEdges::RIGHT) {
+                        rect.max.x = buttom_right.x;
+                    }
+                    if edges.contains(ResizeEdges::BUTTOM) {
+                        rect.max.y = buttom_right.y;
+                    }
+                    toplevel.map(|t| t.resize(rect.size()));
+                    xdg_surface.map(|s| s.configure());
+                }
                 _ => {}
             }
         }
@@ -90,18 +151,33 @@ pub fn on_mouse_button(
     mut surface_query: Query<(&WlSurface, &GlobalGeometry)>,
 ) {
     for PointerButtonGrabEvent(entity, event, position) in event.iter() {
-        if let Ok((mut pointer, grab)) = pointer_query.get_mut(*entity) {
+        if let Ok((mut pointer, mut grab)) = pointer_query.get_mut(*entity) {
             match &*grab {
-                PointerGrab::OnPopup { surface, serial } => {
+                PointerGrab::ButtonDown { surface } | PointerGrab::OnPopup { surface, .. } => {
                     let Ok((surface, rect)) = surface_query.get(*surface) else {
                         continue;
                     };
-                    pointer.set_focus(surface, *position - rect.pos().as_dvec2());
-                    pointer.button(event);
+                    pointer.button(event, surface, *position - rect.pos().as_dvec2());
                 }
-                PointerGrab::ButtonDown { surface } => todo!(),
-                PointerGrab::Moving { surface } => todo!(),
-                PointerGrab::Resizing { surface, edges } => todo!(),
+                PointerGrab::Moving { .. } => {
+                    *grab = PointerGrab::None;
+                    pointer.unset_grab();
+                    info!("stop moving");
+                }
+                PointerGrab::Resizing { .. } => {
+                    *grab = PointerGrab::None;
+                    pointer.unset_grab();
+                    info!("stop resizing");
+                }
+                _ => {}
+            }
+            match &*grab {
+                PointerGrab::ButtonDown { surface } => {
+                    if event.state == ButtonState::Released {
+                        *grab = PointerGrab::None;
+                        pointer.unset_grab();
+                    }
+                }
                 _ => {}
             }
         }
@@ -113,23 +189,19 @@ pub fn on_mouse_axis(
     mut surface_query: Query<(&WlSurface, &GlobalGeometry)>,
 ) {
     for PointerAxisGrabEvent(entity, event, position) in event.iter() {
-        if let Ok((mut pointer, grab)) = pointer_query.get_mut(*entity) {
+        if let Ok((mut pointer, mut grab)) = pointer_query.get_mut(*entity) {
             match &*grab {
-                PointerGrab::OnPopup { surface, serial } => {
+                PointerGrab::ButtonDown { surface } | PointerGrab::OnPopup { surface, .. } => {
                     let Ok((surface, rect)) = surface_query.get(*surface) else {
                         continue;
                     };
-                    pointer.set_focus(surface, *position - rect.pos().as_dvec2());
-                    if event.x != 0.0 {
-                        pointer.horizontal_asix(event.x as f64);
-                    }
-                    if event.y != 0.0 {
-                        pointer.horizontal_asix(event.y as f64);
-                    }
+                    let acc = |x: f64| x * 20.0;
+                    pointer.asix(
+                        DVec2::new(-acc(event.x as f64), -acc(event.y as f64)),
+                        surface,
+                        *position,
+                    );
                 }
-                PointerGrab::ButtonDown { surface } => todo!(),
-                PointerGrab::Moving { surface } => todo!(),
-                PointerGrab::Resizing { surface, edges } => todo!(),
                 _ => {}
             }
         }

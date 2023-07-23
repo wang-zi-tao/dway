@@ -22,7 +22,9 @@ pub enum DWayServerSet {
     Last,
     LastFlush,
 
+    Input,
     GrabInput,
+    InputFlush,
 }
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum DWayServerSchedule {
@@ -63,7 +65,12 @@ impl Plugin for DWayServerSchedulePlugin {
                 .in_base_set(CoreSet::PostUpdate)
                 .ambiguous_with_all(),
         );
-        app.configure_set(GrabInput.in_base_set(CoreSet::PostUpdate).after(PostUpdate).before(PostUpdateFlush));
+        app.configure_sets(
+            (Input, GrabInput, InputFlush)
+                .chain()
+                .in_base_set(CoreSet::PreUpdate)
+                .before(Create),
+        );
 
         app.configure_sets(
             (Last, LastFlush)
