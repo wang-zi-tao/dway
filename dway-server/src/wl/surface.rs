@@ -58,6 +58,8 @@ pub struct WlSurface {
     pub commit_count: u32,
 }
 relationship!(AttachmentRelationship => Attach--AttachedBy);
+relationship!(SurfaceHasInputRegion => InputRegion>-IsInputRegionOf);
+relationship!(SurfaceHasOpaqueRegion => OpaqueRegion>-IsOpaqueRegionOf);
 #[derive(Bundle)]
 pub struct WlSurfaceBundle {
     name: Name,
@@ -242,9 +244,9 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 });
             }
             wl_surface::Request::Commit => {
-                debug!("commit");
+                let _enterd = span!(Level::DEBUG, "commit").entered();
                 let frame_count = state.world().resource::<FrameCount>().0;
-                let (old_buffer_entity, buffer_entity) = state.query_object::<(
+                let (old_buffer_entity, buffer_entity,input_region_entity,opaque_region_entity) = state.query_object::<(
                     &mut WlSurface,
                     Option<&mut Geometry>,
                     Option<&mut XdgSurface>,
@@ -286,7 +288,7 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                         surface.commit_time = frame_count;
                         surface.commit_count += 1;
 
-                        (old_buffer_entity, surface.commited.buffer)
+                        (old_buffer_entity, surface.commited.buffer,surface.commited.input_region,surface.commited.opaque_region)
                     },
                 );
                 if let Some(buffer_entity) = buffer_entity {
@@ -298,6 +300,8 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 } else if let Some(old_buffer) = old_buffer_entity {
                     state.disconnect::<AttachmentRelationship>(*data, old_buffer);
                 }
+                input_region_entity.map(|e|state.connect::<SurfaceHasInputRegion>(*data, e));
+                opaque_region_entity.map(|e|state.connect::<SurfaceHasOpaqueRegion>(*data, e));
             }
             wl_surface::Request::SetBufferTransform { transform } => todo!(),
             wl_surface::Request::SetBufferScale { scale } => {
@@ -447,6 +451,8 @@ impl Plugin for WlSurfacePlugin {
         app.register_type::<AttachedBy>();
         app.register_type::<SurfaceList>();
         app.register_relation::<ClientHasSurface>();
+        app.register_relation::<SurfaceHasInputRegion>();
+        app.register_relation::<SurfaceHasOpaqueRegion>();
     }
 }
 pub fn update_buffer_size(

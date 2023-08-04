@@ -167,7 +167,11 @@ impl wayland_server::Dispatch<wl_region::WlRegion, bevy::prelude::Entity, DWay> 
                 y,
                 width,
                 height,
-            } => todo!(),
+            } => {
+                state.with_component(resource, |c: &mut WlRegion| {
+                    c.add(RegionOperator::Sub, IRect::new(x, y, width, height))
+                });
+            },
             _ => todo!(),
         }
     }

@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 dway-util = {path="../dway-util/"}
-dway-protocol = {path="../dway-protocol/"}
 bevy-relationship = {path="../bevy-relationship/"}
 
 failure = "0.1.8"
@@ -26,7 +25,7 @@ thiserror = "1"
 xcursor = {version = "0.3.3"}
 xkbcommon = "0.5.0"
 renderdoc = {version = "0.11.0", optional = true}
-bevy={}
+bevy = "0.10"
 wgpu={version="0.15.1",features=["angle"]}
 wgpu-hal={version="0.15.1",features=["gles"]}
 glow = {version="0.12.1"}
@@ -48,6 +47,8 @@ tokio = { version="1.28.0", features = [ "full" ] }
 bytes = "1.4.0"
 bevy-tokio-tasks = "0.10.2"
 tempfile = "3.6.0"
+
+bevy_winit = {path="../bevy_winit"}
 
 [dependencies.kayak_ui]
 version = "0.4.1"

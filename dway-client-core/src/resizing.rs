@@ -6,7 +6,6 @@ use bevy::{
     utils::tracing,
     winit::WinitWindows,
 };
-use dway_protocol::window::{WindowMessage, WindowMessageKind};
 use dway_server::{
     events::ResizeWindow,
     geometry::GlobalGeometry,
@@ -16,7 +15,6 @@ use dway_server::{
 
 use crate::{
     desktop::{CursorOnOutput, FocusedWindow},
-    protocol::WindowMessageSender,
     window::Backend,
     DWayClientState,
 };

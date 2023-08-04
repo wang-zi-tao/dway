@@ -9,7 +9,6 @@ use bevy::{
     math::DVec2,
     prelude::*,
     utils::tracing,
-    winit::WinitWindows,
 };
 use bevy_relationship::{graph_query, Connectable, EntityHasChildren};
 use dway_server::{
@@ -30,8 +29,6 @@ use dway_server::{
 // use bevy_mod_picking::{PickingEvent, PickingRaycastSet};
 // use bevy_mod_raycast::Intersection;
 use log::info;
-
-use dway_protocol::window::{WindowMessage, WindowMessageKind};
 
 use crate::{window::Backend, DWayClientSystem};
 
@@ -89,17 +86,17 @@ pub fn setup_debug_cursor(mut commands: Commands) {
 // #[tracing::instrument(skip_all)]
 pub fn debug_follow_cursor(
     mut cursor_moved_events: EventReader<CursorMoved>,
-    windows: NonSend<WinitWindows>,
+    windows: Query<&Window>,
     mut cursor: Query<&mut Style, With<DebugCursor>>,
 ) {
     for event in cursor_moved_events.iter() {
-        let Some(window) = windows.get_window(event.window) else {
+        let Ok(window) = windows.get(event.window) else {
             error!("failed to get window {:?}", event.window);
             continue;
         };
         let pos: Vec2 = (
             event.position.x,
-            window.inner_size().height as f32 - event.position.y,
+            window.physical_height() as f32 - event.position.y,
         )
             .into();
         let mut cursor = cursor.single_mut();
@@ -141,19 +138,18 @@ pub fn keyboard_input_system(
 // #[tracing::instrument(skip_all)]
 pub fn mouse_move_on_winit_window(
     mut cursor_moved_events: EventReader<CursorMoved>,
-    windows: NonSend<WinitWindows>,
+    windows: Query<&Window>,
     mut focus: ResMut<CursorOnOutput>,
 ) {
     for event in cursor_moved_events.iter() {
-        let Some(window) = windows.get_window(event.window) else {
+        let Ok(window) = windows.get(event.window) else {
             error!("failed to get window {:?}", event.window);
             continue;
         };
-        let pos: IVec2 = (
+        let pos = IVec2::new(
             event.position.x as i32,
-            window.inner_size().height as i32 - event.position.y as i32,
-        )
-            .into();
+            window.physical_height() as i32 - event.position.y as i32,
+        );
         focus.0 = Some((event.window, pos));
     }
 }
@@ -193,11 +189,12 @@ fn cursor_move_on_window(
                             })
                             .unwrap_or(false)
                     {
-                        pointer.leave();
+                        if pointer.can_focus_on(surface) {
+                            // pointer.leave();
+                        }
                         return;
                     }
                     let relative = *pos - rect.geometry.pos() - surface.image_rect().pos();
-                    trace!("mouse move: {:?}", relative);
                     pointer.move_cursor(surface, relative.as_vec2());
                 }
             },
@@ -224,21 +221,25 @@ fn mouse_button_on_window(
     };
     for e in events.iter() {
         graph.for_each_path_mut(
-            |(surface_entity, surface, rect, ..), _, (pointer_entity, pointer, _, ref mut grab)| {
-                if true {
+            |(surface_entity, surface, rect, toplevel, popup),
+             _,
+             (pointer_entity, pointer, _, ref mut grab)| {
+                if popup.is_none() {
                     if !rect.include_point(*pos) {
                         return;
                     };
                     let relative = *pos - rect.geometry.pos() - surface.image_rect().pos();
                     output_focus.0 = Some(*surface_entity);
-                    debug!(surface=%WlResource::id( &surface.raw ),"mouse button: {:?}", e);
-                    pointer.button(e, surface, relative.as_dvec2());
 
-                    if e.state == ButtonState::Pressed {
+                    if matches!(&**grab, PointerGrab::OnPopup { .. }) {
+                        pointer.button(e, surface, relative.as_dvec2());
+                    } else if e.state == ButtonState::Pressed {
                         **grab = PointerGrab::ButtonDown {
                             surface: *surface_entity,
                         };
                         pointer.grab(surface);
+                    } else {
+                        pointer.button(e, surface, relative.as_dvec2());
                     }
                 }
             },

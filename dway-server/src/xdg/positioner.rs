@@ -7,11 +7,8 @@ use crate::{
     util::rect::IRect,
 };
 
-#[derive(Component, Reflect, Debug, Clone)]
-#[reflect(Debug)]
-pub struct XdgPositioner {
-    #[reflect(ignore)]
-    pub raw: xdg_positioner::XdgPositioner,
+#[derive(Default, Reflect, Debug, Clone)]
+pub struct Positioner {
     pub anchor_rect: Option<IRect>,
     pub constraint_adjustment: Option<u32>,
     #[reflect(ignore)]
@@ -19,16 +16,22 @@ pub struct XdgPositioner {
     #[reflect(ignore)]
     pub gravity: Option<Gravity>,
     pub is_relative: bool,
+    pub parent_size: Option<IVec2>,
+    pub offset: Option<IVec2>,
+}
+
+#[derive(Component, Reflect, Debug, Clone)]
+#[reflect(Debug)]
+pub struct XdgPositioner {
+    #[reflect(ignore)]
+    pub raw: xdg_positioner::XdgPositioner,
+    pub positioner: Positioner,
 }
 impl XdgPositioner {
     pub fn new(raw: xdg_positioner::XdgPositioner) -> Self {
         Self {
             raw,
-            anchor_rect: Default::default(),
-            anchor_kind: None,
-            gravity: None,
-            constraint_adjustment: None,
-            is_relative: false,
+            positioner: Default::default(),
         }
     }
 }
@@ -77,41 +80,49 @@ impl Dispatch<xdg_positioner::XdgPositioner, Entity> for DWay {
                 height,
             } => {
                 state.with_component(resource, |c: &mut XdgPositioner| {
-                    c.anchor_rect = Some(IRect::new(x, y, width, height));
+                    c.positioner.anchor_rect = Some(IRect::new(x, y, width, height));
                 });
             }
             xdg_positioner::Request::SetAnchor { anchor } => {
                 state.with_component(resource, |c: &mut XdgPositioner| {
-                    DWay::set_enum(anchor, |e| c.anchor_kind = Some(e));
+                    DWay::set_enum(anchor, |e| c.positioner.anchor_kind = Some(e));
                 });
             }
             xdg_positioner::Request::SetGravity { gravity } => {
                 state.with_component(resource, |c: &mut XdgPositioner| {
-                    DWay::set_enum(gravity, |e| c.gravity = Some(e));
+                    DWay::set_enum(gravity, |e| c.positioner.gravity = Some(e));
                 });
             }
             xdg_positioner::Request::SetConstraintAdjustment {
                 constraint_adjustment,
             } => {
                 state.with_component(resource, |c: &mut XdgPositioner| {
-                    c.constraint_adjustment = Some(constraint_adjustment);
+                    c.positioner.constraint_adjustment = Some(constraint_adjustment);
                 });
             }
             xdg_positioner::Request::SetOffset { x, y } => {
-                state.with_component(resource, |c: &mut Geometry| {
-                    c.set_pos(IVec2::new(x, y));
-                });
+                state.query::<(&mut Geometry, &mut XdgPositioner), _, _>(
+                    *data,
+                    |(mut g, mut p)| {
+                        g.set_pos(IVec2::new(x, y));
+                        p.positioner.offset = Some(IVec2::new(x, y));
+                    },
+                );
             }
             xdg_positioner::Request::SetReactive => {
                 state.with_component(resource, |c: &mut XdgPositioner| {
-                    c.is_relative = true;
+                    c.positioner.is_relative = true;
                 });
             }
             xdg_positioner::Request::SetParentSize {
                 parent_width,
                 parent_height,
-            } => todo!(),
-            xdg_positioner::Request::SetParentConfigure { serial } => todo!(),
+            } => {
+                state.with_component(resource, |c: &mut XdgPositioner| {
+                    c.positioner.parent_size = Some(IVec2::new(parent_width, parent_height));
+                });
+            }
+            xdg_positioner::Request::SetParentConfigure { serial } => {}
             _ => todo!(),
         }
     }

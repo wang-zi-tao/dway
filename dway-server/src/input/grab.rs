@@ -16,7 +16,7 @@ use crate::{
     schedule::DWayServerSet,
     util::rect::IRect,
     wl::surface::WlSurface,
-    xdg::{toplevel::XdgToplevel, XdgSurface},
+    xdg::{popup::XdgPopup, toplevel::XdgToplevel, XdgSurface},
 };
 
 use super::pointer::WlPointer;
@@ -96,8 +96,8 @@ pub fn on_mouse_move(
                     let Ok((surface, rect, global, ..)) = surface_query.get(*surface) else {
                         continue;
                     };
-                    let relative = pos.as_ivec2() - rect.geometry.pos() - surface.image_rect().pos();
-                    dbg!(relative);
+                    let relative =
+                        pos.as_ivec2() - global.geometry.pos() - surface.image_rect().pos();
                     pointer.move_cursor(surface, relative.as_vec2());
                 }
                 PointerGrab::Moving {
@@ -148,16 +148,40 @@ pub fn on_mouse_move(
 pub fn on_mouse_button(
     mut event: EventReader<PointerButtonGrabEvent>,
     mut pointer_query: Query<(&mut WlPointer, &mut PointerGrab)>,
-    mut surface_query: Query<(&WlSurface, &GlobalGeometry)>,
+    mut surface_query: Query<(&WlSurface, &GlobalGeometry, Option<&XdgPopup>)>,
 ) {
     for PointerButtonGrabEvent(entity, event, position) in event.iter() {
         if let Ok((mut pointer, mut grab)) = pointer_query.get_mut(*entity) {
             match &*grab {
-                PointerGrab::ButtonDown { surface } | PointerGrab::OnPopup { surface, .. } => {
-                    let Ok((surface, rect)) = surface_query.get(*surface) else {
+                PointerGrab::ButtonDown { surface } => {
+                    let Ok((surface, rect, popup)) = surface_query.get(*surface) else {
                         continue;
                     };
                     pointer.button(event, surface, *position - rect.pos().as_dvec2());
+                    match event.state {
+                        ButtonState::Pressed => {
+                            pointer.grab(surface);
+                        }
+                        ButtonState::Released => {
+                            *grab = PointerGrab::None;
+                            pointer.unset_grab();
+                        }
+                    }
+                }
+
+                PointerGrab::OnPopup { surface, .. } => {
+                    let Ok((surface, rect, popup)) = surface_query.get(*surface) else {
+                        continue;
+                    };
+                    pointer.button(event, surface, *position - rect.pos().as_dvec2());
+                    match event.state {
+                        ButtonState::Pressed => {
+                            pointer.grab(surface);
+                        }
+                        ButtonState::Released => {
+                            pointer.unset_grab();
+                        }
+                    }
                 }
                 PointerGrab::Moving { .. } => {
                     *grab = PointerGrab::None;
@@ -168,15 +192,6 @@ pub fn on_mouse_button(
                     *grab = PointerGrab::None;
                     pointer.unset_grab();
                     info!("stop resizing");
-                }
-                _ => {}
-            }
-            match &*grab {
-                PointerGrab::ButtonDown { surface } => {
-                    if event.state == ButtonState::Released {
-                        *grab = PointerGrab::None;
-                        pointer.unset_grab();
-                    }
                 }
                 _ => {}
             }

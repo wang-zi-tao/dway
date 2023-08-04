@@ -21,3 +21,4 @@ pub use wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selec
 pub use crate::state::create_global_system_config;
 pub use crate::macros::*;
 pub use crate::create_dispatch;
+pub use bevy_relationship::*;

@@ -18,6 +18,8 @@ pub struct WlSeat {
 relationship!(SeatHasPointer=>PointerList-<SeatOfPoint);
 relationship!(SeatHasKeyboard=>KeyboardList-<SeatOfKeyboard);
 relationship!(SeatHasTouch=>TouchList-<SeatOfTouch);
+relationship!(FocusOnSurface=>FoucsOn--FocusBy);
+relationship!(ActivePopup=>ActivePopupList-<PopupGrabBy);
 
 #[derive(Resource)]
 pub struct SeatDelegate(pub GlobalId);
@@ -102,6 +104,9 @@ impl Plugin for WlSeatPlugin {
         app.register_relation::<SeatHasPointer>();
         app.register_relation::<SeatHasKeyboard>();
         app.register_relation::<SeatHasTouch>();
+        app.register_relation::<FocusOnSurface>();
+        app.register_relation::<ActivePopup>();
+        app.register_type::<WlPointer>();
         app.add_plugin(super::keyboard::WlKeyboardPlugin);
         app.add_plugin(GrabPlugin);
     }

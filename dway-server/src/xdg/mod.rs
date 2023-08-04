@@ -4,6 +4,7 @@ pub mod positioner;
 pub mod toplevel;
 pub mod wm;
 
+use bevy_relationship::{relationship, AppExt};
 use wayland_protocols::xdg::activation::v1::server::xdg_activation_token_v1;
 use wayland_server::Resource;
 
@@ -57,10 +58,11 @@ impl XdgSurface {
             send_configure: false,
         }
     }
-    pub fn configure(&self){
+    pub fn configure(&self) {
         self.raw.configure(next_serial());
     }
 }
+relationship!(SurfaceHasPopup=>PopupList-<PopupParent);
 delegate_dispatch!(DWay: [xdg_surface::XdgSurface: Entity] => XdgDelegate);
 impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DWay>
     for XdgDelegate
@@ -80,17 +82,16 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
         match request {
             xdg_surface::Request::Destroy => {
                 state.despawn(*data);
-                state.send_event(Destroy::<XdgSurface>::new(*data));
             }
             xdg_surface::Request::GetToplevel { id } => {
                 state.insert_object(*data, id, data_init, |o| XdgToplevel::new(o));
-                state.send_event(Insert::<XdgSurface>::new(*data));
+                state.send_event(Insert::<XdgToplevel>::new(*data));
                 state.query_object::<(&mut Geometry, &mut XdgSurface, &mut XdgToplevel), _, _>(
                     resource,
                     |(mut geometry, mut xdg_surface, mut xdg_toplevel)| {
                         geometry.set_pos(IVec2::new(128, 128));
                         if !xdg_toplevel.send_configure {
-                            debug!("toplevel send configure ({},{})", 800, 800);
+                            debug!("toplevel send configure ({},{})", 800, 600);
                             xdg_toplevel.raw.configure(800, 600, vec![4, 0, 0, 0]);
                             xdg_toplevel.send_configure = true;
                         }
@@ -107,35 +108,25 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                 parent,
                 positioner,
             } => {
-                let XdgPositioner {
-                    raw: _,
-                    anchor_rect,
-                    constraint_adjustment,
-                    anchor_kind,
-                    gravity,
-                    is_relative,
-                } = state.query_object_component(&positioner, |c: &mut XdgPositioner| c.clone());
+                let positioner = state
+                    .query_object_component(&positioner, |c: &mut XdgPositioner| {
+                        c.positioner.clone()
+                    });
                 let parent_entity = parent.map(|r| DWay::get_entity(&r)).unwrap_or(*data);
                 state.insert(
                     *data,
                     (id, data_init, |o| XdgPopupBundle {
-                        raw: XdgPopup::new(
-                            o,
-                            anchor_rect,
-                            constraint_adjustment,
-                            anchor_kind,
-                            gravity,
-                            is_relative,
-                        ),
+                        raw: XdgPopup::new(o, positioner.clone()),
                         geometry: Geometry::new(IRect::from_pos_size(
-                            anchor_rect.unwrap_or_default().max,
+                            positioner.anchor_rect.unwrap_or_default().max,
                             IVec2::default(),
                         )),
                         global_geometry: GlobalGeometry::default(),
                     })
                         .with_parent(parent_entity),
                 );
-                state.send_event(Insert::<XdgSurface>::new(*data));
+                state.send_event(Insert::<XdgPopup>::new(*data));
+                state.connect::<SurfaceHasPopup>(parent_entity, *data);
                 state.query_object::<(&Geometry, &mut XdgSurface, &mut XdgPopup), _, _>(
                     resource,
                     |(geometry, mut xdg_surface, mut popup)| {
@@ -212,6 +203,7 @@ impl Plugin for XdgShellPlugin {
         >());
         app.add_event::<Insert<XdgSurface>>();
         app.add_event::<Destroy<XdgSurface>>();
+        app.register_relation::<SurfaceHasPopup>();
         app.register_type::<XdgSurface>();
     }
 }

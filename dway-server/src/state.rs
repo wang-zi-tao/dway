@@ -24,6 +24,7 @@ use bevy_relationship::{
     ReserveRelationship, ReverseRelationship,
 };
 use bevy_tokio_tasks::TokioTasksRuntime;
+use bevy_winit::{UpdateRequestEvents, FrameConditionSchedule, UpdateRequest};
 use calloop::{generic::Generic, EventLoop, Interest, Mode, PostAction};
 use failure::format_err;
 use inlinable_string::InlinableString;
@@ -448,17 +449,17 @@ impl DWay {
     {
         let world = self.world_mut();
         let entity = Self::get_entity(object);
-        let mut entity_mut = world
-            .get_entity_mut(entity)
+        let mut component = world
+            .get_mut::<T>(entity)
             .ok_or_else(|| {
                 format_err!(
-                    "failed to query component {} entity {:?}",
+                    "failed to query component {} of entity {:?} ({})",
                     type_name::<T>(),
-                    entity
+                    entity,
+                    object.id()
                 )
             })
             .unwrap();
-        let mut component = entity_mut.get_mut::<T>().unwrap();
         f(&mut component)
     }
     pub fn query<B, F, R>(&mut self, entity: Entity, f: F) -> R
@@ -524,6 +525,7 @@ impl Plugin for DWayStatePlugin {
                 .chain()
                 .in_set(DWayServerSet::Create),
         );
+        app.add_system(frame_condition.in_schedule(FrameConditionSchedule));
         app.add_system(dispatch_events.in_set(DWayServerSet::Dispatch));
         // app.add_system(flush_display.in_set(DWayServerSet::InputFlush));
         // app.add_system(flush_display.in_set(DWayServerSet::PostUpdate));
@@ -536,15 +538,21 @@ pub fn on_create_display_event(
     mut events: EventReader<CreateDisplay>,
     mut commands: Commands,
     mut event_sender: EventWriter<DisplayCreated>,
+    mut update_request_eventss: NonSend<UpdateRequestEvents>,
 ) {
     for _event in events.iter() {
-        create_display(&mut commands, &mut event_sender);
+        create_display(
+            &mut commands,
+            &mut event_sender,
+            &mut update_request_eventss,
+        );
     }
 }
 
 pub fn create_display(
     commands: &mut Commands,
     event_sender: &mut EventWriter<DisplayCreated>,
+    update_request_eventss: &mut NonSend<UpdateRequestEvents>,
 ) -> Entity {
     let mut entity_command = commands.spawn_empty();
     let entity = entity_command.id();
@@ -556,12 +564,16 @@ pub fn create_display(
     let source = ListeningSocketEvent::new();
     let socket_name = source.filename();
 
+    let sender = update_request_eventss.sender.clone();
+    let sender_clone = sender.clone();
+
     info!("listening on {}", &socket_name);
     event_loop
         .handle()
         .insert_source(source, move |client_stream, _, data: &mut DWay| {
             let display = data.component::<DWayDisplay>(entity).0.clone();
             data.create_client(entity, client_stream, &display.lock().unwrap());
+            sender_clone.send(UpdateRequest::default());
         })
         .expect("Failed to init wayland socket source");
     event_loop
@@ -575,8 +587,7 @@ pub fn create_display(
             move |_, _, state| {
                 let display = state.component::<DWayDisplay>(entity).0.clone();
                 let mut guard = display.lock().unwrap();
-                guard.dispatch_clients(state).unwrap();
-                guard.flush_clients().unwrap();
+                sender.send(UpdateRequest::default());
                 Ok(PostAction::Continue)
             },
         )
@@ -598,43 +609,42 @@ pub fn create_display(
     event_sender.send(DisplayCreated(entity, handle));
     entity
 }
-pub fn dispatch_events(world: &mut World) {
-    let mut display_query: QueryState<(&DWayWrapper, &DWayDisplay, &DWayEventLoop)> = world.query();
+
+pub fn frame_condition(world: &mut World) {
+    let mut display_query: QueryState<(&DWayWrapper, &DWayEventLoop)> = world.query();
     let displays: Vec<_> = display_query
         .iter(world)
-        .map(|(w, d, e)| (w.clone(), d.clone(), e.clone()))
+        .map(|(w, e)| (w.clone(), e.clone()))
         .collect();
-    let start_time = Instant::now();
-    let duration = Duration::from_secs_f32(0.004);
-    let end_time = start_time + duration;
-    for (dway, _display, events) in &displays {
+    let duration = Duration::from_secs_f32(0.001);
+    for (dway, events) in &displays {
         let mut dway = dway.0.lock().unwrap();
         dway.world = world as *mut World;
         let mut event_loop = events.0.lock().unwrap();
         event_loop.dispatch(Some(duration), &mut dway).unwrap();
         dway.world = null_mut();
     }
-    loop {
-        let now = Instant::now();
-        if now > end_time {
-            break;
-        }
-        for (dway, display, events) in &displays {
-            let mut dway = dway.0.lock().unwrap();
-            dway.world = world as *mut World;
-            let mut event_loop = events.0.lock().unwrap();
-            event_loop.dispatch(Some(duration), &mut dway).unwrap();
-            let mut display = display.0.lock().unwrap();
-            display.dispatch_clients(&mut dway).unwrap();
-            display.flush_clients().unwrap();
-            dway.world = null_mut();
-        }
-    }
-    for (_dway, display, _events) in &displays {
+}
+
+pub fn dispatch_events(world: &mut World) {
+    let mut display_query: QueryState<(&DWayWrapper, &DWayDisplay, &DWayEventLoop)> = world.query();
+    let displays: Vec<_> = display_query
+        .iter(world)
+        .map(|(w, d, e)| (w.clone(), d.clone(), e.clone()))
+        .collect();
+    let duration = Duration::from_secs_f32(0.001);
+    for (dway, display, events) in &displays {
+        let mut dway = dway.0.lock().unwrap();
+        dway.world = world as *mut World;
+        let mut event_loop = events.0.lock().unwrap();
+        event_loop.dispatch(Some(duration), &mut dway).unwrap();
         let mut display = display.0.lock().unwrap();
+        display.dispatch_clients(&mut dway).unwrap();
         display.flush_clients().unwrap();
+        dway.world = null_mut();
     }
 }
+
 pub fn flush_display(display_query: Query<&DWayDisplay>) {
     display_query.for_each(|display| {
         display.0.lock().unwrap().flush_clients().unwrap();

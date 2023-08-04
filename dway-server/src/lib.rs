@@ -5,6 +5,7 @@ use std::process::{self, Stdio};
 
 use bevy::prelude::*;
 use bevy_tokio_tasks::TokioTasksRuntime;
+use bevy_winit::UpdateRequestEvents;
 use schedule::DWayStartSet;
 use state::{create_display, DWayWrapper, DisplayCreated, NonSendMark};
 pub mod client;
@@ -55,18 +56,26 @@ pub fn init_display(
     _: NonSend<NonSendMark>,
     mut commands: Commands,
     mut event_sender: EventWriter<DisplayCreated>,
+    mut update_request_eventss: NonSend<UpdateRequestEvents>,
 ) {
-    let entity = create_display(&mut commands, &mut event_sender);
+    let entity = create_display(
+        &mut commands,
+        &mut event_sender,
+        &mut update_request_eventss,
+    );
     commands.entity(entity).log_components();
 }
-pub fn spawn(query: Query<&DWayWrapper>,tokio:Res<TokioTasksRuntime>) {
-    info!("spawn app");
+pub fn spawn(query: Query<&DWayWrapper>, tokio: Res<TokioTasksRuntime>) {
     let compositor = query.single().0.lock().unwrap();
-    let mut command = process::Command::new("gnome-calculator");
-    let mut command = process::Command::new("gedit");
-    let mut command = process::Command::new("gnome-system-monitor");
-    // let mut command = process::Command::new(
-    // "/home/wangzi/workspace/waylandcompositor/conrod/target/debug/examples/all_winit_glium",
+    // let mut command = process::Command::new("gnome-calculator");
+    // let mut command = process::Command::new("gedit");
+    // compositor.spawn_process(process::Command::new("gnome-calculator"), &tokio);
+    compositor.spawn_process(process::Command::new("gnome-system-monitor"), &tokio);
+    // compositor.spawn_process(
+    //     process::Command::new(
+    //         "/home/wangzi/workspace/waylandcompositor/conrod/target/debug/examples/all_winit_glium",
+    //     ),
+    //     &tokio,
     // );
     // let mut command = process::Command::new("alacritty");
     // command.args(["-e", "htop"]);
@@ -78,5 +87,5 @@ pub fn spawn(query: Query<&DWayWrapper>,tokio:Res<TokioTasksRuntime>) {
     // let mut command = process::Command::new("/mnt/weed/mount/wangzi-nuc/wangzi/workspace/waylandcompositor/GTK-Demo-Examples/guidemo/00_hello_world_classic/hello_world_classic");
     // let mut command =
     //     process::Command::new("/home/wangzi/Code/winit/target/debug/examples/window_debug");
-    compositor.spawn_process(command,&tokio);
+    // compositor.spawn_process(command, &tokio);
 }

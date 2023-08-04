@@ -235,6 +235,7 @@ pub unsafe fn import_memory(
     //     image::ImageBuffer::from_vec(width as u32, height as u32, ptr.to_vec()).unwrap();
     // let snapshtip_count = std::fs::read_dir(".snapshot").unwrap().count();
     // image.save(format!(".snapshot/snapshot_{}.png", snapshtip_count + 1))?;
+    // dbg!(ptr.iter().map(|v| *v as usize).sum::<usize>() / ptr.len());
 
     let (gl_format, shader_idx) = match buffer.format {
         wl_shm::Format::Abgr8888 => (glow::RGBA, 0),
@@ -463,7 +464,7 @@ pub fn import_wl_surface(
                 _ => {}
             }
         });
-        let Some( texture_id )=texture_id else{
+        let Some(texture_id) = texture_id else {
             return Err(format_err!("failed to get raw texture"));
         };
         device.as_hal::<Gles, _, _>(|hal_device| {

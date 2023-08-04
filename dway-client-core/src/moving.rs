@@ -9,12 +9,10 @@ use bevy::{
     utils::tracing,
     winit::WinitWindows,
 };
-use dway_protocol::window::{WindowMessage, WindowMessageKind};
 use dway_server::{events::MoveRequest, geometry::GlobalGeometry};
 
 use crate::{
     desktop::{CursorOnOutput, FocusedWindow},
-    protocol::WindowMessageSender,
     window::Backend,
     DWayClientState, DWayClientSystem,
 };

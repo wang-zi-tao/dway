@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 dway-util = {path="../dway-util/"}
-dway-protocol = {path="../dway-protocol/"}
 dway-server = {path="../dway-server/"}
 bevy-relationship = {path="../bevy-relationship/"}
 
@@ -21,7 +20,7 @@ lru = {}
 rand = {}
 bytemuck = "1.13.0"
 smallvec = "1.10.0"
-bevy = {}
+bevy = "0.10"
 serde={}
 bevy_prototype_lyon = "0.8.0"
 

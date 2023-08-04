@@ -18,10 +18,6 @@ use bevy::{
     winit::WinitWindows,
 };
 
-use crossbeam_channel::TryRecvError;
-use dway_protocol::window::WindowState;
-use dway_protocol::window::{ImageBuffer, WindowMessage, WindowMessageKind};
-
 use dway_util::rect;
 use smallvec::SmallVec;
 use uuid::Uuid;
@@ -29,7 +25,6 @@ use uuid::Uuid;
 use crate::{
     components::{AttachToOutput, OutputMark},
     desktop::{CursorOnOutput, FocusedWindow},
-    protocol::{WindowMessageReceiver, WindowMessageSender},
     resizing::ResizingMethod,
     DWayClientSystem,
 };
