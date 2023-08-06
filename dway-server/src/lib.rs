@@ -69,8 +69,8 @@ pub fn spawn(query: Query<&DWayWrapper>, tokio: Res<TokioTasksRuntime>) {
     let compositor = query.single().0.lock().unwrap();
     // let mut command = process::Command::new("gnome-calculator");
     // let mut command = process::Command::new("gedit");
-    // compositor.spawn_process(process::Command::new("gnome-calculator"), &tokio);
-    compositor.spawn_process(process::Command::new("gnome-system-monitor"), &tokio);
+    compositor.spawn_process(process::Command::new("gnome-calculator"), &tokio);
+    // compositor.spawn_process(process::Command::new("gnome-system-monitor"), &tokio);
     // compositor.spawn_process(
     //     process::Command::new(
     //         "/home/wangzi/workspace/waylandcompositor/conrod/target/debug/examples/all_winit_glium",

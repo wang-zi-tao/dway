@@ -72,7 +72,6 @@ pub fn extract_surface(
     _: NonSend<NonSendMarker>,
     surface_query: Extract<Query<&WlSurface>>,
     buffer_query: Extract<Query<(&WlBuffer, &Parent, Option<&DmaBuffer>, Option<&EGLBuffer>)>>,
-    shm_pool_query: Extract<Query<&WlShmPool>>,
     mut commands: Commands,
     mut image_bind_groups: Option<ResMut<kayak_ui::render::unified::pipeline::ImageBindGroups>>,
     frame_count: Extract<Res<FrameCount>>,
@@ -88,20 +87,16 @@ pub fn extract_surface(
             image_bind_groups.values.remove(&surface.image);
         }
         let Some(buffer_entity) = surface.commited.buffer else {
-            trace!("no wl_buffer {:?}", surface.raw.id());
+            trace!("not connited {:?}", surface.raw.id());
             continue;
         };
         let Ok((buffer, shm_pool_entity, dma_buffer, egl_buffer)) = buffer_query.get(buffer_entity)
         else {
-            trace!("no wl_shm_pool {:?}", surface.raw.id());
-            continue;
-        };
-        let Ok(shm_pool) = shm_pool_query.get(shm_pool_entity.get()) else {
-            trace!("no shm_pool_query {:?}", surface.raw.id());
+            trace!("no wl_buffer {:?}", buffer_entity);
             continue;
         };
         // trace!("extract {:?}", surface.raw.id());
-        let mut entity = commands.spawn((surface.clone(), buffer.clone(), shm_pool.clone()));
+        let mut entity = commands.spawn((surface.clone(), buffer.clone()));
         if let Some(dma_buffer) = dma_buffer {
             entity.insert(dma_buffer.clone());
         }
@@ -141,7 +136,6 @@ impl<P: PhaseItem> RenderCommand<P> for ImportSurface {
     type ItemWorldQuery = (
         Read<WlSurface>,
         Read<WlBuffer>,
-        Read<WlShmPool>,
         Option<Read<DmaBuffer>>,
         Option<Read<EGLBuffer>>,
     );
@@ -150,7 +144,7 @@ impl<P: PhaseItem> RenderCommand<P> for ImportSurface {
     fn render<'w>(
         item: &P,
         view: bevy::ecs::query::ROQueryItem<'w, Self::ViewWorldQuery>,
-        (surface, buffer, shm_pool, dma_buffer, egl_buffer): bevy::ecs::query::ROQueryItem<
+        (surface, buffer, dma_buffer, egl_buffer): bevy::ecs::query::ROQueryItem<
             'w,
             Self::ItemWorldQuery,
         >,
@@ -161,7 +155,6 @@ impl<P: PhaseItem> RenderCommand<P> for ImportSurface {
         if let Err(e) = import_wl_surface(
             surface,
             buffer,
-            shm_pool,
             dma_buffer,
             egl_buffer,
             &texture.texture,

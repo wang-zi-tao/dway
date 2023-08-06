@@ -4,6 +4,7 @@ use bevy::{input::mouse::MouseButtonInput, math::DVec2};
 
 use crate::{
     geometry::{Geometry, GlobalGeometry},
+    input::time,
     prelude::*,
     state::EntityFactory,
     util::serial::{self, next_serial},
@@ -117,10 +118,10 @@ impl WlPointer {
             debug!(serial,surface=%WlResource::id( &surface.raw ),"cannot set focus");
             return;
         }
-        debug!(serial,surface=%WlResource::id( &surface.raw ),"mouse button: {:?}", input);
+        debug!(serial,surface=%WlResource::id( &surface.raw ),"mouse button: {:?} at {:?}", input, pos);
         self.raw.button(
             next_serial(),
-            SystemTime::now().elapsed().unwrap().as_millis() as u32,
+            time(),
             match input.button {
                 MouseButton::Left => 0x110,
                 MouseButton::Right => 0x111,
@@ -141,11 +142,7 @@ impl WlPointer {
             return;
         }
         trace!("mouse move: {}", delta);
-        self.raw.motion(
-            SystemTime::now().elapsed().unwrap().as_millis() as u32,
-            delta.x as f64,
-            delta.y as f64,
-        );
+        self.raw.motion(time(), delta.x as f64, delta.y as f64);
         self.frame();
     }
     pub fn leave(&mut self) {
@@ -169,18 +166,12 @@ impl WlPointer {
         }
         trace!("axis: {}", pos);
         if value.x != 0.0 {
-            self.raw.axis(
-                SystemTime::now().elapsed().unwrap().as_millis() as u32,
-                wl_pointer::Axis::HorizontalScroll,
-                value.x,
-            );
+            self.raw
+                .axis(time(), wl_pointer::Axis::HorizontalScroll, value.x);
         }
         if value.y != 0.0 {
-            self.raw.axis(
-                SystemTime::now().elapsed().unwrap().as_millis() as u32,
-                wl_pointer::Axis::VerticalScroll,
-                value.y,
-            );
+            self.raw
+                .axis(time(), wl_pointer::Axis::VerticalScroll, value.y);
         }
         self.frame();
     }

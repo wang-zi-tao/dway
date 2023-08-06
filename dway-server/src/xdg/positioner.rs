@@ -18,6 +18,77 @@ pub struct Positioner {
     pub is_relative: bool,
     pub parent_size: Option<IVec2>,
     pub offset: Option<IVec2>,
+    pub size: Option<IVec2>,
+}
+
+impl Positioner {
+    pub fn get_geometry(&self) -> IRect {
+        let size = self.size.unwrap_or_default();
+        let mut geometry = IRect::from_pos_size(self.offset.unwrap_or_default(), size);
+
+        let anchor_rect = self.anchor_rect.unwrap_or_default();
+        match self.anchor_kind {
+            Some(xdg_positioner::Anchor::TopLeft)
+            | Some(xdg_positioner::Anchor::TopRight)
+            | Some(xdg_positioner::Anchor::Top) => {
+                geometry.set_y(geometry.y() + anchor_rect.y());
+            }
+            Some(xdg_positioner::Anchor::BottomLeft)
+            | Some(xdg_positioner::Anchor::BottomRight)
+            | Some(xdg_positioner::Anchor::Bottom) => {
+                geometry.set_y(geometry.y() + anchor_rect.max.y);
+            }
+            _ => {
+                geometry.set_y(geometry.y() + anchor_rect.center().y);
+            }
+        }
+
+        match self.anchor_kind {
+            Some(xdg_positioner::Anchor::TopLeft)
+            | Some(xdg_positioner::Anchor::BottomLeft)
+            | Some(xdg_positioner::Anchor::Left) => {
+                geometry.set_x(geometry.x() + anchor_rect.x());
+            }
+            Some(xdg_positioner::Anchor::BottomRight)
+            | Some(xdg_positioner::Anchor::TopRight)
+            | Some(xdg_positioner::Anchor::Right) => {
+                geometry.set_x(geometry.x() + anchor_rect.max.x);
+            }
+            _ => {
+                geometry.set_x(geometry.x() + anchor_rect.center().x);
+            }
+        }
+
+        match self.gravity {
+            Some(xdg_positioner::Gravity::TopLeft)
+            | Some(xdg_positioner::Gravity::TopRight)
+            | Some(xdg_positioner::Gravity::Top) => {
+                geometry.set_y(geometry.y() - size.y);
+            }
+            Some(xdg_positioner::Gravity::BottomLeft)
+            | Some(xdg_positioner::Gravity::BottomRight)
+            | Some(xdg_positioner::Gravity::Bottom) => {}
+            _ => {
+                geometry.set_y(geometry.y() - size.y / 2);
+            }
+        }
+
+        match self.gravity {
+            Some(xdg_positioner::Gravity::TopLeft)
+            | Some(xdg_positioner::Gravity::BottomLeft)
+            | Some(xdg_positioner::Gravity::Left) => {
+                geometry.set_x(geometry.x() - size.x);
+            }
+            Some(xdg_positioner::Gravity::BottomRight)
+            | Some(xdg_positioner::Gravity::TopRight)
+            | Some(xdg_positioner::Gravity::Right) => {}
+            _ => {
+                geometry.set_x(geometry.x() - size.x / 2);
+            }
+        }
+
+        geometry
+    }
 }
 
 #[derive(Component, Reflect, Debug, Clone)]
@@ -71,6 +142,9 @@ impl Dispatch<xdg_positioner::XdgPositioner, Entity> for DWay {
             xdg_positioner::Request::SetSize { width, height } => {
                 state.with_component(resource, |c: &mut Geometry| {
                     c.set_size(IVec2::new(width, height));
+                });
+                state.with_component(resource, |c: &mut XdgPositioner| {
+                    c.positioner.size = Some(IVec2::new(width, height));
                 });
             }
             xdg_positioner::Request::SetAnchorRect {

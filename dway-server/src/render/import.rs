@@ -187,7 +187,6 @@ pub unsafe fn image_target_texture_oes(
 pub unsafe fn import_memory(
     surface: &WlSurface,
     buffer: &WlBuffer,
-    shm: &WlShmPool,
     gl: &glow::Context,
     dest: TextureId,
 ) -> Fallible<()> {
@@ -196,7 +195,7 @@ pub unsafe fn import_memory(
     let height = buffer.size.y;
     let stride = buffer.stride;
     let pixelsize = 4i32;
-    let shm_inner = shm.inner.read().unwrap();
+    let shm_inner = buffer.pool.read().unwrap();
     let ptr = std::ptr::from_raw_parts::<[u8]>(
         shm_inner.ptr.as_ptr().offset(buffer.offset as isize).cast(),
         (width * height * 4) as usize,
@@ -245,6 +244,7 @@ pub unsafe fn import_memory(
         format => return Err(format_err!("unsupported format: {:?}", format)),
     };
     if surface.commited.damages.len() == 0 {
+        trace!(surface=%WlResource::id(&surface.raw),"import {:?}", IRect::new(0, 0, width, height));
         gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, 0);
         gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);
         gl.tex_sub_image_2d(
@@ -262,6 +262,7 @@ pub unsafe fn import_memory(
         gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);
     } else {
         for region in surface.commited.damages.iter() {
+            trace!(surface=%WlResource::id(&surface.raw),"import {:?}", region);
             gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, region.pos().x.max(0));
             gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, region.pos().y.max(0));
             gl.tex_sub_image_2d(
@@ -438,7 +439,6 @@ pub enum BufferType {
 pub fn import_wl_surface(
     surface: &WlSurface,
     buffer: &WlBuffer,
-    shm_pool: &WlShmPool,
     dma_buffer: Option<&DmaBuffer>,
     egl_buffer: Option<&EGLBuffer>,
     texture: &Texture,
@@ -511,7 +511,7 @@ pub fn import_wl_surface(
                 let texture =
                     image_target_texture_oes(gl_eglimage_target_texture2_does, gl, raw_image)?;
             } else {
-                import_memory(surface, buffer, shm_pool, gl, texture_id)?;
+                import_memory(surface, buffer,  gl, texture_id)?;
             }
             gl.disable(glow::DEBUG_OUTPUT);
             Ok(())

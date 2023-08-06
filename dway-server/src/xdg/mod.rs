@@ -4,6 +4,7 @@ pub mod positioner;
 pub mod toplevel;
 pub mod wm;
 
+use bevy::ecs::schedule::ScheduleLabel;
 use bevy_relationship::{relationship, AppExt};
 use wayland_protocols::xdg::activation::v1::server::xdg_activation_token_v1;
 use wayland_server::Resource;
@@ -113,28 +114,29 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                         c.positioner.clone()
                     });
                 let parent_entity = parent.map(|r| DWay::get_entity(&r)).unwrap_or(*data);
+                let geometry = positioner.get_geometry();
                 state.insert(
                     *data,
                     (id, data_init, |o| XdgPopupBundle {
                         raw: XdgPopup::new(o, positioner.clone()),
-                        geometry: Geometry::new(IRect::from_pos_size(
-                            positioner.anchor_rect.unwrap_or_default().max,
-                            IVec2::default(),
-                        )),
-                        global_geometry: GlobalGeometry::default(),
+                        geometry: Geometry::new(geometry),
+                        global_geometry: GlobalGeometry::new(geometry),
                     })
                         .with_parent(parent_entity),
                 );
                 state.send_event(Insert::<XdgPopup>::new(*data));
                 state.connect::<SurfaceHasPopup>(parent_entity, *data);
-                state.query_object::<(&Geometry, &mut XdgSurface, &mut XdgPopup), _, _>(
+                state.query_object::<(&mut XdgSurface, &mut XdgPopup), _, _>(
                     resource,
-                    |(geometry, mut xdg_surface, mut popup)| {
-                        let size = geometry.geometry.size();
+                    |(mut xdg_surface, mut popup)| {
                         if !popup.send_configure {
-                            let size = geometry.geometry.size();
-                            debug!("popup send configure ({},{})", 100, 100);
-                            // popup.raw.configure(60,60,100,100);
+                            debug!("popup send configure {:?}", geometry);
+                            popup.raw.configure(
+                                geometry.x(),
+                                geometry.y(),
+                                geometry.width(),
+                                geometry.height(),
+                            );
                             popup.send_configure = true;
                         }
                         if !xdg_surface.send_configure {

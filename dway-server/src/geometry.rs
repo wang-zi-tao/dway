@@ -12,6 +12,12 @@ pub struct GlobalGeometry {
     pub geometry: IRect,
 }
 
+impl GlobalGeometry {
+    pub fn new(geometry: IRect) -> Self {
+        Self { geometry }
+    }
+}
+
 impl std::ops::DerefMut for GlobalGeometry {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.geometry

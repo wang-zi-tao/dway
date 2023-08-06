@@ -1,11 +1,18 @@
+pub mod grabs;
+
+use std::sync::Arc;
+
 use bevy::{
+    ecs::{event::ManualEventReader, system::SystemState},
     input::{
+        keyboard::KeyboardInput,
         mouse::{MouseButtonInput, MouseWheel},
         ButtonState,
     },
     math::DVec2,
     prelude::Component,
 };
+use bevy_relationship::reexport::SmallVec;
 use bitflags::bitflags;
 use kayak_ui::prelude::OnEvent;
 use wayland_protocols::xdg::shell::server::xdg_toplevel::ResizeEdge;
@@ -16,15 +23,97 @@ use crate::{
     schedule::DWayServerSet,
     util::rect::IRect,
     wl::surface::WlSurface,
-    xdg::{popup::XdgPopup, toplevel::XdgToplevel, XdgSurface},
+    xdg::{toplevel::XdgToplevel, XdgSurface},
+};
+pub enum GrabControl {
+    None,
+    Remove,
+}
+
+pub trait Grab: Send + Sync {
+    fn input(&self, world: &mut World, target: Entity, event: SeatInputEvent) -> GrabControl;
+}
+
+relationship!(SeatHasGrab=>GrabTargetList-<SeatRef);
+
+#[derive(Component, Reflect, FromReflect, Default)]
+pub struct GrabTarget {
+    pub inner: SmallVec<[Arc<dyn Grab>; 1]>,
+}
+
+use super::{
+    pointer::WlPointer,
+    seat::{PopupGrabBy, WlSeat},
 };
 
-use super::pointer::WlPointer;
+pub enum SeatInputEventKind {
+    PointerMoveGrabEvent(Vec2),
+    PointerButtonGrabEvent(MouseButtonInput, DVec2),
+    PointerAxisGrabEvent(MouseWheel, DVec2),
+    KeyboardGrabEvent(KeyboardInput),
+}
+pub struct SeatInputEvent(pub Entity, pub SeatInputEventKind);
 
-pub struct PointerMoveGrabEvent(pub Entity, pub Vec2);
-pub struct PointerButtonGrabEvent(pub Entity, pub MouseButtonInput, pub DVec2);
-pub struct PointerAxisGrabEvent(pub Entity, pub MouseWheel, pub DVec2);
-pub struct KeyboardGrabEvent(pub Entity);
+pub fn on_input(world: &mut World) {
+    let mut inputs = Vec::new();
+    {
+        let mut event_reader = ManualEventReader::<SeatInputEvent>::from_world(world);
+        let mut system_state: SystemState<(
+            Query<(&WlSeat, &mut GrabTargetList)>,
+            Query<&mut GrabTarget>,
+        )> = SystemState::from_world(world);
+        let (mut seat_query, mut target_query) = system_state.get_mut(world);
+        for event in event_reader.iter(world.resource()) {
+            if let Ok((seat, targets)) = seat_query.get_mut(event.0) {
+                for target_entity in targets.iter().rev() {
+                    if let Ok(mut target) = target_query.get_mut(target_entity) {
+                        if let Some(grab) = target.inner.last_mut() {
+                            inputs.push((target_entity, *event, Arc::downgrade(grab)));
+                        }
+                    }
+                }
+            }
+            system_state.apply(world);
+        }
+    }
+    let mut controls = Vec::new();
+    {
+        for (target_entity, event, grab) in inputs {
+            let Some(grab) = grab.upgrade() else {
+                continue;
+            };
+            let control = grab.input(world, target_entity, event);
+            match control {
+                GrabControl::Remove => controls.push((event.0, target_entity, control)),
+                GrabControl::None => {}
+            }
+        }
+    }
+    if controls.len() > 0 {
+        let mut system_state: SystemState<(
+            Query<(&mut GrabTarget, &mut SeatRef)>,
+            Query<&mut GrabTargetList>,
+            Commands,
+        )> = SystemState::from_world(world);
+        let (mut grab_query, mut seat_query, mut commands) = system_state.get_mut(world);
+        for (seat_entity, target_entity, control) in controls {
+            match control {
+                GrabControl::None => {}
+                GrabControl::Remove => {
+                    if let Ok(mut grab_list) = seat_query.get_mut(seat_entity) {
+                        grab_list.pop();
+                        if let Ok((mut grabs, mut seat_ref)) = grab_query.get_mut(target_entity) {
+                            grabs.inner.pop();
+                            if grab_list.len() == 0 {
+                                seat_ref.take();
+                            }
+                        }
+                    };
+                }
+            }
+        }
+    }
+}
 
 #[derive(Component, Debug, Default, Reflect, FromReflect)]
 #[reflect(Debug)]
@@ -53,7 +142,6 @@ pub enum PointerGrab {
     None,
     OnPopup {
         surface: Entity,
-        pressed: bool,
         serial: u32,
     },
     ButtonDown {
@@ -149,46 +237,16 @@ pub fn on_mouse_move(
 pub fn on_mouse_button(
     mut event: EventReader<PointerButtonGrabEvent>,
     mut pointer_query: Query<(&mut WlPointer, &mut PointerGrab)>,
-    mut surface_query: Query<(&WlSurface, &GlobalGeometry, Option<&XdgPopup>)>,
+    mut surface_query: Query<(&WlSurface, &GlobalGeometry)>,
 ) {
     for PointerButtonGrabEvent(entity, event, position) in event.iter() {
         if let Ok((mut pointer, mut grab)) = pointer_query.get_mut(*entity) {
-            match &mut *grab {
-                PointerGrab::ButtonDown { surface } => {
-                    let Ok((surface, rect, popup)) = surface_query.get(*surface) else {
+            match &*grab {
+                PointerGrab::ButtonDown { surface } | PointerGrab::OnPopup { surface, .. } => {
+                    let Ok((surface, rect)) = surface_query.get(*surface) else {
                         continue;
                     };
                     pointer.button(event, surface, *position - rect.pos().as_dvec2());
-                    match event.state {
-                        ButtonState::Pressed => {
-                            pointer.grab(surface);
-                        }
-                        ButtonState::Released => {
-                            *grab = PointerGrab::None;
-                            pointer.unset_grab();
-                        }
-                    }
-                }
-
-                PointerGrab::OnPopup {
-                    surface, pressed, ..
-                } => {
-                    let Ok((surface, rect, popup)) = surface_query.get(*surface) else {
-                        continue;
-                    };
-                    match (event.state, *pressed) {
-                        (ButtonState::Pressed, false) => {
-                            pointer.button(event, surface, *position - rect.pos().as_dvec2());
-                            *pressed = true;
-                            pointer.grab(surface);
-                        }
-                        (ButtonState::Released, true) => {
-                            pointer.button(event, surface, *position - rect.pos().as_dvec2());
-                            *pressed = false;
-                            pointer.unset_grab();
-                        }
-                        _ => {}
-                    }
                 }
                 PointerGrab::Moving { .. } => {
                     *grab = PointerGrab::None;
@@ -199,6 +257,15 @@ pub fn on_mouse_button(
                     *grab = PointerGrab::None;
                     pointer.unset_grab();
                     info!("stop resizing");
+                }
+                _ => {}
+            }
+            match &*grab {
+                PointerGrab::ButtonDown { surface } => {
+                    if event.state == ButtonState::Released {
+                        *grab = PointerGrab::None;
+                        pointer.unset_grab();
+                    }
                 }
                 _ => {}
             }
@@ -233,17 +300,10 @@ pub fn on_mouse_axis(
 pub struct GrabPlugin;
 impl Plugin for GrabPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<PointerGrab>();
-        app.register_type::<KeyboardGrab>();
-        app.add_event::<PointerMoveGrabEvent>();
-        app.add_event::<PointerButtonGrabEvent>();
-        app.add_event::<PointerAxisGrabEvent>();
-        app.add_event::<KeyboardGrabEvent>();
+        app.register_relation::<SeatHasGrab>();
         app.add_systems(
             (
-                on_mouse_move.run_if(on_event::<PointerMoveGrabEvent>()),
-                on_mouse_button.run_if(on_event::<PointerButtonGrabEvent>()),
-                on_mouse_axis.run_if(on_event::<PointerAxisGrabEvent>()),
+                on_input.run_if(on_event::<SeatInputEvent>()),
             )
                 .in_set(DWayServerSet::GrabInput),
         );

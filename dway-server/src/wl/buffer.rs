@@ -28,6 +28,8 @@ pub struct WlBuffer {
     #[reflect(ignore)]
     pub format: wl_shm::Format,
     pub attach_by: Option<Entity>,
+    #[reflect(ignore)]
+    pub pool: Arc<RwLock<WlShmPoolInner>>,
 }
 #[derive(Bundle)]
 pub struct WlBufferBundle {
@@ -280,6 +282,8 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                         return;
                     }
                 };
+                let pool =
+                    state.with_component(resource, |pool: &mut WlShmPool| pool.inner.clone());
                 state.spawn(
                     (id, data_init, |o| {
                         WlBufferBundle::new(WlBuffer {
@@ -289,6 +293,7 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                             stride,
                             format,
                             attach_by: None,
+                            pool,
                         })
                     })
                         .with_parent(*data),

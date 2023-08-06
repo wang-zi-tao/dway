@@ -82,6 +82,7 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
                         |(mut grab, pointer_rect, mut pointer)| {
                             *grab = PointerGrab::OnPopup {
                                 surface: *data,
+                                pressed: false,
                                 serial,
                             };
                             pointer.unset_grab();

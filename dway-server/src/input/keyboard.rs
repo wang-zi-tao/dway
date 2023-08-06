@@ -7,6 +7,7 @@ use bevy::input::keyboard::KeyboardInput;
 use failure::{format_err, Fallible};
 use xkbcommon::xkb;
 
+use crate::input::time;
 use crate::{prelude::*, util::serial::next_serial, wl::surface::WlSurface};
 
 use super::grab::KeyboardGrab;
@@ -98,7 +99,7 @@ impl WlKeyboard {
         self.set_focus(surface);
         self.raw.key(
             next_serial(),
-            SystemTime::now().elapsed().unwrap().as_millis() as u32,
+            time(),
             input.scan_code,
             match input.state {
                 bevy::input::ButtonState::Pressed => wl_keyboard::KeyState::Pressed,

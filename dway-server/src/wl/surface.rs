@@ -9,7 +9,7 @@ use crate::{
     schedule::DWayServerSet,
     util::{rect::IRect, serial::next_serial},
     wl::buffer::WlBuffer,
-    xdg::{toplevel::XdgToplevel, XdgSurface},
+    xdg::{popup::XdgPopup, toplevel::XdgToplevel, XdgSurface},
 };
 use std::{borrow::Cow, num::NonZeroUsize, sync::Arc};
 
@@ -246,51 +246,67 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
             wl_surface::Request::Commit => {
                 let _enterd = span!(Level::DEBUG, "commit").entered();
                 let frame_count = state.world().resource::<FrameCount>().0;
-                let (old_buffer_entity, buffer_entity,input_region_entity,opaque_region_entity) = state.query_object::<(
-                    &mut WlSurface,
-                    Option<&mut Geometry>,
-                    Option<&mut XdgSurface>,
-                    Option<&mut XdgToplevel>,
-                ), _, _>(
-                    resource,
-                    |(mut surface, geometry, mut xdg_surface, mut toplevel)| {
-                        let old_buffer_entity = surface.commited.buffer;
-                        if let Some(v) = surface.pending.buffer.take() {
-                            surface.commited.buffer = v;
-                        }
-                        if let Some(v) = surface.pending.position.take() {
-                            let _ = surface.commited.position.insert(v);
-                        }
-                        if let Some(v) = surface.pending.opaque_region.take() {
-                            let _ = surface.commited.opaque_region.insert(v);
-                        }
-                        if let Some(v) = surface.pending.input_region.take() {
-                            let _ = surface.commited.input_region.insert(v);
-                        }
-                        if let Some(v) = surface.pending.scale.take() {
-                            let _ = surface.commited.scale.insert(v);
-                        }
-                        if let Some(offset) = surface.pending.offset.take() {
-                            *surface.commited.offset.get_or_insert_default() += offset;
-                        }
-                        if let Some(window_geometry) = surface.pending.window_geometry.take() {
-                            let _ = *surface.commited.window_geometry.insert(window_geometry);
-                            if let Some(mut geometry) = geometry {
-                                geometry.geometry.set_size(window_geometry.size());
+                let system = || {};
+                let (old_buffer_entity, buffer_entity, input_region_entity, opaque_region_entity) =
+                    state.query_object::<(
+                        &mut WlSurface,
+                        Option<&mut Geometry>,
+                        Option<&mut XdgSurface>,
+                        Option<&mut XdgToplevel>,
+                        Option<&mut XdgPopup>,
+                    ), _, _>(
+                        resource,
+                        |(mut surface, geometry, mut xdg_surface, mut toplevel, mut popup)| {
+                            let old_buffer_entity = surface.commited.buffer;
+                            if let Some(v) = surface.pending.buffer.take() {
+                                surface.commited.buffer = v;
                             }
-                        }
-                        let damages = surface.pending.damages.drain(..).collect::<Vec<_>>();
-                        surface.commited.damages.extend(damages);
-                        let callbacks = surface.pending.callbacks.drain(..).collect::<Vec<_>>();
-                        surface.commited.callbacks.extend(callbacks);
+                            if let Some(v) = surface.pending.position.take() {
+                                let _ = surface.commited.position.insert(v);
+                            }
+                            if let Some(v) = surface.pending.opaque_region.take() {
+                                let _ = surface.commited.opaque_region.insert(v);
+                            }
+                            if let Some(v) = surface.pending.input_region.take() {
+                                let _ = surface.commited.input_region.insert(v);
+                            }
+                            if let Some(v) = surface.pending.scale.take() {
+                                let _ = surface.commited.scale.insert(v);
+                            }
+                            if let Some(offset) = surface.pending.offset.take() {
+                                *surface.commited.offset.get_or_insert_default() += offset;
+                            }
+                            if let Some(window_geometry) = surface.pending.window_geometry.take() {
+                                let _ = *surface.commited.window_geometry.insert(window_geometry);
+                                if let Some(mut geometry) = geometry {
+                                    geometry.geometry.set_size(window_geometry.size());
+                                }
+                            }
+                            let damages = surface.pending.damages.drain(..).collect::<Vec<_>>();
+                            surface.commited.damages.extend(damages);
+                            let callbacks = surface.pending.callbacks.drain(..).collect::<Vec<_>>();
+                            surface.commited.callbacks.extend(callbacks);
 
-                        surface.just_commit = true;
-                        surface.commit_time = frame_count;
-                        surface.commit_count += 1;
+                            surface.just_commit = true;
+                            surface.commit_time = frame_count;
+                            surface.commit_count += 1;
 
-                        (old_buffer_entity, surface.commited.buffer,surface.commited.input_region,surface.commited.opaque_region)
-                    },
-                );
+                            if let Some(mut popup) = popup {
+                                if !popup.send_configure {
+                                    let size = surface.size.unwrap_or_default();
+                                    popup.raw.configure(0, 0, size.x, size.y);
+                                    popup.send_configure = true;
+                                }
+                            }
+
+                            (
+                                old_buffer_entity,
+                                surface.commited.buffer,
+                                surface.commited.input_region,
+                                surface.commited.opaque_region,
+                            )
+                        },
+                    );
                 if let Some(buffer_entity) = buffer_entity {
                     if let Some(buffer) = state.get::<WlBuffer>(buffer_entity) {
                         buffer.raw.release();
@@ -300,8 +316,8 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 } else if let Some(old_buffer) = old_buffer_entity {
                     state.disconnect::<AttachmentRelationship>(*data, old_buffer);
                 }
-                input_region_entity.map(|e|state.connect::<SurfaceHasInputRegion>(*data, e));
-                opaque_region_entity.map(|e|state.connect::<SurfaceHasOpaqueRegion>(*data, e));
+                input_region_entity.map(|e| state.connect::<SurfaceHasInputRegion>(*data, e));
+                opaque_region_entity.map(|e| state.connect::<SurfaceHasOpaqueRegion>(*data, e));
             }
             wl_surface::Request::SetBufferTransform { transform } => todo!(),
             wl_surface::Request::SetBufferScale { scale } => {

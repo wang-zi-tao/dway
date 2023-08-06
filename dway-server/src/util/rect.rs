@@ -84,10 +84,14 @@ impl IRect {
         self.max.y - self.min.y
     }
     pub fn set_x(&mut self, value: i32) {
+        let w = self.width();
         self.min.x = value;
+        self.max.x = self.x() + w;
     }
     pub fn set_y(&mut self, value: i32) {
+        let h = self.height();
         self.min.y = value;
+        self.max.y = self.y() + h;
     }
     pub fn set_width(&mut self, value: i32) {
         self.max.x = self.min.x + value;
@@ -106,5 +110,20 @@ impl IRect {
     }
     pub fn offset(self, offset: IVec2) -> Self {
         Self::from_pos_size(offset + self.pos(), self.size())
+    }
+    pub fn top_left(self) -> IVec2 {
+        self.min
+    }
+    pub fn bottom_right(&self) -> IVec2 {
+        self.max
+    }
+    pub fn top_right(&self) -> IVec2 {
+        IVec2::new(self.x() + self.width(), self.y())
+    }
+    pub fn buttom_left(&self) -> IVec2 {
+        IVec2::new(self.x(), self.y() + self.height())
+    }
+    pub fn center(&self) -> IVec2 {
+        (self.min + self.max) / 2
     }
 }
