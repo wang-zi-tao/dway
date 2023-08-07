@@ -69,6 +69,14 @@ impl ConnectableMut for RelationshipToOneEntity {
 #[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Debug)]
 pub struct RelationshipToManyEntity(pub SmallVec<[Entity; 4]>);
+
+impl std::ops::Deref for RelationshipToManyEntity {
+    type Target = SmallVec<[Entity; 4]>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 impl Connectable for RelationshipToManyEntity {
     type Iterator<'l> = Cloned<std::slice::Iter<'l, Entity>>;
 

@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 dway-util = {path="../dway-util/"}
 bevy-relationship = {path="../bevy-relationship/"}
+dway_winit = {path="../dway_winit"}
 
 failure = "0.1.8"
 lazy_static = "1.4.0"
@@ -47,8 +48,6 @@ tokio = { version="1.28.0", features = [ "full" ] }
 bytes = "1.4.0"
 bevy-tokio-tasks = "0.10.2"
 tempfile = "3.6.0"
-
-bevy_winit = {path="../bevy_winit"}
 
 [dependencies.kayak_ui]
 version = "0.4.1"

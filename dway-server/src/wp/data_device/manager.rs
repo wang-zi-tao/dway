@@ -1,4 +1,8 @@
-use crate::{create_dispatch, prelude::*, wp::data_device::WlDataDevice};
+use crate::{
+    create_dispatch,
+    prelude::*,
+    wp::data_device::{data_source::WlDataSource, WlDataDevice},
+};
 
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
@@ -26,7 +30,9 @@ impl Dispatch<wl_data_device_manager::WlDataDeviceManager, Entity> for DWay {
         let _enter = span.enter();
         debug!("request {:?}", &request);
         match request {
-            wl_data_device_manager::Request::CreateDataSource { id } => todo!(),
+            wl_data_device_manager::Request::CreateDataSource { id } => {
+                state.spawn_child_object(*data, id, data_init, |c| WlDataSource::new(c));
+            }
             wl_data_device_manager::Request::GetDataDevice { id, seat } => {
                 state.insert_object(DWay::get_entity(&seat), id, data_init, |o| {
                     WlDataDevice::new(o)

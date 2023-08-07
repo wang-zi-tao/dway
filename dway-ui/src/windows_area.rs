@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use dway_server::events::{Destroy, Insert};
 use dway_server::wl::surface::WlSurface;
 use dway_server::xdg::XdgSurface;
+use dway_server::xdg::toplevel::XdgToplevel;
 use kayak_ui::widgets::{BackgroundBundle, TextProps, TextWidgetBundle};
 use kayak_ui::{prelude::*, widgets::ElementBundle};
 
@@ -11,8 +12,8 @@ pub fn widget_update(
     In((entity, previous_entity)): In<(Entity, Entity)>,
     widget_context: Res<KayakWidgetContext>,
     widget_param: WidgetParam<Window, EmptyState>,
-    create_window_events: EventReader<Insert<XdgSurface>>,
-    destroy_window_events: EventReader<Destroy<XdgSurface>>,
+    create_window_events: EventReader<Insert<XdgToplevel>>,
+    destroy_window_events: EventReader<Destroy<XdgToplevel>>,
 ) -> bool {
     let should_update = widget_param.has_changed(&widget_context, entity, previous_entity);
     should_update || !create_window_events.is_empty() || !destroy_window_events.is_empty()
@@ -23,7 +24,7 @@ pub fn render(
     In(entity): In<Entity>,
     widget_context: Res<KayakWidgetContext>,
     mut commands: Commands,
-    windows_query: Query<Entity, (With<WlSurface>, With<XdgSurface>)>,
+    windows_query: Query<Entity, (With<WlSurface>, With<XdgToplevel>)>,
 ) -> bool {
     let parent_id = Some(entity);
     let background_style = KStyle {

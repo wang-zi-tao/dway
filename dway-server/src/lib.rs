@@ -5,7 +5,7 @@ use std::process::{self, Stdio};
 
 use bevy::prelude::*;
 use bevy_tokio_tasks::TokioTasksRuntime;
-use bevy_winit::UpdateRequestEvents;
+use dway_winit::UpdateRequestEvents;
 use schedule::DWayStartSet;
 use state::{create_display, DWayWrapper, DisplayCreated, NonSendMark};
 pub mod client;
@@ -67,9 +67,8 @@ pub fn init_display(
 }
 pub fn spawn(query: Query<&DWayWrapper>, tokio: Res<TokioTasksRuntime>) {
     let compositor = query.single().0.lock().unwrap();
-    // let mut command = process::Command::new("gnome-calculator");
-    // let mut command = process::Command::new("gedit");
-    compositor.spawn_process(process::Command::new("gnome-calculator"), &tokio);
+    // compositor.spawn_process(process::Command::new("gnome-calculator"), &tokio);
+    compositor.spawn_process(process::Command::new("gedit"), &tokio);
     // compositor.spawn_process(process::Command::new("gnome-system-monitor"), &tokio);
     // compositor.spawn_process(
     //     process::Command::new(

@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 dway-util = {path="../dway-util/"}
-dway-protocol = {path="../dway-protocol/"}
 dway-server = {path="../dway-server/"}
 
 font-kit = "0.11.0"
@@ -35,7 +34,7 @@ libloading = "0.7.4"
 glow = {}
 wgpu = {}
 wgpu-hal = {}
-bevy = {}
+bevy = "0.10"
 
 [dependencies.smithay]
 # default-features = false

@@ -13,4 +13,6 @@ uuid = {}
 memory-stats = {}
 rand = {}
 bevy_math = {}
-bevy={}
+
+[dependencies.bevy]
+version = "0.10"

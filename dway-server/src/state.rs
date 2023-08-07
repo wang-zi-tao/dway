@@ -24,7 +24,7 @@ use bevy_relationship::{
     ReserveRelationship, ReverseRelationship,
 };
 use bevy_tokio_tasks::TokioTasksRuntime;
-use bevy_winit::{UpdateRequestEvents, FrameConditionSchedule, UpdateRequest};
+use dway_winit::{UpdateRequestEvents, FrameConditionSchedule, UpdateRequest};
 use calloop::{generic::Generic, EventLoop, Interest, Mode, PostAction};
 use failure::format_err;
 use inlinable_string::InlinableString;

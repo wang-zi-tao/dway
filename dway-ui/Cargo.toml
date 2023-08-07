@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 dway-util = {path="../dway-util/"}
-dway-protocol = {path="../dway-protocol/"}
 dway-server = {path="../dway-server/"}
 dway-client-core = {path="../dway-client-core/"}
 
@@ -18,11 +17,11 @@ crossbeam-channel = {}
 failure = {}
 uuid = {}
 lru = {}
-bevy_mod_picking = "0.12.0"
-bevy_mod_raycast = "0.8"
+bevy_mod_picking = "0.14.0"
+bevy_mod_raycast = "0.9"
 rand = {}
 kayak_font = "0.4.0"
-bevy = {}
+bevy = "0.10"
 serde={}
 
 [dependencies.kayak_ui]

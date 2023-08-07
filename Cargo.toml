@@ -3,9 +3,10 @@ resolver = "2"
 members = [
     "dway",
     "dway-client-core",
-    "dway-ui", "dway-protocol",
+    "dway-ui",
     "dway-server",
     "dway-util",
+    "dway_winit",
     "bevy-relationship",
     "bevy-relationship-derive",
 ]
@@ -62,5 +63,4 @@ path = "../smithay"
 # git = "https://github.com/Smithay/smithay"
 
 [patch.crates-io]
-smithay = {path="../smithay/"}
 kayak_ui = {path="../../../Code/bevy-kayak/"}

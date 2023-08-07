@@ -10,6 +10,7 @@ dway-client-core = { path="../dway-client-core/"}
 dway-ui = { path="../dway-ui/"}
 dway-util = {path="../dway-util/"}
 dway-server = {path="../dway-server/"}
+dway_winit = {path="../dway_winit"}
 # dway-udev = {path="../dway-udev/"}
 
 pretty_env_logger = "0.4.0"
@@ -23,7 +24,6 @@ rand = "0.8"
 bevy-inspector-egui = "0.18"
 # bevy_framepace = "0.11.0"
 num_cpus = "1.15.0"
-bevy={features = ["jpeg","wayland", "serialize", "bevy_dynamic_plugin"]}
 serde={}
 bevy_prototype_lyon = "0.8.0"
 
@@ -32,6 +32,10 @@ opt-level = 3
 
 [profile.dev]
 opt-level = 1
+
+[dependencies.bevy]
+version = "0.10"
+features = ["jpeg","wayland", "serialize", "bevy_dynamic_plugin"]
 
 # Enable high optimizations for dependencies (incl. Bevy), but not for our code:
 [profile.dev.package."*"]

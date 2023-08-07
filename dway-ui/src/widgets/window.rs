@@ -4,11 +4,16 @@ use bevy::{
     render::texture::{BevyDefault, ImageSampler, TextureFormatPixelInfo},
 };
 use dway_client_core::desktop::{FocusedWindow, WindowStack};
-use dway_server::{geometry::GlobalGeometry, wl::surface::WlSurface, xdg::XdgSurface};
+use dway_server::{
+    geometry::GlobalGeometry,
+    macros::Connectable,
+    wl::surface::WlSurface,
+    xdg::{popup::XdgPopup, PopupList, XdgSurface},
+};
 use kayak_ui::{
     prelude::{
         rsx, EventType, KChildren, KEvent, KPositionType, KStyle, KayakWidgetContext, OnEvent,
-        StyleProp, Units, WidgetParam,
+        StyleProp, Units, WidgetParam, constructor,
     },
     widgets::{
         BackgroundBundle, ElementBundle, KButton, KButtonBundle, KImage, KImageBundle,
@@ -40,6 +45,7 @@ pub fn widget_update(
             Changed<XdgSurface>,
             Changed<GlobalGeometry>,
             Changed<WlSurface>,
+            Changed<PopupList>,
         )>,
     >,
 ) -> bool {
@@ -91,9 +97,10 @@ pub fn render(
     props_query: Query<&Window>,
     state_query: Query<&WindowState>,
     window_query: Query<
-        (&XdgSurface, &GlobalGeometry, &WlSurface),
+        (&XdgSurface, &GlobalGeometry, &WlSurface, Option<&PopupList>),
         // With<WindowMark>,
     >,
+    popup_query: Query<(Entity), With<XdgPopup>>,
     mut assets: ResMut<Assets<Image>>,
 ) -> bool {
     let Ok(props) = props_query.get(entity) else {
@@ -101,7 +108,7 @@ pub fn render(
         return true;
     };
     let state_entity = widget_context.use_state(&mut commands, entity, WindowState::default());
-    let Ok((geometry, rect, surface)) = window_query.get(props.entity) else {
+    let Ok((xdg_surface, rect, surface, popups)) = window_query.get(props.entity) else {
         error!("surface error component {:?}", props.entity);
         return true;
     };
@@ -125,15 +132,6 @@ pub fn render(
         position_type: KPositionType::SelfDirected.into(),
         ..Default::default()
     };
-    // let geo_style = KStyle {
-    //     position_type: StyleProp::Value(KPositionType::SelfDirected),
-    //     left: StyleProp::Value(Units::Pixels(rect.loc.x as f32)),
-    //     top: StyleProp::Value(Units::Pixels(rect.loc.x as f32)),
-    //     width: StyleProp::Value(Units::Pixels(rect.size.w as f32)),
-    //     height: StyleProp::Value(Units::Pixels(rect.size.h as f32)),
-    //     background_color: Color::rgba_u8(255, 0, 0, 64).into(),
-    //     ..Default::default()
-    // };
     let parent_id = Some(entity);
     let background_style = KStyle {
         left: StyleProp::Inherit,
@@ -146,46 +144,45 @@ pub fn render(
     };
 
     let backend_entity = props.entity;
-    // let surface_id_clone = surface_id.clone();
     let on_event = OnEvent::new(
         move |In(_entity): In<Entity>,
               mut event: ResMut<KEvent>,
               mut state_query: Query<&mut WindowState>,
-              // mut mouse_button_events: EventWriter<MouseButtonOnWindow>,
-              // mut keyboard_events: EventWriter<KeyboardInputOnWindow>,
               mut stack: ResMut<WindowStack>,
-              mut output_focus: ResMut<FocusedWindow>,
-              // mut mouse_events:Res<InputEvent<MouseButton>>,
-        | {
+              mut output_focus: ResMut<FocusedWindow>| {
             let mut state = state_query.get_mut(state_entity).unwrap();
             match event.event_type {
                 EventType::MouseIn(c) => {
-                    state.mouse_in_rect=true;
-                    output_focus.0=Some(backend_entity);
+                    state.mouse_in_rect = true;
+                    output_focus.0 = Some(backend_entity);
                 }
                 EventType::MouseOut(c) => {
-                    state.mouse_in_rect=false;
+                    state.mouse_in_rect = false;
                 }
-                _ => { }
+                _ => {}
             };
         },
     );
     rsx! {
-        <ElementBundle styles={root_style.clone()} >
+        <ElementBundle styles={root_style} >
             <BackgroundBundle
-                // image={KImage( image )}
                 styles={bbox_style.clone()}
             />
             <KImageBundle
-                // image={KImage( image )}
                 image={KImage(surface.image.clone())}
-                styles={bbox_style}
-            />
-            // <ElementBundle
-            //     // styles={geo_style.clone()}
-            //         on_event={on_event}
-            // >
-            // </ElementBundle>
+                styles={bbox_style.clone()}
+            ></KImageBundle>
+            {
+                if let Some(popups)=popups {
+                    for popup_entity in popup_query.iter_many(popups.iter()){
+                        constructor!{
+                            <WindowBundle
+                              props = {Window{entity: popup_entity}}
+                            />
+                        }
+                    }
+                }
+            }
         </ElementBundle>
     };
     true

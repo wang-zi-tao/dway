@@ -82,8 +82,9 @@ fn setup(
     // let font=asset_server.load("fonts/FiraSans-Bold.ttf");
     font_mapping.set_default(asset_server.load("roboto.kttf"));
     info!("create kayak ui camera");
+    let mut camera=Camera2dBundle::default();
     let camera_entity = commands
-        .spawn((Camera2dBundle::default(), CameraUIKayak))
+        .spawn((camera, CameraUIKayak))
         .id();
     let mut widget_context = KayakRootContext::new(camera_entity);
     widget_context.add_plugin(KayakWidgetsContextPlugin);
