@@ -1,11 +1,12 @@
 use std::{
     any::{type_name, TypeId},
     borrow::Cow,
+    ffi::OsString,
     io::BufRead,
     marker::PhantomData,
     os::{fd::AsRawFd, unix::net::UnixStream},
     path::Path,
-    process::{self, Stdio},
+    process::{self, CommandEnvs, Stdio},
     ptr::null_mut,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -24,8 +25,8 @@ use bevy_relationship::{
     ReserveRelationship, ReverseRelationship,
 };
 use bevy_tokio_tasks::TokioTasksRuntime;
-use dway_winit::{UpdateRequestEvents, FrameConditionSchedule, UpdateRequest};
 use calloop::{generic::Generic, EventLoop, Interest, Mode, PostAction};
+use dway_winit::{FrameConditionSchedule, UpdateRequest, UpdateRequestEvents};
 use failure::format_err;
 use inlinable_string::InlinableString;
 use send_wrapper::SendWrapper;
@@ -57,6 +58,14 @@ pub struct DWayDisplay(pub Arc<Mutex<wayland_server::Display<DWay>>>);
 #[derive(Component, Clone)]
 pub struct DWayWrapper(pub Arc<Mutex<DWay>>);
 
+impl lazy_static::__Deref for DWayWrapper {
+    type Target = Arc<Mutex<DWay>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 #[derive(Component, Clone)]
 pub struct DWayEventLoop(pub Arc<Mutex<SendWrapper<EventLoop<'static, DWay>>>>);
 
@@ -84,10 +93,12 @@ impl DWayDisplayBundle {
     }
 }
 pub struct DWay {
-    pub(crate) world: *mut World,
+    world: *mut World,
+    pub display_handle: DisplayHandle,
     pub socket_name: InlinableString,
     pub display_number: Option<usize>,
     pub globals: Vec<GlobalId>,
+    pub envs: HashMap<OsString, OsString>,
 }
 unsafe impl Sync for DWay {}
 unsafe impl Send for DWay {}
@@ -130,6 +141,14 @@ impl DWay {
             }
         }
     }
+    pub fn spawn_process_x11(&self, mut command: process::Command, tokio: &TokioTasksRuntime) {
+        if let Some(display_number) = self.display_number {
+            command.env("DISPLAY", ":".to_string() + &display_number.to_string());
+        } else {
+            command.env_remove("DISPLAY");
+        }
+        self.do_spawn_process(command, tokio);
+    }
     pub fn spawn_process(&self, mut command: process::Command, tokio: &TokioTasksRuntime) {
         if let Some(display_number) = self.display_number {
             command.env("DISPLAY", ":".to_string() + &display_number.to_string());
@@ -145,7 +164,8 @@ impl DWay {
             .env_remove("DISPLAY");
         self.do_spawn_process(command, tokio);
     }
-    fn do_spawn_process(&self, command: process::Command, tokio: &TokioTasksRuntime) {
+    fn do_spawn_process(&self, mut command: process::Command, tokio: &TokioTasksRuntime) {
+        command.envs(&self.envs);
         tokio.spawn_background_task(|_ctx| async move {
             let program = command.get_program().to_string_lossy();
             let program = String::from(
@@ -317,7 +337,7 @@ impl DWay {
     ) -> Entity
     where
         DWay: wayland_server::Dispatch<T, Entity>,
-        C: bevy::prelude::Component,
+        C: bevy::prelude::Bundle,
         T: wayland_server::Resource + 'static,
         F: FnOnce(T) -> C,
     {
@@ -440,7 +460,7 @@ impl DWay {
         trace!(entity=?entity,resource=%id,"despawn object");
         self.world_mut()
             .get_entity_mut(entity)
-            .map(|mut e| e.despawn_descendants());
+            .map(|mut e| e.despawn_recursive());
     }
     pub fn with_component<T, F, R>(&mut self, object: &impl wayland_server::Resource, f: F) -> R
     where
@@ -506,6 +526,13 @@ impl DWay {
     pub fn send_event<T: Event>(&mut self, event: T) {
         let world = self.world_mut();
         world.send_event(event);
+    }
+    pub fn scope<R>(&mut self, world: &mut World, f: impl FnOnce(&mut Self) -> R) -> R {
+        assert!(self.world.is_null());
+        self.world = world as *mut World;
+        let r = f(self);
+        self.world = null_mut();
+        r
     }
 }
 
@@ -573,7 +600,7 @@ pub fn create_display(
         .insert_source(source, move |client_stream, _, data: &mut DWay| {
             let display = data.component::<DWayDisplay>(entity).0.clone();
             data.create_client(entity, client_stream, &display.lock().unwrap());
-            sender_clone.send(UpdateRequest::default());
+            let _ = sender_clone.send(UpdateRequest::default());
         })
         .expect("Failed to init wayland socket source");
     event_loop
@@ -587,7 +614,7 @@ pub fn create_display(
             move |_, _, state| {
                 let display = state.component::<DWayDisplay>(entity).0.clone();
                 let mut guard = display.lock().unwrap();
-                sender.send(UpdateRequest::default());
+                let _ = sender.send(UpdateRequest::default());
                 Ok(PostAction::Continue)
             },
         )
@@ -596,9 +623,11 @@ pub fn create_display(
     let name = Name::new(Cow::Owned(format!("wayland_server@{socket_name}")));
     let state = DWay {
         world: null_mut(),
+        display_handle: handle.clone(),
         socket_name,
         display_number: None,
         globals: Vec::new(),
+        envs: Default::default(),
     };
     entity_command.insert(DWayDisplayBundle::new(
         name,
@@ -619,10 +648,10 @@ pub fn frame_condition(world: &mut World) {
     let duration = Duration::from_secs_f32(0.001);
     for (dway, events) in &displays {
         let mut dway = dway.0.lock().unwrap();
-        dway.world = world as *mut World;
-        let mut event_loop = events.0.lock().unwrap();
-        event_loop.dispatch(Some(duration), &mut dway).unwrap();
-        dway.world = null_mut();
+        dway.scope(world, |dway| {
+            let mut event_loop = events.0.lock().unwrap();
+            event_loop.dispatch(Some(duration), dway).unwrap();
+        });
     }
 }
 
@@ -635,13 +664,13 @@ pub fn dispatch_events(world: &mut World) {
     let duration = Duration::from_secs_f32(0.001);
     for (dway, display, events) in &displays {
         let mut dway = dway.0.lock().unwrap();
-        dway.world = world as *mut World;
-        let mut event_loop = events.0.lock().unwrap();
-        event_loop.dispatch(Some(duration), &mut dway).unwrap();
-        let mut display = display.0.lock().unwrap();
-        display.dispatch_clients(&mut dway).unwrap();
-        display.flush_clients().unwrap();
-        dway.world = null_mut();
+        dway.scope(world, |dway| {
+            let mut event_loop = events.0.lock().unwrap();
+            event_loop.dispatch(Some(duration), dway).unwrap();
+            let mut display = display.0.lock().unwrap();
+            display.dispatch_clients(dway).unwrap();
+            display.flush_clients().unwrap();
+        });
     }
 }
 

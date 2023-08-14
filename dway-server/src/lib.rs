@@ -1,4 +1,5 @@
 #![feature(option_get_or_insert_default)]
+#![feature(async_closure)]
 #![feature(ptr_metadata)]
 #![feature(trivial_bounds)]
 use std::process::{self, Stdio};
@@ -49,6 +50,7 @@ impl Plugin for DWayServerPlugin {
         app.add_plugin(xdg::popup::XdgPopupPlugin);
         app.add_plugin(zxdg::outputmanager::XdgOutputManagerPlugin);
         app.add_plugin(wp::PrimarySelectionPlugin);
+        app.add_plugin(x11::DWayXWaylandPlugin);
         app.add_startup_systems((init_display, apply_system_buffers, spawn).chain());
     }
 }
@@ -68,7 +70,7 @@ pub fn init_display(
 pub fn spawn(query: Query<&DWayWrapper>, tokio: Res<TokioTasksRuntime>) {
     let compositor = query.single().0.lock().unwrap();
     // compositor.spawn_process(process::Command::new("gnome-calculator"), &tokio);
-    compositor.spawn_process(process::Command::new("gedit"), &tokio);
+    // compositor.spawn_process(process::Command::new("gedit"), &tokio);
     // compositor.spawn_process(process::Command::new("gnome-system-monitor"), &tokio);
     // compositor.spawn_process(
     //     process::Command::new(

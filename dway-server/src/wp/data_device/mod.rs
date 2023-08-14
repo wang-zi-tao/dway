@@ -1,5 +1,5 @@
-pub mod manager;
 pub mod data_source;
+pub mod manager;
 
 use crate::{create_dispatch, prelude::*};
 
@@ -14,6 +14,7 @@ impl WlDataDevice {
         Self { raw }
     }
 }
+relationship!(SelectionOfDataDevice=>SelectionSource--SeatRef);
 impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
     fn request(
         state: &mut Self,
@@ -35,8 +36,16 @@ impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
                 icon,
                 serial,
             } => todo!(),
-            wl_data_device::Request::SetSelection { source, serial } => todo!(),
-            wl_data_device::Request::Release => todo!(),
+            wl_data_device::Request::SetSelection { source, serial } => {
+                if let Some(source) = source {
+                    state.connect::<SelectionOfDataDevice>(*data, DWay::get_entity(&source));
+                } else {
+                    state.disconnect_all::<SelectionOfDataDevice>(*data);
+                }
+            }
+            wl_data_device::Request::Release => {
+                state.entity_mut(*data).remove::<WlDataDevice>();
+            },
             _ => todo!(),
         }
     }
@@ -57,5 +66,6 @@ impl Plugin for DataDevicePlugin {
             wl_data_device_manager::WlDataDeviceManager,
             3,
         >());
+        app.register_relation::<SelectionOfDataDevice>();
     }
 }

@@ -4,12 +4,12 @@ pub struct Bind<T: WlResource> {
     pub entity: Entity,
     pub phase: std::marker::PhantomData<T>,
 }
-pub struct Insert<T: ResourceWrapper> {
+pub struct Insert<T> {
     pub entity: Entity,
     pub phase: std::marker::PhantomData<T>,
 }
 
-impl<T: ResourceWrapper> Insert<T> {
+impl<T> Insert<T> {
     pub fn new(entity: Entity) -> Self {
         Self {
             entity,
@@ -18,12 +18,12 @@ impl<T: ResourceWrapper> Insert<T> {
     }
 }
 
-pub struct Destroy<T: ResourceWrapper> {
+pub struct Destroy<T> {
     pub entity: Entity,
     pub phase: std::marker::PhantomData<T>,
 }
 
-impl<T: ResourceWrapper> Destroy<T> {
+impl<T> Destroy<T> {
     pub fn new(entity: Entity) -> Self {
         Self {
             entity,

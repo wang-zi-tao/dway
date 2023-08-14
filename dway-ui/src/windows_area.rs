@@ -1,9 +1,9 @@
 use crate::create_widget;
-use crate::widgets::window::{Window, WindowBundle};
+use crate::widgets::window::{ WindowBundle, WindowUI};
 use bevy::prelude::*;
 use dway_server::events::{Destroy, Insert};
 use dway_server::wl::surface::WlSurface;
-use dway_server::xdg::XdgSurface;
+use dway_server::xdg::{XdgSurface, DWayWindow};
 use dway_server::xdg::toplevel::XdgToplevel;
 use kayak_ui::widgets::{BackgroundBundle, TextProps, TextWidgetBundle};
 use kayak_ui::{prelude::*, widgets::ElementBundle};
@@ -11,9 +11,9 @@ use kayak_ui::{prelude::*, widgets::ElementBundle};
 pub fn widget_update(
     In((entity, previous_entity)): In<(Entity, Entity)>,
     widget_context: Res<KayakWidgetContext>,
-    widget_param: WidgetParam<Window, EmptyState>,
-    create_window_events: EventReader<Insert<XdgToplevel>>,
-    destroy_window_events: EventReader<Destroy<XdgToplevel>>,
+    widget_param: WidgetParam<WindowUI, EmptyState>,
+    create_window_events: EventReader<Insert<DWayWindow>>,
+    destroy_window_events: EventReader<Destroy<DWayWindow>>,
 ) -> bool {
     let should_update = widget_param.has_changed(&widget_context, entity, previous_entity);
     should_update || !create_window_events.is_empty() || !destroy_window_events.is_empty()
@@ -24,7 +24,7 @@ pub fn render(
     In(entity): In<Entity>,
     widget_context: Res<KayakWidgetContext>,
     mut commands: Commands,
-    windows_query: Query<Entity, (With<WlSurface>, With<XdgToplevel>)>,
+    windows_query: Query<Entity, With<DWayWindow>>,
 ) -> bool {
     let parent_id = Some(entity);
     let background_style = KStyle {
@@ -42,7 +42,7 @@ pub fn render(
           constructor!{
             <ElementBundle styles={background_style.clone()}>
                 <WindowBundle
-                  props = {Window{entity}}
+                  props = {WindowUI{entity}}
                 />
             </ElementBundle>
           }

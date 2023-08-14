@@ -5,13 +5,17 @@ use wayland_protocols::xdg::shell::server::xdg_positioner::{Anchor, Gravity};
 
 use crate::{
     geometry::{Geometry, GlobalGeometry},
-    input::{grab::PointerGrab, pointer::WlPointer, seat::PointerList},
+    input::{
+        grab::PointerGrab,
+        pointer::WlPointer,
+        seat::{KeyboardList, PointerList},
+    },
     prelude::*,
     resource::ResourceWrapper,
     state::create_global_system_config,
     util::rect::IRect,
     wl::surface::WlSurface,
-    xdg::positioner::XdgPositioner,
+    xdg::{positioner::XdgPositioner, DWayWindow},
 };
 
 use super::positioner::{self, Positioner};
@@ -46,6 +50,7 @@ pub struct XdgPopupBundle {
     pub raw: XdgPopup,
     pub geometry: Geometry,
     pub global_geometry: GlobalGeometry,
+    pub window: DWayWindow,
 }
 
 #[derive(Resource)]
@@ -67,15 +72,14 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
         match request {
             xdg_popup::Request::Destroy => {
                 state.despawn(*data);
-                state.send_event(Destroy::<XdgPopup>::new(*data));
+                state.send_event(Destroy::<DWayWindow>::new(*data));
             }
             xdg_popup::Request::Grab { seat, serial } => {
-                let pointer_list = state
-                    .world_mut()
-                    .get::<PointerList>(DWay::get_entity(&seat))
-                    .unwrap()
-                    .clone();
-                let surface = state.get::<WlSurface>(*data).unwrap().raw.clone();
+                let seat_entity = DWay::get_entity(&seat);
+                let Some(pointer_list) = state.world_mut().get::<PointerList>(seat_entity).cloned()
+                else {
+                    return;
+                };
                 for pointer_entity in pointer_list.iter() {
                     state.query::<(&mut PointerGrab, &Geometry, &mut WlPointer), _, _>(
                         pointer_entity,
@@ -89,6 +93,7 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
                         },
                     );
                 }
+                // let keyboard_list = state.get::<KeyboardList>(seat_entity).unwrap().clone();
             }
             xdg_popup::Request::Reposition { positioner, token } => {
                 let positioner =

@@ -50,7 +50,6 @@ impl Plugin for DWayInputPlugin {
                 mouse_wheel_on_window.run_if(on_event::<MouseWheel>()),
                 keyboard_input_system.run_if(on_event::<KeyboardInput>()),
             )
-                .in_base_set(CoreSet::PreUpdate)
                 .in_set(DWayServerSet::Input),
         );
         if self.debug | true {
@@ -124,7 +123,7 @@ pub fn keyboard_input_system(
         return;
     }
     let Some(focus_window) = &output_focus.0 else {
-        warn!("no focus window");
+        trace!("no focus window");
         return;
     };
     for event in keyboard_evens.iter() {

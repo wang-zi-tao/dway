@@ -113,7 +113,7 @@ impl Drop for WlShmPoolInner {
         if let Err(e) = unsafe { mman::munmap(self.ptr.as_ptr().cast(), self.size) } {
             error!(error=%e,"unmap failed");
         }
-        info!("unmap wl_shm_pool");
+        debug!("unmap wl_shm_pool");
     }
 }
 #[derive(Component)]

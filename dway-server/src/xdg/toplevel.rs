@@ -15,7 +15,7 @@ use crate::{
 };
 use std::sync::Arc;
 
-use super::XdgSurface;
+use super::{XdgSurface, DWayWindow};
 
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
@@ -83,6 +83,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
         let _enter = span.enter();
         match request {
             xdg_toplevel::Request::Destroy => {
+                state.send_event(Destroy::<DWayWindow>::new(*data));
                 state.destroy_object(resource);
             }
             xdg_toplevel::Request::SetParent { parent } => {

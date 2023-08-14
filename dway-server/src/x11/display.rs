@@ -1,0 +1,436 @@
+use std::{
+    ffi::OsString,
+    io::{self, Read, Write},
+    os::{
+        fd::{AsRawFd, FromRawFd, RawFd},
+        unix::{net::UnixStream, process::CommandExt},
+    },
+    process::{ChildStdout, Stdio},
+    sync::{Arc, Mutex, Weak},
+};
+
+use bevy::{
+    tasks::{IoTaskPool, TaskPool},
+    utils::HashMap,
+};
+use failure::{format_err, Fallible};
+use nix::{errno::Errno, sys::socket};
+pub use x11rb::protocol::xproto::Window as XWindowID;
+use x11rb::{
+    connection::Connection,
+    protocol::{
+        composite::{ConnectionExt as CompositeConnectionExt, Redirect},
+        xproto::{
+            AtomEnum, ChangeWindowAttributesAux, ConnectionExt as XprotoConnectionExt,
+            CursorWrapper, EventMask, FontWrapper, PropMode, WindowClass,
+        },
+    },
+    rust_connection::{DefaultStream, RustConnection},
+    wrapper::ConnectionExt as RustConnectionExt,
+};
+
+use crate::{
+    client::{Client, ClientData},
+    prelude::*,
+    schedule::DWayServerSet,
+    state::{on_create_display_event, DWayDisplay, DWayWrapper, DisplayCreated},
+    x11::atoms::Atoms,
+};
+
+use super::events::XWaylandError;
+
+#[derive(Clone, Debug)]
+pub enum XWaylandThreadEvent {
+    XWaylandEvent(x11rb::protocol::Event),
+    CreateConnection(Weak<(RustConnection, Atoms)>,x11rb::protocol::xproto::Window),
+}
+
+#[derive(Component, Clone, Reflect, FromReflect)]
+pub struct XWaylandDisplayWrapper {
+    pub inner: Arc<Mutex<XWaylandDisplay>>,
+}
+
+impl lazy_static::__Deref for XWaylandDisplayWrapper {
+    type Target = Arc<Mutex<XWaylandDisplay>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl XWaylandDisplayWrapper {
+    pub fn new(inner: XWaylandDisplay) -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(inner)),
+        }
+    }
+}
+
+#[derive(Debug, Reflect, FromReflect)]
+pub struct XWaylandDisplay {
+    pub display_number: u32,
+    pub child_stdout: ChildStdout,
+    pub connection: Weak<(RustConnection, Atoms)>,
+    pub channel: Arc<crossbeam_channel::Receiver<XWaylandThreadEvent>>,
+    pub windows_entitys: HashMap<u32, Entity>,
+    pub wm_window:Option<x11rb::protocol::xproto::Window>,
+}
+
+impl XWaylandDisplay {
+    pub fn find_window(&self, id: XWindowID) -> Result<Entity, XWaylandError> {
+        self.windows_entitys
+            .get(&id)
+            .copied()
+            .ok_or(XWaylandError::WindowNotExists(id))
+    }
+}
+
+impl XWaylandDisplay {
+    pub fn new(dway: &mut DWay) -> Fallible<(Self, UnixStream)> {
+        let (display_number, streams) =
+            Self::get_number().ok_or_else(|| format_err!("failed to alloc dissplay number"))?;
+        let (x11_socket, x11_stream) = UnixStream::pair()?;
+        let (wayland_socket, wayland_client_stream) = UnixStream::pair()?;
+        let child_stdout =
+            Self::spawn_xwayland(display_number, streams, x11_socket, wayland_socket)?;
+        let (tx, rx) = crossbeam_channel::bounded(1024);
+        dway.display_number = Some(display_number as usize);
+        let this = Self {
+            display_number,
+            child_stdout,
+            connection: Weak::default(),
+            channel: Arc::new(rx),
+            windows_entitys: Default::default(),
+            wm_window: None,
+        };
+        info!("spawn xwayland at :{}", display_number);
+        std::thread::Builder::new()
+            .name(format!("xwayland:{display_number}"))
+            .spawn(move || {
+                let result: Fallible<()> = (|| {
+                    let rust_connection = RustConnection::connect_to_stream(
+                        DefaultStream::from_unix_stream(x11_stream)?,
+                        0,
+                    )?;
+                    let ( atoms,wm_window ) = Self::start_wm(&rust_connection)?;
+                    let connection = Arc::new((rust_connection, atoms));
+                    let _ = tx.send(XWaylandThreadEvent::CreateConnection(Arc::downgrade(
+                        &connection,
+                    ),wm_window));
+                    loop {
+                        match connection.0.poll_for_event()? {
+                            Some(event) => {
+                                let _ = tx.send(XWaylandThreadEvent::XWaylandEvent(event));
+                            }
+                            _ => {}
+                        }
+                    }
+                })();
+                match result {
+                    Err(e) => {
+                        error!("xwayland connection error: {}", e);
+                    }
+                    Ok(_) => {}
+                }
+            })
+            .unwrap();
+
+        Ok((this, wayland_client_stream))
+    }
+    pub fn start_wm(connection: &RustConnection) -> Fallible<( Atoms,u32 )> {
+        let screen = connection.setup().roots[0].clone();
+        let atoms = Atoms::new(connection)?.reply()?;
+        let font = FontWrapper::open_font(connection, "cursor".as_bytes())?;
+        let cursor = CursorWrapper::create_glyph_cursor(
+            connection,
+            font.font(),
+            font.font(),
+            68,
+            69,
+            0,
+            0,
+            0,
+            u16::MAX,
+            u16::MAX,
+            u16::MAX,
+        )?;
+        connection.change_window_attributes(
+            screen.root,
+            &ChangeWindowAttributesAux::default()
+                .event_mask(
+                    EventMask::SUBSTRUCTURE_REDIRECT
+                        | EventMask::SUBSTRUCTURE_NOTIFY
+                        | EventMask::PROPERTY_CHANGE
+                        | EventMask::FOCUS_CHANGE,
+                )
+                .cursor(cursor.cursor()),
+        )?;
+        let win = connection.generate_id()?;
+        connection.create_window(
+            screen.root_depth,
+            win,
+            screen.root,
+            0,
+            0,
+            1,
+            1,
+            0,
+            WindowClass::INPUT_OUTPUT,
+            x11rb::COPY_FROM_PARENT,
+            &Default::default(),
+        )?;
+        let conn = &connection;
+        conn.set_selection_owner(win, atoms.WM_S0, x11rb::CURRENT_TIME)?;
+        conn.set_selection_owner(win, atoms._NET_WM_CM_S0, x11rb::CURRENT_TIME)?;
+        conn.composite_redirect_subwindows(screen.root, Redirect::MANUAL)?;
+
+        conn.change_property32(
+            PropMode::REPLACE,
+            screen.root,
+            atoms._NET_SUPPORTED,
+            AtomEnum::ATOM,
+            &[
+                atoms._NET_WM_STATE,
+                atoms._NET_WM_STATE_MAXIMIZED_HORZ,
+                atoms._NET_WM_STATE_MAXIMIZED_VERT,
+                atoms._NET_WM_STATE_HIDDEN,
+                atoms._NET_WM_STATE_FULLSCREEN,
+                atoms._NET_WM_STATE_MODAL,
+                atoms._NET_WM_STATE_FOCUSED,
+                atoms._NET_ACTIVE_WINDOW,
+                atoms._NET_WM_MOVERESIZE,
+                atoms._NET_CLIENT_LIST,
+                atoms._NET_CLIENT_LIST_STACKING,
+            ],
+        )?;
+        conn.change_property32(
+            PropMode::REPLACE,
+            screen.root,
+            atoms._NET_CLIENT_LIST,
+            AtomEnum::WINDOW,
+            &[],
+        )?;
+        conn.change_property32(
+            PropMode::REPLACE,
+            screen.root,
+            atoms._NET_CLIENT_LIST_STACKING,
+            AtomEnum::WINDOW,
+            &[],
+        )?;
+        conn.change_property32(
+            PropMode::REPLACE,
+            screen.root,
+            atoms._NET_ACTIVE_WINDOW,
+            AtomEnum::WINDOW,
+            &[0],
+        )?;
+        conn.change_property32(
+            PropMode::REPLACE,
+            screen.root,
+            atoms._NET_SUPPORTING_WM_CHECK,
+            AtomEnum::WINDOW,
+            &[win],
+        )?;
+        conn.change_property32(
+            PropMode::REPLACE,
+            win,
+            atoms._NET_SUPPORTING_WM_CHECK,
+            AtomEnum::WINDOW,
+            &[win],
+        )?;
+        conn.change_property8(
+            PropMode::REPLACE,
+            win,
+            atoms._NET_WM_NAME,
+            atoms.UTF8_STRING,
+            "Smithay X WM".as_bytes(),
+        )?;
+        debug!(window = win, "Created WM Window");
+        conn.flush()?;
+        Ok(( atoms,win ))
+    }
+    fn spawn_xwayland(
+        display_number: u32,
+        streams: Vec<UnixStream>,
+        x11_socket: UnixStream,
+        wayland_socket: UnixStream,
+    ) -> Fallible<ChildStdout> {
+        let mut command = std::process::Command::new("Xwayland");
+        command.stdout(Stdio::piped());
+        command.args([
+            &format!(":{display_number}"),
+            "-rootless",
+            "-terminate",
+            "-wm",
+            &x11_socket.as_raw_fd().to_string(),
+        ]);
+        for stream in &streams {
+            command.args(["-listenfd", &stream.as_raw_fd().to_string()]);
+        }
+        command.env("WAYLAND_SOCKET", wayland_socket.as_raw_fd().to_string());
+
+        unsafe {
+            let wayland_socket_fd = wayland_socket.as_raw_fd();
+            let wm_socket_fd = x11_socket.as_raw_fd();
+            let socket_fds: Vec<_> = streams.iter().map(|socket| socket.as_raw_fd()).collect();
+            command.pre_exec(move || {
+                // unset the CLOEXEC flag from the sockets we need to pass
+                // to xwayland
+                Self::unset_cloexec(wayland_socket_fd)?;
+                Self::unset_cloexec(wm_socket_fd)?;
+                for &socket in socket_fds.iter() {
+                    Self::unset_cloexec(socket)?;
+                }
+                Ok(())
+            });
+        }
+
+        let mut child = command.spawn()?;
+        let stdout = child.stdout.take().expect("stdout should be piped");
+        Ok(stdout)
+    }
+    fn unset_cloexec(fd: RawFd) -> io::Result<()> {
+        use nix::fcntl::{fcntl, FcntlArg, FdFlag};
+        fcntl(fd, FcntlArg::F_SETFD(FdFlag::empty()))?;
+        Ok(())
+    }
+    fn get_number() -> Option<(u32, Vec<UnixStream>)> {
+        for d in 0..255 {
+            if Self::lock_display(d).is_some() {
+                if let Ok(streams) = Self::open_x11_sockets_for_display(d, true) {
+                    return Some((d, streams));
+                };
+            }
+        }
+        None
+    }
+    fn lock_display(number: u32) -> Option<()> {
+        let filename = format!("/tmp/.X{}-lock", number);
+        let lockfile = ::std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&filename);
+        match lockfile {
+            Ok(mut file) => {
+                let ret = file.write_fmt(format_args!("{:>10}\n", ::nix::unistd::Pid::this()));
+                if ret.is_err() {
+                    ::std::mem::drop(file);
+                    let _ = ::std::fs::remove_file(&filename);
+                    None
+                } else {
+                    Some(())
+                }
+            }
+            Err(_) => {
+                let mut file = ::std::fs::File::open(&filename).ok()?;
+                let mut spid = [0u8; 11];
+                file.read_exact(&mut spid).ok()?;
+                ::std::mem::drop(file);
+                let pid = ::nix::unistd::Pid::from_raw(
+                    ::std::str::from_utf8(&spid)
+                        .ok()?
+                        .trim()
+                        .parse::<i32>()
+                        .ok()?,
+                );
+                if let Err(Errno::ESRCH) = ::nix::sys::signal::kill(pid, None) {
+                    if let Ok(()) = ::std::fs::remove_file(filename) {
+                        return Some(());
+                    } else {
+                        return None;
+                    }
+                }
+                None
+            }
+        }
+    }
+    fn open_x11_sockets_for_display(
+        display: u32,
+        open_abstract_socket: bool,
+    ) -> nix::Result<Vec<UnixStream>> {
+        let path = format!("/tmp/.X11-unix/X{}", display);
+        let _ = ::std::fs::remove_file(&path);
+        let fs_addr = socket::UnixAddr::new(path.as_bytes()).unwrap();
+        let mut sockets = vec![Self::open_socket(fs_addr)?];
+        if open_abstract_socket {
+            let abs_addr = socket::UnixAddr::new_abstract(path.as_bytes()).unwrap();
+            sockets.push(Self::open_socket(abs_addr)?);
+        }
+        Ok(sockets)
+    }
+    fn open_socket(addr: socket::UnixAddr) -> nix::Result<UnixStream> {
+        let fd = socket::socket(
+            socket::AddressFamily::Unix,
+            socket::SockType::Stream,
+            socket::SockFlag::SOCK_CLOEXEC,
+            None,
+        )?;
+        if let Err(e) = socket::bind(fd, &addr) {
+            let _ = ::nix::unistd::close(fd);
+            return Err(e);
+        }
+        if let Err(e) = socket::listen(fd, 1) {
+            let _ = ::nix::unistd::close(fd);
+            return Err(e);
+        }
+        Ok(unsafe { FromRawFd::from_raw_fd(fd) })
+    }
+}
+
+#[allow(missing_docs)]
+pub mod atoms {
+    x11rb::atom_manager! {
+        /// Atoms used by the XWM and X11Surface types
+        pub Atoms:
+        AtomsCookie {
+            // wayland-stuff
+            WL_SURFACE_ID,
+
+            // private
+            _SMITHAY_CLOSE_CONNECTION,
+
+            // data formats
+            UTF8_STRING,
+
+            // client -> server
+            WM_HINTS,
+            WM_PROTOCOLS,
+            WM_TAKE_FOCUS,
+            WM_DELETE_WINDOW,
+            WM_CHANGE_STATE,
+            _NET_WM_NAME,
+            _NET_WM_MOVERESIZE,
+            _NET_WM_PID,
+            _NET_WM_WINDOW_TYPE,
+            _NET_WM_WINDOW_TYPE_DROPDOWN_MENU,
+            _NET_WM_WINDOW_TYPE_DIALOG,
+            _NET_WM_WINDOW_TYPE_MENU,
+            _NET_WM_WINDOW_TYPE_NOTIFICATION,
+            _NET_WM_WINDOW_TYPE_NORMAL,
+            _NET_WM_WINDOW_TYPE_POPUP_MENU,
+            _NET_WM_WINDOW_TYPE_SPLASH,
+            _NET_WM_WINDOW_TYPE_TOOLBAR,
+            _NET_WM_WINDOW_TYPE_TOOLTIP,
+            _NET_WM_WINDOW_TYPE_UTILITY,
+            _NET_WM_STATE_MODAL,
+            _MOTIF_WM_HINTS,
+
+            // server -> client
+            WM_S0,
+            WM_STATE,
+            _NET_WM_CM_S0,
+            _NET_SUPPORTED,
+            _NET_ACTIVE_WINDOW,
+            _NET_CLIENT_LIST,
+            _NET_CLIENT_LIST_STACKING,
+            _NET_WM_PING,
+            _NET_WM_STATE,
+            _NET_WM_STATE_MAXIMIZED_VERT,
+            _NET_WM_STATE_MAXIMIZED_HORZ,
+            _NET_WM_STATE_HIDDEN,
+            _NET_WM_STATE_FULLSCREEN,
+            _NET_WM_STATE_FOCUSED,
+            _NET_SUPPORTING_WM_CHECK,
+        }
+    }
+}

@@ -96,9 +96,10 @@ impl WlKeyboard {
     }
     pub fn key(&mut self, surface: &WlSurface, input: &KeyboardInput) {
         trace!(surface=?surface.raw.id(),"key evnet : {input:?}");
+        let serial = next_serial();
         self.set_focus(surface);
         self.raw.key(
-            next_serial(),
+            serial,
             time(),
             input.scan_code,
             match input.state {

@@ -8,12 +8,12 @@ use dway_server::{
     geometry::GlobalGeometry,
     macros::Connectable,
     wl::surface::WlSurface,
-    xdg::{popup::XdgPopup, PopupList, XdgSurface},
+    xdg::{popup::XdgPopup, DWayWindow, PopupList, XdgSurface},
 };
 use kayak_ui::{
     prelude::{
-        rsx, EventType, KChildren, KEvent, KPositionType, KStyle, KayakWidgetContext, OnEvent,
-        StyleProp, Units, WidgetParam, constructor,
+        constructor, rsx, EventType, KChildren, KEvent, KPositionType, KStyle, KayakWidgetContext,
+        OnEvent, StyleProp, Units, WidgetParam,
     },
     widgets::{
         BackgroundBundle, ElementBundle, KButton, KButtonBundle, KImage, KImageBundle,
@@ -26,9 +26,9 @@ use kayak_ui::{
 pub struct DWayWindowPlugin {}
 impl KayakUIPlugin for DWayWindowPlugin {
     fn build(&self, context: &mut kayak_ui::prelude::KayakRootContext) {
-        context.add_widget_data::<Window, WindowState>();
+        context.add_widget_data::<WindowUI, WindowState>();
         context.add_widget_system(
-            kayak_ui::prelude::WidgetName(std::any::type_name::<Window>().into()),
+            kayak_ui::prelude::WidgetName(std::any::type_name::<WindowUI>().into()),
             widget_update,
             render,
         );
@@ -38,11 +38,11 @@ impl KayakUIPlugin for DWayWindowPlugin {
 pub fn widget_update(
     In((entity, previous_entity)): In<(Entity, Entity)>,
     widget_context: Res<KayakWidgetContext>,
-    widget_param: WidgetParam<Window, WindowState>,
+    widget_param: WidgetParam<WindowUI, WindowState>,
     window_query: Query<
         Entity,
         Or<(
-            Changed<XdgSurface>,
+            Changed<DWayWindow>,
             Changed<GlobalGeometry>,
             Changed<WlSurface>,
             Changed<PopupList>,
@@ -56,7 +56,7 @@ pub fn widget_update(
 
 #[derive(bevy::prelude::Bundle)]
 pub struct WindowBundle {
-    pub props: Window,
+    pub props: WindowUI,
     pub styles: kayak_ui::prelude::KStyle,
     pub computed_styles: kayak_ui::prelude::ComputedStyles,
     pub widget_name: kayak_ui::prelude::WidgetName,
@@ -67,17 +67,17 @@ impl Default for WindowBundle {
             props: Default::default(),
             styles: Default::default(),
             computed_styles: Default::default(),
-            widget_name: kayak_ui::prelude::WidgetName(std::any::type_name::<Window>().into()),
+            widget_name: kayak_ui::prelude::WidgetName(std::any::type_name::<WindowUI>().into()),
         }
     }
 }
 
-#[derive(Component, Clone, PartialEq, Eq)]
-pub struct Window {
+#[derive(Component,Reflect,FromReflect, Clone, PartialEq, Eq)]
+pub struct WindowUI {
     pub entity: Entity,
 }
 
-impl Default for Window {
+impl Default for WindowUI {
     fn default() -> Self {
         Self {
             entity: Entity::PLACEHOLDER,
@@ -94,12 +94,9 @@ pub fn render(
     In(entity): In<Entity>,
     widget_context: Res<KayakWidgetContext>,
     mut commands: Commands,
-    props_query: Query<&Window>,
+    props_query: Query<&WindowUI>,
     state_query: Query<&WindowState>,
-    window_query: Query<
-        (&XdgSurface, &GlobalGeometry, &WlSurface, Option<&PopupList>),
-        // With<WindowMark>,
-    >,
+    window_query: Query<(&GlobalGeometry, &WlSurface, Option<&PopupList>), With<DWayWindow>>,
     popup_query: Query<(Entity), With<XdgPopup>>,
     mut assets: ResMut<Assets<Image>>,
 ) -> bool {
@@ -108,8 +105,8 @@ pub fn render(
         return true;
     };
     let state_entity = widget_context.use_state(&mut commands, entity, WindowState::default());
-    let Ok((xdg_surface, rect, surface, popups)) = window_query.get(props.entity) else {
-        error!("surface error component {:?}", props.entity);
+    let Ok((rect, surface, popups)) = window_query.get(props.entity) else {
+        error!("surface has not components {:?}", props.entity);
         return true;
     };
     // let bbox_loc = rect.0.loc + offset.0.loc;
@@ -177,7 +174,7 @@ pub fn render(
                     for popup_entity in popup_query.iter_many(popups.iter()){
                         constructor!{
                             <WindowBundle
-                              props = {Window{entity: popup_entity}}
+                              props = {WindowUI{entity: popup_entity}}
                             />
                         }
                     }

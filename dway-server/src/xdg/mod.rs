@@ -27,6 +27,9 @@ use std::sync::Arc;
 
 use self::wm::XdgWmBase;
 
+#[derive(Component, Default, Clone,Reflect,FromReflect)]
+pub struct DWayWindow {}
+
 #[derive(Resource)]
 pub struct XdgDelegate {
     pub wm: GlobalId,
@@ -85,8 +88,16 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                 state.despawn(*data);
             }
             xdg_surface::Request::GetToplevel { id } => {
-                state.insert_object(*data, id, data_init, |o| XdgToplevel::new(o));
-                state.send_event(Insert::<XdgToplevel>::new(*data));
+                state.insert(
+                    *data,
+                    (
+                        id,
+                        data_init,
+                        (|o| (XdgToplevel::new(o), DWayWindow::default())),
+                    )
+                        .check_component_not_exists::<XdgToplevel>(),
+                );
+                state.send_event(Insert::<DWayWindow>::new(*data));
                 state.query_object::<(&mut Geometry, &mut XdgSurface, &mut XdgToplevel), _, _>(
                     resource,
                     |(mut geometry, mut xdg_surface, mut xdg_toplevel)| {
@@ -121,10 +132,11 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                         raw: XdgPopup::new(o, positioner.clone()),
                         geometry: Geometry::new(geometry),
                         global_geometry: GlobalGeometry::new(geometry),
+                        window: Default::default(),
                     })
                         .with_parent(parent_entity),
                 );
-                state.send_event(Insert::<XdgPopup>::new(*data));
+                state.send_event(Insert::<DWayWindow>::new(*data));
                 state.connect::<SurfaceHasPopup>(parent_entity, *data);
                 state.query_object::<(&mut XdgSurface, &mut XdgPopup), _, _>(
                     resource,
@@ -203,9 +215,10 @@ impl Plugin for XdgShellPlugin {
             xdg_activation_token_v1::XdgActivationTokenV1,
             1,
         >());
-        app.add_event::<Insert<XdgSurface>>();
-        app.add_event::<Destroy<XdgSurface>>();
         app.register_relation::<SurfaceHasPopup>();
+        app.add_event::<Insert<DWayWindow>>();
+        app.add_event::<Destroy<DWayWindow>>();
+        app.register_type::<DWayWindow>();
         app.register_type::<XdgSurface>();
     }
 }

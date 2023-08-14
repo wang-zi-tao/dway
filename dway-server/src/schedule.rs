@@ -14,7 +14,10 @@ pub enum DWayServerSet {
     Create,
     CreateGlobal,
     Dispatch,
+
+    UpdateXWayland,
     UpdateGeometry,
+
     UpdateJoin,
     Update,
     PostUpdate,
@@ -48,13 +51,16 @@ impl Plugin for DWayServerSchedulePlugin {
         );
         app.configure_sets(
             (
-                Create,
-                CreateGlobal,
-                Dispatch,
                 UpdateGeometry,
-                UpdateJoin,
-                Update,
+                UpdateXWayland,
+                UpdateJoin.after(UpdateGeometry),
             )
+                .after(Dispatch)
+                .before(Update)
+                .in_base_set(CoreSet::PreUpdate),
+        );
+        app.configure_sets(
+            (Create, CreateGlobal, Dispatch, UpdateJoin, Update)
                 .chain()
                 .in_base_set(CoreSet::PreUpdate)
                 .ambiguous_with_all(),

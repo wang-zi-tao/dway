@@ -9,11 +9,30 @@ use crate::{
     state::{create_global_system_config, EntityFactory},
 };
 
-use super::{keyboard::WlKeyboard, pointer::WlPointer, touch::WlTouch, grab::GrabPlugin};
+use super::{
+    grab::{GrabPlugin, PointerGrab},
+    keyboard::WlKeyboard,
+    pointer::WlPointer,
+    touch::WlTouch,
+};
 
 #[derive(Component)]
 pub struct WlSeat {
-    raw: wl_seat::WlSeat,
+    pub raw: wl_seat::WlSeat,
+}
+#[derive(Bundle)]
+pub struct WlSeatBundle {
+    pub seat: WlSeat,
+    pub grab: PointerGrab,
+}
+
+impl WlSeatBundle {
+    pub fn new(seat: WlSeat) -> Self {
+        Self {
+            seat,
+            grab: Default::default(),
+        }
+    }
 }
 relationship!(SeatHasPointer=>PointerList-<SeatOfPoint);
 relationship!(SeatHasKeyboard=>KeyboardList-<SeatOfKeyboard);
@@ -92,7 +111,7 @@ impl wayland_server::GlobalDispatch<wayland_server::protocol::wl_seat::WlSeat, E
     ) {
         state.bind(client, resource, data_init, |o| {
             o.capabilities(Capability::all());
-            WlSeat { raw: o }
+            WlSeatBundle::new(WlSeat { raw: o })
         });
     }
 }

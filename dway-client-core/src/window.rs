@@ -2,7 +2,7 @@ use dway_server::{
     events::Insert,
     geometry::GlobalGeometry,
     wl::surface::WlSurface,
-    xdg::{toplevel::XdgToplevel, XdgSurface},
+    xdg::{toplevel::XdgToplevel, XdgSurface, self},
 };
 use dway_util::ecs::QueryResultExt;
 use std::{mem::replace, time::SystemTime};
@@ -39,7 +39,7 @@ impl Plugin for DWayWindowPlugin {
         app.add_system(focus_on_new_window.in_set(DWayClientSystem::UpdateFocus));
         app.add_system(
             create_window_ui
-                .run_if(on_event::<Insert<XdgSurface>>())
+                .run_if(on_event::<Insert<xdg::DWayWindow>>())
                 .in_set(Create),
         );
         // app.add_system(update_window_state.in_set(UpdateState));
@@ -108,7 +108,7 @@ pub fn focus_on_new_window(
 }
 pub fn create_window_ui(
     surface_query: Query<(Entity, &WlSurface, &XdgToplevel, &GlobalGeometry)>,
-    mut events: EventReader<Insert<XdgSurface>>,
+    mut events: EventReader<Insert<xdg::DWayWindow>>,
     mut commands: Commands,
 ) {
     for Insert { entity: id, .. } in events.iter() {
