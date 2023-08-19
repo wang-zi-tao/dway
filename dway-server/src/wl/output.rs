@@ -12,7 +12,6 @@ use crate::{
     util::rect::IRect,
 };
 
-
 use super::surface::{ClientHasSurface, WlSurface};
 
 #[derive(Component, Reflect, Debug, Clone)]

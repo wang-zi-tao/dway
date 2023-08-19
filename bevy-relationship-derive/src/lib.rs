@@ -7,51 +7,50 @@ use quote::{format_ident, quote, quote_spanned, ToTokens};
 use regex::Regex;
 use syn::{
     braced, bracketed,
-    parse::Parse,
+    parse::{Parse, ParseStream},
     parse_macro_input,
     spanned::Spanned,
     token::{Brace, Bracket},
     Token, Type,
 };
 
-enum NodeQuery {
-    WithoutFilter {
-        name: Ident,
-        _assign: Token!(=),
-        ty: Type,
-    },
+#[derive(syn_derive::Parse)]
+enum NodeQueryKind {
+    #[parse(peek = Token!(<))]
     WithFilter {
-        name: Ident,
-        _assign: Token!(=),
         _lt: Token!(<),
         ty: Type,
         _comma: Token!(,),
-        _gt: Token!(>),
         filter: Type,
+        _gt: Token!(>),
+    },
+    WithoutFilter {
+        ty: Type,
     },
 }
+
+#[derive(syn_derive::Parse)]
+struct NodeQuery {
+    name: Ident,
+    _assign: Token!(=),
+    kind: NodeQueryKind,
+}
 impl NodeQuery {
-    fn name(&self) -> &Ident {
-        match self {
-            NodeQuery::WithoutFilter { name, .. } => name,
-            NodeQuery::WithFilter { name, .. } => name,
-        }
-    }
     fn ty(&self) -> &Type {
-        match self {
-            NodeQuery::WithoutFilter { ty, .. } => ty,
-            NodeQuery::WithFilter { ty, .. } => ty,
+        match &self.kind {
+            NodeQueryKind::WithoutFilter { ty, .. } => ty,
+            NodeQueryKind::WithFilter { ty, .. } => ty,
         }
     }
     fn query_type(&self) -> TokenStream2 {
-        match self {
-            NodeQuery::WithoutFilter { ty, .. } => {
+        match &self.kind {
+            NodeQueryKind::WithoutFilter { ty, .. } => {
                 let span = ty.span();
                 quote_spanned! { span=>
                     Query<'w, 's, #ty>
                 }
             }
-            NodeQuery::WithFilter { ty, filter, .. } => {
+            NodeQueryKind::WithFilter { ty, filter, .. } => {
                 let span = ty.span();
                 quote_spanned! { span=>
                     Query<'w, 's, #ty, #filter>
@@ -60,44 +59,20 @@ impl NodeQuery {
         }
     }
     fn gen_query(&self) -> TokenStream2 {
-        match self {
-            NodeQuery::WithoutFilter { name, ty, .. } => {
+        let name = &self.name;
+        match &self.kind {
+            NodeQueryKind::WithoutFilter { ty, .. } => {
                 let span = name.span();
                 quote_spanned! {span=>
                     Query<'w, 's, (Entity,#ty)>
                 }
             }
-            NodeQuery::WithFilter {
-                name, ty, filter, ..
-            } => {
+            NodeQueryKind::WithFilter { ty, filter, .. } => {
                 let span = name.span();
                 quote_spanned! {span=>
                     Query<'w, 's, (Entity,#ty),#filter>
                 }
             }
-        }
-    }
-}
-impl Parse for NodeQuery {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let name = input.parse()?;
-        let assign = input.parse()?;
-        if input.peek(Token!(<)) {
-            Ok(Self::WithFilter {
-                name,
-                _assign: assign,
-                _lt: input.parse()?,
-                ty: input.parse()?,
-                _comma: input.parse()?,
-                filter: input.parse()?,
-                _gt: input.parse()?,
-            })
-        } else {
-            Ok(Self::WithoutFilter {
-                name,
-                _assign: assign,
-                ty: input.parse()?,
-            })
         }
     }
 }
@@ -269,36 +244,36 @@ impl Parse for PathQuery {
         })
     }
 }
+fn parse_node_map(input: ParseStream) -> syn::Result<HashMap<String, NodeQuery>> {
+    let list = input.parse_terminated(NodeQuery::parse, Token!(,))?;
+    Ok(HashMap::from_iter(
+        list.into_iter().map(|node| (node.name.to_string(), node)),
+    ))
+}
+fn parse_path_map(input: ParseStream) -> syn::Result<HashMap<String, PathQuery>> {
+    let list = input.parse_terminated(PathQuery::parse, Token!(,))?;
+    Ok(HashMap::from_iter(
+        list.into_iter().map(|node| (node.name.to_string(), node)),
+    ))
+}
+#[derive(syn_derive::Parse)]
 struct GraphQuery {
     name: Ident,
     _split: Token!(=>),
+    #[syn(bracketed)]
     _bracket: Bracket,
-    _split2: Token!(=>),
+    #[syn(in = _bracket)]
+    #[syn(in = _bracket)]
+    #[parse(parse_node_map)]
     nodes: HashMap<String, NodeQuery>,
+    _split2: Token!(=>),
+    #[syn(braced)]
     _brace: Brace,
+    #[syn(in = _brace)]
+    #[parse(parse_path_map)]
     pathes: HashMap<String, PathQuery>,
 }
-impl Parse for GraphQuery {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let nodes;
-        let pathes;
-        Ok(Self {
-            name: input.parse()?,
-            _split: input.parse()?,
-            _bracket: bracketed!(nodes in input),
-            nodes: {
-                let list = nodes.parse_terminated(NodeQuery::parse, Token!(,))?;
-                HashMap::from_iter(list.into_iter().map(|node| (node.name().to_string(), node)))
-            },
-            _split2: input.parse()?,
-            _brace: braced!(pathes in input),
-            pathes: {
-                let list = pathes.parse_terminated(PathQuery::parse, Token!(,))?;
-                HashMap::from_iter(list.into_iter().map(|node| (node.name.to_string(), node)))
-            },
-        })
-    }
-}
+
 fn peer_name(peer: &Type, direction: bool) -> Ident {
     lazy_static! {
         static ref RE: Regex = Regex::new("[^a-zA-Z0-9_]").unwrap();
@@ -337,7 +312,7 @@ pub fn graph_query(input: TokenStream) -> TokenStream {
     }
     let name = &graph_query.name;
     let nodes = graph_query.nodes.values().map(|node| {
-        let name = node.name();
+        let name = node.name.clone();
         let field_name = format_ident!("node_{}", name.to_string(), span = name.span());
         let param = node.gen_query();
         let span = name.span();
