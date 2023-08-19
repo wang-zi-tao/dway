@@ -10,8 +10,6 @@ use xkbcommon::xkb;
 use crate::input::time;
 use crate::{prelude::*, util::serial::next_serial, wl::surface::WlSurface};
 
-use super::grab::KeyboardGrab;
-
 #[derive(Resource, Reflect, Default)]
 pub struct Keymap {
     pub rate: i32,
@@ -31,14 +29,12 @@ pub struct WlKeyboard {
 #[derive(Bundle)]
 pub struct WlKeyboardBundle {
     resource: WlKeyboard,
-    grab: KeyboardGrab,
 }
 
 impl WlKeyboardBundle {
     pub fn new(resource: WlKeyboard) -> Self {
         Self {
             resource,
-            grab: Default::default(),
         }
     }
 }

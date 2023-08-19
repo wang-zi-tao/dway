@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::prelude::*;
 
-use super::grab::PointerGrab;
+use super::grab::Grab;
 
 #[derive(Component)]
 pub struct WlTouch {
@@ -18,7 +18,7 @@ impl WlTouch {
 #[derive(Bundle)]
 pub struct WlTouchBundle {
     resource: WlTouch,
-    grab: PointerGrab,
+    grab: Grab,
 }
 
 impl WlTouchBundle {

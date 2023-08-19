@@ -35,7 +35,7 @@ pub enum XWaylandError {
     #[fail(display = "x11 window {} not exists", _0)]
     WindowNotExists(u32),
     #[fail(display = "x11 window entity {:?} not valid", _0)]
-    WindowEntityNotValid(Entity),
+    InvalidWindowEntity(Entity),
     #[fail(display = "xwayland connection error: {}", _0)]
     ConnectionError(ConnectionError),
 }
@@ -89,12 +89,12 @@ pub fn process_x11_event(
                     let xwindow_entity = x.find_window(e.window)?;
                     let mut xwindow = world
                         .get_mut::<XWindow>(xwindow_entity)
-                        .ok_or_else(|| WindowEntityNotValid(xwindow_entity))?;
+                        .ok_or_else(|| InvalidWindowEntity(xwindow_entity))?;
                     xwindow.surface_id = Some(wid);
                     world.entity_mut(xwindow_entity).insert(MappedXWindow);
                     let client = world
                         .get_mut::<Client>(display_entity)
-                        .ok_or_else(|| WindowEntityNotValid(xwindow_entity))?;
+                        .ok_or_else(|| InvalidWindowEntity(xwindow_entity))?;
                     if let Ok(wl_surface) = client
                         .raw
                         .clone()
@@ -105,7 +105,7 @@ pub fn process_x11_event(
                         let mut window_entity_mut = world.entity_mut(xwindow_entity);
                         let bundle: (XWaylandBundle, Parent) = window_entity_mut
                             .take()
-                            .ok_or_else(|| WindowEntityNotValid(xwindow_entity))?;
+                            .ok_or_else(|| InvalidWindowEntity(xwindow_entity))?;
                         let children: Option<Children> = window_entity_mut.take();
                         window_entity_mut.despawn_recursive();
                         let mut surface_entity_mut = world.entity_mut(wl_surface_entity);
@@ -130,7 +130,8 @@ pub fn process_x11_event(
                     // TODO
                 }
                 t if t == atoms._NET_WM_MOVERESIZE => {
-                    todo!()
+                    debug!("message type: _NET_WM_MOVERESIZE");
+                    // TODO
                 }
                 t => {
                     debug!(
@@ -148,7 +149,15 @@ pub fn process_x11_event(
             }
         }
         x11rb::protocol::Event::ColormapNotify(_) => todo!(),
-        x11rb::protocol::Event::ConfigureNotify(_) => todo!(),
+        x11rb::protocol::Event::ConfigureNotify(r) => {
+            // TODO map onto
+            x.find_window(r.window).ok().map(|e| {
+                dway.query::<(&XWindow, &mut Geometry), _, _>(e, |(_xwindow, mut geometry)| {
+                    geometry.set_x(r.x as i32);
+                    geometry.set_y(r.y as i32);
+                })
+            });
+        }
         x11rb::protocol::Event::ConfigureRequest(r) => {
             let mut world = dway.world_mut();
             let window_entity = x.find_window(r.window)?;
@@ -157,7 +166,7 @@ pub fn process_x11_event(
             {
                 let mut geo = world
                     .get_mut::<Geometry>(window_entity)
-                    .ok_or(WindowEntityNotValid(window_entity))?;
+                    .ok_or(InvalidWindowEntity(window_entity))?;
                 if r.value_mask.contains(ConfigWindow::WIDTH) {
                     geo.set_width(r.width as i32);
                 }
@@ -232,7 +241,7 @@ pub fn process_x11_event(
             let window_entity = x.find_window(r.window)?;
             let xwindow = world
                 .get::<XWindow>(window_entity)
-                .ok_or(WindowEntityNotValid(window_entity))?;
+                .ok_or(InvalidWindowEntity(window_entity))?;
             if let Some(parent) = xwindow.parent_window {
                 x11rb::wrapper::ConnectionExt::change_property32(
                     rust_connection,
@@ -258,7 +267,7 @@ pub fn process_x11_event(
             let window_entity = x.find_window(r.window)?;
             let rect = world
                 .get::<Geometry>(window_entity)
-                .ok_or(WindowEntityNotValid(window_entity))?
+                .ok_or(InvalidWindowEntity(window_entity))?
                 .geometry;
             defer! {
                 let _ = rust_connection.ungrab_server();
@@ -267,7 +276,7 @@ pub fn process_x11_event(
             let frame_window = rust_connection.generate_id()?;
             let xwindow = world
                 .get::<XWindow>(window_entity)
-                .ok_or(WindowEntityNotValid(window_entity))?;
+                .ok_or(InvalidWindowEntity(window_entity))?;
             if let Some(parent) = xwindow.parent_window {
                 let aux = CreateWindowAux::default()
                     .event_mask(EventMask::SUBSTRUCTURE_NOTIFY | EventMask::SUBSTRUCTURE_REDIRECT);

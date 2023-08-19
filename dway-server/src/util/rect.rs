@@ -102,8 +102,10 @@ impl IRect {
     pub fn include_point(&self, pos: IVec2) -> bool {
         self.min.x <= pos.x && self.min.y <= pos.y && pos.x < self.max.x && pos.y < self.max.y
     }
-    pub fn set_pos(&mut self, size: IVec2) {
-        self.min = size;
+    pub fn set_pos(&mut self, pos: IVec2) {
+        let size = self.max - self.min;
+        self.min = pos;
+        self.max = pos + size;
     }
     pub fn set_size(&mut self, size: IVec2) {
         self.max = self.min + size;

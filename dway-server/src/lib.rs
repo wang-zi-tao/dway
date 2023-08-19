@@ -69,7 +69,7 @@ pub fn init_display(
 }
 pub fn spawn(query: Query<&DWayWrapper>, tokio: Res<TokioTasksRuntime>) {
     let compositor = query.single().0.lock().unwrap();
-    // compositor.spawn_process(process::Command::new("gnome-calculator"), &tokio);
+    compositor.spawn_process(process::Command::new("gnome-calculator"), &tokio);
     // compositor.spawn_process(process::Command::new("gedit"), &tokio);
     // compositor.spawn_process(process::Command::new("gnome-system-monitor"), &tokio);
     // compositor.spawn_process(

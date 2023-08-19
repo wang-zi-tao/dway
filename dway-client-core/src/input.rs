@@ -15,8 +15,8 @@ use dway_server::{
     geometry::{Geometry, GlobalGeometry},
     input::seat::SeatHasKeyboard,
     input::{
-        grab::{PointerAxisGrabEvent, PointerButtonGrabEvent, PointerGrab, PointerMoveGrabEvent},
-        seat::SeatHasPointer,
+        grab::{Grab, GrabEvent, GrabEventKind},
+        seat::{SeatHasPointer, WlSeat},
     },
     input::{keyboard::WlKeyboard, pointer::WlPointer},
     macros::WlResource,
@@ -24,7 +24,7 @@ use dway_server::{
     util::rect::IRect,
     wl::surface::ClientHasSurface,
     wl::{region::WlRegion, surface::WlSurface},
-    xdg::{popup::XdgPopup, toplevel::XdgToplevel, XdgSurface},
+    xdg::{popup::XdgPopup, toplevel::XdgToplevel, DWayWindow, XdgSurface},
 };
 // use bevy_mod_picking::{PickingEvent, PickingRaycastSet};
 // use bevy_mod_raycast::Intersection;
@@ -118,6 +118,7 @@ pub fn keyboard_input_system(
     mut graph: KeyboardInputGraph,
     mut keyboard_evens: EventReader<KeyboardInput>,
     output_focus: Res<FocusedWindow>,
+    mut grab_events_writer: EventWriter<GrabEvent>,
 ) {
     if keyboard_evens.is_empty() {
         return;
@@ -131,6 +132,12 @@ pub fn keyboard_input_system(
             if popup.is_none() {
                 keyboard.key(surface, event);
             }
+        });
+        graph.node_keyboard.for_each_mut(|(entity, _)| {
+            grab_events_writer.send(GrabEvent {
+                seat_entity: entity,
+                event_kind: GrabEventKind::Keyboard(event.clone()),
+            })
         });
     }
 }
@@ -153,9 +160,9 @@ pub fn mouse_move_on_winit_window(
     }
 }
 graph_query!(PointInputGraph=>[
-    surface=< (Entity, &'static WlSurface, &'static GlobalGeometry, Option<&'static XdgToplevel>, Option<&'static XdgPopup>),With<XdgSurface>>,
-    client=Entity,
-    pointer=(Entity, &'static mut WlPointer,&'static mut Geometry,&'static mut PointerGrab ),
+    surface=< (Entity, &'static WlSurface, &'static GlobalGeometry, Option<&'static XdgToplevel>, Option<&'static XdgPopup>),With<DWayWindow>>,
+    client=(Entity,&'static mut WlSeat,&'static mut Grab),
+    pointer=(Entity, &'static mut WlPointer,&'static mut Geometry ),
 ]=>{
     path=surface<-[ClientHasSurface]-client-[SeatHasPointer]->pointer
 });
@@ -164,7 +171,7 @@ fn cursor_move_on_window(
     mut graph: PointInputGraph,
     mut region_query: Query<&WlRegion>,
     mut cursor: Res<CursorOnOutput>,
-    mut grab_events_writer: EventWriter<PointerMoveGrabEvent>,
+    mut grab_events_writer: EventWriter<GrabEvent>,
     mut events: EventReader<MouseMotion>,
 ) {
     let Some((output, pos)) = &cursor.0 else {
@@ -173,36 +180,36 @@ fn cursor_move_on_window(
     for MouseMotion { delta } in events.iter() {
         graph.for_each_path_mut(
             |(surface_entity, surface, rect, toplevel, popup),
-             _,
-             (pointer_entity, pointer, pointer_rect, ref mut grab)| {
+             (seat_entity, ref mut seat, ref mut geab),
+             (pointer_entity, pointer, pointer_rect)| {
+                pointer_rect.set_pos(*pos);
                 if popup.is_none() {
+                    let relative = *pos - rect.geometry.pos() - surface.image_rect().pos();
                     if !rect.include_point(*pos)
                         || surface
                             .commited
                             .input_region
                             .and_then(|region| region_query.get(region).ok())
-                            .map(|region| {
-                                !region.is_inside(
-                                    *pos - rect.geometry.pos() - surface.image_rect().pos(),
-                                )
-                            })
+                            .map(|region| !region.is_inside(relative))
                             .unwrap_or(false)
                     {
-                        if pointer.can_focus_on(surface) {
+                        if seat.can_focus_on(surface) {
                             // pointer.leave();
                         }
                         return;
                     }
-                    let relative = *pos - rect.geometry.pos() - surface.image_rect().pos();
-                    pointer.move_cursor(surface, relative.as_vec2());
+                    pointer.move_cursor(seat, surface, relative.as_vec2());
                 }
             },
         );
         graph
-            .node_pointer
-            .for_each_mut(|(_, (entity, pointer, mut rect, ..))| {
-                rect.set_pos(*pos);
-                grab_events_writer.send(PointerMoveGrabEvent(entity, pos.as_vec2()));
+            .node_client
+            .for_each_mut(|(_, (entity, mut seat, ..))| {
+                seat.pointer_position = Some(*pos);
+                grab_events_writer.send(GrabEvent {
+                    seat_entity: entity,
+                    event_kind: dway_server::input::grab::GrabEventKind::PointerMove(pos.as_vec2()),
+                });
             });
     }
 }
@@ -212,7 +219,7 @@ fn mouse_button_on_window(
     mut events: EventReader<MouseButtonInput>,
     mut cursor: Res<CursorOnOutput>,
     mut output_focus: ResMut<FocusedWindow>,
-    mut grab_events_writer: EventWriter<PointerButtonGrabEvent>,
+    mut grab_events_writer: EventWriter<GrabEvent>,
 ) {
     let Some((output, pos)) = &cursor.0 else {
         warn!("no cursor position data");
@@ -221,8 +228,8 @@ fn mouse_button_on_window(
     for e in events.iter() {
         graph.for_each_path_mut(
             |(surface_entity, surface, rect, toplevel, popup),
-             _,
-             (pointer_entity, pointer, _, ref mut grab)| {
+             (seat_entity, seat, ref mut grab),
+             (pointer_entity, pointer, _)| {
                 if popup.is_none() {
                     if !rect.include_point(*pos) {
                         return;
@@ -230,24 +237,26 @@ fn mouse_button_on_window(
                     let relative = *pos - rect.geometry.pos() - surface.image_rect().pos();
                     output_focus.0 = Some(*surface_entity);
 
-                    if matches!(&**grab, PointerGrab::OnPopup { .. }) {
-                        pointer.button(e, surface, relative.as_dvec2());
+                    if matches!(&**grab, Grab::OnPopup { .. }) {
+                        pointer.button(seat, e, surface, relative.as_dvec2());
                     } else if e.state == ButtonState::Pressed {
-                        **grab = PointerGrab::ButtonDown {
+                        **grab = Grab::ButtonDown {
                             surface: *surface_entity,
                         };
-                        pointer.grab(surface);
+                        seat.enable();
+                        seat.grab(surface);
                     } else {
-                        pointer.button(e, surface, relative.as_dvec2());
+                        // pointer.button(seat, e, surface, relative.as_dvec2());
                     }
                 }
             },
         );
-        graph
-            .node_pointer
-            .for_each(|(_, (entity, pointer, rect, _))| {
-                grab_events_writer.send(PointerButtonGrabEvent(entity, *e, pos.as_dvec2()));
+        graph.node_client.for_each(|(_, (entity, ..))| {
+            grab_events_writer.send(GrabEvent {
+                seat_entity: entity,
+                event_kind: GrabEventKind::PointerButton(*e, pos.as_dvec2()),
             });
+        });
     }
 }
 fn mouse_wheel_on_window(
@@ -255,7 +264,7 @@ fn mouse_wheel_on_window(
     mut events: EventReader<MouseWheel>,
     mut cursor: Res<CursorOnOutput>,
     mut output_focus: ResMut<FocusedWindow>,
-    mut grab_events_writer: EventWriter<PointerAxisGrabEvent>,
+    mut grab_events_writer: EventWriter<GrabEvent>,
 ) {
     let Some((output, pos)) = &cursor.0 else {
         warn!("no cursor position data");
@@ -263,7 +272,9 @@ fn mouse_wheel_on_window(
     };
     for e in events.iter() {
         graph.for_each_path_mut(
-            |(surface_entity, surface, rect, toplevel, popup), _, (pointer_entity, pointer, ..)| {
+            |(surface_entity, surface, rect, toplevel, popup),
+             (seat_entity, ref mut seat, ref mut grab),
+             (pointer_entity, pointer, ..)| {
                 if let Some(toplevel) = toplevel {
                     if !rect.include_point(*pos) {
                         return;
@@ -271,6 +282,7 @@ fn mouse_wheel_on_window(
                     let relative = *pos - rect.geometry.pos() - surface.image_rect().pos();
                     let acc = |x: f64| x * 20.0;
                     pointer.asix(
+                        seat,
                         DVec2::new(-acc(e.x as f64), -acc(e.y as f64)),
                         surface,
                         relative.as_dvec2(),
@@ -279,10 +291,11 @@ fn mouse_wheel_on_window(
                 }
             },
         );
-        graph
-            .node_pointer
-            .for_each(|(_, (entity, pointer, rect, ..))| {
-                grab_events_writer.send(PointerAxisGrabEvent(entity, *e, pos.as_dvec2()));
+        graph.node_client.for_each(|(_, (entity, ..))| {
+            grab_events_writer.send(GrabEvent {
+                seat_entity: entity,
+                event_kind: GrabEventKind::PointerAxis(*e, pos.as_dvec2()),
             });
+        });
     }
 }

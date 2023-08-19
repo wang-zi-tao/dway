@@ -14,7 +14,7 @@ use crate::{
     },
 };
 
-use super::grab::PointerGrab;
+use super::{grab::Grab, seat::WlSeat};
 
 #[derive(Component, Reflect, FromReflect)]
 pub struct WlPointer {
@@ -22,15 +22,13 @@ pub struct WlPointer {
     pub raw: wl_pointer::WlPointer,
     #[reflect(ignore)]
     pub focus: Option<wl_surface::WlSurface>,
-    #[reflect(ignore)]
-    pub grab_by: Option<wl_surface::WlSurface>,
 }
 #[derive(Bundle)]
 pub struct WlPointerBundle {
     resource: WlPointer,
     pos: Geometry,
     global_pos: GlobalGeometry,
-    grab: PointerGrab,
+    grab: Grab,
 }
 
 impl WlPointerBundle {
@@ -46,34 +44,27 @@ impl WlPointerBundle {
 
 impl WlPointer {
     pub fn new(raw: wl_pointer::WlPointer) -> Self {
-        Self {
-            raw,
-            focus: None,
-            grab_by: None,
-        }
+        Self { raw, focus: None }
     }
     pub fn frame(&self) {
         if self.raw.version() >= 5 {
             self.raw.frame();
         }
     }
-    pub fn can_focus_on(&mut self, surface: &WlSurface) -> bool {
-        if let Some(s) = &self.grab_by {
-            if (s.is_alive()) {
-                s == &surface.raw
-            } else {
-                self.grab_by = None;
-                true
-            }
-        } else {
-            true
+    pub fn set_focus(
+        &mut self,
+        seat: &mut WlSeat,
+        surface: &WlSurface,
+        position: DVec2,
+        serial: u32,
+    ) -> bool {
+        if !seat.enabled {
+            return false;
         }
-    }
-    pub fn set_focus(&mut self, surface: &WlSurface, position: DVec2, serial: u32) -> bool {
         if let Some(focus) = &self.focus {
             if &surface.raw != focus {
                 let focus = focus.clone();
-                if !self.can_focus_on(surface) {
+                if !seat.can_focus_on(surface) {
                     return false;
                 }
                 if focus.is_alive() {
@@ -97,7 +88,7 @@ impl WlPointer {
                 self.focus = Some(surface.raw.clone());
             }
         } else {
-            if !self.can_focus_on(surface) {
+            if !seat.can_focus_on(surface) {
                 return false;
             }
             debug!(
@@ -112,9 +103,15 @@ impl WlPointer {
         }
         true
     }
-    pub fn button(&mut self, input: &MouseButtonInput, surface: &WlSurface, pos: DVec2) {
+    pub fn button(
+        &mut self,
+        seat: &mut WlSeat,
+        input: &MouseButtonInput,
+        surface: &WlSurface,
+        pos: DVec2,
+    ) {
         let serial = next_serial();
-        if !self.set_focus(surface, pos, serial) {
+        if !self.set_focus(seat, surface, pos, serial) {
             debug!(serial,surface=%WlResource::id( &surface.raw ),"cannot set focus");
             return;
         }
@@ -135,9 +132,9 @@ impl WlPointer {
         );
         self.frame();
     }
-    pub fn move_cursor(&mut self, surface: &WlSurface, delta: Vec2) {
+    pub fn move_cursor(&mut self, seat: &mut WlSeat, surface: &WlSurface, delta: Vec2) {
         let serial = next_serial();
-        if !self.set_focus(surface, delta.as_dvec2(), serial) {
+        if !self.set_focus(seat, surface, delta.as_dvec2(), serial) {
             debug!(serial,surface=%WlResource::id( &surface.raw ),"cannot set focus");
             return;
         }
@@ -147,9 +144,6 @@ impl WlPointer {
     }
     pub fn leave(&mut self) {
         let serial = next_serial();
-        if self.grab_by.is_some() {
-            return;
-        }
         if let Some(focus) = &self.focus {
             if focus.is_alive() {
                 self.raw.leave(serial, focus);
@@ -158,9 +152,9 @@ impl WlPointer {
             self.focus = None;
         }
     }
-    pub fn asix(&mut self, value: DVec2, surface: &WlSurface, pos: DVec2) {
+    pub fn asix(&mut self, seat: &mut WlSeat, value: DVec2, surface: &WlSurface, pos: DVec2) {
         let serial = next_serial();
-        if !self.set_focus(surface, pos, serial) {
+        if !self.set_focus(seat, surface, pos, serial) {
             debug!(serial,surface=%WlResource::id( &surface.raw ),"cannot set focus");
             return;
         }
@@ -174,18 +168,6 @@ impl WlPointer {
                 .axis(time(), wl_pointer::Axis::VerticalScroll, value.y);
         }
         self.frame();
-    }
-    pub fn unset_grab(&mut self) {
-        debug!("unset grab");
-        self.grab_by = None;
-    }
-    pub fn grab_raw(&mut self, surface: &wl_surface::WlSurface) {
-        debug!(surface=%WlResource::id(surface),"set grab");
-        self.grab_by = Some(surface.clone());
-    }
-    pub fn grab(&mut self, surface: &WlSurface) {
-        debug!(surface=%WlResource::id(&surface.raw),"set grab");
-        self.grab_by = Some(surface.raw.clone());
     }
 }
 

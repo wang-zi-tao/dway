@@ -6,24 +6,70 @@ use wayland_server::protocol::wl_seat::Capability;
 use crate::{
     input::{keyboard::WlKeyboardBundle, pointer::WlPointerBundle, touch::WlTouchBundle},
     prelude::*,
-    state::{create_global_system_config, EntityFactory},
+    state::{create_global_system_config, EntityFactory}, wl::surface::WlSurface,
 };
 
 use super::{
-    grab::{GrabPlugin, PointerGrab},
+    grab::{Grab, GrabPlugin},
     keyboard::WlKeyboard,
     pointer::WlPointer,
     touch::WlTouch,
 };
 
-#[derive(Component)]
+#[derive(Component,Reflect,FromReflect)]
 pub struct WlSeat {
+    #[reflect(ignore)]
     pub raw: wl_seat::WlSeat,
+    #[reflect(ignore)]
+    pub grab_by: Option<wl_surface::WlSurface>,
+    pub pointer_position: Option<IVec2>,
+    pub enabled:bool,
+}
+
+impl WlSeat {
+    pub fn new(raw: wl_seat::WlSeat) -> Self {
+        Self {
+            raw,
+            grab_by: None,
+            pointer_position: None,
+            enabled: true,
+        }
+    }
+    pub fn enable(&mut self){
+        self.enabled=true;
+    }
+    pub fn disable(&mut self){
+        self.enabled=false;
+    }
+    pub fn grab(&mut self, surface: &WlSurface) {
+        debug!(surface=%WlResource::id(&surface.raw),"set grab");
+        self.grab_by = Some(surface.raw.clone());
+    }
+    pub fn unset_grab(&mut self) {
+        debug!("unset grab");
+        self.grab_by = None;
+    }
+    pub fn grab_raw(&mut self, surface: &wl_surface::WlSurface) {
+        debug!(surface=%WlResource::id(surface),"set grab");
+        self.grab_by = Some(surface.clone());
+    }
+    pub fn can_focus_on(&mut self, surface: &WlSurface) -> bool {
+        if let Some(s) = &self.grab_by {
+            if s.is_alive() {
+                s == &surface.raw
+            } else {
+                self.grab_by = None;
+                true
+            }
+        } else {
+            true
+        }
+    }
 }
 #[derive(Bundle)]
 pub struct WlSeatBundle {
     pub seat: WlSeat,
-    pub grab: PointerGrab,
+    pub grab: Grab,
 }
 
 impl WlSeatBundle {
@@ -111,7 +157,7 @@ impl wayland_server::GlobalDispatch<wayland_server::protocol::wl_seat::WlSeat, E
     ) {
         state.bind(client, resource, data_init, |o| {
             o.capabilities(Capability::all());
-            WlSeatBundle::new(WlSeat { raw: o })
+            WlSeatBundle::new(WlSeat::new(o))
         });
     }
 }
@@ -128,5 +174,6 @@ impl Plugin for WlSeatPlugin {
         app.register_type::<WlPointer>();
         app.add_plugin(super::keyboard::WlKeyboardPlugin);
         app.add_plugin(GrabPlugin);
+        app.register_type::<WlSeat>();
     }
 }

@@ -1,5 +1,6 @@
 use bevy::{
     input::{
+        keyboard::KeyboardInput,
         mouse::{MouseButtonInput, MouseWheel},
         ButtonState,
     },
@@ -15,27 +16,28 @@ use crate::{
     prelude::*,
     schedule::DWayServerSet,
     util::rect::IRect,
-    wl::surface::WlSurface,
-    xdg::{popup::XdgPopup, toplevel::XdgToplevel, XdgSurface},
+    wl::surface::{ClientHasSurface, SurfaceList, WlSurface},
+    xdg::{popup::XdgPopup, toplevel::XdgToplevel, DWayWindow, XdgSurface},
 };
 
-use super::pointer::WlPointer;
+use super::{
+    keyboard::WlKeyboard,
+    pointer::WlPointer,
+    seat::{PointerList, SeatHasPointer, WlSeat},
+};
 
-pub struct PointerMoveGrabEvent(pub Entity, pub Vec2);
-pub struct PointerButtonGrabEvent(pub Entity, pub MouseButtonInput, pub DVec2);
-pub struct PointerAxisGrabEvent(pub Entity, pub MouseWheel, pub DVec2);
-pub struct KeyboardGrabEvent(pub Entity);
-
-#[derive(Component, Debug, Default, Reflect, FromReflect)]
-#[reflect(Debug)]
-pub enum KeyboardGrab {
-    #[default]
-    None,
-    KeyboardGrab {
-        entity: Entity,
-        serial: i32,
-    },
+#[derive(Debug)]
+pub enum GrabEventKind {
+    PointerMove(Vec2),
+    PointerButton(MouseButtonInput, DVec2),
+    PointerAxis(MouseWheel, DVec2),
+    Keyboard(KeyboardInput),
 }
+pub struct GrabEvent {
+    pub seat_entity: Entity,
+    pub event_kind: GrabEventKind,
+}
+
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash, Reflect, FromReflect)]
     pub struct ResizeEdges: u8 {
@@ -48,11 +50,13 @@ bitflags! {
 
 #[derive(Component, Debug, Default, Reflect, FromReflect)]
 #[reflect(Debug)]
-pub enum PointerGrab {
+pub enum Grab {
     #[default]
     None,
     OnPopup {
-        surface: Entity,
+        surface_entity: Entity,
+        #[reflect(ignore)]
+        popup_stack: Vec<xdg_popup::XdgPopup>,
         pressed: bool,
         serial: u32,
     },
@@ -74,155 +78,248 @@ pub enum PointerGrab {
     },
 }
 
-pub fn on_mouse_move(
-    mut event: EventReader<PointerMoveGrabEvent>,
-    mut pointer_query: Query<(&mut WlPointer, &mut PointerGrab, &Geometry, &GlobalGeometry)>,
-    mut surface_query: Query<
-        (
-            &WlSurface,
-            &mut Geometry,
-            &GlobalGeometry,
-            Option<&XdgToplevel>,
-            Option<&XdgSurface>,
-        ),
-        Without<WlPointer>,
-    >,
-) {
-    for PointerMoveGrabEvent(entity, pos) in event.iter() {
-        if let Ok((mut pointer, grab, pointer_rect, pointer_global_rect)) =
-            pointer_query.get_mut(*entity)
-        {
-            match &*grab {
-                PointerGrab::ButtonDown { surface } | PointerGrab::OnPopup { surface, .. } => {
-                    let Ok((surface, rect, global, ..)) = surface_query.get(*surface) else {
-                        continue;
-                    };
-                    let relative =
-                        pos.as_ivec2() - global.geometry.pos() - surface.image_rect().pos();
-                    pointer.move_cursor(surface, relative.as_vec2());
+impl Drop for Grab {
+    fn drop(&mut self) {
+        match self {
+            Grab::OnPopup { popup_stack, .. } => popup_stack.iter().rev().for_each(|popup| {
+                if popup.is_alive() {
+                    popup.popup_done();
                 }
-                PointerGrab::Moving {
+            }),
+            _ => {}
+        }
+    }
+}
+pub fn on_grab_event(
+    mut seat_query: Query<(&PointerList, &mut WlSeat, &mut Grab)>,
+    mut surface_query: Query<(
+        &WlSurface,
+        &mut Geometry,
+        &GlobalGeometry,
+        Option<&XdgPopup>,
+        Option<&XdgToplevel>,
+    )>,
+    mut pointer_query: Query<&mut WlPointer>,
+    mut keyboard_query: Query<&mut WlKeyboard>,
+    mut event: EventReader<GrabEvent>,
+    mut commands: Commands,
+) {
+    for GrabEvent {
+        seat_entity,
+        event_kind,
+    } in event.iter()
+    {
+        if let Ok((pointer_list, mut seat, mut grab)) = seat_query.get_mut(*seat_entity) {
+            match &mut *grab {
+                Grab::OnPopup {
+                    surface_entity,
+                    popup_stack,
+                    pressed,
+                    serial,
+                } => {
+                    let Ok((surface, mut geo, global_geo, ..)) =
+                        surface_query.get_mut(*surface_entity)
+                    else {
+                        return;
+                    };
+                    match event_kind {
+                        GrabEventKind::PointerMove(pos) => {
+                            let relative = pos.as_ivec2()
+                                - global_geo.geometry.pos()
+                                - surface.image_rect().pos();
+                            for e in pointer_list.iter() {
+                                if let Ok(mut pointer) = pointer_query.get_mut(e) {
+                                    pointer.move_cursor(&mut seat, surface, relative.as_vec2());
+                                }
+                            }
+                        }
+                        GrabEventKind::PointerButton(event, pos) => {
+                            let relative = pos.as_ivec2()
+                                - global_geo.geometry.pos()
+                                - surface.image_rect().pos();
+                            for e in pointer_list.iter() {
+                                if let Ok(mut pointer) = pointer_query.get_mut(e) {
+                                    pointer.button(
+                                        &mut seat,
+                                        event,
+                                        surface,
+                                        relative.as_dvec2(),
+                                    );
+                                }
+                            }
+                            match (event.state, *pressed) {
+                                (ButtonState::Pressed, false) => {
+                                    *pressed = true;
+                                    seat.grab(surface);
+                                }
+                                (ButtonState::Released, true) => {
+                                    *pressed = false;
+                                    seat.unset_grab();
+                                }
+                                _ => {}
+                            }
+                        }
+                        GrabEventKind::PointerAxis(event, pos) => {
+                            let relative = pos.as_ivec2()
+                                - global_geo.geometry.pos()
+                                - surface.image_rect().pos();
+                            for e in pointer_list.iter() {
+                                if let Ok(mut pointer) = pointer_query.get_mut(e) {
+                                    let acc = |x: f64| x * 20.0;
+                                    pointer.asix(
+                                        &mut seat,
+                                        DVec2::new(-acc(event.x as f64), -acc(event.y as f64)),
+                                        surface,
+                                        relative.as_dvec2(),
+                                    );
+                                }
+                            }
+                        }
+                        GrabEventKind::Keyboard(input) => {
+                            for e in pointer_list.iter() {
+                                if let Ok(mut keyboard) = keyboard_query.get_mut(e) {
+                                    keyboard.key(surface, input);
+                                }
+                            }
+                        }
+                    }
+                }
+                Grab::ButtonDown {
+                    surface: surface_entity,
+                } => {
+                    let Ok((surface, mut geo, global_geo, ..)) =
+                        surface_query.get_mut(*surface_entity)
+                    else {
+                        return;
+                    };
+                    match event_kind {
+                        GrabEventKind::PointerMove(pos) => {
+                            let relative = pos.as_ivec2()
+                                - global_geo.geometry.pos()
+                                - surface.image_rect().pos();
+                            for e in pointer_list.iter() {
+                                if let Ok(mut pointer) = pointer_query.get_mut(e) {
+                                    pointer.move_cursor(&mut seat, surface, relative.as_vec2());
+                                }
+                            }
+                        }
+                        GrabEventKind::PointerButton(event, pos) => {
+                            let relative = pos.as_ivec2()
+                                - global_geo.geometry.pos()
+                                - surface.image_rect().pos();
+                            for e in pointer_list.iter() {
+                                if let Ok(mut pointer) = pointer_query.get_mut(e) {
+                                    pointer.button(
+                                        &mut seat,
+                                        event,
+                                        surface,
+                                        relative.as_dvec2(),
+                                    );
+                                }
+                            }
+                            match event.state {
+                                ButtonState::Pressed => {
+                                    seat.grab(surface);
+                                }
+                                ButtonState::Released => {
+                                    *grab = Grab::None;
+                                    seat.unset_grab();
+                                }
+                            }
+                        }
+                        GrabEventKind::PointerAxis(event, pos) => {
+                            let relative = pos.as_ivec2()
+                                - global_geo.geometry.pos()
+                                - surface.image_rect().pos();
+                            for e in pointer_list.iter() {
+                                if let Ok(mut pointer) = pointer_query.get_mut(e) {
+                                    let acc = |x: f64| x * 20.0;
+                                    pointer.asix(
+                                        &mut seat,
+                                        DVec2::new(-acc(event.x as f64), -acc(event.y as f64)),
+                                        surface,
+                                        relative.as_dvec2(),
+                                    );
+                                }
+                            }
+                        }
+                        GrabEventKind::Keyboard(input) => {
+                            for e in pointer_list.iter() {
+                                if let Ok(mut keyboard) = keyboard_query.get_mut(e) {
+                                    keyboard.key(surface, input);
+                                }
+                            }
+                        }
+                    }
+                }
+                Grab::Moving {
                     surface,
                     serial,
                     relative,
                 } => {
-                    let Ok((surface, mut rect, global, ..)) = surface_query.get_mut(*surface)
+                    let Ok((surface, mut geo, global_geo, _, Some(toplevel))) =
+                        surface_query.get_mut(*surface)
                     else {
-                        continue;
+                        return;
                     };
-                    rect.set_pos(*relative + pointer_rect.pos());
+                    match event_kind {
+                        GrabEventKind::PointerMove(pos) => {
+                            let pos = seat.pointer_position.unwrap_or_default();
+                            geo.set_pos(*relative + pos);
+                        }
+                        GrabEventKind::PointerAxis(_, _) | GrabEventKind::Keyboard(_) => {
+                            *grab = Grab::None;
+                            seat.enable();
+                            info!("stop moving");
+                        }
+                        GrabEventKind::PointerButton(e, _) => {
+                            if e.state == ButtonState::Released {
+                                *grab = Grab::None;
+                                seat.enable();
+                                info!("stop moving");
+                            }
+                        }
+                    }
                 }
-                PointerGrab::Resizing {
+                Grab::Resizing {
                     surface,
                     edges,
                     serial,
                     relative,
                     origin_rect,
                 } => {
-                    let Ok((surface, mut rect, global, toplevel, xdg_surface)) =
+                    let Ok((surface, mut geo, global_geo, _, Some(toplevel))) =
                         surface_query.get_mut(*surface)
                     else {
-                        continue;
+                        return;
                     };
-                    let top_left = *relative + pointer_rect.pos();
-                    let buttom_right = top_left + origin_rect.size();
-                    if edges.contains(ResizeEdges::LEFT) {
-                        rect.min.x = top_left.x;
-                    }
-                    if edges.contains(ResizeEdges::TOP) {
-                        rect.min.y = top_left.y;
-                    }
-                    if edges.contains(ResizeEdges::RIGHT) {
-                        rect.max.x = buttom_right.x;
-                    }
-                    if edges.contains(ResizeEdges::BUTTOM) {
-                        rect.max.y = buttom_right.y;
-                    }
-                    toplevel.map(|t| t.resize(rect.size()));
-                    xdg_surface.map(|s| s.configure());
-                }
-                _ => {}
-            }
-        }
-    }
-}
-pub fn on_mouse_button(
-    mut event: EventReader<PointerButtonGrabEvent>,
-    mut pointer_query: Query<(&mut WlPointer, &mut PointerGrab)>,
-    mut surface_query: Query<(&WlSurface, &GlobalGeometry, Option<&XdgPopup>)>,
-) {
-    for PointerButtonGrabEvent(entity, event, position) in event.iter() {
-        if let Ok((mut pointer, mut grab)) = pointer_query.get_mut(*entity) {
-            match &mut *grab {
-                PointerGrab::ButtonDown { surface } => {
-                    let Ok((surface, rect, popup)) = surface_query.get(*surface) else {
-                        continue;
-                    };
-                    pointer.button(event, surface, *position - rect.pos().as_dvec2());
-                    match event.state {
-                        ButtonState::Pressed => {
-                            pointer.grab(surface);
+                    match event_kind {
+                        GrabEventKind::PointerMove(pos) => {
+                            let pos = seat.pointer_position.unwrap_or_default();
+                            let top_left = *relative + pos;
+                            let buttom_right = top_left + origin_rect.size();
+                            if edges.contains(ResizeEdges::LEFT) {
+                                geo.min.x = top_left.x;
+                            }
+                            if edges.contains(ResizeEdges::TOP) {
+                                geo.min.y = top_left.y;
+                            }
+                            if edges.contains(ResizeEdges::RIGHT) {
+                                geo.max.x = buttom_right.x;
+                            }
+                            if edges.contains(ResizeEdges::BUTTOM) {
+                                geo.max.y = buttom_right.y;
+                            }
+                            toplevel.resize(geo.size());
                         }
-                        ButtonState::Released => {
-                            *grab = PointerGrab::None;
-                            pointer.unset_grab();
+                        GrabEventKind::PointerAxis(_, _)
+                        | GrabEventKind::Keyboard(_)
+                        | GrabEventKind::PointerButton(..) => {
+                            *grab = Grab::None;
+                            seat.enable();
+                            info!("stop resizing");
                         }
                     }
-                }
-
-                PointerGrab::OnPopup {
-                    surface, pressed, ..
-                } => {
-                    let Ok((surface, rect, popup)) = surface_query.get(*surface) else {
-                        continue;
-                    };
-                    match (event.state, *pressed) {
-                        (ButtonState::Pressed, false) => {
-                            pointer.button(event, surface, *position - rect.pos().as_dvec2());
-                            *pressed = true;
-                            pointer.grab(surface);
-                        }
-                        (ButtonState::Released, true) => {
-                            pointer.button(event, surface, *position - rect.pos().as_dvec2());
-                            *pressed = false;
-                            pointer.unset_grab();
-                        }
-                        _ => {}
-                    }
-                }
-                PointerGrab::Moving { .. } => {
-                    *grab = PointerGrab::None;
-                    pointer.unset_grab();
-                    info!("stop moving");
-                }
-                PointerGrab::Resizing { .. } => {
-                    *grab = PointerGrab::None;
-                    pointer.unset_grab();
-                    info!("stop resizing");
-                }
-                _ => {}
-            }
-        }
-    }
-}
-pub fn on_mouse_axis(
-    mut event: EventReader<PointerAxisGrabEvent>,
-    mut pointer_query: Query<(&mut WlPointer, &mut PointerGrab)>,
-    mut surface_query: Query<(&WlSurface, &GlobalGeometry)>,
-) {
-    for PointerAxisGrabEvent(entity, event, position) in event.iter() {
-        if let Ok((mut pointer, mut grab)) = pointer_query.get_mut(*entity) {
-            match &*grab {
-                PointerGrab::ButtonDown { surface } | PointerGrab::OnPopup { surface, .. } => {
-                    let Ok((surface, rect)) = surface_query.get(*surface) else {
-                        continue;
-                    };
-                    let acc = |x: f64| x * 20.0;
-                    pointer.asix(
-                        DVec2::new(-acc(event.x as f64), -acc(event.y as f64)),
-                        surface,
-                        *position,
-                    );
                 }
                 _ => {}
             }
@@ -233,18 +330,11 @@ pub fn on_mouse_axis(
 pub struct GrabPlugin;
 impl Plugin for GrabPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<PointerGrab>();
-        app.register_type::<KeyboardGrab>();
-        app.add_event::<PointerMoveGrabEvent>();
-        app.add_event::<PointerButtonGrabEvent>();
-        app.add_event::<PointerAxisGrabEvent>();
-        app.add_event::<KeyboardGrabEvent>();
-        app.add_systems(
-            (
-                on_mouse_move.run_if(on_event::<PointerMoveGrabEvent>()),
-                on_mouse_button.run_if(on_event::<PointerButtonGrabEvent>()),
-                on_mouse_axis.run_if(on_event::<PointerAxisGrabEvent>()),
-            )
+        app.register_type::<Grab>();
+        app.add_event::<GrabEvent>();
+        app.add_system(
+            on_grab_event
+                .run_if(on_event::<GrabEvent>())
                 .in_set(DWayServerSet::GrabInput),
         );
     }

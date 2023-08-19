@@ -5,9 +5,9 @@ use inlinable_string::{InlinableString, InlineString};
 use crate::{
     geometry::Geometry,
     input::{
-        grab::{PointerGrab, ResizeEdges},
+        grab::{Grab, ResizeEdges},
         pointer::WlPointer,
-        seat::PointerList,
+        seat::{PointerList, WlSeat},
     },
     prelude::*,
     resource::ResourceWrapper,
@@ -15,7 +15,7 @@ use crate::{
 };
 use std::sync::Arc;
 
-use super::{XdgSurface, DWayWindow};
+use super::{DWayWindow, XdgSurface};
 
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
@@ -109,24 +109,17 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                         (s.raw.clone(), r.geometry)
                     });
                 let pos = rect.pos();
-                let pointer_list = state
-                    .world_mut()
-                    .get::<PointerList>(DWay::get_entity(&seat))
-                    .unwrap()
-                    .clone();
-                for pointer_entity in pointer_list.iter() {
-                    state.query::<(&mut PointerGrab, &Geometry, &mut WlPointer), _, _>(
-                        pointer_entity,
-                        |(mut grab, pointer_rect, mut pointer)| {
-                            *grab = PointerGrab::Moving {
-                                surface: *data,
-                                serial,
-                                relative: pos - pointer_rect.pos(),
-                            };
-                            pointer.grab_raw(&surface);
-                        },
-                    );
-                }
+                state.query::<(&mut Grab, &mut WlSeat), _, _>(
+                    DWay::get_entity(&seat),
+                    |(mut grab, mut seat)| {
+                        *grab = Grab::Moving {
+                            surface: *data,
+                            serial,
+                            relative: pos - seat.pointer_position.unwrap_or_default(),
+                        };
+                        seat.disable();
+                    },
+                );
             }
             xdg_toplevel::Request::Resize {
                 seat,
@@ -152,30 +145,23 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                     }
                     _ => return,
                 };
-                let pointer_list = state
-                    .world_mut()
-                    .get::<PointerList>(DWay::get_entity(&seat))
-                    .unwrap()
-                    .clone();
                 let (surface, rect) = state
                     .query::<(&WlSurface, &Geometry), _, _>(*data, |(s, r)| {
                         (s.raw.clone(), r.geometry)
                     });
-                for pointer in pointer_list.iter() {
-                    state.query::<(&mut PointerGrab, &Geometry, &mut WlPointer), _, _>(
-                        pointer,
-                        |(mut grab, pointer_rect, mut pointer)| {
-                            *grab = PointerGrab::Resizing {
-                                surface: *data,
-                                serial,
-                                edges,
-                                relative: rect.pos() - pointer_rect.pos(),
-                                origin_rect: rect,
-                            };
-                            pointer.grab_raw(&surface);
-                        },
-                    );
-                }
+                state.query::<(&mut Grab, &mut WlSeat), _, _>(
+                    DWay::get_entity(&seat),
+                    |(mut grab, mut seat)| {
+                        *grab = Grab::Resizing {
+                            surface: *data,
+                            serial,
+                            edges,
+                            relative: rect.pos() - seat.pointer_position.unwrap_or_default(),
+                            origin_rect: rect,
+                        };
+                        seat.disable();
+                    },
+                );
             }
             xdg_toplevel::Request::SetMaxSize { width, height } => {
                 state.with_component(resource, |c: &mut XdgToplevel| {

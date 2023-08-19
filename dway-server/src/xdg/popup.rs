@@ -6,9 +6,9 @@ use wayland_protocols::xdg::shell::server::xdg_positioner::{Anchor, Gravity};
 use crate::{
     geometry::{Geometry, GlobalGeometry},
     input::{
-        grab::PointerGrab,
+        grab::Grab,
         pointer::WlPointer,
-        seat::{KeyboardList, PointerList},
+        seat::{KeyboardList, PointerList, WlSeat},
     },
     prelude::*,
     resource::ResourceWrapper,
@@ -80,20 +80,55 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
                 else {
                     return;
                 };
-                for pointer_entity in pointer_list.iter() {
-                    state.query::<(&mut PointerGrab, &Geometry, &mut WlPointer), _, _>(
-                        pointer_entity,
-                        |(mut grab, pointer_rect, mut pointer)| {
-                            *grab = PointerGrab::OnPopup {
-                                surface: *data,
-                                pressed: false,
-                                serial,
-                            };
-                            pointer.unset_grab();
-                        },
-                    );
-                }
-                // let keyboard_list = state.get::<KeyboardList>(seat_entity).unwrap().clone();
+                let Some(parent_entity) = state.get::<Parent>(*data).map(|p| p.get()).clone()
+                else {
+                    return;
+                };
+                let parent_is_popup = state.entity(parent_entity).contains::<XdgPopup>();
+                state.query::<(&mut Grab, &mut WlSeat), _, _>(
+                    DWay::get_entity(&seat),
+                    |(mut grab, mut seat)| {
+                        if let Grab::OnPopup {
+                            surface_entity,
+                            popup_stack,
+                            pressed,
+                            serial,
+                        } = &mut *grab
+                        {
+                            dbg!(parent_entity, parent_is_popup);
+                            if parent_is_popup {
+                                let index =
+                                    popup_stack.iter().rev().enumerate().find(|(index, popup)| {
+                                        DWay::get_entity(*popup) == parent_entity
+                                    });
+                                dbg!(index);
+                                if let Some((index, _)) = index {
+                                    if index + 1 != popup_stack.len() {
+                                        popup_stack.drain(index + 1..).into_iter().for_each(
+                                            |popup| {
+                                                if popup.is_alive() {
+                                                    popup.popup_done()
+                                                }
+                                            },
+                                        );
+                                    }
+                                    popup_stack.push(resource.clone());
+                                    *surface_entity = *data;
+                                    return;
+                                } else {
+                                    warn!("failed to grab popup, parent popup is not grabed");
+                                }
+                            }
+                        }
+                        *grab = Grab::OnPopup {
+                            surface_entity: *data,
+                            popup_stack: vec![resource.clone()],
+                            pressed: false,
+                            serial,
+                        };
+                        seat.unset_grab();
+                    },
+                );
             }
             xdg_popup::Request::Reposition { positioner, token } => {
                 let positioner =
