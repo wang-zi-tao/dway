@@ -2,7 +2,7 @@ use wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection
     self, ZwpPrimarySelectionSourceV1,
 };
 
-use crate::{create_dispatch, prelude::*};
+use crate::prelude::*;
 
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
@@ -18,12 +18,12 @@ impl PrimarySelectionSource {
 impl Dispatch<ZwpPrimarySelectionSourceV1, Entity> for DWay {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &ZwpPrimarySelectionSourceV1,
         request: <ZwpPrimarySelectionSourceV1 as WlResource>::Request,
         data: &Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span =
             span!(Level::ERROR,"request",entity = ?data,resource = %WlResource::id(resource));

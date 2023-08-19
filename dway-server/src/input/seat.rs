@@ -1,4 +1,4 @@
-use std::sync::Arc;
+
 
 use bevy_relationship::{relationship, AppExt};
 use wayland_server::protocol::wl_seat::Capability;
@@ -97,11 +97,11 @@ impl
 {
     fn request(
         state: &mut DWay,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &wayland_server::protocol::wl_seat::WlSeat,
         request: <wayland_server::protocol::wl_seat::WlSeat as WlResource>::Request,
         data: &bevy::prelude::Entity,
-        dhandle: &DisplayHandle,
+        _dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         let span = span!(Level::ERROR, "request", entity=?data, resource=%WlResource::id(resource));
@@ -121,7 +121,7 @@ impl
                 let entity = state
                     .spawn(
                         (id, data_init, |kbd, world: &mut World| {
-                            WlKeyboardBundle::new(WlKeyboard::new(kbd, &world.resource()).unwrap())
+                            WlKeyboardBundle::new(WlKeyboard::new(kbd, world.resource()).unwrap())
                         })
                             .with_parent(*data),
                     )
@@ -149,10 +149,10 @@ impl
 impl wayland_server::GlobalDispatch<wayland_server::protocol::wl_seat::WlSeat, Entity> for DWay {
     fn bind(
         state: &mut Self,
-        handle: &DisplayHandle,
+        _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<wayland_server::protocol::wl_seat::WlSeat>,
-        global_data: &Entity,
+        _global_data: &Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         state.bind(client, resource, data_init, |o| {

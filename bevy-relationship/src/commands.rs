@@ -6,7 +6,7 @@ use bevy::{
 };
 use smallvec::SmallVec;
 
-use crate::{Connectable, ConnectableMut, Relationship};
+use crate::{ConnectableMut, Relationship};
 
 #[derive(Debug)]
 pub struct ConnectCommand<R: Relationship> {

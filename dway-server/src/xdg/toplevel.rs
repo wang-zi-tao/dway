@@ -1,21 +1,15 @@
-use bevy::utils::tracing::Span;
-use bevy_relationship::Connectable;
-use inlinable_string::{InlinableString, InlineString};
-
 use crate::{
     geometry::Geometry,
     input::{
         grab::{Grab, ResizeEdges},
-        pointer::WlPointer,
-        seat::{PointerList, WlSeat},
+        seat::WlSeat,
     },
     prelude::*,
     resource::ResourceWrapper,
     wl::surface::WlSurface,
 };
-use std::sync::Arc;
 
-use super::{DWayWindow, XdgSurface};
+use super::DWayWindow;
 
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
@@ -27,8 +21,8 @@ pub struct XdgToplevel {
     pub max: bool,
     pub fullscreen: bool,
     pub min: bool,
-    pub minSize: Option<IVec2>,
-    pub maxSize: Option<IVec2>,
+    pub min_size: Option<IVec2>,
+    pub max_size: Option<IVec2>,
     pub send_configure: bool,
 }
 impl ResourceWrapper for XdgToplevel {
@@ -47,8 +41,8 @@ impl XdgToplevel {
             max: false,
             fullscreen: false,
             min: false,
-            minSize: None,
-            maxSize: None,
+            min_size: None,
+            max_size: None,
             send_configure: false,
         }
     }
@@ -72,12 +66,12 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
 {
     fn request(
         state: &mut DWay,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &xdg_toplevel::XdgToplevel,
         request: <xdg_toplevel::XdgToplevel as wayland_server::Resource>::Request,
         data: &bevy::prelude::Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, DWay>,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         let span = span!(Level::ERROR, "request", entity=?data, resource=%WlResource::id(resource));
         let _enter = span.enter();
@@ -87,24 +81,24 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 state.destroy_object(resource);
             }
             xdg_toplevel::Request::SetParent { parent } => {
-                let parent_entity = parent.as_ref().map(|p| DWay::get_entity(p));
+                let _parent_entity = parent.as_ref().map(DWay::get_entity);
                 if let Some(parent) = &parent {
                     state.add_child(DWay::get_entity(parent), *data);
                 }
             }
             xdg_toplevel::Request::SetTitle { title } => {
-                state.with_component(resource, |c: &mut XdgToplevel| c.title = Some(title.into()));
+                state.with_component(resource, |c: &mut XdgToplevel| c.title = Some(title));
             }
             xdg_toplevel::Request::SetAppId { app_id } => {
                 state.with_component(resource, |c: &mut XdgToplevel| {
-                    c.app_id = Some(app_id.into())
+                    c.app_id = Some(app_id)
                 });
             }
-            xdg_toplevel::Request::ShowWindowMenu { seat, serial, x, y } => {
+            xdg_toplevel::Request::ShowWindowMenu { seat: _, serial: _, x: _, y: _ } => {
                 warn!("TODO: xdg_toplevel::Request::ShowWindowMenu");
             }
             xdg_toplevel::Request::Move { seat, serial } => {
-                let (surface, rect) = state
+                let (_surface, rect) = state
                     .query::<(&WlSurface, &Geometry), _, _>(*data, |(s, r)| {
                         (s.raw.clone(), r.geometry)
                     });
@@ -145,7 +139,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                     }
                     _ => return,
                 };
-                let (surface, rect) = state
+                let (_surface, rect) = state
                     .query::<(&WlSurface, &Geometry), _, _>(*data, |(s, r)| {
                         (s.raw.clone(), r.geometry)
                     });
@@ -165,12 +159,12 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
             }
             xdg_toplevel::Request::SetMaxSize { width, height } => {
                 state.with_component(resource, |c: &mut XdgToplevel| {
-                    c.maxSize = Some(IVec2::new(width, height))
+                    c.max_size = Some(IVec2::new(width, height))
                 });
             }
             xdg_toplevel::Request::SetMinSize { width, height } => {
                 state.with_component(resource, |c: &mut XdgToplevel| {
-                    c.minSize = Some(IVec2::new(width, height))
+                    c.min_size = Some(IVec2::new(width, height))
                 });
             }
             xdg_toplevel::Request::SetMaximized => {
@@ -183,7 +177,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                     c.max = false;
                 });
             }
-            xdg_toplevel::Request::SetFullscreen { output } => {
+            xdg_toplevel::Request::SetFullscreen { output: _ } => {
                 state.with_component(resource, |c: &mut XdgToplevel| {
                     c.fullscreen = true;
                 });

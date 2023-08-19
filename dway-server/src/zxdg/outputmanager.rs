@@ -1,13 +1,13 @@
 use crate::{prelude::*, state::create_global_system_config};
-use std::sync::Arc;
+
 
 #[derive(Component)]
 pub struct WlOutputManager {
-    raw: zxdg_output_manager_v1::ZxdgOutputManagerV1,
+    pub raw: zxdg_output_manager_v1::ZxdgOutputManagerV1,
 }
 #[derive(Component)]
 pub struct ZxdgOutput {
-    raw: zxdg_output_v1::ZxdgOutputV1,
+    pub raw: zxdg_output_v1::ZxdgOutputV1,
 }
 
 #[derive(Resource)]
@@ -22,11 +22,11 @@ impl
 {
     fn request(
         state: &mut DWay,
-        client: &wayland_server::Client,
-        resource: &zxdg_output_manager_v1::ZxdgOutputManagerV1,
+        _client: &wayland_server::Client,
+        _resource: &zxdg_output_manager_v1::ZxdgOutputManagerV1,
         request: <zxdg_output_manager_v1::ZxdgOutputManagerV1 as wayland_server::Resource>::Request,
-        data: &bevy::prelude::Entity,
-        dhandle: &wayland_server::DisplayHandle,
+        _data: &bevy::prelude::Entity,
+        _dhandle: &wayland_server::DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         match request {
@@ -40,13 +40,13 @@ impl
 }
 impl wayland_server::Dispatch<zxdg_output_v1::ZxdgOutputV1, Entity> for DWay {
     fn request(
-        state: &mut Self,
-        client: &wayland_server::Client,
-        resource: &zxdg_output_v1::ZxdgOutputV1,
+        _state: &mut Self,
+        _client: &wayland_server::Client,
+        _resource: &zxdg_output_v1::ZxdgOutputV1,
         request: <zxdg_output_v1::ZxdgOutputV1 as wayland_server::Resource>::Request,
-        data: &Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _data: &Entity,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         match request {
             <zxdg_output_v1::ZxdgOutputV1 as wayland_server::Resource>::Request::Destroy => {
@@ -69,10 +69,10 @@ impl wayland_server::Dispatch<zxdg_output_v1::ZxdgOutputV1, Entity> for DWay {
 impl GlobalDispatch<zxdg_output_manager_v1::ZxdgOutputManagerV1, Entity> for DWay {
     fn bind(
         state: &mut Self,
-        handle: &DisplayHandle,
+        _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<zxdg_output_manager_v1::ZxdgOutputManagerV1>,
-        global_data: &Entity,
+        _global_data: &Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         state.bind(client, resource, data_init, |o| WlOutputManager { raw: o });

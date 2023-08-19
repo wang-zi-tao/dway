@@ -1,7 +1,7 @@
-use std::sync::Arc;
+
 
 use bevy_relationship::{relationship, AppExt};
-use wayland_server::delegate_global_dispatch;
+
 
 use crate::{
     prelude::*,
@@ -11,11 +11,11 @@ use crate::{
 
 #[derive(Component)]
 pub struct WlCompositor {
-    raw: wl_compositor::WlCompositor,
+    pub raw: wl_compositor::WlCompositor,
 }
 #[derive(Component)]
 pub struct WlSubcompositor {
-    raw: wl_subcompositor::WlSubcompositor,
+    pub raw: wl_subcompositor::WlSubcompositor,
 }
 relationship!(HasSubsurface=>SubsurfaceList-<ParentSurface);
 
@@ -34,7 +34,7 @@ impl wayland_server::Dispatch<wl_compositor::WlCompositor, bevy::prelude::Entity
         resource: &wl_compositor::WlCompositor,
         request: <wl_compositor::WlCompositor as wayland_server::Resource>::Request,
         data: &bevy::prelude::Entity,
-        dhandle: &DisplayHandle,
+        _dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         let span = span!(Level::ERROR, "request", entity=?data, resource=%WlResource::id(resource));
@@ -77,11 +77,11 @@ impl wayland_server::Dispatch<wl_subcompositor::WlSubcompositor, bevy::prelude::
 {
     fn request(
         state: &mut DWay,
-        client: &wayland_server::Client,
-        resource: &wl_subcompositor::WlSubcompositor,
+        _client: &wayland_server::Client,
+        _resource: &wl_subcompositor::WlSubcompositor,
         request: <wl_subcompositor::WlSubcompositor as wayland_server::Resource>::Request,
-        data: &bevy::prelude::Entity,
-        dhandle: &DisplayHandle,
+        _data: &bevy::prelude::Entity,
+        _dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         match request {
@@ -116,12 +116,12 @@ impl wayland_server::GlobalDispatch<wl_compositor::WlCompositor, bevy::prelude::
     for CompositorDelegate
 {
     fn bind(
-        state: &mut DWay,
-        handle: &DisplayHandle,
-        client: &wayland_server::Client,
-        resource: wayland_server::New<wl_compositor::WlCompositor>,
-        global_data: &bevy::prelude::Entity,
-        data_init: &mut wayland_server::DataInit<'_, DWay>,
+        _state: &mut DWay,
+        _handle: &DisplayHandle,
+        _client: &wayland_server::Client,
+        _resource: wayland_server::New<wl_compositor::WlCompositor>,
+        _global_data: &bevy::prelude::Entity,
+        _data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         todo!()
     }
@@ -130,10 +130,10 @@ impl wayland_server::GlobalDispatch<wl_compositor::WlCompositor, bevy::prelude::
 impl wayland_server::GlobalDispatch<wl_compositor::WlCompositor, Entity> for DWay {
     fn bind(
         state: &mut Self,
-        handle: &DisplayHandle,
+        _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<wl_compositor::WlCompositor>,
-        global_data: &Entity,
+        _global_data: &Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         state.bind(client, resource, data_init, |o| WlCompositor { raw: o });
@@ -142,10 +142,10 @@ impl wayland_server::GlobalDispatch<wl_compositor::WlCompositor, Entity> for DWa
 impl wayland_server::GlobalDispatch<wl_subcompositor::WlSubcompositor, Entity> for DWay {
     fn bind(
         state: &mut Self,
-        handle: &DisplayHandle,
+        _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<wl_subcompositor::WlSubcompositor>,
-        global_data: &Entity,
+        _global_data: &Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         state.bind(client, resource, data_init, |o| WlSubcompositor { raw: o });

@@ -1,14 +1,10 @@
-use bevy::{
-    input::{mouse::MouseButtonInput, ButtonState},
-    prelude::*,
-    render::texture::{BevyDefault, ImageSampler, TextureFormatPixelInfo},
-};
+use bevy::prelude::*;
 use dway_client_core::desktop::{FocusedWindow, WindowStack};
 use dway_server::{
     geometry::GlobalGeometry,
     macros::Connectable,
     wl::surface::WlSurface,
-    xdg::{popup::XdgPopup, DWayWindow, PopupList, XdgSurface},
+    xdg::{popup::XdgPopup, DWayWindow, PopupList},
 };
 use kayak_ui::{
     prelude::{
@@ -16,8 +12,7 @@ use kayak_ui::{
         OnEvent, StyleProp, Units, WidgetParam,
     },
     widgets::{
-        BackgroundBundle, ElementBundle, KButton, KButtonBundle, KImage, KImageBundle,
-        KayakAppBundle,
+        BackgroundBundle, ElementBundle, KImage, KImageBundle,
     },
     KayakUIPlugin,
 };
@@ -95,10 +90,10 @@ pub fn render(
     widget_context: Res<KayakWidgetContext>,
     mut commands: Commands,
     props_query: Query<&WindowUI>,
-    state_query: Query<&WindowState>,
+    _state_query: Query<&WindowState>,
     window_query: Query<(&GlobalGeometry, &WlSurface, Option<&PopupList>), With<DWayWindow>>,
-    popup_query: Query<(Entity), With<XdgPopup>>,
-    mut assets: ResMut<Assets<Image>>,
+    popup_query: Query<Entity, With<XdgPopup>>,
+    _assets: ResMut<Assets<Image>>,
 ) -> bool {
     let Ok(props) = props_query.get(entity) else {
         error!("no props");
@@ -130,7 +125,7 @@ pub fn render(
         ..Default::default()
     };
     let parent_id = Some(entity);
-    let background_style = KStyle {
+    let _background_style = KStyle {
         left: StyleProp::Inherit,
         right: StyleProp::Inherit,
         top: StyleProp::Inherit,
@@ -141,19 +136,19 @@ pub fn render(
     };
 
     let backend_entity = props.entity;
-    let on_event = OnEvent::new(
+    let _on_event = OnEvent::new(
         move |In(_entity): In<Entity>,
-              mut event: ResMut<KEvent>,
+              event: ResMut<KEvent>,
               mut state_query: Query<&mut WindowState>,
-              mut stack: ResMut<WindowStack>,
+              _stack: ResMut<WindowStack>,
               mut output_focus: ResMut<FocusedWindow>| {
             let mut state = state_query.get_mut(state_entity).unwrap();
             match event.event_type {
-                EventType::MouseIn(c) => {
+                EventType::MouseIn(_c) => {
                     state.mouse_in_rect = true;
                     output_focus.0 = Some(backend_entity);
                 }
-                EventType::MouseOut(c) => {
+                EventType::MouseOut(_c) => {
                     state.mouse_in_rect = false;
                 }
                 _ => {}

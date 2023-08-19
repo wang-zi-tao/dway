@@ -1,5 +1,4 @@
 use crate::{
-    create_dispatch,
     prelude::*,
     wp::data_device::{data_source::WlDataSource, WlDataDevice},
 };
@@ -18,11 +17,11 @@ impl WlDataDeviceManager {
 impl Dispatch<wl_data_device_manager::WlDataDeviceManager, Entity> for DWay {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &wl_data_device_manager::WlDataDeviceManager,
         request: <wl_data_device_manager::WlDataDeviceManager as WlResource>::Request,
         data: &Entity,
-        dhandle: &DisplayHandle,
+        _dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span =
@@ -31,7 +30,7 @@ impl Dispatch<wl_data_device_manager::WlDataDeviceManager, Entity> for DWay {
         debug!("request {:?}", &request);
         match request {
             wl_data_device_manager::Request::CreateDataSource { id } => {
-                state.spawn_child_object(*data, id, data_init, |c| WlDataSource::new(c));
+                state.spawn_child_object(*data, id, data_init, WlDataSource::new);
             }
             wl_data_device_manager::Request::GetDataDevice { id, seat } => {
                 state.insert_object(DWay::get_entity(&seat), id, data_init, |o| {
@@ -53,12 +52,12 @@ impl Dispatch<wl_data_device_manager::WlDataDeviceManager, Entity> for DWay {
 impl GlobalDispatch<wl_data_device_manager::WlDataDeviceManager, Entity> for DWay {
     fn bind(
         state: &mut Self,
-        handle: &DisplayHandle,
+        _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<wl_data_device_manager::WlDataDeviceManager>,
-        global_data: &bevy::prelude::Entity,
+        _global_data: &bevy::prelude::Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
-        state.bind(client, resource, data_init, |o| WlDataDeviceManager::new(o));
+        state.bind(client, resource, data_init, WlDataDeviceManager::new);
     }
 }

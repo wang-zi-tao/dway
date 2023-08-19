@@ -2,12 +2,11 @@
 #![feature(async_closure)]
 #![feature(ptr_metadata)]
 #![feature(trivial_bounds)]
-use std::process::{self, Stdio};
+use std::process;
 
 use bevy::prelude::*;
 use bevy_tokio_tasks::TokioTasksRuntime;
 use dway_winit::UpdateRequestEvents;
-use schedule::DWayStartSet;
 use state::{create_display, DWayWrapper, DisplayCreated, NonSendMark};
 pub mod client;
 pub mod dispatch;

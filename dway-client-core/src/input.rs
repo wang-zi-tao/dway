@@ -1,5 +1,3 @@
-use std::time::SystemTime;
-
 use bevy::{
     input::{
         keyboard::KeyboardInput,
@@ -8,9 +6,8 @@ use bevy::{
     },
     math::DVec2,
     prelude::*,
-    utils::tracing,
 };
-use bevy_relationship::{graph_query, Connectable, EntityHasChildren};
+use bevy_relationship::graph_query;
 use dway_server::{
     geometry::{Geometry, GlobalGeometry},
     input::seat::SeatHasKeyboard,
@@ -19,18 +16,13 @@ use dway_server::{
         seat::{SeatHasPointer, WlSeat},
     },
     input::{keyboard::WlKeyboard, pointer::WlPointer},
-    macros::WlResource,
     schedule::DWayServerSet,
-    util::rect::IRect,
     wl::surface::ClientHasSurface,
     wl::{region::WlRegion, surface::WlSurface},
-    xdg::{popup::XdgPopup, toplevel::XdgToplevel, DWayWindow, XdgSurface},
+    xdg::{popup::XdgPopup, toplevel::XdgToplevel, DWayWindow},
 };
-// use bevy_mod_picking::{PickingEvent, PickingRaycastSet};
-// use bevy_mod_raycast::Intersection;
-use log::info;
 
-use crate::{window::Backend, DWayClientSystem};
+use crate::DWayClientSystem;
 
 use super::desktop::{CursorOnOutput, FocusedWindow};
 
@@ -123,12 +115,12 @@ pub fn keyboard_input_system(
     if keyboard_evens.is_empty() {
         return;
     }
-    let Some(focus_window) = &output_focus.0 else {
+    let Some(_focus_window) = &output_focus.0 else {
         trace!("no focus window");
         return;
     };
     for event in keyboard_evens.iter() {
-        graph.for_each_path_mut(|(surface, rect, toplevel, popup), _, keyboard| {
+        graph.for_each_path_mut(|(surface, _rect, _toplevel, popup), _, keyboard| {
             if popup.is_none() {
                 keyboard.key(surface, event);
             }
@@ -136,7 +128,7 @@ pub fn keyboard_input_system(
         graph.node_keyboard.for_each_mut(|(entity, _)| {
             grab_events_writer.send(GrabEvent {
                 seat_entity: entity,
-                event_kind: GrabEventKind::Keyboard(event.clone()),
+                event_kind: GrabEventKind::Keyboard(*event),
             })
         });
     }
@@ -169,19 +161,19 @@ graph_query!(PointInputGraph=>[
 
 fn cursor_move_on_window(
     mut graph: PointInputGraph,
-    mut region_query: Query<&WlRegion>,
-    mut cursor: Res<CursorOnOutput>,
+    region_query: Query<&WlRegion>,
+    cursor: Res<CursorOnOutput>,
     mut grab_events_writer: EventWriter<GrabEvent>,
     mut events: EventReader<MouseMotion>,
 ) {
-    let Some((output, pos)) = &cursor.0 else {
+    let Some((_output, pos)) = &cursor.0 else {
         return;
     };
-    for MouseMotion { delta } in events.iter() {
+    for MouseMotion { delta: _ } in events.iter() {
         graph.for_each_path_mut(
-            |(surface_entity, surface, rect, toplevel, popup),
-             (seat_entity, ref mut seat, ref mut geab),
-             (pointer_entity, pointer, pointer_rect)| {
+            |(_surface_entity, surface, rect, _toplevel, popup),
+             (_seat_entity, ref mut seat, ref mut _geab),
+             (_pointer_entity, pointer, pointer_rect)| {
                 pointer_rect.set_pos(*pos);
                 if popup.is_none() {
                     let relative = *pos - rect.geometry.pos() - surface.image_rect().pos();
@@ -217,19 +209,19 @@ fn cursor_move_on_window(
 fn mouse_button_on_window(
     mut graph: PointInputGraph,
     mut events: EventReader<MouseButtonInput>,
-    mut cursor: Res<CursorOnOutput>,
+    cursor: Res<CursorOnOutput>,
     mut output_focus: ResMut<FocusedWindow>,
     mut grab_events_writer: EventWriter<GrabEvent>,
 ) {
-    let Some((output, pos)) = &cursor.0 else {
+    let Some((_output, pos)) = &cursor.0 else {
         warn!("no cursor position data");
         return;
     };
     for e in events.iter() {
         graph.for_each_path_mut(
-            |(surface_entity, surface, rect, toplevel, popup),
-             (seat_entity, seat, ref mut grab),
-             (pointer_entity, pointer, _)| {
+            |(surface_entity, surface, rect, _toplevel, popup),
+             (_seat_entity, seat, ref mut grab),
+             (_pointer_entity, pointer, _)| {
                 if popup.is_none() {
                     if !rect.include_point(*pos) {
                         return;
@@ -262,20 +254,20 @@ fn mouse_button_on_window(
 fn mouse_wheel_on_window(
     mut graph: PointInputGraph,
     mut events: EventReader<MouseWheel>,
-    mut cursor: Res<CursorOnOutput>,
+    cursor: Res<CursorOnOutput>,
     mut output_focus: ResMut<FocusedWindow>,
     mut grab_events_writer: EventWriter<GrabEvent>,
 ) {
-    let Some((output, pos)) = &cursor.0 else {
+    let Some((_output, pos)) = &cursor.0 else {
         warn!("no cursor position data");
         return;
     };
     for e in events.iter() {
         graph.for_each_path_mut(
-            |(surface_entity, surface, rect, toplevel, popup),
-             (seat_entity, ref mut seat, ref mut grab),
-             (pointer_entity, pointer, ..)| {
-                if let Some(toplevel) = toplevel {
+            |(surface_entity, surface, rect, toplevel, _popup),
+             (_seat_entity, ref mut seat, ref mut _grab),
+             (_pointer_entity, pointer, ..)| {
+                if toplevel.is_some() {
                     if !rect.include_point(*pos) {
                         return;
                     };

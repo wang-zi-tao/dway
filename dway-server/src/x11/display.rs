@@ -1,5 +1,4 @@
 use std::{
-    ffi::OsString,
     io::{self, Read, Write},
     os::{
         fd::{AsRawFd, FromRawFd, RawFd},
@@ -9,10 +8,7 @@ use std::{
     sync::{Arc, Mutex, Weak},
 };
 
-use bevy::{
-    tasks::{IoTaskPool, TaskPool},
-    utils::HashMap,
-};
+use bevy::utils::HashMap;
 use failure::{format_err, Fallible};
 use nix::{errno::Errno, sys::socket};
 pub use x11rb::protocol::xproto::Window as XWindowID;
@@ -30,10 +26,7 @@ use x11rb::{
 };
 
 use crate::{
-    client::{Client, ClientData},
     prelude::*,
-    schedule::DWayServerSet,
-    state::{on_create_display_event, DWayDisplay, DWayWrapper, DisplayCreated},
     x11::atoms::Atoms,
 };
 

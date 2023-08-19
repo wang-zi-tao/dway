@@ -9,9 +9,8 @@ use syn::{
     braced, bracketed,
     parse::Parse,
     parse_macro_input,
-    punctuated::Punctuated,
     spanned::Spanned,
-    token::{Brace, Bracket, Paren},
+    token::{Brace, Bracket},
     Token, Type,
 };
 
@@ -20,7 +19,6 @@ enum NodeQuery {
         name: Ident,
         _assign: Token!(=),
         ty: Type,
-        connections: Vec<Type>,
     },
     WithFilter {
         name: Ident,
@@ -30,20 +28,19 @@ enum NodeQuery {
         _comma: Token!(,),
         _gt: Token!(>),
         filter: Type,
-        connections: Vec<Type>,
     },
 }
 impl NodeQuery {
     fn name(&self) -> &Ident {
         match self {
-            NodeQuery::WithoutFilter { name, .. } => &name,
-            NodeQuery::WithFilter { name, .. } => &name,
+            NodeQuery::WithoutFilter { name, .. } => name,
+            NodeQuery::WithFilter { name, .. } => name,
         }
     }
     fn ty(&self) -> &Type {
         match self {
-            NodeQuery::WithoutFilter { ty, .. } => &ty,
-            NodeQuery::WithFilter { ty, .. } => &ty,
+            NodeQuery::WithoutFilter { ty, .. } => ty,
+            NodeQuery::WithFilter { ty, .. } => ty,
         }
     }
     fn query_type(&self) -> TokenStream2 {
@@ -94,14 +91,12 @@ impl Parse for NodeQuery {
                 _comma: input.parse()?,
                 filter: input.parse()?,
                 _gt: input.parse()?,
-                connections: Default::default(),
             })
         } else {
             Ok(Self::WithoutFilter {
                 name,
                 _assign: assign,
                 ty: input.parse()?,
-                connections: Default::default(),
             })
         }
     }
@@ -115,7 +110,7 @@ struct PathQuery {
 impl PathQuery {
     pub fn gen_callback(&self, graph: &GraphQuery) -> TokenStream2 {
         let components = std::iter::once(&self.first_node)
-            .chain(self.edges.iter().map(|(direction, edge, node)| node))
+            .chain(self.edges.iter().map(|(_direction, _edge, node)| node))
             .map(|node| {
                 graph
                     .nodes
@@ -132,7 +127,7 @@ impl PathQuery {
     }
     pub fn gen_callback_mut(&self, graph: &GraphQuery) -> TokenStream2 {
         let components = std::iter::once(&self.first_node)
-            .chain(self.edges.iter().map(|(direction, edge, node)| node))
+            .chain(self.edges.iter().map(|(_direction, _edge, node)| node))
             .map(|node| {
                 graph
                     .nodes
@@ -150,7 +145,7 @@ impl PathQuery {
     pub fn gen_for_each(&self, graph: &GraphQuery) -> TokenStream2 {
         let callback = self.gen_callback(graph);
         let args = std::iter::once(&self.first_node)
-            .chain(self.edges.iter().map(|(direction, edge, node)| node))
+            .chain(self.edges.iter().map(|(_direction, _edge, node)| node))
             .map(|node| {
                 let component_var = format_ident!("item_{}", node, span = node.span());
                 quote! {&#component_var}
@@ -160,7 +155,7 @@ impl PathQuery {
             |inner, (direction, edge, node)| {
                 let component_var = format_ident!("item_{}", node, span = node.span());
                 let node_var = format_ident!("node_{}", node, span = node.span());
-                let peer_field = peer_name(&edge, *direction);
+                let peer_field = peer_name(edge, *direction);
                 quote_spanned! {node.span()=>
                     if let Ok(peer) = self.#peer_field.get(entity) {
                         for entity in bevy_relationship::Connectable::iter(peer) {
@@ -195,7 +190,7 @@ impl PathQuery {
     pub fn gen_for_each_mut(&self, graph: &GraphQuery) -> TokenStream2 {
         let callback = self.gen_callback_mut(graph);
         let args = std::iter::once(&self.first_node)
-            .chain(self.edges.iter().map(|(direction, edge, node)| node))
+            .chain(self.edges.iter().map(|(_direction, _edge, node)| node))
             .map(|node| {
                 let component_var = format_ident!("item_{}", node, span = node.span());
                 quote! {&mut #component_var}
@@ -205,7 +200,7 @@ impl PathQuery {
             |inner, (direction, edge, node)| {
                 let component_var = format_ident!("item_{}", node, span = node.span());
                 let node_var = format_ident!("node_{}", node, span = node.span());
-                let peer_field = peer_name(&edge, *direction);
+                let peer_field = peer_name(edge, *direction);
                 quote_spanned! {node.span()=>
                     if let Ok(peer) = self.#peer_field.get(entity) {
                         for entity in bevy_relationship::Connectable::iter(peer) {
@@ -318,36 +313,39 @@ fn peer_name(peer: &Type, direction: bool) -> Ident {
 
 #[proc_macro]
 pub fn graph_query(input: TokenStream) -> TokenStream {
-    let mut graph_query = parse_macro_input!(input as GraphQuery);
+    let graph_query = parse_macro_input!(input as GraphQuery);
     let mut peers = BTreeMap::new();
-    for (pathName, path) in graph_query.pathes.iter() {
-        let mut last_node = path.first_node.to_string();
-        for (direction, edge, node) in path.edges.iter() {
+    for (_path_name, path) in graph_query.pathes.iter() {
+        let _last_node = path.first_node.to_string();
+        for (direction, edge, _node) in path.edges.iter() {
             let peer_filed = peer_name(edge, *direction);
             peers.insert(
                 peer_filed.to_string(),
                 if *direction {
                     quote_spanned! { edge.span()=>
+                        #[allow(non_snake_case)]
                         pub #peer_filed: Query<'w, 's, &'static <#edge as bevy_relationship::Relationship>::From>,
                     }
                 } else {
                     quote_spanned! { edge.span()=>
+                        #[allow(non_snake_case)]
                         pub #peer_filed: Query<'w, 's, &'static <#edge as bevy_relationship::Relationship>::To>,
                     }
                 },
             );
         }
     }
-    for node in graph_query.nodes.iter_mut() {}
     let name = &graph_query.name;
     let nodes = graph_query.nodes.values().map(|node| {
         let name = node.name();
         let field_name = format_ident!("node_{}", name.to_string(), span = name.span());
         let param = node.gen_query();
         let span = name.span();
-        quote_spanned!(span=> pub #field_name: #param,)
+        quote_spanned!(span=> 
+            #[allow(non_snake_case)]
+            pub #field_name: #param,)
     });
-    let span = graph_query._bracket.span.clone();
+    let span = graph_query._bracket.span;
     let for_each_function = graph_query
         .pathes
         .values()
@@ -358,11 +356,14 @@ pub fn graph_query(input: TokenStream) -> TokenStream {
         .map(|path| path.gen_for_each_mut(&graph_query));
     let peers_values = peers.values();
     let output = quote_spanned! {span=>
+        #[allow(non_snake_case)]
         #[derive(bevy::ecs::system::SystemParam)]
         pub struct #name<'w, 's> {
             #(#nodes)*
             #(#peers_values)*
         }
+        #[allow(dead_code)]
+        #[allow(non_snake_case)]
         impl<'w, 's> #name<'w, 's>{
             #(#for_each_function)*
             #(#for_each_mut_function)*

@@ -1,8 +1,8 @@
-use std::{collections::HashMap, num::NonZeroUsize};
+use std::num::NonZeroUsize;
 
 use bevy::prelude::*;
 use lru::LruCache;
-use uuid::Uuid;
+
 
 use crate::DWayClientSystem;
 
@@ -54,13 +54,13 @@ pub fn update_window_stack_by_focus(
 }
 pub fn update_z_index(
     window_stack: Res<WindowStack>,
-    mut window_meta_query: Query<(&mut Transform)>,
+    mut window_meta_query: Query<&mut Transform>,
 ) {
     if !window_stack.is_changed() {
         return;
     }
     for (i, (&window_entity, ())) in window_stack.0.iter().enumerate() {
-        if let Ok((mut transform)) = window_meta_query.get_mut(window_entity) {
+        if let Ok(mut transform) = window_meta_query.get_mut(window_entity) {
             transform.translation.z = 256.0 - (i as f32);
         }
     }

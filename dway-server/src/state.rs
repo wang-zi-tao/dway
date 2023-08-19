@@ -6,10 +6,10 @@ use std::{
     marker::PhantomData,
     os::{fd::AsRawFd, unix::net::UnixStream},
     path::Path,
-    process::{self, CommandEnvs, Stdio},
+    process::{self, Stdio},
     ptr::null_mut,
     sync::{Arc, Mutex},
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use bevy::{
@@ -329,7 +329,7 @@ impl DWay {
         }
     }
     pub fn bind<T, C, F>(
-        self: &mut Self,
+        &mut self,
         client: &wayland_server::Client,
         resource: wayland_server::New<T>,
         data_init: &mut wayland_server::DataInit<'_, Self>,
@@ -351,7 +351,7 @@ impl DWay {
         entity
     }
     pub fn bind_spawn<T, B, F>(
-        self: &mut Self,
+        &mut self,
         client: &wayland_server::Client,
         resource: wayland_server::New<T>,
         data_init: &mut wayland_server::DataInit<'_, Self>,
@@ -452,15 +452,13 @@ impl DWay {
         self.world_mut().entity_mut(entity).despawn_recursive();
     }
     pub fn despawn(&mut self, entity: Entity) {
-        self.world_mut()
-            .get_entity_mut(entity)
-            .map(EntityMut::despawn);
+        if let Some(a) = self.world_mut()
+            .get_entity_mut(entity) { EntityMut::despawn(a) }
     }
     pub fn despawn_object(&mut self, entity: Entity, id: wayland_backend::server::ObjectId) {
         trace!(entity=?entity,resource=%id,"despawn object");
-        self.world_mut()
-            .get_entity_mut(entity)
-            .map(|mut e| e.despawn_recursive());
+        if let Some(e) = self.world_mut()
+            .get_entity_mut(entity) { e.despawn_recursive() }
     }
     pub fn with_component<T, F, R>(&mut self, object: &impl wayland_server::Resource, f: F) -> R
     where
@@ -498,7 +496,7 @@ impl DWay {
     {
         let world = self.world_mut();
         let mut query = world.query::<B>();
-        query.get_mut(world, entity).map(|q| f(q))
+        query.get_mut(world, entity).map(f)
     }
     pub fn query_object_component<C, F, R>(
         &mut self,
@@ -613,7 +611,7 @@ pub fn create_display(
             ),
             move |_, _, state| {
                 let display = state.component::<DWayDisplay>(entity).0.clone();
-                let mut guard = display.lock().unwrap();
+                let _guard = display.lock().unwrap();
                 let _ = sender.send(UpdateRequest::default());
                 Ok(PostAction::Continue)
             },
@@ -753,10 +751,10 @@ impl DWay {
 }
 
 pub trait EntityFactory<T> {
-    fn spawn<'w>(self, world: &'w mut World) -> EntityMut<'w>
+    fn spawn(self, world: &mut World) -> EntityMut<'_>
     where
         Self: Sized;
-    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w>;
+    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_>;
 
     fn with_parent(self, parent: Entity) -> WithParent<Self, T>
     where
@@ -811,7 +809,7 @@ impl<T: Bundle> EntityFactory<(T,)> for T {
         world.spawn(self)
     }
 
-    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w> {
+    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_> {
         let mut entity_mut = world.entity_mut(entity);
         entity_mut.insert(self);
         entity_mut
@@ -822,7 +820,7 @@ impl<T: FnOnce() -> B, B: Bundle> EntityFactory<()> for T {
         world.spawn(self())
     }
 
-    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w> {
+    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_> {
         let mut entity_mut = world.entity_mut(entity);
         entity_mut.insert(self());
         entity_mut
@@ -834,7 +832,7 @@ impl<T: FnOnce(&mut World) -> B, B: Bundle> EntityFactory<(&mut World,)> for T {
         world.spawn(bundle)
     }
 
-    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w> {
+    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_> {
         let bundle = self(world);
         let mut entity_mut = world.entity_mut(entity);
         entity_mut.insert(bundle);
@@ -848,7 +846,7 @@ where
     T: WlResource + 'static,
     DWay: wayland_server::Dispatch<T, Entity>,
 {
-    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w> {
+    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_> {
         let (resource, data_init, f) = self;
         let mut entity_mut = world.entity_mut(entity);
         let object = data_init.init(resource, entity_mut.id());
@@ -857,7 +855,7 @@ where
         entity_mut
     }
 
-    fn spawn<'w>(self, world: &'w mut World) -> EntityMut<'w>
+    fn spawn(self, world: &mut World) -> EntityMut<'_>
     where
         Self: Sized,
     {
@@ -876,7 +874,7 @@ where
     T: WlResource + 'static,
     DWay: wayland_server::Dispatch<T, Entity>,
 {
-    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w> {
+    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_> {
         let (resource, data_init, f) = self;
         let object = data_init.init(resource, entity);
         debug!(entity=?entity,object=%wayland_server::Resource::id(&object),"new wayland object");
@@ -886,7 +884,7 @@ where
         entity_mut
     }
 
-    fn spawn<'w>(self, world: &'w mut World) -> EntityMut<'w>
+    fn spawn(self, world: &mut World) -> EntityMut<'_>
     where
         Self: Sized,
     {
@@ -910,7 +908,7 @@ impl<F, T> EntityFactory<T> for WithParent<F, T>
 where
     F: EntityFactory<T>,
 {
-    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w> {
+    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_> {
         let mut entity = self.inner.insert(world, entity);
         entity.set_parent(self.parent);
         entity
@@ -934,7 +932,7 @@ where
     F: EntityFactory<T>,
     C: Component,
 {
-    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w> {
+    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_> {
         assert!(
             !world.entity_mut(entity).contains::<C>(),
             "component {} already exist in entity {entity:?}",
@@ -963,7 +961,7 @@ where
     R::From: ConnectableMut + Default,
     R::To: ConnectableMut + Default,
 {
-    fn insert<'w>(self, world: &'w mut World, entity: Entity) -> EntityMut<'w> {
+    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_> {
         let target = self.target;
         let entity_mut = self.inner.insert(world, entity);
         let entity = entity_mut.id();

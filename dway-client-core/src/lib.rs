@@ -1,35 +1,16 @@
-use std::default;
-
-use bevy::{
-    prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
-};
-use bevy_prototype_lyon::{
-    prelude::{Fill, GeometryBuilder, ShapeBundle, ShapePlugin},
-    render::ShapeMaterial,
-    shapes,
-};
+use bevy::prelude::*;
+use bevy_prototype_lyon::prelude::ShapePlugin;
 use dway_server::schedule::DWayServerSet;
-// use bevy_mod_picking::{
-//     DebugCursorPickingPlugin, DebugEventsPickingPlugin, DefaultPickingPlugins, PickingCameraBundle,
-// };
 use log::info;
 
 use crate::window::{Backend, Frontends, WindowUiRoot};
-pub mod widgets;
-
-// use crate::window::{Backend, Frontends, WindowUiRoot};
 
 pub mod components;
 pub mod compositor;
 pub mod debug;
-// pub mod decoration;
 pub mod desktop;
 pub mod input;
 pub mod materials;
-pub mod moving;
-// pub mod render;
-pub mod resizing;
 pub mod screen;
 pub mod window;
 pub mod workspace;
@@ -115,8 +96,6 @@ impl Plugin for DWayClientPlugin {
         app.add_plugin(desktop::DWayDesktop);
         app.add_plugin(window::DWayWindowPlugin);
         // app.add_plugin(decoration::DWayDecorationPlugin::default());
-        app.add_plugin(moving::DWayMovingPlugin::default());
-        app.add_plugin(resizing::DWayResizingPlugin::default());
         app.add_plugin(debug::DebugPlugin::default());
         // app.add_system(debug_info);
         //
@@ -132,9 +111,9 @@ pub fn debug_info(cameras: Query<&Camera>, cameras2d: Query<&Camera2d>) {
 }
 /// set up a simple 2D scene
 fn setup_2d(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
+    _commands: Commands,
+    _meshes: ResMut<Assets<Mesh>>,
+    _materials: ResMut<Assets<ColorMaterial>>,
+    _asset_server: Res<AssetServer>,
 ) {
 }

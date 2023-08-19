@@ -1,5 +1,5 @@
-use bevy::{core::FrameCount, ecs::reflect, utils::HashSet};
-use bevy_relationship::{graph_query, relationship, AppExt, Connectable};
+use bevy::core::FrameCount;
+use bevy_relationship::{relationship, AppExt, Connectable};
 use wayland_server::backend::smallvec::SmallVec;
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 
@@ -7,11 +7,11 @@ use crate::{
     geometry::Geometry,
     prelude::*,
     schedule::DWayServerSet,
-    util::{rect::IRect, serial::next_serial},
+    util::rect::IRect,
     wl::buffer::WlBuffer,
     xdg::{popup::XdgPopup, toplevel::XdgToplevel, XdgSurface},
 };
-use std::{borrow::Cow, num::NonZeroUsize, sync::Arc};
+use std::borrow::Cow;
 
 relationship!(ClientHasSurface=>SurfaceList-<Client);
 
@@ -172,11 +172,11 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
 {
     fn request(
         state: &mut DWay,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &wl_surface::WlSurface,
         request: <wl_surface::WlSurface as wayland_server::Resource>::Request,
         data: &bevy::prelude::Entity,
-        dhandle: &DisplayHandle,
+        _dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         let span = span!(Level::ERROR, "request", entity=?data, resource=%WlResource::id(resource));
@@ -191,13 +191,11 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 let origin_buffer_entity = state.with_component(resource, |c: &mut WlSurface| {
                     if resource.version() < 5 {
                         c.pending.position = Some(IVec2::new(x, y));
-                    } else {
-                        if x != 0 || y != 0 {
-                            resource.post_error(
-                                wl_surface::Error::InvalidOffset,
-                                "Passing non-zero x,y is protocol violation since versions 5",
-                            );
-                        }
+                    } else if x != 0 || y != 0 {
+                        resource.post_error(
+                            wl_surface::Error::InvalidOffset,
+                            "Passing non-zero x,y is protocol violation since versions 5",
+                        );
                     };
                     let origin_buffer = c.pending.buffer.take();
                     c.pending.buffer = Some(buffer_entity);
@@ -246,7 +244,7 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
             wl_surface::Request::Commit => {
                 let _enterd = span!(Level::DEBUG, "commit").entered();
                 let frame_count = state.world().resource::<FrameCount>().0;
-                let system = || {};
+                let _system = || {};
                 let (old_buffer_entity, buffer_entity, input_region_entity, opaque_region_entity) =
                     state.query_object::<(
                         &mut WlSurface,
@@ -256,7 +254,7 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                         Option<&mut XdgPopup>,
                     ), _, _>(
                         resource,
-                        |(mut surface, geometry, mut xdg_surface, mut toplevel, mut popup)| {
+                        |(mut surface, geometry, _xdg_surface, _toplevel, popup)| {
                             let old_buffer_entity = surface.commited.buffer;
                             if let Some(v) = surface.pending.buffer.take() {
                                 surface.commited.buffer = v;
@@ -316,10 +314,10 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 } else if let Some(old_buffer) = old_buffer_entity {
                     state.disconnect::<AttachmentRelationship>(*data, old_buffer);
                 }
-                input_region_entity.map(|e| state.connect::<SurfaceHasInputRegion>(*data, e));
-                opaque_region_entity.map(|e| state.connect::<SurfaceHasOpaqueRegion>(*data, e));
+                if let Some(e) = input_region_entity { state.connect::<SurfaceHasInputRegion>(*data, e) }
+                if let Some(e) = opaque_region_entity { state.connect::<SurfaceHasOpaqueRegion>(*data, e) }
             }
-            wl_surface::Request::SetBufferTransform { transform } => todo!(),
+            wl_surface::Request::SetBufferTransform { transform: _ } => todo!(),
             wl_surface::Request::SetBufferScale { scale } => {
                 state.with_component(resource, |c: &mut WlSurface| {
                     c.pending.scale = Some(scale);
@@ -361,12 +359,12 @@ impl
 {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &wayland_server::protocol::wl_subsurface::WlSubsurface,
         request: <wayland_server::protocol::wl_subsurface::WlSubsurface as WlResource>::Request,
-        data: &bevy::prelude::Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _data: &bevy::prelude::Entity,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         match request {
             wl_subsurface::Request::Destroy => {
@@ -377,8 +375,8 @@ impl
                     c.position = Some(IVec2::new(x, y));
                 });
             }
-            wl_subsurface::Request::PlaceAbove { sibling } => todo!(),
-            wl_subsurface::Request::PlaceBelow { sibling } => todo!(),
+            wl_subsurface::Request::PlaceAbove { sibling: _ } => todo!(),
+            wl_subsurface::Request::PlaceBelow { sibling: _ } => todo!(),
             wl_subsurface::Request::SetSync => {
                 state.with_component(resource, |c: &mut WlSubsurface| {
                     c.sync = true;
@@ -405,17 +403,15 @@ impl
 
 impl wayland_server::Dispatch<wl_callback::WlCallback, ()> for DWay {
     fn request(
-        state: &mut Self,
-        client: &wayland_server::Client,
-        resource: &wl_callback::WlCallback,
-        request: <wl_callback::WlCallback as WlResource>::Request,
-        data: &(),
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _state: &mut Self,
+        _client: &wayland_server::Client,
+        _resource: &wl_callback::WlCallback,
+        _request: <wl_callback::WlCallback as WlResource>::Request,
+        _data: &(),
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
-        match request {
-            _ => todo!(),
-        }
+        todo!()
     }
 }
 
@@ -428,22 +424,22 @@ pub fn cleanup_buffer(buffer_query: Query<(&WlBuffer, &AttachedBy)>) {
 }
 
 pub fn cleanup_surface(
-    mut surface_query: Query<(&mut WlSurface)>,
+    mut surface_query: Query<&mut WlSurface>,
     buffer_query: Query<&mut WlBuffer>,
     time: Res<Time>,
 ) {
     surface_query.iter_mut().for_each(|mut surface| {
-        if surface.commited.callbacks.len() > 0 {
+        if !surface.commited.callbacks.is_empty() {
             for callback in surface.commited.callbacks.drain(..) {
                 debug!("{} done", WlResource::id(&callback));
                 callback.done(time.elapsed().as_millis() as u32);
             }
         }
-        if surface.commited.damages.len() > 0 {
+        if !surface.commited.damages.is_empty() {
             surface.commited.damages.clear();
         }
         if surface.just_commit {
-            if let Some(buffer) = surface
+            if let Some(_buffer) = surface
                 .commited
                 .buffer
                 .and_then(|e| buffer_query.get(e).ok())

@@ -2,7 +2,7 @@ use wayland_protocols::wp::text_input::zv3::server::{
     zwp_text_input_manager_v3, zwp_text_input_v3,
 };
 
-use crate::{create_dispatch, prelude::*};
+use crate::prelude::*;
 
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
@@ -17,13 +17,13 @@ impl ZwpTextInput {
 }
 impl Dispatch<zwp_text_input_v3::ZwpTextInputV3, Entity> for DWay {
     fn request(
-        state: &mut Self,
-        client: &wayland_server::Client,
+        _state: &mut Self,
+        _client: &wayland_server::Client,
         resource: &zwp_text_input_v3::ZwpTextInputV3,
         request: <zwp_text_input_v3::ZwpTextInputV3 as WlResource>::Request,
         data: &Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span =
             span!(Level::ERROR,"request",entity = ?data,resource = %WlResource::id(resource));
@@ -34,17 +34,17 @@ impl Dispatch<zwp_text_input_v3::ZwpTextInputV3, Entity> for DWay {
             zwp_text_input_v3::Request::Enable => todo!(),
             zwp_text_input_v3::Request::Disable => todo!(),
             zwp_text_input_v3::Request::SetSurroundingText {
-                text,
-                cursor,
-                anchor,
+                text: _,
+                cursor: _,
+                anchor: _,
             } => todo!(),
-            zwp_text_input_v3::Request::SetTextChangeCause { cause } => todo!(),
-            zwp_text_input_v3::Request::SetContentType { hint, purpose } => todo!(),
+            zwp_text_input_v3::Request::SetTextChangeCause { cause: _ } => todo!(),
+            zwp_text_input_v3::Request::SetContentType { hint: _, purpose: _ } => todo!(),
             zwp_text_input_v3::Request::SetCursorRectangle {
-                x,
-                y,
-                width,
-                height,
+                x: _,
+                y: _,
+                width: _,
+                height: _,
             } => todo!(),
             zwp_text_input_v3::Request::Commit => todo!(),
             _ => todo!(),
@@ -74,11 +74,11 @@ impl ZwpTextInputManager {
 impl Dispatch<zwp_text_input_manager_v3::ZwpTextInputManagerV3, Entity> for DWay {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &zwp_text_input_manager_v3::ZwpTextInputManagerV3,
         request: <zwp_text_input_manager_v3::ZwpTextInputManagerV3 as WlResource>::Request,
         data: &Entity,
-        dhandle: &DisplayHandle,
+        _dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span =
@@ -107,12 +107,12 @@ impl Dispatch<zwp_text_input_manager_v3::ZwpTextInputManagerV3, Entity> for DWay
 impl GlobalDispatch<zwp_text_input_manager_v3::ZwpTextInputManagerV3, Entity> for DWay {
     fn bind(
         state: &mut Self,
-        handle: &DisplayHandle,
+        _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<zwp_text_input_manager_v3::ZwpTextInputManagerV3>,
-        global_data: &bevy::prelude::Entity,
+        _global_data: &bevy::prelude::Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
-        state.bind(client, resource, data_init, |o| ZwpTextInputManager::new(o));
+        state.bind(client, resource, data_init, ZwpTextInputManager::new);
     }
 }

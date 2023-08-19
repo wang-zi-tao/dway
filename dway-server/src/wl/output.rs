@@ -10,9 +10,8 @@ use crate::{
     schedule::DWayServerSet,
     state::create_global_system_config,
     util::rect::IRect,
-    xdg::XdgSurface,
 };
-use std::sync::Arc;
+
 
 use super::surface::{ClientHasSurface, WlSurface};
 
@@ -56,13 +55,13 @@ pub struct OutputDelegate(pub GlobalId);
 delegate_dispatch!(DWay: [wl_output::WlOutput: Entity] => OutputDelegate);
 impl wayland_server::Dispatch<wl_output::WlOutput, bevy::prelude::Entity, DWay> for OutputDelegate {
     fn request(
-        state: &mut DWay,
-        client: &wayland_server::Client,
-        resource: &wl_output::WlOutput,
+        _state: &mut DWay,
+        _client: &wayland_server::Client,
+        _resource: &wl_output::WlOutput,
         request: <wl_output::WlOutput as wayland_server::Resource>::Request,
-        data: &bevy::prelude::Entity,
-        dhandle: &wayland_server::DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, DWay>,
+        _data: &bevy::prelude::Entity,
+        _dhandle: &wayland_server::DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         match request {
             wl_output::Request::Release => todo!(),
@@ -81,10 +80,10 @@ impl wayland_server::Dispatch<wl_output::WlOutput, bevy::prelude::Entity, DWay> 
 impl GlobalDispatch<wl_output::WlOutput, Entity> for DWay {
     fn bind(
         state: &mut Self,
-        handle: &DisplayHandle,
+        _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<wl_output::WlOutput>,
-        global_data: &Entity,
+        _global_data: &Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         state.bind_spawn(client, resource, data_init, |output| {
@@ -134,7 +133,7 @@ graph_query!(SurfaceToOutput=>[
     old_connection=surface-[SurfaceInOutput]->output,
 });
 
-pub fn surface_enter_output(mut graph: SurfaceToOutput, mut commands: Commands) {
+pub fn surface_enter_output(graph: SurfaceToOutput, mut commands: Commands) {
     graph.for_each_new_connection(
         |(surface_entity, surface, surface_rect, output_list),
          _,

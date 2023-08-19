@@ -2,39 +2,27 @@ use crate::{
     prelude::*,
     util::rect::IRect,
     wl::{
-        buffer::{DmaBuffer, EGLBuffer, WlBuffer, WlShmPool},
+        buffer::{DmaBuffer, EGLBuffer, WlBuffer},
         surface::WlSurface,
     },
 };
 
 use drm_fourcc::DrmModifier;
-use image::{io::Reader as ImageReader, Rgba};
+
 use std::{
-    collections::HashMap,
-    default,
     ffi::{c_int, c_uint, c_void},
     num::NonZeroU32,
     os::fd::AsRawFd,
-    path::Path,
     ptr::null_mut,
 };
 
 use bevy::{
-    ecs::system::lifetimeless::{Read, SQuery, SRes, Write},
-    prelude::{debug, info, Component, Query, QueryState, Res, UiCameraConfig, Vec2},
-    render::{
-        render_graph::Node,
-        render_phase::{DrawFunctions, PhaseItem, RenderCommand, RenderPhase},
-        render_resource::PipelineCache,
-        renderer::RenderDevice,
-        texture::GpuImage,
-        view::ViewTarget,
-    },
-    sprite::SpritePipeline,
+    prelude::{info, Vec2},
+    render::texture::GpuImage,
 };
 use failure::{format_err, Fallible};
 use glow::{
-    Fence, HasContext, NativeFence, NativeRenderbuffer, NativeTexture, PixelPackData, TEXTURE_2D,
+    HasContext, NativeRenderbuffer, NativeTexture,
 };
 pub const LINUX_DMA_BUF_EXT: u32 = 0x3270;
 pub const WAYLAND_PLANE_WL: c_uint = 0x31D6;
@@ -64,16 +52,16 @@ pub const DMA_BUF_PLANE3_PITCH_EXT: u32 = 0x3442;
 pub const DMA_BUF_PLANE3_MODIFIER_LO_EXT: u32 = 0x3449;
 pub const DMA_BUF_PLANE3_MODIFIER_HI_EXT: u32 = 0x344A;
 
-use image::ImageBuffer;
-use khronos_egl::{EGLClientBuffer, EGLContext, EGLDisplay, EGLImage, EGLSurface, Enum, Int, NONE};
-use wgpu::{util::DeviceExt, FilterMode, SamplerDescriptor, Texture, TextureAspect};
+
+use khronos_egl::{EGLClientBuffer, EGLContext, EGLDisplay, EGLImage, Enum, Int, NONE};
+use wgpu::{FilterMode, SamplerDescriptor, Texture, TextureAspect};
 use wgpu_hal::Api;
 use wgpu_hal::{api::Gles, MemoryFlags, TextureUses};
 
 pub type TextureId = (NativeTexture, u32);
 
 pub unsafe fn import_dma(
-    buffer: &WlBuffer,
+    _buffer: &WlBuffer,
     dma_buffer: &DmaBuffer,
     egl_create_image_khr: extern "system" fn(
         EGLDisplay,
@@ -87,9 +75,9 @@ pub unsafe fn import_dma(
     let mut out: Vec<c_int> = Vec::with_capacity(50);
 
     out.extend([
-        khronos_egl::WIDTH as i32,
+        khronos_egl::WIDTH,
         dma_buffer.size.x,
-        khronos_egl::HEIGHT as i32,
+        khronos_egl::HEIGHT,
         dma_buffer.size.y,
         LINUX_DRM_FOURCC_EXT as i32,
         dma_buffer.format as i32,
@@ -149,7 +137,7 @@ pub unsafe fn import_dma(
         }
     }
 
-    out.push(NONE as i32);
+    out.push(NONE);
 
     let image = egl_create_image_khr(
         display,
@@ -190,7 +178,7 @@ pub unsafe fn import_memory(
     gl: &glow::Context,
     dest: TextureId,
 ) -> Fallible<()> {
-    let offset = buffer.offset;
+    let _offset = buffer.offset;
     let width = buffer.size.x;
     let height = buffer.size.y;
     let stride = buffer.stride;
@@ -236,14 +224,14 @@ pub unsafe fn import_memory(
     // image.save(format!(".snapshot/snapshot_{}.png", snapshtip_count + 1))?;
     // dbg!(ptr.iter().map(|v| *v as usize).sum::<usize>() / ptr.len());
 
-    let (gl_format, shader_idx) = match buffer.format {
+    let (gl_format, _shader_idx) = match buffer.format {
         wl_shm::Format::Abgr8888 => (glow::RGBA, 0),
         wl_shm::Format::Xbgr8888 => (glow::RGBA, 1),
         wl_shm::Format::Argb8888 => (glow::BGRA, 0),
         wl_shm::Format::Xrgb8888 => (glow::BGRA, 1),
         format => return Err(format_err!("unsupported format: {:?}", format)),
     };
-    if surface.commited.damages.len() == 0 {
+    if surface.commited.damages.is_empty() {
         trace!(surface=%WlResource::id(&surface.raw),"import {:?}", IRect::new(0, 0, width, height));
         gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, 0);
         gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);
@@ -288,7 +276,7 @@ pub unsafe fn import_memory(
 
 pub unsafe fn import_egl(
     buffer: &WlBuffer,
-    egl_buffer: &EGLBuffer,
+    _egl_buffer: &EGLBuffer,
     egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4>,
     display: khronos_egl::Display,
     egl_create_image_khr: extern "system" fn(
@@ -305,7 +293,7 @@ pub unsafe fn import_egl(
     let width = egl.query_surface(display, egl_surface, khronos_egl::WIDTH)?;
     let height = egl.query_surface(display, egl_surface, khronos_egl::HEIGHT)?;
     let format = egl.query_surface(display, egl_surface, khronos_egl::TEXTURE_FORMAT)?;
-    let image_count = match format {
+    let _image_count = match format {
         khronos_egl::TEXTURE_RGB => 1,
         khronos_egl::TEXTURE_RGBA => 1,
         // Format::RGB | Format::RGBA | Format::External => 1,
@@ -315,7 +303,7 @@ pub unsafe fn import_egl(
     };
     // let inverted = egl.query_surface(*display, egl_surface, 0x31DB)?;
 
-    let out = [WAYLAND_PLANE_WL as i32, 0 as i32, khronos_egl::NONE as i32];
+    let out = [WAYLAND_PLANE_WL as i32, 0_i32, khronos_egl::NONE];
     let image = egl_create_image_khr(
         display.as_ptr(),
         khronos_egl::NO_CONTEXT,
@@ -393,7 +381,7 @@ pub unsafe fn create_gpu_image(
             view_formats: &[texture_format],
         },
     );
-    let texture: wgpu::Texture = wgpu_texture.into();
+    let texture: wgpu::Texture = wgpu_texture;
     let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
         label: None,
         format: Some(texture_format),
@@ -418,8 +406,7 @@ pub unsafe fn create_gpu_image(
             address_mode_w: Default::default(),
             lod_min_clamp: Default::default(),
             lod_max_clamp: Default::default(),
-        })
-        .into();
+        });
     let image = GpuImage {
         texture: texture.into(),
         texture_view: texture_view.into(),
@@ -501,14 +488,14 @@ pub fn import_wl_surface(
                     })?,
             );
             if let Some(egl_buffer) = egl_buffer {
-                let (raw_image, size) =
+                let (raw_image, _size) =
                     import_egl(buffer, egl_buffer, egl, display, egl_create_image_khr)?;
-                let texture =
+                let _texture =
                     image_target_texture_oes(gl_eglimage_target_texture2_does, gl, raw_image)?;
             } else if let Some(dma_buffer) = dma_buffer {
-                let (raw_image, size) =
+                let (raw_image, _size) =
                     import_dma(buffer, dma_buffer, egl_create_image_khr, display.as_ptr())?;
-                let texture =
+                let _texture =
                     image_target_texture_oes(gl_eglimage_target_texture2_does, gl, raw_image)?;
             } else {
                 import_memory(surface, buffer,  gl, texture_id)?;
@@ -518,7 +505,7 @@ pub fn import_wl_surface(
         })
     }
 }
-pub fn gl_debug_message_callback(source: u32, gltype: u32, id: u32, severity: u32, message: &str) {
+pub fn gl_debug_message_callback(source: u32, gltype: u32, id: u32, _severity: u32, message: &str) {
     let source_str = match source {
         glow::DEBUG_SOURCE_API => "API",
         glow::DEBUG_SOURCE_WINDOW_SYSTEM => "Window System",

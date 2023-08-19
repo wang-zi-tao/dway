@@ -1,7 +1,6 @@
-use std::io::Read;
 use std::io::Write;
 use std::os::fd::AsRawFd;
-use std::{path::PathBuf, sync::Arc, time::SystemTime};
+use std::path::PathBuf;
 
 use bevy::input::keyboard::KeyboardInput;
 use failure::{format_err, Fallible};
@@ -78,7 +77,7 @@ impl WlKeyboard {
     pub fn set_focus(&mut self, surface: &WlSurface) {
         if let Some(focus) = &self.focus {
             if &surface.raw != focus {
-                self.raw.leave(next_serial(), &focus);
+                self.raw.leave(next_serial(), focus);
                 trace!("{} leave {}", self.raw.id(), focus.id());
                 self.raw.enter(next_serial(), &surface.raw, Vec::new());
                 trace!("{} enter {}", self.raw.id(), surface.raw.id());
@@ -120,12 +119,12 @@ impl
 {
     fn request(
         state: &mut DWay,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &wayland_server::protocol::wl_keyboard::WlKeyboard,
         request: <wayland_server::protocol::wl_keyboard::WlKeyboard as WlResource>::Request,
-        data: &bevy::prelude::Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, DWay>,
+        _data: &bevy::prelude::Entity,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         match request {
             wl_keyboard::Request::Release => state.destroy_object(resource),

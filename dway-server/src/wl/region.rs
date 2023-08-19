@@ -1,6 +1,3 @@
-use std::sync::Arc;
-
-use bevy::math::Vec2Swizzles;
 use rstar::{PointDistance, RTree, RTreeObject, SelectionFunction, AABB};
 
 use crate::{prelude::*, state::create_global_system_config, util::rect::IRect};
@@ -84,7 +81,7 @@ pub fn update_region_index(
     impl SelectionFunction<RectRTreeObject> for Selection {
         fn should_unpack_parent(
             &self,
-            envelope: &<RectRTreeObject as RTreeObject>::Envelope,
+            _envelope: &<RectRTreeObject as RTreeObject>::Envelope,
         ) -> bool {
             true
         }
@@ -141,12 +138,12 @@ delegate_dispatch!(DWay: [wl_region::WlRegion: Entity] => RegionDelegate);
 impl wayland_server::Dispatch<wl_region::WlRegion, bevy::prelude::Entity, DWay> for RegionDelegate {
     fn request(
         state: &mut DWay,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &wl_region::WlRegion,
         request: <wl_region::WlRegion as WlResource>::Request,
-        data: &bevy::prelude::Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, DWay>,
+        _data: &bevy::prelude::Entity,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         match request {
             wl_region::Request::Destroy => {
@@ -188,12 +185,12 @@ impl wayland_server::GlobalDispatch<wayland_server::protocol::wl_region::WlRegio
     for DWay
 {
     fn bind(
-        state: &mut Self,
-        handle: &DisplayHandle,
-        client: &wayland_server::Client,
-        resource: wayland_server::New<wayland_server::protocol::wl_region::WlRegion>,
-        global_data: &Entity,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _state: &mut Self,
+        _handle: &DisplayHandle,
+        _client: &wayland_server::Client,
+        _resource: wayland_server::New<wayland_server::protocol::wl_region::WlRegion>,
+        _global_data: &Entity,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         todo!()
     }

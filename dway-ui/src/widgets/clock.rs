@@ -20,8 +20,7 @@ pub fn widget_update2<
     In((widget_context, entity, previous_entity)): In<(KayakWidgetContext, Entity, Entity)>,
     widget_param: WidgetParam<Props, State>,
 ) -> bool {
-    let should_update = widget_param.has_changed(&widget_context, entity, previous_entity);
-    should_update
+    widget_param.has_changed(&widget_context, entity, previous_entity)
 }
 
 impl KayakUIPlugin for DWayClockPlugin {

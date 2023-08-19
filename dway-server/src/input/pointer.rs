@@ -1,5 +1,3 @@
-use std::{sync::Arc, time::SystemTime};
-
 use bevy::{input::mouse::MouseButtonInput, math::DVec2};
 
 use crate::{
@@ -7,7 +5,7 @@ use crate::{
     input::time,
     prelude::*,
     state::EntityFactory,
-    util::serial::{self, next_serial},
+    util::serial::next_serial,
     wl::{
         cursor::{Cursor, PointerHasSurface},
         surface::WlSurface,
@@ -185,12 +183,12 @@ impl
 {
     fn request(
         state: &mut DWay,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &wayland_server::protocol::wl_pointer::WlPointer,
         request: <wayland_server::protocol::wl_pointer::WlPointer as WlResource>::Request,
         data: &bevy::prelude::Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, DWay>,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         match request {
             wl_pointer::Request::SetCursor {

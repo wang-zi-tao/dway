@@ -7,6 +7,6 @@ pub struct WindowsList {
 
 pub fn update_window_list(
     // events:EventReader<Insert<XdgSurface>>,
-    windows_list_query: Query<&mut WindowsList>,
+    _windows_list_query: Query<&mut WindowsList>,
 ) {
 }

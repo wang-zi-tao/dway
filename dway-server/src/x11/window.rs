@@ -1,8 +1,8 @@
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 
-use bevy::{ecs::entity, utils::HashSet};
+use bevy::utils::HashSet;
 use encoding::{types::DecoderTrap, Encoding};
-use failure::ResultExt;
+
 use x11rb::{
     properties::{WmClass, WmHints, WmSizeHints},
     protocol::xproto::{Atom, AtomEnum, ConnectionExt},
@@ -11,7 +11,7 @@ use x11rb::{
 
 use crate::{
     client::Client,
-    geometry::{self, Geometry, GlobalGeometry},
+    geometry::{Geometry, GlobalGeometry},
     prelude::*,
     state::DWayWrapper,
     wl::surface::WlSurface,
@@ -19,8 +19,7 @@ use crate::{
 };
 
 use super::{
-    atoms::Atoms, events::XWaylandError, screen::XScreen, XDisplayHasWindow, XDisplayRef,
-    XWaylandBundle, XWaylandDisplay, XWaylandDisplayWrapper,
+    atoms::Atoms, screen::XScreen, XDisplayHasWindow, XDisplayRef, XWaylandDisplay, XWaylandDisplayWrapper,
 };
 use bevy_relationship::ConnectCommand;
 
@@ -133,7 +132,7 @@ impl XWindow {
 
     fn update_class(&mut self) -> Result<(), ConnectionError> {
         let conn = self.xwayland_connection();
-        let (class, instance) = match WmClass::get(&*conn, self.window)?.reply_unchecked() {
+        let (class, instance) = match WmClass::get(conn, self.window)?.reply_unchecked() {
             Ok(Some(wm_class)) => (
                 encoding::all::ISO_8859_1
                     .decode(wm_class.class(), DecoderTrap::Replace)
@@ -181,11 +180,11 @@ impl XWindow {
     }
 
     fn update_motif_hints(&mut self) -> Result<(), ConnectionError> {
-        let Some(hints) = (match (&self.connection.0)
+        let Some(hints) = (match self.connection.0
             .get_property(
                 false,
                 self.window,
-                (&self.connection.1)._MOTIF_WM_HINTS,
+                self.connection.1._MOTIF_WM_HINTS,
                 AtomEnum::ANY,
                 0,
                 2048,
@@ -400,12 +399,10 @@ pub fn x11_window_attach_wl_surface(
                         surface_entity.add_child(child_entity);
                     }
                 });
-                display_ref.get().map(|display_entity| {
-                    commands.add(ConnectCommand::<XDisplayHasWindow>::new(
+                if let Some(display_entity) = display_ref.get() { commands.add(ConnectCommand::<XDisplayHasWindow>::new(
                         display_entity,
                         wl_surface_entity,
-                    ))
-                });
+                    )) }
                 let mut xdisplay = xdisplay.lock().unwrap();
                 event_writter.send(Insert::new(wl_surface_entity));
                 xdisplay

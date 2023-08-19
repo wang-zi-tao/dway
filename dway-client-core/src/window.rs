@@ -2,30 +2,22 @@ use dway_server::{
     events::Insert,
     geometry::GlobalGeometry,
     wl::surface::WlSurface,
-    xdg::{toplevel::XdgToplevel, XdgSurface, self},
+    xdg::{toplevel::XdgToplevel, self},
 };
-use dway_util::ecs::QueryResultExt;
-use std::{mem::replace, time::SystemTime};
+
+
 
 use bevy::{
-    app::AppExit,
-    input::mouse::{MouseButtonInput, MouseMotion},
     prelude::*,
-    render::render_resource::{TextureDimension, TextureFormat},
     ui::FocusPolicy,
-    utils::{tracing, HashMap},
-    window::WindowMode,
-    winit::WinitWindows,
 };
 
-use dway_util::rect;
+
 use smallvec::SmallVec;
-use uuid::Uuid;
+
 
 use crate::{
-    components::{AttachToOutput, OutputMark},
-    desktop::{CursorOnOutput, FocusedWindow},
-    resizing::ResizingMethod,
+    desktop::FocusedWindow,
     DWayClientSystem,
 };
 
@@ -112,7 +104,7 @@ pub fn create_window_ui(
     mut commands: Commands,
 ) {
     for Insert { entity: id, .. } in events.iter() {
-        if let Ok((entity, surface, toplevel, geometry)) = surface_query.get(*id) {
+        if let Ok((entity, surface, _toplevel, geometry)) = surface_query.get(*id) {
             let backend = Backend::new(entity);
             let input_rect_entity = commands
                 .spawn((

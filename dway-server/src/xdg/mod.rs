@@ -4,14 +4,12 @@ pub mod positioner;
 pub mod toplevel;
 pub mod wm;
 
-use bevy::ecs::schedule::ScheduleLabel;
+
 use bevy_relationship::{relationship, AppExt};
 use wayland_protocols::xdg::activation::v1::server::xdg_activation_token_v1;
-use wayland_server::Resource;
 
 use crate::{
     geometry::{Geometry, GlobalGeometry},
-    input::keyboard::WlKeyboard,
     prelude::*,
     resource::ResourceWrapper,
     state::{create_global_system_config, EntityFactory},
@@ -23,7 +21,7 @@ use crate::{
         toplevel::XdgToplevel,
     },
 };
-use std::sync::Arc;
+
 
 use self::wm::XdgWmBase;
 
@@ -73,11 +71,11 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
 {
     fn request(
         state: &mut DWay,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &xdg_surface::XdgSurface,
         request: <xdg_surface::XdgSurface as wayland_server::Resource>::Request,
         data: &bevy::prelude::Entity,
-        dhandle: &DisplayHandle,
+        _dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         let span = span!(Level::ERROR, "request", entity=?data, resource=%WlResource::id(resource));
@@ -195,12 +193,12 @@ impl
 {
     fn bind(
         state: &mut Self,
-        handle: &DisplayHandle,
+        _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<
             wayland_protocols::xdg::shell::server::xdg_wm_base::XdgWmBase,
         >,
-        global_data: &bevy::prelude::Entity,
+        _global_data: &bevy::prelude::Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         state.bind(client, resource, data_init, XdgWmBase::new);

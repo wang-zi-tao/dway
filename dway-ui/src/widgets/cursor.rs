@@ -9,8 +9,6 @@ use kayak_ui::{
     widgets::{ElementBundle, KImage, KImageBundle},
 };
 
-use crate::create_widget;
-
 #[derive(bevy::prelude::Component, Clone, PartialEq, Eq)]
 pub struct Cursor {
     pub entity: Entity,
@@ -33,7 +31,7 @@ impl kayak_ui::KayakUIPlugin for CursorPlugin {
         context.add_widget_data::<Cursor, kayak_ui::prelude::EmptyState>();
         context.add_widget_system(
             kayak_ui::prelude::WidgetName(std::any::type_name::<Cursor>().into()),
-            (kayak_ui::prelude::widget_update::<Cursor, kayak_ui::prelude::EmptyState>),
+            kayak_ui::prelude::widget_update::<Cursor, kayak_ui::prelude::EmptyState>,
             render,
         );
     }

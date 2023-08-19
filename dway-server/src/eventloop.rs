@@ -1,11 +1,11 @@
-use std::{io, os::unix::net::UnixStream, sync::Arc};
+use std::{io, os::unix::net::UnixStream};
 
 use bevy::prelude::*;
 use calloop::{
-    generic::Generic, EventLoop, EventSource, Interest, Mode, Poll, PostAction, Readiness, Token,
+    generic::Generic, EventSource, Interest, Mode, Poll, PostAction, Readiness, Token,
     TokenFactory,
 };
-use failure::Error;
+
 use inlinable_string::InlinableString;
 use wayland_server::ListeningSocket;
 

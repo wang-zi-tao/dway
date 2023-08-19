@@ -8,7 +8,6 @@ use x11rb::{
         PropMode, WindowClass,
     },
     rust_connection::ConnectionError,
-    wrapper::ConnectionExt as WrapperConnectionExt,
     COPY_DEPTH_FROM_PARENT,
 };
 
@@ -16,9 +15,8 @@ use crate::{
     client::Client,
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
-    state::{DWayWrapper, DisplayCreated},
+    state::DWayWrapper,
     util::rect::IRect,
-    wl::surface::WlSurface,
     x11::{
         screen::{XScreen, XScreenBundle},
         util::geo_to_irect,
@@ -151,15 +149,13 @@ pub fn process_x11_event(
         x11rb::protocol::Event::ColormapNotify(_) => todo!(),
         x11rb::protocol::Event::ConfigureNotify(r) => {
             // TODO map onto
-            x.find_window(r.window).ok().map(|e| {
-                dway.query::<(&XWindow, &mut Geometry), _, _>(e, |(_xwindow, mut geometry)| {
+            if let Ok(e) = x.find_window(r.window) { dway.query::<(&XWindow, &mut Geometry), _, _>(e, |(_xwindow, mut geometry)| {
                     geometry.set_x(r.x as i32);
                     geometry.set_y(r.y as i32);
-                })
-            });
+                }) }
         }
         x11rb::protocol::Event::ConfigureRequest(r) => {
-            let mut world = dway.world_mut();
+            let world = dway.world_mut();
             let window_entity = x.find_window(r.window)?;
             if r.value_mask & (ConfigWindow::WIDTH | ConfigWindow::HEIGHT)
                 != ConfigWindow::default()
@@ -305,7 +301,7 @@ pub fn process_x11_event(
             let world = dway.world_mut();
             let entity = x.find_window(e.window)?;
             let mut window = world.get_mut::<XWindow>(entity).unwrap();
-            window.update_property(&x, Some(e.atom))?;
+            window.update_property(x, Some(e.atom))?;
         }
         x11rb::protocol::Event::ReparentNotify(_) => todo!(),
         x11rb::protocol::Event::ResizeRequest(_) => todo!(),
@@ -337,7 +333,6 @@ pub fn dispatch_x11_events(world: &mut World) {
     let display_list = world
         .query::<(Entity, &XWaylandDisplayWrapper, &Parent)>()
         .iter(world)
-        .into_iter()
         .map(|(entity, display, parent)| (entity, display.clone(), parent.get()))
         .collect::<Vec<_>>();
     display_list

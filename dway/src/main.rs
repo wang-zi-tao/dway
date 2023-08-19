@@ -1,39 +1,26 @@
-use std::{thread, time::Duration};
+use std::{time::Duration};
 
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy_prototype_lyon::{
-    prelude::{Fill, GeometryBuilder, ShapeBundle, ShapePlugin},
-    render::ShapeMaterial,
-    shapes,
-};
+
 // use dway_client_core::protocol::{WindowMessageReceiver, WindowMessageSender};
 // use dway_ui::kayak_ui::{prelude::KayakContextPlugin, widgets::KayakWidgets};
 
 use bevy::{
-    app::ScheduleRunnerPlugin,
-    audio::AudioPlugin,
     core::TaskPoolThreadAssignmentPolicy,
-    core_pipeline::CorePipelinePlugin,
     diagnostic::{
-        DiagnosticsPlugin, EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin,
+        EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin,
         SystemInformationDiagnosticsPlugin,
     },
     gltf::GltfPlugin,
-    input::InputPlugin,
     log::{Level, LogPlugin},
     pbr::PbrPlugin,
     prelude::*,
     render::{settings::Backends, RenderPlugin},
     scene::ScenePlugin,
-    sprite::{MaterialMesh2dBundle, SpritePlugin},
-    text::TextPlugin,
-    time::TimePlugin,
-    ui::UiPlugin,
-    window::PresentMode,
-    winit::{UpdateMode, WinitPlugin, WinitSettings},
+    winit::{WinitPlugin},
 };
 
-const LOG: &'static str = "\
+const LOG: &str = "\
 bevy_ecs=info,\
 bevy_render=debug,\
 bevy_ui=trace,\
@@ -102,8 +89,8 @@ fn main() {
         ..Default::default()
     })
     .add_plugin(dway_winit::WinitPlugin);
-    app.add_plugin(EntityCountDiagnosticsPlugin::default());
-    app.add_plugin(FrameTimeDiagnosticsPlugin::default());
+    app.add_plugin(EntityCountDiagnosticsPlugin);
+    app.add_plugin(FrameTimeDiagnosticsPlugin);
     app.add_plugin(SystemInformationDiagnosticsPlugin);
 
     // app.add_plugin(KayakWidgets);
@@ -111,7 +98,7 @@ fn main() {
 
     app.add_plugin(WorldInspectorPlugin::new());
 
-    app.add_plugin(dway_server::DWayServerPlugin::default());
+    app.add_plugin(dway_server::DWayServerPlugin);
     app.add_plugin(dway_client_core::DWayClientPlugin);
     app.add_plugin(dway_ui::DWayUiPlugin);
 

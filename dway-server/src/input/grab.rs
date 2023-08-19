@@ -8,22 +8,22 @@ use bevy::{
     prelude::Component,
 };
 use bitflags::bitflags;
-use kayak_ui::prelude::OnEvent;
-use wayland_protocols::xdg::shell::server::xdg_toplevel::ResizeEdge;
+
+
 
 use crate::{
-    geometry::{Geometry, GeometryPlugin, GlobalGeometry},
+    geometry::{Geometry, GlobalGeometry},
     prelude::*,
     schedule::DWayServerSet,
     util::rect::IRect,
-    wl::surface::{ClientHasSurface, SurfaceList, WlSurface},
-    xdg::{popup::XdgPopup, toplevel::XdgToplevel, DWayWindow, XdgSurface},
+    wl::surface::WlSurface,
+    xdg::{popup::XdgPopup, toplevel::XdgToplevel},
 };
 
 use super::{
     keyboard::WlKeyboard,
     pointer::WlPointer,
-    seat::{PointerList, SeatHasPointer, WlSeat},
+    seat::{PointerList, WlSeat},
 };
 
 #[derive(Debug)]
@@ -102,7 +102,7 @@ pub fn on_grab_event(
     mut pointer_query: Query<&mut WlPointer>,
     mut keyboard_query: Query<&mut WlKeyboard>,
     mut event: EventReader<GrabEvent>,
-    mut commands: Commands,
+    _commands: Commands,
 ) {
     for GrabEvent {
         seat_entity,
@@ -113,11 +113,11 @@ pub fn on_grab_event(
             match &mut *grab {
                 Grab::OnPopup {
                     surface_entity,
-                    popup_stack,
+                    popup_stack: _,
                     pressed,
-                    serial,
+                    serial: _,
                 } => {
-                    let Ok((surface, mut geo, global_geo, ..)) =
+                    let Ok((surface, _geo, global_geo, ..)) =
                         surface_query.get_mut(*surface_entity)
                     else {
                         return;
@@ -187,7 +187,7 @@ pub fn on_grab_event(
                 Grab::ButtonDown {
                     surface: surface_entity,
                 } => {
-                    let Ok((surface, mut geo, global_geo, ..)) =
+                    let Ok((surface, _geo, global_geo, ..)) =
                         surface_query.get_mut(*surface_entity)
                     else {
                         return;
@@ -254,16 +254,16 @@ pub fn on_grab_event(
                 }
                 Grab::Moving {
                     surface,
-                    serial,
+                    serial: _,
                     relative,
                 } => {
-                    let Ok((surface, mut geo, global_geo, _, Some(toplevel))) =
+                    let Ok((_surface, mut geo, _global_geo, _, Some(_toplevel))) =
                         surface_query.get_mut(*surface)
                     else {
                         return;
                     };
                     match event_kind {
-                        GrabEventKind::PointerMove(pos) => {
+                        GrabEventKind::PointerMove(_pos) => {
                             let pos = seat.pointer_position.unwrap_or_default();
                             geo.set_pos(*relative + pos);
                         }
@@ -284,17 +284,17 @@ pub fn on_grab_event(
                 Grab::Resizing {
                     surface,
                     edges,
-                    serial,
+                    serial: _,
                     relative,
                     origin_rect,
                 } => {
-                    let Ok((surface, mut geo, global_geo, _, Some(toplevel))) =
+                    let Ok((_surface, mut geo, _global_geo, _, Some(toplevel))) =
                         surface_query.get_mut(*surface)
                     else {
                         return;
                     };
                     match event_kind {
-                        GrabEventKind::PointerMove(pos) => {
+                        GrabEventKind::PointerMove(_pos) => {
                             let pos = seat.pointer_position.unwrap_or_default();
                             let top_left = *relative + pos;
                             let buttom_right = top_left + origin_rect.size();

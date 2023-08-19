@@ -5,9 +5,7 @@ use bevy::prelude::*;
 use dway_server::events::{Destroy, Insert};
 use dway_server::input::pointer::WlPointer;
 use dway_server::wl::surface::WlSurface;
-use dway_server::xdg::toplevel::XdgToplevel;
-use dway_server::xdg::{DWayWindow, XdgSurface};
-use kayak_ui::widgets::{BackgroundBundle, TextProps, TextWidgetBundle};
+use dway_server::xdg::DWayWindow;
 use kayak_ui::{prelude::*, widgets::ElementBundle};
 
 pub fn widget_update(

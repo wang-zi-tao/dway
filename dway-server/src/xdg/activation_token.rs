@@ -6,18 +6,18 @@ impl wayland_server::Dispatch<xdg_activation_token_v1::XdgActivationTokenV1, bev
     for DWay
 {
     fn request(
-        state: &mut Self,
-        client: &wayland_server::Client,
-        resource: &xdg_activation_token_v1::XdgActivationTokenV1,
+        _state: &mut Self,
+        _client: &wayland_server::Client,
+        _resource: &xdg_activation_token_v1::XdgActivationTokenV1,
         request: <xdg_activation_token_v1::XdgActivationTokenV1 as WlResource>::Request,
-        data: &bevy::prelude::Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _data: &bevy::prelude::Entity,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         match request {
-            xdg_activation_token_v1::Request::SetSerial { serial, seat } => todo!(),
-            xdg_activation_token_v1::Request::SetAppId { app_id } => todo!(),
-            xdg_activation_token_v1::Request::SetSurface { surface } => todo!(),
+            xdg_activation_token_v1::Request::SetSerial { serial: _, seat: _ } => todo!(),
+            xdg_activation_token_v1::Request::SetAppId { app_id: _ } => todo!(),
+            xdg_activation_token_v1::Request::SetSurface { surface: _ } => todo!(),
             xdg_activation_token_v1::Request::Commit => todo!(),
             xdg_activation_token_v1::Request::Destroy => todo!(),
             _ => todo!(),
@@ -38,10 +38,10 @@ impl
 {
     fn bind(
         state: &mut Self,
-        handle: &DisplayHandle,
+        _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<xdg_activation_token_v1::XdgActivationTokenV1>,
-        global_data: &bevy::prelude::Entity,
+        _global_data: &bevy::prelude::Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         state.bind(client, resource, data_init, |raw| XdgActivationToken {

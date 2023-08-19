@@ -1,7 +1,6 @@
 use wayland_protocols::xdg::shell::server::xdg_positioner::{Anchor, Gravity};
 
 use crate::{
-    create_dispatch,
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
     util::rect::IRect,
@@ -124,12 +123,12 @@ impl XdgPositionerBundle {
 impl Dispatch<xdg_positioner::XdgPositioner, Entity> for DWay {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &xdg_positioner::XdgPositioner,
         request: <xdg_positioner::XdgPositioner as WlResource>::Request,
         data: &Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span =
             span!(Level::ERROR,"request",entity = ?data,resource = %WlResource::id(resource));
@@ -196,7 +195,7 @@ impl Dispatch<xdg_positioner::XdgPositioner, Entity> for DWay {
                     c.positioner.parent_size = Some(IVec2::new(parent_width, parent_height));
                 });
             }
-            xdg_positioner::Request::SetParentConfigure { serial } => {}
+            xdg_positioner::Request::SetParentConfigure { serial: _ } => {}
             _ => todo!(),
         }
     }

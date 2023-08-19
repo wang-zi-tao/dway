@@ -7,16 +7,11 @@ pub mod reexport;
 pub use bevy_relationship_derive::graph_query;
 
 use std::{
-    iter::{Cloned, Peekable},
+    iter::Cloned,
     marker::PhantomData,
 };
 
 pub use crate::{app::*, builtins::*, commands::*, macros::*};
-
-use bevy::ecs::{
-    query::{QueryIter, ROQueryItem, ReadOnlyWorldQuery, WorldQuery},
-    system::{Command, SystemParam},
-};
 
 use bevy::prelude::*;
 use smallvec::SmallVec;

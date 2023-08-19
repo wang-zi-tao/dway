@@ -1,4 +1,4 @@
-use bevy::ecs::schedule::{FreeSystemSet, ScheduleLabel};
+use bevy::ecs::schedule::ScheduleLabel;
 
 use crate::prelude::*;
 

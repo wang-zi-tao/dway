@@ -1,4 +1,4 @@
-use std::sync::Arc;
+
 
 use crate::prelude::*;
 
@@ -6,7 +6,7 @@ use super::grab::Grab;
 
 #[derive(Component)]
 pub struct WlTouch {
-    raw: wl_touch::WlTouch,
+    pub raw: wl_touch::WlTouch,
 }
 
 impl WlTouch {
@@ -43,13 +43,13 @@ impl
     > for SeatDelegate
 {
     fn request(
-        state: &mut DWay,
-        client: &wayland_server::Client,
-        resource: &wayland_server::protocol::wl_touch::WlTouch,
+        _state: &mut DWay,
+        _client: &wayland_server::Client,
+        _resource: &wayland_server::protocol::wl_touch::WlTouch,
         request: <wayland_server::protocol::wl_touch::WlTouch as WlResource>::Request,
-        data: &bevy::prelude::Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, DWay>,
+        _data: &bevy::prelude::Entity,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         match request {
             wl_touch::Request::Release => todo!(),

@@ -1,14 +1,5 @@
-use std::sync::atomic::Ordering;
-
-use accesskit_winit::Adapter;
-use bevy::a11y::{
-    accesskit::{NodeBuilder, NodeClassSet, Role, Tree, TreeUpdate},
-    AccessKitEntityExt, AccessibilityRequested,
-};
-use bevy::ecs::entity::Entity;
-
-use bevy::utils::{tracing::warn, HashMap};
-use bevy::window::{CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution};
+use bevy::utils::tracing::warn;
+use bevy::window::{CursorGrabMode, WindowPosition, WindowResolution};
 pub use bevy::winit::get_fitting_videomode;
 pub use bevy::winit::get_best_videomode;
 
@@ -17,10 +8,6 @@ use winit::{
     monitor::MonitorHandle,
 };
 
-use crate::{
-    accessibility::{AccessKitAdapters, WinitActionHandler, WinitActionHandlers},
-    converters::convert_window_level,
-};
 pub use bevy::winit::WinitWindows;
 
 pub(crate) fn attempt_grab(winit_window: &winit::window::Window, grab_mode: CursorGrabMode) {

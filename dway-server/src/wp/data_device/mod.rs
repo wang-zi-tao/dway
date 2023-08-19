@@ -1,7 +1,7 @@
 pub mod data_source;
 pub mod manager;
 
-use crate::{create_dispatch, prelude::*};
+use crate::prelude::*;
 
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
@@ -18,12 +18,12 @@ relationship!(SelectionOfDataDevice=>SelectionSource--SeatRef);
 impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &wl_data_device::WlDataDevice,
         request: <wl_data_device::WlDataDevice as WlResource>::Request,
         data: &Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span =
             span!(Level::ERROR,"request",entity = ?data,resource = %WlResource::id(resource));
@@ -31,12 +31,12 @@ impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
         debug!("request {:?}", &request);
         match request {
             wl_data_device::Request::StartDrag {
-                source,
-                origin,
-                icon,
-                serial,
+                source: _,
+                origin: _,
+                icon: _,
+                serial: _,
             } => todo!(),
-            wl_data_device::Request::SetSelection { source, serial } => {
+            wl_data_device::Request::SetSelection { source, serial: _ } => {
                 if let Some(source) = source {
                     state.connect::<SelectionOfDataDevice>(*data, DWay::get_entity(&source));
                 } else {

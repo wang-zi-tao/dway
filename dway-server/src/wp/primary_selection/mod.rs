@@ -3,8 +3,6 @@ use crate::prelude::*;
 use bevy_relationship::{relationship, AppExt};
 use wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 
-use crate::create_dispatch;
-
 pub mod manager;
 pub mod source;
 
@@ -24,12 +22,12 @@ relationship!(SourceOfSelection=>SourceRef>-Selection);
 impl Dispatch<ZwpPrimarySelectionDeviceV1, Entity> for DWay {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &ZwpPrimarySelectionDeviceV1,
         request: <ZwpPrimarySelectionDeviceV1 as WlResource>::Request,
         data: &Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span =
             span!(Level::ERROR,"request",entity = ?data,resource = %WlResource::id(resource));

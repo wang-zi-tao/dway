@@ -10,7 +10,7 @@ use bevy::{
     },
 };
 
-use crate::{prelude::*, wl::surface::WlSurface};
+use crate::prelude::*;
 
 use self::importnode::{ImportSurface, ImportSurfacePassNode, ImportedSurfacePhaseItem};
 

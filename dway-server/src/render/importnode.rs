@@ -2,50 +2,31 @@ use crate::{
     prelude::*,
     render::import::import_wl_surface,
     wl::{
-        buffer::{DmaBuffer, EGLBuffer, WlBuffer, WlShmPool},
+        buffer::{DmaBuffer, EGLBuffer, WlBuffer},
         surface::WlSurface,
     },
 };
 
-use std::{
-    cell::{RefCell, RefMut},
-    collections::HashMap,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex, MutexGuard,
-    },
-    thread,
-    time::Duration,
-};
+
 
 use bevy::{
     core::FrameCount,
-    core_pipeline::{clear_color::ClearColorConfig, core_2d::Transparent2d},
-    ecs::system::lifetimeless::{Read, SRes, SResMut},
-    log::Level,
-    prelude::*,
+    core_pipeline::clear_color::ClearColorConfig,
+    ecs::system::lifetimeless::{Read, SRes},
     render::{
         camera::ExtractedCamera,
         render_asset::RenderAssets,
-        render_graph::{Node, RenderGraph, SlotInfo, SlotType},
+        render_graph::{Node, SlotInfo, SlotType},
         render_phase::{DrawFunctionId, DrawFunctions, PhaseItem, RenderCommand, RenderPhase},
-        renderer::{RenderAdapter, RenderDevice, RenderQueue},
+        renderer::RenderDevice,
         texture::GpuImage,
         view::{ExtractedView, NonSendMarker, ViewTarget},
         Extract,
     },
-    sprite::SpriteAssetEvents,
-    ui::UiImageBindGroups,
-    utils::{
-        tracing::{self, span},
-        HashSet,
-    },
 };
-use failure::Fallible;
-use glow::HasContext;
+
 use wgpu::{
-    Extent3d, LoadOp, Operations, RenderPass, RenderPassDescriptor, TextureDescriptor,
-    TextureDimension, TextureFormat, TextureUsages,
+    LoadOp, Operations, RenderPassDescriptor,
 };
 
 pub struct ImportedSurfacePhaseItem {
@@ -90,7 +71,7 @@ pub fn extract_surface(
             trace!("not connited {:?}", surface.raw.id());
             continue;
         };
-        let Ok((buffer, shm_pool_entity, dma_buffer, egl_buffer)) = buffer_query.get(buffer_entity)
+        let Ok((buffer, _shm_pool_entity, dma_buffer, egl_buffer)) = buffer_query.get(buffer_entity)
         else {
             trace!("no wl_buffer {:?}", buffer_entity);
             continue;
@@ -123,7 +104,7 @@ pub fn queue_import(
 }
 pub fn send_frame(
     _: NonSend<NonSendMarker>,
-    time: Res<Time>,
+    _time: Res<Time>,
     // feedback: ResMut<ImportSurfaceFeedback>,
 ) {
     // feedback.send_frame(&time);
@@ -143,13 +124,13 @@ impl<P: PhaseItem> RenderCommand<P> for ImportSurface {
 
     fn render<'w>(
         item: &P,
-        view: bevy::ecs::query::ROQueryItem<'w, Self::ViewWorldQuery>,
+        _view: bevy::ecs::query::ROQueryItem<'w, Self::ViewWorldQuery>,
         (surface, buffer, dma_buffer, egl_buffer): bevy::ecs::query::ROQueryItem<
             'w,
             Self::ItemWorldQuery,
         >,
         (render_device, textures): bevy::ecs::system::SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut bevy::render::render_phase::TrackedRenderPass<'w>,
+        _pass: &mut bevy::render::render_phase::TrackedRenderPass<'w>,
     ) -> bevy::render::render_phase::RenderCommandResult {
         let texture: &GpuImage = textures.get(&surface.image).unwrap();
         if let Err(e) = import_wl_surface(
@@ -250,10 +231,10 @@ impl Node for ImportSurfacePassNode {
         self.view_query.update_archetypes(world);
     }
 }
-pub const NAME: &'static str = "wayland_server_graph";
+pub const NAME: &str = "wayland_server_graph";
 pub mod node {
-    pub const IMPORT_PASS: &'static str = "import_wayland_surface";
+    pub const IMPORT_PASS: &str = "import_wayland_surface";
 }
 pub mod input {
-    pub const VIEW_ENTITY: &'static str = "view_entity";
+    pub const VIEW_ENTITY: &str = "view_entity";
 }

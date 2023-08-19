@@ -2,7 +2,7 @@ use std::{
     num::NonZeroUsize,
     os::fd::{AsRawFd, OwnedFd},
     ptr::NonNull,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, RwLock},
 };
 
 use drm_fourcc::{DrmFourcc, DrmModifier};
@@ -12,7 +12,7 @@ use wayland_server::{Resource, WEnum};
 
 use crate::{
     prelude::*,
-    state::{create_global, create_global_system_config, DisplayCreated, EntityFactory},
+    state::{create_global_system_config, EntityFactory},
 };
 
 use super::surface::AttachedBy;
@@ -131,12 +131,12 @@ delegate_dispatch!(DWay: [wl_buffer::WlBuffer: Entity] => BufferDelegate);
 impl wayland_server::Dispatch<wl_buffer::WlBuffer, bevy::prelude::Entity, DWay> for BufferDelegate {
     fn request(
         state: &mut DWay,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &wl_buffer::WlBuffer,
         request: <wl_buffer::WlBuffer as wayland_server::Resource>::Request,
         data: &bevy::prelude::Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, DWay>,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         match request {
             wl_buffer::Request::Destroy => {
@@ -151,11 +151,11 @@ delegate_dispatch!(DWay: [wl_shm::WlShm: Entity] => BufferDelegate);
 impl wayland_server::Dispatch<wl_shm::WlShm, Entity, DWay> for BufferDelegate {
     fn request(
         state: &mut DWay,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &wl_shm::WlShm,
         request: <wl_shm::WlShm as wayland_server::Resource>::Request,
         data: &bevy::prelude::Entity,
-        dhandle: &DisplayHandle,
+        _dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         let span = span!(Level::ERROR, "request", entity=?data, resource=%WlResource::id(resource));
@@ -180,7 +180,7 @@ impl wayland_server::Dispatch<wl_shm::WlShm, Entity, DWay> for BufferDelegate {
                 };
                 let ptr = match ret {
                     Ok(o) => o,
-                    Err(e) => {
+                    Err(_e) => {
                         error!("failed to call mmap on {fd:?}");
                         return;
                     }
@@ -213,11 +213,11 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
 {
     fn request(
         state: &mut DWay,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &wl_shm_pool::WlShmPool,
         request: <wl_shm_pool::WlShmPool as wayland_server::Resource>::Request,
         data: &bevy::prelude::Entity,
-        dhandle: &DisplayHandle,
+        _dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         let span = span!(Level::ERROR, "request", entity=?data, resource=%WlResource::id(resource));
@@ -331,7 +331,6 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                         Err(e) => {
                             resource.post_error(wl_shm::Error::InvalidFd, "mremap failed");
                             error!(error=%e,"unmap failed");
-                            return;
                         }
                     }
                 });
@@ -352,10 +351,10 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
 impl wayland_server::GlobalDispatch<wl_shm::WlShm, Entity> for DWay {
     fn bind(
         state: &mut Self,
-        handle: &DisplayHandle,
+        _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<wl_shm::WlShm>,
-        global_data: &Entity,
+        _global_data: &Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         state.bind(client, resource, data_init, |o| {

@@ -2,9 +2,8 @@ use crate::{
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
     state::EntityFactory,
-    xdg::xdg_toplevel::XdgToplevel,
 };
-use std::{process::id, sync::Arc};
+
 
 use super::{
     positioner::{XdgPositioner, XdgPositionerBundle},
@@ -26,11 +25,11 @@ delegate_dispatch!(DWay: [xdg_wm_base::XdgWmBase: Entity] => XdgDelegate);
 impl wayland_server::Dispatch<xdg_wm_base::XdgWmBase, bevy::prelude::Entity, DWay> for XdgDelegate {
     fn request(
         state: &mut DWay,
-        client: &wayland_server::Client,
-        resource: &xdg_wm_base::XdgWmBase,
+        _client: &wayland_server::Client,
+        _resource: &xdg_wm_base::XdgWmBase,
         request: <xdg_wm_base::XdgWmBase as wayland_server::Resource>::Request,
         data: &bevy::prelude::Entity,
-        dhandle: &DisplayHandle,
+        _dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
         match request {
@@ -55,7 +54,7 @@ impl wayland_server::Dispatch<xdg_wm_base::XdgWmBase, bevy::prelude::Entity, DWa
                 );
                 state.send_event(Insert::<XdgSurface>::new(*entity));
             }
-            xdg_wm_base::Request::Pong { serial } => todo!(),
+            xdg_wm_base::Request::Pong { serial: _ } => todo!(),
             _ => todo!(),
         }
     }
@@ -72,10 +71,10 @@ impl wayland_server::Dispatch<xdg_wm_base::XdgWmBase, bevy::prelude::Entity, DWa
 impl wayland_server::GlobalDispatch<xdg_wm_base::XdgWmBase, ()> for DWay {
     fn bind(
         state: &mut Self,
-        handle: &DisplayHandle,
+        _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<xdg_wm_base::XdgWmBase>,
-        global_data: &(),
+        _global_data: &(),
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         state.bind(client, resource, data_init, |o| XdgWmBase { raw: o });

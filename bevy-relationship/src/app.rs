@@ -1,6 +1,6 @@
 use bevy::{
     prelude::App,
-    reflect::{GetTypeRegistration, Reflect},
+    reflect::GetTypeRegistration,
 };
 
 use crate::Relationship;

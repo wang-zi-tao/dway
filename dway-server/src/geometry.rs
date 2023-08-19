@@ -1,4 +1,4 @@
-use crate::{prelude::*, util::rect::IRect, xdg::XdgSurface};
+use crate::{prelude::*, util::rect::IRect};
 
 #[derive(Component, Clone, Copy, Reflect)]
 pub struct WlGeometry {

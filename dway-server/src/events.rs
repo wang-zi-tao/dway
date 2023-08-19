@@ -1,4 +1,4 @@
-use crate::{prelude::*, resource::ResourceWrapper};
+use crate::prelude::*;
 
 pub struct Bind<T: WlResource> {
     pub entity: Entity,
