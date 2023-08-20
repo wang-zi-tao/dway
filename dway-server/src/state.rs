@@ -12,6 +12,7 @@ use std::{
     time::Duration,
 };
 
+use anyhow::anyhow;
 use bevy::{
     ecs::{
         query::{QueryEntityError, WorldQuery},
@@ -27,7 +28,6 @@ use bevy_relationship::{
 use bevy_tokio_tasks::TokioTasksRuntime;
 use calloop::{generic::Generic, EventLoop, Interest, Mode, PostAction};
 use dway_winit::{FrameConditionSchedule, UpdateRequest, UpdateRequestEvents};
-use failure::format_err;
 use inlinable_string::InlinableString;
 use send_wrapper::SendWrapper;
 use tokio::io::AsyncReadExt;
@@ -452,13 +452,15 @@ impl DWay {
         self.world_mut().entity_mut(entity).despawn_recursive();
     }
     pub fn despawn(&mut self, entity: Entity) {
-        if let Some(a) = self.world_mut()
-            .get_entity_mut(entity) { EntityMut::despawn(a) }
+        if let Some(a) = self.world_mut().get_entity_mut(entity) {
+            EntityMut::despawn(a)
+        }
     }
     pub fn despawn_object(&mut self, entity: Entity, id: wayland_backend::server::ObjectId) {
         trace!(entity=?entity,resource=%id,"despawn object");
-        if let Some(e) = self.world_mut()
-            .get_entity_mut(entity) { e.despawn_recursive() }
+        if let Some(e) = self.world_mut().get_entity_mut(entity) {
+            e.despawn_recursive()
+        }
     }
     pub fn with_component<T, F, R>(&mut self, object: &impl wayland_server::Resource, f: F) -> R
     where
@@ -470,7 +472,7 @@ impl DWay {
         let mut component = world
             .get_mut::<T>(entity)
             .ok_or_else(|| {
-                format_err!(
+                anyhow!(
                     "failed to query component {} of entity {:?} ({})",
                     type_name::<T>(),
                     entity,
@@ -712,11 +714,11 @@ pub fn set_signal_handler() {
     use nix::sys::signal;
     extern "C" fn handle_sigsegv(_: i32) {
         std::env::set_var("RUST_BACKTRACE", "1");
-        panic!("signal::SIGSEGV {}", failure::Backtrace::new());
+        panic!("signal::SIGSEGV {}", anyhow!("").backtrace());
     }
     extern "C" fn handle_sig(s: i32) {
         std::env::set_var("RUST_BACKTRACE", "1");
-        panic!("signal {} {}", s, failure::Backtrace::new());
+        panic!("signal {} {}", s, anyhow!("").backtrace());
     }
     unsafe {
         signal::sigaction(

@@ -271,6 +271,9 @@ name = "anyhow"
 version = "1.0.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b13c32d80ecc7ab747b80c3784bce54ee8a7a0cc4fbda9bf4cda2cf6fe90854"
+dependencies = [
+ "backtrace",
+]
 
 [[package]]
 name = "approx"
@@ -2718,6 +2721,7 @@ dependencies = [
 name = "dway-server"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bevy 0.10.1",
  "bevy-relationship",
  "bevy-tokio-tasks",
@@ -2729,7 +2733,6 @@ dependencies = [
  "dway-util",
  "dway_winit",
  "encoding",
- "failure",
  "glow",
  "image",
  "inlinable_string",

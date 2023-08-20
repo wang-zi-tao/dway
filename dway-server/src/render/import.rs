@@ -20,7 +20,6 @@ use bevy::{
     prelude::{info, Vec2},
     render::texture::GpuImage,
 };
-use failure::{format_err, Fallible};
 use glow::{
     HasContext, NativeRenderbuffer, NativeTexture,
 };
@@ -71,7 +70,7 @@ pub unsafe fn import_dma(
         *const Int,
     ) -> EGLImage,
     display: EGLDisplay,
-) -> Fallible<(EGLImage, IVec2)> {
+) -> Result<(EGLImage, IVec2)> {
     let mut out: Vec<c_int> = Vec::with_capacity(50);
 
     out.extend([
@@ -148,7 +147,7 @@ pub unsafe fn import_dma(
     );
 
     if image == null_mut() {
-        Err(format_err!("failed to create dma image"))
+        Err(anyhow!("failed to create dma image"))
     } else {
         Ok((image, dma_buffer.size))
     }
@@ -156,7 +155,7 @@ pub unsafe fn import_dma(
 pub unsafe fn image_target_renderbuffer_storage_oes(
     fn_bind_image: extern "system" fn(target: Enum, image: *const c_void),
     raw_image: EGLImage,
-) -> Fallible<()> {
+) -> Result<()> {
     fn_bind_image(glow::RENDERBUFFER, raw_image);
     Ok(())
 }
@@ -164,8 +163,8 @@ pub unsafe fn image_target_texture_oes(
     fn_bind_image: extern "system" fn(target: Enum, image: *const c_void),
     gl: &glow::Context,
     raw_image: EGLImage,
-) -> Fallible<NativeTexture> {
-    let texture = gl.create_texture().map_err(|e| format_err!("{e}"))?;
+) -> Result<NativeTexture> {
+    let texture = gl.create_texture().map_err(|e| anyhow!("{e}"))?;
     gl.bind_texture(glow::TEXTURE_2D, Some(texture));
     fn_bind_image(glow::TEXTURE_2D, raw_image);
     gl.bind_texture(glow::TEXTURE_2D, None);
@@ -177,7 +176,7 @@ pub unsafe fn import_memory(
     buffer: &WlBuffer,
     gl: &glow::Context,
     dest: TextureId,
-) -> Fallible<()> {
+) -> Result<()> {
     let _offset = buffer.offset;
     let width = buffer.size.x;
     let height = buffer.size.y;
@@ -229,7 +228,7 @@ pub unsafe fn import_memory(
         wl_shm::Format::Xbgr8888 => (glow::RGBA, 1),
         wl_shm::Format::Argb8888 => (glow::BGRA, 0),
         wl_shm::Format::Xrgb8888 => (glow::BGRA, 1),
-        format => return Err(format_err!("unsupported format: {:?}", format)),
+        format => return Err(anyhow!("unsupported format: {:?}", format)),
     };
     if surface.commited.damages.is_empty() {
         trace!(surface=%WlResource::id(&surface.raw),"import {:?}", IRect::new(0, 0, width, height));
@@ -286,7 +285,7 @@ pub unsafe fn import_egl(
         EGLClientBuffer,
         *const Int,
     ) -> EGLImage,
-) -> Fallible<(EGLImage, IVec2)> {
+) -> Result<(EGLImage, IVec2)> {
     let egl_surface: khronos_egl::Surface =
         khronos_egl::Surface::from_ptr(buffer.raw.id().as_ptr() as _);
 
@@ -322,10 +321,10 @@ pub unsafe fn import_buffer(
         image: *const c_void,
     ),
     egl_image: EGLImage,
-) -> Fallible<NativeRenderbuffer> {
+) -> Result<NativeRenderbuffer> {
     let render_buffer = gl
         .create_renderbuffer()
-        .map_err(|e| format_err!("failed to create render buffer :{e}"))?;
+        .map_err(|e| anyhow!("failed to create render buffer :{e}"))?;
     gl.bind_renderbuffer(glow::RENDERBUFFER, Some(render_buffer));
     gl_eglimage_target_renderbuffer_storage_oes(glow::RENDERBUFFER, egl_image);
     Ok(render_buffer)
@@ -335,12 +334,12 @@ pub unsafe fn create_gpu_image(
     device: &wgpu::Device,
     raw_image: NonZeroU32,
     size: IVec2,
-) -> Fallible<GpuImage> {
+) -> Result<GpuImage> {
     let texture_format = wgpu::TextureFormat::Rgba8Unorm;
     let hal_texture: <Gles as Api>::Texture = device.as_hal::<Gles, _, _>(|hal_device| {
-        Fallible::Ok(
+        Result::<_,anyhow::Error>::Ok(
             hal_device
-                .ok_or_else(|| format_err!("failed to get hal device"))?
+                .ok_or_else(|| anyhow!("failed to get hal device"))?
                 .texture_from_raw(
                     raw_image,
                     &wgpu_hal::TextureDescriptor {
@@ -430,15 +429,15 @@ pub fn import_wl_surface(
     egl_buffer: Option<&EGLBuffer>,
     texture: &Texture,
     device: &wgpu::Device,
-) -> Fallible<()> {
+) -> Result<()> {
     unsafe {
         let display: khronos_egl::Display = device.as_hal::<Gles, _, _>(|hal_device| {
             hal_device
-                .ok_or_else(|| format_err!("gpu backend is not egl"))?
+                .ok_or_else(|| anyhow!("gpu backend is not egl"))?
                 .context()
                 .raw_display()
                 .cloned()
-                .ok_or_else(|| format_err!("no opengl display available"))
+                .ok_or_else(|| anyhow!("no opengl display available"))
         })?;
         let mut texture_id = None;
         texture.as_hal::<Gles, _>(|texture| {
@@ -452,10 +451,10 @@ pub fn import_wl_surface(
             }
         });
         let Some(texture_id) = texture_id else {
-            return Err(format_err!("failed to get raw texture"));
+            return Err(anyhow!("failed to get raw texture"));
         };
         device.as_hal::<Gles, _, _>(|hal_device| {
-            let hal_device = hal_device.ok_or_else(|| format_err!("render device is not egl"))?;
+            let hal_device = hal_device.ok_or_else(|| anyhow!("render device is not egl"))?;
             let egl_context = hal_device.context();
             let gl: &glow::Context = &egl_context.lock();
             gl.enable(glow::DEBUG_OUTPUT);
@@ -463,7 +462,7 @@ pub fn import_wl_surface(
             let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> =
                 egl_context.egl_instance().ok_or_else(|| {
                     gl.disable(glow::DEBUG_OUTPUT);
-                    format_err!("render adapter is not egl")
+                    anyhow!("render adapter is not egl")
                 })?;
             let egl_create_image_khr: extern "system" fn(
                 EGLDisplay,
@@ -474,7 +473,7 @@ pub fn import_wl_surface(
             ) -> EGLImage = std::mem::transmute(
                 egl.get_proc_address("eglCreateImageKHR").ok_or_else(|| {
                     gl.disable(glow::DEBUG_OUTPUT);
-                    format_err!("failed to get function eglCreateImageKHR")
+                    anyhow!("failed to get function eglCreateImageKHR")
                 })?,
             );
             let gl_eglimage_target_texture2_does: extern "system" fn(
@@ -484,7 +483,7 @@ pub fn import_wl_surface(
                 egl.get_proc_address("glEGLImageTargetTexture2DOES")
                     .ok_or_else(|| {
                         gl.disable(glow::DEBUG_OUTPUT);
-                        format_err!("failed to get function glEGLImageTargetTexture2DOES")
+                        anyhow!("failed to get function glEGLImageTargetTexture2DOES")
                     })?,
             );
             if let Some(egl_buffer) = egl_buffer {

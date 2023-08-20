@@ -1,6 +1,7 @@
+use anyhow::{anyhow, Result};
 use dway_winit::{UpdateRequest, UpdateRequestEvents};
-use failure::{format_err, Fail, Fallible};
 use scopeguard::defer;
+use thiserror::Error;
 use x11rb::{
     connection::Connection,
     protocol::xproto::{
@@ -28,13 +29,13 @@ use crate::{
 
 use super::{XWaylandDisplay, XWaylandDisplayWrapper};
 
-#[derive(Fail, Debug)]
+#[derive(Error, Debug)]
 pub enum XWaylandError {
-    #[fail(display = "x11 window {} not exists", _0)]
+    #[error("x11 window {} not exists", _0)]
     WindowNotExists(u32),
-    #[fail(display = "x11 window entity {:?} not valid", _0)]
+    #[error("x11 window entity {:?} not valid", _0)]
     InvalidWindowEntity(Entity),
-    #[fail(display = "xwayland connection error: {}", _0)]
+    #[error("xwayland connection error: {}", _0)]
     ConnectionError(ConnectionError),
 }
 
@@ -54,10 +55,10 @@ pub fn process_x11_event(
     display_entity: Entity,
     x: &mut XWaylandDisplay,
     event: x11rb::protocol::Event,
-) -> Fallible<()> {
+) -> Result<()> {
     use XWaylandError::*;
     let Some(connection) = x.connection.upgrade() else {
-        return Err(format_err!("xwayland connection has droped"));
+        return Err(anyhow!("xwayland connection has droped"));
     };
     let (rust_connection, atoms) = &*connection;
     debug!(entity = ?display_entity,"xwayland event: {event:?}");
@@ -149,10 +150,12 @@ pub fn process_x11_event(
         x11rb::protocol::Event::ColormapNotify(_) => todo!(),
         x11rb::protocol::Event::ConfigureNotify(r) => {
             // TODO map onto
-            if let Ok(e) = x.find_window(r.window) { dway.query::<(&XWindow, &mut Geometry), _, _>(e, |(_xwindow, mut geometry)| {
+            if let Ok(e) = x.find_window(r.window) {
+                dway.query::<(&XWindow, &mut Geometry), _, _>(e, |(_xwindow, mut geometry)| {
                     geometry.set_x(r.x as i32);
                     geometry.set_y(r.y as i32);
-                }) }
+                })
+            }
         }
         x11rb::protocol::Event::ConfigureRequest(r) => {
             let world = dway.world_mut();
@@ -326,7 +329,7 @@ pub fn process_x11_event(
         x11rb::protocol::Event::XfixesSelectionNotify(_) => todo!(),
         _ => todo!(),
     }
-    Fallible::Ok(())
+    Ok(())
 }
 
 pub fn dispatch_x11_events(world: &mut World) {

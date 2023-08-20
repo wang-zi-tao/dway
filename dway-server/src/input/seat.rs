@@ -1,12 +1,11 @@
-
-
 use bevy_relationship::{relationship, AppExt};
 use wayland_server::protocol::wl_seat::Capability;
 
 use crate::{
     input::{keyboard::WlKeyboardBundle, pointer::WlPointerBundle, touch::WlTouchBundle},
     prelude::*,
-    state::{create_global_system_config, EntityFactory}, wl::surface::WlSurface,
+    state::{create_global_system_config, EntityFactory},
+    wl::surface::WlSurface,
 };
 
 use super::{
@@ -16,14 +15,14 @@ use super::{
     touch::WlTouch,
 };
 
-#[derive(Component,Reflect,FromReflect)]
+#[derive(Component, Reflect, FromReflect)]
 pub struct WlSeat {
     #[reflect(ignore)]
     pub raw: wl_seat::WlSeat,
     #[reflect(ignore)]
     pub grab_by: Option<wl_surface::WlSurface>,
     pub pointer_position: Option<IVec2>,
-    pub enabled:bool,
+    pub enabled: bool,
 }
 
 impl WlSeat {
@@ -35,11 +34,11 @@ impl WlSeat {
             enabled: true,
         }
     }
-    pub fn enable(&mut self){
-        self.enabled=true;
+    pub fn enable(&mut self) {
+        self.enabled = true;
     }
-    pub fn disable(&mut self){
-        self.enabled=false;
+    pub fn disable(&mut self) {
+        self.enabled = false;
     }
     pub fn grab(&mut self, surface: &WlSurface) {
         debug!(surface=%WlResource::id(&surface.raw),"set grab");
@@ -165,7 +164,7 @@ impl wayland_server::GlobalDispatch<wayland_server::protocol::wl_seat::WlSeat, E
 pub struct WlSeatPlugin;
 impl Plugin for WlSeatPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(create_global_system_config::<wl_seat::WlSeat, 7>());
+        app.add_system(create_global_system_config::<wl_seat::WlSeat, 9>());
         app.register_relation::<SeatHasPointer>();
         app.register_relation::<SeatHasKeyboard>();
         app.register_relation::<SeatHasTouch>();

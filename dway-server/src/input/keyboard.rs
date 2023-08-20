@@ -3,7 +3,6 @@ use std::os::fd::AsRawFd;
 use std::path::PathBuf;
 
 use bevy::input::keyboard::KeyboardInput;
-use failure::{format_err, Fallible};
 use xkbcommon::xkb;
 
 use crate::input::time;
@@ -32,14 +31,12 @@ pub struct WlKeyboardBundle {
 
 impl WlKeyboardBundle {
     pub fn new(resource: WlKeyboard) -> Self {
-        Self {
-            resource,
-        }
+        Self { resource }
     }
 }
 
 impl WlKeyboard {
-    pub fn new(kbd: wl_keyboard::WlKeyboard, keymap: &Keymap) -> Fallible<Self> {
+    pub fn new(kbd: wl_keyboard::WlKeyboard, keymap: &Keymap) -> Result<Self> {
         let xkb_config = xkbcommon::xkb::Context::new(xkb::CONTEXT_NO_FLAGS);
         let keymap = xkb::Keymap::new_from_names(
             &xkb_config,
@@ -50,7 +47,7 @@ impl WlKeyboard {
             keymap.options.clone(),
             xkb::KEYMAP_COMPILE_NO_FLAGS,
         )
-        .ok_or_else(|| format_err!("failed to encode keymap"))?;
+        .ok_or_else(|| anyhow!("failed to encode keymap"))?;
         let keymap_string = keymap.get_as_string(xkbcommon::xkb::KEYMAP_FORMAT_TEXT_V1);
 
         let dir = std::env::var_os("XDG_RUNTIME_DIR")

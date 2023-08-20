@@ -4,7 +4,6 @@ pub mod positioner;
 pub mod toplevel;
 pub mod wm;
 
-
 use bevy_relationship::{relationship, AppExt};
 use wayland_protocols::xdg::activation::v1::server::xdg_activation_token_v1;
 
@@ -22,10 +21,9 @@ use crate::{
     },
 };
 
-
 use self::wm::XdgWmBase;
 
-#[derive(Component, Default, Clone,Reflect,FromReflect)]
+#[derive(Component, Default, Clone, Reflect, FromReflect)]
 pub struct DWayWindow {}
 
 #[derive(Resource)]
@@ -208,7 +206,7 @@ impl
 pub struct XdgShellPlugin;
 impl Plugin for XdgShellPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(create_global_system_config::<xdg_wm_base::XdgWmBase, 5>());
+        app.add_system(create_global_system_config::<xdg_wm_base::XdgWmBase, 6>());
         app.add_system(create_global_system_config::<
             xdg_activation_token_v1::XdgActivationTokenV1,
             1,
