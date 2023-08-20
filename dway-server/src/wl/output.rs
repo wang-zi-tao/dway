@@ -106,7 +106,7 @@ impl GlobalDispatch<wl_output::WlOutput, Entity> for DWay {
                 output.scale(1);
                 output.done();
             }
-            WlOutput::new(output)
+            WlOutputBundle::new(WlOutput::new(output))
         });
     }
 }

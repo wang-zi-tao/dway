@@ -19,7 +19,7 @@ relationship!(XDisplayHasWindow=>XWindowList-<XDisplayRef);
 
 use self::{
     events::{dispatch_x11_events, x11_frame_condition},
-    window::{x11_window_attach_wl_surface, XWindow, MappedXWindow},
+    window::{x11_window_attach_wl_surface, MappedXWindow, XWindow},
 };
 
 #[derive(Bundle)]
@@ -64,6 +64,26 @@ pub fn launch_xwayland(
     }
 }
 
+pub struct DWayXWaylandReady {
+    pub dway_entity: Entity,
+}
+
+impl DWayXWaylandReady {
+    pub fn new(dway_entity: Entity) -> Self {
+        Self { dway_entity }
+    }
+}
+pub struct DWayXWaylandStoped {
+    pub dway_entity: Entity,
+}
+
+impl DWayXWaylandStoped {
+    pub fn new(dway_entity: Entity) -> Self {
+        Self { dway_entity }
+    }
+}
+relationship!(DWayHasXWayland=>XWaylandRef--DWayRef);
+
 pub struct DWayXWaylandPlugin;
 impl Plugin for DWayXWaylandPlugin {
     fn build(&self, app: &mut App) {
@@ -82,5 +102,8 @@ impl Plugin for DWayXWaylandPlugin {
         app.add_system(x11_window_attach_wl_surface.in_set(DWayServerSet::UpdateXWayland));
         app.register_type::<XWindow>();
         app.register_type::<MappedXWindow>();
+        app.add_event::<DWayXWaylandReady>();
+        app.add_event::<DWayXWaylandStoped>();
+        app.register_relation::<DWayHasXWayland>();
     }
 }

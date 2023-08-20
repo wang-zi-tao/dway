@@ -1,4 +1,4 @@
-use std::{time::Duration};
+use std::time::Duration;
 
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
@@ -17,7 +17,7 @@ use bevy::{
     prelude::*,
     render::{settings::Backends, RenderPlugin},
     scene::ScenePlugin,
-    winit::{WinitPlugin},
+    winit::WinitPlugin,
 };
 
 const LOG: &str = "\
@@ -25,8 +25,7 @@ bevy_ecs=info,\
 bevy_render=debug,\
 bevy_ui=trace,\
 dway=debug,\
-dway_server::buffer=info,\
-dway_server::input=debug,\
+dway_server::input=info,\
 dway_server::render=info,\
 dway_server::state=info,\
 dway_server::surface=info,\

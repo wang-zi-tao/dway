@@ -6,6 +6,7 @@ use std::{
     },
     process::{Child, ChildStdout, Stdio},
     sync::{Arc, Mutex, Weak},
+    time::Duration,
 };
 
 use bevy::utils::HashMap;
@@ -20,7 +21,7 @@ use x11rb::{
             CursorWrapper, EventMask, FontWrapper, PropMode, WindowClass,
         },
     },
-    rust_connection::{DefaultStream, RustConnection},
+    rust_connection::{ConnectionError, DefaultStream, RustConnection},
     wrapper::ConnectionExt as RustConnectionExt,
 };
 
@@ -28,13 +29,14 @@ use crate::{prelude::*, x11::atoms::Atoms};
 
 use super::events::XWaylandError;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum XWaylandThreadEvent {
     XWaylandEvent(x11rb::protocol::Event),
     CreateConnection(
         Weak<(RustConnection, Atoms)>,
         x11rb::protocol::xproto::Window,
     ),
+    Disconnect(anyhow::Error),
 }
 
 #[derive(Component, Clone, Reflect, FromReflect)]
@@ -65,6 +67,7 @@ pub struct XWaylandDisplay {
     pub channel: Arc<crossbeam_channel::Receiver<XWaylandThreadEvent>>,
     pub windows_entitys: HashMap<u32, Entity>,
     pub wm_window: Option<x11rb::protocol::xproto::Window>,
+    pub child: Child,
 }
 
 impl XWaylandDisplay {
@@ -82,8 +85,7 @@ impl XWaylandDisplay {
             Self::get_number().ok_or_else(|| anyhow!("failed to alloc dissplay number"))?;
         let (x11_socket, x11_stream) = UnixStream::pair()?;
         let (wayland_socket, wayland_client_stream) = UnixStream::pair()?;
-        let child_stdout =
-            Self::spawn_xwayland(display_number, streams, x11_socket, wayland_socket)?;
+        let child = Self::spawn_xwayland(display_number, streams, x11_socket, wayland_socket)?;
         let (tx, rx) = crossbeam_channel::bounded(1024);
         dway.display_number = Some(display_number as usize);
         let this = Self {
@@ -92,6 +94,7 @@ impl XWaylandDisplay {
             channel: Arc::new(rx),
             windows_entitys: Default::default(),
             wm_window: None,
+            child,
         };
         info!("spawn xwayland at :{}", display_number);
         std::thread::Builder::new()
@@ -109,11 +112,18 @@ impl XWaylandDisplay {
                         wm_window,
                     ));
                     loop {
-                        match connection.0.poll_for_event()? {
-                            Some(event) => {
+                        match connection.0.wait_for_event() {
+                            Ok(event) => {
                                 let _ = tx.send(XWaylandThreadEvent::XWaylandEvent(event));
                             }
-                            _ => {}
+                            Err(ConnectionError::IoError(e)) => {
+                                error!("xwayland io error: {e}");
+                                let _ = tx.send(XWaylandThreadEvent::Disconnect(anyhow!("{e}")));
+                                return Err(e.into());
+                            }
+                            Err(e) => {
+                                error!("xwayland error: {e}");
+                            }
                         }
                     }
                 })();

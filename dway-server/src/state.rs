@@ -22,8 +22,8 @@ use bevy::{
     utils::{tracing, HashMap},
 };
 use bevy_relationship::{
-    ConnectCommand, ConnectableMut, DisconnectAllCommand, DisconnectCommand, Relationship,
-    ReserveRelationship, ReverseRelationship,
+    reexport::SmallVec, ConnectCommand, ConnectableMut, DisconnectAllCommand, DisconnectCommand,
+    Relationship, ReserveRelationship, ReverseRelationship,
 };
 use bevy_tokio_tasks::TokioTasksRuntime;
 use calloop::{generic::Generic, EventLoop, Interest, Mode, PostAction};
@@ -452,14 +452,27 @@ impl DWay {
         self.world_mut().entity_mut(entity).despawn_recursive();
     }
     pub fn despawn(&mut self, entity: Entity) {
-        if let Some(a) = self.world_mut().get_entity_mut(entity) {
-            EntityMut::despawn(a)
+        if let Some(e) = self.world_mut().get_entity_mut(entity) {
+            if let Some(parent) = e.get::<Parent>() {
+                let parent = parent.get();
+                if let Some(children) = e.get::<Children>() {
+                    let children = children.iter().collect::<SmallVec<[Entity; 7]>>();
+                    let mut parent_entity = self.world_mut().get_entity_mut(parent).unwrap();
+                    parent_entity.remove_children(&[entity]);
+                    for child in children.iter() {
+                        parent_entity.add_child(*child);
+                    }
+                }
+            }
+        }
+        if let Some(e) = self.world_mut().get_entity_mut(entity) {
+            EntityMut::despawn(e)
         }
     }
     pub fn despawn_object(&mut self, entity: Entity, id: wayland_backend::server::ObjectId) {
         trace!(entity=?entity,resource=%id,"despawn object");
-        if let Some(e) = self.world_mut().get_entity_mut(entity) {
-            e.despawn_recursive()
+        if let Some(mut e) = self.world_mut().get_entity_mut(entity) {
+            e.despawn_recursive();
         }
     }
     pub fn with_component<T, F, R>(&mut self, object: &impl wayland_server::Resource, f: F) -> R

@@ -22,12 +22,12 @@ use crate::{
         screen::{XScreen, XScreenBundle},
         util::geo_to_irect,
         window::{MappedXWindow, XWindow, XWindowBundle},
-        XDisplayHasWindow, XWaylandBundle,
+        XDisplayHasWindow, XWaylandBundle, DWayXWaylandStoped,
     },
     xdg::DWayWindow,
 };
 
-use super::{XWaylandDisplay, XWaylandDisplayWrapper};
+use super::{XWaylandDisplay, XWaylandDisplayWrapper, DWayXWaylandReady, DWayHasXWayland};
 
 #[derive(Error, Debug)]
 pub enum XWaylandError {
@@ -226,8 +226,8 @@ pub fn process_x11_event(
         }
         x11rb::protocol::Event::EnterNotify(_) => todo!(),
         x11rb::protocol::Event::Expose(_) => todo!(),
-        x11rb::protocol::Event::FocusIn(_) => todo!(),
-        x11rb::protocol::Event::FocusOut(_) => todo!(),
+        x11rb::protocol::Event::FocusIn(_) => {},
+        x11rb::protocol::Event::FocusOut(r) => {},
         x11rb::protocol::Event::GeGeneric(_) => todo!(),
         x11rb::protocol::Event::GraphicsExposure(_) => todo!(),
         x11rb::protocol::Event::GravityNotify(_) => todo!(),
@@ -391,9 +391,18 @@ pub fn dispatch_x11_events(world: &mut World) {
                                     debug!("add root window {} at {:?}", screen.root, entity);
                                     x.windows_entitys.insert(screen.root, entity);
                                 }
+                                dway.send_event(DWayXWaylandReady::new(dway_entity));
+                                dway.connect::<DWayHasXWayland>(dway_entity, display_entity);
                                 return Ok(());
                             }
                             crate::x11::XWaylandThreadEvent::XWaylandEvent(event) => event,
+                            crate::x11::XWaylandThreadEvent::Disconnect(e) => {
+                                dway.despawn_tree(display_entity);
+                                info!(cause=?e,"despawn xwayland on {display_entity:?}");
+                                dway.send_event(DWayXWaylandStoped::new(dway_entity));
+                                dway.disconnect::<DWayHasXWayland>(dway_entity, display_entity);
+                                return Ok(());
+                            }
                         };
                         process_x11_event(dway, display_entity, &mut x, event)
                     })();

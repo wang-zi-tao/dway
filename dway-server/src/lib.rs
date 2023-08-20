@@ -7,7 +7,9 @@ use std::process;
 use bevy::prelude::*;
 use bevy_tokio_tasks::TokioTasksRuntime;
 use dway_winit::UpdateRequestEvents;
+use schedule::DWayServerSet;
 use state::{create_display, DWayWrapper, DisplayCreated, NonSendMark};
+use x11::DWayXWaylandReady;
 pub mod client;
 pub mod dispatch;
 pub mod display;
@@ -51,6 +53,11 @@ impl Plugin for DWayServerPlugin {
         app.add_plugin(wp::PrimarySelectionPlugin);
         app.add_plugin(x11::DWayXWaylandPlugin);
         app.add_startup_systems((init_display, apply_system_buffers, spawn).chain());
+        app.add_system(
+            spawn_x11
+                .run_if(on_event::<DWayXWaylandReady>())
+                .in_set(DWayServerSet::UpdateXWayland),
+        );
     }
 }
 pub fn init_display(
@@ -88,4 +95,17 @@ pub fn spawn(query: Query<&DWayWrapper>, tokio: Res<TokioTasksRuntime>) {
     // let mut command =
     //     process::Command::new("/home/wangzi/Code/winit/target/debug/examples/window_debug");
     // compositor.spawn_process(command, &tokio);
+}
+pub fn spawn_x11(
+    query: Query<&DWayWrapper>,
+    tokio: Res<TokioTasksRuntime>,
+    mut events: EventReader<DWayXWaylandReady>,
+) {
+    for DWayXWaylandReady { dway_entity } in events.iter() {
+        if let Ok(dway) = query.get(*dway_entity) {
+            let compositor = dway.lock().unwrap();
+            // compositor.spawn_process_x11(process::Command::new("/mnt/weed/mount/wangzi-nuc/wangzi/workspace/waylandcompositor/source/gtk+-3.24.37/build/examples/sunny"), &tokio);
+            compositor.spawn_process_x11(process::Command::new("gnome-system-monitor"), &tokio);
+        }
+    }
 }

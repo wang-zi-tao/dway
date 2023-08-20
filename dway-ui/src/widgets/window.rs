@@ -3,6 +3,7 @@ use dway_client_core::desktop::{FocusedWindow, WindowStack};
 use dway_server::{
     geometry::GlobalGeometry,
     macros::Connectable,
+    try_get,
     wl::surface::WlSurface,
     xdg::{popup::XdgPopup, DWayWindow, PopupList},
 };
@@ -11,9 +12,7 @@ use kayak_ui::{
         constructor, rsx, EventType, KChildren, KEvent, KPositionType, KStyle, KayakWidgetContext,
         OnEvent, StyleProp, Units, WidgetParam,
     },
-    widgets::{
-        BackgroundBundle, ElementBundle, KImage, KImageBundle,
-    },
+    widgets::{BackgroundBundle, ElementBundle, KImage, KImageBundle},
     KayakUIPlugin,
 };
 
@@ -67,7 +66,7 @@ impl Default for WindowBundle {
     }
 }
 
-#[derive(Component,Reflect,FromReflect, Clone, PartialEq, Eq)]
+#[derive(Component, Reflect, FromReflect, Clone, PartialEq, Eq)]
 pub struct WindowUI {
     pub entity: Entity,
 }
@@ -100,8 +99,7 @@ pub fn render(
         return true;
     };
     let state_entity = widget_context.use_state(&mut commands, entity, WindowState::default());
-    let Ok((rect, surface, popups)) = window_query.get(props.entity) else {
-        error!("surface has not components {:?}", props.entity);
+    let Some((rect, surface, popups)) = try_get!(window_query, props.entity) else {
         return true;
     };
     // let bbox_loc = rect.0.loc + offset.0.loc;

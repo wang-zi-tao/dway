@@ -1,6 +1,8 @@
 use bevy::prelude::Query;
 use bevy::prelude::*;
-use dway_server::{geometry::GlobalGeometry, input::pointer::WlPointer, wl::surface::WlSurface};
+use dway_server::{
+    geometry::GlobalGeometry, input::pointer::WlPointer, try_get, wl::surface::WlSurface,
+};
 use kayak_ui::{
     prelude::{
         rsx, EmptyState, KChildren, KPositionType, KStyle, KayakWidgetContext, StyleProp, Units,
@@ -66,8 +68,7 @@ pub fn render(
         error!("no props");
         return true;
     };
-    let Ok((rect, surface)) = pointer_query.get(props.entity) else {
-        error!("surface has not components {:?}", props.entity);
+    let Some((rect, surface)) = try_get!(pointer_query, props.entity) else {
         return true;
     };
     let image_rect = surface.image_rect().offset(rect.pos());

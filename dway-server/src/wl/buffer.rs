@@ -141,10 +141,19 @@ impl wayland_server::Dispatch<wl_buffer::WlBuffer, bevy::prelude::Entity, DWay> 
         match request {
             wl_buffer::Request::Destroy => {
                 trace!(entity=?data,resource=%WlResource::id(resource),"destroy buffer");
-                state.despawn(*data);
+                state.despawn_tree(*data);
             }
             _ => todo!(),
         }
+    }
+
+    fn destroyed(
+        state: &mut DWay,
+        _client: wayland_backend::server::ClientId,
+        resource: wayland_backend::server::ObjectId,
+        data: &bevy::prelude::Entity,
+    ) {
+        state.despawn_object(*data, resource);
     }
 }
 delegate_dispatch!(DWay: [wl_shm::WlShm: Entity] => BufferDelegate);
@@ -284,6 +293,7 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                 };
                 let pool =
                     state.with_component(resource, |pool: &mut WlShmPool| pool.inner.clone());
+                let parent = state.with_component(resource, |p:&mut Parent|p.get());
                 state.spawn(
                     (id, data_init, |o| {
                         WlBufferBundle::new(WlBuffer {
@@ -296,12 +306,12 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                             pool,
                         })
                     })
-                        .with_parent(*data),
+                        .with_parent(parent),
                 );
             }
             wl_shm_pool::Request::Destroy => {
                 trace!(resource=%WlResource::id(resource),"destroy wl_shm_pool");
-                state.despawn(*data);
+                state.despawn_tree(*data);
             }
             wl_shm_pool::Request::Resize { size } => {
                 state.with_component(resource, |c: &mut WlShmPool| {
