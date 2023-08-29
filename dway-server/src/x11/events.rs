@@ -15,7 +15,10 @@ use x11rb::{
 use crate::{
     client::Client,
     geometry::{Geometry, GlobalGeometry},
-    input::{grab::Grab, seat::WlSeat},
+    input::{
+        grab::{Grab, ResizeEdges},
+        seat::WlSeat,
+    },
     prelude::*,
     state::DWayWrapper,
     util::rect::IRect,
@@ -118,13 +121,44 @@ pub fn process_x11_event(
                         dway.query::<(&mut Grab, &mut WlSeat), _, _>(
                             display_entity,
                             |(mut grab, mut seat)| {
-                                *grab = Grab::Moving {
-                                    surface: surface_entity,
-                                    serial: 0,
-                                    relative: pos - seat.pointer_position.unwrap_or_default(),
-                                };
-                                dbg!(pos - seat.pointer_position.unwrap_or_default());
-                                seat.disable();
+                                let data = e.data.as_data32();
+                                dbg!(data[2]);
+                                match data[2] {
+                                    x @ 0..=7 => {
+                                        let edges = match x {
+                                            0 => ResizeEdges::TOP | ResizeEdges::LEFT,
+                                            1 => ResizeEdges::TOP,
+                                            2 => ResizeEdges::TOP | ResizeEdges::RIGHT,
+                                            3 => ResizeEdges::RIGHT,
+                                            4 => ResizeEdges::BUTTOM | ResizeEdges::RIGHT,
+                                            5 => ResizeEdges::BUTTOM,
+                                            6 => ResizeEdges::BUTTOM | ResizeEdges::LEFT,
+                                            7 => ResizeEdges::LEFT,
+                                            _ => unreachable!(),
+                                        };
+                                        *grab = Grab::Resizing {
+                                            surface: surface_entity,
+                                            serial: 0,
+                                            edges,
+                                            relative: rect.pos()
+                                                - seat.pointer_position.unwrap_or_default(),
+                                            origin_rect: rect,
+                                        };
+                                        debug!("xwindow start resizing");
+                                        seat.disable();
+                                    }
+                                    8 => {
+                                        *grab = Grab::Moving {
+                                            surface: surface_entity,
+                                            serial: 0,
+                                            relative: pos
+                                                - seat.pointer_position.unwrap_or_default(),
+                                        };
+                                        seat.disable();
+                                        debug!("xwindow start moving");
+                                    }
+                                    _ => {} // ignore keyboard moves/resizes for now
+                                }
                             },
                         );
                     }
@@ -433,4 +467,20 @@ pub fn dispatch_x11_events(world: &mut World) {
                 }
             });
         });
+}
+
+pub fn flush_xwayland(
+    xwayland_query: Query<(Entity, &XWaylandDisplayWrapper)>,
+    mut commands: Commands,
+) {
+    xwayland_query.for_each(|(entity, x)| {
+        let guard = x.lock().unwrap();
+        let Some(connection) = guard.connection.upgrade() else {
+            commands.entity(entity).despawn_recursive();
+            return;
+        };
+        if let Err(e) = connection.0.flush() {
+            error!(entity=?entity,"failed to flush xwayland connection: {e}");
+        };
+    });
 }

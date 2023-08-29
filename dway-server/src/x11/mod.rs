@@ -11,14 +11,14 @@ use dway_winit::FrameConditionSchedule;
 use crate::{
     client::{self, Client, ClientData},
     prelude::*,
-    schedule::DWayServerSet,
+    schedule::{DWayServerSet, DWayStartSet},
     state::{on_create_display_event, DWayDisplay, DWayWrapper, WaylandDisplayCreated},
 };
 
 relationship!(XDisplayHasWindow=>XWindowList-<XDisplayRef);
 
 use self::{
-    events::{dispatch_x11_events, x11_frame_condition},
+    events::{dispatch_x11_events, x11_frame_condition, flush_xwayland},
     window::{x11_window_attach_wl_surface, MappedXWindow, XWindow, XWindowAttachSurface},
 };
 
@@ -100,6 +100,7 @@ impl Plugin for DWayXWaylandPlugin {
         app.add_system(dispatch_x11_events.in_set(DWayServerSet::Dispatch));
         app.register_relation::<XDisplayHasWindow>();
         app.add_system(x11_window_attach_wl_surface.in_set(DWayServerSet::UpdateXWayland));
+        // app.add_system(flush_xwayland.in_set(DWayServerSet::PostUpdate));
         app.register_type::<XWindow>();
         app.register_type::<MappedXWindow>();
         app.add_event::<DWayXWaylandReady>();

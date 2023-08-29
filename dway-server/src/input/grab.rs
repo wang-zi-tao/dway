@@ -261,7 +261,9 @@ pub fn on_grab_event(
                                 .and_then(|r| r.get())
                                 .and_then(|e| xwindow_query.get_mut(e).ok())
                             {
-                                xwindow.set_rect(geo.geometry);
+                                if let Err(e) = xwindow.set_rect(geo.geometry) {
+                                    error!("failed to resize window: {e}");
+                                }
                             }
                         }
                         GrabEventKind::PointerAxis(_, _) | GrabEventKind::Keyboard(_) => {
@@ -312,7 +314,9 @@ pub fn on_grab_event(
                                 .and_then(|r| r.get())
                                 .and_then(|e| xwindow_query.get_mut(e).ok())
                             {
-                                xwindow.resize(geo.geometry);
+                                if let Err(e) = xwindow.resize(geo.geometry) {
+                                    error!("failed to move window: {e}");
+                                }
                             }
                         }
                         GrabEventKind::PointerAxis(_, _)
