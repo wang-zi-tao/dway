@@ -18,6 +18,8 @@ pub struct DWayServerRenderPlugin;
 impl Plugin for DWayServerRenderPlugin {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<importnode::ImportState>();
+            render_app.init_resource::<importnode::DWayDisplayHandles>();
             // render_app.init_resource::<surface::ImportSurfaceFeedback>();
             render_app.init_resource::<DrawFunctions<ImportedSurfacePhaseItem>>();
             render_app.add_render_command::<ImportedSurfacePhaseItem, ImportSurface>();

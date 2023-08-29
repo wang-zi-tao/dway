@@ -21,13 +21,13 @@ use crate::{
     x11::{
         screen::{XScreen, XScreenBundle},
         util::geo_to_irect,
-        window::{MappedXWindow, XWindow, XWindowBundle},
-        XDisplayHasWindow, XWaylandBundle, DWayXWaylandStoped,
+        window::{MappedXWindow, XWindow, XWindowAttachSurface, XWindowBundle, XWindowSurfaceRef},
+        DWayXWaylandStoped, XDisplayHasWindow, XWaylandBundle,
     },
     xdg::DWayWindow,
 };
 
-use super::{XWaylandDisplay, XWaylandDisplayWrapper, DWayXWaylandReady, DWayHasXWayland};
+use super::{DWayHasXWayland, DWayXWaylandReady, XWaylandDisplay, XWaylandDisplayWrapper};
 
 #[derive(Error, Debug)]
 pub enum XWaylandError {
@@ -84,42 +84,13 @@ pub fn process_x11_event(
                 t if t == atoms.WL_SURFACE_ID => {
                     let world = dway.world_mut();
                     let wid = e.data.as_data32()[0];
-                    debug!("attach surface: {wid}");
+                    debug!(entity=?e,xwindow=%e.window,"attach surface: {wid}");
                     let xwindow_entity = x.find_window(e.window)?;
                     let mut xwindow = world
                         .get_mut::<XWindow>(xwindow_entity)
                         .ok_or_else(|| InvalidWindowEntity(xwindow_entity))?;
                     xwindow.surface_id = Some(wid);
                     world.entity_mut(xwindow_entity).insert(MappedXWindow);
-                    let client = world
-                        .get_mut::<Client>(display_entity)
-                        .ok_or_else(|| InvalidWindowEntity(xwindow_entity))?;
-                    if let Ok(wl_surface) = client
-                        .raw
-                        .clone()
-                        .object_from_protocol_id::<wl_surface::WlSurface>(&dway.display_handle, wid)
-                    {
-                        let wl_surface_entity = DWay::get_entity(&wl_surface);
-                        let world = dway.world_mut();
-                        let mut window_entity_mut = world.entity_mut(xwindow_entity);
-                        let bundle: (XWaylandBundle, Parent) = window_entity_mut
-                            .take()
-                            .ok_or_else(|| InvalidWindowEntity(xwindow_entity))?;
-                        let children: Option<Children> = window_entity_mut.take();
-                        window_entity_mut.despawn_recursive();
-                        let mut surface_entity_mut = world.entity_mut(wl_surface_entity);
-                        surface_entity_mut.insert((bundle, MappedXWindow, DWayWindow::default()));
-                        children.map(|b| surface_entity_mut.insert(b));
-                        dway.connect::<XDisplayHasWindow>(display_entity, wl_surface_entity);
-                        dway.send_event(Insert::<DWayWindow>::new(wl_surface_entity));
-                        x.windows_entitys.insert(e.window, wl_surface_entity);
-                        debug!(
-                            "migrate xwindow from {:?} to {:?}",
-                            xwindow_entity, wl_surface_entity
-                        );
-                    } else {
-                        debug!("wl_surface not exists");
-                    }
                 }
                 t if t == atoms.WM_CHANGE_STATE => {
                     todo!()
@@ -154,7 +125,8 @@ pub fn process_x11_event(
                 dway.query::<(&XWindow, &mut Geometry), _, _>(e, |(_xwindow, mut geometry)| {
                     geometry.set_x(r.x as i32);
                     geometry.set_y(r.y as i32);
-                })
+                });
+                debug!(entity=?e,xwindow=%r.window,"configure window");
             }
         }
         x11rb::protocol::Event::ConfigureRequest(r) => {
@@ -180,6 +152,7 @@ pub fn process_x11_event(
                     .height(rect.height() as u32);
                 rust_connection.configure_window(r.window, &aux)?;
                 rust_connection.flush()?;
+                debug!(entity=?window_entity,xwindow=%r.window,"configure request");
             }
         }
         x11rb::protocol::Event::CreateNotify(c) => {
@@ -214,20 +187,21 @@ pub fn process_x11_event(
                 entity_mut
             };
             let entity = entity_mut.id();
-            debug!("create x11 window {} at {:?}", c.window, entity);
+            debug!(entity=?entity,xwindow=%c.window,"create window");
             x.windows_entitys.insert(c.window, entity_mut.id());
             dway.connect::<XDisplayHasWindow>(display_entity, entity);
         }
         x11rb::protocol::Event::DestroyNotify(e) => {
             let world = dway.world_mut();
             if let Some(entity) = x.windows_entitys.remove(&e.window) {
+                debug!(entity=?entity,xwindow=%e.window,"destroy window");
                 world.entity_mut(entity).despawn_recursive();
             }
         }
         x11rb::protocol::Event::EnterNotify(_) => todo!(),
         x11rb::protocol::Event::Expose(_) => todo!(),
-        x11rb::protocol::Event::FocusIn(_) => {},
-        x11rb::protocol::Event::FocusOut(r) => {},
+        x11rb::protocol::Event::FocusIn(_) => {}
+        x11rb::protocol::Event::FocusOut(r) => {}
         x11rb::protocol::Event::GeGeneric(_) => todo!(),
         x11rb::protocol::Event::GraphicsExposure(_) => todo!(),
         x11rb::protocol::Event::GravityNotify(_) => todo!(),
@@ -260,6 +234,7 @@ pub fn process_x11_event(
                 )?;
                 rust_connection.flush()?;
             }
+            debug!(entity=?window_entity,xwindow=%r.window,"mapped window");
         }
         x11rb::protocol::Event::MapRequest(r) => {
             let world = dway.world_mut();
@@ -296,6 +271,7 @@ pub fn process_x11_event(
                 rust_connection.map_window(r.window)?;
                 rust_connection.flush()?;
             }
+            debug!(entity=?window_entity,xwindow=%r.window,"map request");
         }
         x11rb::protocol::Event::MappingNotify(_) => {}
         x11rb::protocol::Event::MotionNotify(_) => todo!(),
@@ -318,10 +294,18 @@ pub fn process_x11_event(
                 let _ = rust_connection.ungrab_server();
             };
             rust_connection.grab_server()?;
+            debug!("unmap window {} at {:?}", r.window, window_entity);
             world
                 .entity_mut(window_entity)
                 .remove::<(DWayWindow, MappedXWindow)>();
-            world.send_event(Destroy::<DWayWindow>::new(window_entity));
+            if let Some(surface_entity) = world
+                .get::<XWindowSurfaceRef>(window_entity)
+                .and_then(|r| r.get())
+            {
+                world.entity_mut(surface_entity).remove::<DWayWindow>();
+                world.send_event(Destroy::<DWayWindow>::new(surface_entity));
+                dway.disconnect_all::<XWindowAttachSurface>(window_entity);
+            }
         }
         x11rb::protocol::Event::VisibilityNotify(_) => todo!(),
         x11rb::protocol::Event::ShapeNotify(_) => todo!(),

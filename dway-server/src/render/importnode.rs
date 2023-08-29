@@ -1,18 +1,23 @@
+use std::{collections::HashMap, sync::Mutex};
+
 use crate::{
     prelude::*,
     render::import::import_wl_surface,
+    schedule::DWayServerSet,
+    state::{WaylandDisplayCreated, WaylandDisplayDestroyed},
     wl::{
         buffer::{DmaBuffer, EGLBuffer, WlBuffer},
         surface::WlSurface,
     },
 };
 
-
-
 use bevy::{
     core::FrameCount,
     core_pipeline::clear_color::ClearColorConfig,
-    ecs::system::lifetimeless::{Read, SRes},
+    ecs::system::{
+        lifetimeless::{Read, SRes},
+        SystemParam, SystemState,
+    },
     render::{
         camera::ExtractedCamera,
         render_asset::RenderAssets,
@@ -25,9 +30,18 @@ use bevy::{
     },
 };
 
-use wgpu::{
-    LoadOp, Operations, RenderPassDescriptor,
-};
+use wgpu::{LoadOp, Operations, RenderPassDescriptor};
+
+use super::import::{bind_wayland, EglState};
+
+#[derive(Resource, Default)]
+pub struct ImportState {
+    pub inner: Mutex<Option<EglState>>,
+}
+#[derive(Resource, Default)]
+pub struct DWayDisplayHandles {
+    pub map: HashMap<Entity, DisplayHandle>,
+}
 
 pub struct ImportedSurfacePhaseItem {
     pub entity: Entity,
@@ -56,6 +70,9 @@ pub fn extract_surface(
     mut commands: Commands,
     mut image_bind_groups: Option<ResMut<kayak_ui::render::unified::pipeline::ImageBindGroups>>,
     frame_count: Extract<Res<FrameCount>>,
+    mut create_events: Extract<EventReader<WaylandDisplayCreated>>,
+    mut destroy_events: Extract<EventReader<WaylandDisplayDestroyed>>,
+    mut wayland_map: ResMut<DWayDisplayHandles>,
 ) {
     for surface in surface_query.iter() {
         if !(surface.just_commit
@@ -71,7 +88,8 @@ pub fn extract_surface(
             trace!("not connited {:?}", surface.raw.id());
             continue;
         };
-        let Ok((buffer, _shm_pool_entity, dma_buffer, egl_buffer)) = buffer_query.get(buffer_entity)
+        let Ok((buffer, _shm_pool_entity, dma_buffer, egl_buffer)) =
+            buffer_query.get(buffer_entity)
         else {
             trace!("no wl_buffer {:?}", buffer_entity);
             continue;
@@ -86,12 +104,21 @@ pub fn extract_surface(
         }
     }
     commands.spawn(RenderPhase::<ImportedSurfacePhaseItem>::default());
+    for WaylandDisplayCreated(entity, display_handle) in create_events.iter() {
+        wayland_map.map.insert(*entity, display_handle.clone());
+    }
+    for WaylandDisplayDestroyed(entity, display_handle) in destroy_events.iter() {
+        wayland_map.map.remove(entity);
+    }
 }
 
 pub fn queue_import(
     draw_functions: Res<DrawFunctions<ImportedSurfacePhaseItem>>,
     mut phase_query: Query<&mut RenderPhase<ImportedSurfacePhaseItem>>,
     surface_query: Query<Entity, With<WlSurface>>,
+    display_handles: Res<DWayDisplayHandles>,
+    import_state: Res<ImportState>,
+    render_device: Res<RenderDevice>,
 ) {
     let function = draw_functions.read().id::<ImportSurface>();
     let mut phase = phase_query.single_mut();
@@ -100,6 +127,13 @@ pub fn queue_import(
             draw_function: function,
             entity,
         });
+    }
+
+    let mut state = import_state.inner.lock().unwrap();
+    if let Some(mut state) = state.as_mut() {
+        if let Err(e) = bind_wayland(&display_handles, &mut state, render_device.wgpu_device()) {
+            error!("{e}");
+        };
     }
 }
 pub fn send_frame(
@@ -113,7 +147,11 @@ pub fn send_frame(
 
 pub struct ImportSurface;
 impl<P: PhaseItem> RenderCommand<P> for ImportSurface {
-    type Param = (SRes<RenderDevice>, SRes<RenderAssets<Image>>);
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<RenderAssets<Image>>,
+        SRes<ImportState>,
+    );
     type ItemWorldQuery = (
         Read<WlSurface>,
         Read<WlBuffer>,
@@ -129,10 +167,15 @@ impl<P: PhaseItem> RenderCommand<P> for ImportSurface {
             'w,
             Self::ItemWorldQuery,
         >,
-        (render_device, textures): bevy::ecs::system::SystemParamItem<'w, '_, Self::Param>,
+        (render_device, textures, import_state): bevy::ecs::system::SystemParamItem<
+            'w,
+            '_,
+            Self::Param,
+        >,
         _pass: &mut bevy::render::render_phase::TrackedRenderPass<'w>,
     ) -> bevy::render::render_phase::RenderCommandResult {
         let texture: &GpuImage = textures.get(&surface.image).unwrap();
+        let mut state_guard = import_state.inner.lock().unwrap();
         if let Err(e) = import_wl_surface(
             surface,
             buffer,
@@ -140,6 +183,7 @@ impl<P: PhaseItem> RenderCommand<P> for ImportSurface {
             egl_buffer,
             &texture.texture,
             render_device.wgpu_device(),
+            &mut state_guard,
         ) {
             error!(
                 surface = %surface.raw.id(),
@@ -216,6 +260,27 @@ impl Node for ImportSurfacePassNode {
 
             for (entity, phase) in self.query.iter_manual(world) {
                 phase.render(&mut render_pass, world, entity);
+            }
+
+            let device = world.resource::<RenderDevice>();
+            let import_state = world.resource::<ImportState>();
+            let display_handles = world.resource::<DWayDisplayHandles>();
+            let mut state_guard = import_state.inner.lock().unwrap();
+            if let Some(state_guard) = state_guard.as_mut() {
+                let egl_display: khronos_egl::Display = unsafe {
+                    device
+                        .wgpu_device()
+                        .as_hal::<wgpu_hal::api::Gles, _, _>(|hal_device| {
+                            hal_device
+                                .ok_or_else(|| anyhow!("gpu backend is not egl"))?
+                                .context()
+                                .raw_display()
+                                .cloned()
+                                .ok_or_else(|| anyhow!("no opengl display available"))
+                        })
+                        .unwrap()
+                };
+                state_guard.bind_wayland(&display_handles.map, egl_display);
             }
         }
 

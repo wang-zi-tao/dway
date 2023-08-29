@@ -74,7 +74,9 @@ impl WlKeyboard {
     pub fn set_focus(&mut self, surface: &WlSurface) {
         if let Some(focus) = &self.focus {
             if &surface.raw != focus {
-                self.raw.leave(next_serial(), focus);
+                if focus.is_alive() {
+                    self.raw.leave(next_serial(), focus);
+                }
                 trace!("{} leave {}", self.raw.id(), focus.id());
                 self.raw.enter(next_serial(), &surface.raw, Vec::new());
                 trace!("{} enter {}", self.raw.id(), surface.raw.id());

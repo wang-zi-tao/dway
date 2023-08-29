@@ -13,7 +13,7 @@ use crate::{
 };
 use std::borrow::Cow;
 
-relationship!(ClientHasSurface=>SurfaceList-<Client);
+relationship!(ClientHasSurface=>SurfaceList-<ClientRef);
 
 #[derive(Default, Reflect, Debug, Clone)]
 #[reflect(Debug)]
@@ -57,15 +57,15 @@ pub struct WlSurface {
     pub commit_time: u32,
     pub commit_count: u32,
 }
-relationship!(AttachmentRelationship => Attach--AttachedBy);
+relationship!(AttachmentRelationship => AttachTo--AttachedBy);
 relationship!(SurfaceHasInputRegion => InputRegion>-IsInputRegionOf);
 relationship!(SurfaceHasOpaqueRegion => OpaqueRegion>-IsOpaqueRegionOf);
 #[derive(Bundle)]
 pub struct WlSurfaceBundle {
     name: Name,
     resource: WlSurface,
-    attach: Attach,
-    client: Client,
+    attach: AttachTo,
+    client: ClientRef,
 }
 
 impl WlSurfaceBundle {
@@ -314,8 +314,12 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 } else if let Some(old_buffer) = old_buffer_entity {
                     state.disconnect::<AttachmentRelationship>(*data, old_buffer);
                 }
-                if let Some(e) = input_region_entity { state.connect::<SurfaceHasInputRegion>(*data, e) }
-                if let Some(e) = opaque_region_entity { state.connect::<SurfaceHasOpaqueRegion>(*data, e) }
+                if let Some(e) = input_region_entity {
+                    state.connect::<SurfaceHasInputRegion>(*data, e)
+                }
+                if let Some(e) = opaque_region_entity {
+                    state.connect::<SurfaceHasOpaqueRegion>(*data, e)
+                }
             }
             wl_surface::Request::SetBufferTransform { transform: _ } => todo!(),
             wl_surface::Request::SetBufferScale { scale } => {
@@ -459,7 +463,7 @@ impl Plugin for WlSurfacePlugin {
         // app.add_system(cleanup_buffer.in_base_set(CoreSet::First));
         app.add_system(update_buffer_size.in_set(DWayServerSet::UpdateGeometry));
         app.register_type::<WlSurface>();
-        app.register_type::<Attach>();
+        app.register_type::<AttachTo>();
         app.register_type::<AttachedBy>();
         app.register_type::<SurfaceList>();
         app.register_relation::<ClientHasSurface>();

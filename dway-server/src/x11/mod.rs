@@ -12,14 +12,14 @@ use crate::{
     client::{self, Client, ClientData},
     prelude::*,
     schedule::DWayServerSet,
-    state::{on_create_display_event, DWayDisplay, DWayWrapper, DisplayCreated},
+    state::{on_create_display_event, DWayDisplay, DWayWrapper, WaylandDisplayCreated},
 };
 
 relationship!(XDisplayHasWindow=>XWindowList-<XDisplayRef);
 
 use self::{
     events::{dispatch_x11_events, x11_frame_condition},
-    window::{x11_window_attach_wl_surface, MappedXWindow, XWindow},
+    window::{x11_window_attach_wl_surface, MappedXWindow, XWindow, XWindowAttachSurface},
 };
 
 #[derive(Bundle)]
@@ -30,10 +30,10 @@ pub struct XWaylandBundle {
 
 pub fn launch_xwayland(
     display_query: Query<(&DWayWrapper, &DWayDisplay)>,
-    mut events: EventReader<DisplayCreated>,
+    mut events: EventReader<WaylandDisplayCreated>,
     mut commands: Commands,
 ) {
-    for DisplayCreated(entity, _) in events.iter() {
+    for WaylandDisplayCreated(entity, _) in events.iter() {
         if let Ok((dway_wrapper, display_wrapper)) = display_query.get(*entity) {
             let mut dway = dway_wrapper.0.lock().unwrap();
             let display = display_wrapper.0.lock().unwrap();
@@ -89,7 +89,7 @@ impl Plugin for DWayXWaylandPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             (
-                launch_xwayland.run_if(on_event::<DisplayCreated>()),
+                launch_xwayland.run_if(on_event::<WaylandDisplayCreated>()),
                 apply_system_buffers,
             )
                 .chain()
@@ -105,5 +105,6 @@ impl Plugin for DWayXWaylandPlugin {
         app.add_event::<DWayXWaylandReady>();
         app.add_event::<DWayXWaylandStoped>();
         app.register_relation::<DWayHasXWayland>();
+        app.register_relation::<XWindowAttachSurface>();
     }
 }

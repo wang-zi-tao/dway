@@ -550,13 +550,15 @@ impl DWay {
 }
 
 pub struct CreateDisplay;
-pub struct DisplayCreated(pub Entity, pub DisplayHandle);
+pub struct WaylandDisplayCreated(pub Entity, pub DisplayHandle);
+pub struct WaylandDisplayDestroyed(pub Entity, pub DisplayHandle);
 pub struct DWayStatePlugin;
 impl Plugin for DWayStatePlugin {
     fn build(&self, app: &mut App) {
         app.init_non_send_resource::<NonSendMark>();
         app.add_event::<CreateDisplay>();
-        app.add_event::<DisplayCreated>();
+        app.add_event::<WaylandDisplayCreated>();
+        app.add_event::<WaylandDisplayDestroyed>();
         app.add_systems(
             (
                 on_create_display_event.run_if(on_event::<CreateDisplay>()),
@@ -577,7 +579,7 @@ pub fn on_create_display_event(
     _: NonSend<NonSendMark>,
     mut events: EventReader<CreateDisplay>,
     mut commands: Commands,
-    mut event_sender: EventWriter<DisplayCreated>,
+    mut event_sender: EventWriter<WaylandDisplayCreated>,
     mut update_request_eventss: NonSend<UpdateRequestEvents>,
 ) {
     for _event in events.iter() {
@@ -591,7 +593,7 @@ pub fn on_create_display_event(
 
 pub fn create_display(
     commands: &mut Commands,
-    event_sender: &mut EventWriter<DisplayCreated>,
+    event_sender: &mut EventWriter<WaylandDisplayCreated>,
     update_request_eventss: &mut NonSend<UpdateRequestEvents>,
 ) -> Entity {
     let mut entity_command = commands.spawn_empty();
@@ -648,7 +650,7 @@ pub fn create_display(
         DWayDisplay(Arc::new(Mutex::new(display))),
         DWayEventLoop(Arc::new(Mutex::new(SendWrapper::new(event_loop)))),
     ));
-    event_sender.send(DisplayCreated(entity, handle));
+    event_sender.send(WaylandDisplayCreated(entity, handle));
     entity
 }
 
@@ -694,7 +696,7 @@ pub fn flush_display(display_query: Query<&DWayDisplay>) {
 }
 
 pub fn create_global<T, const VERSION: u32>(
-    mut events: EventReader<DisplayCreated>,
+    mut events: EventReader<WaylandDisplayCreated>,
     dway_query: Query<&DWayWrapper>,
 ) where
     DWay: GlobalDispatch<T, Entity>,
@@ -716,7 +718,7 @@ where
 {
     create_global::<T, VERSION>
         .in_set(DWayServerSet::CreateGlobal)
-        .run_if(on_event::<DisplayCreated>())
+        .run_if(on_event::<WaylandDisplayCreated>())
 }
 pub fn client_name(id: &ClientId) -> String {
     let name = format!("{:?}", id)[21..35].to_string();

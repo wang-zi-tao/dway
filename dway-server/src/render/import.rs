@@ -8,8 +8,10 @@ use crate::{
 };
 
 use drm_fourcc::DrmModifier;
+use wayland_backend::server::WeakHandle;
 
 use std::{
+    collections::{HashMap, HashSet},
     ffi::{c_int, c_uint, c_void},
     num::NonZeroU32,
     os::fd::AsRawFd,
@@ -20,9 +22,7 @@ use bevy::{
     prelude::{info, Vec2},
     render::texture::GpuImage,
 };
-use glow::{
-    HasContext, NativeRenderbuffer, NativeTexture,
-};
+use glow::{HasContext, NativeRenderbuffer, NativeTexture};
 pub const LINUX_DMA_BUF_EXT: u32 = 0x3270;
 pub const WAYLAND_PLANE_WL: c_uint = 0x31D6;
 pub const LINUX_DRM_FOURCC_EXT: u32 = 0x3271;
@@ -51,25 +51,100 @@ pub const DMA_BUF_PLANE3_PITCH_EXT: u32 = 0x3442;
 pub const DMA_BUF_PLANE3_MODIFIER_LO_EXT: u32 = 0x3449;
 pub const DMA_BUF_PLANE3_MODIFIER_HI_EXT: u32 = 0x344A;
 
-
-use khronos_egl::{EGLClientBuffer, EGLContext, EGLDisplay, EGLImage, Enum, Int, NONE};
+use khronos_egl::{Boolean, EGLClientBuffer, EGLContext, EGLDisplay, EGLImage, Enum, Int, NONE};
 use wgpu::{FilterMode, SamplerDescriptor, Texture, TextureAspect};
 use wgpu_hal::Api;
 use wgpu_hal::{api::Gles, MemoryFlags, TextureUses};
 
-pub type TextureId = (NativeTexture, u32);
+use super::importnode::DWayDisplayHandles;
 
-pub unsafe fn import_dma(
-    _buffer: &WlBuffer,
-    dma_buffer: &DmaBuffer,
-    egl_create_image_khr: extern "system" fn(
+pub struct EglState {
+    pub egl_create_image_khr: unsafe extern "system" fn(
         EGLDisplay,
         EGLContext,
         Enum,
         EGLClientBuffer,
         *const Int,
     ) -> EGLImage,
+    pub gl_eglimage_target_texture2_does:
+        unsafe extern "system" fn(target: Enum, image: *const c_void),
+    pub egl_bind_wayland_display_wl: unsafe extern "system" fn(EGLDisplay, *mut c_void) -> Boolean,
+    pub egl_unbind_wayland_display_wl:
+        unsafe extern "system" fn(EGLDisplay, *mut c_void) -> Boolean,
+    pub extensions: HashSet<String>,
+    pub wayland_map: HashMap<Entity, WeakHandle>,
+}
+impl EglState {
+    pub fn bind_wayland(
+        &mut self,
+        wayland_map: &HashMap<Entity, DisplayHandle>,
+        egl_display: khronos_egl::Display,
+    ) {
+        for (entity, handle) in wayland_map {
+            if !self.wayland_map.contains_key(entity) {
+                let ptr = handle.backend_handle().display_ptr();
+                unsafe { (self.egl_bind_wayland_display_wl)(egl_display.as_ptr(), ptr as *mut _) };
+                self.wayland_map
+                    .insert(*entity, handle.backend_handle().downgrade());
+            }
+        }
+        self.wayland_map.retain(|entity,handle|{
+            if !wayland_map.contains_key(entity) {
+                if let Some(handle) = handle.upgrade() {
+                    let ptr = handle.display_ptr();
+                    unsafe {
+                        (self.egl_bind_wayland_display_wl)(egl_display.as_ptr(), ptr as *mut _)
+                    };
+                }
+                false
+            }else{
+                true
+            }
+        });
+    }
+    pub fn new(
+        gl: &glow::Context,
+        egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4>,
+    ) -> Result<Self> {
+        let extensions = gl.supported_extensions().clone();
+        unsafe {
+            let egl_create_image_khr = std::mem::transmute(
+                egl.get_proc_address("eglCreateImageKHR")
+                    .ok_or_else(|| anyhow!("failed to get function eglCreateImageKHR"))?,
+            );
+            let gl_eglimage_target_texture2_does = std::mem::transmute(
+                egl.get_proc_address("glEGLImageTargetTexture2DOES")
+                    .ok_or_else(|| {
+                        anyhow!("failed to get function glEGLImageTargetTexture2DOES")
+                    })?,
+            );
+            let egl_bind_wayland_display_wl = std::mem::transmute(
+                egl.get_proc_address("eglBindWaylandDisplayWL")
+                    .ok_or_else(|| anyhow!("failed to get function eglBindWaylandDisplayWL"))?,
+            );
+            let egl_unbind_wayland_display_wl = std::mem::transmute(
+                egl.get_proc_address("eglUnbindWaylandDisplayWL")
+                    .ok_or_else(|| anyhow!("failed to get function eglBindWaylandDisplayWL"))?,
+            );
+            Ok(Self {
+                egl_create_image_khr,
+                gl_eglimage_target_texture2_does,
+                egl_bind_wayland_display_wl,
+                egl_unbind_wayland_display_wl,
+                extensions,
+                wayland_map: Default::default(),
+            })
+        }
+    }
+}
+
+pub type TextureId = (NativeTexture, u32);
+
+pub unsafe fn import_dma(
+    _buffer: &WlBuffer,
+    dma_buffer: &DmaBuffer,
     display: EGLDisplay,
+    egl_state: &mut EglState,
 ) -> Result<(EGLImage, IVec2)> {
     let mut out: Vec<c_int> = Vec::with_capacity(50);
 
@@ -138,7 +213,7 @@ pub unsafe fn import_dma(
 
     out.push(NONE);
 
-    let image = egl_create_image_khr(
+    let image = (egl_state.egl_create_image_khr)(
         display,
         khronos_egl::NO_CONTEXT,
         LINUX_DMA_BUF_EXT,
@@ -160,13 +235,13 @@ pub unsafe fn image_target_renderbuffer_storage_oes(
     Ok(())
 }
 pub unsafe fn image_target_texture_oes(
-    fn_bind_image: extern "system" fn(target: Enum, image: *const c_void),
     gl: &glow::Context,
     raw_image: EGLImage,
+    egl_state: &mut EglState,
 ) -> Result<NativeTexture> {
     let texture = gl.create_texture().map_err(|e| anyhow!("{e}"))?;
     gl.bind_texture(glow::TEXTURE_2D, Some(texture));
-    fn_bind_image(glow::TEXTURE_2D, raw_image);
+    (egl_state.gl_eglimage_target_texture2_does)(glow::TEXTURE_2D, raw_image);
     gl.bind_texture(glow::TEXTURE_2D, None);
     Ok(texture)
 }
@@ -278,13 +353,7 @@ pub unsafe fn import_egl(
     _egl_buffer: &EGLBuffer,
     egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4>,
     display: khronos_egl::Display,
-    egl_create_image_khr: extern "system" fn(
-        EGLDisplay,
-        EGLContext,
-        Enum,
-        EGLClientBuffer,
-        *const Int,
-    ) -> EGLImage,
+    egl_state: &mut EglState,
 ) -> Result<(EGLImage, IVec2)> {
     let egl_surface: khronos_egl::Surface =
         khronos_egl::Surface::from_ptr(buffer.raw.id().as_ptr() as _);
@@ -303,7 +372,7 @@ pub unsafe fn import_egl(
     // let inverted = egl.query_surface(*display, egl_surface, 0x31DB)?;
 
     let out = [WAYLAND_PLANE_WL as i32, 0_i32, khronos_egl::NONE];
-    let image = egl_create_image_khr(
+    let image = (egl_state.egl_create_image_khr)(
         display.as_ptr(),
         khronos_egl::NO_CONTEXT,
         LINUX_DMA_BUF_EXT,
@@ -337,7 +406,7 @@ pub unsafe fn create_gpu_image(
 ) -> Result<GpuImage> {
     let texture_format = wgpu::TextureFormat::Rgba8Unorm;
     let hal_texture: <Gles as Api>::Texture = device.as_hal::<Gles, _, _>(|hal_device| {
-        Result::<_,anyhow::Error>::Ok(
+        Result::<_, anyhow::Error>::Ok(
             hal_device
                 .ok_or_else(|| anyhow!("failed to get hal device"))?
                 .texture_from_raw(
@@ -391,21 +460,20 @@ pub unsafe fn create_gpu_image(
         base_array_layer: 0,
         array_layer_count: None,
     });
-    let sampler: wgpu::Sampler = device
-        .create_sampler(&SamplerDescriptor {
-            label: None,
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Nearest,
-            mipmap_filter: FilterMode::Nearest,
-            compare: None,
-            anisotropy_clamp: None,
-            border_color: None,
-            address_mode_u: Default::default(),
-            address_mode_v: Default::default(),
-            address_mode_w: Default::default(),
-            lod_min_clamp: Default::default(),
-            lod_max_clamp: Default::default(),
-        });
+    let sampler: wgpu::Sampler = device.create_sampler(&SamplerDescriptor {
+        label: None,
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Nearest,
+        mipmap_filter: FilterMode::Nearest,
+        compare: None,
+        anisotropy_clamp: None,
+        border_color: None,
+        address_mode_u: Default::default(),
+        address_mode_v: Default::default(),
+        address_mode_w: Default::default(),
+        lod_min_clamp: Default::default(),
+        lod_max_clamp: Default::default(),
+    });
     let image = GpuImage {
         texture: texture.into(),
         texture_view: texture_view.into(),
@@ -421,6 +489,20 @@ pub enum BufferType {
     Egl,
     Dma,
 }
+pub fn bind_wayland(display_handles:&DWayDisplayHandles,state:&mut EglState,device: &wgpu::Device)->Result<()>{
+    unsafe{
+        let display: khronos_egl::Display = device.as_hal::<Gles, _, _>(|hal_device| {
+            hal_device
+                .ok_or_else(|| anyhow!("gpu backend is not egl"))?
+                .context()
+                .raw_display()
+                .cloned()
+                .ok_or_else(|| anyhow!("no opengl display available"))
+        })?;
+        state.bind_wayland(&display_handles.map, display);
+    }
+    Ok(())
+}
 
 pub fn import_wl_surface(
     surface: &WlSurface,
@@ -429,6 +511,7 @@ pub fn import_wl_surface(
     egl_buffer: Option<&EGLBuffer>,
     texture: &Texture,
     device: &wgpu::Device,
+    egl_state: &mut Option<EglState>,
 ) -> Result<()> {
     unsafe {
         let display: khronos_egl::Display = device.as_hal::<Gles, _, _>(|hal_device| {
@@ -464,40 +547,16 @@ pub fn import_wl_surface(
                     gl.disable(glow::DEBUG_OUTPUT);
                     anyhow!("render adapter is not egl")
                 })?;
-            let egl_create_image_khr: extern "system" fn(
-                EGLDisplay,
-                EGLContext,
-                Enum,
-                EGLClientBuffer,
-                *const Int,
-            ) -> EGLImage = std::mem::transmute(
-                egl.get_proc_address("eglCreateImageKHR").ok_or_else(|| {
-                    gl.disable(glow::DEBUG_OUTPUT);
-                    anyhow!("failed to get function eglCreateImageKHR")
-                })?,
-            );
-            let gl_eglimage_target_texture2_does: extern "system" fn(
-                target: Enum,
-                image: *const c_void,
-            ) = std::mem::transmute(
-                egl.get_proc_address("glEGLImageTargetTexture2DOES")
-                    .ok_or_else(|| {
-                        gl.disable(glow::DEBUG_OUTPUT);
-                        anyhow!("failed to get function glEGLImageTargetTexture2DOES")
-                    })?,
-            );
+            let egl_state = egl_state.get_or_insert_with(|| EglState::new(gl, egl).unwrap());
             if let Some(egl_buffer) = egl_buffer {
-                let (raw_image, _size) =
-                    import_egl(buffer, egl_buffer, egl, display, egl_create_image_khr)?;
-                let _texture =
-                    image_target_texture_oes(gl_eglimage_target_texture2_does, gl, raw_image)?;
+                let (raw_image, _size) = import_egl(buffer, egl_buffer, egl, display, egl_state)?;
+                let _texture = image_target_texture_oes(gl, raw_image, egl_state)?;
             } else if let Some(dma_buffer) = dma_buffer {
                 let (raw_image, _size) =
-                    import_dma(buffer, dma_buffer, egl_create_image_khr, display.as_ptr())?;
-                let _texture =
-                    image_target_texture_oes(gl_eglimage_target_texture2_does, gl, raw_image)?;
+                    import_dma(buffer, dma_buffer, display.as_ptr(), egl_state)?;
+                let _texture = image_target_texture_oes(gl, raw_image, egl_state)?;
             } else {
-                import_memory(surface, buffer,  gl, texture_id)?;
+                import_memory(surface, buffer, gl, texture_id)?;
             }
             gl.disable(glow::DEBUG_OUTPUT);
             Ok(())

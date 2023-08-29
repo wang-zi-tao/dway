@@ -19,7 +19,8 @@ use crate::{
 };
 
 use super::{
-    atoms::Atoms, screen::XScreen, XDisplayHasWindow, XDisplayRef, XWaylandDisplay, XWaylandDisplayWrapper,
+    atoms::Atoms, screen::XScreen, XDisplayHasWindow, XDisplayRef, XWaylandDisplay,
+    XWaylandDisplayWrapper,
 };
 use bevy_relationship::ConnectCommand;
 
@@ -54,6 +55,7 @@ pub struct XWindow {
     pub surface_id: Option<u32>,
     pub boarder_width: u32,
 }
+relationship!(XWindowAttachSurface=>XWindowSurfaceRef--XWindowRef);
 
 impl XWindow {
     pub fn new(
@@ -180,7 +182,9 @@ impl XWindow {
     }
 
     fn update_motif_hints(&mut self) -> Result<(), ConnectionError> {
-        let Some(hints) = (match self.connection.0
+        let Some(hints) = (match self
+            .connection
+            .0
             .get_property(
                 false,
                 self.window,
@@ -335,11 +339,9 @@ pub fn x11_window_attach_wl_surface(
             Entity,
             &XWindow,
             &XDisplayRef,
-            &Name,
             &Geometry,
             &GlobalGeometry,
-            &Parent,
-            Option<&Children>,
+            Option<&XWindowSurfaceRef>,
         ),
         (
             Without<WlSurface>,
@@ -348,24 +350,18 @@ pub fn x11_window_attach_wl_surface(
             Without<XWaylandDisplayWrapper>,
         ),
     >,
-    xdisplay_query: Query<(&XWaylandDisplayWrapper, &Client, &Parent)>,
+    xdisplay_query: Query<(&Client, &Parent)>,
     wl_query: Query<&DWayWrapper>,
     mut event_writter: EventWriter<Insert<DWayWindow>>,
     mut commands: Commands,
 ) {
     xwindow_query.for_each(
-        |(
-            xwindow_entity,
-            xwindow,
-            display_ref,
-            name,
-            geometry,
-            global_geometry,
-            parent,
-            children,
-        )| {
+        |(xwindow_entity, xwindow, display_ref, geometry, global_geometry, attached)| {
+            if attached.map(|r| r.get().is_some()).unwrap_or_default() {
+                return;
+            }
             if let Some(wid) = xwindow.surface_id {
-                let Some((xdisplay, client, wl_entity)) =
+                let Some((client, wl_entity)) =
                     display_ref.get().and_then(|e| xdisplay_query.get(e).ok())
                 else {
                     return;
@@ -382,34 +378,19 @@ pub fn x11_window_attach_wl_surface(
                     return;
                 };
                 let wl_surface_entity = DWay::get_entity(&wl_surface);
-                commands.entity(xwindow_entity).despawn();
-                let mut surface_entity = commands.entity(wl_surface_entity);
-                surface_entity
-                    .insert((
-                        xwindow.clone(),
-                        name.clone(),
-                        geometry.clone(),
-                        global_geometry.clone(),
-                        MappedXWindow,
-                        DWayWindow::default(),
-                    ))
-                    .set_parent(parent.get());
-                children.map(|c| {
-                    for child_entity in c.iter() {
-                        surface_entity.add_child(child_entity);
-                    }
-                });
-                if let Some(display_entity) = display_ref.get() { commands.add(ConnectCommand::<XDisplayHasWindow>::new(
-                        display_entity,
-                        wl_surface_entity,
-                    )) }
-                let mut xdisplay = xdisplay.lock().unwrap();
+                commands.add(ConnectCommand::<XWindowAttachSurface>::new(
+                    xwindow_entity,
+                    wl_surface_entity,
+                ));
+                commands.entity(wl_surface_entity).insert((
+                    geometry.clone(),
+                    global_geometry.clone(),
+                    DWayWindow::default(),
+                ));
                 event_writter.send(Insert::new(wl_surface_entity));
-                xdisplay
-                    .windows_entitys
-                    .insert(xwindow.window, wl_surface_entity);
+                commands.entity(xwindow_entity).insert(MappedXWindow);
                 debug!(
-                    "migrate xwindow from {:?} to {:?}",
+                    "xwindow {:?} attach wl_surface {:?}",
                     xwindow_entity, wl_surface_entity
                 );
             }

@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use bevy_tokio_tasks::TokioTasksRuntime;
 use dway_winit::UpdateRequestEvents;
 use schedule::DWayServerSet;
-use state::{create_display, DWayWrapper, DisplayCreated, NonSendMark};
+use state::{create_display, DWayWrapper, WaylandDisplayCreated, NonSendMark};
 use x11::DWayXWaylandReady;
 pub mod client;
 pub mod dispatch;
@@ -63,7 +63,7 @@ impl Plugin for DWayServerPlugin {
 pub fn init_display(
     _: NonSend<NonSendMark>,
     mut commands: Commands,
-    mut event_sender: EventWriter<DisplayCreated>,
+    mut event_sender: EventWriter<WaylandDisplayCreated>,
     mut update_request_eventss: NonSend<UpdateRequestEvents>,
 ) {
     let entity = create_display(
