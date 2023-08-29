@@ -9,14 +9,13 @@ use bevy::{
 };
 use bitflags::bitflags;
 
-
-
 use crate::{
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
     schedule::DWayServerSet,
     util::rect::IRect,
     wl::surface::WlSurface,
+    x11::window::{XWindow, XWindowRef},
     xdg::{popup::XdgPopup, toplevel::XdgToplevel},
 };
 
@@ -98,7 +97,9 @@ pub fn on_grab_event(
         &GlobalGeometry,
         Option<&XdgPopup>,
         Option<&XdgToplevel>,
+        Option<&XWindowRef>,
     )>,
+    mut xwindow_query: Query<&mut XWindow>,
     mut pointer_query: Query<&mut WlPointer>,
     mut keyboard_query: Query<&mut WlKeyboard>,
     mut event: EventReader<GrabEvent>,
@@ -139,12 +140,7 @@ pub fn on_grab_event(
                                 - surface.image_rect().pos();
                             for e in pointer_list.iter() {
                                 if let Ok(mut pointer) = pointer_query.get_mut(e) {
-                                    pointer.button(
-                                        &mut seat,
-                                        event,
-                                        surface,
-                                        relative.as_dvec2(),
-                                    );
+                                    pointer.button(&mut seat, event, surface, relative.as_dvec2());
                                 }
                             }
                             match (event.state, *pressed) {
@@ -209,12 +205,7 @@ pub fn on_grab_event(
                                 - surface.image_rect().pos();
                             for e in pointer_list.iter() {
                                 if let Ok(mut pointer) = pointer_query.get_mut(e) {
-                                    pointer.button(
-                                        &mut seat,
-                                        event,
-                                        surface,
-                                        relative.as_dvec2(),
-                                    );
+                                    pointer.button(&mut seat, event, surface, relative.as_dvec2());
                                 }
                             }
                             match event.state {
@@ -257,7 +248,7 @@ pub fn on_grab_event(
                     serial: _,
                     relative,
                 } => {
-                    let Ok((_surface, mut geo, _global_geo, _, Some(_toplevel))) =
+                    let Ok((_surface, mut geo, _global_geo, _, toplevel, xwindow_ref)) =
                         surface_query.get_mut(*surface)
                     else {
                         return;
@@ -266,6 +257,12 @@ pub fn on_grab_event(
                         GrabEventKind::PointerMove(_pos) => {
                             let pos = seat.pointer_position.unwrap_or_default();
                             geo.set_pos(*relative + pos);
+                            if let Some(mut xwindow) = xwindow_ref
+                                .and_then(|r| r.get())
+                                .and_then(|e| xwindow_query.get_mut(e).ok())
+                            {
+                                xwindow.set_rect(geo.geometry);
+                            }
                         }
                         GrabEventKind::PointerAxis(_, _) | GrabEventKind::Keyboard(_) => {
                             *grab = Grab::None;
@@ -288,7 +285,7 @@ pub fn on_grab_event(
                     relative,
                     origin_rect,
                 } => {
-                    let Ok((_surface, mut geo, _global_geo, _, Some(toplevel))) =
+                    let Ok((_surface, mut geo, _global_geo, _, toplevel, xwindow_ref)) =
                         surface_query.get_mut(*surface)
                     else {
                         return;
@@ -310,7 +307,13 @@ pub fn on_grab_event(
                             if edges.contains(ResizeEdges::BUTTOM) {
                                 geo.max.y = buttom_right.y;
                             }
-                            toplevel.resize(geo.size());
+                            toplevel.map(|t| t.resize(geo.size()));
+                            if let Some(mut xwindow) = xwindow_ref
+                                .and_then(|r| r.get())
+                                .and_then(|e| xwindow_query.get_mut(e).ok())
+                            {
+                                xwindow.resize(geo.geometry);
+                            }
                         }
                         GrabEventKind::PointerAxis(_, _)
                         | GrabEventKind::Keyboard(_)

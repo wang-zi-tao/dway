@@ -90,18 +90,18 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 state.with_component(resource, |c: &mut XdgToplevel| c.title = Some(title));
             }
             xdg_toplevel::Request::SetAppId { app_id } => {
-                state.with_component(resource, |c: &mut XdgToplevel| {
-                    c.app_id = Some(app_id)
-                });
+                state.with_component(resource, |c: &mut XdgToplevel| c.app_id = Some(app_id));
             }
-            xdg_toplevel::Request::ShowWindowMenu { seat: _, serial: _, x: _, y: _ } => {
+            xdg_toplevel::Request::ShowWindowMenu {
+                seat: _,
+                serial: _,
+                x: _,
+                y: _,
+            } => {
                 warn!("TODO: xdg_toplevel::Request::ShowWindowMenu");
             }
             xdg_toplevel::Request::Move { seat, serial } => {
-                let (_surface, rect) = state
-                    .query::<(&WlSurface, &Geometry), _, _>(*data, |(s, r)| {
-                        (s.raw.clone(), r.geometry)
-                    });
+                let rect = state.query::<&Geometry, _, _>(*data, |r| r.geometry);
                 let pos = rect.pos();
                 state.query::<(&mut Grab, &mut WlSeat), _, _>(
                     DWay::get_entity(&seat),

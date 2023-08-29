@@ -15,13 +15,17 @@ use x11rb::{
 use crate::{
     client::Client,
     geometry::{Geometry, GlobalGeometry},
+    input::{grab::Grab, seat::WlSeat},
     prelude::*,
     state::DWayWrapper,
     util::rect::IRect,
     x11::{
         screen::{XScreen, XScreenBundle},
         util::geo_to_irect,
-        window::{MappedXWindow, XWindow, XWindowAttachSurface, XWindowBundle, XWindowSurfaceRef},
+        window::{
+            MappedXWindow, XWindow, XWindowAttachSurface, XWindowBundle, XWindowRef,
+            XWindowSurfaceRef,
+        },
         DWayXWaylandStoped, XDisplayHasWindow, XWaylandBundle,
     },
     xdg::DWayWindow,
@@ -101,7 +105,29 @@ pub fn process_x11_event(
                 }
                 t if t == atoms._NET_WM_MOVERESIZE => {
                     debug!("message type: _NET_WM_MOVERESIZE");
-                    // TODO
+                    let xwindow_entity = x.find_window(e.window)?;
+                    let surface_entity = dway
+                        .get_mut::<XWindowSurfaceRef>(xwindow_entity)
+                        .and_then(|r| r.get());
+                    if let Some(surface_entity) = surface_entity {
+                        let Some(rect) = dway.get::<Geometry>(surface_entity).map(|r| r.geometry)
+                        else {
+                            bail!("surface has no geometry component");
+                        };
+                        let pos = rect.pos();
+                        dway.query::<(&mut Grab, &mut WlSeat), _, _>(
+                            display_entity,
+                            |(mut grab, mut seat)| {
+                                *grab = Grab::Moving {
+                                    surface: surface_entity,
+                                    serial: 0,
+                                    relative: pos - seat.pointer_position.unwrap_or_default(),
+                                };
+                                dbg!(pos - seat.pointer_position.unwrap_or_default());
+                                seat.disable();
+                            },
+                        );
+                    }
                 }
                 t => {
                     debug!(
@@ -122,10 +148,21 @@ pub fn process_x11_event(
         x11rb::protocol::Event::ConfigureNotify(r) => {
             // TODO map onto
             if let Ok(e) = x.find_window(r.window) {
-                dway.query::<(&XWindow, &mut Geometry), _, _>(e, |(_xwindow, mut geometry)| {
-                    geometry.set_x(r.x as i32);
-                    geometry.set_y(r.y as i32);
-                });
+                let surface_ref = dway
+                    .query::<(&XWindow, &mut Geometry, Option<&XWindowSurfaceRef>), _, _>(
+                        e,
+                        |(_xwindow, mut geometry, surface_ref)| {
+                            geometry.set_x(r.x as i32);
+                            geometry.set_y(r.y as i32);
+                            surface_ref.and_then(|r| r.get())
+                        },
+                    );
+                if let Some(surface_ref) = surface_ref {
+                    if let Some(mut geometry) = dway.entity_mut(surface_ref).get_mut::<Geometry>() {
+                        geometry.set_x(r.x as i32);
+                        geometry.set_y(r.y as i32);
+                    }
+                }
                 debug!(entity=?e,xwindow=%r.window,"configure window");
             }
         }

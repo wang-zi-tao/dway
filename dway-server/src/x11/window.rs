@@ -5,7 +5,7 @@ use encoding::{types::DecoderTrap, Encoding};
 
 use x11rb::{
     properties::{WmClass, WmHints, WmSizeHints},
-    protocol::xproto::{Atom, AtomEnum, ConnectionExt},
+    protocol::xproto::{Atom, AtomEnum, ConfigureWindowAux, ConnectionExt},
     rust_connection::{ConnectionError, RustConnection},
 };
 
@@ -14,6 +14,7 @@ use crate::{
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
     state::DWayWrapper,
+    util::rect::IRect,
     wl::surface::WlSurface,
     xdg::DWayWindow,
 };
@@ -330,6 +331,18 @@ impl XWindow {
             .unwrap_or_default();
         debug!(window=%self.window,"set window type to {:?}", self.window_type);
         Ok(())
+    }
+    pub fn resize(&mut self, rect: IRect) {
+        self.set_rect(rect)
+    }
+    pub fn set_rect(&mut self, rect: IRect) {
+        let conn = self.xwayland_connection();
+        let aux = ConfigureWindowAux::default()
+            .x(rect.x())
+            .y(rect.y())
+            .width(Some(rect.width() as u32))
+            .height(Some(rect.height() as u32));
+        let _ = conn.configure_window(self.window, &aux);
     }
 }
 
