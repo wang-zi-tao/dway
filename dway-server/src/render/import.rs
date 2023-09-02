@@ -2,12 +2,14 @@ use crate::{
     prelude::*,
     util::rect::IRect,
     wl::{
-        buffer::{DmaBuffer, EGLBuffer, WlBuffer},
+        buffer::{EGLBuffer, UninitedWlBuffer, WlMemoryBuffer},
         surface::WlSurface,
     },
+    zwp::dmabufparam::DmaBuffer,
 };
 
 use drm_fourcc::DrmModifier;
+use thiserror::Error;
 use wayland_backend::server::WeakHandle;
 
 use std::{
@@ -51,12 +53,43 @@ pub const DMA_BUF_PLANE3_PITCH_EXT: u32 = 0x3442;
 pub const DMA_BUF_PLANE3_MODIFIER_LO_EXT: u32 = 0x3449;
 pub const DMA_BUF_PLANE3_MODIFIER_HI_EXT: u32 = 0x344A;
 
+pub const EGL_NO_IMAGE_KHR: *mut c_void = null_mut();
+
 use khronos_egl::{Boolean, EGLClientBuffer, EGLContext, EGLDisplay, EGLImage, Enum, Int, NONE};
 use wgpu::{FilterMode, SamplerDescriptor, Texture, TextureAspect};
 use wgpu_hal::Api;
 use wgpu_hal::{api::Gles, MemoryFlags, TextureUses};
 
 use super::importnode::DWayDisplayHandles;
+
+#[derive(Error, Debug)]
+pub enum ImportSurfaceError {
+    #[error("gl function `{0}` not exists")]
+    FunctionNotExists(String),
+    #[error("no opengl display available")]
+    DisplayNotAvailable,
+    #[error("failed to get hal device")]
+    FailedToGetHal,
+    #[error("failed to import dma buffer")]
+    FailedToImportDmaBuffer,
+    #[error("failed to import egl buffer")]
+    FailedToImportEglBuffer,
+    #[error("gpu backend is not egl")]
+    BackendIsNotEGL,
+    #[error("failed to create dma image")]
+    FailedToCreateDmaImage,
+    #[error("failed to create texture: {0}")]
+    FailedToCreateSurface(String),
+    #[error("failed to create render buffer: {0}")]
+    FailedToCreateRenderBuffer(String),
+    #[error("unsupported format: {0:?}")]
+    UnsupportedFormat(wl_shm::Format),
+    #[error("egl error: {0:?}")]
+    EglError(#[from] khronos_egl::Error),
+    #[error("{0}")]
+    Unknown(#[from] anyhow::Error),
+}
+use ImportSurfaceError::*;
 
 pub struct EglState {
     pub egl_create_image_khr: unsafe extern "system" fn(
@@ -88,7 +121,7 @@ impl EglState {
                     .insert(*entity, handle.backend_handle().downgrade());
             }
         }
-        self.wayland_map.retain(|entity,handle|{
+        self.wayland_map.retain(|entity, handle| {
             if !wayland_map.contains_key(entity) {
                 if let Some(handle) = handle.upgrade() {
                     let ptr = handle.display_ptr();
@@ -97,7 +130,7 @@ impl EglState {
                     };
                 }
                 false
-            }else{
+            } else {
                 true
             }
         });
@@ -110,21 +143,19 @@ impl EglState {
         unsafe {
             let egl_create_image_khr = std::mem::transmute(
                 egl.get_proc_address("eglCreateImageKHR")
-                    .ok_or_else(|| anyhow!("failed to get function eglCreateImageKHR"))?,
+                    .ok_or_else(|| FunctionNotExists("eglCreateImageKHR".into()))?,
             );
             let gl_eglimage_target_texture2_does = std::mem::transmute(
                 egl.get_proc_address("glEGLImageTargetTexture2DOES")
-                    .ok_or_else(|| {
-                        anyhow!("failed to get function glEGLImageTargetTexture2DOES")
-                    })?,
+                    .ok_or_else(|| FunctionNotExists("glEGLImageTargetTexture2DOES".into()))?,
             );
             let egl_bind_wayland_display_wl = std::mem::transmute(
                 egl.get_proc_address("eglBindWaylandDisplayWL")
-                    .ok_or_else(|| anyhow!("failed to get function eglBindWaylandDisplayWL"))?,
+                    .ok_or_else(|| FunctionNotExists("eglBindWaylandDisplayWL".into()))?,
             );
             let egl_unbind_wayland_display_wl = std::mem::transmute(
                 egl.get_proc_address("eglUnbindWaylandDisplayWL")
-                    .ok_or_else(|| anyhow!("failed to get function eglBindWaylandDisplayWL"))?,
+                    .ok_or_else(|| FunctionNotExists("eglUnbindWaylandDisplayWL".into()))?,
             );
             Ok(Self {
                 egl_create_image_khr,
@@ -141,12 +172,13 @@ impl EglState {
 pub type TextureId = (NativeTexture, u32);
 
 pub unsafe fn import_dma(
-    _buffer: &WlBuffer,
+    _buffer: &WlMemoryBuffer,
     dma_buffer: &DmaBuffer,
     display: EGLDisplay,
     egl_state: &mut EglState,
 ) -> Result<(EGLImage, IVec2)> {
     let mut out: Vec<c_int> = Vec::with_capacity(50);
+    let planes = dma_buffer.planes.lock().unwrap();
 
     out.extend([
         khronos_egl::WIDTH,
@@ -187,7 +219,7 @@ pub unsafe fn import_dma(
             DMA_BUF_PLANE3_MODIFIER_HI_EXT,
         ],
     ];
-    for (i, plane) in dma_buffer.planes.iter().enumerate() {
+    for (i, plane) in planes.list.iter().enumerate() {
         let fd = &plane.fd;
         let offset = plane.offset;
         let stride = plane.stride;
@@ -199,14 +231,14 @@ pub unsafe fn import_dma(
             names[i][2] as i32,
             stride as i32,
         ]);
-        if dma_buffer.planes[0].modifier != DrmModifier::Invalid
-            && dma_buffer.planes[0].modifier != DrmModifier::Linear
+        if planes.list[0].modifier() != DrmModifier::Invalid
+            && planes.list[0].modifier() != DrmModifier::Linear
         {
             out.extend([
                 names[i][3] as i32,
-                (Into::<u64>::into(dma_buffer.planes[0].modifier) & 0xFFFFFFFF) as i32,
+                planes.list[0].modifier_lo as i32,
                 names[i][4] as i32,
-                (Into::<u64>::into(dma_buffer.planes[0].modifier) >> 32) as i32,
+                planes.list[0].modifier_hi as i32,
             ])
         }
     }
@@ -222,7 +254,7 @@ pub unsafe fn import_dma(
     );
 
     if image == null_mut() {
-        Err(anyhow!("failed to create dma image"))
+        Err(FailedToCreateDmaImage.into())
     } else {
         Ok((image, dma_buffer.size))
     }
@@ -239,7 +271,7 @@ pub unsafe fn image_target_texture_oes(
     raw_image: EGLImage,
     egl_state: &mut EglState,
 ) -> Result<NativeTexture> {
-    let texture = gl.create_texture().map_err(|e| anyhow!("{e}"))?;
+    let texture = gl.create_texture().map_err(FailedToCreateSurface)?;
     gl.bind_texture(glow::TEXTURE_2D, Some(texture));
     (egl_state.gl_eglimage_target_texture2_does)(glow::TEXTURE_2D, raw_image);
     gl.bind_texture(glow::TEXTURE_2D, None);
@@ -248,7 +280,7 @@ pub unsafe fn image_target_texture_oes(
 
 pub unsafe fn import_memory(
     surface: &WlSurface,
-    buffer: &WlBuffer,
+    buffer: &WlMemoryBuffer,
     gl: &glow::Context,
     dest: TextureId,
 ) -> Result<()> {
@@ -303,7 +335,7 @@ pub unsafe fn import_memory(
         wl_shm::Format::Xbgr8888 => (glow::RGBA, 1),
         wl_shm::Format::Argb8888 => (glow::BGRA, 0),
         wl_shm::Format::Xrgb8888 => (glow::BGRA, 1),
-        format => return Err(anyhow!("unsupported format: {:?}", format)),
+        format => return Err(UnsupportedFormat(format).into()),
     };
     if surface.commited.damages.is_empty() {
         trace!(surface=%WlResource::id(&surface.raw),"import {:?}", IRect::new(0, 0, width, height));
@@ -349,26 +381,33 @@ pub unsafe fn import_memory(
 }
 
 pub unsafe fn import_egl(
-    buffer: &WlBuffer,
-    _egl_buffer: &EGLBuffer,
+    buffer: &WlMemoryBuffer,
     egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4>,
+    gl: &glow::Context,
     display: khronos_egl::Display,
     egl_state: &mut EglState,
-) -> Result<(EGLImage, IVec2)> {
+    dest: TextureId,
+) -> Result<(), ImportSurfaceError> {
+    let buffer_guard = buffer.raw.lock().unwrap();
     let egl_surface: khronos_egl::Surface =
-        khronos_egl::Surface::from_ptr(buffer.raw.id().as_ptr() as _);
+        khronos_egl::Surface::from_ptr(buffer_guard.id().as_ptr() as _);
 
-    let width = egl.query_surface(display, egl_surface, khronos_egl::WIDTH)?;
-    let height = egl.query_surface(display, egl_surface, khronos_egl::HEIGHT)?;
-    let format = egl.query_surface(display, egl_surface, khronos_egl::TEXTURE_FORMAT)?;
-    let _image_count = match format {
-        khronos_egl::TEXTURE_RGB => 1,
-        khronos_egl::TEXTURE_RGBA => 1,
-        // Format::RGB | Format::RGBA | Format::External => 1,
-        // Format::Y_UV | Format::Y_XUXV => 2,
-        // Format::Y_U_V => 3,
-        _ => panic!(),
-    };
+    let width = egl
+        .query_surface(display, egl_surface, khronos_egl::WIDTH)
+        .map_err(|e| FailedToImportEglBuffer)?;
+    let height = egl
+        .query_surface(display, egl_surface, khronos_egl::HEIGHT)
+        .map_err(|e| FailedToImportEglBuffer)?;
+    // let format = egl.query_surface(display, egl_surface, khronos_egl::TEXTURE_FORMAT).map_err(|e|FailedToImportEglBuffer)?;
+    // dbg!(width,height,format);
+    // let _image_count = match format {
+    //     khronos_egl::TEXTURE_RGB => 1,
+    //     khronos_egl::TEXTURE_RGBA => 1,
+    //     // Format::RGB | Format::RGBA | Format::External => 1,
+    //     // Format::Y_UV | Format::Y_XUXV => 2,
+    //     // Format::Y_U_V => 3,
+    //     _ => panic!(),
+    // };
     // let inverted = egl.query_surface(*display, egl_surface, 0x31DB)?;
 
     let out = [WAYLAND_PLANE_WL as i32, 0_i32, khronos_egl::NONE];
@@ -379,8 +418,13 @@ pub unsafe fn import_egl(
         std::ptr::null_mut(),
         out.as_ptr(),
     );
-
-    Ok((image, IVec2::new(width, height)))
+    if image == EGL_NO_IMAGE_KHR {
+        return Err(FailedToImportEglBuffer);
+    }
+    dbg!(image);
+    gl.bind_texture(dest.1, Some(dest.0));
+    (egl_state.gl_eglimage_target_texture2_does)(glow::TEXTURE_2D, image);
+    Ok(())
 }
 
 pub unsafe fn import_buffer(
@@ -393,7 +437,7 @@ pub unsafe fn import_buffer(
 ) -> Result<NativeRenderbuffer> {
     let render_buffer = gl
         .create_renderbuffer()
-        .map_err(|e| anyhow!("failed to create render buffer :{e}"))?;
+        .map_err(FailedToCreateRenderBuffer)?;
     gl.bind_renderbuffer(glow::RENDERBUFFER, Some(render_buffer));
     gl_eglimage_target_renderbuffer_storage_oes(glow::RENDERBUFFER, egl_image);
     Ok(render_buffer)
@@ -406,29 +450,25 @@ pub unsafe fn create_gpu_image(
 ) -> Result<GpuImage> {
     let texture_format = wgpu::TextureFormat::Rgba8Unorm;
     let hal_texture: <Gles as Api>::Texture = device.as_hal::<Gles, _, _>(|hal_device| {
-        Result::<_, anyhow::Error>::Ok(
-            hal_device
-                .ok_or_else(|| anyhow!("failed to get hal device"))?
-                .texture_from_raw(
-                    raw_image,
-                    &wgpu_hal::TextureDescriptor {
-                        label: None,
-                        size: wgpu::Extent3d {
-                            width: size.x as u32,
-                            height: size.y as u32,
-                            depth_or_array_layers: 1,
-                        },
-                        mip_level_count: 1,
-                        sample_count: 1,
-                        dimension: wgpu::TextureDimension::D2,
-                        format: texture_format,
-                        memory_flags: MemoryFlags::empty(),
-                        usage: TextureUses::COPY_DST,
-                        view_formats: vec![texture_format],
-                    },
-                    None,
-                ),
-        )
+        Result::<_, anyhow::Error>::Ok(hal_device.ok_or_else(|| FailedToGetHal)?.texture_from_raw(
+            raw_image,
+            &wgpu_hal::TextureDescriptor {
+                label: None,
+                size: wgpu::Extent3d {
+                    width: size.x as u32,
+                    height: size.y as u32,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: texture_format,
+                memory_flags: MemoryFlags::empty(),
+                usage: TextureUses::COPY_DST,
+                view_formats: vec![texture_format],
+            },
+            None,
+        ))
     })?;
     let wgpu_texture = device.create_texture_from_hal::<Gles>(
         hal_texture,
@@ -489,15 +529,19 @@ pub enum BufferType {
     Egl,
     Dma,
 }
-pub fn bind_wayland(display_handles:&DWayDisplayHandles,state:&mut EglState,device: &wgpu::Device)->Result<()>{
-    unsafe{
+pub fn bind_wayland(
+    display_handles: &DWayDisplayHandles,
+    state: &mut EglState,
+    device: &wgpu::Device,
+) -> Result<()> {
+    unsafe {
         let display: khronos_egl::Display = device.as_hal::<Gles, _, _>(|hal_device| {
             hal_device
-                .ok_or_else(|| anyhow!("gpu backend is not egl"))?
+                .ok_or_else(|| BackendIsNotEGL)?
                 .context()
                 .raw_display()
                 .cloned()
-                .ok_or_else(|| anyhow!("no opengl display available"))
+                .ok_or_else(|| DisplayNotAvailable)
         })?;
         state.bind_wayland(&display_handles.map, display);
     }
@@ -506,7 +550,7 @@ pub fn bind_wayland(display_handles:&DWayDisplayHandles,state:&mut EglState,devi
 
 pub fn import_wl_surface(
     surface: &WlSurface,
-    buffer: &WlBuffer,
+    buffer: &WlMemoryBuffer,
     dma_buffer: Option<&DmaBuffer>,
     egl_buffer: Option<&EGLBuffer>,
     texture: &Texture,
@@ -516,11 +560,11 @@ pub fn import_wl_surface(
     unsafe {
         let display: khronos_egl::Display = device.as_hal::<Gles, _, _>(|hal_device| {
             hal_device
-                .ok_or_else(|| anyhow!("gpu backend is not egl"))?
+                .ok_or_else(|| BackendIsNotEGL)?
                 .context()
                 .raw_display()
                 .cloned()
-                .ok_or_else(|| anyhow!("no opengl display available"))
+                .ok_or_else(|| DisplayNotAvailable)
         })?;
         let mut texture_id = None;
         texture.as_hal::<Gles, _>(|texture| {
@@ -534,10 +578,10 @@ pub fn import_wl_surface(
             }
         });
         let Some(texture_id) = texture_id else {
-            return Err(anyhow!("failed to get raw texture"));
+            return Err(FailedToGetHal.into());
         };
         device.as_hal::<Gles, _, _>(|hal_device| {
-            let hal_device = hal_device.ok_or_else(|| anyhow!("render device is not egl"))?;
+            let hal_device = hal_device.ok_or_else(|| BackendIsNotEGL)?;
             let egl_context = hal_device.context();
             let gl: &glow::Context = &egl_context.lock();
             gl.enable(glow::DEBUG_OUTPUT);
@@ -545,13 +589,15 @@ pub fn import_wl_surface(
             let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> =
                 egl_context.egl_instance().ok_or_else(|| {
                     gl.disable(glow::DEBUG_OUTPUT);
-                    anyhow!("render adapter is not egl")
+                    BackendIsNotEGL
                 })?;
             let egl_state = egl_state.get_or_insert_with(|| EglState::new(gl, egl).unwrap());
-            if let Some(egl_buffer) = egl_buffer {
-                let (raw_image, _size) = import_egl(buffer, egl_buffer, egl, display, egl_state)?;
-                let _texture = image_target_texture_oes(gl, raw_image, egl_state)?;
-            } else if let Some(dma_buffer) = dma_buffer {
+            match import_egl(buffer, egl, gl, display, egl_state, texture_id) {
+                Err(FailedToImportEglBuffer) => {}
+                Ok(()) => return Ok(()),
+                Err(e) => return Err(e.into()),
+            }
+            if let Some(dma_buffer) = dma_buffer {
                 let (raw_image, _size) =
                     import_dma(buffer, dma_buffer, display.as_ptr(), egl_state)?;
                 let _texture = image_target_texture_oes(gl, raw_image, egl_state)?;

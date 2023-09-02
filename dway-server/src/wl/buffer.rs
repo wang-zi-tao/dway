@@ -2,7 +2,7 @@ use std::{
     num::NonZeroUsize,
     os::fd::{AsRawFd, OwnedFd},
     ptr::NonNull,
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock},
 };
 
 use drm_fourcc::{DrmFourcc, DrmModifier};
@@ -19,39 +19,43 @@ use super::surface::AttachedBy;
 
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
-pub struct WlBuffer {
+pub struct WlMemoryBuffer {
     #[reflect(ignore)]
-    pub raw: wl_buffer::WlBuffer,
+    pub raw: Arc<Mutex<wl_buffer::WlBuffer>>,
     pub offset: i32,
     pub size: IVec2,
     pub stride: i32,
     #[reflect(ignore)]
     pub format: wl_shm::Format,
-    pub attach_by: Option<Entity>,
     #[reflect(ignore)]
     pub pool: Arc<RwLock<WlShmPoolInner>>,
 }
 #[derive(Bundle)]
-pub struct WlBufferBundle {
-    resource: WlBuffer,
+pub struct WlMemoryBufferBundle {
+    resource: WlMemoryBuffer,
     attach_by: AttachedBy,
 }
 
-impl WlBufferBundle {
-    pub fn new(resource: WlBuffer) -> Self {
+impl WlMemoryBufferBundle {
+    pub fn new(resource: WlMemoryBuffer) -> Self {
         Self {
             resource,
             attach_by: Default::default(),
         }
     }
 }
+
 #[derive(Component, Clone)]
-pub struct DmaBuffer {
-    pub planes: Vec<Arc<Plane>>,
-    pub size: IVec2,
-    pub format: DrmFourcc,
-    pub flags: DmabufFlags,
+pub struct UninitedWlBuffer {
+    pub raw: wl_buffer::WlBuffer,
 }
+
+impl UninitedWlBuffer {
+    pub fn new(raw: wl_buffer::WlBuffer) -> Self {
+        Self { raw }
+    }
+}
+
 #[derive(Debug)]
 pub struct Plane {
     pub fd: OwnedFd,
@@ -293,16 +297,15 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                 };
                 let pool =
                     state.with_component(resource, |pool: &mut WlShmPool| pool.inner.clone());
-                let parent = state.with_component(resource, |p:&mut Parent|p.get());
+                let parent = state.with_component(resource, |p: &mut Parent| p.get());
                 state.spawn(
                     (id, data_init, |o| {
-                        WlBufferBundle::new(WlBuffer {
-                            raw: o,
+                        WlMemoryBufferBundle::new(WlMemoryBuffer {
+                            raw: Arc::new(Mutex::new(o)),
                             offset,
                             size: IVec2::new(width, height),
                             stride,
                             format,
-                            attach_by: None,
                             pool,
                         })
                     })
@@ -380,6 +383,6 @@ pub struct WlBufferPlugin;
 impl Plugin for WlBufferPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(create_global_system_config::<wl_shm::WlShm, 1>());
-        app.register_type::<WlBuffer>();
+        app.register_type::<WlMemoryBuffer>();
     }
 }

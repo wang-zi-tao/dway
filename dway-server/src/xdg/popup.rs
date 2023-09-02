@@ -143,6 +143,7 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);
+        state.send_event(Destroy::<DWayWindow>::new(*data));
     }
 }
 

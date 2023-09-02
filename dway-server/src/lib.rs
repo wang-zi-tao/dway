@@ -29,6 +29,7 @@ pub mod wp;
 pub mod x11;
 pub mod xdg;
 pub mod zxdg;
+pub mod zwp;
 
 #[derive(Default)]
 pub struct DWayServerPlugin;
@@ -52,6 +53,7 @@ impl Plugin for DWayServerPlugin {
         app.add_plugin(zxdg::outputmanager::XdgOutputManagerPlugin);
         app.add_plugin(wp::PrimarySelectionPlugin);
         app.add_plugin(x11::DWayXWaylandPlugin);
+        app.add_plugin(zwp::DmaBufferPlugin);
         app.add_startup_systems((init_display, apply_system_buffers, spawn).chain());
         app.add_system(
             spawn_x11
@@ -105,7 +107,7 @@ pub fn spawn_x11(
         if let Ok(dway) = query.get(*dway_entity) {
             let compositor = dway.lock().unwrap();
             // compositor.spawn_process_x11(process::Command::new("/mnt/weed/mount/wangzi-nuc/wangzi/workspace/waylandcompositor/source/gtk+-3.24.37/build/examples/sunny"), &tokio);
-            compositor.spawn_process_x11(process::Command::new("gnome-system-monitor"), &tokio);
+            // compositor.spawn_process_x11(process::Command::new("gnome-system-monitor"), &tokio);
         }
     }
 }

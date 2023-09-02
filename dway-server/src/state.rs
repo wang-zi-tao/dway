@@ -431,7 +431,9 @@ impl DWay {
         self.spawn(bundle.with_parent(parent)).id()
     }
     pub fn get_entity(object: &impl wayland_server::Resource) -> Entity {
-        *object.data::<Entity>().unwrap()
+        *object
+            .data::<Entity>()
+            .expect("the user data type on wayland object should be Entity")
     }
     pub fn client_entity(client: &wayland_server::Client) -> Entity {
         client
@@ -467,6 +469,16 @@ impl DWay {
         }
         if let Some(e) = self.world_mut().get_entity_mut(entity) {
             EntityMut::despawn(e)
+        }
+    }
+    pub fn despawn_object_component<T: Bundle>(
+        &mut self,
+        entity: Entity,
+        id: wayland_backend::server::ObjectId,
+    ) {
+        trace!(entity=?entity,resource=%id,"remove object component: {}",type_name::<T>());
+        if let Some(mut e) = self.world_mut().get_entity_mut(entity) {
+            e.remove::<T>();
         }
     }
     pub fn despawn_object(&mut self, entity: Entity, id: wayland_backend::server::ObjectId) {

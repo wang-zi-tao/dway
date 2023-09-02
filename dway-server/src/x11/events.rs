@@ -122,7 +122,6 @@ pub fn process_x11_event(
                             display_entity,
                             |(mut grab, mut seat)| {
                                 let data = e.data.as_data32();
-                                dbg!(data[2]);
                                 match data[2] {
                                     x @ 0..=7 => {
                                         let edges = match x {

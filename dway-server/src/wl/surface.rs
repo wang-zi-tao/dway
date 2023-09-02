@@ -8,7 +8,7 @@ use crate::{
     prelude::*,
     schedule::DWayServerSet,
     util::rect::IRect,
-    wl::buffer::WlBuffer,
+    wl::buffer::{UninitedWlBuffer, WlMemoryBuffer},
     xdg::{popup::XdgPopup, toplevel::XdgToplevel, XdgSurface},
 };
 use std::borrow::Cow;
@@ -187,7 +187,18 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 state.despawn(*data);
             }
             wl_surface::Request::Attach { buffer, x, y } => {
-                let buffer_entity = buffer.map(|buffer| DWay::get_entity(&buffer));
+                let buffer_entity = if let Some(buffer) = &buffer {
+                    if buffer.data::<Entity>().is_none() {
+                        state
+                            .entity_mut(*data)
+                            .insert(UninitedWlBuffer::new(buffer.clone()));
+                        Some(*data)
+                    } else {
+                        Some(DWay::get_entity(buffer))
+                    }
+                } else {
+                    None
+                };
                 let origin_buffer_entity = state.with_component(resource, |c: &mut WlSurface| {
                     if resource.version() < 5 {
                         c.pending.position = Some(IVec2::new(x, y));
@@ -201,18 +212,10 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                     c.pending.buffer = Some(buffer_entity);
                     origin_buffer.flatten()
                 });
-                let world = state.world_mut();
-                let mut buffer_query = world.query::<&mut WlBuffer>();
-                if let Some(origin_buffer_entity) = origin_buffer_entity {
-                    if let Ok(mut origin_buffer) = buffer_query.get_mut(world, origin_buffer_entity)
-                    {
-                        origin_buffer.attach_by = None;
-                    }
-                }
                 if let Some(buffer_entity) = buffer_entity {
-                    if let Ok(mut buffer) = buffer_query.get_mut(world, buffer_entity) {
-                        buffer.attach_by = Some(*data);
-                    }
+                    state.connect::<AttachmentRelationship>(*data, buffer_entity);
+                } else {
+                    state.disconnect_all::<AttachmentRelationship>(*data);
                 }
             }
             wl_surface::Request::Damage {
@@ -306,9 +309,12 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                         },
                     );
                 if let Some(buffer_entity) = buffer_entity {
-                    if let Some(buffer) = state.get::<WlBuffer>(buffer_entity) {
-                        buffer.raw.release();
-                        debug!(resource=?&buffer.raw,"release buffer");
+                    if let Some(buffer) = state.get::<WlMemoryBuffer>(buffer_entity) {
+                        {
+                            let guard = buffer.raw.lock().unwrap();
+                            guard.release();
+                            debug!(resource=?&guard.id(),"release buffer");
+                        }
                         state.connect::<AttachmentRelationship>(*data, buffer_entity);
                     }
                 } else if let Some(old_buffer) = old_buffer_entity {
@@ -419,17 +425,18 @@ impl wayland_server::Dispatch<wl_callback::WlCallback, ()> for DWay {
     }
 }
 
-pub fn cleanup_buffer(buffer_query: Query<(&WlBuffer, &AttachedBy)>) {
+pub fn cleanup_buffer(buffer_query: Query<(&WlMemoryBuffer, &AttachedBy)>) {
     buffer_query.for_each(|(buffer, attached_by)| {
         if attached_by.iter().next().is_some() {
-            buffer.raw.release();
+            let guard = buffer.raw.lock().unwrap();
+            guard.release();
         }
     });
 }
 
 pub fn cleanup_surface(
     mut surface_query: Query<&mut WlSurface>,
-    buffer_query: Query<&mut WlBuffer>,
+    buffer_query: Query<&mut WlMemoryBuffer>,
     time: Res<Time>,
 ) {
     surface_query.iter_mut().for_each(|mut surface| {
@@ -463,23 +470,21 @@ impl Plugin for WlSurfacePlugin {
         // app.add_system(cleanup_buffer.in_base_set(CoreSet::First));
         app.add_system(update_buffer_size.in_set(DWayServerSet::UpdateGeometry));
         app.register_type::<WlSurface>();
-        app.register_type::<AttachTo>();
-        app.register_type::<AttachedBy>();
-        app.register_type::<SurfaceList>();
+        app.register_relation::<AttachmentRelationship>();
         app.register_relation::<ClientHasSurface>();
         app.register_relation::<SurfaceHasInputRegion>();
         app.register_relation::<SurfaceHasOpaqueRegion>();
     }
 }
 pub fn update_buffer_size(
-    buffer_query: Query<&WlBuffer, Changed<WlBuffer>>,
+    buffer_query: Query<(&WlMemoryBuffer, &AttachedBy), Changed<WlMemoryBuffer>>,
     mut surface_query: Query<&mut WlSurface>,
     mut assets: ResMut<Assets<Image>>,
 ) {
-    for buffer in buffer_query.iter() {
+    for (buffer, attached_by) in buffer_query.iter() {
         let size = buffer.size;
-        if let Some(mut surface) = buffer
-            .attach_by
+        if let Some(mut surface) = attached_by
+            .get()
             .and_then(|entity| surface_query.get_mut(entity).ok())
         {
             if surface.size != Some(size) {

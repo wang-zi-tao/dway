@@ -202,7 +202,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);
-        state.send_event(Destroy::<XdgToplevel>::new(*data));
+        state.send_event(Destroy::<DWayWindow>::new(*data));
     }
 }
 

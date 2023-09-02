@@ -6,9 +6,9 @@ use crate::{
     schedule::DWayServerSet,
     state::{WaylandDisplayCreated, WaylandDisplayDestroyed},
     wl::{
-        buffer::{DmaBuffer, EGLBuffer, WlBuffer},
+        buffer::{EGLBuffer, WlMemoryBuffer, UninitedWlBuffer},
         surface::WlSurface,
-    },
+    }, zwp::dmabufparam::DmaBuffer,
 };
 
 use bevy::{
@@ -66,7 +66,7 @@ impl PhaseItem for ImportedSurfacePhaseItem {
 pub fn extract_surface(
     _: NonSend<NonSendMarker>,
     surface_query: Extract<Query<&WlSurface>>,
-    buffer_query: Extract<Query<(&WlBuffer, &Parent, Option<&DmaBuffer>, Option<&EGLBuffer>)>>,
+    buffer_query: Extract<Query<(&WlMemoryBuffer, &Parent, Option<&DmaBuffer>, Option<&EGLBuffer>)>>,
     mut commands: Commands,
     mut image_bind_groups: Option<ResMut<kayak_ui::render::unified::pipeline::ImageBindGroups>>,
     frame_count: Extract<Res<FrameCount>>,
@@ -154,7 +154,7 @@ impl<P: PhaseItem> RenderCommand<P> for ImportSurface {
     );
     type ItemWorldQuery = (
         Read<WlSurface>,
-        Read<WlBuffer>,
+        Read<WlMemoryBuffer>,
         Option<Read<DmaBuffer>>,
         Option<Read<EGLBuffer>>,
     );
