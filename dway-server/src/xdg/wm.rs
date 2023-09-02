@@ -52,7 +52,6 @@ impl wayland_server::Dispatch<xdg_wm_base::XdgWmBase, bevy::prelude::Entity, DWa
                         global_geometry: GlobalGeometry::default(),
                     }),
                 );
-                state.send_event(Insert::<XdgSurface>::new(*entity));
             }
             xdg_wm_base::Request::Pong { serial: _ } => todo!(),
             _ => todo!(),

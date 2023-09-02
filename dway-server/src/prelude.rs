@@ -6,6 +6,8 @@ pub use wayland_protocols::xdg::shell::server::*;
 pub use wayland_protocols::xdg::xdg_output::zv1::server::*;
 pub use wayland_protocols::wp::linux_dmabuf::zv1::server::*;
 pub use wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection_device_manager_v1;
+pub use wayland_protocols::xdg::activation::v1::server::*;
+
 
 pub use crate::state::DWay;
 pub use bevy::log::Level;

@@ -1,4 +1,5 @@
 pub mod activation_token;
+pub mod activation;
 pub mod popup;
 pub mod positioner;
 pub mod toplevel;
@@ -21,7 +22,7 @@ use crate::{
     },
 };
 
-use self::wm::XdgWmBase;
+use self::{wm::XdgWmBase, activation_token::XdgActivationToken, activation::{XdgActivation, SurfaceActivate}};
 
 #[derive(Component, Default, Clone, Reflect, FromReflect)]
 pub struct DWayWindow {}
@@ -208,7 +209,7 @@ impl Plugin for XdgShellPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(create_global_system_config::<xdg_wm_base::XdgWmBase, 6>());
         app.add_system(create_global_system_config::<
-            xdg_activation_token_v1::XdgActivationTokenV1,
+            xdg_activation_v1::XdgActivationV1,
             1,
         >());
         app.register_relation::<SurfaceHasPopup>();
@@ -216,5 +217,8 @@ impl Plugin for XdgShellPlugin {
         app.add_event::<Destroy<DWayWindow>>();
         app.register_type::<DWayWindow>();
         app.register_type::<XdgSurface>();
+        app.register_type::<XdgActivationToken>();
+        app.register_type::<XdgActivation>();
+        app.register_type::<SurfaceActivate>();
     }
 }

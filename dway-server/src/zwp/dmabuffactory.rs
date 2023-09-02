@@ -89,6 +89,7 @@ impl Plugin for DWayDmaBufferFactoryPlugin {
     fn build(&self, app: &mut App) {
         app.register_relation::<DmaBufferHasFeedback>();
         app.register_relation::<DmaBufferAttachSurface>();
+        app.register_type::<ZwpDmaBufferFactory>();
         app.add_system(create_global_system_config::<
             zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1,
             4,

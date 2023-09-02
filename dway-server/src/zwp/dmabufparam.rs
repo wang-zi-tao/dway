@@ -9,11 +9,13 @@ use crate::prelude::*;
 #[derive(Component, Clone, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct DmaBuffer {
+    #[reflect(ignore)]
     pub raw: wl_buffer::WlBuffer,
     pub size: IVec2,
     pub format: u32,
     #[reflect(ignore)]
     pub flags: WEnum<Flags>,
+    #[reflect(ignore)]
     pub planes: Arc<Mutex<DmaBufferPlanes>>,
 }
 
