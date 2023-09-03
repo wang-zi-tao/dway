@@ -63,7 +63,7 @@ macro_rules! create_dispatch {
                 resource: wayland_backend::server::ObjectId,
                 data: &bevy::prelude::Entity,
             ) {
-                state.despawn_object(*data, resource);
+                state.despawn_object_component::<$name>(*data, resource);
             }
         }
     }

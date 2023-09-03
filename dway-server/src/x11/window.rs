@@ -333,10 +333,10 @@ impl XWindow {
         debug!(window=%self.window,"set window type to {:?}", self.window_type);
         Ok(())
     }
-    pub fn resize(&mut self, rect: IRect) ->Result<()>{
+    pub fn resize(&mut self, rect: IRect) -> Result<()> {
         self.set_rect(rect)
     }
-    pub fn set_rect(&mut self, rect: IRect)->Result<()> {
+    pub fn set_rect(&mut self, rect: IRect) -> Result<()> {
         let conn = self.xwayland_connection();
         let aux = ConfigureWindowAux::default()
             .x(rect.x())
@@ -366,7 +366,7 @@ pub fn x11_window_attach_wl_surface(
             Without<XWaylandDisplayWrapper>,
         ),
     >,
-    xdisplay_query: Query<(&Client, &Parent)>,
+    xdisplay_query: Query<(&XWaylandDisplayWrapper, &Parent)>,
     wl_query: Query<&DWayWrapper>,
     mut event_writter: EventWriter<Insert<DWayWindow>>,
     mut commands: Commands,
@@ -377,7 +377,7 @@ pub fn x11_window_attach_wl_surface(
                 return;
             }
             if let Some(wid) = xwindow.surface_id {
-                let Some((client, wl_entity)) =
+                let Some((xdisplay_wrapper, wl_entity)) =
                     display_ref.get().and_then(|e| xdisplay_query.get(e).ok())
                 else {
                     return;
@@ -386,8 +386,9 @@ pub fn x11_window_attach_wl_surface(
                     return;
                 };
                 let dway = dway_wrapper.lock().unwrap();
-                let Ok(wl_surface) = client
-                    .raw
+                let xdisplay = xdisplay_wrapper.lock().unwrap();
+                let Ok(wl_surface) = xdisplay
+                    .client
                     .clone()
                     .object_from_protocol_id::<wl_surface::WlSurface>(&dway.display_handle, wid)
                 else {

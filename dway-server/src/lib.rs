@@ -38,6 +38,7 @@ impl Plugin for DWayServerPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(bevy_tokio_tasks::TokioTasksPlugin::default());
         app.add_plugin(state::DWayStatePlugin);
+        app.add_plugin(client::ClientPlugin);
         app.add_plugin(geometry::GeometryPlugin);
         app.add_plugin(schedule::DWayServerSchedulePlugin);
         app.add_plugin(events::EventPlugin);

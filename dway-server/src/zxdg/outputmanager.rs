@@ -95,7 +95,7 @@ impl wayland_server::Dispatch<zxdg_output_v1::ZxdgOutputV1, Entity> for DWay {
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data, resource);
+        state.despawn_object_component::<ZxdgOutput>(*data, resource);
     }
 }
 impl GlobalDispatch<zxdg_output_manager_v1::ZxdgOutputManagerV1, Entity> for DWay {

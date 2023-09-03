@@ -1,7 +1,4 @@
-
-
 use bevy_relationship::{relationship, AppExt};
-
 
 use crate::{
     prelude::*,
@@ -68,7 +65,7 @@ impl wayland_server::Dispatch<wl_compositor::WlCompositor, bevy::prelude::Entity
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data, resource);
+        state.despawn_object_component::<WlCompositor>(*data, resource);
     }
 }
 delegate_dispatch!(DWay: [wl_subcompositor::WlSubcompositor: Entity] => CompositorDelegate);
@@ -108,22 +105,7 @@ impl wayland_server::Dispatch<wl_subcompositor::WlSubcompositor, bevy::prelude::
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data, resource);
-    }
-}
-
-impl wayland_server::GlobalDispatch<wl_compositor::WlCompositor, bevy::prelude::Entity, DWay>
-    for CompositorDelegate
-{
-    fn bind(
-        _state: &mut DWay,
-        _handle: &DisplayHandle,
-        _client: &wayland_server::Client,
-        _resource: wayland_server::New<wl_compositor::WlCompositor>,
-        _global_data: &bevy::prelude::Entity,
-        _data_init: &mut wayland_server::DataInit<'_, DWay>,
-    ) {
-        todo!()
+        state.despawn_object_component::<WlSubcompositor>(*data, resource);
     }
 }
 

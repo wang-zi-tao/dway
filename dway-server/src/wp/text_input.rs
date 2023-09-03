@@ -101,7 +101,7 @@ impl Dispatch<zwp_text_input_manager_v3::ZwpTextInputManagerV3, Entity> for DWay
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data, resource);
+        state.despawn_object_component::<ZwpTextInputManager>(*data, resource);
     }
 }
 impl GlobalDispatch<zwp_text_input_manager_v3::ZwpTextInputManagerV3, Entity> for DWay {

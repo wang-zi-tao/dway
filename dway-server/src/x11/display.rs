@@ -25,7 +25,11 @@ use x11rb::{
     wrapper::ConnectionExt as RustConnectionExt,
 };
 
-use crate::{prelude::*, x11::atoms::Atoms};
+use crate::{
+    client::{self, ClientData, ClientEvents},
+    prelude::*,
+    x11::atoms::Atoms,
+};
 
 use super::events::XWaylandError;
 
@@ -68,6 +72,7 @@ pub struct XWaylandDisplay {
     pub windows_entitys: HashMap<u32, Entity>,
     pub wm_window: Option<x11rb::protocol::xproto::Window>,
     pub child: Child,
+    pub client: wayland_server::Client,
 }
 
 impl XWaylandDisplay {
@@ -80,7 +85,13 @@ impl XWaylandDisplay {
 }
 
 impl XWaylandDisplay {
-    pub fn new(dway: &mut DWay) -> Result<(Self, UnixStream)> {
+    pub fn spawn(
+        dway: &mut DWay,
+        display: &wayland_server::Display<DWay>,
+        dway_entity: Entity,
+        commands: &mut Commands,
+        events: &ClientEvents,
+    ) -> Result<Entity> {
         let (display_number, streams) =
             Self::get_number().ok_or_else(|| anyhow!("failed to alloc dissplay number"))?;
         let (x11_socket, x11_stream) = UnixStream::pair()?;
@@ -88,6 +99,21 @@ impl XWaylandDisplay {
         let child = Self::spawn_xwayland(display_number, streams, x11_socket, wayland_socket)?;
         let (tx, rx) = crossbeam_channel::bounded(1024);
         dway.display_number = Some(display_number as usize);
+
+        let mut entity_mut = commands.spawn((Name::new(format!("xwayland:{}", display_number)),));
+        let client = match display.handle().insert_client(
+            wayland_client_stream,
+            Arc::new(ClientData::new(entity_mut.id(), events)),
+        ) {
+            Ok(o) => o,
+            Err(e) => {
+                entity_mut.despawn();
+                return Err(e.into());
+            }
+        };
+        entity_mut.insert(client::Client::new(&client));
+        entity_mut.set_parent(dway_entity);
+
         let this = Self {
             display_number,
             connection: Weak::default(),
@@ -95,7 +121,12 @@ impl XWaylandDisplay {
             windows_entitys: Default::default(),
             wm_window: None,
             child,
+            client,
         };
+        entity_mut.insert(XWaylandDisplayWrapper {
+            inner: Arc::new(Mutex::new(this)),
+        });
+
         info!("spawn xwayland at :{}", display_number);
         std::thread::Builder::new()
             .name(format!("xwayland:{display_number}"))
@@ -136,7 +167,7 @@ impl XWaylandDisplay {
             })
             .unwrap();
 
-        Ok((this, wayland_client_stream))
+        Ok(entity_mut.id())
     }
     pub fn start_wm(connection: &RustConnection) -> Result<(Atoms, u32)> {
         let screen = connection.setup().roots[0].clone();

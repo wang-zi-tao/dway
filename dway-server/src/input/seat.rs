@@ -142,7 +142,7 @@ impl
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data, resource);
+        state.despawn_object_component::<WlSeat>(*data, resource);
     }
 }
 impl wayland_server::GlobalDispatch<wayland_server::protocol::wl_seat::WlSeat, Entity> for DWay {

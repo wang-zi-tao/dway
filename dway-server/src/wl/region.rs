@@ -181,25 +181,9 @@ impl wayland_server::Dispatch<wl_region::WlRegion, bevy::prelude::Entity, DWay> 
         state.despawn_object(*data, resource);
     }
 }
-impl wayland_server::GlobalDispatch<wayland_server::protocol::wl_region::WlRegion, Entity>
-    for DWay
-{
-    fn bind(
-        _state: &mut Self,
-        _handle: &DisplayHandle,
-        _client: &wayland_server::Client,
-        _resource: wayland_server::New<wayland_server::protocol::wl_region::WlRegion>,
-        _global_data: &Entity,
-        _data_init: &mut wayland_server::DataInit<'_, Self>,
-    ) {
-        todo!()
-    }
-}
-
 pub struct WlRegionPlugin;
 impl Plugin for WlRegionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(create_global_system_config::<wl_region::WlRegion, 1>());
         app.register_type::<WlRegion>();
     }
 }

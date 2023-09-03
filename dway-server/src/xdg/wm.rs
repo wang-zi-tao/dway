@@ -61,10 +61,10 @@ impl wayland_server::Dispatch<xdg_wm_base::XdgWmBase, bevy::prelude::Entity, DWa
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        _resource: wayland_backend::server::ObjectId,
+        resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn(*data);
+        state.despawn_object_component::<XdgWmBase>(*data, resource);
     }
 }
 impl wayland_server::GlobalDispatch<xdg_wm_base::XdgWmBase, ()> for DWay {

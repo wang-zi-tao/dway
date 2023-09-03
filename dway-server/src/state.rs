@@ -35,7 +35,7 @@ use wayland_backend::server::{ClientId, ObjectId};
 use wayland_server::{DataInit, New};
 
 use crate::{
-    client::{Client, ClientData},
+    client::{Client, ClientData, ClientEvents},
     eventloop::ListeningSocketEvent,
     prelude::*,
     schedule::DWayServerSet,
@@ -52,7 +52,7 @@ pub struct NonSendMark;
 #[derive(Reflect, Resource, Default)]
 pub struct DWayDisplayIndex {}
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Deref)]
 pub struct DWayDisplay(pub Arc<Mutex<wayland_server::Display<DWay>>>);
 
 #[derive(Component, Clone)]
@@ -313,20 +313,23 @@ impl DWay {
         display: &wayland_server::Display<DWay>,
     ) {
         let world = self.world_mut();
-        let mut entity = world.spawn_empty();
-        match display
-            .handle()
-            .insert_client(client_stream, Arc::new(ClientData::new(entity.id())))
-        {
+        let events = world.resource::<ClientEvents>().clone();
+        let mut entity_mut = world.spawn_empty();
+        match display.handle().insert_client(
+            client_stream,
+            Arc::new(ClientData::new(entity_mut.id(), &events)),
+        ) {
             Ok(c) => {
-                entity.insert((Name::new(Cow::from(client_name(&c.id()))), Client::new(c)));
-                entity.set_parent(parent);
-                info!(entity=?entity.id(),"add client");
+                entity_mut.insert((Name::new(Cow::from(client_name(&c.id()))), Client::new(&c)));
+                info!(entity=?entity_mut.id(),"add client");
             }
             Err(err) => {
                 error!("Error adding wayland client: {}", err);
             }
         }
+        entity_mut.set_parent(parent);
+        let entity = entity_mut.id();
+        self.send_event(Insert::<Client>::new(entity));
     }
     pub fn bind<T, C, F>(
         &mut self,

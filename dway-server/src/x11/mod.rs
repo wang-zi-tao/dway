@@ -9,7 +9,7 @@ pub mod window;
 use dway_winit::FrameConditionSchedule;
 
 use crate::{
-    client::{self, Client, ClientData},
+    client::{self, Client, ClientData, ClientEvents},
     prelude::*,
     schedule::{DWayServerSet, DWayStartSet},
     state::{on_create_display_event, DWayDisplay, DWayWrapper, WaylandDisplayCreated},
@@ -18,7 +18,7 @@ use crate::{
 relationship!(XDisplayHasWindow=>XWindowList-<XDisplayRef);
 
 use self::{
-    events::{dispatch_x11_events, x11_frame_condition, flush_xwayland},
+    events::{dispatch_x11_events, flush_xwayland, x11_frame_condition},
     window::{x11_window_attach_wl_surface, MappedXWindow, XWindow, XWindowAttachSurface},
 };
 
@@ -31,34 +31,17 @@ pub struct XWaylandBundle {
 pub fn launch_xwayland(
     display_query: Query<(&DWayWrapper, &DWayDisplay)>,
     mut events: EventReader<WaylandDisplayCreated>,
+    client_events: Res<ClientEvents>,
     mut commands: Commands,
 ) {
     for WaylandDisplayCreated(entity, _) in events.iter() {
         if let Ok((dway_wrapper, display_wrapper)) = display_query.get(*entity) {
             let mut dway = dway_wrapper.0.lock().unwrap();
             let display = display_wrapper.0.lock().unwrap();
-            match XWaylandDisplay::new(&mut dway) {
-                Ok((xwayland, wayland_client_stream)) => {
-                    let mut entity_mut = commands.spawn((
-                        Name::new(format!("xwayland:{}", xwayland.display_number)),
-                        XWaylandDisplayWrapper::new(xwayland),
-                    ));
-                    let client = match display.handle().insert_client(
-                        wayland_client_stream,
-                        Arc::new(ClientData::new(entity_mut.id())),
-                    ) {
-                        Ok(o) => o,
-                        Err(e) => {
-                            error!(error=%e);
-                            continue;
-                        }
-                    };
-                    entity_mut.insert(client::Client::new(client));
-                    entity_mut.set_parent(*entity);
-                }
-                Err(e) => {
-                    error!(error=%e,"failed to launch xwayland");
-                }
+            if let Err(e) =
+                XWaylandDisplay::spawn(&mut dway, &display, *entity, &mut commands, &client_events)
+            {
+                error!(error=%e,"failed to launch xwayland");
             };
         }
     }

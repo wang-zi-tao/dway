@@ -217,7 +217,7 @@ impl wayland_server::Dispatch<wl_shm::WlShm, Entity, DWay> for BufferDelegate {
         resource: wayland_backend::server::ObjectId,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data, resource);
+        state.despawn_object_component::<WlShm>(*data, resource);
     }
 }
 delegate_dispatch!(DWay: [wl_shm_pool::WlShmPool: Entity] => BufferDelegate);

@@ -25,6 +25,7 @@ pub enum DWayServerSet {
     Last,
     LastFlush,
 
+    Clean,
     Input,
     GrabInput,
     InputFlush,
@@ -81,7 +82,7 @@ impl Plugin for DWayServerSchedulePlugin {
         );
 
         app.configure_sets(
-            (Last, LastFlush)
+            (Clean, Last, LastFlush)
                 .chain()
                 .in_base_set(CoreSet::Last)
                 .ambiguous_with_all(),
