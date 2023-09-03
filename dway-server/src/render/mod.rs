@@ -1,5 +1,7 @@
+pub mod drm;
 pub mod import;
 pub mod importnode;
+pub mod util;
 
 use bevy::{
     core_pipeline::core_2d,
@@ -12,7 +14,10 @@ use bevy::{
 
 use crate::prelude::*;
 
-use self::importnode::{ImportSurface, ImportSurfacePassNode, ImportedSurfacePhaseItem};
+use self::{
+    drm::DrmNodeState,
+    importnode::{ImportSurface, ImportSurfacePassNode, ImportedSurfacePhaseItem},
+};
 
 pub struct DWayServerRenderPlugin;
 impl Plugin for DWayServerRenderPlugin {
@@ -66,15 +71,16 @@ impl Plugin for DWayServerRenderPlugin {
                     importnode::node::IMPORT_PASS,
                     importnode::ImportSurfacePassNode::IN_VIEW,
                 );
-                // graph_2d.add_node_edge(
-                //     core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-                //     importnode::node::IMPORT_PASS,
-                // );
-                // graph_2d.add_node_edge(
-                //     importnode::node::IMPORT_PASS,
-                //     core_2d::graph::node::UPSCALING,
-                // );
             }
+
+            render_app.add_system(drm::extract_dma_buf_feedback.in_schedule(ExtractSchedule));
+            render_app.add_system(
+                drm::init_drm_state
+                    .run_if(|s: Res<DrmNodeState>| s.state.is_none())
+                    .in_set(RenderSet::Prepare),
+            );
+            render_app.add_system(drm::init_dma_buf_feedback.in_set(RenderSet::Queue));
+            render_app.init_resource::<drm::DrmNodeState>();
         }
     }
 }

@@ -7,7 +7,7 @@ use crate::{
     },
     zwp::dmabufparam::DmaBuffer,
 };
-
+use super::util::*;
 use drm_fourcc::DrmModifier;
 use thiserror::Error;
 use wayland_backend::server::WeakHandle;
@@ -25,71 +25,15 @@ use bevy::{
     render::texture::GpuImage,
 };
 use glow::{HasContext, NativeRenderbuffer, NativeTexture};
-pub const LINUX_DMA_BUF_EXT: u32 = 0x3270;
-pub const WAYLAND_PLANE_WL: c_uint = 0x31D6;
-pub const LINUX_DRM_FOURCC_EXT: u32 = 0x3271;
-
-pub const DMA_BUF_PLANE0_FD_EXT: u32 = 0x3272;
-pub const DMA_BUF_PLANE0_OFFSET_EXT: u32 = 0x3273;
-pub const DMA_BUF_PLANE0_PITCH_EXT: u32 = 0x3274;
-pub const DMA_BUF_PLANE0_MODIFIER_LO_EXT: u32 = 0x3443;
-pub const DMA_BUF_PLANE0_MODIFIER_HI_EXT: u32 = 0x3444;
-
-pub const DMA_BUF_PLANE1_FD_EXT: u32 = 0x3275;
-pub const DMA_BUF_PLANE1_OFFSET_EXT: u32 = 0x3276;
-pub const DMA_BUF_PLANE1_PITCH_EXT: u32 = 0x3277;
-pub const DMA_BUF_PLANE1_MODIFIER_LO_EXT: u32 = 0x3445;
-pub const DMA_BUF_PLANE1_MODIFIER_HI_EXT: u32 = 0x3446;
-
-pub const DMA_BUF_PLANE2_FD_EXT: u32 = 0x3278;
-pub const DMA_BUF_PLANE2_OFFSET_EXT: u32 = 0x3279;
-pub const DMA_BUF_PLANE2_PITCH_EXT: u32 = 0x327A;
-pub const DMA_BUF_PLANE2_MODIFIER_LO_EXT: u32 = 0x3447;
-pub const DMA_BUF_PLANE2_MODIFIER_HI_EXT: u32 = 0x3448;
-
-pub const DMA_BUF_PLANE3_FD_EXT: u32 = 0x3440;
-pub const DMA_BUF_PLANE3_OFFSET_EXT: u32 = 0x3441;
-pub const DMA_BUF_PLANE3_PITCH_EXT: u32 = 0x3442;
-pub const DMA_BUF_PLANE3_MODIFIER_LO_EXT: u32 = 0x3449;
-pub const DMA_BUF_PLANE3_MODIFIER_HI_EXT: u32 = 0x344A;
-
-pub const EGL_NO_IMAGE_KHR: *mut c_void = null_mut();
 
 use khronos_egl::{Boolean, EGLClientBuffer, EGLContext, EGLDisplay, EGLImage, Enum, Int, NONE};
 use wgpu::{FilterMode, SamplerDescriptor, Texture, TextureAspect};
 use wgpu_hal::Api;
 use wgpu_hal::{api::Gles, MemoryFlags, TextureUses};
 
-use super::importnode::DWayDisplayHandles;
+use super::{importnode::DWayDisplayHandles, util::{get_egl_display, DWayRenderError}};
 
-#[derive(Error, Debug)]
-pub enum ImportSurfaceError {
-    #[error("gl function `{0}` not exists")]
-    FunctionNotExists(String),
-    #[error("no opengl display available")]
-    DisplayNotAvailable,
-    #[error("failed to get hal device")]
-    FailedToGetHal,
-    #[error("failed to import dma buffer")]
-    FailedToImportDmaBuffer,
-    #[error("failed to import egl buffer")]
-    FailedToImportEglBuffer,
-    #[error("gpu backend is not egl")]
-    BackendIsNotEGL,
-    #[error("failed to create dma image")]
-    FailedToCreateDmaImage,
-    #[error("failed to create texture: {0}")]
-    FailedToCreateSurface(String),
-    #[error("failed to create render buffer: {0}")]
-    FailedToCreateRenderBuffer(String),
-    #[error("unsupported format: {0:?}")]
-    UnsupportedFormat(wl_shm::Format),
-    #[error("egl error: {0:?}")]
-    EglError(#[from] khronos_egl::Error),
-    #[error("{0}")]
-    Unknown(#[from] anyhow::Error),
-}
-use ImportSurfaceError::*;
+use DWayRenderError::*;
 
 pub struct EglState {
     pub egl_create_image_khr: unsafe extern "system" fn(
@@ -387,7 +331,7 @@ pub unsafe fn import_egl(
     display: khronos_egl::Display,
     egl_state: &mut EglState,
     dest: TextureId,
-) -> Result<(), ImportSurfaceError> {
+) -> Result<(), DWayRenderError> {
     let buffer_guard = buffer.raw.lock().unwrap();
     let egl_surface: khronos_egl::Surface =
         khronos_egl::Surface::from_ptr(buffer_guard.id().as_ptr() as _);
@@ -534,17 +478,8 @@ pub fn bind_wayland(
     state: &mut EglState,
     device: &wgpu::Device,
 ) -> Result<()> {
-    unsafe {
-        let display: khronos_egl::Display = device.as_hal::<Gles, _, _>(|hal_device| {
-            hal_device
-                .ok_or_else(|| BackendIsNotEGL)?
-                .context()
-                .raw_display()
-                .cloned()
-                .ok_or_else(|| DisplayNotAvailable)
-        })?;
-        state.bind_wayland(&display_handles.map, display);
-    }
+    let display = get_egl_display(device)?;
+    state.bind_wayland(&display_handles.map, display);
     Ok(())
 }
 
@@ -608,35 +543,4 @@ pub fn import_wl_surface(
             Ok(())
         })
     }
-}
-pub fn gl_debug_message_callback(source: u32, gltype: u32, id: u32, _severity: u32, message: &str) {
-    let source_str = match source {
-        glow::DEBUG_SOURCE_API => "API",
-        glow::DEBUG_SOURCE_WINDOW_SYSTEM => "Window System",
-        glow::DEBUG_SOURCE_SHADER_COMPILER => "ShaderCompiler",
-        glow::DEBUG_SOURCE_THIRD_PARTY => "Third Party",
-        glow::DEBUG_SOURCE_APPLICATION => "Application",
-        glow::DEBUG_SOURCE_OTHER => "Other",
-        _ => unreachable!(),
-    };
-
-    let type_str = match gltype {
-        glow::DEBUG_TYPE_DEPRECATED_BEHAVIOR => "Deprecated Behavior",
-        glow::DEBUG_TYPE_ERROR => "Error",
-        glow::DEBUG_TYPE_MARKER => "Marker",
-        glow::DEBUG_TYPE_OTHER => "Other",
-        glow::DEBUG_TYPE_PERFORMANCE => "Performance",
-        glow::DEBUG_TYPE_POP_GROUP => "Pop Group",
-        glow::DEBUG_TYPE_PORTABILITY => "Portability",
-        glow::DEBUG_TYPE_PUSH_GROUP => "Push Group",
-        glow::DEBUG_TYPE_UNDEFINED_BEHAVIOR => "Undefined Behavior",
-        _ => unreachable!(),
-    };
-
-    let _ = std::panic::catch_unwind(|| {
-        info!(
-            "GLES: [{}/{}] ID {} : {}",
-            source_str, type_str, id, message
-        );
-    });
 }

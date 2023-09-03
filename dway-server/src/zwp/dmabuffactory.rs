@@ -1,6 +1,12 @@
 use drm_fourcc::DrmFourcc;
 
-use crate::{prelude::*, zwp::{dambuffeedback::DmabufFeedback, dmabufparam::DmaBufferParams}};
+use crate::{
+    prelude::*,
+    zwp::{
+        dambuffeedback::{DmabufFeedback, PeddingDmabufFeedback},
+        dmabufparam::DmaBufferParams,
+    },
+};
 
 relationship!(DmaBufferHasFeedback=>FeedbackList-<DmaBufferRef);
 relationship!(DmaBufferAttachSurface=>SurfaceListForDmaBuffer-<DmaBufferRefForSurface);
@@ -36,18 +42,25 @@ impl Dispatch<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, Entity> for DWay {
             }
             zwp_linux_dmabuf_v1::Request::CreateParams { params_id } => {
                 state.insert_object(*data, params_id, data_init, DmaBufferParams::new);
-            },
+            }
             zwp_linux_dmabuf_v1::Request::GetDefaultFeedback { id } => {
-                let entity = state.spawn_child_object(*data, id, data_init, DmabufFeedback::new);
+                let entity = state
+                    .spawn((id, data_init, |o| {
+                        (DmabufFeedback::new(o), PeddingDmabufFeedback)
+                    }))
+                    .set_parent(*data)
+                    .id();
                 state.connect::<DmaBufferHasFeedback>(entity, *data);
             }
             zwp_linux_dmabuf_v1::Request::GetSurfaceFeedback { id, surface } => {
-                let entity = state.insert_object(
-                    DWay::get_entity(&surface),
-                    id,
-                    data_init,
-                    DmabufFeedback::new,
-                );
+                let entity = state
+                    .insert(
+                        DWay::get_entity(&surface),
+                        (id, data_init, |o| {
+                            (DmabufFeedback::new(o), PeddingDmabufFeedback)
+                        }),
+                    )
+                    .id();
                 state.connect::<DmaBufferAttachSurface>(entity, *data);
             }
             _ => todo!(),
@@ -84,6 +97,7 @@ impl GlobalDispatch<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, Entity> for DWay {
         });
     }
 }
+
 pub struct DWayDmaBufferFactoryPlugin;
 impl Plugin for DWayDmaBufferFactoryPlugin {
     fn build(&self, app: &mut App) {

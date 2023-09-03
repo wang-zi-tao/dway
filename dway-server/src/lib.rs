@@ -2,8 +2,9 @@
 #![feature(async_closure)]
 #![feature(ptr_metadata)]
 #![feature(trivial_bounds)]
-use std::process;
+#![feature(iterator_try_collect)]
 
+use std::process;
 use bevy::prelude::*;
 use bevy_tokio_tasks::TokioTasksRuntime;
 use dway_winit::UpdateRequestEvents;

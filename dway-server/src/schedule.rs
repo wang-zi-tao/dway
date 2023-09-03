@@ -28,6 +28,7 @@ pub enum DWayServerSet {
     Input,
     GrabInput,
     InputFlush,
+    InitDmaBufFeedback,
 }
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum DWayServerSchedule {
@@ -53,6 +54,7 @@ impl Plugin for DWayServerSchedulePlugin {
             (
                 UpdateGeometry,
                 UpdateXWayland,
+                InitDmaBufFeedback,
                 UpdateJoin.after(UpdateGeometry),
             )
                 .after(Dispatch)
