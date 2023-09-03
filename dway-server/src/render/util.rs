@@ -1,16 +1,15 @@
 use std::{
+    collections::HashSet,
     ffi::{c_char, c_uint, c_void, CStr},
     ptr::null_mut,
 };
 
 use crate::prelude::*;
 use glow::HasContext;
-use khronos_egl::{Attrib, Boolean, Int};
+use khronos_egl::{Attrib, Boolean, Enum, Int};
 use scopeguard::defer;
 use thiserror::Error;
 use wgpu_hal::{api::Gles, gles::AdapterContext, MemoryFlags, TextureUses};
-
-pub const EGL_TRUE: Boolean = 1;
 
 pub const LINUX_DMA_BUF_EXT: u32 = 0x3270;
 pub const WAYLAND_PLANE_WL: c_uint = 0x31D6;
@@ -47,6 +46,13 @@ pub const EGL_NO_IMAGE_KHR: *mut c_void = null_mut();
 
 pub const DEVICE_EXT: i32 = 0x322C;
 pub const NO_DEVICE_EXT: Attrib = 0;
+
+pub const EGL_DEBUG_MSG_CRITICAL_KHR: Attrib = 0x33B9;
+pub const EGL_DEBUG_MSG_ERROR_KHR: Attrib = 0x33BA;
+pub const EGL_DEBUG_MSG_INFO_KHR: Attrib = 0x33BC;
+pub const EGL_DEBUG_MSG_WARN_KHR: Attrib = 0x33BB;
+
+pub type EGLInstance = khronos_egl::DynamicInstance<khronos_egl::EGL1_4>;
 
 #[derive(Error, Debug)]
 pub enum DWayRenderError {
@@ -98,8 +104,7 @@ pub fn get_egl_display(device: &wgpu::Device) -> Result<khronos_egl::Display> {
     }
 }
 
-pub fn egl_check_extensions(gl: &glow::Context, extensions: &[&str]) -> Result<()> {
-    let supported_extensions = gl.supported_extensions();
+pub fn check_extensions(supported_extensions: &HashSet<String>, extensions: &[&str]) -> Result<()> {
     let mut unsupported_extensions = vec![];
     for extension in extensions {
         if !supported_extensions.contains(*extension) {
@@ -114,10 +119,17 @@ pub fn egl_check_extensions(gl: &glow::Context, extensions: &[&str]) -> Result<(
     Ok(())
 }
 
-pub fn get_egl_function(
-    egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4>,
-    func: &str,
-) -> Result<extern "C" fn()> {
+pub fn gl_check_extensions(gl: &glow::Context, extensions: &[&str]) -> Result<()> {
+    let supported_extensions = gl.supported_extensions();
+    check_extensions(&supported_extensions, extensions)
+}
+
+pub fn egl_check_extensions(egl: &EGLInstance, extensions: &[&str]) -> Result<()> {
+    let supported_extensions = get_egl_extensions(egl)?;
+    check_extensions(&supported_extensions, extensions)
+}
+
+pub fn get_egl_function(egl: &EGLInstance, func: &str) -> Result<extern "C" fn()> {
     Ok(egl
         .get_proc_address(func)
         .ok_or_else(|| DWayRenderError::FunctionNotExists(func.to_string()))?)
@@ -125,11 +137,7 @@ pub fn get_egl_function(
 
 pub fn with_gl<R>(
     device: &wgpu::Device,
-    f: impl FnOnce(
-        &AdapterContext,
-        &khronos_egl::DynamicInstance<khronos_egl::EGL1_4>,
-        &glow::Context,
-    ) -> Result<R, DWayRenderError>,
+    f: impl FnOnce(&AdapterContext, &EGLInstance, &glow::Context) -> Result<R, DWayRenderError>,
 ) -> Result<R, DWayRenderError> {
     unsafe {
         device.as_hal::<Gles, _, _>(|hal_device| {
@@ -137,7 +145,7 @@ pub fn with_gl<R>(
                 .ok_or_else(|| DWayRenderError::BackendIsNotEGL)?
                 .context();
             let gl: &glow::Context = &context.lock();
-            let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> = context
+            let egl: &EGLInstance = context
                 .egl_instance()
                 .ok_or_else(|| DWayRenderError::BackendIsNotEGL)?;
             gl.enable(glow::DEBUG_OUTPUT);
@@ -151,11 +159,11 @@ pub fn with_gl<R>(
 }
 
 pub fn call_egl_boolean(
-    egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4>,
+    egl: &EGLInstance,
     f: impl FnOnce() -> Boolean,
 ) -> Result<(), DWayRenderError> {
     let r = f();
-    if r != EGL_TRUE {
+    if r != khronos_egl::TRUE {
         if let Some(err) = egl.get_error() {
             Err(DWayRenderError::EglError(err))
         } else {
@@ -167,11 +175,11 @@ pub fn call_egl_boolean(
 }
 
 pub fn call_egl_string(
-    egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4>,
+    egl: &EGLInstance,
     f: impl FnOnce() -> *const c_char,
 ) -> Result<&CStr, DWayRenderError> {
     let r = f();
-    if !r.is_null() {
+    if r.is_null() {
         if let Some(err) = egl.get_error() {
             Err(DWayRenderError::EglError(err))
         } else {
@@ -183,7 +191,7 @@ pub fn call_egl_string(
 }
 
 pub fn call_egl_vec<T: Default>(
-    egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4>,
+    egl: &EGLInstance,
     mut f: impl FnMut(Int, *mut T, *mut Int) -> Boolean,
 ) -> Result<Vec<T>> {
     let mut num = 0;
@@ -198,7 +206,7 @@ pub fn call_egl_vec<T: Default>(
 }
 
 pub fn call_egl_double_vec<T1: Default, T2: Default>(
-    egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4>,
+    egl: &EGLInstance,
     mut f: impl FnMut(Int, *mut T1, *mut T2, *mut Int) -> Boolean,
 ) -> Result<(Vec<T1>, Vec<T2>)> {
     let mut num = 0;
@@ -251,4 +259,22 @@ pub fn gl_debug_message_callback(source: u32, gltype: u32, id: u32, _severity: u
             source_str, type_str, id, message
         );
     });
+}
+
+pub fn get_extensions<E>(f: impl FnOnce() -> Result<String,E>) -> Result<HashSet<String>,E> {
+    Ok(f()?
+        .split(' ')
+        .filter(|e| !e.is_empty())
+        .map(|e| e.to_string())
+        .collect())
+}
+
+pub fn get_egl_extensions(egl: &EGLInstance) -> Result<HashSet<String>> {
+    Ok(egl
+        .query_string(None, khronos_egl::EXTENSIONS)?
+        .to_string_lossy()
+        .split(' ')
+        .filter(|e| !e.is_empty())
+        .map(|e| e.to_string())
+        .collect())
 }

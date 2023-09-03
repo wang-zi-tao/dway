@@ -13,13 +13,15 @@ use bevy::{
 use crossbeam_channel::{Receiver, Sender};
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use glow::HasContext;
-use khronos_egl::{Attrib, Boolean, EGLDisplay, Int};
+use khronos_egl::{Attrib, Boolean, EGLDisplay, Enum, Int};
 use nix::libc;
+use scopeguard::defer;
 use std::{
-    collections::HashSet,
+    collections::{BTreeSet, HashSet},
     ffi::{c_char, CStr, CString, OsString},
     fs::File,
-    sync::Arc,
+    ptr::null,
+    sync::Arc, any,
 };
 use thiserror::Error;
 use wgpu_hal::{api::Gles, gles::AdapterContext, MemoryFlags, TextureUses};
@@ -126,16 +128,7 @@ fn do_init_drm_state(
     state: &mut DrmNodeState,
 ) -> Result<(), DWayRenderError> {
     with_gl(device, |context, egl, gl| {
-        // egl_check_extensions(
-        //     gl,
-        //     &[
-        //         "EGL_EXT_device_base",
-        //         "EGL_EXT_device_query",
-        //         "EGL_EXT_device_drm_render_node",
-        //         "EGL_EXT_device_drm",
-        //     ],
-        // )?;
-        let extensions = gl.supported_extensions();
+        egl_check_extensions(egl, &["EGL_EXT_device_base", "EGL_EXT_device_query"])?;
         let egl_display = context.raw_display().ok_or_else(|| DisplayNotAvailable)?;
 
         let query_display_attrib_ext: extern "system" fn(EGLDisplay, Int, *mut Attrib) -> Boolean =
@@ -158,6 +151,12 @@ fn do_init_drm_state(
             *mut Int,
         ) -> Boolean =
             unsafe { std::mem::transmute(get_egl_function(egl, "eglQueryDmaBufModifiersEXT")?) };
+        let debug_message_control_khr: extern "system" fn(
+            *const unsafe fn(Enum, *const c_char, Int, *const c_char, *const c_char, *const c_char),
+            *const Attrib,
+        ) = unsafe { std::mem::transmute(get_egl_function(egl, "eglDebugMessageControlKHR")?) };
+
+        let extensions = get_egl_extensions(egl)?;
 
         let mut device: Attrib = 0;
         call_egl_boolean(egl, || {
@@ -166,6 +165,25 @@ fn do_init_drm_state(
         if device == NO_DEVICE_EXT {
             return Err(EglApiError("eglQueryDisplayAttribEXT"));
         }
+        let device_extensions = get_extensions(|| {
+            call_egl_string(egl, || {
+                query_device_string_ext(device, khronos_egl::EXTENSIONS)
+            })
+            .map(|s| s.to_string_lossy().to_string())
+        }).map_err(|e|Unknown(anyhow!("failed to get device extensions: {e}")))?;
+        check_extensions(
+            &device_extensions,
+            &["EGL_EXT_device_drm_render_node", "EGL_EXT_device_drm"],
+        )?;
+
+        let path = call_egl_string(egl, || {
+            query_device_string_ext(device, DRM_RENDER_NODE_FILE_EXT)
+        })
+        .or_else(|_| {
+            egl.get_error();
+            call_egl_string(egl, || query_device_string_ext(device, DRM_DEVICE_FILE_EXT))
+        }).map_err(|e|Unknown(anyhow!("failed to get device path: {e}")))?;
+        let drm_node = DrmNode::new(&path)?;
 
         let formats = if !extensions.contains("EGL_EXT_image_dma_buf_import_modifiers") {
             vec![DrmFourcc::Argb8888, DrmFourcc::Xrgb8888]
@@ -213,15 +231,6 @@ fn do_init_drm_state(
                 }
             }
         }
-        dbg!(device);
-        // let path = call_egl_string(egl, || query_device_string_ext(device, DRM_RENDER_NODE_FILE_EXT))
-        //     .or_else(|_| {
-        //         egl.get_error();
-        //         call_egl_string(egl, || query_device_string_ext(device, DRM_DEVICE_FILE_EXT))
-        //     })?;
-        let path = CString::new("/dev/dri/renderD128").unwrap(); // TODO 
-        dbg!(&path);
-        let drm_node = DrmNode::new(&path)?;
 
         state.init(drm_node, texture_formats, render_formats)?;
 
