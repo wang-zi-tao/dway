@@ -3,7 +3,7 @@ use drm_fourcc::DrmFourcc;
 use crate::{
     prelude::*,
     zwp::{
-        dambuffeedback::{DmabufFeedback, PeddingDmabufFeedback},
+        dmabuffeedback::{init_feedback, DmabufFeedback},
         dmabufparam::DmaBufferParams,
     },
 };
@@ -41,12 +41,13 @@ impl Dispatch<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, Entity> for DWay {
                 state.despawn_object_component::<ZwpDmaBufferFactory>(*data, resource.id());
             }
             zwp_linux_dmabuf_v1::Request::CreateParams { params_id } => {
-                state.insert_object(*data, params_id, data_init, DmaBufferParams::new);
+                state.spawn_child_object(*data, params_id, data_init, DmaBufferParams::new);
             }
             zwp_linux_dmabuf_v1::Request::GetDefaultFeedback { id } => {
                 let entity = state
-                    .spawn((id, data_init, |o| {
-                        (DmabufFeedback::new(o), PeddingDmabufFeedback)
+                    .spawn((id, data_init, |o, world:&mut World| {
+                        init_feedback(world, &o);
+                        DmabufFeedback::new(o)
                     }))
                     .set_parent(*data)
                     .id();
@@ -56,8 +57,9 @@ impl Dispatch<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, Entity> for DWay {
                 let entity = state
                     .insert(
                         DWay::get_entity(&surface),
-                        (id, data_init, |o| {
-                            (DmabufFeedback::new(o), PeddingDmabufFeedback)
+                        (id, data_init, |o, world:&mut World| {
+                            init_feedback(world, &o);
+                            DmabufFeedback::new(o)
                         }),
                     )
                     .id();

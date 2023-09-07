@@ -4,24 +4,27 @@ use super::util::{
 use crate::{
     prelude::*,
     util::file::create_sealed_file,
-    zwp::dambuffeedback::{do_init_feedback, DmabufFeedback, PeddingDmabufFeedback},
+    zwp::dmabuffeedback::{do_init_feedback, DmabufFeedback},
 };
 use bevy::{
     render::{renderer::RenderDevice, Extract},
     utils::tracing,
 };
-use crossbeam_channel::{Receiver, Sender};
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use glow::HasContext;
 use khronos_egl::{Attrib, Boolean, EGLDisplay, Enum, Int};
 use nix::libc;
 use scopeguard::defer;
 use std::{
+    any,
     collections::{BTreeSet, HashSet},
     ffi::{c_char, CStr, CString, OsString},
     fs::File,
     ptr::null,
-    sync::Arc, any,
+    sync::{
+        mpsc::{channel, Receiver, Sender},
+        Arc, Mutex,
+    },
 };
 use thiserror::Error;
 use wgpu_hal::{api::Gles, gles::AdapterContext, MemoryFlags, TextureUses};
@@ -64,11 +67,46 @@ impl DrmNode {
     }
 }
 
-#[derive(Resource, Default, Debug)]
-pub struct DrmNodeState {
-    pub state: Option<DrmNodeStateInner>,
+pub fn new_drm_node_resource() -> (DmaFeedbackWriter, DrmNodeState) {
+    let (tx, rx) = channel();
+    (
+        DmaFeedbackWriter {
+            state: None,
+            receiver: Mutex::new(rx),
+        },
+        DrmNodeState {
+            state: None,
+            sender: tx,
+        },
+    )
 }
+
+pub fn update_dma_feedback_writer(mut dma_feedback_writer: ResMut<DmaFeedbackWriter>) {
+    let Ok(new_data) = dma_feedback_writer.receiver.lock().unwrap().try_recv() else {
+        return;
+    };
+    dma_feedback_writer.state = Some(new_data);
+}
+
+#[derive(Resource, Debug)]
+pub struct DmaFeedbackWriter {
+    pub state: Option<Arc<DrmNodeStateInner>>,
+    pub receiver: Mutex<Receiver<Arc<DrmNodeStateInner>>>,
+}
+
+#[derive(Resource, Debug)]
+pub struct DrmNodeState {
+    pub state: Option<Arc<DrmNodeStateInner>>,
+    pub sender: Sender<Arc<DrmNodeStateInner>>,
+}
+
 impl DrmNodeState {
+    pub fn set(&mut self, data: DrmNodeStateInner) {
+        let data = Arc::new(data);
+        self.state = Some(data.clone());
+        let _ = self.sender.send(data);
+    }
+
     pub fn init(
         &mut self,
         drm: DrmNode,
@@ -90,7 +128,7 @@ impl DrmNodeState {
             preferred_tranches: vec![],
             format_table,
         };
-        self.state = Some(inner);
+        self.set(inner);
         Ok(())
     }
     pub fn create_format_table(texture_format: &Vec<DrmFormat>) -> Result<(File, usize)> {
@@ -151,10 +189,6 @@ fn do_init_drm_state(
             *mut Int,
         ) -> Boolean =
             unsafe { std::mem::transmute(get_egl_function(egl, "eglQueryDmaBufModifiersEXT")?) };
-        let debug_message_control_khr: extern "system" fn(
-            *const unsafe fn(Enum, *const c_char, Int, *const c_char, *const c_char, *const c_char),
-            *const Attrib,
-        ) = unsafe { std::mem::transmute(get_egl_function(egl, "eglDebugMessageControlKHR")?) };
 
         let extensions = get_egl_extensions(egl)?;
 
@@ -170,7 +204,8 @@ fn do_init_drm_state(
                 query_device_string_ext(device, khronos_egl::EXTENSIONS)
             })
             .map(|s| s.to_string_lossy().to_string())
-        }).map_err(|e|Unknown(anyhow!("failed to get device extensions: {e}")))?;
+        })
+        .map_err(|e| Unknown(anyhow!("failed to get device extensions: {e}")))?;
         check_extensions(
             &device_extensions,
             &["EGL_EXT_device_drm_render_node", "EGL_EXT_device_drm"],
@@ -179,10 +214,8 @@ fn do_init_drm_state(
         let path = call_egl_string(egl, || {
             query_device_string_ext(device, DRM_RENDER_NODE_FILE_EXT)
         })
-        .or_else(|_| {
-            egl.get_error();
-            call_egl_string(egl, || query_device_string_ext(device, DRM_DEVICE_FILE_EXT))
-        }).map_err(|e|Unknown(anyhow!("failed to get device path: {e}")))?;
+        .or_else(|_| call_egl_string(egl, || query_device_string_ext(device, DRM_DEVICE_FILE_EXT)))
+        .map_err(|e| Unknown(anyhow!("failed to get device path: {e}")))?;
         let drm_node = DrmNode::new(&path)?;
 
         let formats = if !extensions.contains("EGL_EXT_image_dma_buf_import_modifiers") {
@@ -248,21 +281,21 @@ pub fn init_drm_state(device: Res<RenderDevice>, mut state: ResMut<DrmNodeState>
     }
 }
 
-pub fn extract_dma_buf_feedback(
-    feedback_query: Extract<Query<&DmabufFeedback, With<PeddingDmabufFeedback>>>,
-    mut commands: Commands,
-) {
-    feedback_query.for_each(|feedback| {
-        commands.spawn(feedback.clone());
-    })
-}
-#[tracing::instrument(skip_all)]
-pub fn init_dma_buf_feedback(
-    feedback_query: Query<&DmabufFeedback>,
-    drm_node_state: Res<DrmNodeState>,
-) {
-    let Some(drm_node_state) = &drm_node_state.state else {
-        return;
-    };
-    feedback_query.for_each(|feedback| do_init_feedback(feedback, drm_node_state));
-}
+// pub fn extract_dma_buf_feedback(
+//     feedback_query: Extract<Query<&DmabufFeedback, With<PeddingDmabufFeedback>>>,
+//     mut commands: Commands,
+// ) {
+//     feedback_query.for_each(|feedback| {
+//         commands.spawn(feedback.clone());
+//     })
+// }
+// #[tracing::instrument(skip_all)]
+// pub fn init_dma_buf_feedback(
+//     feedback_query: Query<&DmabufFeedback>,
+//     drm_node_state: Res<DrmNodeState>,
+// ) {
+//     let Some(drm_node_state) = &drm_node_state.state else {
+//         return;
+//     };
+//     feedback_query.for_each(|feedback| do_init_feedback(feedback, drm_node_state));
+// }

@@ -34,9 +34,9 @@ khronos-egl = { version="4.1",features= ["dynamic","static"] }
 tracing-subscriber = "0.3.16"
 send_wrapper = "0.6.0"
 serde={}
-wayland-server = "0.30.0"
-wayland-backend = { version="0.1.2", features = ["server_system"] }
-wayland-protocols = { version = "0.30.0", features = ["unstable", "staging", "server"]}
+wayland-server = { version="0.30.0",features = ["log"] }
+wayland-backend = { version="0.1.2", features = ["server_system", "log"] }
+wayland-protocols = { version = "0.30.0", features = ["unstable", "staging", "server", "wayland-server"]}
 calloop = "0.10.5"
 inlinable_string = "0.1.15"
 nix = "0.26.2"

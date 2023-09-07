@@ -1,14 +1,16 @@
+use super::util::*;
 use crate::{
     prelude::*,
     util::rect::IRect,
     wl::{
-        buffer::{EGLBuffer, UninitedWlBuffer, WlMemoryBuffer},
+        buffer::{EGLBuffer, UninitedWlBuffer, WlShmBuffer},
         surface::WlSurface,
     },
     zwp::dmabufparam::DmaBuffer,
 };
-use super::util::*;
 use drm_fourcc::DrmModifier;
+use image::{ImageBuffer, Rgba};
+use scopeguard::defer;
 use thiserror::Error;
 use wayland_backend::server::WeakHandle;
 
@@ -23,15 +25,19 @@ use std::{
 use bevy::{
     prelude::{info, Vec2},
     render::texture::GpuImage,
+    utils::tracing,
 };
-use glow::{HasContext, NativeRenderbuffer, NativeTexture};
+use glow::{HasContext, NativeRenderbuffer, NativeTexture, PixelPackData};
 
 use khronos_egl::{Boolean, EGLClientBuffer, EGLContext, EGLDisplay, EGLImage, Enum, Int, NONE};
 use wgpu::{FilterMode, SamplerDescriptor, Texture, TextureAspect};
 use wgpu_hal::Api;
 use wgpu_hal::{api::Gles, MemoryFlags, TextureUses};
 
-use super::{importnode::DWayDisplayHandles, util::{get_egl_display, DWayRenderError}};
+use super::{
+    importnode::DWayDisplayHandles,
+    util::{get_egl_display, DWayRenderError},
+};
 
 use DWayRenderError::*;
 
@@ -115,12 +121,14 @@ impl EglState {
 
 pub type TextureId = (NativeTexture, u32);
 
+#[tracing::instrument(skip_all)]
 pub unsafe fn import_dma(
-    _buffer: &WlMemoryBuffer,
+    gl: &glow::Context,
     dma_buffer: &DmaBuffer,
     display: EGLDisplay,
     egl_state: &mut EglState,
-) -> Result<(EGLImage, IVec2)> {
+    dest: TextureId,
+) -> Result<()> {
     let mut out: Vec<c_int> = Vec::with_capacity(50);
     let planes = dma_buffer.planes.lock().unwrap();
 
@@ -198,33 +206,57 @@ pub unsafe fn import_dma(
     );
 
     if image == null_mut() {
-        Err(FailedToCreateDmaImage.into())
-    } else {
-        Ok((image, dma_buffer.size))
+        return Err(FailedToCreateDmaImage.into());
     }
-}
-pub unsafe fn image_target_renderbuffer_storage_oes(
-    fn_bind_image: extern "system" fn(target: Enum, image: *const c_void),
-    raw_image: EGLImage,
-) -> Result<()> {
-    fn_bind_image(glow::RENDERBUFFER, raw_image);
+
+    image_bind_texture(gl, image, egl_state, dest, dma_buffer.size)?;
     Ok(())
 }
-pub unsafe fn image_target_texture_oes(
+
+#[tracing::instrument(skip_all)]
+pub unsafe fn image_bind_texture(
     gl: &glow::Context,
     raw_image: EGLImage,
     egl_state: &mut EglState,
-) -> Result<NativeTexture> {
-    let texture = gl.create_texture().map_err(FailedToCreateSurface)?;
+    dest: TextureId,
+    size: IVec2,
+) -> Result<()> {
+    let texture = gl
+        .create_texture()
+        .map_err(|s| anyhow!("failed to create texture: {s}"))?;
+    defer! {
+        gl.delete_texture(texture);
+    }
+
     gl.bind_texture(glow::TEXTURE_2D, Some(texture));
-    (egl_state.gl_eglimage_target_texture2_does)(glow::TEXTURE_2D, raw_image);
-    gl.bind_texture(glow::TEXTURE_2D, None);
-    Ok(texture)
+    call_gl(gl, || {
+        (egl_state.gl_eglimage_target_texture2_does)(glow::TEXTURE_2D, raw_image);
+    })?;
+    gl.generate_mipmap(glow::TEXTURE_2D);
+    gl.copy_image_sub_data(
+        texture,
+        glow::TEXTURE_2D,
+        0,
+        0,
+        0,
+        0,
+        dest.0,
+        glow::TEXTURE_2D,
+        0,
+        0,
+        0,
+        0,
+        size.x,
+        size.y,
+        1,
+    );
+    Ok(())
 }
 
-pub unsafe fn import_memory(
+#[tracing::instrument(skip_all)]
+pub unsafe fn import_shm(
     surface: &WlSurface,
-    buffer: &WlMemoryBuffer,
+    buffer: &WlShmBuffer,
     gl: &glow::Context,
     dest: TextureId,
 ) -> Result<()> {
@@ -244,7 +276,7 @@ pub unsafe fn import_memory(
         (buffer.offset + (buffer.stride * height) - buffer.stride + width * pixelsize) as usize
             <= shm_inner.size
     );
-    gl.bind_texture(dest.1, Some(dest.0));
+    gl.bind_texture(glow::TEXTURE_2D, Some(dest.0));
     gl.tex_parameter_i32(
         glow::TEXTURE_2D,
         glow::TEXTURE_WRAP_S,
@@ -267,12 +299,6 @@ pub unsafe fn import_memory(
     );
 
     gl.pixel_store_i32(glow::UNPACK_ROW_LENGTH, stride / pixelsize);
-
-    // let image: ImageBuffer<Rgba<u8>, Vec<_>> =
-    //     image::ImageBuffer::from_vec(width as u32, height as u32, ptr.to_vec()).unwrap();
-    // let snapshtip_count = std::fs::read_dir(".snapshot").unwrap().count();
-    // image.save(format!(".snapshot/snapshot_{}.png", snapshtip_count + 1))?;
-    // dbg!(ptr.iter().map(|v| *v as usize).sum::<usize>() / ptr.len());
 
     let (gl_format, _shader_idx) = match buffer.format {
         wl_shm::Format::Abgr8888 => (glow::RGBA, 0),
@@ -324,17 +350,17 @@ pub unsafe fn import_memory(
     Ok(())
 }
 
+#[tracing::instrument(skip_all)]
 pub unsafe fn import_egl(
-    buffer: &WlMemoryBuffer,
+    buffer: &wl_buffer::WlBuffer,
     egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4>,
     gl: &glow::Context,
     display: khronos_egl::Display,
     egl_state: &mut EglState,
     dest: TextureId,
 ) -> Result<(), DWayRenderError> {
-    let buffer_guard = buffer.raw.lock().unwrap();
     let egl_surface: khronos_egl::Surface =
-        khronos_egl::Surface::from_ptr(buffer_guard.id().as_ptr() as _);
+        khronos_egl::Surface::from_ptr(buffer.id().as_ptr() as _);
 
     let width = egl
         .query_surface(display, egl_surface, khronos_egl::WIDTH)
@@ -365,9 +391,9 @@ pub unsafe fn import_egl(
     if image == EGL_NO_IMAGE_KHR {
         return Err(FailedToImportEglBuffer);
     }
-    dbg!(image);
-    gl.bind_texture(dest.1, Some(dest.0));
-    (egl_state.gl_eglimage_target_texture2_does)(glow::TEXTURE_2D, image);
+    image_bind_texture(gl, image, egl_state, dest, IVec2::new(width, height))?;
+    output_texture("eglbuffer", gl, dest.0, IVec2::new(width, height));
+    warn!("import egl buffer");
     Ok(())
 }
 
@@ -473,6 +499,7 @@ pub enum BufferType {
     Egl,
     Dma,
 }
+#[tracing::instrument(skip_all)]
 pub fn bind_wayland(
     display_handles: &DWayDisplayHandles,
     state: &mut EglState,
@@ -483,11 +510,12 @@ pub fn bind_wayland(
     Ok(())
 }
 
+#[tracing::instrument(skip_all)]
 pub fn import_wl_surface(
     surface: &WlSurface,
-    buffer: &WlMemoryBuffer,
+    shm_buffer: Option<&WlShmBuffer>,
     dma_buffer: Option<&DmaBuffer>,
-    egl_buffer: Option<&EGLBuffer>,
+    egl_buffer: Option<&UninitedWlBuffer>,
     texture: &Texture,
     device: &wgpu::Device,
     egl_state: &mut Option<EglState>,
@@ -527,20 +555,51 @@ pub fn import_wl_surface(
                     BackendIsNotEGL
                 })?;
             let egl_state = egl_state.get_or_insert_with(|| EglState::new(gl, egl).unwrap());
-            match import_egl(buffer, egl, gl, display, egl_state, texture_id) {
-                Err(FailedToImportEglBuffer) => {}
-                Ok(()) => return Ok(()),
-                Err(e) => return Err(e.into()),
-            }
-            if let Some(dma_buffer) = dma_buffer {
-                let (raw_image, _size) =
-                    import_dma(buffer, dma_buffer, display.as_ptr(), egl_state)?;
-                let _texture = image_target_texture_oes(gl, raw_image, egl_state)?;
-            } else {
-                import_memory(surface, buffer, gl, texture_id)?;
+            if let Some(egl_buffer) = egl_buffer {
+                import_egl(&egl_buffer.raw, egl, gl, display, egl_state, texture_id)?;
+            } else if let Some(dma_buffer) = dma_buffer {
+                import_dma(gl, dma_buffer, display.as_ptr(), egl_state, texture_id)?;
+            } else if let Some(shm_buffer) = shm_buffer {
+                import_shm(surface, shm_buffer, gl, texture_id)?;
             }
             gl.disable(glow::DEBUG_OUTPUT);
             Ok(())
         })
+    }
+}
+
+#[tracing::instrument(skip_all)]
+pub fn output_texture(name: &str, gl: &glow::Context, texture: NativeTexture, size: IVec2) {
+    unsafe {
+        let framebuffer = gl.create_framebuffer().unwrap();
+        gl.bind_framebuffer(glow::FRAMEBUFFER, Some(framebuffer));
+        gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+        gl.framebuffer_texture_2d(
+            glow::FRAMEBUFFER,
+            glow::COLOR_ATTACHMENT0,
+            glow::TEXTURE_2D,
+            Some(texture),
+            0,
+        );
+        let mut buffer = vec![0u8; 4 * size.x as usize * size.y as usize];
+        gl.read_pixels(
+            0,
+            0,
+            size.x,
+            size.y,
+            glow::RGBA,
+            glow::UNSIGNED_BYTE,
+            PixelPackData::Slice(&mut buffer[..]),
+        );
+        gl.bind_texture(glow::TEXTURE_2D, None);
+        gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+
+        dbg!(buffer.iter().map(|v| *v as usize).sum::<usize>() / buffer.len());
+        let image: ImageBuffer<Rgba<u8>, Vec<_>> =
+            ImageBuffer::from_vec(size.x as u32, size.y as u32, buffer).unwrap();
+        let snapshtip_count = std::fs::read_dir(".snapshot").unwrap().count();
+        let path = format!(".snapshot/{name}_{}.png", snapshtip_count + 1);
+        info!("take snapshot, save at ${path}");
+        image.save(&path).unwrap();
     }
 }

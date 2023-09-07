@@ -6,9 +6,10 @@ use crate::{
     schedule::DWayServerSet,
     state::{WaylandDisplayCreated, WaylandDisplayDestroyed},
     wl::{
-        buffer::{EGLBuffer, WlMemoryBuffer, UninitedWlBuffer},
+        buffer::{EGLBuffer, UninitedWlBuffer, WlShmBuffer},
         surface::WlSurface,
-    }, zwp::dmabufparam::DmaBuffer,
+    },
+    zwp::dmabufparam::DmaBuffer,
 };
 
 use bevy::{
@@ -27,7 +28,7 @@ use bevy::{
         texture::GpuImage,
         view::{ExtractedView, NonSendMarker, ViewTarget},
         Extract,
-    },
+    }, utils::tracing,
 };
 
 use wgpu::{LoadOp, Operations, RenderPassDescriptor};
@@ -66,7 +67,9 @@ impl PhaseItem for ImportedSurfacePhaseItem {
 pub fn extract_surface(
     _: NonSend<NonSendMarker>,
     surface_query: Extract<Query<&WlSurface>>,
-    buffer_query: Extract<Query<(&WlMemoryBuffer, &Parent, Option<&DmaBuffer>, Option<&EGLBuffer>)>>,
+    shm_buffer_query: Extract<Query<&WlShmBuffer>>,
+    dma_buffer_query: Extract<Query<&DmaBuffer>>,
+    egl_buffer_query: Extract<Query<&UninitedWlBuffer>>,
     mut commands: Commands,
     mut image_bind_groups: Option<ResMut<kayak_ui::render::unified::pipeline::ImageBindGroups>>,
     frame_count: Extract<Res<FrameCount>>,
@@ -81,27 +84,22 @@ pub fn extract_surface(
             continue;
         }
         if let Some(image_bind_groups) = image_bind_groups.as_mut() {
-            // debug!("remove bind group of {:?}", &surface.image);
             image_bind_groups.values.remove(&surface.image);
         }
         let Some(buffer_entity) = surface.commited.buffer else {
-            trace!("not connited {:?}", surface.raw.id());
+            trace!("surface {:?} has no attachment", surface.raw.id());
             continue;
         };
-        let Ok((buffer, _shm_pool_entity, dma_buffer, egl_buffer)) =
-            buffer_query.get(buffer_entity)
-        else {
-            trace!("no wl_buffer {:?}", buffer_entity);
-            continue;
+
+        let entity = if let Ok(buffer) = shm_buffer_query.get(buffer_entity) {
+            commands.spawn((surface.clone(), buffer.clone()));
+        } else if let Ok(dma_buffer) = dma_buffer_query.get(buffer_entity) {
+            let mut entity_mut = commands.spawn((surface.clone(), dma_buffer.clone()));
+        } else if let Ok(egl_buffer) = egl_buffer_query.get(buffer_entity) {
+            let mut entity_mut = commands.spawn((surface.clone(), egl_buffer.clone()));
+        } else {
+            error!(entity=?buffer_entity,"buffer not found");
         };
-        // trace!("extract {:?}", surface.raw.id());
-        let mut entity = commands.spawn((surface.clone(), buffer.clone()));
-        if let Some(dma_buffer) = dma_buffer {
-            entity.insert(dma_buffer.clone());
-        }
-        if let Some(egl_buffer) = egl_buffer {
-            entity.insert(egl_buffer.clone());
-        }
     }
     commands.spawn(RenderPhase::<ImportedSurfacePhaseItem>::default());
     for WaylandDisplayCreated(entity, display_handle) in create_events.iter() {
@@ -112,6 +110,7 @@ pub fn extract_surface(
     }
 }
 
+#[tracing::instrument(skip_all)]
 pub fn queue_import(
     draw_functions: Res<DrawFunctions<ImportedSurfacePhaseItem>>,
     mut phase_query: Query<&mut RenderPhase<ImportedSurfacePhaseItem>>,
@@ -154,9 +153,9 @@ impl<P: PhaseItem> RenderCommand<P> for ImportSurface {
     );
     type ItemWorldQuery = (
         Read<WlSurface>,
-        Read<WlMemoryBuffer>,
+        Option<Read<WlShmBuffer>>,
         Option<Read<DmaBuffer>>,
-        Option<Read<EGLBuffer>>,
+        Option<Read<UninitedWlBuffer>>,
     );
     type ViewWorldQuery = ();
 
@@ -187,10 +186,8 @@ impl<P: PhaseItem> RenderCommand<P> for ImportSurface {
         ) {
             error!(
                 surface = %surface.raw.id(),
-                error = %e,
                 entity=?item.entity(),
-                texture = ?&texture.texture,
-                "failed to import buffer.",
+                "failed to import buffer: {e}",
             );
             return bevy::render::render_phase::RenderCommandResult::Success;
         } else {

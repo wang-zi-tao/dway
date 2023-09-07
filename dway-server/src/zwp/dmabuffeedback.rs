@@ -5,12 +5,8 @@ use std::{
 
 use crate::{
     prelude::*,
-    render::drm::{DrmNodeState, DrmNodeStateInner},
+    render::drm::{DmaFeedbackWriter, DrmNodeState, DrmNodeStateInner},
 };
-
-#[derive(Component, Reflect, Debug)]
-#[reflect(Debug)]
-pub struct PeddingDmabufFeedback;
 
 #[derive(Debug, Default)]
 pub struct DmabufFeedbackInner {
@@ -63,15 +59,12 @@ impl Dispatch<zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1, Entity> fo
     }
 }
 
-pub fn do_init_feedback(feedback: &DmabufFeedback, drm_node_state: &DrmNodeStateInner) {
-    let mut guard = feedback.inner.lock().unwrap();
-    if guard.inited {
-        return;
-    }
-    let raw = &feedback.raw;
-    dbg!(&drm_node_state.format_table);
-    raw.main_device(drm_node_state.main_device.device.to_ne_bytes().to_vec());
-    raw.format_table(
+pub fn do_init_feedback(
+    feedback: &zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
+    drm_node_state: &DrmNodeStateInner,
+) {
+    feedback.main_device(drm_node_state.main_device.device.to_ne_bytes().to_vec());
+    feedback.format_table(
         drm_node_state.format_table.0.as_raw_fd(),
         drm_node_state.format_table.1 as u32,
     );
@@ -81,30 +74,40 @@ pub fn do_init_feedback(feedback: &DmabufFeedback, drm_node_state: &DrmNodeState
         .iter()
         .chain(std::iter::once(&drm_node_state.main_tranche))
     {
-        raw.tranche_target_device(tranche.target_device.device.to_ne_bytes().to_vec());
-        raw.tranche_flags(tranche.flags);
-        raw.tranche_formats(
+        feedback.tranche_target_device(tranche.target_device.device.to_ne_bytes().to_vec());
+        feedback.tranche_flags(tranche.flags);
+        feedback.tranche_formats(
             tranche
                 .indices
                 .iter()
                 .flat_map(|i| (*i as u16).to_ne_bytes())
                 .collect::<Vec<_>>(),
         );
-        raw.tranche_done();
+        feedback.tranche_done();
     }
 
-    debug!(resource=%feedback.raw.id(),"init dma buffer feedback");
-    raw.done();
-    guard.inited = true;
+    feedback.done();
+    debug!(resource=%feedback.id(),"init dma buffer feedback");
 }
 
-pub fn update_feedback_state(
-    feedback_query: Query<(Entity, &DmabufFeedback), With<PeddingDmabufFeedback>>,
-    mut commands: Commands,
+pub fn init_feedback(
+    world: &mut World,
+    feedback: &zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
 ) {
-    feedback_query.for_each(|(entity, feedback)| {
-        if feedback.inner.lock().unwrap().inited {
-            commands.entity(entity).remove::<PeddingDmabufFeedback>();
-        }
-    })
+    if let Some(drm_node_state) = &world.resource::<DmaFeedbackWriter>().state {
+        do_init_feedback(feedback, drm_node_state)
+    }else{
+        warn!("failed to init dmabuf feedback");
+    }
 }
+
+// pub fn update_feedback_state(
+//     feedback_query: Query<(Entity, &DmabufFeedback), With<PeddingDmabufFeedback>>,
+//     mut commands: Commands,
+// ) {
+//     feedback_query.for_each(|(entity, feedback)| {
+//         if feedback.inner.lock().unwrap().inited {
+//             commands.entity(entity).remove::<PeddingDmabufFeedback>();
+//         }
+//     })
+// }

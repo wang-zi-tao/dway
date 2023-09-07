@@ -5,6 +5,7 @@ use crate::prelude::*;
 pub mod data_device;
 pub mod primary_selection;
 pub mod text_input;
+pub mod drmlease;
 
 pub struct PrimarySelectionPlugin;
 impl Plugin for PrimarySelectionPlugin {

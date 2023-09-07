@@ -12,7 +12,7 @@ use bevy::{
     },
 };
 
-use crate::prelude::*;
+use crate::{prelude::*, zwp::dmabuffeedback, schedule::DWayServerSet};
 
 use self::{
     drm::DrmNodeState,
@@ -22,7 +22,13 @@ use self::{
 pub struct DWayServerRenderPlugin;
 impl Plugin for DWayServerRenderPlugin {
     fn build(&self, app: &mut App) {
+        let (feedback, drm_state) = drm::new_drm_node_resource();
+        app.insert_resource(feedback);
+        app.add_system(drm::update_dma_feedback_writer.in_set(DWayServerSet::CreateGlobal));
+
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.insert_resource(drm_state);
+
             render_app.init_resource::<importnode::ImportState>();
             render_app.init_resource::<importnode::DWayDisplayHandles>();
             // render_app.init_resource::<surface::ImportSurfaceFeedback>();
@@ -73,14 +79,13 @@ impl Plugin for DWayServerRenderPlugin {
                 );
             }
 
-            render_app.add_system(drm::extract_dma_buf_feedback.in_schedule(ExtractSchedule));
+            // render_app.add_system(drm::extract_dma_buf_feedback.in_schedule(ExtractSchedule));
             render_app.add_system(
                 drm::init_drm_state
                     .run_if(|s: Res<DrmNodeState>| s.state.is_none())
                     .in_set(RenderSet::Prepare),
             );
-            render_app.add_system(drm::init_dma_buf_feedback.in_set(RenderSet::Queue));
-            render_app.init_resource::<drm::DrmNodeState>();
+            // render_app.add_system(drm::init_dma_buf_feedback.in_set(RenderSet::Queue));
         }
     }
 }

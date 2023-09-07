@@ -52,6 +52,8 @@ pub const EGL_DEBUG_MSG_ERROR_KHR: Attrib = 0x33BA;
 pub const EGL_DEBUG_MSG_INFO_KHR: Attrib = 0x33BC;
 pub const EGL_DEBUG_MSG_WARN_KHR: Attrib = 0x33BB;
 
+pub const TEXTURE_EXTERNAL_OES: u32 = 0x8D65;
+
 pub type EGLInstance = khronos_egl::DynamicInstance<khronos_egl::EGL1_4>;
 
 #[derive(Error, Debug)]
@@ -82,6 +84,8 @@ pub enum DWayRenderError {
     NotDrmNode,
     #[error("unsupported format: {0:?}")]
     UnsupportedFormat(wl_shm::Format),
+    #[error("gl error: {0:?}")]
+    GLError(u32),
     #[error("egl error: {0:?}")]
     EglError(#[from] khronos_egl::Error),
     #[error("{0}")]
@@ -188,6 +192,15 @@ pub fn call_egl_string(
     } else {
         Ok(unsafe { CStr::from_ptr(r) })
     }
+}
+
+pub fn call_gl<R>(gl:&glow::Context,f:impl FnOnce()->R)->Result<R,DWayRenderError>{
+    let r=f();
+    let err=unsafe{ gl.get_error() };
+    if err!=0{
+        return Err(DWayRenderError::GLError(err));
+    }
+    Ok(r)
 }
 
 pub fn call_egl_vec<T: Default>(

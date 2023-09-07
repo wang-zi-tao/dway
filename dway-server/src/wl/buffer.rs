@@ -19,7 +19,7 @@ use super::surface::AttachedBy;
 
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
-pub struct WlMemoryBuffer {
+pub struct WlShmBuffer {
     #[reflect(ignore)]
     pub raw: Arc<Mutex<wl_buffer::WlBuffer>>,
     pub offset: i32,
@@ -32,12 +32,12 @@ pub struct WlMemoryBuffer {
 }
 #[derive(Bundle)]
 pub struct WlMemoryBufferBundle {
-    resource: WlMemoryBuffer,
+    resource: WlShmBuffer,
     attach_by: AttachedBy,
 }
 
 impl WlMemoryBufferBundle {
-    pub fn new(resource: WlMemoryBuffer) -> Self {
+    pub fn new(resource: WlShmBuffer) -> Self {
         Self {
             resource,
             attach_by: Default::default(),
@@ -300,7 +300,7 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                 let parent = state.with_component(resource, |p: &mut Parent| p.get());
                 state.spawn(
                     (id, data_init, |o| {
-                        WlMemoryBufferBundle::new(WlMemoryBuffer {
+                        WlMemoryBufferBundle::new(WlShmBuffer {
                             raw: Arc::new(Mutex::new(o)),
                             offset,
                             size: IVec2::new(width, height),
@@ -383,6 +383,6 @@ pub struct WlBufferPlugin;
 impl Plugin for WlBufferPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(create_global_system_config::<wl_shm::WlShm, 1>());
-        app.register_type::<WlMemoryBuffer>();
+        app.register_type::<WlShmBuffer>();
     }
 }

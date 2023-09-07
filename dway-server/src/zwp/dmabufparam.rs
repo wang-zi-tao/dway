@@ -99,6 +99,7 @@ impl Dispatch<zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1, Entity> for DW
                 format,
                 flags,
             } => {
+                let planes = state.get::<DmaBufferParams>(*data).unwrap().planes.clone();
                 let mut entity = state.spawn_empty();
                 let buffer = match client.create_resource::<wl_buffer::WlBuffer, Entity, DWay>(
                     dhandle,
@@ -113,13 +114,15 @@ impl Dispatch<zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1, Entity> for DW
                     }
                 };
                 resource.created(&buffer);
-                entity.insert(DmaBuffer {
-                    raw: buffer,
-                    size: IVec2::new(width, height),
-                    format,
-                    flags,
-                    planes: Default::default(),
-                });
+                entity
+                    .insert(DmaBuffer {
+                        raw: buffer,
+                        size: IVec2::new(width, height),
+                        format,
+                        flags,
+                        planes,
+                    })
+                    .set_parent(DWay::client_entity(client));
             }
             zwp_linux_buffer_params_v1::Request::CreateImmed {
                 buffer_id,
@@ -128,13 +131,19 @@ impl Dispatch<zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1, Entity> for DW
                 format,
                 flags,
             } => {
-                state.spawn_child_object_bundle(*data, buffer_id, data_init, |o| DmaBuffer {
-                    raw: o,
-                    size: IVec2::new(width, height),
-                    format,
-                    flags,
-                    planes: Default::default(),
-                });
+                let planes = state.get::<DmaBufferParams>(*data).unwrap().planes.clone();
+                state.spawn_child_object_bundle(
+                    DWay::client_entity(client),
+                    buffer_id,
+                    data_init,
+                    |o| DmaBuffer {
+                        raw: o,
+                        size: IVec2::new(width, height),
+                        format,
+                        flags,
+                        planes,
+                    },
+                );
             }
             _ => todo!(),
         }

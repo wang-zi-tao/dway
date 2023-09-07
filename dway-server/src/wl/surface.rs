@@ -8,8 +8,9 @@ use crate::{
     prelude::*,
     schedule::DWayServerSet,
     util::rect::IRect,
-    wl::buffer::{UninitedWlBuffer, WlMemoryBuffer},
+    wl::buffer::{UninitedWlBuffer, WlShmBuffer},
     xdg::{popup::XdgPopup, toplevel::XdgToplevel, XdgSurface},
+    zwp::dmabufparam::DmaBuffer,
 };
 use std::borrow::Cow;
 
@@ -18,6 +19,8 @@ relationship!(ClientHasSurface=>SurfaceList-<ClientRef);
 #[derive(Default, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct WlSurfacePeddingState {
+    #[reflect(ignore)]
+    pub wl_buffer: Option<Option<wl_buffer::WlBuffer>>,
     pub buffer: Option<Option<Entity>>,
     pub position: Option<IVec2>,
     pub damages: SmallVec<[IRect; 7]>,
@@ -32,6 +35,8 @@ pub struct WlSurfacePeddingState {
 #[derive(Default, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct WlSurfaceCommitedState {
+    #[reflect(ignore)]
+    pub wl_buffer: Option<wl_buffer::WlBuffer>,
     pub buffer: Option<Entity>,
     pub position: Option<IVec2>,
     pub damages: SmallVec<[IRect; 7]>,
@@ -130,7 +135,7 @@ impl WlSurface {
         image.resize(image_size);
         let assets = assets.set(self.image.clone(), image);
         assert_eq!(self.image, assets);
-        debug!("resize image to {:?}", size);
+        debug!(resource=%self.raw.id(),"resize image to {:?}", size);
         self.size = Some(size);
         self.commited
             .damages
@@ -189,10 +194,15 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
             wl_surface::Request::Attach { buffer, x, y } => {
                 let buffer_entity = if let Some(buffer) = &buffer {
                     if buffer.data::<Entity>().is_none() {
-                        state
-                            .entity_mut(*data)
-                            .insert(UninitedWlBuffer::new(buffer.clone()));
-                        Some(*data)
+                        let entity = state
+                            .spawn((
+                                Name::new(buffer.id().to_string()),
+                                UninitedWlBuffer::new(buffer.clone()),
+                            ))
+                            .set_parent(*data)
+                            .id();
+                        debug!(?entity,resource =%buffer.id(), "create uninited wl_buffer");
+                        Some(entity)
                     } else {
                         Some(DWay::get_entity(buffer))
                     }
@@ -210,13 +220,14 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                     };
                     let origin_buffer = c.pending.buffer.take();
                     c.pending.buffer = Some(buffer_entity);
+                    if let Some(Some(wl_buffer)) = &c.pending.wl_buffer {
+                        if wl_buffer.is_alive() {
+                            wl_buffer.release()
+                        }
+                    }
+                    c.pending.wl_buffer = Some(buffer);
                     origin_buffer.flatten()
                 });
-                if let Some(buffer_entity) = buffer_entity {
-                    state.connect::<AttachmentRelationship>(*data, buffer_entity);
-                } else {
-                    state.disconnect_all::<AttachmentRelationship>(*data);
-                }
             }
             wl_surface::Request::Damage {
                 x,
@@ -283,6 +294,14 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                                     geometry.geometry.set_size(window_geometry.size());
                                 }
                             }
+                            if let Some(wl_buffer) = surface.pending.wl_buffer.take() {
+                                surface.commited.wl_buffer.as_ref().map(|b| {
+                                    if b.is_alive() {
+                                        b.release()
+                                    }
+                                });
+                                surface.commited.wl_buffer = wl_buffer;
+                            }
                             let damages = surface.pending.damages.drain(..).collect::<Vec<_>>();
                             surface.commited.damages.extend(damages);
                             let callbacks = surface.pending.callbacks.drain(..).collect::<Vec<_>>();
@@ -309,16 +328,9 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                         },
                     );
                 if let Some(buffer_entity) = buffer_entity {
-                    if let Some(buffer) = state.get::<WlMemoryBuffer>(buffer_entity) {
-                        {
-                            let guard = buffer.raw.lock().unwrap();
-                            guard.release();
-                            debug!(resource=?&guard.id(),"release buffer");
-                        }
-                        state.connect::<AttachmentRelationship>(*data, buffer_entity);
-                    }
-                } else if let Some(old_buffer) = old_buffer_entity {
-                    state.disconnect::<AttachmentRelationship>(*data, old_buffer);
+                    state.connect::<AttachmentRelationship>(*data, buffer_entity);
+                } else if let Some(old_buffer_entity) = old_buffer_entity {
+                    state.disconnect::<AttachmentRelationship>(*data, old_buffer_entity);
                 }
                 if let Some(e) = input_region_entity {
                     state.connect::<SurfaceHasInputRegion>(*data, e)
@@ -425,7 +437,7 @@ impl wayland_server::Dispatch<wl_callback::WlCallback, ()> for DWay {
     }
 }
 
-pub fn cleanup_buffer(buffer_query: Query<(&WlMemoryBuffer, &AttachedBy)>) {
+pub fn cleanup_buffer(buffer_query: Query<(&WlShmBuffer, &AttachedBy)>) {
     buffer_query.for_each(|(buffer, attached_by)| {
         if attached_by.iter().next().is_some() {
             let guard = buffer.raw.lock().unwrap();
@@ -436,7 +448,7 @@ pub fn cleanup_buffer(buffer_query: Query<(&WlMemoryBuffer, &AttachedBy)>) {
 
 pub fn cleanup_surface(
     mut surface_query: Query<&mut WlSurface>,
-    buffer_query: Query<&mut WlMemoryBuffer>,
+    buffer_query: Query<&mut WlShmBuffer>,
     time: Res<Time>,
 ) {
     surface_query.iter_mut().for_each(|mut surface| {
@@ -477,12 +489,21 @@ impl Plugin for WlSurfacePlugin {
     }
 }
 pub fn update_buffer_size(
-    buffer_query: Query<(&WlMemoryBuffer, &AttachedBy), Changed<WlMemoryBuffer>>,
+    buffer_query: Query<
+        (Option<&WlShmBuffer>, Option<&DmaBuffer>, &AttachedBy),
+        Or<(Changed<WlShmBuffer>, Changed<DmaBuffer>,Changed<AttachedBy>)>,
+    >,
     mut surface_query: Query<&mut WlSurface>,
     mut assets: ResMut<Assets<Image>>,
 ) {
-    for (buffer, attached_by) in buffer_query.iter() {
-        let size = buffer.size;
+    for (shm_buffer, dma_buffer, attached_by) in buffer_query.iter() {
+        let size = if let Some(shm_buffer) = shm_buffer {
+            shm_buffer.size
+        } else if let Some(dma_buffer) = dma_buffer {
+            dma_buffer.size
+        } else {
+            unreachable!();
+        };
         if let Some(mut surface) = attached_by
             .get()
             .and_then(|entity| surface_query.get_mut(entity).ok())
