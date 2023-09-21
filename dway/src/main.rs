@@ -66,7 +66,6 @@ fn main() {
                     compute: THREAD_POOL_CONFIG,
                 },
             })
-            .set(WinitPlugin)
             .set(LogPlugin {
                 level: Level::INFO,
                 filter: std::env::var("RUST_LOG").unwrap_or_else(|_| LOG.to_string()),

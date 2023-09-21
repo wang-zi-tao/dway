@@ -232,11 +232,11 @@ fn do_init_drm_state(
 
         let mut texture_formats = HashSet::new();
         let mut render_formats = HashSet::new();
-        for format in formats.iter().cloned() {
+        for fourcc in formats.iter().cloned() {
             let (mods, external) = call_egl_double_vec(egl, |num, vec1, vec2, p_num| {
                 query_dma_buf_modifiers_ext(
                     egl_display.as_ptr(),
-                    format as i32,
+                    fourcc as i32,
                     num,
                     vec1,
                     vec2,
@@ -245,17 +245,17 @@ fn do_init_drm_state(
             })?;
             if mods.len() == 0 {
                 texture_formats.insert(DrmFormat {
-                    code: format,
+                    code: fourcc,
                     modifier: DrmModifier::Invalid,
                 });
                 render_formats.insert(DrmFormat {
-                    code: format,
+                    code: fourcc,
                     modifier: DrmModifier::Invalid,
                 });
             }
             for (modifier, external_only) in mods.into_iter().zip(external.into_iter()) {
                 let format = DrmFormat {
-                    code: format,
+                    code: fourcc,
                     modifier: DrmModifier::from(modifier),
                 };
                 texture_formats.insert(format);
@@ -280,22 +280,3 @@ pub fn init_drm_state(device: Res<RenderDevice>, mut state: ResMut<DrmNodeState>
         error!("failed to get drm node info: {error}");
     }
 }
-
-// pub fn extract_dma_buf_feedback(
-//     feedback_query: Extract<Query<&DmabufFeedback, With<PeddingDmabufFeedback>>>,
-//     mut commands: Commands,
-// ) {
-//     feedback_query.for_each(|feedback| {
-//         commands.spawn(feedback.clone());
-//     })
-// }
-// #[tracing::instrument(skip_all)]
-// pub fn init_dma_buf_feedback(
-//     feedback_query: Query<&DmabufFeedback>,
-//     drm_node_state: Res<DrmNodeState>,
-// ) {
-//     let Some(drm_node_state) = &drm_node_state.state else {
-//         return;
-//     };
-//     feedback_query.for_each(|feedback| do_init_feedback(feedback, drm_node_state));
-// }

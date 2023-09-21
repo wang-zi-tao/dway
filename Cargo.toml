@@ -9,6 +9,7 @@ members = [
     "dway_winit",
     "bevy-relationship",
     "bevy-relationship-derive",
+    "dway-udev",
 ]
 
 [workspace.dependencies]
