@@ -1,6 +1,7 @@
 use std::{
     collections::VecDeque,
-    sync::{Arc, Mutex}, time::Duration,
+    sync::{Arc, Mutex},
+    time::Duration,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -229,8 +230,8 @@ impl DrmSurface {
                         &[(
                             self_guard.planes.primary.handle,
                             Some(PlaneConfig {
-                                src: Rect::from_center_size(Vec2::default(), size.as_vec2()),
-                                dest: Rect::from_center_size(Vec2::default(), size.as_vec2()),
+                                src: Rect::from_corners(Vec2::default(), size.as_vec2()),
+                                dest: Rect::from_corners(Vec2::default(), size.as_vec2()),
                                 transform: self_guard.transform,
                                 framebuffer: buffer.framebuffer,
                             }),
@@ -287,8 +288,8 @@ pub fn drm_framebuffer_descriptor<'l>(size: IVec2) -> TextureDescriptor<'l> {
     }
 }
 
-fn to_fixed<N: Into<f64>>(n: N) -> u32 {
-    f64::round(n.into() * (1 << 16) as f64) as u32
+fn to_fixed<N: Into<f64> + Copy>(n: N) -> u64 {
+    f64::round(n.into() * (1 << 16) as f64) as u64
 }
 
 pub fn create_request(
@@ -309,7 +310,6 @@ pub fn create_request(
         match change {
             super::DrmConnectorEvent::Added(connector) => {
                 if connector.handle() == conn.info.handle() {
-                    dbg!(connector.handle(), "CRTC_ID", surface.crtc);
                     req.add_property(
                         connector.handle(),
                         *drm_props
@@ -322,7 +322,6 @@ pub fn create_request(
             }
             super::DrmConnectorEvent::Removed(connector, _) => {
                 if connector.handle() == conn.info.handle() {
-                    dbg!(connector.handle(), "CRTC_ID");
                     req.add_property(
                         connector.handle(),
                         *drm_props
@@ -377,43 +376,43 @@ pub fn create_request(
             req.add_property(
                 *plane_handle,
                 plane_prop("SRC_X")?,
-                UnsignedRange(to_fixed(config.src.min.x) as u64),
+                UnsignedRange(to_fixed(config.src.min.x)),
             );
             req.add_property(
                 *plane_handle,
                 plane_prop("SRC_Y")?,
-                UnsignedRange(to_fixed(config.src.min.y) as u64),
+                UnsignedRange(to_fixed(config.src.min.y)),
             );
             req.add_property(
                 *plane_handle,
                 plane_prop("SRC_W")?,
-                UnsignedRange(to_fixed(config.src.width()) as u64),
+                UnsignedRange(to_fixed(config.src.width())),
             );
             req.add_property(
                 *plane_handle,
                 plane_prop("SRC_H")?,
-                UnsignedRange(to_fixed(config.src.height()) as u64),
+                UnsignedRange(to_fixed(config.src.height())),
             );
 
             req.add_property(
                 *plane_handle,
                 plane_prop("CRTC_X")?,
-                UnsignedRange(to_fixed(config.dest.min.x) as u64),
+                Value::SignedRange(config.dest.min.x as i64),
             );
             req.add_property(
                 *plane_handle,
                 plane_prop("CRTC_Y")?,
-                UnsignedRange(to_fixed(config.dest.min.y) as u64),
+                Value::SignedRange(config.dest.min.y as i64),
             );
             req.add_property(
                 *plane_handle,
                 plane_prop("CRTC_W")?,
-                UnsignedRange(to_fixed(config.dest.width()) as u64),
+                UnsignedRange(config.dest.width() as u64),
             );
             req.add_property(
                 *plane_handle,
                 plane_prop("CRTC_H")?,
-                UnsignedRange(to_fixed(config.dest.height()) as u64),
+                UnsignedRange(config.dest.height() as u64),
             );
 
             if let Some(prop) = drm_props
