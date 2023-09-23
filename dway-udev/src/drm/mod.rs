@@ -36,6 +36,7 @@ use drm::control::RawResourceHandle;
 use drm::control::ResourceHandle;
 use drm::control::VblankEvent;
 use drm::Device;
+use drm::Driver;
 use drm::SystemError;
 use drm_ffi::drm_format_modifier_blob;
 use drm_ffi::DRM_MODE_FB_MODIFIERS;
@@ -409,6 +410,7 @@ pub struct DrmDeviceInner {
     connectors: HashMap<connector::Handle, (Option<Entity>, connector::Info)>,
     pub(crate) enabled: bool,
     pub(crate) states: DrmDeviceState,
+    pub(crate) driver: Driver,
 
     pub(crate) has_universal_planes: bool,
     pub(crate) connector_crtc_map: DHashMap<connector::Handle, crtc::Handle, ()>,
@@ -479,16 +481,25 @@ impl DrmDevice {
             .set_client_capability(drm::ClientCapability::UniversalPlanes, true)
             .is_ok();
 
+        let privileged = fd.acquire_master_lock().is_ok();
+        if !privileged {
+            warn!("failed to acquire master lock");
+        };
+
+        let driver = fd.get_driver()?;
+        info!("driver: {driver:?}");
+
         Ok(Self {
             fd,
             path,
             inner: Arc::new(Mutex::new(DrmDeviceInner {
                 has_universal_planes,
-                privileged: false,
+                privileged,
                 connectors: Default::default(),
                 enabled: true,
                 states,
                 connector_crtc_map: Default::default(),
+                driver,
             })),
         })
     }
@@ -542,24 +553,37 @@ impl DrmDevice {
         })?;
         Ok(handle)
     }
+
+    pub fn alloc_crtc(&self, connector: &connector::Info) -> Result<crtc::Handle> {
+        if let Some(res_handles) = connector
+            .current_encoder()
+            .and_then(|e| self.get_encoder(e).ok())
+            .and_then(|e| e.crtc())
+        {
+            return Ok(res_handles);
+        };
+
+        let mut guard = self.inner.lock().unwrap();
+        let res_handles = self.fd.resource_handles()?;
+        let crtc_handle = connector
+            .encoders()
+            .iter()
+            .flat_map(|h| self.fd.get_encoder(*h))
+            .find_map(|encoder| {
+                res_handles
+                    .filter_crtcs(encoder.possible_crtcs())
+                    .into_iter()
+                    .find(|crtc| guard.connector_crtc_map.get_key2(crtc).is_none())
+            })
+            .ok_or_else(|| anyhow!("no avalible crtc"))?;
+
+        guard
+            .connector_crtc_map
+            .insert(connector.handle(), crtc_handle, ());
+        Ok(crtc_handle)
+    }
 }
-pub fn avalible_crtc_for_connector(
-    drm_device_inner: &DrmDeviceInner,
-    fd: &DrmDeviceFd,
-    connector: &connector::Info,
-) -> Option<crtc::Handle> {
-    let res_handles = fd.resource_handles().ok()?;
-    connector
-        .encoders()
-        .iter()
-        .flat_map(|h| fd.get_encoder(*h))
-        .find_map(|encoder| {
-            res_handles
-                .filter_crtcs(encoder.possible_crtcs())
-                .into_iter()
-                .find(|crtc| drm_device_inner.connector_crtc_map.get_key2(crtc).is_none())
-        })
-}
+
 #[tracing::instrument(skip_all)]
 pub fn all_gpus(seat: &SeatState) -> io::Result<Vec<PathBuf>> {
     let mut enumerator = Enumerator::new()?;
@@ -585,6 +609,12 @@ pub fn setup(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
 ) {
+    debug!(r"DRM Debugging:
+    echo 0x19F | sudo tee /sys/module/drm/parameters/debug
+    sudo dmesg -C
+    dmesg -w
+    ");
+
     for gpu_path in all_gpus(&seat).unwrap() {
         if let Err(e) = add_device(gpu_path, &mut udev, &mut seat, &mut commands, &mut images) {
             error!("failed to add drm device: {e}");
@@ -622,18 +652,11 @@ pub fn add_device(
                 .get_mut(&conn.info.handle())
                 .map(|v| v.0 = Some(entity_mut.id()));
 
-            if let Some(crtc_handle) = avalible_crtc_for_connector(&guard, &drm.fd, &conn.info) {
-                guard
-                    .connector_crtc_map
-                    .insert(conn.info.handle(), crtc_handle, ());
-                drop(guard);
+            drop(guard);
+            let surface = DrmSurface::new(&drm, &conn, images)?;
 
-                let surface = DrmSurface::new(&drm, &conn, crtc_handle, images)?;
-                trace!("drm surface: {:?}", &surface);
-                entity_mut.insert(surface);
-            } else {
-                error!("no avalible crtc");
-            }
+            trace!("drm surface: {:?}", &surface);
+            entity_mut.insert(surface);
 
             let name = conn.name.clone();
             entity_mut.insert(conn).set_parent(drm_entity);
@@ -701,6 +724,7 @@ pub fn on_udev_event(
                             else {
                                 continue;
                             };
+                            // TODO DrmSurface
                             let name = conn.name.clone();
                             let entity = commands.spawn(conn).id();
                             info!("init monitor {:?} at {entity:?}", name);

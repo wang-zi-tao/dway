@@ -32,8 +32,6 @@ pub struct GbmBuffer {
     pub(crate) size: IVec2,
     pub(crate) format: DrmFourcc,
     pub(crate) modifier: DrmModifier,
-
-    pub(crate) blob: Option<property::Value<'static>>,
 }
 
 impl GbmBuffer {
@@ -64,7 +62,6 @@ impl GbmBuffer {
             buffer,
             drm: drm.fd.clone(),
             framebuffer,
-            blob: None,
         })
     }
 }

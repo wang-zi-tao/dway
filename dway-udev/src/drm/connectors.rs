@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use drm::control::{connector, ModeTypeFlags};
 use getset::Getters;
 
-#[derive(Component, Debug, Getters)]
+#[derive(Component,Clone, Debug, Getters)]
 pub struct Connector {
     #[get]
     pub(crate) info: connector::Info,

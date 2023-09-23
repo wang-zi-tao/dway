@@ -42,6 +42,7 @@ use wgpu::TextureUsages;
 use wgpu::{TextureFormat, TextureViewDescriptor};
 use wgpu_hal::{api::Gles, MemoryFlags, TextureUses};
 
+use crate::drm::connectors::Connector;
 use crate::gbm::buffer::GbmBuffer;
 use crate::{
     drm::{
@@ -203,7 +204,7 @@ impl Plugin for TtyRenderPlugin {
 
 #[tracing::instrument(skip_all)]
 pub fn extract_drm_surfaces(
-    surface_query: Extract<Query<(&DrmSurface, &Parent)>>,
+    surface_query: Extract<Query<(&DrmSurface, &Connector, &Parent)>>,
     drm_query: Extract<Query<(Entity, &DrmDevice, &GbmDevice)>>,
     mut state: ResMut<TtyRenderState>,
     mut commands: Commands,
@@ -214,8 +215,8 @@ pub fn extract_drm_surfaces(
             .id();
         state.entity_map.insert(entity, render_entity);
     });
-    surface_query.for_each(|(surface, parent)| {
-        let mut entity_command = commands.spawn(surface.clone());
+    surface_query.for_each(|(surface, conn, parent)| {
+        let mut entity_command = commands.spawn((surface.clone(), conn.clone()));
         if let Some(parent_entity) = state.entity_map.get(&parent.get()) {
             entity_command.set_parent(*parent_entity);
         }
@@ -409,7 +410,6 @@ unsafe fn do_create_renderbuffer(
         buffer.format as i32,
     ];
     for (i, plane) in buffer.planes.iter().enumerate() {
-        dbg!(plane);
         request.extend([
             PLANE_ATTR_NAMES[i].0 as i32,
             plane.fd.as_raw_fd(),
@@ -472,14 +472,17 @@ unsafe fn do_create_renderbuffer(
 }
 
 #[tracing::instrument(skip_all)]
-pub fn commit(surface_query: Query<(&DrmSurface, &Parent)>, drm_query: Query<&DrmDevice>) {
-    surface_query.for_each(|(surface, parent)| {
+pub fn commit(
+    surface_query: Query<(&DrmSurface, &Connector, &Parent)>,
+    drm_query: Query<&DrmDevice>,
+) {
+    surface_query.for_each(|(surface, conn, parent)| {
         let Ok(drm) = drm_query.get(parent.get()) else {
             return;
         };
         let _span =
             span!(Level::ERROR,"commit drm buffer",device=%drm.path.to_string_lossy()).entered();
-        if let Err(e) = surface.commit(drm) {
+        if let Err(e) = surface.commit(&conn, drm) {
             error!("failed to commit surface to drm: {e}");
         };
         debug!("commmit drm render buffer");

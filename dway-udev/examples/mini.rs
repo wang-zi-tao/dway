@@ -47,7 +47,7 @@ pub fn main() {
         .add_system(setup.on_startup())
         .add_system(animate_cube);
     app.setup();
-    for i in 0..4 {
+    for i in 0..64 {
         info!("frame {i}");
         app.update();
     }

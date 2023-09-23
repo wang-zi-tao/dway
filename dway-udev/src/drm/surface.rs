@@ -1,6 +1,6 @@
 use std::{
     collections::VecDeque,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex}, time::Duration,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -10,12 +10,19 @@ use bevy::{
     render::{renderer::RenderDevice, texture::GpuImage},
     utils::HashSet,
 };
-use drm::control::{
-    atomic::AtomicModeReq, connector, crtc, plane, property, AtomicCommitFlags, Device, Mode,
+use drm::{
+    control::{
+        atomic::AtomicModeReq,
+        connector, crtc, plane,
+        property::{self, Value},
+        AtomicCommitFlags, Device, Mode,
+    },
+    Device as drm_device,
 };
 use drm_ffi::drm_format_modifier_blob;
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use smallvec::SmallVec;
+use tracing::{span, Level};
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 use wgpu_hal::TextureUses;
 
@@ -26,8 +33,7 @@ use crate::{
 };
 
 use super::{
-    connectors::Connector, planes::PlaneConfig, DrmConnectorEvent, DrmDevice, DrmDeviceInner,
-    PropMap,
+    connectors::Connector, planes::PlaneConfig, DrmConnectorEvent, DrmDevice, DrmDeviceFd, PropMap,
 };
 
 bitflags::bitflags! {
@@ -72,6 +78,7 @@ pub struct SurfaceInner {
     pub(crate) state: SurfaceState,
     pub(crate) crtc: crtc::Handle,
     pub(crate) mode: Mode,
+    pub(crate) mode_blob: Value<'static>,
     pub(crate) planes: Planes,
     pub(crate) transform: DrmTransform,
     pub(crate) formats: Vec<DrmFormat>,
@@ -126,35 +133,57 @@ pub struct DrmSurface {
 }
 
 impl DrmSurface {
-    #[tracing::instrument(skip_all)]
-    pub fn new(
-        drm: &DrmDevice,
-        connector: &Connector,
-        crtc: crtc::Handle,
-        images: &mut Assets<Image>,
-    ) -> Result<Self> {
-        let planes = Planes::new(&crtc, drm)?;
+    pub fn new(drm: &DrmDevice, connector: &Connector, images: &mut Assets<Image>) -> Result<Self> {
+        let crtc = drm.alloc_crtc(&connector.info)?;
+        let mut planes = Planes::new(&crtc, drm)?;
         let plane_info = drm.get_plane(planes.primary.handle)?;
-        let crtcs = plane_info.possible_crtcs();
-        // TODO check resource compatible
+
+        let resources = drm.resource_handles()?;
+        if !resources
+            .filter_crtcs(plane_info.possible_crtcs())
+            .contains(&crtc)
+        {
+            bail!(
+                "cannot use {crtc:?} on {:?} on {:?}",
+                planes.primary.handle,
+                connector.info.handle()
+            );
+        }
 
         let crtc_data = drm.fd.get_crtc(crtc)?;
+        let mode = crtc_data.mode().unwrap_or_else(|| connector.mode);
 
         let state = SurfaceState::new(drm)?;
-        let size = connector.mode.size();
+        let size = mode.size();
         let image = images.add(create_image(IVec2::new(size.0 as i32, size.1 as i32)));
-
+        let mode_blob = drm.create_property_blob(&mode)?;
         let formats = drm.formats(plane_info.handle())?;
+
+        let driver = drm.get_driver()?;
+        if driver
+            .name()
+            .to_string_lossy()
+            .to_lowercase()
+            .contains("nvidia")
+            || driver
+                .description()
+                .to_string_lossy()
+                .to_lowercase()
+                .contains("nvidia")
+        {
+            planes.overlay = vec![];
+        }
 
         Ok(Self {
             inner: Arc::new(Mutex::new(SurfaceInner {
                 buffers: Default::default(),
                 state,
                 crtc,
-                mode: connector.mode,
+                mode,
                 planes,
                 formats: formats.into_iter().collect(),
                 transform: DrmTransform::NORMAL,
+                mode_blob,
             })),
             image,
         })
@@ -177,7 +206,7 @@ impl DrmSurface {
             .with_rendering_buffer(drm, gbm, render_formats, f)
     }
 
-    pub fn commit(&self, drm: &DrmDevice) -> Result<()> {
+    pub fn commit(&self, conn: &Connector, drm: &DrmDevice) -> Result<()> {
         let mut self_guard = self.inner.lock().unwrap();
         let mut drm_guard = drm.inner.lock().unwrap();
         let connector_change = drm_guard.connectors_change(&drm.fd)?;
@@ -193,7 +222,9 @@ impl DrmSurface {
                 if let Some(buffer) = self_guard.buffers.front() {
                     let size = self_guard.size();
                     let req = create_request(
+                        &drm.fd,
                         &self_guard,
+                        conn,
                         connector_change,
                         &[(
                             self_guard.planes.primary.handle,
@@ -205,7 +236,7 @@ impl DrmSurface {
                             }),
                         )],
                         drm_props,
-                    )?; // TODO
+                    )?;
 
                     drm.atomic_commit(AtomicCommitFlags::ALLOW_MODESET, req)
                         .map_err(|e| anyhow!("failed to commit drm atomic req: {e}"))?;
@@ -261,7 +292,9 @@ fn to_fixed<N: Into<f64>>(n: N) -> u32 {
 }
 
 pub fn create_request(
+    fd: &DrmDeviceFd,
     surface: &SurfaceInner,
+    conn: &Connector,
     connector_change: SmallVec<[DrmConnectorEvent; 1]>,
     planes: &[(plane::Handle, Option<PlaneConfig>)],
     drm_props: &PropMap,
@@ -275,38 +308,42 @@ pub fn create_request(
     for change in connector_change {
         match change {
             super::DrmConnectorEvent::Added(connector) => {
-                req.add_property(
-                    connector.handle(),
-                    *drm_props
-                        .connector
-                        .get(&(connector.handle(), "CRTC_ID".to_string()))
-                        .ok_or_else(|| NoSuchProperty("CRTC_ID".to_string()))?,
-                    CRTC(Some(surface.crtc)),
-                );
+                if connector.handle() == conn.info.handle() {
+                    dbg!(connector.handle(), "CRTC_ID", surface.crtc);
+                    req.add_property(
+                        connector.handle(),
+                        *drm_props
+                            .connector
+                            .get(&(connector.handle(), "CRTC_ID".to_string()))
+                            .ok_or_else(|| NoSuchProperty("CRTC_ID".to_string()))?,
+                        CRTC(Some(surface.crtc)),
+                    );
+                }
             }
             super::DrmConnectorEvent::Removed(connector, _) => {
-                req.add_property(
-                    connector.handle(),
-                    *drm_props
-                        .connector
-                        .get(&(connector.handle(), "CRTC_ID".to_string()))
-                        .ok_or_else(|| NoSuchProperty("CRTC_ID".to_string()))?,
-                    CRTC(None),
-                );
+                if connector.handle() == conn.info.handle() {
+                    dbg!(connector.handle(), "CRTC_ID");
+                    req.add_property(
+                        connector.handle(),
+                        *drm_props
+                            .connector
+                            .get(&(connector.handle(), "CRTC_ID".to_string()))
+                            .ok_or_else(|| NoSuchProperty("CRTC_ID".to_string()))?,
+                        CRTC(None),
+                    );
+                }
             }
         }
     }
 
-    if let Some(blob) = buffer.blob {
-        req.add_property(
-            surface.crtc,
-            *drm_props
-                .crtc
-                .get(&(surface.crtc, "MODE_ID".to_string()))
-                .ok_or_else(|| NoSuchProperty("MODE_ID".to_string()))?,
-            blob,
-        );
-    }
+    req.add_property(
+        surface.crtc,
+        *drm_props
+            .crtc
+            .get(&(surface.crtc, "MODE_ID".to_string()))
+            .ok_or_else(|| NoSuchProperty("MODE_ID".to_string()))?,
+        surface.mode_blob,
+    );
 
     req.add_property(
         surface.crtc,
@@ -416,4 +453,34 @@ pub fn create_request(
     }
 
     Ok(req)
+}
+
+pub fn print_drm_info(drm: &DrmDeviceFd) -> Result<()> {
+    let _span = span!(Level::INFO, "drm info");
+    let res_handles = drm.resource_handles()?;
+    for conn_handle in res_handles.connectors() {
+        let Ok(conn) = drm.get_connector(*conn_handle, false) else {
+            continue;
+        };
+        debug!("conn({:?})=>{:?}", conn_handle, conn);
+    }
+    for plane_handle in drm.plane_handles()? {
+        let Ok(plane) = drm.get_plane(plane_handle) else {
+            continue;
+        };
+        debug!("plane({:?})=>{:?}", plane_handle, plane);
+    }
+    for crtc_handle in res_handles.crtcs() {
+        let Ok(crtc) = drm.get_crtc(*crtc_handle) else {
+            continue;
+        };
+        debug!("crtc({:?})=>{:?}", crtc_handle, crtc);
+    }
+    for framebuffer_handle in res_handles.framebuffers() {
+        let Ok(framebuffer) = drm.get_framebuffer(*framebuffer_handle) else {
+            continue;
+        };
+        debug!("framebuffer({:?})=>{:?}", framebuffer_handle, framebuffer);
+    }
+    Ok(())
 }
