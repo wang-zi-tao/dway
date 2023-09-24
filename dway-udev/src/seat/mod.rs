@@ -68,6 +68,9 @@ impl SeatState {
 }
 
 pub fn process_seat_event(mut seat: NonSendMut<SeatState>) {
+    if let Err(e) = seat.seat.lock().unwrap().dispatch(0){
+        error!("seat error: {e}");
+    };
     while let Some(event) = seat.queue.clone().pop() {
         match event {
             SeatEvent::Enable => seat.enable = true,

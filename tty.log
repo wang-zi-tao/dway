@@ -1,0 +1,1179 @@
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway/Cargo.toml
+workspace: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-client-core/Cargo.toml
+workspace: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-server/Cargo.toml
+workspace: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-ui/Cargo.toml
+workspace: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/Cargo.toml
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-ui/Cargo.toml: dependency (chrono) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-ui/Cargo.toml: dependency (crossbeam-channel) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-ui/Cargo.toml: dependency (failure) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-ui/Cargo.toml: dependency (log) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-ui/Cargo.toml: dependency (lru) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-ui/Cargo.toml: dependency (rand) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-ui/Cargo.toml: dependency (serde) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-ui/Cargo.toml: dependency (uuid) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-client-core/Cargo.toml: dependency (crossbeam-channel) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-client-core/Cargo.toml: dependency (failure) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-client-core/Cargo.toml: dependency (log) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-client-core/Cargo.toml: dependency (lru) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-client-core/Cargo.toml: dependency (rand) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-client-core/Cargo.toml: dependency (serde) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-client-core/Cargo.toml: dependency (uuid) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-util/Cargo.toml: dependency (bevy_math) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-util/Cargo.toml: dependency (failure) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-util/Cargo.toml: dependency (lazy_static) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-util/Cargo.toml: dependency (log) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-util/Cargo.toml: dependency (memory-stats) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-util/Cargo.toml: dependency (rand) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-util/Cargo.toml: dependency (uuid) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway/Cargo.toml: dependency (serde) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-server/Cargo.toml: dependency (serde) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-udev/Cargo.toml: dependency (chrono) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-udev/Cargo.toml: dependency (crossbeam-channel) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-udev/Cargo.toml: dependency (glow) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-udev/Cargo.toml: dependency (khronos-egl) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-udev/Cargo.toml: dependency (lru) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-udev/Cargo.toml: dependency (rand) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: /mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-udev/Cargo.toml: dependency (uuid) specified without providing a local path, Git repository, version, or workspace dependency to use. This will be considered an error in future versions
+warning: unused import: `braced`
+ --> bevy-relationship-derive/src/lib.rs:9:5
+  |
+9 |     braced, bracketed,
+  |     ^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: method `query_type` is never used
+  --> bevy-relationship-derive/src/lib.rs:45:8
+   |
+38 | impl NodeQuery {
+   | -------------- method in this implementation
+...
+45 |     fn query_type(&self) -> TokenStream2 {
+   |        ^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `bevy-relationship-derive` (lib) generated 2 warnings (run `cargo fix --lib -p bevy-relationship-derive` to apply 1 suggestion)
+warning: variable does not need to be mutable
+  --> /mnt/weed/mount/wangzi-asus/wangzi/Code/bevy-kayak/kayak_font/src/bevy/font_texture.rs:22:25
+   |
+22 |             if let Some(mut texture) = images.get_mut(font.image.get()) {
+   |                         ----^^^^^^^
+   |                         |
+   |                         help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` on by default
+
+warning: `kayak_font` (lib) generated 1 warning (run `cargo fix --lib -p kayak_font` to apply 1 suggestion)
+warning: unused import: `debug`
+ --> /mnt/weed/mount/wangzi-asus/wangzi/Code/bevy-kayak/src/render/unified/pipeline.rs:6:21
+  |
+6 | use bevy::prelude::{debug, Commands, Mesh, Rect, Resource, Vec3, With};
+  |                     ^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: `kayak_ui` (lib) generated 1 warning (run `cargo fix --lib -p kayak_ui` to apply 1 suggestion)
+warning: unused import: `std::process`
+ --> dway-server/src/lib.rs:7:5
+  |
+7 | use std::process;
+  |     ^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `state::DWayDisplay`
+ --> dway-server/src/client.rs:8:50
+  |
+8 | use crate::{prelude::*, schedule::DWayServerSet, state::DWayDisplay};
+  |                                                  ^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `DmabufFeedback`, `do_init_feedback`
+ --> dway-server/src/render/drm.rs:7:27
+  |
+7 |     zwp::dmabuffeedback::{do_init_feedback, DmabufFeedback},
+  |                           ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^
+
+warning: unused import: `Extract`
+  --> dway-server/src/render/drm.rs:10:38
+   |
+10 |     render::{renderer::RenderDevice, Extract},
+   |                                      ^^^^^^^
+
+warning: unused import: `glow::HasContext`
+  --> dway-server/src/render/drm.rs:14:5
+   |
+14 | use glow::HasContext;
+   |     ^^^^^^^^^^^^^^^^
+
+warning: unused import: `Enum`
+  --> dway-server/src/render/drm.rs:15:48
+   |
+15 | use khronos_egl::{Attrib, Boolean, EGLDisplay, Enum, Int};
+   |                                                ^^^^
+
+warning: unused import: `scopeguard::defer`
+  --> dway-server/src/render/drm.rs:17:5
+   |
+17 | use scopeguard::defer;
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `BTreeSet`, `OsString`, `any`, `ptr::null`
+  --> dway-server/src/render/drm.rs:19:5
+   |
+19 |     any,
+   |     ^^^
+20 |     collections::{BTreeSet, HashSet},
+   |                   ^^^^^^^^
+21 |     ffi::{c_char, CStr, CString, OsString},
+   |                                  ^^^^^^^^
+22 |     fs::File,
+23 |     ptr::null,
+   |     ^^^^^^^^^
+
+warning: unused import: `thiserror::Error`
+  --> dway-server/src/render/drm.rs:29:5
+   |
+29 | use thiserror::Error;
+   |     ^^^^^^^^^^^^^^^^
+
+warning: unused imports: `MemoryFlags`, `TextureUses`, `api::Gles`, `gles::AdapterContext`
+  --> dway-server/src/render/drm.rs:30:16
+   |
+30 | use wgpu_hal::{api::Gles, gles::AdapterContext, MemoryFlags, TextureUses};
+   |                ^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^^^
+
+warning: unused import: `EGLBuffer`
+ --> dway-server/src/render/import.rs:6:18
+  |
+6 |         buffer::{EGLBuffer, UninitedWlBuffer, WlShmBuffer},
+  |                  ^^^^^^^^^
+
+warning: unused import: `thiserror::Error`
+  --> dway-server/src/render/import.rs:14:5
+   |
+14 | use thiserror::Error;
+   |     ^^^^^^^^^^^^^^^^
+
+warning: unused import: `c_uint`
+  --> dway-server/src/render/import.rs:19:18
+   |
+19 |     ffi::{c_int, c_uint, c_void},
+   |                  ^^^^^^
+
+warning: unused imports: `EGLBuffer`, `schedule::DWayServerSet`
+ --> dway-server/src/render/importnode.rs:6:5
+  |
+6 |     schedule::DWayServerSet,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^
+...
+9 |         buffer::{EGLBuffer, UninitedWlBuffer, WlShmBuffer},
+  |                  ^^^^^^^^^
+
+warning: unused imports: `SystemParam`, `SystemState`
+  --> dway-server/src/render/importnode.rs:20:9
+   |
+20 |         SystemParam, SystemState,
+   |         ^^^^^^^^^^^  ^^^^^^^^^^^
+
+warning: unused import: `Enum`
+ --> dway-server/src/render/util.rs:9:36
+  |
+9 | use khronos_egl::{Attrib, Boolean, Enum, Int};
+  |                                    ^^^^
+
+warning: unused imports: `MemoryFlags`, `TextureUses`
+  --> dway-server/src/render/util.rs:12:49
+   |
+12 | use wgpu_hal::{api::Gles, gles::AdapterContext, MemoryFlags, TextureUses};
+   |                                                 ^^^^^^^^^^^  ^^^^^^^^^^^
+
+warning: unused import: `zwp::dmabuffeedback`
+  --> dway-server/src/render/mod.rs:15:25
+   |
+15 | use crate::{prelude::*, zwp::dmabuffeedback, schedule::DWayServerSet};
+   |                         ^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `prelude::*`, `wl::surface::WlSurface`, `xdg::DWayWindow`
+ --> dway-server/src/util/fail.rs:1:13
+  |
+1 | use crate::{prelude::*, wl::surface::WlSurface, xdg::DWayWindow};
+  |             ^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^
+
+warning: unused import: `bevy::ecs::query::QueryEntityError`
+ --> dway-server/src/util/fail.rs:2:5
+  |
+2 | use bevy::ecs::query::QueryEntityError;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `CString`
+ --> dway-server/src/util/file.rs:2:17
+  |
+2 |     ffi::{CStr, CString},
+  |                 ^^^^^^^
+
+warning: unused import: `DrmFourcc`
+ --> dway-server/src/wl/buffer.rs:8:18
+  |
+8 | use drm_fourcc::{DrmFourcc, DrmModifier};
+  |                  ^^^^^^^^^
+
+warning: unused import: `state::create_global_system_config`
+ --> dway-server/src/wl/region.rs:3:25
+  |
+3 | use crate::{prelude::*, state::create_global_system_config, util::rect::IRect};
+  |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ChildStdout`, `Stdio`, `time::Duration`
+ --> dway-server/src/x11/display.rs:7:22
+  |
+7 |     process::{Child, ChildStdout, Stdio},
+  |                      ^^^^^^^^^^^  ^^^^^
+8 |     sync::{Arc, Mutex, Weak},
+9 |     time::Duration,
+  |     ^^^^^^^^^^^^^^
+
+warning: unused imports: `XWaylandBundle`, `XWindowRef`, `client::Client`
+  --> dway-server/src/x11/events.rs:16:5
+   |
+16 |     client::Client,
+   |     ^^^^^^^^^^^^^^
+...
+29 |             MappedXWindow, XWindow, XWindowAttachSurface, XWindowBundle, XWindowRef,
+   |                                                                          ^^^^^^^^^^
+...
+32 |         DWayXWaylandStoped, XDisplayHasWindow, XWaylandBundle,
+   |                                                ^^^^^^^^^^^^^^
+
+warning: unused import: `std::sync::Arc`
+ --> dway-server/src/x11/mod.rs:3:5
+  |
+3 | use std::sync::Arc;
+  |     ^^^^^^^^^^^^^^
+
+warning: unused import: `client::Client`
+  --> dway-server/src/x11/window.rs:14:5
+   |
+14 |     client::Client,
+   |     ^^^^^^^^^^^^^^
+
+warning: unused import: `XDisplayHasWindow`
+  --> dway-server/src/x11/window.rs:24:36
+   |
+24 |     atoms::Atoms, screen::XScreen, XDisplayHasWindow, XDisplayRef, XWaylandDisplay,
+   |                                    ^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ClientData`, `DWayStartSet`, `self`
+  --> dway-server/src/x11/mod.rs:12:14
+   |
+12 |     client::{self, Client, ClientData, ClientEvents},
+   |              ^^^^          ^^^^^^^^^^
+13 |     prelude::*,
+14 |     schedule::{DWayServerSet, DWayStartSet},
+   |                               ^^^^^^^^^^^^
+
+warning: unused import: `flush_xwayland`
+  --> dway-server/src/x11/mod.rs:21:35
+   |
+21 |     events::{dispatch_x11_events, flush_xwayland, x11_frame_condition},
+   |                                   ^^^^^^^^^^^^^^
+
+warning: unused import: `wayland_protocols::xdg::activation::v1::server::xdg_activation_token_v1`
+ --> dway-server/src/xdg/mod.rs:9:5
+  |
+9 | use wayland_protocols::xdg::activation::v1::server::xdg_activation_token_v1;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `state::create_global_system_config`
+ --> dway-server/src/zxdg/outputmanager.rs:4:5
+  |
+4 |     state::create_global_system_config,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `DrmNodeState`
+ --> dway-server/src/zwp/dmabuffeedback.rs:8:38
+  |
+8 |     render::drm::{DmaFeedbackWriter, DrmNodeState, DrmNodeStateInner},
+  |                                      ^^^^^^^^^^^^
+
+warning: unused imports: `render::drm::DrmNodeState`, `schedule::DWayServerSet`
+ --> dway-server/src/zwp/mod.rs:4:25
+  |
+4 | use crate::{prelude::*, render::drm::DrmNodeState, schedule::DWayServerSet};
+  |                         ^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `do_init_feedback`
+ --> dway-server/src/zwp/mod.rs:7:22
+  |
+7 |     dmabuffeedback::{do_init_feedback, DmabufFeedback},
+  |                      ^^^^^^^^^^^^^^^^
+
+warning: unused variable: `toplevel`
+   --> dway-server/src/input/grab.rs:251:64
+    |
+251 |                     let Ok((_surface, mut geo, _global_geo, _, toplevel, xwindow_ref)) =
+    |                                                                ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_toplevel`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `gl`
+   --> dway-server/src/render/drm.rs:168:36
+    |
+168 |     with_gl(device, |context, egl, gl| {
+    |                                    ^^ help: if this is intentional, prefix it with an underscore: `_gl`
+
+warning: unused variable: `e`
+   --> dway-server/src/render/import.rs:367:19
+    |
+367 |         .map_err(|e| FailedToImportEglBuffer)?;
+    |                   ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `e`
+   --> dway-server/src/render/import.rs:370:19
+    |
+370 |         .map_err(|e| FailedToImportEglBuffer)?;
+    |                   ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `entity`
+  --> dway-server/src/render/importnode.rs:94:13
+   |
+94 |         let entity = if let Ok(buffer) = shm_buffer_query.get(buffer_entity) {
+   |             ^^^^^^ help: if this is intentional, prefix it with an underscore: `_entity`
+
+warning: unused variable: `entity_mut`
+  --> dway-server/src/render/importnode.rs:97:21
+   |
+97 |             let mut entity_mut = commands.spawn((surface.clone(), dma_buffer.clone()));
+   |                     ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_entity_mut`
+
+warning: unused variable: `entity_mut`
+  --> dway-server/src/render/importnode.rs:99:21
+   |
+99 |             let mut entity_mut = commands.spawn((surface.clone(), egl_buffer.clone()));
+   |                     ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_entity_mut`
+
+warning: unused variable: `display_handle`
+   --> dway-server/src/render/importnode.rs:108:41
+    |
+108 |     for WaylandDisplayDestroyed(entity, display_handle) in destroy_events.iter() {
+    |                                         ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_display_handle`
+
+warning: variable does not need to be mutable
+  --> dway-server/src/render/importnode.rs:97:17
+   |
+97 |             let mut entity_mut = commands.spawn((surface.clone(), dma_buffer.clone()));
+   |                 ----^^^^^^^^^^
+   |                 |
+   |                 help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` on by default
+
+warning: variable does not need to be mutable
+  --> dway-server/src/render/importnode.rs:99:17
+   |
+99 |             let mut entity_mut = commands.spawn((surface.clone(), egl_buffer.clone()));
+   |                 ----^^^^^^^^^^
+   |                 |
+   |                 help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> dway-server/src/state.rs:489:21
+    |
+489 |         if let Some(mut e) = self.world_mut().get_entity_mut(entity) {
+    |                     ----^
+    |                     |
+    |                     help: remove this `mut`
+
+warning: unused variable: `origin_buffer_entity`
+   --> dway-server/src/wl/surface.rs:212:21
+    |
+212 |                 let origin_buffer_entity = state.with_component(resource, |c: &mut WlSurface| {
+    |                     ^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_origin_buffer_entity`
+
+warning: variable does not need to be mutable
+   --> dway-server/src/x11/display.rs:319:13
+    |
+319 |         let mut child = command.spawn()?;
+    |             ----^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: unused variable: `r`
+   --> dway-server/src/x11/events.rs:274:42
+    |
+274 |         x11rb::protocol::Event::FocusOut(r) => {}
+    |                                          ^ help: if this is intentional, prefix it with an underscore: `_r`
+
+warning: unused variable: `serial`
+  --> dway-server/src/xdg/activation_token.rs:51:59
+   |
+51 |             xdg_activation_token_v1::Request::SetSerial { serial, seat } => {
+   |                                                           ^^^^^^ help: try ignoring the field: `serial: _`
+
+warning: unused variable: `client`
+  --> dway-server/src/xdg/activation_token.rs:39:9
+   |
+39 |         client: &wayland_server::Client,
+   |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_client`
+
+warning: unused variable: `dhandle`
+  --> dway-server/src/xdg/activation_token.rs:43:9
+   |
+43 |         dhandle: &DisplayHandle,
+   |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_dhandle`
+
+warning: unused variable: `data_init`
+  --> dway-server/src/xdg/activation_token.rs:44:9
+   |
+44 |         data_init: &mut wayland_server::DataInit<'_, Self>,
+   |         ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_data_init`
+
+warning: unused variable: `client`
+  --> dway-server/src/xdg/activation.rs:34:9
+   |
+34 |         client: &wayland_server::Client,
+   |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_client`
+
+warning: unused variable: `dhandle`
+  --> dway-server/src/xdg/activation.rs:38:9
+   |
+38 |         dhandle: &DisplayHandle,
+   |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_dhandle`
+
+warning: unused variable: `handle`
+  --> dway-server/src/xdg/activation.rs:72:9
+   |
+72 |         handle: &DisplayHandle,
+   |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_handle`
+
+warning: unused variable: `global_data`
+  --> dway-server/src/xdg/activation.rs:75:9
+   |
+75 |         global_data: &bevy::prelude::Entity,
+   |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_global_data`
+
+warning: unused variable: `app`
+   --> dway-server/src/zxdg/outputmanager.rs:116:21
+    |
+116 |     fn build(&self, app: &mut App) {
+    |                     ^^^ help: if this is intentional, prefix it with an underscore: `_app`
+
+warning: unused variable: `client`
+  --> dway-server/src/zwp/dmabuffactory.rs:28:9
+   |
+28 |         client: &wayland_server::Client,
+   |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_client`
+
+warning: unused variable: `dhandle`
+  --> dway-server/src/zwp/dmabuffactory.rs:32:9
+   |
+32 |         dhandle: &DisplayHandle,
+   |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_dhandle`
+
+warning: unused variable: `handle`
+  --> dway-server/src/zwp/dmabuffactory.rs:83:9
+   |
+83 |         handle: &DisplayHandle,
+   |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_handle`
+
+warning: unused variable: `global_data`
+  --> dway-server/src/zwp/dmabuffactory.rs:86:9
+   |
+86 |         global_data: &bevy::prelude::Entity,
+   |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_global_data`
+
+warning: unused variable: `client`
+  --> dway-server/src/zwp/dmabuffeedback.rs:34:9
+   |
+34 |         client: &wayland_server::Client,
+   |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_client`
+
+warning: unused variable: `dhandle`
+  --> dway-server/src/zwp/dmabuffeedback.rs:38:9
+   |
+38 |         dhandle: &DisplayHandle,
+   |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_dhandle`
+
+warning: unused variable: `data_init`
+  --> dway-server/src/zwp/dmabuffeedback.rs:39:9
+   |
+39 |         data_init: &mut wayland_server::DataInit<'_, Self>,
+   |         ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_data_init`
+
+warning: unused variable: `compositor`
+  --> dway-server/src/lib.rs:81:9
+   |
+81 |     let compositor = query.single().0.lock().unwrap();
+   |         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_compositor`
+
+warning: unused variable: `tokio`
+  --> dway-server/src/lib.rs:80:42
+   |
+80 | pub fn spawn(query: Query<&DWayWrapper>, tokio: Res<TokioTasksRuntime>) {
+   |                                          ^^^^^ help: if this is intentional, prefix it with an underscore: `_tokio`
+
+warning: unused variable: `compositor`
+   --> dway-server/src/lib.rs:110:17
+    |
+110 |             let compositor = dway.lock().unwrap();
+    |                 ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_compositor`
+
+warning: unused variable: `tokio`
+   --> dway-server/src/lib.rs:105:5
+    |
+105 |     tokio: Res<TokioTasksRuntime>,
+    |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_tokio`
+
+warning: `dway-server` (lib) generated 69 warnings (run `cargo fix --lib -p dway-server` to apply 69 suggestions)
+warning: field `m` is never read
+ --> dway-client-core/src/materials/texture2d.rs:4:5
+  |
+3 | pub struct Texture2dMeterial {
+  |            ----------------- field in this struct
+4 |     m: ColorMesh2dBundle,
+  |     ^
+  |
+  = note: `#[warn(dead_code)]` on by default
+
+warning: `dway-client-core` (lib) generated 1 warning
+   Compiling dway-udev v0.1.0 (/mnt/weed/mount/wangzi-asus/wangzi/workspace/waylandcompositor/dway/dway-udev)
+warning: unused import: `crate::gbm::GbmDevice`
+ --> dway-udev/src/drm/planes.rs:1:5
+  |
+1 | use crate::gbm::GbmDevice;
+  |     ^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `IVec2`
+ --> dway-udev/src/drm/planes.rs:3:21
+  |
+3 | use bevy::prelude::{IVec2, Rect};
+  |                     ^^^^^
+
+warning: unused import: `time::Duration`
+ --> dway-udev/src/drm/surface.rs:4:5
+  |
+4 |     time::Duration,
+  |     ^^^^^^^^^^^^^^
+
+warning: unused import: `Context`
+ --> dway-udev/src/drm/surface.rs:7:28
+  |
+7 | use anyhow::{anyhow, bail, Context, Result};
+  |                            ^^^^^^^
+
+warning: unused imports: `ecs::storage::Resources`, `renderer::RenderDevice`, `texture::GpuImage`, `utils::HashSet`
+  --> dway-udev/src/drm/surface.rs:9:5
+   |
+9  |     ecs::storage::Resources,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+10 |     prelude::*,
+11 |     render::{renderer::RenderDevice, texture::GpuImage},
+   |              ^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^
+12 |     utils::HashSet,
+   |     ^^^^^^^^^^^^^^
+
+warning: unused import: `connector`
+  --> dway-udev/src/drm/surface.rs:17:9
+   |
+17 |         connector, crtc, plane,
+   |         ^^^^^^^^^
+
+warning: unused import: `drm_ffi::drm_format_modifier_blob`
+  --> dway-udev/src/drm/surface.rs:23:5
+   |
+23 | use drm_ffi::drm_format_modifier_blob;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `DrmFourcc`, `DrmModifier`
+  --> dway-udev/src/drm/surface.rs:24:29
+   |
+24 | use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
+   |                             ^^^^^^^^^  ^^^^^^^^^^^
+
+warning: unused import: `getset::Getters`
+  --> dway-udev/src/drm/surface.rs:25:5
+   |
+25 | use getset::Getters;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `wgpu_hal::TextureUses`
+  --> dway-udev/src/drm/surface.rs:29:5
+   |
+29 | use wgpu_hal::TextureUses;
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::drm::planes::Planes`
+ --> dway-udev/src/drm/mod.rs:6:5
+  |
+6 | use crate::drm::planes::Planes;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::gbm::buffer::GbmBuffer`
+ --> dway-udev/src/drm/mod.rs:9:5
+  |
+9 | use crate::gbm::buffer::GbmBuffer;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `bevy::render::render_phase::RenderCommandResult`
+  --> dway-udev/src/drm/mod.rs:14:5
+   |
+14 | use bevy::render::render_phase::RenderCommandResult;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `bevy::utils::hashbrown::hash_map::Entry`
+  --> dway-udev/src/drm/mod.rs:15:5
+   |
+15 | use bevy::utils::hashbrown::hash_map::Entry;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `bevy::utils::tracing::instrument`
+  --> dway-udev/src/drm/mod.rs:16:5
+   |
+16 | use bevy::utils::tracing::instrument;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `Extract`, `renderer::RenderDevice`
+  --> dway-udev/src/drm/mod.rs:19:14
+   |
+19 |     render::{renderer::RenderDevice, Extract},
+   |              ^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^
+
+warning: unused import: `bitflags::bitflags`
+  --> dway-udev/src/drm/mod.rs:22:5
+   |
+22 | use bitflags::bitflags;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `drm::control::Mode`
+  --> dway-udev/src/drm/mod.rs:32:5
+   |
+32 | use drm::control::Mode;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `drm::control::RawResourceHandle`
+  --> dway-udev/src/drm/mod.rs:35:5
+   |
+35 | use drm::control::RawResourceHandle;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `drm::SystemError`
+  --> dway-udev/src/drm/mod.rs:40:5
+   |
+40 | use drm::SystemError;
+   |     ^^^^^^^^^^^^^^^^
+
+warning: unused import: `libseat::Seat`
+  --> dway-udev/src/drm/mod.rs:47:5
+   |
+47 | use libseat::Seat;
+   |     ^^^^^^^^^^^^^
+
+warning: unused import: `scopeguard::defer`
+  --> dway-udev/src/drm/mod.rs:49:5
+   |
+49 | use scopeguard::defer;
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `BTreeSet`, `CStr`, `CString`, `OsString`, `Receiver`, `Sender`, `any`, `c_char`, `channel`, `fs::File`, `ptr::null`
+  --> dway-udev/src/drm/mod.rs:57:5
+   |
+57 |     any,
+   |     ^^^
+58 |     collections::{BTreeSet, HashSet},
+   |                   ^^^^^^^^
+59 |     ffi::{c_char, CStr, CString, OsString},
+   |           ^^^^^^  ^^^^  ^^^^^^^  ^^^^^^^^
+60 |     fs::File,
+   |     ^^^^^^^^
+61 |     ptr::null,
+   |     ^^^^^^^^^
+62 |     sync::{
+63 |         mpsc::{channel, Receiver, Sender},
+   |                ^^^^^^^  ^^^^^^^^  ^^^^^^
+
+warning: unused import: `property`
+ --> dway-udev/src/gbm/buffer.rs:3:20
+  |
+3 | use drm::control::{property, Device};
+  |                    ^^^^^^^^
+
+warning: unused import: `DrmFormat`
+ --> dway-udev/src/gbm/buffer.rs:4:42
+  |
+4 | use drm_fourcc::{DrmFourcc, DrmModifier, DrmFormat};
+  |                                          ^^^^^^^^^
+
+warning: unused import: `sync::Arc`
+ --> dway-udev/src/gbm/buffer.rs:6:28
+  |
+6 | use std::{os::fd::OwnedFd, sync::Arc};
+  |                            ^^^^^^^^^
+
+warning: unused imports: `info`, `warn`
+ --> dway-udev/src/gbm/buffer.rs:7:22
+  |
+7 | use tracing::{error, info, warn};
+  |                      ^^^^  ^^^^
+
+warning: unused import: `bail`
+ --> dway-udev/src/gbm/mod.rs:4:14
+  |
+4 | use anyhow::{bail, Result};
+  |              ^^^^
+
+warning: unused imports: `Device`, `Mode`, `connector`, `crtc`, `from_u32`, `plane`
+ --> dway-udev/src/gbm/mod.rs:7:20
+  |
+7 | use drm::control::{connector, crtc, from_u32, plane, Device, Mode};
+  |                    ^^^^^^^^^  ^^^^  ^^^^^^^^  ^^^^^  ^^^^^^  ^^^^
+
+warning: unused import: `gbm::Format`
+  --> dway-udev/src/gbm/mod.rs:11:5
+   |
+11 | use gbm::Format;
+   |     ^^^^^^^^^^^
+
+warning: unused import: `libseat::Seat`
+  --> dway-udev/src/gbm/mod.rs:12:5
+   |
+12 | use libseat::Seat;
+   |     ^^^^^^^^^^^^^
+
+warning: unused imports: `AsFd`, `AsRawFd`, `OwnedFd`, `PathBuf`, `Path`, `RawFd`
+  --> dway-udev/src/gbm/mod.rs:15:14
+   |
+15 |     os::fd::{AsFd, AsRawFd, OwnedFd, RawFd},
+   |              ^^^^  ^^^^^^^  ^^^^^^^  ^^^^^
+16 |     path::{Path, PathBuf},
+   |            ^^^^  ^^^^^^^
+
+warning: unused imports: `planes::Planes`, `seat::DeviceFd`, `util::transmute_vec_from_u32`
+  --> dway-udev/src/gbm/mod.rs:21:11
+   |
+21 |     drm::{planes::Planes, DrmDevice, DrmDeviceFd},
+   |           ^^^^^^^^^^^^^^
+22 |     seat::DeviceFd,
+   |     ^^^^^^^^^^^^^^
+23 |     util::transmute_vec_from_u32,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `PointerAxisEvent`, `PointerButtonEvent`, `keyboard::KeyboardKeyEvent`
+  --> dway-udev/src/libinput/mod.rs:17:9
+   |
+17 |         keyboard::KeyboardKeyEvent,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+18 |         pointer::{PointerAxisEvent, PointerButtonEvent},
+   |                   ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::ffi::c_char`
+ --> dway-udev/src/render/mod.rs:3:5
+  |
+3 | use std::ffi::c_char;
+  |     ^^^^^^^^^^^^^^^^
+
+warning: unused imports: `RenderQueue`, `ecs::entity::EntityMap`
+  --> dway-udev/src/render/mod.rs:12:5
+   |
+12 |     ecs::entity::EntityMap,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+...
+16 |         renderer::{RenderDevice, RenderQueue},
+   |                                  ^^^^^^^^^^^
+
+warning: unused import: `crtc`
+  --> dway-udev/src/render/mod.rs:22:20
+   |
+22 | use drm::control::{crtc, framebuffer};
+   |                    ^^^^
+
+warning: unused import: `glow::NativeFramebuffer`
+  --> dway-udev/src/render/mod.rs:27:5
+   |
+27 | use glow::NativeFramebuffer;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `khronos_egl::Attrib`
+  --> dway-udev/src/render/mod.rs:28:5
+   |
+28 | use khronos_egl::Attrib;
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `wgpu::TextureUsages`
+  --> dway-udev/src/render/mod.rs:41:5
+   |
+41 | use wgpu::TextureUsages;
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `bevy::ecs::schedule::ScheduleLabel`
+ --> dway-udev/src/schedule.rs:1:5
+  |
+1 | use bevy::ecs::schedule::ScheduleLabel;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `AsRawFd`, `Path`
+ --> dway-udev/src/seat/mod.rs:2:20
+  |
+2 |     os::fd::{AsFd, AsRawFd, RawFd},
+  |                    ^^^^^^^
+3 |     path::{Path, PathBuf},
+  |            ^^^^
+
+warning: unused import: `DWayUdevSchedulePlugin`
+  --> dway-udev/src/seat/mod.rs:13:35
+   |
+13 | use crate::schedule::{DWayTTYSet, DWayUdevSchedulePlugin};
+   |                                   ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `getset::Getters`
+ --> dway-udev/src/udev/mod.rs:3:5
+  |
+3 | use getset::Getters;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `nix::libc::dev_t`
+ --> dway-udev/src/udev/mod.rs:4:5
+  |
+4 | use nix::libc::dev_t;
+  |     ^^^^^^^^^^^^^^^^
+
+warning: unused import: `seat::SeatState`
+  --> dway-udev/src/udev/mod.rs:12:35
+   |
+12 | use crate::{schedule::DWayTTYSet, seat::SeatState};
+   |                                   ^^^^^^^^^^^^^^^
+
+warning: unused import: `from_u32`
+ --> dway-udev/src/util.rs:1:20
+  |
+1 | use drm::control::{from_u32, RawResourceHandle};
+  |                    ^^^^^^^^
+
+warning: use of deprecated struct `input::event::pointer::PointerAxisEvent`: Use `PointerEvent::Scroll*` events instead
+  --> dway-udev/src/libinput/mod.rs:18:19
+   |
+18 |         pointer::{PointerAxisEvent, PointerButtonEvent},
+   |                   ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated tuple variant `input::event::PointerEvent::Axis`: Use `PointerEvent::Scroll*` events instead
+   --> dway-udev/src/libinput/mod.rs:103:35
+    |
+103 |                     PointerEvent::Axis(_) => todo!(),
+    |                                   ^^^^
+
+warning: use of deprecated field `input::event::PointerEvent::Axis::0`: Use `PointerEvent::Scroll*` events instead
+   --> dway-udev/src/libinput/mod.rs:103:40
+    |
+103 |                     PointerEvent::Axis(_) => todo!(),
+    |                                        ^
+
+warning: unused variable: `backup`
+  --> dway-udev/src/drm/surface.rs:69:45
+   |
+69 |             DrmDeviceState::Atomic { props, backup } => Self::Atomic {
+   |                                             ^^^^^^ help: try ignoring the field: `backup: _`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `backup`
+  --> dway-udev/src/drm/surface.rs:72:38
+   |
+72 |             DrmDeviceState::Legacy { backup } => Self::Legacy {},
+   |                                      ^^^^^^ help: try ignoring the field: `backup: _`
+
+warning: unused variable: `props`
+   --> dway-udev/src/drm/surface.rs:218:40
+    |
+218 |                 SurfaceState::Atomic { props },
+    |                                        ^^^^^ help: try ignoring the field: `props: _`
+
+warning: unused variable: `backup`
+   --> dway-udev/src/drm/surface.rs:221:21
+    |
+221 |                     backup,
+    |                     ^^^^^^ help: try ignoring the field: `backup: _`
+
+warning: unused variable: `backup`
+   --> dway-udev/src/drm/surface.rs:249:64
+    |
+249 |             (SurfaceState::Legacy {}, DrmDeviceState::Legacy { backup }) => todo!(),
+    |                                                                ^^^^^^ help: try ignoring the field: `backup: _`
+
+warning: unused variable: `props`
+   --> dway-udev/src/drm/surface.rs:250:37
+    |
+250 |             (SurfaceState::Atomic { props }, DrmDeviceState::Legacy { backup }) => unreachable!(),
+    |                                     ^^^^^ help: try ignoring the field: `props: _`
+
+warning: unused variable: `backup`
+   --> dway-udev/src/drm/surface.rs:250:71
+    |
+250 |             (SurfaceState::Atomic { props }, DrmDeviceState::Legacy { backup }) => unreachable!(),
+    |                                                                       ^^^^^^ help: try ignoring the field: `backup: _`
+
+warning: unused variable: `props`
+   --> dway-udev/src/drm/surface.rs:251:64
+    |
+251 |             (SurfaceState::Legacy {}, DrmDeviceState::Atomic { props, backup }) => unreachable!(),
+    |                                                                ^^^^^ help: try ignoring the field: `props: _`
+
+warning: unused variable: `backup`
+   --> dway-udev/src/drm/surface.rs:251:71
+    |
+251 |             (SurfaceState::Legacy {}, DrmDeviceState::Atomic { props, backup }) => unreachable!(),
+    |                                                                       ^^^^^^ help: try ignoring the field: `backup: _`
+
+warning: unused variable: `buffer`
+   --> dway-udev/src/drm/surface.rs:309:9
+    |
+309 |     let buffer = surface.buffers.get(0).ok_or_else(|| anyhow!("no buffer"))?;
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_buffer`
+
+warning: unused variable: `fd`
+   --> dway-udev/src/drm/surface.rs:300:5
+    |
+300 |     fd: &DrmDeviceFd,
+    |     ^^ help: if this is intentional, prefix it with an underscore: `_fd`
+
+warning: unused variable: `backup`
+   --> dway-udev/src/drm/mod.rs:358:45
+    |
+358 |             DrmDeviceState::Atomic { props, backup } => {
+    |                                             ^^^^^^ help: try ignoring the field: `backup: _`
+
+warning: unused variable: `backup`
+   --> dway-udev/src/drm/mod.rs:400:38
+    |
+400 |             DrmDeviceState::Legacy { backup } => {
+    |                                      ^^^^^^ help: try ignoring the field: `backup: _`
+
+warning: variable does not need to be mutable
+   --> dway-udev/src/drm/mod.rs:723:24
+    |
+723 |                 let Ok(mut drm) = drm_query.get_mut(*entity) else {
+    |                        ----^^^
+    |                        |
+    |                        help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: unused variable: `focurcc_set`
+  --> dway-udev/src/gbm/mod.rs:52:13
+   |
+52 |         let focurcc_set =
+   |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_focurcc_set`
+
+warning: unused variable: `flags`
+  --> dway-udev/src/libinput/mod.rs:45:9
+   |
+45 |         flags: i32,
+   |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_flags`
+
+warning: unused variable: `e`
+   --> dway-udev/src/libinput/mod.rs:120:34
+    |
+120 |             input::Event::Tablet(e) => todo!(),
+    |                                  ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `e`
+   --> dway-udev/src/libinput/mod.rs:121:37
+    |
+121 |             input::Event::TabletPad(e) => todo!(),
+    |                                     ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `e`
+   --> dway-udev/src/libinput/mod.rs:122:35
+    |
+122 |             input::Event::Gesture(e) => todo!(),
+    |                                   ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `e`
+   --> dway-udev/src/libinput/mod.rs:123:34
+    |
+123 |             input::Event::Switch(e) => todo!(),
+    |                                  ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: unused variable: `motion_events`
+  --> dway-udev/src/libinput/mod.rs:78:9
+   |
+78 |     mut motion_events: EventWriter<MouseMotion>,
+   |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_motion_events`
+
+warning: unused variable: `button_events`
+  --> dway-udev/src/libinput/mod.rs:79:9
+   |
+79 |     mut button_events: EventWriter<MouseButtonInput>,
+   |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_button_events`
+
+warning: unused variable: `axis_events`
+  --> dway-udev/src/libinput/mod.rs:80:9
+   |
+80 |     mut axis_events: EventWriter<MouseWheel>,
+   |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_axis_events`
+
+warning: unused variable: `keyboard_events`
+  --> dway-udev/src/libinput/mod.rs:81:9
+   |
+81 |     mut keyboard_events: EventWriter<KeyboardInput>,
+   |         ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_keyboard_events`
+
+warning: variable does not need to be mutable
+  --> dway-udev/src/libinput/mod.rs:78:5
+   |
+78 |     mut motion_events: EventWriter<MouseMotion>,
+   |     ----^^^^^^^^^^^^^
+   |     |
+   |     help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> dway-udev/src/libinput/mod.rs:79:5
+   |
+79 |     mut button_events: EventWriter<MouseButtonInput>,
+   |     ----^^^^^^^^^^^^^
+   |     |
+   |     help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> dway-udev/src/libinput/mod.rs:80:5
+   |
+80 |     mut axis_events: EventWriter<MouseWheel>,
+   |     ----^^^^^^^^^^^
+   |     |
+   |     help: remove this `mut`
+
+warning: variable does not need to be mutable
+  --> dway-udev/src/libinput/mod.rs:81:5
+   |
+81 |     mut keyboard_events: EventWriter<KeyboardInput>,
+   |     ----^^^^^^^^^^^^^^^
+   |     |
+   |     help: remove this `mut`
+
+warning: fields `enabled` and `driver` are never read
+   --> dway-udev/src/drm/mod.rs:420:16
+    |
+417 | pub struct DrmDeviceInner {
+    |            -------------- fields in this struct
+...
+420 |     pub(crate) enabled: bool,
+    |                ^^^^^^^
+421 |     pub(crate) states: DrmDeviceState,
+422 |     pub(crate) driver: Driver,
+    |                ^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: field `size` is never read
+  --> dway-udev/src/drm/connectors.rs:13:16
+   |
+7  | pub struct Connector {
+   |            --------- field in this struct
+...
+13 |     pub(crate) size: IVec2,
+   |                ^^^^
+   |
+   = note: `Connector` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: field `buffer` is never read
+  --> dway-udev/src/gbm/buffer.rs:30:16
+   |
+27 | pub struct GbmBuffer {
+   |            --------- field in this struct
+...
+30 |     pub(crate) buffer: gbm::BufferObject<()>,
+   |                ^^^^^^
+   |
+   = note: `GbmBuffer` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: field `devices` is never read
+  --> dway-udev/src/seat/mod.rs:41:16
+   |
+34 | pub struct SeatState {
+   |            --------- field in this struct
+...
+41 |     pub(crate) devices: HashMap<RawFd, Entity>,
+   |                ^^^^^^^
+
+warning: `dway-udev` (lib) generated 82 warnings (run `cargo fix --lib -p dway-udev` to apply 75 suggestions)
+    Finished dev [unoptimized + debuginfo] target(s) in 3.19s
+     Running `target/debug/dway --tty-udev`
+[2m2023-09-23T13:26:51.041639Z[0m [33m WARN[0m [2mwgpu_hal::gles::egl[0m[2m:[0m No config found!    
+[2m2023-09-23T13:26:51.041695Z[0m [33m WARN[0m [2mwgpu_hal::gles::egl[0m[2m:[0m No config found!    
+[2m2023-09-23T13:26:51.046235Z[0m [32m INFO[0m [2mbevy_render::renderer[0m[2m:[0m AdapterInfo { name: "Mesa Intel(R) Graphics (RPL-P)", vendor: 32902, device: 0, device_type: IntegratedGpu, driver: "", driver_info: "", backend: Gl }
+[2m2023-09-23T13:26:51.052279Z[0m [34mDEBUG[0m [2mbevy_render[0m[2m:[0m Configured wgpu adapter Limits: Limits {
+    max_texture_dimension_1d: 16384,
+    max_texture_dimension_2d: 16384,
+    max_texture_dimension_3d: 2048,
+    max_texture_array_layers: 2048,
+    max_bind_groups: 8,
+    max_bindings_per_bind_group: 65535,
+    max_dynamic_uniform_buffers_per_pipeline_layout: 15,
+    max_dynamic_storage_buffers_per_pipeline_layout: 16,
+    max_sampled_textures_per_shader_stage: 16,
+    max_samplers_per_shader_stage: 16,
+    max_storage_buffers_per_shader_stage: 16,
+    max_storage_textures_per_shader_stage: 32,
+    max_uniform_buffers_per_shader_stage: 15,
+    max_uniform_buffer_binding_size: 65536,
+    max_storage_buffer_binding_size: 134217728,
+    max_vertex_buffers: 16,
+    max_buffer_size: 2147483647,
+    max_vertex_attributes: 16,
+    max_vertex_buffer_array_stride: 2048,
+    min_uniform_buffer_offset_alignment: 32,
+    min_storage_buffer_offset_alignment: 32,
+    max_inter_stage_shader_components: 128,
+    max_compute_workgroup_storage_size: 65536,
+    max_compute_invocations_per_workgroup: 1024,
+    max_compute_workgroup_size_x: 1024,
+    max_compute_workgroup_size_y: 1024,
+    max_compute_workgroup_size_z: 1024,
+    max_compute_workgroups_per_dimension: 2147483646,
+    max_push_constant_size: 256,
+}
+[2m2023-09-23T13:26:51.052323Z[0m [34mDEBUG[0m [2mbevy_render[0m[2m:[0m Configured wgpu adapter Features: DEPTH_CLIP_CONTROL | TEXTURE_COMPRESSION_BC | TEXTURE_COMPRESSION_ETC2 | TEXTURE_COMPRESSION_ASTC_LDR | PUSH_CONSTANTS | ADDRESS_MODE_CLAMP_TO_BORDER | TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES | VERTEX_WRITABLE_STORAGE | CLEAR_TEXTURE | SHADER_PRIMITIVE_INDEX | ADDRESS_MODE_CLAMP_TO_ZERO
+thread 'main' panicked at /home/wangzi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/winit-0.28.6/src/platform_impl/linux/mod.rs:757:9:
+Failed to initialize any backend! Wayland status: NoCompositorListening X11 status: XOpenDisplayFailed
+stack backtrace:
+   0: rust_begin_unwind
+             at /rustc/203c57dbe20aee67eaa8f7be45d1e4ef0b274109/library/std/src/panicking.rs:619:5
+   1: core::panicking::panic_fmt
+             at /rustc/203c57dbe20aee67eaa8f7be45d1e4ef0b274109/library/core/src/panicking.rs:72:14
+   2: winit::platform_impl::platform::EventLoop<T>::new
+             at /home/wangzi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/winit-0.28.6/src/platform_impl/linux/mod.rs:757:9
+   3: winit::event_loop::EventLoopBuilder<T>::build
+             at /home/wangzi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/winit-0.28.6/src/event_loop.rs:121:25
+   4: <dway_winit::WinitPlugin as bevy_app::plugin::Plugin>::build
+             at ./dway_winit/src/lib.rs:72:26
+   5: bevy_app::app::App::add_boxed_plugin::{{closure}}
+             at /home/wangzi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/bevy_app-0.10.1/src/app.rs:767:55
+   6: core::ops::function::FnOnce::call_once
+             at /rustc/203c57dbe20aee67eaa8f7be45d1e4ef0b274109/library/core/src/ops/function.rs:250:5
+   7: <core::panic::unwind_safe::AssertUnwindSafe<F> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/203c57dbe20aee67eaa8f7be45d1e4ef0b274109/library/core/src/panic/unwind_safe.rs:271:9
+   8: std::panicking::try::do_call
+             at /rustc/203c57dbe20aee67eaa8f7be45d1e4ef0b274109/library/std/src/panicking.rs:526:40
+   9: __rust_try
+  10: std::panicking::try
+             at /rustc/203c57dbe20aee67eaa8f7be45d1e4ef0b274109/library/std/src/panicking.rs:490:19
+  11: std::panic::catch_unwind
+             at /rustc/203c57dbe20aee67eaa8f7be45d1e4ef0b274109/library/std/src/panic.rs:142:14
+  12: bevy_app::app::App::add_boxed_plugin
+             at /home/wangzi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/bevy_app-0.10.1/src/app.rs:767:22
+  13: bevy_app::app::App::add_plugin
+             at /home/wangzi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/bevy_app-0.10.1/src/app.rs:747:15
+  14: dway::main
+             at ./dway/src/main.rs:52:5
+  15: core::ops::function::FnOnce::call_once
+             at /rustc/203c57dbe20aee67eaa8f7be45d1e4ef0b274109/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.

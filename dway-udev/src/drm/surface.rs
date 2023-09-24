@@ -22,6 +22,7 @@ use drm::{
 };
 use drm_ffi::drm_format_modifier_blob;
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
+use getset::Getters;
 use smallvec::SmallVec;
 use tracing::{span, Level};
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
@@ -94,29 +95,13 @@ impl SurfaceInner {
         gbm: &GbmDevice,
         render_formats: &[DrmFormat],
     ) -> Result<&GbmBuffer> {
-        if self.buffers.is_empty() {
+        if self.buffers.len() < 2 {
             let size = self.mode.size();
             let size = IVec2::new(size.0 as i32, size.1 as i32);
             let gbm = gbm.create_buffer(drm, size, &*self.formats, render_formats)?;
             self.buffers.push_back(gbm);
         }
         Ok(self.buffers.front().unwrap())
-    }
-
-    pub fn with_rendering_buffer<R>(
-        &mut self,
-        drm: &DrmDevice,
-        gbm: &GbmDevice,
-        render_formats: &[DrmFormat],
-        f: impl FnOnce(&GbmBuffer) -> Result<R>,
-    ) -> Result<R> {
-        if self.buffers.is_empty() {
-            let size = self.mode.size();
-            let size = IVec2::new(size.0 as i32, size.1 as i32);
-            let gbm = gbm.create_buffer(drm, size, &*self.formats, render_formats)?;
-            self.buffers.push_back(gbm);
-        }
-        f(&self.buffers.front().unwrap())
     }
 }
 
@@ -194,19 +179,6 @@ impl DrmSurface {
         self.inner.lock().unwrap().size()
     }
 
-    pub fn with_rendering_buffer<R>(
-        &self,
-        drm: &DrmDevice,
-        gbm: &GbmDevice,
-        render_formats: &[DrmFormat],
-        f: impl FnOnce(&GbmBuffer) -> Result<R>,
-    ) -> Result<R> {
-        self.inner
-            .lock()
-            .unwrap()
-            .with_rendering_buffer(drm, gbm, render_formats, f)
-    }
-
     pub fn commit(&self, conn: &Connector, drm: &DrmDevice) -> Result<()> {
         let mut self_guard = self.inner.lock().unwrap();
         let mut drm_guard = drm.inner.lock().unwrap();
@@ -220,7 +192,10 @@ impl DrmSurface {
                     backup,
                 },
             ) => {
-                if let Some(buffer) = self_guard.buffers.front() {
+                if let Some(buffer) = self_guard.buffers.pop_front() {
+                    let framebuffer = buffer.framebuffer;
+                    self_guard.buffers.push_back(buffer);
+
                     let size = self_guard.size();
                     let req = create_request(
                         &drm.fd,
@@ -233,7 +208,7 @@ impl DrmSurface {
                                 src: Rect::from_corners(Vec2::default(), size.as_vec2()),
                                 dest: Rect::from_corners(Vec2::default(), size.as_vec2()),
                                 transform: self_guard.transform,
-                                framebuffer: buffer.framebuffer,
+                                framebuffer,
                             }),
                         )],
                         drm_props,
@@ -250,8 +225,9 @@ impl DrmSurface {
 
         Ok(())
     }
-    pub fn bind(&mut self, device: &mut RenderDevice) -> Result<GpuImage> {
-        todo!()
+
+    pub fn image(&self) -> Handle<Image> {
+        self.image.clone()
     }
 }
 
@@ -302,7 +278,7 @@ pub fn create_request(
 ) -> Result<AtomicModeReq> {
     use property::Value::*;
 
-    let buffer = surface.buffers.get(0).ok_or_else(|| anyhow!("no buffer"))?;
+    let _ = surface.buffers.get(0).ok_or_else(|| anyhow!("no buffer"))?;
 
     let mut req = AtomicModeReq::new();
 

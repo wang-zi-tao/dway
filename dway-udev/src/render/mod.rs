@@ -452,22 +452,6 @@ unsafe fn do_create_renderbuffer(
     if error != 0 {
         bail!("gl error: EGLImageTargetRenderbufferStorageOES: {error}");
     }
-
-    let framebuffer = gl
-        .create_framebuffer()
-        .map_err(|e| anyhow!("failed to create framebuffer: {e}"))?;
-    gl.bind_framebuffer(glow::FRAMEBUFFER, Some(framebuffer));
-    gl.framebuffer_renderbuffer(
-        glow::FRAMEBUFFER,
-        glow::COLOR_ATTACHMENT0,
-        glow::RENDERBUFFER,
-        Some(renderbuffer),
-    );
-    gl.clear_color(1.0, 1.0, 1.0, 1.0); // TODO remove
-    gl.clear(glow::COLOR_BUFFER_BIT); // TODO remove
-    gl.bind_renderbuffer(glow::RENDERBUFFER, None);
-    gl.bind_framebuffer(glow::FRAMEBUFFER, None);
-    gl.delete_framebuffer(framebuffer);
     Ok(renderbuffer)
 }
 

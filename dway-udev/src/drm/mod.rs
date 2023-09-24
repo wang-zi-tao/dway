@@ -113,6 +113,15 @@ impl DrmNode {
     }
 }
 
+impl Drop for DrmDevice {
+    fn drop(&mut self) {
+        let self_guard = self.inner.lock().unwrap();
+        if self_guard.privileged {
+            let _ = self.fd.release_master_lock();
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct DrmDeviceFd(pub DeviceFd);
 impl AsFd for DrmDeviceFd {
@@ -609,16 +618,18 @@ pub fn setup(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
 ) {
-    debug!(r"DRM Debugging:
+    debug!(
+        r"DRM Debugging method:
     echo 0x19F | sudo tee /sys/module/drm/parameters/debug
     sudo dmesg -C
     dmesg -w
-    ");
+    "
+    );
 
     for gpu_path in all_gpus(&seat).unwrap() {
         if let Err(e) = add_device(gpu_path, &mut udev, &mut seat, &mut commands, &mut images) {
             error!("failed to add drm device: {e}");
-            info!("{}", e.backtrace());
+            info!("backtrace: {}", e.backtrace());
         }
     }
 }
@@ -797,7 +808,7 @@ pub fn recevie_drm_events(
 pub struct DrmPlugin;
 impl Plugin for DrmPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(setup.on_startup())
+        app.add_system(setup.on_startup().in_base_set(StartupSet::PreStartup))
             .add_systems(
                 (on_udev_event, recevie_drm_events)
                     .chain()
