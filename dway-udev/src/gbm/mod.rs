@@ -11,7 +11,7 @@ use gbm::BufferObjectFlags;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-const SUPPORTED_FORMATS: [DrmFourcc; 1] = [DrmFourcc::Argb8888];
+pub const SUPPORTED_FORMATS: [DrmFourcc; 1] = [DrmFourcc::Argb8888];
 
 use self::buffer::GbmBuffer;
 

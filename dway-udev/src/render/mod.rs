@@ -2,7 +2,7 @@ pub mod gles;
 pub mod utils;
 pub mod vulkan;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use bevy::{
     prelude::*,
     render::{
@@ -20,6 +20,7 @@ use tracing::Level;
 use wgpu::Texture;
 use wgpu::{TextureFormat, TextureViewDescriptor};
 use wgpu_hal::api::Gles;
+use wgpu_hal::api::Vulkan;
 
 use crate::drm::connectors::Connector;
 use crate::gbm::buffer::GbmBuffer;
@@ -53,8 +54,10 @@ impl TtyRenderState {
         if self.formats.is_some() {
             return Ok(&**self.formats.as_ref().unwrap());
         }
-        let formats = gles::get_formats(&mut self.cache, render_device)?;
-        self.formats = Some(formats.into_iter().collect());
+        let formats = gles::get_formats(&mut self.cache, render_device)
+            .or_else(|| vulkan::get_formats(render_device))
+            .ok_or_else(|| anyhow!("unknown wgpu backend"))??;
+        self.formats = Some(formats);
         Ok(&self.formats.as_ref().unwrap())
     }
 }
@@ -129,7 +132,7 @@ pub fn prepare_drm_surface(
         } else {
             let Ok(texture) =
                 create_framebuffer_texture(&mut state, &render_device.wgpu_device(), &buffer)
-                    .map_err(|e| error!("failed to bind gbm buffer: {e}"))
+                    .map_err(|e| error!("failed to bind gbm buffer: {e} \n{}", e.backtrace()))
             else {
                 return;
             };
@@ -157,16 +160,36 @@ pub fn create_framebuffer_texture(
     buffer: &GbmBuffer,
 ) -> Result<Texture> {
     unsafe {
-        let hal_texture = render_device
+        render_device
             .as_hal::<Gles, _, _>(|hal_device| {
                 hal_device
                     .map(|hal_device| gles::create_framebuffer_texture(state, hal_device, buffer))
             })
-            .unwrap()?;
-
-        let texture = render_device
-            .create_texture_from_hal::<Gles>(hal_texture, &drm_framebuffer_descriptor(buffer.size));
-        Ok(texture)
+            .map(|r| {
+                r.map(|hal_texture| {
+                    render_device.create_texture_from_hal::<Gles>(
+                        hal_texture,
+                        &drm_framebuffer_descriptor(buffer.size),
+                    )
+                })
+            })
+            .or_else(|| {
+                render_device
+                    .as_hal::<Vulkan, _, _>(|hal_device| {
+                        hal_device.map(|hal_device| {
+                            vulkan::create_framebuffer_texture(hal_device, buffer)
+                        })
+                    })
+                    .map(|r| {
+                        r.map(|hal_texture| {
+                            render_device.create_texture_from_hal::<Vulkan>(
+                                hal_texture,
+                                &drm_framebuffer_descriptor(buffer.size),
+                            )
+                        })
+                    })
+            })
+            .ok_or_else(|| anyhow!("unknown wgpu backend"))?
     }
 }
 

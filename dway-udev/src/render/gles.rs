@@ -222,72 +222,79 @@ impl GlesRenderCache {
 pub fn get_formats(
     cache: &mut RenderCache,
     render_device: &wgpu::Device,
-) -> Result<HashSet<DrmFormat>> {
+) -> Option<Result<Vec<DrmFormat>>> {
     unsafe {
         render_device.as_hal::<Gles, _, _>(|hal_device| {
-            let hal_device = hal_device.ok_or_else(|| anyhow!("gpu backend is not egl"))?;
-            let egl_context = hal_device.context();
-            let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> = egl_context
-                .egl_instance()
-                .ok_or_else(|| anyhow!("gpu backend is not egl"))?;
-            let egl_display = egl_context
-                .raw_display()
-                .ok_or_else(|| anyhow!("egl display is not valid"))?;
+            hal_device.map(|hal_device| {
+                let egl_context = hal_device.context();
+                let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> = egl_context
+                    .egl_instance()
+                    .ok_or_else(|| anyhow!("gpu backend is not egl"))?;
+                let egl_display = egl_context
+                    .raw_display()
+                    .ok_or_else(|| anyhow!("egl display is not valid"))?;
 
-            let functions = match cache {
-                RenderCache::None => {
-                    let functions = GlesRenderCache::new(egl)?;
-                    *cache = RenderCache::Gles(functions);
-                    let RenderCache::Gles(functions) = &cache else {
-                        unreachable!();
-                    };
-                    functions
-                }
-                RenderCache::Gles(g) => g,
-            };
+                let functions = match cache {
+                    RenderCache::None => {
+                        let functions = GlesRenderCache::new(egl)?;
+                        *cache = RenderCache::Gles(functions);
+                        let RenderCache::Gles(functions) = &cache else {
+                            unreachable!();
+                        };
+                        functions
+                    }
+                    RenderCache::Gles(g) => g,
+                };
 
-            let extensions = get_egl_extensions(egl, *egl_display)?;
-            let fourcc_list = if !extensions.contains("EGL_EXT_image_dma_buf_import_modifiers") {
-                vec![DrmFourcc::Argb8888, DrmFourcc::Xrgb8888]
-            } else {
-                call_egl_vec(egl, |num, vec, p_num| {
-                    (functions.egl_query_dmabuf_format_ext)(egl_display.as_ptr(), num, vec, p_num)
-                })?
-                .into_iter()
-                .filter_map(|f| DrmFourcc::try_from(f).ok())
-                .collect()
-            };
+                let extensions = get_egl_extensions(egl, *egl_display)?;
+                let fourcc_list = if !extensions.contains("EGL_EXT_image_dma_buf_import_modifiers")
+                {
+                    vec![DrmFourcc::Argb8888, DrmFourcc::Xrgb8888]
+                } else {
+                    call_egl_vec(egl, |num, vec, p_num| {
+                        (functions.egl_query_dmabuf_format_ext)(
+                            egl_display.as_ptr(),
+                            num,
+                            vec,
+                            p_num,
+                        )
+                    })?
+                    .into_iter()
+                    .filter_map(|f| DrmFourcc::try_from(f).ok())
+                    .collect()
+                };
 
-            let mut render_formats = HashSet::new();
-            for fourcc in fourcc_list.iter().cloned() {
-                let (mods, external) = call_egl_double_vec(egl, |num, vec1, vec2, p_num| {
-                    (functions.egl_query_dma_buf_modifiers_ext)(
-                        egl_display.as_ptr(),
-                        fourcc as i32,
-                        num,
-                        vec1,
-                        vec2,
-                        p_num,
-                    )
-                })
-                .map_err(|e| anyhow!("egl error: {e}"))?;
-                if mods.len() == 0 {
-                    render_formats.insert(DrmFormat {
-                        code: fourcc,
-                        modifier: DrmModifier::Invalid,
-                    });
-                }
-                for (modifier, external_only) in mods.into_iter().zip(external.into_iter()) {
-                    if external_only == 0 {
+                let mut render_formats = HashSet::new();
+                for fourcc in fourcc_list.iter().cloned() {
+                    let (mods, external) = call_egl_double_vec(egl, |num, vec1, vec2, p_num| {
+                        (functions.egl_query_dma_buf_modifiers_ext)(
+                            egl_display.as_ptr(),
+                            fourcc as i32,
+                            num,
+                            vec1,
+                            vec2,
+                            p_num,
+                        )
+                    })
+                    .map_err(|e| anyhow!("egl error: {e}"))?;
+                    if mods.len() == 0 {
                         render_formats.insert(DrmFormat {
                             code: fourcc,
-                            modifier: DrmModifier::from(modifier),
+                            modifier: DrmModifier::Invalid,
                         });
                     }
+                    for (modifier, external_only) in mods.into_iter().zip(external.into_iter()) {
+                        if external_only == 0 {
+                            render_formats.insert(DrmFormat {
+                                code: fourcc,
+                                modifier: DrmModifier::from(modifier),
+                            });
+                        }
+                    }
                 }
-            }
 
-            Result::<_, anyhow::Error>::Ok(render_formats)
+                Result::<_, anyhow::Error>::Ok(render_formats.into_iter().collect())
+            })
         })
     }
 }
