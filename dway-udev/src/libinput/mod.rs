@@ -48,7 +48,7 @@ impl LibinputInterface for SeatLibinputInterface {
     fn open_restricted(
         &mut self,
         path: &std::path::Path,
-        flags: i32,
+        _flags: i32,
     ) -> std::result::Result<std::os::fd::OwnedFd, i32> {
         let path = path.to_path_buf();
         let device = self.seat.lock().unwrap().open_device(&path)?;
@@ -76,7 +76,7 @@ impl LibinputDevice {
         let mut libinput = Libinput::new_with_udev(interface);
         libinput
             .udev_assign_seat(&seat.name)
-            .map_err(|e| anyhow!("failed to set seat for libinput"))?;
+            .map_err(|e| anyhow!("failed to set seat for libinput: {e:?}"))?;
         info!("libinput connected");
         Ok(Self { libinput })
     }
@@ -159,7 +159,7 @@ pub fn receive_events(
                     PointerEvent::Motion(m) => motion_events.send(MouseMotion {
                         delta: DVec2::new(m.dx(), m.dy()).as_vec2(),
                     }),
-                    PointerEvent::MotionAbsolute(m) => todo!(),
+                    PointerEvent::MotionAbsolute(_m) => todo!(),
                     PointerEvent::Button(m) => {
                         let button = match m.button() {
                             0x110 => MouseButton::Left,

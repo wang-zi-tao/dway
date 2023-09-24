@@ -1,9 +1,6 @@
-use super::{keys::*, KeyLockState, LibinputDevice};
-use bevy::{
-    prelude::{Input, KeyCode},
-    winit,
-};
-use input::{event::tablet_pad::KeyState, Device, Led};
+use super::{keys::*, KeyLockState};
+use bevy::prelude::{Input, KeyCode};
+use input::{event::tablet_pad::KeyState, Device};
 use tracing::warn;
 
 #[allow(non_upper_case_globals)]

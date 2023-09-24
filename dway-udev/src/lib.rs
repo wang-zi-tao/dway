@@ -37,20 +37,8 @@ mod test {
     use std::fs::OpenOptions;
 
     use bevy::{
-        app::ScheduleRunnerPlugin,
-        core::TaskPoolThreadAssignmentPolicy,
         log::LogPlugin,
         prelude::*,
-        render::{camera::RenderTarget, RenderPlugin},
-        winit::WinitPlugin,
-    };
-    use tracing::Level;
-    use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
-
-    const THREAD_POOL_CONFIG: TaskPoolThreadAssignmentPolicy = TaskPoolThreadAssignmentPolicy {
-        min_threads: 1,
-        max_threads: 1,
-        percent: 0.25,
     };
 
     use crate::DWayTTYPlugin;

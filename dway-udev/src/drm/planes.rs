@@ -1,6 +1,5 @@
-use crate::gbm::GbmDevice;
 use anyhow::Result;
-use bevy::prelude::{IVec2, Rect};
+use bevy::prelude::Rect;
 use drm::control::{crtc, framebuffer, plane, property::Value, Device, PlaneType};
 
 use super::{DrmDevice, surface::DrmTransform};

@@ -1,10 +1,11 @@
 use anyhow::Result;
 use bevy::prelude::IVec2;
-use drm::control::{property, Device};
-use drm_fourcc::{DrmFourcc, DrmModifier, DrmFormat};
+use drm::control::Device;
+use drm_fourcc::{DrmFourcc, DrmModifier};
+use getset::Getters;
 use smallvec::SmallVec;
-use std::{os::fd::OwnedFd, sync::Arc};
-use tracing::{error, info, warn};
+use std::os::fd::OwnedFd;
+use tracing::error;
 
 use crate::drm::{DrmDevice, DrmDeviceFd};
 
@@ -23,7 +24,8 @@ pub struct Plane {
     pub stride: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Getters)]
+#[get="pub"]
 pub struct GbmBuffer {
     pub(crate) drm: DrmDeviceFd,
     pub(crate) framebuffer: drm::control::framebuffer::Handle,

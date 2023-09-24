@@ -3,50 +3,30 @@ pub mod planes;
 pub mod surface;
 pub mod util;
 
-use crate::drm::planes::Planes;
 use crate::drm::surface::DrmSurface;
 use crate::failure::DWayTTYError::*;
-use crate::gbm::buffer::GbmBuffer;
 use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
 use bevy::prelude::*;
-use bevy::render::render_phase::RenderCommandResult;
-use bevy::utils::hashbrown::hash_map::Entry;
-use bevy::utils::tracing::instrument;
+use bevy::utils::tracing;
 use bevy::utils::HashMap;
-use bevy::{
-    render::{renderer::RenderDevice, Extract},
-    utils::tracing,
-};
-use bitflags::bitflags;
 use double_map::DHashMap;
-use drm::control::atomic::AtomicModeReq;
-use drm::control::connector;
-use drm::control::crtc;
-use drm::control::framebuffer;
-use drm::control::plane;
-use drm::control::property;
-use drm::control::AtomicCommitFlags;
-use drm::control::Device as DrmControlDevice;
-use drm::control::Mode;
-use drm::control::PageFlipEvent;
-use drm::control::PropertyValueSet;
-use drm::control::RawResourceHandle;
-use drm::control::ResourceHandle;
-use drm::control::VblankEvent;
-use drm::Device;
 use drm::Driver;
-use drm::SystemError;
+use drm::{
+    control::{
+        atomic::AtomicModeReq, connector, crtc, framebuffer, plane, property, AtomicCommitFlags,
+        Device as DrmControlDevice, PageFlipEvent, PropertyValueSet, ResourceHandle, VblankEvent,
+    },
+    Device,
+};
 use drm_ffi::drm_format_modifier_blob;
 use drm_ffi::DRM_MODE_FB_MODIFIERS;
 use drm_fourcc::DrmFormat;
 use drm_fourcc::DrmFourcc;
 use drm_fourcc::DrmModifier;
 use gbm::BufferObject;
-use libseat::Seat;
 use nix::libc;
-use scopeguard::defer;
 use smallvec::SmallVec;
 use std::borrow::Cow;
 use std::io;
@@ -54,13 +34,8 @@ use std::os::fd::AsFd;
 use std::path::Path;
 use std::path::PathBuf;
 use std::{
-    any,
-    collections::{BTreeSet, HashSet},
-    ffi::{c_char, CStr, CString, OsString},
-    fs::File,
-    ptr::null,
+    collections::HashSet,
     sync::{
-        mpsc::{channel, Receiver, Sender},
         Arc, Mutex,
     },
 };
@@ -355,7 +330,7 @@ impl DrmDeviceState {
     #[tracing::instrument(skip_all)]
     pub fn reset(&mut self, fd: &DrmDeviceFd) -> Result<()> {
         match self {
-            DrmDeviceState::Atomic { props, backup } => {
+            DrmDeviceState::Atomic { props, .. } => {
                 let res_handles = fd.resource_handles().map_err(ResourceHandlesError)?;
                 let planes = fd.plane_handles().map_err(PlanesHandlesError)?;
                 let mut req = AtomicModeReq::new();
@@ -397,7 +372,7 @@ impl DrmDeviceState {
                 fd.atomic_commit(AtomicCommitFlags::ALLOW_MODESET, req)
                     .map_err(AtomicCommitError)?;
             }
-            DrmDeviceState::Legacy { backup } => {
+            DrmDeviceState::Legacy { .. } => {
                 let res_handles = fd.resource_handles().map_err(ResourceHandlesError)?;
                 set_connector_state(&fd, res_handles.connectors().iter().copied(), false)?;
 

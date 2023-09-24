@@ -3,7 +3,7 @@ use std::{fs::OpenOptions, time::Duration};
 use bevy::{
     app::ScheduleRunnerPlugin,
     core::TaskPoolThreadAssignmentPolicy,
-    core_pipeline::clear_color::ClearColorConfig,
+    core_pipeline::{clear_color::ClearColorConfig, tonemapping::Tonemapping},
     input::{mouse::{MouseMotion, MouseWheel, MouseButtonInput}, keyboard::KeyboardInput},
     log::LogPlugin,
     prelude::*,
@@ -52,7 +52,7 @@ pub fn main() {
             }
             plugins
         })
-        .insert_resource(ClearColor(Color::rgb(1.0, 0.5, 1.0)))
+        .insert_resource(ClearColor(Color::BLUE))
         .add_system(setup.on_startup())
         .add_system(animate_cube)
         .add_system(input_event_system);
@@ -91,9 +91,10 @@ fn setup(
         // commands.spawn((Camera3dBundle {
         //     transform: Transform::from_xyz(0., 6., 12.).looking_at(Vec3::new(0., 3., 0.), Vec3::Y),
         //     camera: Camera {
-        //         target: RenderTarget::Image(image_handle),
+        //         // target: RenderTarget::Image(image_handle),
         //         ..default()
         //     },
+        //     tonemapping:Tonemapping::None,
         //     ..default()
         // },));
         info!("setup camera");

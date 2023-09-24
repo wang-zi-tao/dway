@@ -4,14 +4,11 @@ use drm::control::{connector, ModeTypeFlags};
 use getset::Getters;
 
 #[derive(Component,Clone, Debug, Getters)]
+#[get="pub"]
 pub struct Connector {
-    #[get]
     pub(crate) info: connector::Info,
-    #[get]
     pub(crate) name: String,
-    #[get]
     pub(crate) size: IVec2,
-    #[get]
     pub(crate) mode: drm::control::Mode,
 }
 

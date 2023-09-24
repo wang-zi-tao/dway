@@ -1,5 +1,3 @@
-use bevy::ecs::schedule::ScheduleLabel;
-
 use bevy::prelude::*;
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]

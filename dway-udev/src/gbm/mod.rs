@@ -1,27 +1,15 @@
 pub mod buffer;
 
+use crate::drm::{DrmDevice, DrmDeviceFd};
 use anyhow::anyhow;
-use anyhow::{bail, Result};
+use anyhow::Result;
 use bevy::prelude::*;
 use bevy::utils::HashSet;
-use drm::control::{connector, crtc, from_u32, plane, Device, Mode};
 use drm_fourcc::DrmModifier;
 use drm_fourcc::{DrmFormat, DrmFourcc};
 use gbm::BufferObjectFlags;
-use gbm::Format;
-use libseat::Seat;
 use std::sync::Arc;
-use std::{
-    os::fd::{AsFd, AsRawFd, OwnedFd, RawFd},
-    path::{Path, PathBuf},
-    sync::Mutex,
-};
-
-use crate::{
-    drm::{planes::Planes, DrmDevice, DrmDeviceFd},
-    seat::DeviceFd,
-    util::transmute_vec_from_u32,
-};
+use std::sync::Mutex;
 
 const SUPPORTED_FORMATS: [DrmFourcc; 1] = [DrmFourcc::Argb8888];
 
@@ -49,8 +37,6 @@ impl GbmDevice {
     ) -> Result<GbmBuffer> {
         let guard = self.device.lock().unwrap();
 
-        let focurcc_set =
-            HashSet::from_iter(drm_formats.iter().chain(render_formats).map(|f| f.code));
         let (buffer, format) = SUPPORTED_FORMATS
             .iter()
             .find_map(|fourcc| {

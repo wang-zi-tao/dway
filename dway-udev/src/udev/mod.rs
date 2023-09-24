@@ -1,7 +1,5 @@
 use anyhow::Result;
 use bevy::{prelude::*, utils::HashMap};
-use getset::Getters;
-use nix::libc::dev_t;
 use std::{
     collections::VecDeque,
     ffi::{OsStr, OsString},
@@ -9,7 +7,7 @@ use std::{
 };
 use udev::{Device, MonitorBuilder, MonitorSocket};
 
-use crate::{schedule::DWayTTYSet, seat::SeatState};
+use crate::schedule::DWayTTYSet;
 
 #[derive(Debug)]
 pub struct UDevDeviceId(pub udev::Device);

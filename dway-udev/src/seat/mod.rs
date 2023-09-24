@@ -1,6 +1,6 @@
 use std::{
-    os::fd::{AsFd, AsRawFd, RawFd},
-    path::{Path, PathBuf},
+    os::fd::{AsFd, RawFd},
+    path::PathBuf,
     sync::{Arc, Mutex},
 };
 
@@ -10,7 +10,7 @@ use crossbeam::queue::ArrayQueue;
 use getset::Getters;
 use libseat::{Seat, SeatEvent};
 
-use crate::schedule::{DWayTTYSet, DWayUdevSchedulePlugin};
+use crate::schedule::DWayTTYSet;
 
 #[derive(Debug, Component, Clone)]
 pub struct DeviceFd {
@@ -31,12 +31,10 @@ impl AsFd for DeviceFd {
 }
 
 #[derive(Getters)]
+#[get="pub"]
 pub struct SeatState {
-    #[get]
     pub(crate) name: String,
-    #[get]
     pub(crate) seat: Arc<Mutex<Seat>>,
-    #[get]
     pub(crate) enable: bool,
     pub(crate) devices: HashMap<RawFd, Entity>,
     pub(crate) queue: Arc<ArrayQueue<SeatEvent>>,

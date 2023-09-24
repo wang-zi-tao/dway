@@ -1,32 +1,23 @@
 use std::{
     collections::VecDeque,
     sync::{Arc, Mutex},
-    time::Duration,
 };
 
-use anyhow::{anyhow, bail, Context, Result};
-use bevy::{
-    ecs::storage::Resources,
-    prelude::*,
-    render::{renderer::RenderDevice, texture::GpuImage},
-    utils::HashSet,
-};
+use anyhow::{anyhow, bail, Result};
+use bevy::prelude::*;
 use drm::{
     control::{
         atomic::AtomicModeReq,
-        connector, crtc, plane,
+        crtc, plane,
         property::{self, Value},
         AtomicCommitFlags, Device, Mode,
     },
     Device as drm_device,
 };
-use drm_ffi::drm_format_modifier_blob;
-use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
-use getset::Getters;
+use drm_fourcc::DrmFormat;
 use smallvec::SmallVec;
 use tracing::{span, Level};
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
-use wgpu_hal::TextureUses;
 
 use crate::{
     drm::{planes::Planes, DrmDeviceState},
@@ -66,10 +57,10 @@ impl SurfaceState {
     pub fn new(drm: &DrmDevice) -> Result<Self> {
         let guard = drm.inner.lock().unwrap();
         let state = match &guard.states {
-            DrmDeviceState::Atomic { props, backup } => Self::Atomic {
+            DrmDeviceState::Atomic { props, .. } => Self::Atomic {
                 props: props.clone(),
             },
-            DrmDeviceState::Legacy { backup } => Self::Legacy {},
+            DrmDeviceState::Legacy { .. } => Self::Legacy {},
         };
         Ok(state)
     }
@@ -186,10 +177,9 @@ impl DrmSurface {
 
         match (&self_guard.state, &drm_guard.states) {
             (
-                SurfaceState::Atomic { props },
+                SurfaceState::Atomic { .. },
                 DrmDeviceState::Atomic {
-                    props: drm_props,
-                    backup,
+                    props: drm_props, ..
                 },
             ) => {
                 if let Some(buffer) = self_guard.buffers.pop_front() {
@@ -198,7 +188,6 @@ impl DrmSurface {
 
                     let size = self_guard.size();
                     let req = create_request(
-                        &drm.fd,
                         &self_guard,
                         conn,
                         connector_change,
@@ -218,9 +207,9 @@ impl DrmSurface {
                         .map_err(|e| anyhow!("failed to commit drm atomic req: {e}"))?;
                 }
             }
-            (SurfaceState::Legacy {}, DrmDeviceState::Legacy { backup }) => todo!(),
-            (SurfaceState::Atomic { props }, DrmDeviceState::Legacy { backup }) => unreachable!(),
-            (SurfaceState::Legacy {}, DrmDeviceState::Atomic { props, backup }) => unreachable!(),
+            (SurfaceState::Legacy {}, DrmDeviceState::Legacy { .. }) => todo!(),
+            (SurfaceState::Atomic { .. }, DrmDeviceState::Legacy { .. }) => unreachable!(),
+            (SurfaceState::Legacy {}, DrmDeviceState::Atomic { .. }) => unreachable!(),
         }
 
         Ok(())
@@ -269,7 +258,6 @@ fn to_fixed<N: Into<f64> + Copy>(n: N) -> u64 {
 }
 
 pub fn create_request(
-    fd: &DrmDeviceFd,
     surface: &SurfaceInner,
     conn: &Connector,
     connector_change: SmallVec<[DrmConnectorEvent; 1]>,
