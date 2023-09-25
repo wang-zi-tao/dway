@@ -1,4 +1,6 @@
 #![feature(iterator_try_collect)]
+#![feature(extract_if)]
+#![feature(result_flattening)]
 
 use bevy::{app::ScheduleRunnerPlugin, prelude::*};
 use drm::DrmPlugin;

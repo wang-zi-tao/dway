@@ -1,5 +1,5 @@
 use std::{
-    collections::VecDeque,
+    collections::{LinkedList, VecDeque},
     sync::{Arc, Mutex},
 };
 
@@ -76,23 +76,43 @@ pub struct SurfaceInner {
     pub(crate) transform: DrmTransform,
     pub(crate) formats: Vec<DrmFormat>,
 
-    pub(crate) buffers: VecDeque<GbmBuffer>,
+    pub(crate) pedding: Option<GbmBuffer>,
+    pub(crate) commited: LinkedList<GbmBuffer>,
+    pub(crate) showing: Option<GbmBuffer>,
+    pub(crate) available: VecDeque<GbmBuffer>,
 }
 
 impl SurfaceInner {
+    pub fn buffer_count(&self) -> usize {
+        self.pedding.iter().len() + self.commited.len() + self.available.len()
+    }
+
     pub fn get_buffer(
         &mut self,
         drm: &DrmDevice,
         gbm: &GbmDevice,
         render_formats: &[DrmFormat],
-    ) -> Result<&GbmBuffer> {
-        if self.buffers.len() < 2 {
+    ) -> Result<&mut GbmBuffer> {
+        if self.pedding.is_some() {
+            Ok(self.pedding.as_mut().unwrap())
+        } else if let Some(buffer) = self.available.pop_front() {
+            self.pedding = Some(buffer);
+            Ok(self.pedding.as_mut().unwrap())
+        } else {
+            if self.buffer_count() >= 8 {
+                bail!("Number of render buffers reached maximum");
+            }
             let size = self.mode.size();
             let size = IVec2::new(size.0 as i32, size.1 as i32);
             let gbm = gbm.create_buffer(drm, size, &*self.formats, render_formats)?;
-            self.buffers.push_back(gbm);
+            Ok(self.pedding.get_or_insert(gbm))
         }
-        Ok(self.buffers.front().unwrap())
+    }
+
+    pub fn finish_frame(&mut self) {
+        if let Some(pedding) = self.pedding.take() {
+            self.commited.push_back(pedding);
+        }
     }
 }
 
@@ -153,7 +173,10 @@ impl DrmSurface {
 
         Ok(Self {
             inner: Arc::new(Mutex::new(SurfaceInner {
-                buffers: Default::default(),
+                pedding: Default::default(),
+                commited: Default::default(),
+                available: Default::default(),
+
                 state,
                 crtc,
                 mode,
@@ -161,6 +184,7 @@ impl DrmSurface {
                 formats: formats.into_iter().collect(),
                 transform: DrmTransform::NORMAL,
                 mode_blob,
+                showing: None,
             })),
             image,
         })
@@ -170,7 +194,16 @@ impl DrmSurface {
         self.inner.lock().unwrap().size()
     }
 
-    pub fn commit(&self, conn: &Connector, drm: &DrmDevice) -> Result<()> {
+    pub fn finish_frame(&self) {
+        self.inner.lock().unwrap().finish_frame()
+    }
+
+    pub fn commit(
+        &self,
+        conn: &Connector,
+        drm: &DrmDevice,
+        mut checker: impl FnMut(&mut GbmBuffer) -> bool,
+    ) -> Result<()> {
         let mut self_guard = self.inner.lock().unwrap();
         let mut drm_guard = drm.inner.lock().unwrap();
         let connector_change = drm_guard.connectors_change(&drm.fd)?;
@@ -182,9 +215,22 @@ impl DrmSurface {
                     props: drm_props, ..
                 },
             ) => {
-                if let Some(buffer) = self_guard.buffers.pop_front() {
+                let mut finished_buffer = None;
+                while let Some(buffer) = self_guard.commited.front_mut() {
+                    if checker(buffer) {
+                        if let Some(old_buffer) =
+                            finished_buffer.replace(self_guard.commited.pop_front().unwrap())
+                        {
+                            self_guard.available.push_back(old_buffer);
+                        }
+                    }
+                }
+
+                if let Some(buffer) = finished_buffer {
                     let framebuffer = buffer.framebuffer;
-                    self_guard.buffers.push_back(buffer);
+                    if let Some(buffer) = self_guard.showing.replace(buffer) {
+                        self_guard.available.push_back(buffer);
+                    }
 
                     let size = self_guard.size();
                     let req = create_request(
@@ -205,6 +251,8 @@ impl DrmSurface {
 
                     drm.atomic_commit(AtomicCommitFlags::ALLOW_MODESET, req)
                         .map_err(|e| anyhow!("failed to commit drm atomic req: {e}"))?;
+
+                    debug!("commmit drm render buffer");
                 }
             }
             (SurfaceState::Legacy {}, DrmDeviceState::Legacy { .. }) => todo!(),
@@ -265,8 +313,6 @@ pub fn create_request(
     drm_props: &PropMap,
 ) -> Result<AtomicModeReq> {
     use property::Value::*;
-
-    let _ = surface.buffers.get(0).ok_or_else(|| anyhow!("no buffer"))?;
 
     let mut req = AtomicModeReq::new();
 

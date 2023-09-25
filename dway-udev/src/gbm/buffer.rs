@@ -24,8 +24,16 @@ pub struct Plane {
     pub stride: u32,
 }
 
-#[derive(Debug,Getters)]
-#[get="pub"]
+#[derive(Default, Debug)]
+pub enum RenderImage {
+    #[default]
+    None,
+    Gl(crate::render::gles::RenderBuffer),
+    Vulkan(crate::render::vulkan::Image),
+}
+
+#[derive(Debug, Getters)]
+#[get = "pub"]
 pub struct GbmBuffer {
     pub(crate) drm: DrmDeviceFd,
     pub(crate) framebuffer: drm::control::framebuffer::Handle,
@@ -34,6 +42,7 @@ pub struct GbmBuffer {
     pub(crate) size: IVec2,
     pub(crate) format: DrmFourcc,
     pub(crate) modifier: DrmModifier,
+    pub(crate) render_image: RenderImage,
 }
 
 impl GbmBuffer {
@@ -64,6 +73,7 @@ impl GbmBuffer {
             buffer,
             drm: drm.fd.clone(),
             framebuffer,
+            render_image: Default::default(),
         })
     }
 }

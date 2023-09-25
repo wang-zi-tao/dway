@@ -18,6 +18,7 @@ anyhow = { version="1.0", features = ["backtrace"] }
 renderdoc = {version = "0.10.1", optional = true}
 raw-window-handle = "0.5.0"
 khronos-egl = {}
+ash = "0.37.3"
 send_wrapper = "0.6.0"
 nix = "0.26.2"
 libloading = "0.7.4"

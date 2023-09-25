@@ -695,7 +695,7 @@ pub fn on_udev_event(
                 let Some(entity) = udev.device_entity_map.get(&gpu_path) else {
                     continue;
                 };
-                let Ok(mut drm) = drm_query.get_mut(*entity) else {
+                let Ok(drm) = drm_query.get_mut(*entity) else {
                     continue;
                 };
                 let Ok(events) = drm.connectors_change().map_err(|e| error!("{e}")) else {

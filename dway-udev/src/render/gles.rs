@@ -10,6 +10,7 @@ use drm_fourcc::DrmFourcc;
 use drm_fourcc::DrmModifier;
 use gbm::EGLImage;
 use glow::HasContext;
+use glow::NativeRenderbuffer;
 use khronos_egl::EGLClientBuffer;
 use khronos_egl::EGLContext;
 use khronos_egl::EGLDisplay;
@@ -22,7 +23,12 @@ use wgpu::TextureFormat;
 use wgpu_hal::gles::Device;
 use wgpu_hal::gles::Texture;
 
+use crate::drm::connectors;
+use crate::drm::connectors::Connector;
+use crate::drm::surface::DrmSurface;
+use crate::drm::DrmDevice;
 use crate::gbm::buffer::GbmBuffer;
+use crate::gbm::buffer::RenderImage;
 
 use super::RenderCache;
 use super::TtyRenderState;
@@ -299,10 +305,15 @@ pub fn get_formats(
     }
 }
 
+#[derive(Debug)]
+pub struct RenderBuffer {
+    pub renderbuffer: NativeRenderbuffer,
+}
+
 pub fn create_framebuffer_texture(
     state: &mut TtyRenderState,
     hal_device: &Device,
-    buffer: &GbmBuffer,
+    buffer: &mut GbmBuffer,
 ) -> Result<Texture> {
     unsafe {
         let egl_context = hal_device.context();
@@ -327,6 +338,7 @@ pub fn create_framebuffer_texture(
         };
 
         let renderbuffer = do_create_renderbuffer(gl, buffer, egl_display.as_ptr(), functions)?;
+        buffer.render_image = RenderImage::Gl(RenderBuffer { renderbuffer });
 
         let hal_texture = hal_device.texture_from_raw_renderbuffer(
             renderbuffer.0,
@@ -414,4 +426,17 @@ unsafe fn do_create_renderbuffer(
         bail!("gl error: EGLImageTargetRenderbufferStorageOES: {error}");
     }
     Ok(renderbuffer)
+}
+
+pub fn commit_drm(
+    surface: &DrmSurface,
+    render_device: &wgpu::Device,
+    conn: &Connector,
+    drm: &DrmDevice,
+) -> Option<Result<()>> {
+    unsafe {
+        render_device.as_hal::<Gles, _, _>(|hal_device| {
+            hal_device.map(|_hal_device| surface.commit(conn, drm, |_| true))
+        })
+    }
 }

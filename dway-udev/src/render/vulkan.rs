@@ -3,7 +3,11 @@ use std::os::fd::AsFd;
 use std::os::fd::AsRawFd;
 use std::ptr::null;
 
+use crate::drm::connectors::Connector;
+use crate::drm::surface::DrmSurface;
+use crate::drm::DrmDevice;
 use crate::gbm::buffer::GbmBuffer;
+use crate::gbm::buffer::RenderImage;
 use crate::gbm::SUPPORTED_FORMATS;
 
 use super::RenderCache;
@@ -22,11 +26,13 @@ use drm_fourcc::DrmFormat;
 use drm_fourcc::DrmFourcc;
 use drm_fourcc::DrmModifier;
 use tracing::debug;
+use tracing::error;
 use wgpu::Extent3d;
 use wgpu::TextureDimension;
 use wgpu::TextureFormat;
 use wgpu_hal::api::Vulkan;
 use wgpu_hal::vulkan::Texture;
+use wgpu_hal::Device as HalDevice;
 use wgpu_hal::MemoryFlags;
 use wgpu_hal::TextureDescriptor;
 use wgpu_hal::TextureUses;
@@ -37,6 +43,12 @@ pub const MEM_PLANE_ASCPECT: [ImageAspectFlags; 4] = [
     ImageAspectFlags::MEMORY_PLANE_2_EXT,
     ImageAspectFlags::MEMORY_PLANE_3_EXT,
 ];
+
+#[derive(Debug)]
+pub struct Image {
+    pub image: vk::Image,
+    pub fence: vk::Fence,
+}
 
 pub fn convert_format(fourcc: DrmFourcc) -> Result<Format> {
     Ok(match fourcc {
@@ -93,14 +105,30 @@ pub fn get_formats(render_device: &wgpu::Device) -> Option<Result<Vec<DrmFormat>
     }
 }
 
+pub fn reset_framebuffer(
+    render_device: &wgpu::Device,
+    buffer: &mut GbmBuffer,
+) -> Option<Result<()>> {
+    unsafe {
+        render_device.as_hal::<Vulkan, _, _>(|hal_device| {
+            hal_device.map(|hal_device| {
+                let device = hal_device.raw_device();
+                if let RenderImage::Vulkan(image) = &mut buffer.render_image {
+                    device.reset_fences(&[image.fence])?;
+                }
+                Ok(())
+            })
+        })
+    }
+}
+
 pub fn create_framebuffer_texture(
     hal_device: &wgpu_hal::vulkan::Device,
-    buffer: &GbmBuffer,
+    buffer: &mut GbmBuffer,
 ) -> Result<Texture> {
     let instance = hal_device.shared_instance().raw_instance();
     let device = hal_device.raw_device();
     let physical = hal_device.raw_physical_device();
-
     unsafe {
         let plane_layouts: Vec<_> = buffer
             .planes
@@ -231,6 +259,9 @@ pub fn create_framebuffer_texture(
         }
         device.bind_image_memory2(&bind_infos)?;
 
+        let fence = device.create_fence(&FenceCreateInfo::builder().build(), None)?;
+        buffer.render_image = RenderImage::Vulkan(Image { image, fence });
+
         Ok(wgpu_hal::vulkan::Device::texture_from_raw(
             image,
             &wgpu_hal::TextureDescriptor {
@@ -253,5 +284,42 @@ pub fn create_framebuffer_texture(
             },
             None,
         ))
+    }
+}
+
+pub fn commit_drm(
+    surface: &DrmSurface,
+    render_device: &wgpu::Device,
+    conn: &Connector,
+    drm: &DrmDevice,
+) -> Option<Result<()>> {
+    unsafe {
+        render_device.as_hal::<Vulkan, _, _>(|hal_device| {
+            hal_device.map(|hal_device| {
+                let device = hal_device.raw_device();
+                {
+                    let guard = surface.inner.lock().unwrap();
+                    if let Some(buffer) = &guard.pedding {
+                        if let RenderImage::Vulkan(image) = &buffer.render_image {
+                            device.queue_submit(hal_device.raw_queue(), &[], image.fence)?;
+                        }
+                    }
+                }
+
+                surface.commit(conn, drm, |buffer| {
+                    if let RenderImage::Vulkan(image) = &mut buffer.render_image {
+                        match device.get_fence_status(image.fence) {
+                            Ok(o) => o,
+                            Err(e) => {
+                                error!("failed to get fence state: {e}");
+                                false
+                            }
+                        }
+                    } else {
+                        false
+                    }
+                })
+            })
+        })
     }
 }

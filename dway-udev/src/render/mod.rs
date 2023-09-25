@@ -7,7 +7,7 @@ use bevy::{
     prelude::*,
     render::{
         render_asset::{PrepareAssetSet, RenderAssets},
-        renderer::RenderDevice,
+        renderer::{RenderDevice, RenderQueue},
         texture::{DefaultImageSampler, GpuImage},
         Extract, RenderApp, RenderSet,
     },
@@ -128,10 +128,13 @@ pub fn prepare_drm_surface(
         };
 
         let gpu_image = if let Some(gpu_image) = state.buffers.get(&buffer.framebuffer) {
+            if let Some(Err(e))=vulkan::reset_framebuffer(render_device.wgpu_device(), buffer){
+                error!("failed to reset framebuffer: {e}");
+            }
             gpu_image.clone()
         } else {
             let Ok(texture) =
-                create_framebuffer_texture(&mut state, &render_device.wgpu_device(), &buffer)
+                create_framebuffer_texture(&mut state, &render_device.wgpu_device(), buffer)
                     .map_err(|e| error!("failed to bind gbm buffer: {e} \n{}", e.backtrace()))
             else {
                 return;
@@ -157,7 +160,7 @@ pub fn prepare_drm_surface(
 pub fn create_framebuffer_texture(
     state: &mut TtyRenderState,
     render_device: &wgpu::Device,
-    buffer: &GbmBuffer,
+    buffer: &mut GbmBuffer,
 ) -> Result<Texture> {
     unsafe {
         render_device
@@ -197,6 +200,7 @@ pub fn create_framebuffer_texture(
 pub fn commit(
     surface_query: Query<(&DrmSurface, &Connector, &Parent)>,
     drm_query: Query<&DrmDevice>,
+    render_device: Res<RenderDevice>,
 ) {
     surface_query.for_each(|(surface, conn, parent)| {
         let Ok(drm) = drm_query.get(parent.get()) else {
@@ -204,9 +208,13 @@ pub fn commit(
         };
         let _span =
             span!(Level::ERROR,"commit drm buffer",device=%drm.path.to_string_lossy()).entered();
-        if let Err(e) = surface.commit(&conn, drm) {
+        if let Err(e) = gles::commit_drm(surface, render_device.wgpu_device(), conn, drm)
+            .or_else(|| vulkan::commit_drm(surface, render_device.wgpu_device(), conn, drm))
+            .ok_or_else(|| anyhow!("unknown wgpu backend"))
+            .flatten()
+        {
             error!("failed to commit surface to drm: {e}");
         };
-        debug!("commmit drm render buffer");
+        surface.finish_frame();
     });
 }
