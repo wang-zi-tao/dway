@@ -196,7 +196,6 @@ pub fn create_framebuffer_texture(
     }
 }
 
-#[tracing::instrument(skip_all)]
 pub fn commit(
     surface_query: Query<(&DrmSurface, &Connector, &Parent)>,
     drm_query: Query<&DrmDevice>,

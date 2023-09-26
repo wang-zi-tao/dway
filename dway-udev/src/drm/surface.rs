@@ -205,8 +205,7 @@ impl DrmSurface {
         mut checker: impl FnMut(&mut GbmBuffer) -> bool,
     ) -> Result<()> {
         let mut self_guard = self.inner.lock().unwrap();
-        let mut drm_guard = drm.inner.lock().unwrap();
-        let connector_change = drm_guard.connectors_change(&drm.fd)?;
+        let drm_guard = drm.inner.lock().unwrap();
 
         match (&self_guard.state, &drm_guard.states) {
             (
@@ -236,7 +235,6 @@ impl DrmSurface {
                     let req = create_request(
                         &self_guard,
                         conn,
-                        connector_change,
                         &[(
                             self_guard.planes.primary.handle,
                             Some(PlaneConfig {
@@ -249,8 +247,12 @@ impl DrmSurface {
                         drm_props,
                     )?;
 
-                    drm.atomic_commit(AtomicCommitFlags::ALLOW_MODESET, req)
-                        .map_err(|e| anyhow!("failed to commit drm atomic req: {e}"))?;
+                    let _span = info_span!("atomic_commit",framebuffer=?framebuffer).entered();
+                    drm.atomic_commit(
+                        AtomicCommitFlags::ALLOW_MODESET | AtomicCommitFlags::NONBLOCK,
+                        req,
+                    )
+                    .map_err(|e| anyhow!("failed to commit drm atomic req: {e}"))?;
 
                     debug!("commmit drm render buffer");
                 }
@@ -308,7 +310,6 @@ fn to_fixed<N: Into<f64> + Copy>(n: N) -> u64 {
 pub fn create_request(
     surface: &SurfaceInner,
     conn: &Connector,
-    connector_change: SmallVec<[DrmConnectorEvent; 1]>,
     planes: &[(plane::Handle, Option<PlaneConfig>)],
     drm_props: &PropMap,
 ) -> Result<AtomicModeReq> {
@@ -316,34 +317,14 @@ pub fn create_request(
 
     let mut req = AtomicModeReq::new();
 
-    for change in connector_change {
-        match change {
-            super::DrmConnectorEvent::Added(connector) => {
-                if connector.handle() == conn.info.handle() {
-                    req.add_property(
-                        connector.handle(),
-                        *drm_props
-                            .connector
-                            .get(&(connector.handle(), "CRTC_ID".to_string()))
-                            .ok_or_else(|| NoSuchProperty("CRTC_ID".to_string()))?,
-                        CRTC(Some(surface.crtc)),
-                    );
-                }
-            }
-            super::DrmConnectorEvent::Removed(connector, _) => {
-                if connector.handle() == conn.info.handle() {
-                    req.add_property(
-                        connector.handle(),
-                        *drm_props
-                            .connector
-                            .get(&(connector.handle(), "CRTC_ID".to_string()))
-                            .ok_or_else(|| NoSuchProperty("CRTC_ID".to_string()))?,
-                        CRTC(None),
-                    );
-                }
-            }
-        }
-    }
+    req.add_property(
+        conn.info.handle(),
+        *drm_props
+            .connector
+            .get(&(conn.info.handle(), "CRTC_ID".to_string()))
+            .ok_or_else(|| NoSuchProperty("CRTC_ID".to_string()))?,
+        CRTC(Some(surface.crtc)),
+    );
 
     req.add_property(
         surface.crtc,

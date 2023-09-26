@@ -2846,6 +2846,7 @@ name = "dway-udev"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "ash",
  "bevy 0.10.1",
  "bitflags 2.4.0",
  "chrono",
