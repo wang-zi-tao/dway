@@ -62,10 +62,10 @@ pub fn main() {
         .add_system(animate_cube)
         .add_system(input_event_system);
     app.setup();
-    for i in 0.. {
+    for i in 0..8192 {
         info!("frame {i}");
         app.update();
-        std::thread::sleep(Duration::from_secs_f64(1.0 / 60.0));
+        // std::thread::sleep(Duration::from_secs_f64(1.0 / 60.0));
     }
 }
 
@@ -74,7 +74,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut surface_query: Query<&DrmSurface>,
+    surface_query: Query<&DrmSurface>,
     mut animations: ResMut<Assets<AnimationClip>>,
 ) {
     info!("setup world");
@@ -85,9 +85,9 @@ fn setup(
     surface_query.for_each(|surface| {
         let image_handle = surface.image();
         commands.spawn((
-            Camera2d {
-                clear_color: ClearColorConfig::Custom(Color::WHITE),
-            },
+            // Camera2d {
+            //     clear_color: ClearColorConfig::Custom(Color::WHITE),
+            // },
             Camera3dBundle {
                 transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
                 camera: Camera {
@@ -97,6 +97,14 @@ fn setup(
                 tonemapping: Tonemapping::None,
                 ..default()
             },
+            // Camera2dBundle {
+            //     camera: Camera {
+            //         target: RenderTarget::Image(image_handle),
+            //         ..default()
+            //     },
+            //     tonemapping: Tonemapping::None,
+            //     ..default()
+            // },
         ));
         info!("setup camera");
     });

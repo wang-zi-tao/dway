@@ -5,6 +5,7 @@ pub mod util;
 
 use crate::drm::surface::DrmSurface;
 use crate::failure::DWayTTYError::*;
+use crate::window::create_window;
 use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
@@ -35,9 +36,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::{
     collections::HashSet,
-    sync::{
-        Arc, Mutex,
-    },
+    sync::{Arc, Mutex},
 };
 use tracing::span;
 use tracing::Level;
@@ -609,6 +608,40 @@ pub fn setup(
     }
 }
 
+pub fn add_connector(
+    conn: Connector,
+    drm: &DrmDevice,
+    drm_entity: Entity,
+    images: &mut Assets<Image>,
+    commands: &mut Commands,
+) {
+    trace!("conn: {:?}", conn);
+    let mut entity_mut = commands.spawn_empty();
+
+    {
+        let mut guard = drm.inner.lock().unwrap();
+        guard
+            .connectors
+            .get_mut(&conn.info.handle())
+            .map(|v| v.0 = Some(entity_mut.id()));
+    }
+
+    let Ok(surface) =
+        DrmSurface::new(&drm, &conn, images).map_err(|e| error!("failed to connect screen: {e}"))
+    else {
+        return;
+    };
+    trace!("drm surface: {:?}", &surface);
+
+    let name = conn.name.clone();
+    let window = create_window(&conn, &surface);
+    entity_mut
+        .insert((window, surface, conn, Name::new(name.clone())))
+        .set_parent(drm_entity);
+    let entity = entity_mut.id();
+    info!("init monitor {:?} at {entity:?}", name);
+}
+
 pub fn add_device(
     gpu_path: PathBuf,
     udev: &mut UDevMonitor,
@@ -629,25 +662,7 @@ pub fn add_device(
 
     {
         for conn in connectors {
-            trace!("conn: {:?}", conn);
-            let mut entity_mut = commands.spawn_empty();
-
-            let mut guard = drm.inner.lock().unwrap();
-            guard
-                .connectors
-                .get_mut(&conn.info.handle())
-                .map(|v| v.0 = Some(entity_mut.id()));
-
-            drop(guard);
-            let surface = DrmSurface::new(&drm, &conn, images)?;
-
-            trace!("drm surface: {:?}", &surface);
-            entity_mut.insert(surface);
-
-            let name = conn.name.clone();
-            entity_mut.insert(conn).set_parent(drm_entity);
-            let entity = entity_mut.id();
-            info!("init monitor {:?} at {entity:?}", name);
+            add_connector(conn, &drm, drm_entity, images, commands);
         }
         let res_handles = drm.fd.resource_handles().map_err(ResourceHandlesError)?;
         for crtc_handle in res_handles.crtcs() {
@@ -692,10 +707,10 @@ pub fn on_udev_event(
             }
             UDevEvent::Changed(device) => {
                 let gpu_path: PathBuf = device.devpath().into();
-                let Some(entity) = udev.device_entity_map.get(&gpu_path) else {
+                let Some(drm_entity) = udev.device_entity_map.get(&gpu_path) else {
                     continue;
                 };
-                let Ok(drm) = drm_query.get_mut(*entity) else {
+                let Ok(drm) = drm_query.get_mut(*drm_entity) else {
                     continue;
                 };
                 let Ok(events) = drm.connectors_change().map_err(|e| error!("{e}")) else {
@@ -705,19 +720,12 @@ pub fn on_udev_event(
                 for change in events {
                     match change {
                         DrmConnectorEvent::Added(info) => {
-                            let handle = info.handle();
-                            let Ok(conn) = Connector::new(info.clone()).map_err(|e| error!("{e}"))
+                            let Ok(info) = Connector::new(info)
+                                .map_err(|e| error!("failed to connect screen: {e}"))
                             else {
                                 continue;
                             };
-                            // TODO DrmSurface
-                            let name = conn.name.clone();
-                            let entity = commands.spawn(conn).id();
-                            info!("init monitor {:?} at {entity:?}", name);
-                            drm_guard
-                                .connectors
-                                .get_mut(&handle)
-                                .map(|v| v.0 = Some(entity));
+                            add_connector(info, &drm, *drm_entity, &mut images, &mut commands);
                         }
                         DrmConnectorEvent::Removed(info, entity) => {
                             if let Some(entity) = entity {

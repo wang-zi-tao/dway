@@ -249,7 +249,7 @@ impl DrmSurface {
 
                     let _span = info_span!("atomic_commit",framebuffer=?framebuffer).entered();
                     drm.atomic_commit(
-                        AtomicCommitFlags::ALLOW_MODESET | AtomicCommitFlags::NONBLOCK,
+                        AtomicCommitFlags::ALLOW_MODESET,
                         req,
                     )
                     .map_err(|e| anyhow!("failed to commit drm atomic req: {e}"))?;

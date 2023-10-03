@@ -17,7 +17,7 @@ thiserror = "1"
 anyhow = { version="1.0", features = ["backtrace"] }
 renderdoc = {version = "0.10.1", optional = true}
 raw-window-handle = "0.5.0"
-khronos-egl = {}
+khronos-egl = "4.1.0"
 ash = { version = "0.37.3", features = [] }
 send_wrapper = "0.6.0"
 nix = "0.26.2"

@@ -25,6 +25,7 @@ use bevy::utils::HashSet;
 use drm_fourcc::DrmFormat;
 use drm_fourcc::DrmFourcc;
 use drm_fourcc::DrmModifier;
+use smallvec::SmallVec;
 use tracing::debug;
 use tracing::error;
 use wgpu::Extent3d;
@@ -44,10 +45,33 @@ pub const MEM_PLANE_ASCPECT: [ImageAspectFlags; 4] = [
     ImageAspectFlags::MEMORY_PLANE_3_EXT,
 ];
 
-#[derive(Debug)]
 pub struct Image {
+    pub device: ash::Device,
     pub image: vk::Image,
+    pub memorys: SmallVec<[vk::DeviceMemory; 4]>,
     pub fence: vk::Fence,
+}
+
+impl std::fmt::Debug for Image {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Image")
+            .field("image", &self.image)
+            .field("memorys", &self.memorys)
+            .field("fence", &self.fence)
+            .finish()
+    }
+}
+
+impl Drop for Image {
+    fn drop(&mut self) {
+        unsafe {
+            self.device.destroy_fence(self.fence, None);
+            self.device.destroy_image(self.image, None);
+            for memory in self.memorys.iter(){
+                self.device.free_memory(*memory, None);
+            }
+        }
+    }
 }
 
 pub fn convert_format(fourcc: DrmFourcc) -> Result<Format> {
@@ -176,6 +200,7 @@ pub fn create_framebuffer_texture(
 
         let mut plane_infos = Vec::with_capacity(buffer.planes.len());
         let mut bind_infos = Vec::with_capacity(buffer.planes.len());
+        let mut memorys = SmallVec::<[vk::DeviceMemory; 4]>::default();
         for (i, plane) in buffer.planes.iter().enumerate() {
             let memory_requirement = {
                 let mut requirement_info = ash::vk::ImageMemoryRequirementsInfo2::builder()
@@ -238,6 +263,7 @@ pub fn create_framebuffer_texture(
                 .push_next(&mut fd_info)
                 .build();
             let memory = device.allocate_memory(&alloc_info, None)?;
+            memorys.push(memory);
 
             let mut bind_info = BindImageMemoryInfo::builder()
                 .image(image)
@@ -260,7 +286,12 @@ pub fn create_framebuffer_texture(
         device.bind_image_memory2(&bind_infos)?;
 
         let fence = device.create_fence(&FenceCreateInfo::builder().build(), None)?;
-        buffer.render_image = RenderImage::Vulkan(Image { image, fence });
+        buffer.render_image = RenderImage::Vulkan(Image {
+            device: device.clone(),
+            image,
+            fence,
+            memorys,
+        });
 
         Ok(wgpu_hal::vulkan::Device::texture_from_raw(
             image,

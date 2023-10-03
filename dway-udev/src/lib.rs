@@ -2,7 +2,12 @@
 #![feature(extract_if)]
 #![feature(result_flattening)]
 
-use bevy::{app::ScheduleRunnerPlugin, prelude::*};
+use std::time::Duration;
+
+use bevy::{
+    app::{ScheduleRunnerPlugin, ScheduleRunnerSettings},
+    prelude::*,
+};
 use drm::DrmPlugin;
 use render::TtyRenderPlugin;
 
@@ -23,14 +28,17 @@ pub struct DWayTTYPlugin {}
 
 impl Plugin for DWayTTYPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ScheduleRunnerPlugin)
-            .add_plugin(seat::SeatPlugin)
-            .add_plugin(libinput::LibInputPlugin)
-            .add_plugin(udev::UDevPlugin {
-                sub_system: "drm".into(),
-            })
-            .add_plugin(DrmPlugin)
-            .add_plugin(TtyRenderPlugin);
+        app.insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f32(
+            1.0 / 60.0,
+        )))// TODO 替换插件
+        .add_plugin(ScheduleRunnerPlugin)
+        .add_plugin(seat::SeatPlugin)
+        .add_plugin(libinput::LibInputPlugin)
+        .add_plugin(udev::UDevPlugin {
+            sub_system: "drm".into(),
+        })
+        .add_plugin(DrmPlugin)
+        .add_plugin(TtyRenderPlugin);
     }
 }
 
@@ -38,10 +46,7 @@ impl Plugin for DWayTTYPlugin {
 mod test {
     use std::fs::OpenOptions;
 
-    use bevy::{
-        log::LogPlugin,
-        prelude::*,
-    };
+    use bevy::{log::LogPlugin, prelude::*};
 
     use crate::DWayTTYPlugin;
 

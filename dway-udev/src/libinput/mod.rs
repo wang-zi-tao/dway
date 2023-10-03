@@ -28,7 +28,10 @@ use input::{
 };
 use libseat::Seat;
 
-use crate::{libinput::convert::convert_keycode, schedule::DWayTTYSet, seat::SeatState};
+use crate::{
+    drm::surface::DrmSurface, libinput::convert::convert_keycode, schedule::DWayTTYSet,
+    seat::SeatState, window::relative_to_window,
+};
 
 pub struct SeatLibinputInterface {
     pub(crate) seat: Arc<Mutex<Seat>>,
@@ -82,11 +85,17 @@ impl LibinputDevice {
     }
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Reflect)]
 pub struct KeyLockState {
     number_lock: bool,
     caps_lock: bool,
     scoll_lock: bool,
+}
+
+#[derive(Resource, Default, Reflect)]
+pub struct PointerState {
+    pub position: Vec2,
+    pub window: Option<Entity>,
 }
 
 impl KeyLockState {
@@ -101,14 +110,17 @@ impl KeyLockState {
 
 #[tracing::instrument(skip_all)]
 pub fn receive_events(
+    windows: Query<(Entity, &Window), With<DrmSurface>>,
     mut libinput: NonSendMut<LibinputDevice>,
     mut motion_events: EventWriter<MouseMotion>,
+    mut move_events: EventWriter<CursorMoved>,
     mut button_events: EventWriter<MouseButtonInput>,
     mut button_state: ResMut<Input<MouseButton>>,
     mut axis_events: EventWriter<MouseWheel>,
     mut keyboard_events: EventWriter<KeyboardInput>,
     mut keycode_state: ResMut<Input<KeyCode>>,
     mut lock_state: ResMut<KeyLockState>,
+    mut pointer_state: ResMut<PointerState>,
 ) {
     button_state.clear();
     keycode_state.clear();
@@ -156,9 +168,23 @@ pub fn receive_events(
             }
             input::Event::Pointer(e) => {
                 match e {
-                    PointerEvent::Motion(m) => motion_events.send(MouseMotion {
-                        delta: DVec2::new(m.dx(), m.dy()).as_vec2(),
-                    }),
+                    PointerEvent::Motion(m) => {
+                        motion_events.send(MouseMotion {
+                            delta: DVec2::new(m.dx(), m.dy()).as_vec2(),
+                        });
+                        windows.for_each(|(entity, window)| {
+                            let pos =
+                                pointer_state.position + DVec2::new(m.dx(), -m.dy()).as_vec2();
+                            if let Some(relative) = relative_to_window(window, pos) {
+                                pointer_state.position = pos;
+                                pointer_state.window = Some(entity);
+                                move_events.send(CursorMoved {
+                                    window: entity,
+                                    position: relative,
+                                });
+                            }
+                        });
+                    }
                     PointerEvent::MotionAbsolute(_m) => todo!(),
                     PointerEvent::Button(m) => {
                         let button = match m.button() {
@@ -223,6 +249,9 @@ impl Plugin for LibInputPlugin {
             .init_resource::<Input<MouseButton>>()
             .init_resource::<Input<KeyCode>>()
             .init_resource::<KeyLockState>()
+            .init_resource::<PointerState>()
+            .register_type::<KeyLockState>()
+            .register_type::<PointerState>()
             .add_system(receive_events.in_set(DWayTTYSet::LibinputSystem))
             .add_event::<MouseMotion>()
             .add_event::<MouseButtonInput>()
