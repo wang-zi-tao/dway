@@ -81,13 +81,13 @@ pub fn spawn(query: Query<&DWayWrapper>, tokio: Res<TokioTasksRuntime>) {
     let compositor = query.single().0.lock().unwrap();
     // compositor.spawn_process(process::Command::new("gnome-calculator"), &tokio);
     // compositor.spawn_process(process::Command::new("gedit"), &tokio);
-    compositor.spawn_process(process::Command::new("gnome-system-monitor"), &tokio);
-    // compositor.spawn_process(
-    //     process::Command::new(
-    //         "/home/wangzi/workspace/waylandcompositor/conrod/target/debug/examples/all_winit_glium",
-    //     ),
-    //     &tokio,
-    // );
+    // compositor.spawn_process(process::Command::new("gnome-system-monitor"), &tokio);
+    compositor.spawn_process(
+        process::Command::new(
+            "/home/wangzi/.build/5e0dff7f0473a25a4eb0bbaeeda9b3fa091ba89-wgpu/debug/examples/cube",
+        ),
+        &tokio,
+    );
     // let mut command = process::Command::new("alacritty");
     // command.args(["-e", "htop"]);
     // command.current_dir("/home/wangzi/workspace/waylandcompositor/conrod/");

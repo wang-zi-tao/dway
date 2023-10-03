@@ -180,25 +180,12 @@ pub fn create_dma_image(
     let physical = hal_device.raw_physical_device();
     unsafe {
         let planes = &buffer.planes.lock().unwrap().list;
-        let plane_layouts: Vec<_> = planes
-            .iter()
-            .map(|plane| {
-                SubresourceLayout::builder()
-                    .offset(plane.offset as u64)
-                    .row_pitch(plane.stride as u64)
-                    .build()
-            })
-            .collect();
         if planes.len() == 0 {
             bail!(InvalidDmaBuffer);
         }
 
-        let mut drm_info = ash::vk::ImageDrmFormatModifierExplicitCreateInfoEXT::builder()
-            .drm_format_modifier(planes[0].modifier().into())
-            .plane_layouts(&plane_layouts)
-            .build();
         let mut dmabuf_info = ash::vk::ExternalMemoryImageCreateInfoKHR::builder()
-            // .handle_types(ExternalMemoryHandleTypeFlags::OPAQUE_FD)
+            .handle_types(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT)
             .build();
         let create_image_info = ash::vk::ImageCreateInfo::builder()
             .sharing_mode(SharingMode::EXCLUSIVE)
@@ -222,7 +209,6 @@ pub fn create_dma_image(
                 flags
             })
             .push_next(&mut dmabuf_info)
-            .push_next(&mut drm_info)
             .build();
         let image = device.create_image(&create_image_info, None)?;
 
@@ -564,7 +550,7 @@ pub fn prepare_wl_surface(
                     let hal_texture = image_to_hal_texture(size, format, image.image);
                     let gpu_image = hal_texture_to_gpuimage(device, size, format, hal_texture);
                     image_assets.insert(surface.image.clone(), gpu_image.clone());
-                    v.insert((image, gpu_image)); // TODO
+                    v.insert((image, gpu_image)); // TODO: destroy old gpuimage
                 }
             };
         }
@@ -598,19 +584,9 @@ pub fn import_wl_surface(
         let Some(image) = image else {
             return Err(BackendIsNotVulkan);
         };
-
-        if let Some(dma_buffer) = dma_buffer {
-            // import_dma(
-            //     hal_device,
-            //     render_context.command_encoder(),
-            //     dma_buffer,
-            //     image,
-            //     surface,
-            // )?
-        } else if let Some(shm_buffer) = shm_buffer {
+        if let Some(shm_buffer) = shm_buffer {
             import_shm(queue, shm_buffer, texture, surface)?;
         }
-        // TODO
 
         Ok(())
     }
