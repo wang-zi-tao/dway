@@ -148,15 +148,16 @@ pub fn receive_events(
                     KeyboardEvent::Key(k) => {
                         let key = k.key();
                         let state = k.key_state();
+                        let key_code = convert_keycode(
+                            key,
+                            &mut keycode_state,
+                            state,
+                            &mut lock_state,
+                            &mut k.device(),
+                        );
                         keyboard_events.send(KeyboardInput {
                             scan_code: key,
-                            key_code: convert_keycode(
-                                key,
-                                &mut keycode_state,
-                                state,
-                                &mut lock_state,
-                                &mut k.device(),
-                            ),
+                            key_code,
                             state: match state {
                                 tablet_pad::KeyState::Pressed => ButtonState::Pressed,
                                 tablet_pad::KeyState::Released => ButtonState::Released,

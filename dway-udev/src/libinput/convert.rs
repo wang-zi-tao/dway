@@ -271,9 +271,5 @@ pub fn convert_keycode(
         }
     }
 
-    match state {
-        KeyState::Pressed => input_state.press(keycode),
-        KeyState::Released => input_state.release(keycode),
-    }
     Some(keycode)
 }
