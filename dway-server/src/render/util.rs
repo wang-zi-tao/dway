@@ -5,6 +5,8 @@ use std::{
 };
 
 use crate::prelude::*;
+use ash::vk;
+use drm_fourcc::DrmFourcc;
 use glow::HasContext;
 use khronos_egl::{Attrib, Boolean, Enum, Int};
 use scopeguard::defer;
@@ -74,20 +76,32 @@ pub enum DWayRenderError {
     FailedToImportEglBuffer,
     #[error("gpu backend is not egl")]
     BackendIsNotEGL,
+    #[error("gpu backend is not vulkan")]
+    BackendIsNotVulkan,
+    #[error("no valid memory type index")]
+    UnknownBackend,
+    #[error("unknown wgpu backend")]
+    NoValidMemoryType,
     #[error("failed to create dma image")]
     FailedToCreateDmaImage,
     #[error("failed to create texture: {0}")]
     FailedToCreateSurface(String),
     #[error("failed to create render buffer: {0}")]
     FailedToCreateRenderBuffer(String),
+    #[error("imvalud dma buffer")]
+    InvalidDmaBuffer,
     #[error("no drm node")]
     NotDrmNode,
     #[error("unsupported format: {0:?}")]
     UnsupportedFormat(wl_shm::Format),
+    #[error("unsupported format: {0:?}")]
+    UnsupportedDrmFormat(DrmFourcc),
     #[error("gl error: {0:?}")]
     GLError(u32),
     #[error("egl error: {0:?}")]
     EglError(#[from] khronos_egl::Error),
+    #[error("vulkan error: {0:?}")]
+    VKError(#[from] vk::Result),
     #[error("{0}")]
     Unknown(#[from] anyhow::Error),
     #[error("unknown egl error")]
@@ -290,4 +304,19 @@ pub fn get_egl_extensions(egl: &EGLInstance) -> Result<HashSet<String>> {
         .filter(|e| !e.is_empty())
         .map(|e| e.to_string())
         .collect())
+}
+
+pub fn with_hal<R,FG,FV>(fn_vulkan:FV,fn_gl:FG)-> Result<R,DWayRenderError> where 
+FG:FnOnce()-> Result<R,DWayRenderError>,
+FV:FnOnce()-> Result<R,DWayRenderError>,
+{
+    match fn_vulkan(){
+        Err(DWayRenderError::BackendIsNotVulkan) => {},
+        o =>return o,
+    }
+    match fn_gl(){
+        Err(DWayRenderError::BackendIsNotEGL) => {},
+        o =>return o,
+    }
+    Err(DWayRenderError::UnknownBackend)
 }

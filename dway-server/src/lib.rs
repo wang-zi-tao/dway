@@ -4,12 +4,12 @@
 #![feature(trivial_bounds)]
 #![feature(iterator_try_collect)]
 
-use std::process;
 use bevy::prelude::*;
 use bevy_tokio_tasks::TokioTasksRuntime;
 use dway_winit::UpdateRequestEvents;
 use schedule::DWayServerSet;
-use state::{create_display, DWayWrapper, WaylandDisplayCreated, NonSendMark};
+use state::{create_display, DWayWrapper, NonSendMark, WaylandDisplayCreated};
+use std::process;
 use x11::DWayXWaylandReady;
 pub mod client;
 pub mod dispatch;
@@ -29,8 +29,8 @@ pub mod wl;
 pub mod wp;
 pub mod x11;
 pub mod xdg;
-pub mod zxdg;
 pub mod zwp;
+pub mod zxdg;
 
 #[derive(Default)]
 pub struct DWayServerPlugin;
@@ -68,7 +68,7 @@ pub fn init_display(
     _: NonSend<NonSendMark>,
     mut commands: Commands,
     mut event_sender: EventWriter<WaylandDisplayCreated>,
-    mut update_request_eventss: NonSend<UpdateRequestEvents>,
+    mut update_request_eventss: Option<NonSend<UpdateRequestEvents>>,
 ) {
     let entity = create_display(
         &mut commands,
@@ -81,7 +81,7 @@ pub fn spawn(query: Query<&DWayWrapper>, tokio: Res<TokioTasksRuntime>) {
     let compositor = query.single().0.lock().unwrap();
     // compositor.spawn_process(process::Command::new("gnome-calculator"), &tokio);
     // compositor.spawn_process(process::Command::new("gedit"), &tokio);
-    // compositor.spawn_process(process::Command::new("gnome-system-monitor"), &tokio);
+    compositor.spawn_process(process::Command::new("gnome-system-monitor"), &tokio);
     // compositor.spawn_process(
     //     process::Command::new(
     //         "/home/wangzi/workspace/waylandcompositor/conrod/target/debug/examples/all_winit_glium",

@@ -582,7 +582,11 @@ impl Plugin for DWayStatePlugin {
                 .chain()
                 .in_set(DWayServerSet::Create),
         );
-        app.add_system(frame_condition.in_schedule(FrameConditionSchedule));
+        if app.get_schedule(FrameConditionSchedule).is_some() {
+            app.add_system(frame_condition.in_schedule(FrameConditionSchedule));
+        } else {
+            app.add_system(frame_condition.in_base_set(CoreSet::First));
+        }
         app.add_system(dispatch_events.in_set(DWayServerSet::Dispatch));
         // app.add_system(flush_display.in_set(DWayServerSet::InputFlush));
         // app.add_system(flush_display.in_set(DWayServerSet::PostUpdate));
@@ -595,7 +599,7 @@ pub fn on_create_display_event(
     mut events: EventReader<CreateDisplay>,
     mut commands: Commands,
     mut event_sender: EventWriter<WaylandDisplayCreated>,
-    mut update_request_eventss: NonSend<UpdateRequestEvents>,
+    mut update_request_eventss: Option<NonSend<UpdateRequestEvents>>,
 ) {
     for _event in events.iter() {
         create_display(
@@ -609,7 +613,7 @@ pub fn on_create_display_event(
 pub fn create_display(
     commands: &mut Commands,
     event_sender: &mut EventWriter<WaylandDisplayCreated>,
-    update_request_eventss: &mut NonSend<UpdateRequestEvents>,
+    update_request_eventss: &mut Option<NonSend<UpdateRequestEvents>>,
 ) -> Entity {
     let mut entity_command = commands.spawn_empty();
     let entity = entity_command.id();
@@ -621,7 +625,7 @@ pub fn create_display(
     let source = ListeningSocketEvent::new();
     let socket_name = source.filename();
 
-    let sender = update_request_eventss.sender.clone();
+    let sender = update_request_eventss.as_mut().map(|e| e.sender.clone());
     let sender_clone = sender.clone();
 
     info!("listening on {}", &socket_name);
@@ -630,7 +634,9 @@ pub fn create_display(
         .insert_source(source, move |client_stream, _, data: &mut DWay| {
             let display = data.component::<DWayDisplay>(entity).0.clone();
             data.create_client(entity, client_stream, &display.lock().unwrap());
-            let _ = sender_clone.send(UpdateRequest::default());
+            let _ = sender_clone
+                .as_ref()
+                .map(|s| s.send(UpdateRequest::default()));
         })
         .expect("Failed to init wayland socket source");
     event_loop
@@ -644,7 +650,7 @@ pub fn create_display(
             move |_, _, state| {
                 let display = state.component::<DWayDisplay>(entity).0.clone();
                 let _guard = display.lock().unwrap();
-                let _ = sender.send(UpdateRequest::default());
+                let _ = sender.as_ref().map(|s| s.send(UpdateRequest::default()));
                 Ok(PostAction::Continue)
             },
         )

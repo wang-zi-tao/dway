@@ -1,4 +1,7 @@
-use super::util::*;
+use super::{
+    drm::{DrmInfo, DrmNode, DrmNodeState},
+    util::*,
+};
 use crate::{
     prelude::*,
     util::rect::IRect,
@@ -8,7 +11,8 @@ use crate::{
     },
     zwp::dmabufparam::DmaBuffer,
 };
-use drm_fourcc::DrmModifier;
+use ash::{vk, extensions::ext::PhysicalDeviceDrm};
+use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use image::{ImageBuffer, Rgba};
 use scopeguard::defer;
 use thiserror::Error;
@@ -16,7 +20,7 @@ use wayland_backend::server::WeakHandle;
 
 use std::{
     collections::{HashMap, HashSet},
-    ffi::{c_int, c_uint, c_void},
+    ffi::{c_char, c_int, c_uint, c_void},
     num::NonZeroU32,
     os::fd::AsRawFd,
     ptr::null_mut,
@@ -29,7 +33,9 @@ use bevy::{
 };
 use glow::{HasContext, NativeRenderbuffer, NativeTexture, PixelPackData};
 
-use khronos_egl::{Boolean, EGLClientBuffer, EGLContext, EGLDisplay, EGLImage, Enum, Int, NONE};
+use khronos_egl::{
+    Attrib, Boolean, EGLClientBuffer, EGLContext, EGLDisplay, EGLImage, Enum, Int, NONE,
+};
 use wgpu::{FilterMode, SamplerDescriptor, Texture, TextureAspect};
 use wgpu_hal::Api;
 use wgpu_hal::{api::Gles, MemoryFlags, TextureUses};
@@ -117,6 +123,115 @@ impl EglState {
             })
         }
     }
+}
+
+pub fn drm_info(device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError> {
+    with_gl(device, |context, egl, _gl| {
+        egl_check_extensions(egl, &["EGL_EXT_device_base", "EGL_EXT_device_query"])?;
+        let egl_display = context.raw_display().ok_or_else(|| DisplayNotAvailable)?;
+
+        let query_display_attrib_ext: extern "system" fn(EGLDisplay, Int, *mut Attrib) -> Boolean =
+            unsafe { std::mem::transmute(get_egl_function(egl, "eglQueryDisplayAttribEXT")?) };
+        let query_dmabuf_format_ext: extern "system" fn(
+            EGLDisplay,
+            Int,
+            *mut u32,
+            *mut Int,
+        ) -> Boolean =
+            unsafe { std::mem::transmute(get_egl_function(egl, "eglQueryDmaBufFormatsEXT")?) };
+        let query_device_string_ext: extern "system" fn(Attrib, Int) -> *const c_char =
+            unsafe { std::mem::transmute(get_egl_function(egl, "eglQueryDeviceStringEXT")?) };
+        let query_dma_buf_modifiers_ext: extern "system" fn(
+            EGLDisplay,
+            Int,
+            Int,
+            *mut u64,
+            *mut Boolean,
+            *mut Int,
+        ) -> Boolean =
+            unsafe { std::mem::transmute(get_egl_function(egl, "eglQueryDmaBufModifiersEXT")?) };
+
+        let extensions = get_egl_extensions(egl)?;
+
+        let mut device: Attrib = 0;
+        call_egl_boolean(egl, || {
+            query_display_attrib_ext(egl_display.as_ptr(), DEVICE_EXT, &mut device)
+        })?;
+        if device == NO_DEVICE_EXT {
+            return Err(EglApiError("eglQueryDisplayAttribEXT"));
+        }
+        let device_extensions = get_extensions(|| {
+            call_egl_string(egl, || {
+                query_device_string_ext(device, khronos_egl::EXTENSIONS)
+            })
+            .map(|s| s.to_string_lossy().to_string())
+        })
+        .map_err(|e| Unknown(anyhow!("failed to get device extensions: {e}")))?;
+        check_extensions(
+            &device_extensions,
+            &["EGL_EXT_device_drm_render_node", "EGL_EXT_device_drm"],
+        )?;
+
+        let path = call_egl_string(egl, || {
+            query_device_string_ext(device, DRM_RENDER_NODE_FILE_EXT)
+        })
+        .or_else(|_| call_egl_string(egl, || query_device_string_ext(device, DRM_DEVICE_FILE_EXT)))
+        .map_err(|e| Unknown(anyhow!("failed to get device path: {e}")))?;
+        let drm_node = DrmNode::new(&path)?;
+
+        let formats = if !extensions.contains("EGL_EXT_image_dma_buf_import_modifiers") {
+            vec![DrmFourcc::Argb8888, DrmFourcc::Xrgb8888]
+        } else {
+            call_egl_vec(egl, |num, vec, p_num| {
+                query_dmabuf_format_ext(egl_display.as_ptr(), num, vec, p_num)
+            })?
+            .into_iter()
+            .map(|f| f.try_into())
+            .try_collect()
+            .map_err(|e| Unknown(anyhow!("unknown format: {e}")))?
+        };
+
+        let mut texture_formats = HashSet::new();
+        let mut render_formats = HashSet::new();
+        for fourcc in formats.iter().cloned() {
+            let (mods, external) = call_egl_double_vec(egl, |num, vec1, vec2, p_num| {
+                query_dma_buf_modifiers_ext(
+                    egl_display.as_ptr(),
+                    fourcc as i32,
+                    num,
+                    vec1,
+                    vec2,
+                    p_num,
+                )
+            })?;
+            if mods.len() == 0 {
+                texture_formats.insert(DrmFormat {
+                    code: fourcc,
+                    modifier: DrmModifier::Invalid,
+                });
+                render_formats.insert(DrmFormat {
+                    code: fourcc,
+                    modifier: DrmModifier::Invalid,
+                });
+            }
+            for (modifier, external_only) in mods.into_iter().zip(external.into_iter()) {
+                let format = DrmFormat {
+                    code: fourcc,
+                    modifier: DrmModifier::from(modifier),
+                };
+                texture_formats.insert(format);
+                if external_only == 0 {
+                    render_formats.insert(format);
+                }
+            }
+        }
+
+        Ok(DrmInfo {
+            texture_formats: texture_formats.into_iter().collect(),
+            render_formats: render_formats.into_iter().collect(),
+            drm_node,
+        })
+    })
 }
 
 pub type TextureId = (NativeTexture, u32);
@@ -518,8 +633,8 @@ pub fn import_wl_surface(
     egl_buffer: Option<&UninitedWlBuffer>,
     texture: &Texture,
     device: &wgpu::Device,
-    egl_state: &mut Option<EglState>,
-) -> Result<()> {
+    egl_state: &mut EglState,
+) -> Result<(),DWayRenderError> {
     unsafe {
         let display: khronos_egl::Display = device.as_hal::<Gles, _, _>(|hal_device| {
             hal_device
@@ -554,7 +669,6 @@ pub fn import_wl_surface(
                     gl.disable(glow::DEBUG_OUTPUT);
                     BackendIsNotEGL
                 })?;
-            let egl_state = egl_state.get_or_insert_with(|| EglState::new(gl, egl).unwrap());
             if let Some(egl_buffer) = egl_buffer {
                 import_egl(&egl_buffer.raw, egl, gl, display, egl_state, texture_id)?;
             } else if let Some(dma_buffer) = dma_buffer {

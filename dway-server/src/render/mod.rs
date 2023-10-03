@@ -1,14 +1,15 @@
 pub mod drm;
-pub mod import;
 pub mod importnode;
 pub mod util;
+pub mod gles;
+pub mod vulkan;
 
 use bevy::{
     core_pipeline::core_2d,
     render::{
         render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
         render_phase::{AddRenderCommand, DrawFunctions},
-        RenderApp, RenderSet,
+        RenderApp, RenderSet, render_asset::PrepareAssetSet,
     },
 };
 
@@ -16,7 +17,7 @@ use crate::{prelude::*, zwp::dmabuffeedback, schedule::DWayServerSet};
 
 use self::{
     drm::DrmNodeState,
-    importnode::{ImportSurface, ImportSurfacePassNode, ImportedSurfacePhaseItem},
+    importnode::{ImportSurfacePassNode},
 };
 
 pub struct DWayServerRenderPlugin;
@@ -32,17 +33,8 @@ impl Plugin for DWayServerRenderPlugin {
             render_app.init_resource::<importnode::ImportState>();
             render_app.init_resource::<importnode::DWayDisplayHandles>();
             // render_app.init_resource::<surface::ImportSurfaceFeedback>();
-            render_app.init_resource::<DrawFunctions<ImportedSurfacePhaseItem>>();
-            render_app.add_render_command::<ImportedSurfacePhaseItem, ImportSurface>();
             render_app.add_system(importnode::extract_surface.in_schedule(ExtractSchedule));
-            render_app.add_system(
-                importnode::queue_import
-                    .before(kayak_ui::render::unified::pipeline::queue_quads)
-                    .in_set(RenderSet::Queue),
-            );
-            render_app.add_system(importnode::send_frame.in_set(RenderSet::Cleanup));
-            // render_app.add_system(importnode::prepare_import_surface.in_set(RenderSet::Prepare));
-            //
+            render_app.add_system(importnode::prepare_surfaces.in_set(PrepareAssetSet::PostAssetPrepare));
 
             let import_node = ImportSurfacePassNode::new(&mut render_app.world);
             let mut sub_graph = RenderGraph::default();

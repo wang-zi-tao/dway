@@ -21,7 +21,7 @@ use super::surface::AttachedBy;
 #[reflect(Debug)]
 pub struct WlShmBuffer {
     #[reflect(ignore)]
-    pub raw: Arc<Mutex<wl_buffer::WlBuffer>>,
+    pub raw: Arc<Mutex<wl_buffer::WlBuffer>>,// TODO remove arc and mutex
     pub offset: i32,
     pub size: IVec2,
     pub stride: i32,

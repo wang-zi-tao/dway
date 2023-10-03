@@ -79,7 +79,9 @@ impl Plugin for DWayXWaylandPlugin {
                 .in_set(DWayServerSet::Create)
                 .after(on_create_display_event),
         );
-        app.add_system(x11_frame_condition.in_schedule(FrameConditionSchedule));
+        if app.get_schedule(FrameConditionSchedule).is_some(){
+            app.add_system(x11_frame_condition.in_schedule(FrameConditionSchedule));
+        }
         app.add_system(dispatch_x11_events.in_set(DWayServerSet::Dispatch));
         app.register_relation::<XDisplayHasWindow>();
         app.add_system(x11_window_attach_wl_surface.in_set(DWayServerSet::UpdateXWayland));

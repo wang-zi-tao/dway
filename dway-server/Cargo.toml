@@ -31,6 +31,7 @@ wgpu={version="0.15.1",features=["angle"]}
 wgpu-hal={version="0.15.1",features=["gles"]}
 glow = {version="0.12.1"}
 khronos-egl = { version="4.1",features= ["dynamic","static"] }
+ash = { version = "0.37.3", features = [] }
 tracing-subscriber = "0.3.16"
 send_wrapper = "0.6.0"
 serde={}
