@@ -120,7 +120,9 @@ impl
                 let entity = state
                     .spawn(
                         (id, data_init, |kbd, world: &mut World| {
-                            WlKeyboardBundle::new(WlKeyboard::new(kbd, world.resource()).unwrap())
+                            WlKeyboardBundle::new(
+                                WlKeyboard::new(kbd, world.resource(), world.non_send_resource()).unwrap(),
+                            )
                         })
                             .with_parent(*data),
                     )

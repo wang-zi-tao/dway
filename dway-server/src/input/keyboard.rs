@@ -1,3 +1,4 @@
+use std::fs::File;
 use std::io::Write;
 use std::os::fd::AsRawFd;
 use std::path::PathBuf;
@@ -8,7 +9,7 @@ use xkbcommon::xkb;
 use crate::input::time;
 use crate::{prelude::*, util::serial::next_serial, wl::surface::WlSurface};
 
-#[derive(Resource, Reflect, Default)]
+#[derive(Resource, Reflect)]
 pub struct Keymap {
     pub rate: i32,
     pub delay: i32,
@@ -17,6 +18,73 @@ pub struct Keymap {
     pub layout: String,
     pub variant: String,
     pub options: Option<String>,
+}
+impl Default for Keymap {
+    fn default() -> Self {
+        Self {
+            rate: 25,
+            delay: 200,
+            rules: "evdev".to_string(),
+            model: "pc104".to_string(),
+            layout: "us".to_string(),
+            variant: Default::default(),
+            options: Default::default(),
+        }
+    }
+}
+
+pub struct XkbState {
+    pub state: xkb::State,
+    pub file: File,
+    pub keymap_string: String,
+}
+impl XkbState {
+    pub fn new(config: &Keymap) -> Result<Self> {
+        let context = xkbcommon::xkb::Context::new(xkb::CONTEXT_NO_FLAGS);
+        let keymap = xkb::Keymap::new_from_names(
+            &context,
+            &config.rules,
+            &config.model,
+            &config.layout,
+            &config.variant,
+            config.options.clone(),
+            xkb::KEYMAP_COMPILE_NO_FLAGS,
+        )
+        .ok_or_else(|| anyhow!("failed to encode keymap"))?;
+        let keymap_string = keymap.get_as_string(xkbcommon::xkb::KEYMAP_FORMAT_TEXT_V1);
+
+        let dir = std::env::var_os("XDG_RUNTIME_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(std::env::temp_dir);
+
+        let mut file = tempfile::tempfile_in(dir)?;
+        file.write_all(keymap_string.as_bytes())?;
+        file.flush()?;
+
+        Ok(Self {
+            state: xkb::State::new(&keymap),
+            file,
+            keymap_string,
+        })
+    }
+
+    pub fn key(&mut self, input: &KeyboardInput) {
+        self.state.update_key(
+            input.scan_code + 8,
+            match input.state {
+                bevy::input::ButtonState::Pressed => xkb::KeyDirection::Down,
+                bevy::input::ButtonState::Released => xkb::KeyDirection::Up,
+            },
+        );
+    }
+
+    pub fn serialize(&self) -> [u32; 4] {
+        let depressed = self.state.serialize_mods(xkb::STATE_MODS_DEPRESSED);
+        let latched = self.state.serialize_mods(xkb::STATE_MODS_LATCHED);
+        let locked = self.state.serialize_mods(xkb::STATE_MODS_LOCKED);
+        let layout_effective = self.state.serialize_layout(xkb::STATE_LAYOUT_EFFECTIVE);
+        [depressed, latched, locked, layout_effective]
+    }
 }
 
 #[derive(Component)]
@@ -36,41 +104,22 @@ impl WlKeyboardBundle {
 }
 
 impl WlKeyboard {
-    pub fn new(kbd: wl_keyboard::WlKeyboard, keymap: &Keymap) -> Result<Self> {
-        let xkb_config = xkbcommon::xkb::Context::new(xkb::CONTEXT_NO_FLAGS);
-        let keymap = xkb::Keymap::new_from_names(
-            &xkb_config,
-            &keymap.rules,
-            &keymap.model,
-            &keymap.layout,
-            &keymap.variant,
-            keymap.options.clone(),
-            xkb::KEYMAP_COMPILE_NO_FLAGS,
-        )
-        .ok_or_else(|| anyhow!("failed to encode keymap"))?;
-        let keymap_string = keymap.get_as_string(xkbcommon::xkb::KEYMAP_FORMAT_TEXT_V1);
-
-        let dir = std::env::var_os("XDG_RUNTIME_DIR")
-            .map(PathBuf::from)
-            .unwrap_or_else(std::env::temp_dir);
-
-        let mut file = tempfile::tempfile_in(dir)?;
-        file.write_all(keymap_string.as_bytes())?;
-        file.flush()?;
-
+    pub fn new(kbd: wl_keyboard::WlKeyboard, keymap: &Keymap, keystate: &XkbState) -> Result<Self> {
         kbd.keymap(
             wl_keyboard::KeymapFormat::XkbV1,
-            file.as_raw_fd(),
-            keymap_string.bytes().len().try_into().unwrap(),
+            keystate.file.as_raw_fd(),
+            keystate.keymap_string.bytes().len().try_into().unwrap(),
         );
         if kbd.version() >= 4 {
-            kbd.repeat_info(25, 200);
+            kbd.repeat_info(keymap.rate, keymap.delay);
         }
+
         Ok(Self {
             raw: kbd,
             focus: None,
         })
     }
+
     pub fn set_focus(&mut self, surface: &WlSurface) {
         if let Some(focus) = &self.focus {
             if &surface.raw != focus {
@@ -88,7 +137,8 @@ impl WlKeyboard {
             trace!("{} enter {}", self.raw.id(), surface.raw.id());
         }
     }
-    pub fn key(&mut self, surface: &WlSurface, input: &KeyboardInput) {
+
+    pub fn key(&mut self, surface: &WlSurface, input: &KeyboardInput, serialize: [u32; 4]) {
         trace!(surface=?surface.raw.id(),"key evnet : {input:?}");
         let serial = next_serial();
         self.set_focus(surface);
@@ -101,8 +151,18 @@ impl WlKeyboard {
                 bevy::input::ButtonState::Released => wl_keyboard::KeyState::Released,
             },
         );
+
+        self.raw.modifiers(
+            serial,
+            serialize[0],
+            serialize[1],
+            serialize[2],
+            serialize[3],
+        );
     }
 }
+
+pub fn update_keymap() {} // TODO
 
 #[derive(Resource)]
 pub struct SeatDelegate(pub GlobalId);
@@ -144,6 +204,9 @@ pub struct WlKeyboardPlugin;
 impl Plugin for WlKeyboardPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Keymap>();
-        app.insert_resource(Keymap::default());
+        let keymap = Keymap::default();
+        app.insert_non_send_resource(XkbState::new(&keymap).unwrap());
+        app.insert_resource(keymap);
+        app.add_system(update_keymap);
     }
 }

@@ -13,6 +13,7 @@ use dway_server::{
     input::seat::SeatHasKeyboard,
     input::{
         grab::{Grab, GrabEvent, GrabEventKind},
+        keyboard::XkbState,
         seat::{SeatHasPointer, WlSeat},
     },
     input::{keyboard::WlKeyboard, pointer::WlPointer},
@@ -36,7 +37,7 @@ impl Plugin for DWayInputPlugin {
         use DWayClientSystem::*;
         app.add_systems(
             (
-                mouse_move_on_winit_window.run_if(on_event::<CursorMoved>()),
+                mouse_move_on_window.run_if(on_event::<CursorMoved>()),
                 cursor_move_on_window.run_if(on_event::<MouseMotion>()),
                 mouse_button_on_window.run_if(on_event::<MouseButtonInput>()),
                 mouse_wheel_on_window.run_if(on_event::<MouseWheel>()),
@@ -111,6 +112,7 @@ pub fn keyboard_input_system(
     mut keyboard_evens: EventReader<KeyboardInput>,
     output_focus: Res<FocusedWindow>,
     mut grab_events_writer: EventWriter<GrabEvent>,
+    mut keystate: NonSendMut<XkbState>,
 ) {
     if keyboard_evens.is_empty() {
         return;
@@ -120,21 +122,22 @@ pub fn keyboard_input_system(
         return;
     };
     for event in keyboard_evens.iter() {
+        keystate.key(event);
         graph.for_each_path_mut(|(surface, _rect, _toplevel, popup), _, keyboard| {
             if popup.is_none() {
-                keyboard.key(surface, event);
+                keyboard.key(surface, event, keystate.serialize());
             }
         });
         graph.node_keyboard.for_each_mut(|(entity, _)| {
             grab_events_writer.send(GrabEvent {
                 seat_entity: entity,
-                event_kind: GrabEventKind::Keyboard(*event),
+                event_kind: GrabEventKind::Keyboard(*event, keystate.serialize()),
             })
         });
     }
 }
 // #[tracing::instrument(skip_all)]
-pub fn mouse_move_on_winit_window(
+pub fn mouse_move_on_window(
     mut cursor_moved_events: EventReader<CursorMoved>,
     windows: Query<&Window>,
     mut focus: ResMut<CursorOnOutput>,

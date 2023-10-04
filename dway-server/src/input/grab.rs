@@ -30,7 +30,7 @@ pub enum GrabEventKind {
     PointerMove(Vec2),
     PointerButton(MouseButtonInput, DVec2),
     PointerAxis(MouseWheel, DVec2),
-    Keyboard(KeyboardInput),
+    Keyboard(KeyboardInput, [u32; 4]),
 }
 pub struct GrabEvent {
     pub seat_entity: Entity,
@@ -171,10 +171,10 @@ pub fn on_grab_event(
                                 }
                             }
                         }
-                        GrabEventKind::Keyboard(input) => {
+                        GrabEventKind::Keyboard(input, serialize) => {
                             for e in pointer_list.iter() {
                                 if let Ok(mut keyboard) = keyboard_query.get_mut(e) {
-                                    keyboard.key(surface, input);
+                                    keyboard.key(surface, input, *serialize);
                                 }
                             }
                         }
@@ -234,10 +234,10 @@ pub fn on_grab_event(
                                 }
                             }
                         }
-                        GrabEventKind::Keyboard(input) => {
+                        GrabEventKind::Keyboard(input, serialize) => {
                             for e in pointer_list.iter() {
                                 if let Ok(mut keyboard) = keyboard_query.get_mut(e) {
-                                    keyboard.key(surface, input);
+                                    keyboard.key(surface, input, *serialize);
                                 }
                             }
                         }
@@ -266,7 +266,7 @@ pub fn on_grab_event(
                                 }
                             }
                         }
-                        GrabEventKind::PointerAxis(_, _) | GrabEventKind::Keyboard(_) => {
+                        GrabEventKind::PointerAxis(_, _) | GrabEventKind::Keyboard(_, _) => {
                             *grab = Grab::None;
                             seat.enable();
                             info!("stop moving");
@@ -320,7 +320,7 @@ pub fn on_grab_event(
                             }
                         }
                         GrabEventKind::PointerAxis(_, _)
-                        | GrabEventKind::Keyboard(_)
+                        | GrabEventKind::Keyboard(_, _)
                         | GrabEventKind::PointerButton(..) => {
                             *grab = Grab::None;
                             seat.enable();
