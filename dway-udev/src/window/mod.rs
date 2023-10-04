@@ -41,7 +41,7 @@ pub fn relative_to_window(window: &Window, pos: Vec2) -> Option<Vec2> {
     if relative.x < 0.0
         || relative.x >= window_size.x
         || relative.y < 0.0
-        || relative.x >= window_size.y
+        || relative.y >= window_size.y
     {
         return None;
     }
