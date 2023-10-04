@@ -681,7 +681,7 @@ pub fn frame_condition(world: &mut World) {
         .iter(world)
         .map(|(w, e)| (w.clone(), e.clone()))
         .collect();
-    let duration = Duration::from_secs_f32(0.001);
+    let duration = Duration::ZERO;
     for (dway, events) in &displays {
         let mut dway = dway.0.lock().unwrap();
         dway.scope(world, |dway| {
@@ -697,7 +697,7 @@ pub fn dispatch_events(world: &mut World) {
         .iter(world)
         .map(|(w, d, e)| (w.clone(), d.clone(), e.clone()))
         .collect();
-    let duration = Duration::from_secs_f32(0.001);
+    let duration = Duration::ZERO;
     for (dway, display, events) in &displays {
         let mut dway = dway.0.lock().unwrap();
         dway.scope(world, |dway| {
