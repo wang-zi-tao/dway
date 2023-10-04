@@ -10,9 +10,9 @@ use drm::{
         atomic::AtomicModeReq,
         crtc, plane,
         property::{self, Value},
-        AtomicCommitFlags, Device, Mode,
+        AtomicCommitFlags, Device, Mode, PageFlipEvent,
     },
-    Device as drm_device,
+    Device as drm_device, VblankWaitFlags,
 };
 use drm_fourcc::DrmFormat;
 use smallvec::SmallVec;
@@ -112,6 +112,12 @@ impl SurfaceInner {
     pub fn finish_frame(&mut self) {
         if let Some(pedding) = self.pedding.take() {
             self.commited.push_back(pedding);
+        }
+    }
+
+    pub fn on_page_flip(&mut self, event: &PageFlipEvent) {
+        if let Some(commited) = self.showing.take() {
+            self.available.push_back(commited);
         }
     }
 }
@@ -230,6 +236,11 @@ impl DrmSurface {
                     if let Some(buffer) = self_guard.showing.replace(buffer) {
                         self_guard.available.push_back(buffer);
                     }
+                    // if self_guard.showing.is_some() {
+                    //     self_guard.commited.push_front(buffer);
+                    //     bail!("waiting PageFlip event");
+                    // }
+                    // self_guard.showing = Some(buffer);
 
                     let size = self_guard.size();
                     let req = create_request(
@@ -249,7 +260,9 @@ impl DrmSurface {
 
                     let _span = info_span!("atomic_commit",framebuffer=?framebuffer).entered();
                     drm.atomic_commit(
-                        AtomicCommitFlags::ALLOW_MODESET,
+                        AtomicCommitFlags::ALLOW_MODESET
+                            | AtomicCommitFlags::NONBLOCK
+                            | AtomicCommitFlags::PAGE_FLIP_EVENT,
                         req,
                     )
                     .map_err(|e| anyhow!("failed to commit drm atomic req: {e}"))?;

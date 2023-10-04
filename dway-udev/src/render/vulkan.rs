@@ -67,7 +67,7 @@ impl Drop for Image {
         unsafe {
             self.device.destroy_fence(self.fence, None);
             self.device.destroy_image(self.image, None);
-            for memory in self.memorys.iter(){
+            for memory in self.memorys.iter() {
                 self.device.free_memory(*memory, None);
             }
         }
@@ -138,6 +138,7 @@ pub fn reset_framebuffer(
             hal_device.map(|hal_device| {
                 let device = hal_device.raw_device();
                 if let RenderImage::Vulkan(image) = &mut buffer.render_image {
+                    debug!(fence=?image.fence,"reset fence");
                     device.reset_fences(&[image.fence])?;
                 }
                 Ok(())
@@ -340,7 +341,10 @@ pub fn commit_drm(
                 surface.commit(conn, drm, |buffer| {
                     if let RenderImage::Vulkan(image) = &mut buffer.render_image {
                         match device.get_fence_status(image.fence) {
-                            Ok(o) => o,
+                            Ok(o) => {
+                                debug!(fence=?image.fence,"fence state: {o}");
+                                o
+                            }
                             Err(e) => {
                                 error!("failed to get fence state: {e}");
                                 false

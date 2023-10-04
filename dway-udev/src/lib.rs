@@ -28,17 +28,14 @@ pub struct DWayTTYPlugin {}
 
 impl Plugin for DWayTTYPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f32(
-            1.0 / 60.0,
-        )))// TODO 替换插件
-        .add_plugin(ScheduleRunnerPlugin)
-        .add_plugin(seat::SeatPlugin)
-        .add_plugin(libinput::LibInputPlugin)
-        .add_plugin(udev::UDevPlugin {
-            sub_system: "drm".into(),
-        })
-        .add_plugin(DrmPlugin)
-        .add_plugin(TtyRenderPlugin);
+        app.add_plugin(ScheduleRunnerPlugin)
+            .add_plugin(seat::SeatPlugin)
+            .add_plugin(libinput::LibInputPlugin)
+            .add_plugin(udev::UDevPlugin {
+                sub_system: "drm".into(),
+            })
+            .add_plugin(DrmPlugin)
+            .add_plugin(TtyRenderPlugin);
     }
 }
 

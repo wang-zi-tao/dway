@@ -4,6 +4,7 @@ pub mod vulkan;
 
 use anyhow::{anyhow, Result};
 use bevy::{
+    core::FrameCount,
     prelude::*,
     render::{
         render_asset::{PrepareAssetSet, RenderAssets},
@@ -22,8 +23,8 @@ use wgpu::{TextureFormat, TextureViewDescriptor};
 use wgpu_hal::api::Gles;
 use wgpu_hal::api::Vulkan;
 
-use crate::drm::connectors::Connector;
 use crate::gbm::buffer::GbmBuffer;
+use crate::{drm::connectors::Connector, schedule::DWayTTYRemderSet};
 use crate::{
     drm::{
         surface::{drm_framebuffer_descriptor, DrmSurface},
@@ -70,7 +71,12 @@ impl Plugin for TtyRenderPlugin {
                 .init_resource::<TtyRenderState>()
                 .add_system(extract_drm_surfaces.in_schedule(ExtractSchedule))
                 .add_system(prepare_drm_surface.in_set(PrepareAssetSet::PostAssetPrepare))
-                .add_system(commit.after(RenderSet::Render).before(RenderSet::Cleanup));
+                .add_system(
+                    commit
+                        .in_set(DWayTTYRemderSet::DrmCommitSystem)
+                        .after(RenderSet::Render)
+                        .before(RenderSet::Cleanup),
+                );
         }
     }
 }
@@ -128,7 +134,7 @@ pub fn prepare_drm_surface(
         };
 
         let gpu_image = if let Some(gpu_image) = state.buffers.get(&buffer.framebuffer) {
-            if let Some(Err(e))=vulkan::reset_framebuffer(render_device.wgpu_device(), buffer){
+            if let Some(Err(e)) = vulkan::reset_framebuffer(render_device.wgpu_device(), buffer) {
                 error!("failed to reset framebuffer: {e}");
             }
             gpu_image.clone()
@@ -196,6 +202,7 @@ pub fn create_framebuffer_texture(
     }
 }
 
+#[tracing::instrument(skip_all)]
 pub fn commit(
     surface_query: Query<(&DrmSurface, &Connector, &Parent)>,
     drm_query: Query<&DrmDevice>,

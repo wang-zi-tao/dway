@@ -1,4 +1,7 @@
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    render::{RenderApp, RenderSet},
+};
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DWayTTYSet {
@@ -6,7 +9,14 @@ pub enum DWayTTYSet {
     UdevSystem,
     GbmSystem,
     DrmSystem,
+    DrmEventSystem,
     LibinputSystem,
+}
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum DWayTTYRemderSet {
+    DrmEventSystem,
+    DrmCommitSystem,
 }
 
 pub struct DWayUdevSchedulePlugin;
@@ -24,5 +34,14 @@ impl Plugin for DWayUdevSchedulePlugin {
                 .ambiguous_with_all(),
         );
         app.configure_set(DWayTTYSet::LibinputSystem.in_base_set(CoreSet::First));
+
+        let render_app = app.sub_app_mut(RenderApp);
+        render_app.configure_sets(
+            (
+                DWayTTYRemderSet::DrmEventSystem.after(RenderSet::Render),
+                DWayTTYRemderSet::DrmCommitSystem.before(RenderSet::Cleanup),
+            )
+                .chain(),
+        );
     }
 }

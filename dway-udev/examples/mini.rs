@@ -65,7 +65,7 @@ pub fn main() {
     for i in 0..8192 {
         info!("frame {i}");
         app.update();
-        // std::thread::sleep(Duration::from_secs_f64(1.0 / 60.0));
+        std::thread::sleep(Duration::from_secs_f64(1.0 / 60.0));
     }
 }
 

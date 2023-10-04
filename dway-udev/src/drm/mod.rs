@@ -10,6 +10,7 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
 use bevy::prelude::*;
+use bevy::render::RenderApp;
 use bevy::utils::tracing;
 use bevy::utils::HashMap;
 use double_map::DHashMap;
@@ -758,10 +759,11 @@ pub struct DrmEvent {
 
 #[tracing::instrument(skip_all)]
 pub fn recevie_drm_events(
-    drm_query: Query<(Entity, &DrmDevice)>,
+    drm_query: Query<(Entity, &DrmDevice, &Children)>,
+    surface_query: Query<&DrmSurface>,
     mut events: EventWriter<DrmEvent>,
 ) {
-    drm_query.for_each(|(entity, drm)| {
+    drm_query.for_each(|(entity, drm, children)| {
         for event in drm.fd.receive_events().into_iter().flatten() {
             match &event {
                 drm::control::Event::Vblank(VblankEvent {
@@ -770,17 +772,24 @@ pub fn recevie_drm_events(
                     crtc,
                     user_data,
                 }) => {
-                    info!("drm event: Vblank({frame:?},{time:?},{crtc:?},{user_data:?})");
+                    trace!("drm event: Vblank({frame:?},{time:?},{crtc:?},{user_data:?})");
                 }
-                drm::control::Event::PageFlip(PageFlipEvent {
-                    frame,
-                    duration,
-                    crtc,
-                }) => {
-                    info!("drm event: PageFlip({frame:?},{duration:?},{crtc:?})");
+                drm::control::Event::PageFlip(e) => {
+                    debug!(
+                        "drm event: PageFlip({:?},{:?},{:?})",
+                        &e.frame, &e.duration, &e.crtc
+                    );
+                    for entity in children.iter() {
+                        if let Ok(surface) = surface_query.get(*entity) {
+                            let mut surface_guard = surface.inner.lock().unwrap();
+                            if surface_guard.crtc == e.crtc {
+                                surface_guard.on_page_flip(e);
+                            }
+                        }
+                    }
                 }
                 drm::control::Event::Unknown(data) => {
-                    info!("drm event: Unknown({data:?})");
+                    trace!("drm event: Unknown({data:?})");
                 }
             }
             events.send(DrmEvent { entity, event })
@@ -792,11 +801,10 @@ pub struct DrmPlugin;
 impl Plugin for DrmPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(setup.on_startup().in_base_set(StartupSet::PreStartup))
-            .add_systems(
-                (on_udev_event, recevie_drm_events)
-                    .chain()
-                    .in_set(DWayTTYSet::DrmSystem),
-            )
+            .add_system(on_udev_event.in_set(DWayTTYSet::UdevSystem));
+        let render_app = app.sub_app_mut(RenderApp);
+        render_app
+            .add_system(recevie_drm_events.in_set(DWayTTYSet::DrmEventSystem))
             .add_event::<DrmEvent>();
     }
 }
