@@ -29,6 +29,9 @@ pub enum DWayClientSystem {
     UpdateState,
     UpdateFocus,
     UpdateZIndex,
+    UpdateLayout,
+    UpdateLayoutFlush,
+    UpdateWindowGeometry,
     UpdateUI,
     PostUpdate,
     DestroyComponent,
@@ -74,6 +77,15 @@ impl Plugin for DWayClientPlugin {
                 .ambiguous_with_all(),
         );
         app.configure_sets(
+            (UpdateLayout, UpdateLayoutFlush, UpdateWindowGeometry)
+                .in_base_set(CoreSet::PreUpdate)
+                .chain()
+                .after(UpdateState)
+                .after(UpdateFocus)
+                .before(UpdateUI),
+        );
+        app.add_system(apply_system_buffers.in_set(UpdateLayoutFlush));
+        app.configure_sets(
             (UpdateFocus, UpdateZIndex)
                 .in_base_set(CoreSet::PreUpdate)
                 .after(UpdateState)
@@ -106,6 +118,9 @@ impl Plugin for DWayClientPlugin {
         // app.add_plugin(decoration::DWayDecorationPlugin::default());
         app.add_plugin(debug::DebugPlugin::default());
         app.add_plugin(navigation::windowstack::WindowStackPlugin);
+        app.add_plugin(layout::LayoutPlugin);
+        app.add_plugin(screen::ScreenPlugin);
+        app.add_plugin(workspace::WorkspacePlugin);
         // app.add_system(debug_info);
     }
 }

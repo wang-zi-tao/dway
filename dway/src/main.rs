@@ -20,6 +20,10 @@ use bevy::{
     winit::WinitPlugin,
 };
 use bevy_framepace::Limiter;
+use dway_client_core::{
+    layout::tile::TileLayoutKind,
+    workspace::{Workspace, WorkspaceBundle},
+};
 use dway_udev::DWayTTYPlugin;
 use keys::*;
 use tracing_subscriber::{
@@ -32,6 +36,7 @@ bevy_ecs=info,\
 bevy_render=debug,\
 bevy_ui=trace,\
 dway=debug,\
+bevy_relationship=debug,\
 dway_server=trace,\
 dway_server::input=info,\
 dway_server::render=info,\
@@ -123,9 +128,22 @@ fn main() {
     // app.insert_resource(WindowMessageReceiver(client_receiver));
     // app.insert_resource(WindowMessageSender(client_sender));
 
+    app.add_startup_system(setup);
     app.add_system(wm_mouse_action);
     app.add_system(wm_keys);
     app.run();
 
     // wayland_thread.join().unwrap();
+}
+pub fn setup(mut commands: Commands) {
+    commands.spawn((
+        WorkspaceBundle {
+            workspace: Workspace {
+                name: "workspace0".to_string(),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        TileLayoutKind::Grid,
+    ));
 }

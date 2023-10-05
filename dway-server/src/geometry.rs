@@ -16,6 +16,12 @@ impl GlobalGeometry {
     pub fn new(geometry: IRect) -> Self {
         Self { geometry }
     }
+
+    pub fn add(&self, geometry: &Geometry) -> Self {
+        Self {
+            geometry: IRect::from_pos_size(self.pos() + geometry.pos(), geometry.size()),
+        }
+    }
 }
 
 impl std::ops::DerefMut for GlobalGeometry {

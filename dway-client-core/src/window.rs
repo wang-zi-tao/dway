@@ -23,7 +23,7 @@ use crate::{
 
 #[derive(Component)]
 #[component(storage = "SparseSet")]
-pub struct HiddenWindow;
+pub struct Hidden;
 
 pub struct DWayWindowPlugin;
 impl Plugin for DWayWindowPlugin {

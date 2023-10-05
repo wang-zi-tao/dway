@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use bevy::{
     ecs::system::Command,
-    prelude::{Entity, World},
+    prelude::{despawn_with_children_recursive, DespawnRecursive, Entity, World},
 };
 use smallvec::SmallVec;
 
@@ -33,7 +33,9 @@ where
         if world.get_entity(self.to).is_none() {
             return;
         };
-        let Some( mut from_entity ) = world.get_entity_mut(self.from)else{return};
+        let Some(mut from_entity) = world.get_entity_mut(self.from) else {
+            return;
+        };
         let old = if let Some(mut peer) = from_entity.get_mut::<R::From>() {
             peer.connect(self.to)
         } else {
@@ -48,7 +50,9 @@ where
             }
         }
 
-        let Some( mut to_entity ) = world.get_entity_mut(self.to)else{return};
+        let Some(mut to_entity) = world.get_entity_mut(self.to) else {
+            return;
+        };
         let old = if let Some(mut peer) = to_entity.get_mut::<R::To>() {
             peer.connect(self.from)
         } else {
@@ -125,6 +129,38 @@ where
             if let Ok(mut to_component) = to_query.get_mut(world, entity) {
                 to_component.disconnect(self.from);
             }
+        }
+    }
+}
+
+pub struct DespawnAllConnectedEntityCommand<R: Relationship> {
+    pub from: Entity,
+    _phantom: PhantomData<R>,
+}
+
+impl<R: Relationship> DespawnAllConnectedEntityCommand<R> {
+    pub fn new(from: Entity) -> Self {
+        Self {
+            from,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<R: Relationship + Send + Sync + 'static> Command for DespawnAllConnectedEntityCommand<R>
+where
+    R::From: ConnectableMut,
+    R::To: ConnectableMut,
+{
+    fn write(self, world: &mut World) {
+        let mut from_query = world.query::<&mut R::From>();
+        let target = if let Ok(mut from_component) = from_query.get_mut(world, self.from) {
+            from_component.drain().collect::<SmallVec<[Entity; 8]>>()
+        } else {
+            Default::default()
+        };
+        for entity in target {
+            despawn_with_children_recursive(world, entity);
         }
     }
 }
