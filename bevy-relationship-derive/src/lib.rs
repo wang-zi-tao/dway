@@ -98,7 +98,7 @@ impl PathQuery {
                         || quote_spanned! {node.span()=> compile_error!("node not found") },
                     )
             });
-        quote! { FnMut(#(#components),*) }
+        quote! { FnMut(#(#components),*) -> bevy_relationship::ControlFlow<R> }
     }
     pub fn gen_callback_mut(&self, graph: &GraphQuery) -> TokenStream2 {
         let components = std::iter::once(&self.first_node)
@@ -115,7 +115,7 @@ impl PathQuery {
                         || quote_spanned! {node.span()=> compile_error!("node not found") },
                     )
             });
-        quote! { FnMut(#(#components),*) }
+        quote! { FnMut(#(#components),*) -> bevy_relationship::ControlFlow<R> }
     }
     pub fn gen_for_each(&self, graph: &GraphQuery) -> TokenStream2 {
         let callback = self.gen_callback(graph);
@@ -126,7 +126,13 @@ impl PathQuery {
                 quote! {&#component_var}
             });
         let inner = self.edges.iter().rev().fold(
-            quote! { f(#(#args),*) },
+            quote! {
+                match f(#(#args),*) {
+                    bevy_relationship::ControlFlow::Continue => continue,
+                    bevy_relationship::ControlFlow::Break => break,
+                    bevy_relationship::ControlFlow::Return(r) => return Some(r),
+                }
+            },
             |inner, (direction, edge, node)| {
                 let component_var = format_ident!("item_{}", node, span = node.span());
                 let node_var = format_ident!("node_{}", node, span = node.span());
@@ -150,15 +156,17 @@ impl PathQuery {
         let for_each_from_method_name =
             format_ident!("for_each_{}_from", self.name.to_string(), span = span);
         quote_spanned! { span=>
-            pub fn #for_each_method_name(&self, mut f: impl #callback) {
+            pub fn #for_each_method_name<R>(&self, mut f: impl #callback) -> Option<R> {
                 for (entity,#component_var) in self.#node_var.iter() {
                     #inner
                 }
+                None
             }
-            pub fn #for_each_from_method_name(&self, entity: bevy::ecs::entity::Entity, mut f: impl #callback) {
+            pub fn #for_each_from_method_name<R>(&self, entity: bevy::ecs::entity::Entity, mut f: impl #callback) -> Option<R> {
                 if let Ok((_entity,#component_var)) = self.#node_var.get(entity) {
                     #inner
                 }
+                None
             }
         }
     }
@@ -171,7 +179,13 @@ impl PathQuery {
                 quote! {&mut #component_var}
             });
         let inner = self.edges.iter().rev().fold(
-            quote! { f(#(#args),*) },
+            quote! {
+                match f(#(#args),*) {
+                    bevy_relationship::ControlFlow::Continue => continue,
+                    bevy_relationship::ControlFlow::Break => break,
+                    bevy_relationship::ControlFlow::Return(r) => return Some(r),
+                }
+            },
             |inner, (direction, edge, node)| {
                 let component_var = format_ident!("item_{}", node, span = node.span());
                 let node_var = format_ident!("node_{}", node, span = node.span());
@@ -196,15 +210,17 @@ impl PathQuery {
         let for_each_from_method_name =
             format_ident!("for_each_{}_mut_from", self.name.to_string(), span = span);
         quote_spanned! { span=>
-            pub fn #for_each_method_name(&mut self, mut f:impl #callback) {
+            pub fn #for_each_method_name<R>(&mut self, mut f:impl #callback) -> Option<R> {
                 for (entity,mut #component_var) in self.#node_var.iter_mut() {
                     #inner
                 }
+                None
             }
-            pub fn #for_each_from_method_name(&mut self, entity: bevy::ecs::entity::Entity, mut f:impl #callback) {
+            pub fn #for_each_from_method_name<R>(&mut self, entity: bevy::ecs::entity::Entity, mut f:impl #callback) -> Option<R> {
                 if let Ok((_entity,mut #component_var)) = self.#node_var.get_mut(entity) {
                     #inner
                 }
+                None
             }
         }
     }

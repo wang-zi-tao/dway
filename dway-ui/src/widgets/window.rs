@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use dway_client_core::desktop::{FocusedWindow, WindowStack};
+use dway_client_core::{desktop::{FocusedWindow}, navigation::windowstack::WindowStack};
 use dway_server::{
     geometry::GlobalGeometry,
     macros::Connectable,

@@ -1,17 +1,15 @@
 mod app;
 mod builtins;
 mod commands;
+mod graph;
 mod macros;
 pub mod reexport;
 
 pub use bevy_relationship_derive::graph_query;
 
-use std::{
-    iter::Cloned,
-    marker::PhantomData,
-};
+use std::{iter::Cloned, marker::PhantomData};
 
-pub use crate::{app::*, builtins::*, commands::*, macros::*};
+pub use crate::{app::*, builtins::*, commands::*, graph::*, macros::*};
 
 use bevy::prelude::*;
 use smallvec::SmallVec;

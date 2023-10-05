@@ -13,6 +13,7 @@ uuid = {}
 memory-stats = {}
 rand = {}
 bevy_math = {}
+tracing-subscriber = { version="0.3.16",features=[] }
 
 [dependencies.bevy]
 version = "0.10"

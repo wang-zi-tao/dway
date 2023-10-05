@@ -1,16 +1,18 @@
+#![feature(linked_list_cursors)]
+
 use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::ShapePlugin;
 use dway_server::schedule::DWayServerSet;
 use log::info;
-
-use crate::window::{Backend, Frontends, WindowUiRoot};
 
 pub mod components;
 pub mod compositor;
 pub mod debug;
 pub mod desktop;
 pub mod input;
-pub mod materials;
+pub mod layout;
+pub mod navigation;
+pub mod prelude;
 pub mod screen;
 pub mod window;
 pub mod workspace;
@@ -26,6 +28,7 @@ pub enum DWayClientSystem {
     Input,
     UpdateState,
     UpdateFocus,
+    UpdateZIndex,
     UpdateUI,
     PostUpdate,
     DestroyComponent,
@@ -64,12 +67,17 @@ impl Plugin for DWayClientPlugin {
                 CreateComponentFlush,
                 Input,
                 UpdateState,
-                UpdateFocus,
                 UpdateUI,
             )
                 .in_base_set(CoreSet::PreUpdate)
                 .chain()
                 .ambiguous_with_all(),
+        );
+        app.configure_sets(
+            (UpdateFocus, UpdateZIndex)
+                .in_base_set(CoreSet::PreUpdate)
+                .after(UpdateState)
+                .before(UpdateUI),
         );
         app.configure_sets(
             (
@@ -97,11 +105,8 @@ impl Plugin for DWayClientPlugin {
         app.add_plugin(window::DWayWindowPlugin);
         // app.add_plugin(decoration::DWayDecorationPlugin::default());
         app.add_plugin(debug::DebugPlugin::default());
+        app.add_plugin(navigation::windowstack::WindowStackPlugin);
         // app.add_system(debug_info);
-        //
-        app.register_type::<Backend>();
-        app.register_type::<Frontends>();
-        app.register_type::<WindowUiRoot>();
     }
 }
 

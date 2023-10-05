@@ -133,7 +133,7 @@ graph_query!(SurfaceToOutput=>[
 });
 
 pub fn surface_enter_output(graph: SurfaceToOutput, mut commands: Commands) {
-    graph.for_each_new_connection(
+    graph.for_each_new_connection::<()>(
         |(surface_entity, surface, surface_rect, output_list),
          _,
          (output_entity, output, output_rect)| {
@@ -148,9 +148,10 @@ pub fn surface_enter_output(graph: SurfaceToOutput, mut commands: Commands) {
                     *output_entity,
                 ));
             }
+            ControlFlow::Continue
         },
     );
-    graph.for_each_old_connection(
+    graph.for_each_old_connection::<()>(
         |(surface_entity, surface, surface_rect, output_list),
          (output_entity, output, output_rect)| {
             if output_rect.intersection(surface_rect.geometry).area() <= 0
@@ -164,6 +165,7 @@ pub fn surface_enter_output(graph: SurfaceToOutput, mut commands: Commands) {
                     *output_entity,
                 ));
             }
+            ControlFlow::Continue
         },
     );
 }

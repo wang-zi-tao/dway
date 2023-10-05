@@ -10,14 +10,16 @@ pub mod title_bar;
 pub mod util;
 pub mod widgets;
 pub mod windows_area;
+pub mod logger;
 
-use std::sync::Arc;
+use std::{ptr::NonNull, sync::Arc};
 
 use dway_client_core::DWayClientSystem;
+use dway_udev::{drm::surface::DrmSurface, seat::SeatState};
 use failure::Fallible;
 pub use kayak_ui;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, render::camera::RenderTarget};
 use font_kit::{
     error::SelectionError,
     family_name::FamilyName,
@@ -56,6 +58,9 @@ fn setup(
     _camera_query: Query<Entity, With<Camera2d>>,
     _font_resource: ResMut<Assets<Font>>,
     asset_server: Res<AssetServer>,
+
+    seat: Option<NonSend<SeatState>>,
+    surfaces: Query<(Entity, &DrmSurface)>,
 ) {
     info!("setup kayak");
     match default_system_font()
@@ -81,11 +86,32 @@ fn setup(
     // font_mapping.set_default(asset_server.load("roboto.kayak_font"));
     // let font=asset_server.load("fonts/FiraSans-Bold.ttf");
     font_mapping.set_default(asset_server.load("roboto.kttf"));
-    info!("create kayak ui camera");
-    let camera=Camera2dBundle::default();
-    let camera_entity = commands
-        .spawn((camera, CameraUIKayak))
-        .id();
+
+    if seat.is_none() {
+        info!("create kayak ui camera");
+        let camera = Camera2dBundle::default();
+        let camera_entity = commands.spawn((camera, CameraUIKayak)).id();
+        setup_kayak(camera_entity, &asset_server, &mut commands);
+    } else {
+        surfaces.for_each(|(entity, surface)| {
+            let image_handle = surface.image();
+            let camera_entity=commands.spawn((
+                Camera2dBundle {
+                    camera: Camera {
+                        target: RenderTarget::Image(image_handle),
+                        ..default()
+                    },
+                    ..default()
+                },
+                CameraUIKayak,
+            )).id();
+            setup_kayak(camera_entity, &asset_server, &mut commands);
+            info!(surface=?entity,"create kayak ui camera on drm surface");
+        });
+    }
+}
+
+pub fn setup_kayak(camera_entity: Entity, asset_server: &AssetServer, mut commands: &mut Commands) {
     let mut widget_context = KayakRootContext::new(camera_entity);
     widget_context.add_plugin(KayakWidgetsContextPlugin);
     widget_context.add_plugin(panel::DWayPanelPlugin::default());

@@ -1,3 +1,4 @@
+use crate::prelude::*;
 use crate::util::rect::IRect;
 use crate::wl::buffer::UninitedWlBuffer;
 use crate::wl::buffer::WlShmBuffer;
@@ -37,8 +38,6 @@ use std::os::fd::AsRawFd;
 use std::ptr::null;
 use std::sync::Arc;
 use std::sync::RwLock;
-use tracing::debug;
-use tracing::error;
 use wayland_server::protocol::wl_buffer;
 use wayland_server::protocol::wl_shm;
 use wayland_server::Resource;
@@ -550,7 +549,7 @@ pub fn prepare_wl_surface(
                     let hal_texture = image_to_hal_texture(size, format, image.image);
                     let gpu_image = hal_texture_to_gpuimage(device, size, format, hal_texture);
                     image_assets.insert(surface.image.clone(), gpu_image.clone());
-                    v.insert((image, gpu_image)); // TODO: destroy old gpuimage
+                    v.insert((image, gpu_image));
                 }
             };
         }

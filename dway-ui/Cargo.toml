@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 dway-util = {path="../dway-util/"}
 dway-server = {path="../dway-server/"}
+dway-udev = {path="../dway-udev/"}
 dway-client-core = {path="../dway-client-core/"}
 
 font-kit = "0.11.0"

@@ -1,11 +1,11 @@
 use std::time::Duration;
-
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
+pub mod keys;
 
 // use dway_client_core::protocol::{WindowMessageReceiver, WindowMessageSender};
 // use dway_ui::kayak_ui::{prelude::KayakContextPlugin, widgets::KayakWidgets};
 
 use bevy::{
+    app::{ScheduleRunnerPlugin, ScheduleRunnerSettings},
     core::TaskPoolThreadAssignmentPolicy,
     diagnostic::{
         EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin,
@@ -19,23 +19,30 @@ use bevy::{
     scene::ScenePlugin,
     winit::WinitPlugin,
 };
+use bevy_framepace::Limiter;
+use dway_udev::DWayTTYPlugin;
+use keys::*;
+use tracing_subscriber::{
+    fmt::{format::Writer, time::FormatTime},
+    EnvFilter,
+};
 
 const LOG: &str = "\
 bevy_ecs=info,\
 bevy_render=debug,\
 bevy_ui=trace,\
 dway=debug,\
+dway_server=trace,\
 dway_server::input=info,\
 dway_server::render=info,\
 dway_server::state=info,\
-dway_server::surface=info,\
 dway_server::wl::buffer=info,\
-dway_server::wl::compositor=debug,\
+dway_server::wl::compositor=info,\
 dway_server::wl::surface=info,\
 dway_server::xdg::popup=debug,\
 dway_server::xdg=info,\
 nega::front=info,\
-nega=info,\
+naga=warn,\
 wgpu=warn,\
 ";
 
@@ -53,7 +60,7 @@ fn main() {
         DefaultPlugins
             .set(RenderPlugin {
                 wgpu_settings: bevy::render::settings::WgpuSettings {
-                    backends: Some(Backends::GL),
+                    // backends: Some(Backends::GL),
                     ..Default::default()
                 },
             })
@@ -76,25 +83,38 @@ fn main() {
             .disable::<ScenePlugin>()
             .disable::<WinitPlugin>()
             .disable::<GilrsPlugin>(),
-    )
-    .insert_resource(dway_winit::WinitSettings {
-        focused_mode: dway_winit::UpdateMode::ReactiveLowPower {
-            max_wait: Duration::from_secs(1),
-        },
-        unfocused_mode: dway_winit::UpdateMode::ReactiveLowPower {
-            max_wait: Duration::from_secs(1),
-        },
-        ..Default::default()
-    })
-    .add_plugin(dway_winit::WinitPlugin);
+    );
+
+    if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
+        app.insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f32(
+            1.0 / 60.0,
+        )));
+        app.add_plugin(DWayTTYPlugin::default());
+    } else {
+        app.add_plugin(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
+        app.insert_resource(dway_winit::WinitSettings {
+            focused_mode: dway_winit::UpdateMode::ReactiveLowPower {
+                max_wait: Duration::from_secs(1),
+            },
+            unfocused_mode: dway_winit::UpdateMode::ReactiveLowPower {
+                max_wait: Duration::from_secs(1),
+            },
+            ..Default::default()
+        })
+        .add_plugin(dway_winit::WinitPlugin);
+        app.insert_resource(
+            bevy_framepace::FramepaceSettings::default()
+                .with_limiter(Limiter::from_framerate(60.0)),
+        );
+        app.add_plugin(bevy_framepace::FramepacePlugin);
+    }
+
     app.add_plugin(EntityCountDiagnosticsPlugin);
     app.add_plugin(FrameTimeDiagnosticsPlugin);
     app.add_plugin(SystemInformationDiagnosticsPlugin);
 
     // app.add_plugin(KayakWidgets);
     // app.add_plugin(KayakContextPlugin);
-
-    app.add_plugin(WorldInspectorPlugin::new());
 
     app.add_plugin(dway_server::DWayServerPlugin);
     app.add_plugin(dway_client_core::DWayClientPlugin);
@@ -103,6 +123,8 @@ fn main() {
     // app.insert_resource(WindowMessageReceiver(client_receiver));
     // app.insert_resource(WindowMessageSender(client_sender));
 
+    app.add_system(wm_mouse_action);
+    app.add_system(wm_keys);
     app.run();
 
     // wayland_thread.join().unwrap();
