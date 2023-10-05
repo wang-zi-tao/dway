@@ -117,18 +117,19 @@ pub fn keyboard_input_system(
     if keyboard_evens.is_empty() {
         return;
     }
-    let Some(_focus_window) = &output_focus.0 else {
-        trace!("no focus window");
-        return;
-    };
     for event in keyboard_evens.iter() {
         keystate.key(event);
-        graph.for_each_path_mut::<()>(|(surface, _rect, _toplevel, popup), _, keyboard| {
-            if popup.is_none() {
-                keyboard.key(surface, event, keystate.serialize());
-            }
-            ControlFlow::Continue
-        });
+        if let Some(window) = output_focus.0 {
+            graph.for_each_path_mut_from::<()>(
+                window,
+                |(surface, _rect, _toplevel, popup), _, keyboard| {
+                    if popup.is_none() {
+                        keyboard.key(surface, event, keystate.serialize());
+                    }
+                    ControlFlow::Continue
+                },
+            );
+        }
         graph.node_keyboard.for_each_mut(|(entity, _)| {
             grab_events_writer.send(GrabEvent {
                 seat_entity: entity,
