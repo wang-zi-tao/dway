@@ -19,7 +19,7 @@ relationship!(XDisplayHasWindow=>XWindowList-<XDisplayRef);
 
 use self::{
     events::{dispatch_x11_events, flush_xwayland, x11_frame_condition},
-    window::{x11_window_attach_wl_surface, MappedXWindow, XWindow, XWindowAttachSurface},
+    window::{x11_window_attach_wl_surface, MappedXWindow, XWindow, XWindowAttachSurface, process_window_action_events},
 };
 
 #[derive(Bundle)]
@@ -79,12 +79,13 @@ impl Plugin for DWayXWaylandPlugin {
                 .in_set(DWayServerSet::Create)
                 .after(on_create_display_event),
         );
-        if app.get_schedule(FrameConditionSchedule).is_some(){
+        if app.get_schedule(FrameConditionSchedule).is_some() {
             app.add_system(x11_frame_condition.in_schedule(FrameConditionSchedule));
         }
         app.add_system(dispatch_x11_events.in_set(DWayServerSet::Dispatch));
         app.register_relation::<XDisplayHasWindow>();
         app.add_system(x11_window_attach_wl_surface.in_set(DWayServerSet::UpdateXWayland));
+        app.add_system(process_window_action_events.in_set(DWayServerSet::WindowAction));
         // app.add_system(flush_xwayland.in_set(DWayServerSet::PostUpdate));
         app.register_type::<XWindow>();
         app.register_type::<MappedXWindow>();

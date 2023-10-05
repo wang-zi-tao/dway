@@ -9,7 +9,7 @@ use std::{
     time::Duration,
 };
 
-use bevy::utils::HashMap;
+use bevy::utils::{HashMap, HashSet};
 use nix::{errno::Errno, sys::socket};
 pub use x11rb::protocol::xproto::Window as XWindowID;
 use x11rb::{
@@ -70,6 +70,7 @@ pub struct XWaylandDisplay {
     pub connection: Weak<(RustConnection, Atoms)>,
     pub channel: Arc<crossbeam_channel::Receiver<XWaylandThreadEvent>>,
     pub windows_entitys: HashMap<u32, Entity>,
+    pub screen_windows: HashSet<u32>,
     pub wm_window: Option<x11rb::protocol::xproto::Window>,
     pub child: Child,
     pub client: wayland_server::Client,
@@ -122,6 +123,7 @@ impl XWaylandDisplay {
             wm_window: None,
             child,
             client,
+            screen_windows: Default::default(),
         };
         entity_mut.insert(XWaylandDisplayWrapper {
             inner: Arc::new(Mutex::new(this)),

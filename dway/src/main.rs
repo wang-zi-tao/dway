@@ -21,7 +21,7 @@ use bevy::{
 };
 use bevy_framepace::Limiter;
 use dway_client_core::{
-    layout::tile::TileLayoutKind,
+    layout::{tile::TileLayoutKind, LayoutStyle, LayoutRect},
     workspace::{Workspace, WorkspaceBundle},
 };
 use dway_udev::DWayTTYPlugin;
@@ -38,7 +38,7 @@ bevy_ui=trace,\
 dway=debug,\
 bevy_relationship=debug,\
 dway_server=trace,\
-dway_server::input=info,\
+dway_server::input=debug,\
 dway_server::render=info,\
 dway_server::state=info,\
 dway_server::wl::buffer=info,\
@@ -96,7 +96,7 @@ fn main() {
         )));
         app.add_plugin(DWayTTYPlugin::default());
     } else {
-        app.add_plugin(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
+        // app.add_plugin(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
         app.insert_resource(dway_winit::WinitSettings {
             focused_mode: dway_winit::UpdateMode::ReactiveLowPower {
                 max_wait: Duration::from_secs(1),
@@ -145,5 +145,9 @@ pub fn setup(mut commands: Commands) {
             ..Default::default()
         },
         TileLayoutKind::Grid,
+        LayoutStyle {
+            pedding: LayoutRect::new(4),
+            ..Default::default()
+        },
     ));
 }

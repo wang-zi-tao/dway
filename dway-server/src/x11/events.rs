@@ -31,7 +31,7 @@ use crate::{
         },
         DWayXWaylandStoped, XDisplayHasWindow, XWaylandBundle,
     },
-    xdg::DWayWindow,
+    xdg::{DWayToplevelWindow, DWayWindow},
 };
 
 use super::{DWayHasXWayland, DWayXWaylandReady, XWaylandDisplay, XWaylandDisplayWrapper};
@@ -232,6 +232,7 @@ pub fn process_x11_event(
                 c.window,
                 Some(c.parent),
                 c.override_redirect,
+                x.screen_windows.contains(&c.parent),
             );
             let rect = geo_to_irect(rust_connection.get_geometry(c.window)?.reply()?);
             let bundle = XWindowBundle {
@@ -435,6 +436,7 @@ pub fn dispatch_x11_events(world: &mut World) {
                                                     screen.root,
                                                     None,
                                                     false,
+                                                    false,
                                                 ),
                                                 geometry: Geometry::new(rect),
                                                 global_geometry: GlobalGeometry::new(rect),
@@ -444,6 +446,7 @@ pub fn dispatch_x11_events(world: &mut World) {
                                         .id();
                                     debug!("add root window {} at {:?}", screen.root, entity);
                                     x.windows_entitys.insert(screen.root, entity);
+                                    x.screen_windows.insert(screen.root);
                                 }
                                 dway.send_event(DWayXWaylandReady::new(dway_entity));
                                 dway.connect::<DWayHasXWayland>(dway_entity, display_entity);

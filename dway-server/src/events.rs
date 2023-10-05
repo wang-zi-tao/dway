@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{prelude::*, util::rect::IRect};
 
 pub struct Bind<T: WlResource> {
     pub entity: Entity,
@@ -41,6 +41,18 @@ pub struct MoveWindow {
     pub entity: Entity,
     pub delta: IVec2,
 }
+
+pub enum WindowAction{
+    Close(Entity),
+    Maximize(Entity),
+    UnMaximize(Entity),
+    Fullscreen(Entity),
+    UnFullscreen(Entity),
+    Minimize(Entity),
+    UnMinimize(Entity),
+    SetRect(Entity,IRect),
+}
+
 pub struct MoveRequest(pub Entity);
 pub struct ResizeRequest(pub Entity);
 
@@ -51,5 +63,6 @@ impl Plugin for EventPlugin {
         app.add_event::<MoveWindow>();
         app.add_event::<MoveRequest>();
         app.add_event::<ResizeRequest>();
+        app.add_event::<WindowAction>();
     }
 }

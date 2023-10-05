@@ -6,10 +6,11 @@ use crate::{
     },
     prelude::*,
     resource::ResourceWrapper,
+    schedule::DWayServerSet,
     wl::surface::WlSurface,
 };
 
-use super::DWayWindow;
+use super::{DWayWindow, XdgSurface};
 
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
@@ -23,6 +24,7 @@ pub struct XdgToplevel {
     pub min: bool,
     pub min_size: Option<IVec2>,
     pub max_size: Option<IVec2>,
+    pub size: Option<IVec2>,
     pub send_configure: bool,
 }
 impl ResourceWrapper for XdgToplevel {
@@ -44,17 +46,32 @@ impl XdgToplevel {
             min_size: None,
             max_size: None,
             send_configure: false,
+            size: None,
         }
     }
-    pub fn resize(&self, size: IVec2) {
-        debug!(
-            "configure toplevel: {:?}",
-            (size.x, size.y, vec![4, 0, 0, 0])
-        );
-        if self.raw.version() >= xdg_toplevel::EVT_CONFIGURE_BOUNDS_SINCE {
-            self.raw.configure_bounds(size.x, size.y);
+    pub fn configure(&self) {
+        let mut states = vec![];
+
+        states.extend((xdg_toplevel::State::Activated as u32).to_le_bytes());
+        if self.max {
+            states.extend((xdg_toplevel::State::Maximized as u32).to_le_bytes());
         }
-        self.raw.configure(size.x, size.y, vec![4, 0, 0, 0]);
+        if self.fullscreen {
+            states.extend((xdg_toplevel::State::Fullscreen as u32).to_le_bytes());
+        }
+
+        if self.raw.version() >= xdg_toplevel::EVT_CONFIGURE_BOUNDS_SINCE {
+            self.raw.configure_bounds(
+                self.size.unwrap_or_default().x,
+                self.size.unwrap_or_default().y,
+            );
+        }
+
+        self.raw.configure(
+            self.size.unwrap_or_default().x,
+            self.size.unwrap_or_default().y,
+            states,
+        );
     }
 }
 
@@ -206,11 +223,65 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
     }
 }
 
+pub fn process_window_action_event(
+    mut events: EventReader<WindowAction>,
+    mut window_query: Query<(&mut XdgToplevel, &XdgSurface), With<DWayWindow>>,
+) {
+    for e in events.iter() {
+        match e {
+            WindowAction::Close(e) => {
+                if let Ok((mut c, s)) = window_query.get_mut(*e) {
+                    c.raw.close();
+                    s.configure();
+                }
+            }
+            WindowAction::Maximize(e) => {
+                if let Ok((mut c, s)) = window_query.get_mut(*e) {
+                    c.max = true;
+                    c.configure();
+                    s.configure();
+                }
+            }
+            WindowAction::UnMaximize(e) => {
+                if let Ok((mut c, s)) = window_query.get_mut(*e) {
+                    c.max = true;
+                    c.configure();
+                    s.configure();
+                }
+            }
+            WindowAction::Fullscreen(e) => {
+                if let Ok((mut c, s)) = window_query.get_mut(*e) {
+                    c.fullscreen = true;
+                    c.configure();
+                    s.configure();
+                }
+            }
+            WindowAction::UnFullscreen(e) => {
+                if let Ok((mut c, s)) = window_query.get_mut(*e) {
+                    c.fullscreen = false;
+                    c.configure();
+                    s.configure();
+                }
+            }
+            WindowAction::Minimize(_) => { },
+            WindowAction::UnMinimize(_) => { },
+            WindowAction::SetRect(e, rect) => {
+                if let Ok((mut c, s)) = window_query.get_mut(*e) {
+                    c.size = Some(rect.size());
+                    c.configure();
+                    s.configure();
+                }
+            }
+        }
+    }
+}
+
 pub struct XdgToplevelPlugin;
 impl Plugin for XdgToplevelPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<Insert<XdgToplevel>>();
         app.add_event::<Destroy<XdgToplevel>>();
         app.register_type::<XdgToplevel>();
+        app.add_system(process_window_action_event.in_set(DWayServerSet::WindowAction));
     }
 }

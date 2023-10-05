@@ -30,6 +30,8 @@ pub enum DWayServerSet {
     GrabInput,
     InputFlush,
     InitDmaBufFeedback,
+
+    WindowAction,
 }
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum DWayServerSchedule {
@@ -82,7 +84,7 @@ impl Plugin for DWayServerSchedulePlugin {
         );
 
         app.configure_sets(
-            (Clean, Last, LastFlush)
+            (WindowAction, Clean, Last, LastFlush)
                 .chain()
                 .in_base_set(CoreSet::Last)
                 .ambiguous_with_all(),

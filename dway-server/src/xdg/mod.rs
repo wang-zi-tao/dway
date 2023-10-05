@@ -27,6 +27,9 @@ use self::{wm::XdgWmBase, activation_token::XdgActivationToken, activation::{Xdg
 #[derive(Component, Default, Clone, Reflect, FromReflect)]
 pub struct DWayWindow {}
 
+#[derive(Component, Default, Clone, Reflect, FromReflect)]
+pub struct DWayToplevelWindow {}
+
 #[derive(Resource)]
 pub struct XdgDelegate {
     pub wm: GlobalId,
@@ -90,7 +93,7 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                     (
                         id,
                         data_init,
-                        (|o| (XdgToplevel::new(o), DWayWindow::default())),
+                        (|o| (XdgToplevel::new(o),DWayToplevelWindow::default(), DWayWindow::default())),
                     )
                         .check_component_not_exists::<XdgToplevel>(),
                 );
@@ -98,10 +101,9 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                 state.query_object::<(&mut Geometry, &mut XdgSurface, &mut XdgToplevel), _, _>(
                     resource,
                     |(mut geometry, mut xdg_surface, mut xdg_toplevel)| {
-                        geometry.set_pos(IVec2::new(128, 128));
                         if !xdg_toplevel.send_configure {
                             debug!("toplevel send configure ({},{})", 800, 600);
-                            xdg_toplevel.raw.configure(800, 600, vec![4, 0, 0, 0]);
+                            xdg_toplevel.raw.configure(0, 0, vec![4, 0, 0, 0]);
                             xdg_toplevel.send_configure = true;
                         }
                         if !xdg_surface.send_configure {

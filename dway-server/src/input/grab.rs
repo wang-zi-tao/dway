@@ -15,8 +15,6 @@ use crate::{
     schedule::DWayServerSet,
     util::rect::IRect,
     wl::surface::WlSurface,
-    x11::window::{XWindow, XWindowRef},
-    xdg::{popup::XdgPopup, toplevel::XdgToplevel},
 };
 
 use super::{
@@ -91,18 +89,11 @@ impl Drop for Grab {
 }
 pub fn on_grab_event(
     mut seat_query: Query<(&PointerList, &mut WlSeat, &mut Grab)>,
-    mut surface_query: Query<(
-        &WlSurface,
-        &mut Geometry,
-        &GlobalGeometry,
-        Option<&XdgPopup>,
-        Option<&XdgToplevel>,
-        Option<&XWindowRef>,
-    )>,
-    mut xwindow_query: Query<&mut XWindow>,
+    mut surface_query: Query<(&WlSurface, &mut Geometry, &GlobalGeometry)>,
     mut pointer_query: Query<&mut WlPointer>,
     mut keyboard_query: Query<&mut WlKeyboard>,
     mut event: EventReader<GrabEvent>,
+    mut window_action: EventWriter<WindowAction>,
     _commands: Commands,
 ) {
     for GrabEvent {
@@ -118,8 +109,7 @@ pub fn on_grab_event(
                     pressed,
                     serial: _,
                 } => {
-                    let Ok((surface, _geo, global_geo, ..)) =
-                        surface_query.get_mut(*surface_entity)
+                    let Ok((surface, _geo, global_geo)) = surface_query.get_mut(*surface_entity)
                     else {
                         return;
                     };
@@ -248,8 +238,7 @@ pub fn on_grab_event(
                     serial: _,
                     relative,
                 } => {
-                    let Ok((_surface, mut geo, _global_geo, _, toplevel, xwindow_ref)) =
-                        surface_query.get_mut(*surface)
+                    let Ok((_surface, mut geo, _global_geo)) = surface_query.get_mut(*surface)
                     else {
                         return;
                     };
@@ -257,14 +246,7 @@ pub fn on_grab_event(
                         GrabEventKind::PointerMove(_pos) => {
                             let pos = seat.pointer_position.unwrap_or_default();
                             geo.set_pos(*relative + pos);
-                            if let Some(mut xwindow) = xwindow_ref
-                                .and_then(|r| r.get())
-                                .and_then(|e| xwindow_query.get_mut(e).ok())
-                            {
-                                if let Err(e) = xwindow.set_rect(geo.geometry) {
-                                    error!("failed to resize window: {e}");
-                                }
-                            }
+                            window_action.send(WindowAction::SetRect(*surface, geo.geometry));
                         }
                         GrabEventKind::PointerAxis(_, _) | GrabEventKind::Keyboard(_, _) => {
                             *grab = Grab::None;
@@ -287,9 +269,7 @@ pub fn on_grab_event(
                     relative,
                     origin_rect,
                 } => {
-                    let Ok((_surface, mut geo, _global_geo, _, toplevel, xwindow_ref)) =
-                        surface_query.get_mut(*surface)
-                    else {
+                    let Ok(mut geo) = surface_query.get_component_mut::<Geometry>(*surface) else {
                         return;
                     };
                     match event_kind {
@@ -309,15 +289,7 @@ pub fn on_grab_event(
                             if edges.contains(ResizeEdges::BUTTOM) {
                                 geo.max.y = buttom_right.y;
                             }
-                            toplevel.map(|t| t.resize(geo.size()));
-                            if let Some(mut xwindow) = xwindow_ref
-                                .and_then(|r| r.get())
-                                .and_then(|e| xwindow_query.get_mut(e).ok())
-                            {
-                                if let Err(e) = xwindow.resize(geo.geometry) {
-                                    error!("failed to move window: {e}");
-                                }
-                            }
+                            window_action.send(WindowAction::SetRect(*surface, geo.geometry));
                         }
                         GrabEventKind::PointerAxis(_, _)
                         | GrabEventKind::Keyboard(_, _)

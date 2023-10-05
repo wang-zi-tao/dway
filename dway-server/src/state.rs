@@ -590,7 +590,7 @@ impl Plugin for DWayStatePlugin {
         app.add_system(dispatch_events.in_set(DWayServerSet::Dispatch));
         // app.add_system(flush_display.in_set(DWayServerSet::InputFlush));
         // app.add_system(flush_display.in_set(DWayServerSet::PostUpdate));
-        // app.add_system(flush_display.in_set(DWayServerSet::Last));
+        app.add_system(flush_display.in_set(DWayServerSet::Last));
         set_signal_handler();
     }
 }

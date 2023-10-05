@@ -6,7 +6,7 @@ use dway_client_core::navigation::windowstack::WindowStack;
 use dway_server::events::{Destroy, Insert};
 use dway_server::input::pointer::WlPointer;
 use dway_server::wl::surface::WlSurface;
-use dway_server::xdg::DWayWindow;
+use dway_server::xdg::{DWayWindow, DWayToplevelWindow};
 use kayak_ui::{prelude::*, widgets::ElementBundle};
 
 pub fn widget_update(
@@ -29,7 +29,7 @@ pub fn render(
     In(entity): In<Entity>,
     widget_context: Res<KayakWidgetContext>,
     mut commands: Commands,
-    windows_query: Query<Entity, With<DWayWindow>>,
+    windows_query: Query<Entity, With<DWayToplevelWindow>>,
     pointer_query: Query<Entity, (With<WlPointer>, With<WlSurface>)>,
     window_stack: Res<WindowStack>,
 ) -> bool {

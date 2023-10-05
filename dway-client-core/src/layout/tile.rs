@@ -1,6 +1,7 @@
 use dway_server::{
     geometry::{Geometry, GlobalGeometry},
     util::rect::IRect,
+    xdg::{DWayToplevelWindow, DWayWindow},
 };
 
 use crate::{
@@ -45,16 +46,16 @@ impl TileLayoutKind {
                 })
                 .collect(),
             TileLayoutKind::Grid => {
-                let col_count = (window_count as f32).sqrt().floor() as usize;
+                let col_count = (window_count as f32).sqrt().ceil() as usize;
                 if col_count * col_count == window_count {
                     (0..col_count)
                         .flat_map(|i| {
                             (0..col_count).map(move |j| {
                                 Rect::new(
-                                    i as f32 / window_count as f32,
-                                    j as f32 / window_count as f32,
-                                    (i + 1) as f32 / window_count as f32,
-                                    (j + 1) as f32 / window_count as f32,
+                                    i as f32 / col_count as f32,
+                                    j as f32 / col_count as f32,
+                                    (i + 1) as f32 / col_count as f32,
+                                    (j + 1) as f32 / col_count as f32,
                                 )
                             })
                         })
@@ -66,22 +67,23 @@ impl TileLayoutKind {
                         for i in 0..col_count {
                             for j in 0..col_count - 1 {
                                 rects.push(Rect::new(
-                                    i as f32 / window_count as f32,
+                                    i as f32 / col_count as f32,
                                     (area * col_count as f32) * j as f32,
-                                    (i + 1) as f32 / window_count as f32,
+                                    (i + 1) as f32 / col_count as f32,
                                     (area * col_count as f32) * (j + 1) as f32,
                                 ));
                             }
                         }
                     }
-                    let last_row_len = window_count - col_count * col_count;
-                    for i in 0..last_row_len {
-                        rects.push(Rect::new(
-                            area * (col_count as f32) * (col_count - 1) as f32,
-                            i as f32 / window_count as f32,
-                            area * (col_count as f32) * (col_count - 1) as f32,
-                            (i + 1) as f32 / window_count as f32,
-                        ));
+                    if let Some(last_row_len) = window_count.checked_sub(rects.len()) {
+                        for i in 0..last_row_len {
+                            rects.push(Rect::new(
+                                i as f32 / last_row_len as f32,
+                                area * (col_count as f32) * (col_count - 1) as f32,
+                                (i + 1) as f32 / last_row_len as f32,
+                                1.0,
+                            ));
+                        }
                     }
                     rects
                 }
@@ -121,14 +123,19 @@ pub fn update_tile_layout(
         ),
         Or<(Changed<workspace::WindowList>, Changed<TileLayoutKind>)>,
     >,
+    window_query: Query<Entity, (With<DWayWindow>, With<DWayToplevelWindow>)>,
     mut commands: Commands,
 ) {
     workspace.for_each(|(entity, geometry, global_geometry, windows, layout)| {
-        debug!(workspace=?entity,window_count=%windows.len(), "refresh tile layout");
         commands.add(DespawnAllConnectedEntityCommand::<WorkspaceHasSlot>::new(
             entity,
         ));
-        let slots = layout.apply(windows.len());
+        let count = windows
+            .iter()
+            .filter(|e| window_query.get(*e).is_ok())
+            .count();
+        let slots = layout.apply(count);
+        debug!(workspace=?entity,window_count=%windows.len(), "refresh tile layout: {slots:?}");
         for rect in slots {
             let slot_rect = IRect::new(
                 (rect.min.x as f32 * geometry.width() as f32) as i32,

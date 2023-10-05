@@ -1,13 +1,16 @@
 use std::sync::Arc;
 
 use bevy::utils::HashSet;
+use dway_util::try_or;
 use encoding::{types::DecoderTrap, Encoding};
 
+use scopeguard::defer;
 use x11rb::{
     connection::Connection,
     properties::{WmClass, WmHints, WmSizeHints},
-    protocol::xproto::{Atom, AtomEnum, ConfigureWindowAux, ConnectionExt},
+    protocol::xproto::{Atom, AtomEnum, ConfigureWindowAux, ConnectionExt, PropMode},
     rust_connection::{ConnectionError, RustConnection},
+    wrapper::ConnectionExt as RustConnectionExt,
 };
 
 use crate::{
@@ -17,7 +20,7 @@ use crate::{
     state::DWayWrapper,
     util::rect::IRect,
     wl::surface::WlSurface,
-    xdg::DWayWindow,
+    xdg::{DWayToplevelWindow, DWayWindow},
 };
 
 use super::{
@@ -56,6 +59,7 @@ pub struct XWindow {
     pub window_type: Vec<Atom>,
     pub surface_id: Option<u32>,
     pub boarder_width: u32,
+    pub is_toplevel: bool,
 }
 relationship!(XWindowAttachSurface=>XWindowSurfaceRef--XWindowRef);
 
@@ -65,6 +69,7 @@ impl XWindow {
         window: x11rb::protocol::xproto::Window,
         parent_window: Option<x11rb::protocol::xproto::Window>,
         override_redirect: bool,
+        is_toplevel: bool,
     ) -> Self {
         Self {
             connection,
@@ -82,6 +87,7 @@ impl XWindow {
             window_type: Vec::new(),
             surface_id: None,
             boarder_width: 0,
+            is_toplevel,
         }
     }
     pub fn atoms(&self) -> &Atoms {
@@ -333,9 +339,11 @@ impl XWindow {
         debug!(window=%self.window,"set window type to {:?}", self.window_type);
         Ok(())
     }
+
     pub fn resize(&mut self, rect: IRect) -> Result<()> {
         self.set_rect(rect)
     }
+
     pub fn set_rect(&mut self, rect: IRect) -> Result<()> {
         let conn = self.xwayland_connection();
         let aux = ConfigureWindowAux::default()
@@ -344,6 +352,45 @@ impl XWindow {
             .width(Some(rect.width() as u32))
             .height(Some(rect.height() as u32));
         conn.configure_window(self.window, &aux)?;
+        conn.flush()?;
+        Ok(())
+    }
+
+    pub fn change_net_state(&mut self, atom: Atom, is_add: bool) -> Result<(), ConnectionError> {
+        let mut changed = false;
+
+        if is_add {
+            changed |= self.net_state.insert(atom);
+        } else {
+            changed |= self.net_state.remove(&atom);
+        }
+
+        if changed {
+            let new_props = Vec::from_iter(self.net_state.iter().copied());
+
+            let (conn, atoms) = self.connection();
+
+            conn.grab_server()?;
+            defer! {
+                let _ = conn.ungrab_server();
+                let _ = conn.flush();
+            }
+
+            conn.change_property32(
+                PropMode::REPLACE,
+                self.window,
+                atoms._NET_WM_STATE,
+                AtomEnum::ATOM,
+                &new_props,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    pub fn close(&mut self) -> Result<()> {
+        let conn = self.xwayland_connection();
+        conn.destroy_window(self.window)?;
         conn.flush()?;
         Ok(())
     }
@@ -399,11 +446,15 @@ pub fn x11_window_attach_wl_surface(
                     xwindow_entity,
                     wl_surface_entity,
                 ));
-                commands.entity(wl_surface_entity).insert((
+                let mut entity_mut = commands.entity(wl_surface_entity);
+                entity_mut.insert((
                     geometry.clone(),
                     global_geometry.clone(),
                     DWayWindow::default(),
                 ));
+                if xwindow.is_toplevel {
+                    entity_mut.insert(DWayToplevelWindow::default());
+                }
                 event_writter.send(Insert::new(wl_surface_entity));
                 commands.entity(xwindow_entity).insert(MappedXWindow);
                 debug!(
@@ -413,4 +464,76 @@ pub fn x11_window_attach_wl_surface(
             }
         },
     );
+}
+
+graph_query!(
+XWindowGraph=>[
+    surface=<Entity,With<DWayToplevelWindow>>,
+    xwindow=&'static mut XWindow,
+]=>{
+    path=surface-[XWindowAttachSurface]->xwindow,
+});
+pub fn process_window_action_events(
+    mut events: EventReader<WindowAction>,
+    mut query_graph: XWindowGraph,
+) {
+    for event in events.iter() {
+        try_or! {
+            {
+                match event {
+                    WindowAction::Close(e) => {
+                        query_graph.for_each_path_mut_from(*e, |_,window|{
+                            ControlFlow::Return(window.close())
+                        }).transpose()?;
+                    },
+                    WindowAction::Maximize(e) => {
+                        query_graph.for_each_path_mut_from(*e, |_,window|{
+                            let atom_hor = window.atoms()._NET_WM_STATE_MAXIMIZED_HORZ;
+                            let atom_ver = window.atoms()._NET_WM_STATE_MAXIMIZED_VERT;
+                            ControlFlow::Return(window.change_net_state(atom_hor, true).and(window.change_net_state(atom_ver, true)))
+                        }).transpose()?;
+                    },
+                    WindowAction::UnMaximize(e) => {
+                        query_graph.for_each_path_mut_from(*e, |_,window|{
+                            let atom_hor = window.atoms()._NET_WM_STATE_MAXIMIZED_HORZ;
+                            let atom_ver = window.atoms()._NET_WM_STATE_MAXIMIZED_VERT;
+                            ControlFlow::Return(window.change_net_state(atom_hor, false).and(window.change_net_state(atom_ver, false)))
+                        }).transpose()?;
+                    },
+                    WindowAction::Fullscreen(e) => {
+                        query_graph.for_each_path_mut_from(*e, |_,window|{
+                            let atom = window.atoms()._NET_WM_STATE_FULLSCREEN;
+                            ControlFlow::Return(window.change_net_state(atom, true))
+                        }).transpose()?;
+                    },
+                    WindowAction::UnFullscreen(e) => {
+                        query_graph.for_each_path_mut_from(*e, |_,window|{
+                            let atom = window.atoms()._NET_WM_STATE_FULLSCREEN;
+                            ControlFlow::Return(window.change_net_state(atom, false))
+                        }).transpose()?;
+                    },
+                    WindowAction::Minimize(e) => {
+                        query_graph.for_each_path_mut_from(*e, |_,window|{
+                            let atom = window.atoms()._NET_WM_STATE_HIDDEN;
+                            ControlFlow::Return(window.change_net_state(atom, true))
+                        }).transpose()?;
+                    },
+                    WindowAction::UnMinimize(e) => {
+                        query_graph.for_each_path_mut_from(*e, |_,window|{
+                            let atom = window.atoms()._NET_WM_STATE_HIDDEN;
+                            ControlFlow::Return(window.change_net_state(atom, false))
+                        }).transpose()?;
+                    },
+                    WindowAction::SetRect(e, rect) => {
+                        query_graph.for_each_path_mut_from(*e, |_,window|{
+                            ControlFlow::Return(window.set_rect(*rect))
+                        }).transpose()?;
+                    },
+                }
+                Result::<_>::Ok(())
+            },
+            "failed to apply window action",
+            continue
+        }
+    }
 }
