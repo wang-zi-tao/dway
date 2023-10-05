@@ -1,12 +1,17 @@
-use std::marker::PhantomData;
+use std::{cell::Ref, marker::PhantomData};
 
 use bevy::{
-    ecs::system::Command,
-    prelude::{despawn_with_children_recursive, DespawnRecursive, Entity, World},
+    ecs::{
+        component::ComponentId,
+        system::{Command, EntityCommands},
+        world::EntityMut,
+    },
+    prelude::{despawn_with_children_recursive, BuildWorldChildren, Children, Entity, World},
+    utils::HashMap,
 };
 use smallvec::SmallVec;
 
-use crate::{ConnectableMut, Relationship};
+use crate::{ConnectableMut, Relationship, RelationshipRegister, ReserveRelationship};
 
 #[derive(Debug)]
 pub struct ConnectCommand<R: Relationship> {
@@ -175,4 +180,172 @@ where
     type From = T::To;
 
     type To = T::From;
+}
+
+pub struct DespawnRecursiveCommand(pub Entity);
+impl Command for DespawnRecursiveCommand {
+    fn write(self, world: &mut World) {
+        despawn_recursive(world, self.0);
+    }
+}
+
+pub struct DespawnCommand(pub Entity);
+impl Command for DespawnCommand {
+    fn write(self, world: &mut World) {
+        despawn(world, self.0);
+    }
+}
+
+pub fn despawn_recursive(world: &mut World, entity: Entity) {
+    let register = world
+        .non_send_resource::<RelationshipRegister>()
+        .components
+        .clone();
+    let guard = register.borrow();
+    world.get_entity_mut(entity).map(|mut e| {
+        e.remove_parent();
+    });
+    do_despawn_recursive(world, entity, &guard);
+}
+
+pub fn despawn(world: &mut World, entity: Entity) {
+    let register = world
+        .non_send_resource::<RelationshipRegister>()
+        .components
+        .clone();
+    let guard = register.borrow();
+    if let Some(entity_mut) = world.get_entity_mut(entity) {
+        do_despawn(entity_mut, &guard);
+    }
+}
+
+fn do_despawn_recursive(
+    world: &mut World,
+    entity: Entity,
+    register: &Ref<'_, HashMap<ComponentId, Box<dyn Fn(&mut EntityMut<'_>) + Send + Sync>>>,
+) {
+    if let Some(children) = world.get_mut::<Children>(entity) {
+        let children_entitys = children.iter().copied().collect::<SmallVec<[Entity; 63]>>();
+        drop(children);
+        for child in children_entitys {
+            do_despawn_recursive(world, child, register);
+        }
+    }
+    if let Some(entity_mut) = world.get_entity_mut(entity) {
+        do_despawn(entity_mut, register);
+    }
+}
+
+fn do_despawn(
+    mut entity_mut: EntityMut,
+    register: &Ref<'_, HashMap<ComponentId, Box<dyn Fn(&mut EntityMut<'_>) + Send + Sync>>>,
+) {
+    for component_id in entity_mut
+        .archetype()
+        .table_components()
+        .collect::<SmallVec<[ComponentId; 31]>>()
+    {
+        if let Some(callback) = register.get(&component_id) {
+            let _ = callback(&mut entity_mut);
+        }
+    }
+    entity_mut.despawn();
+}
+
+pub trait EntityCommandsExt {
+    fn despawn_with_relationship(self);
+    fn despawn_recursive_with_relationship(self);
+    fn connect_to<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
+    where
+        R::From: ConnectableMut + Default,
+        R::To: ConnectableMut + Default;
+    fn connect_from<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
+    where
+        R::From: ConnectableMut + Default,
+        R::To: ConnectableMut + Default;
+    fn disconnect_to<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
+    where
+        R::From: ConnectableMut + Default,
+        R::To: ConnectableMut + Default;
+    fn disconnect_from<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
+    where
+        R::From: ConnectableMut + Default,
+        R::To: ConnectableMut + Default;
+    fn disconnect_all<R: Relationship + Send + Sync + 'static>(&mut self)
+    where
+        R::From: ConnectableMut + Default,
+        R::To: ConnectableMut + Default;
+    fn disconnect_all_rev<R: Relationship + Send + Sync + 'static>(&mut self)
+    where
+        R::From: ConnectableMut + Default,
+        R::To: ConnectableMut + Default;
+}
+
+impl<'w, 's, 'a> EntityCommandsExt for EntityCommands<'w, 's, 'a> {
+    fn despawn_with_relationship(mut self) {
+        let entity = self.id();
+        self.commands().add(DespawnCommand(entity));
+    }
+
+    fn despawn_recursive_with_relationship(mut self) {
+        let entity = self.id();
+        self.commands().add(DespawnRecursiveCommand(entity));
+    }
+
+    fn connect_to<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
+    where
+        R::From: ConnectableMut + Default,
+        R::To: ConnectableMut + Default,
+    {
+        let entity = self.id();
+        self.commands().add(ConnectCommand::<R>::new(entity, peer));
+    }
+
+    fn connect_from<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
+    where
+        R::From: ConnectableMut + Default,
+        R::To: ConnectableMut + Default,
+    {
+        let entity = self.id();
+        self.commands().add(ConnectCommand::<R>::new(peer, entity));
+    }
+
+    fn disconnect_to<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
+    where
+        R::From: ConnectableMut + Default,
+        R::To: ConnectableMut + Default,
+    {
+        let entity = self.id();
+        self.commands()
+            .add(DisconnectCommand::<R>::new(entity, peer));
+    }
+
+    fn disconnect_from<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
+    where
+        R::From: ConnectableMut + Default,
+        R::To: ConnectableMut + Default,
+    {
+        let entity = self.id();
+        self.commands()
+            .add(DisconnectCommand::<R>::new(peer, entity));
+    }
+
+    fn disconnect_all<R: Relationship + Send + Sync + 'static>(&mut self)
+    where
+        R::From: ConnectableMut + Default,
+        R::To: ConnectableMut + Default,
+    {
+        let entity = self.id();
+        self.commands().add(DisconnectAllCommand::<R>::new(entity));
+    }
+
+    fn disconnect_all_rev<R: Relationship + Send + Sync + 'static>(&mut self)
+    where
+        R::From: ConnectableMut + Default,
+        R::To: ConnectableMut + Default,
+    {
+        let entity = self.id();
+        self.commands()
+            .add(DisconnectAllCommand::<ReserveRelationship<R>>::new(entity));
+    }
 }

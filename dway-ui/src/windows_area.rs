@@ -14,7 +14,7 @@ pub fn widget_update(
     widget_context: Res<KayakWidgetContext>,
     widget_param: WidgetParam<WindowUI, EmptyState>,
     create_window_events: EventReader<Insert<DWayWindow>>,
-    destroy_window_events: EventReader<Destroy<DWayWindow>>,
+    destroy_window_events: RemovedComponents<DWayWindow>,
     window_stack: Res<WindowStack>,
 ) -> bool {
     let should_update = widget_param.has_changed(&widget_context, entity, previous_entity);

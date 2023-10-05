@@ -258,8 +258,6 @@ fn mouse_button_on_window(
                             };
                             seat.enable();
                             seat.grab(surface);
-                        } else {
-                            // pointer.button(seat, e, surface, relative.as_dvec2());
                         }
                     }
                     ControlFlow::Continue

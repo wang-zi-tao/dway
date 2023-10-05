@@ -304,7 +304,7 @@ impl DWay {
         let entity = DWay::get_entity(object);
         let world = self.world_mut();
         trace!(?entity,resource=%wayland_server::Resource::id(object),"destroy wayland object");
-        world.entity_mut(entity).despawn_recursive();
+        despawn_recursive(world, entity);
     }
     pub fn create_client(
         &mut self,
@@ -454,7 +454,7 @@ impl DWay {
             .unwrap()
     }
     pub fn despawn_tree(&mut self, entity: Entity) {
-        self.world_mut().entity_mut(entity).despawn_recursive();
+        despawn_recursive(self.world_mut(), entity);
     }
     pub fn despawn(&mut self, entity: Entity) {
         if let Some(e) = self.world_mut().get_entity_mut(entity) {
@@ -486,9 +486,7 @@ impl DWay {
     }
     pub fn despawn_object(&mut self, entity: Entity, id: wayland_backend::server::ObjectId) {
         trace!(entity=?entity,resource=%id,"despawn object");
-        if let Some(mut e) = self.world_mut().get_entity_mut(entity) {
-            e.despawn_recursive();
-        }
+        despawn_recursive(self.world_mut(), entity);
     }
     pub fn with_component<T, F, R>(&mut self, object: &impl wayland_server::Resource, f: F) -> R
     where

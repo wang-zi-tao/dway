@@ -27,3 +27,4 @@ pub use crate::state::create_global_system_config;
 pub use bevy_relationship::*;
 
 pub use anyhow::{anyhow, bail, Result};
+pub use bevy_relationship::EntityCommandsExt;

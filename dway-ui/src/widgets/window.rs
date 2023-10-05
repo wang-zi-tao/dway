@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use dway_client_core::{desktop::{FocusedWindow}, navigation::windowstack::WindowStack};
+use dway_client_core::{desktop::FocusedWindow, navigation::windowstack::WindowStack};
 use dway_server::{
     geometry::GlobalGeometry,
     macros::Connectable,
@@ -12,7 +12,7 @@ use kayak_ui::{
         constructor, rsx, EventType, KChildren, KEvent, KPositionType, KStyle, KayakWidgetContext,
         OnEvent, StyleProp, Units, WidgetParam,
     },
-    widgets::{BackgroundBundle, ElementBundle, KImage, KImageBundle},
+    widgets::{ElementBundle, KImage, KImageBundle},
     KayakUIPlugin,
 };
 
@@ -102,14 +102,12 @@ pub fn render(
     let Some((rect, surface, popups)) = try_get!(window_query, props.entity) else {
         return true;
     };
-    // let bbox_loc = rect.0.loc + offset.0.loc;
     let image_rect = surface.image_rect().offset(rect.pos());
     let root_style = KStyle {
         left: StyleProp::Inherit,
         right: StyleProp::Inherit,
         top: StyleProp::Inherit,
         bottom: StyleProp::Inherit,
-        // background_color:Color::rgba_u8(255, 0, 0, 64).into(),
         position_type: KPositionType::SelfDirected.into(),
         ..Default::default()
     };
@@ -129,7 +127,6 @@ pub fn render(
         top: StyleProp::Inherit,
         bottom: StyleProp::Inherit,
         position_type: KPositionType::SelfDirected.into(),
-        // background_color: Color::WHITE.into(),
         ..Default::default()
     };
 
@@ -155,12 +152,9 @@ pub fn render(
     );
     rsx! {
         <ElementBundle styles={root_style} >
-            <BackgroundBundle
-                styles={bbox_style.clone()}
-            />
             <KImageBundle
                 image={KImage(surface.image.clone())}
-                styles={bbox_style.clone()}
+                styles={bbox_style}
             ></KImageBundle>
             {
                 if let Some(popups)=popups {
