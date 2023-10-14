@@ -1,5 +1,4 @@
 use bevy::{input::mouse::MouseButtonInput, math::DVec2};
-
 use crate::{
     geometry::{Geometry, GlobalGeometry},
     input::time,
@@ -11,12 +10,11 @@ use crate::{
         surface::WlSurface,
     },
 };
-
 use super::{grab::Grab, seat::WlSeat};
 
-#[derive(Component, Reflect, FromReflect)]
+#[derive(Component, Reflect)]
 pub struct WlPointer {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: wl_pointer::WlPointer,
     #[reflect(ignore)]
     pub focus: Option<wl_surface::WlSurface>,

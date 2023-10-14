@@ -1,6 +1,6 @@
 use bevy::{
     prelude::*,
-    window::{InternalWindowState, PresentMode, WindowLevel, WindowMode, WindowResolution},
+    window::{PresentMode, WindowLevel, WindowMode, WindowResolution},
 };
 
 use crate::drm::{connectors::Connector, surface::DrmSurface};

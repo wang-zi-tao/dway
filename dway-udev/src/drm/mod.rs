@@ -1,7 +1,6 @@
 pub mod connectors;
 pub mod planes;
 pub mod surface;
-pub mod util;
 
 use crate::drm::surface::DrmSurface;
 use crate::failure::DWayTTYError::*;
@@ -10,6 +9,7 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
 use bevy::prelude::*;
+use bevy::render::Render;
 use bevy::render::RenderApp;
 use bevy::utils::tracing;
 use bevy::utils::HashMap;
@@ -18,7 +18,7 @@ use drm::Driver;
 use drm::{
     control::{
         atomic::AtomicModeReq, connector, crtc, framebuffer, plane, property, AtomicCommitFlags,
-        Device as DrmControlDevice, PageFlipEvent, PropertyValueSet, ResourceHandle, VblankEvent,
+        Device as DrmControlDevice, PropertyValueSet, ResourceHandle, VblankEvent,
     },
     Device,
 };
@@ -752,6 +752,7 @@ pub fn on_udev_event(
     }
 }
 
+#[derive(Event)]
 pub struct DrmEvent {
     pub entity: Entity,
     pub event: drm::control::Event,
@@ -800,11 +801,13 @@ pub fn recevie_drm_events(
 pub struct DrmPlugin;
 impl Plugin for DrmPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(setup.on_startup().in_base_set(StartupSet::PreStartup))
-            .add_system(on_udev_event.in_set(DWayTTYSet::UdevSystem));
-        let render_app = app.sub_app_mut(RenderApp);
-        render_app
-            .add_system(recevie_drm_events.in_set(DWayTTYSet::DrmEventSystem))
+        app.add_systems(PreStartup, setup)
+            .add_systems(First, on_udev_event.in_set(DWayTTYSet::UdevSystem));
+        app.sub_app_mut(RenderApp)
+            .add_systems(
+                Render,
+                recevie_drm_events.in_set(DWayTTYSet::DrmEventSystem),
+            )
             .add_event::<DrmEvent>();
     }
 }

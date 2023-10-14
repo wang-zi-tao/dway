@@ -1,13 +1,13 @@
 use bevy::prelude::*;
 use kayak_ui::{prelude::*, widgets::*, KayakUIPlugin};
 
-use crate::widgets::{clock::*, app_entry_list::AppEntryListBundle};
+use crate::widgets::clock::*;
 
 #[derive(Default)]
 pub struct DWayPanelPlugin {}
 impl Plugin for DWayPanelPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(setup);
+        app.add_systems(Startup, setup);
     }
 }
 pub fn setup(_commands: Commands) {}
@@ -58,7 +58,6 @@ pub fn panel_render(
             <ElementBundle styles={KStyle {
                 position_type: KPositionType::SelfDirected.into(),
                 layout_type: LayoutType::Row.into(),
-        // width: Units::Pixels(256.0).into(),
                 ..Default::default()
             }} >
                 <ClockBundle props={Clock{format:"%B-%e %A %H:%M:%S".to_string()}} />

@@ -1,10 +1,8 @@
 use crate::create_widget;
 use bevy::prelude::*;
-use chrono::Local;
 use kayak_ui::{
     prelude::*,
     widgets::{TextProps, TextWidgetBundle},
-    KayakUIPlugin,
 };
 
 create_widget!(Logger,LoggerPlugin,LoggerBundle,{ });

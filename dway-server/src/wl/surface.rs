@@ -9,7 +9,7 @@ use crate::{
     schedule::DWayServerSet,
     util::rect::IRect,
     wl::buffer::{UninitedWlBuffer, WlShmBuffer},
-    xdg::{popup::XdgPopup, toplevel::XdgToplevel, XdgSurface},
+    xdg::popup::XdgPopup,
     zwp::dmabufparam::DmaBuffer,
 };
 use std::borrow::Cow;
@@ -52,7 +52,7 @@ pub struct WlSurfaceCommitedState {
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct WlSurface {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: wl_surface::WlSurface,
     pub commited: WlSurfaceCommitedState,
     pub pending: WlSurfacePeddingState,
@@ -209,7 +209,7 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 } else {
                     None
                 };
-                let origin_buffer_entity = state.with_component(resource, |c: &mut WlSurface| {
+                let _origin_buffer_entity = state.with_component(resource, |c: &mut WlSurface| {
                     if resource.version() < 5 {
                         c.pending.position = Some(IVec2::new(x, y));
                     } else if x != 0 || y != 0 {
@@ -438,15 +438,13 @@ impl wayland_server::Dispatch<wl_callback::WlCallback, ()> for DWay {
 pub fn cleanup_buffer(buffer_query: Query<(&WlShmBuffer, &AttachedBy)>) {
     buffer_query.for_each(|(buffer, attached_by)| {
         if attached_by.iter().next().is_some() {
-            let guard = buffer.raw.lock().unwrap();
-            guard.release();
+            buffer.raw.release();
         }
     });
 }
 
 pub fn cleanup_surface(
     mut surface_query: Query<&mut WlSurface>,
-    buffer_query: Query<&mut WlShmBuffer>,
     time: Res<Time>,
 ) {
     surface_query.iter_mut().for_each(|mut surface| {
@@ -460,14 +458,6 @@ pub fn cleanup_surface(
             surface.commited.damages.clear();
         }
         if surface.just_commit {
-            if let Some(_buffer) = surface
-                .commited
-                .buffer
-                .and_then(|e| buffer_query.get(e).ok())
-            {
-                // buffer.raw.release();
-                // debug!(resource=?&buffer.raw,"release buffer");
-            }
             surface.just_commit = false;
         }
     });
@@ -476,9 +466,11 @@ pub fn cleanup_surface(
 pub struct WlSurfacePlugin;
 impl Plugin for WlSurfacePlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(cleanup_surface.in_base_set(CoreSet::First));
-        // app.add_system(cleanup_buffer.in_base_set(CoreSet::First));
-        app.add_system(update_buffer_size.in_set(DWayServerSet::UpdateGeometry));
+        app.add_systems(First, cleanup_surface);
+        app.add_systems(
+            PreUpdate,
+            update_buffer_size.in_set(DWayServerSet::UpdateGeometry),
+        );
         app.register_type::<WlSurface>();
         app.register_relation::<AttachmentRelationship>();
         app.register_relation::<ClientHasSurface>();
@@ -489,7 +481,11 @@ impl Plugin for WlSurfacePlugin {
 pub fn update_buffer_size(
     buffer_query: Query<
         (Option<&WlShmBuffer>, Option<&DmaBuffer>, &AttachedBy),
-        Or<(Changed<WlShmBuffer>, Changed<DmaBuffer>,Changed<AttachedBy>)>,
+        Or<(
+            Changed<WlShmBuffer>,
+            Changed<DmaBuffer>,
+            Changed<AttachedBy>,
+        )>,
     >,
     mut surface_query: Query<&mut WlSurface>,
     mut assets: ResMut<Assets<Image>>,

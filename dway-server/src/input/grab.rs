@@ -30,13 +30,15 @@ pub enum GrabEventKind {
     PointerAxis(MouseWheel, DVec2),
     Keyboard(KeyboardInput, [u32; 4]),
 }
+
+#[derive(Event)]
 pub struct GrabEvent {
     pub seat_entity: Entity,
     pub event_kind: GrabEventKind,
 }
 
 bitflags! {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash, Reflect, FromReflect)]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash, Reflect)]
     pub struct ResizeEdges: u8 {
         const TOP =     0b00000001;
         const BUTTOM =  0b00000010;
@@ -45,7 +47,7 @@ bitflags! {
     }
 }
 
-#[derive(Component, Debug, Default, Reflect, FromReflect)]
+#[derive(Component, Debug, Default, Reflect)]
 #[reflect(Debug)]
 pub enum Grab {
     #[default]
@@ -113,7 +115,7 @@ pub fn on_grab_event(
                     else {
                         return;
                     };
-                    match event_kind {
+                    match &event_kind {
                         GrabEventKind::PointerMove(pos) => {
                             let relative = pos.as_ivec2()
                                 - global_geo.geometry.pos()
@@ -178,7 +180,7 @@ pub fn on_grab_event(
                     else {
                         return;
                     };
-                    match event_kind {
+                    match &event_kind {
                         GrabEventKind::PointerMove(pos) => {
                             let relative = pos.as_ivec2()
                                 - global_geo.geometry.pos()
@@ -311,7 +313,8 @@ impl Plugin for GrabPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Grab>();
         app.add_event::<GrabEvent>();
-        app.add_system(
+        app.add_systems(
+            PreUpdate,
             on_grab_event
                 .run_if(on_event::<GrabEvent>())
                 .in_set(DWayServerSet::GrabInput),

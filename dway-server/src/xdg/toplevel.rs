@@ -18,7 +18,7 @@ pub struct PinedWindow;
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct XdgToplevel {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: xdg_toplevel::XdgToplevel,
     pub title: Option<String>,
     pub app_id: Option<String>,
@@ -122,8 +122,8 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 warn!("TODO: xdg_toplevel::Request::ShowWindowMenu");
             }
             xdg_toplevel::Request::Move { seat, serial } => {
-                if state.entity(*data).contains::<PinedWindow>(){
-                    return
+                if state.entity(*data).contains::<PinedWindow>() {
+                    return;
                 }
                 let rect = state.query::<&Geometry, _, _>(*data, |r| r.geometry);
                 let pos = rect.pos();
@@ -144,8 +144,8 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 serial,
                 edges,
             } => {
-                if state.entity(*data).contains::<PinedWindow>(){
-                    return
+                if state.entity(*data).contains::<PinedWindow>() {
+                    return;
                 }
                 let edges = match edges {
                     WEnum::Value(xdg_toplevel::ResizeEdge::Top) => ResizeEdges::TOP,
@@ -185,15 +185,15 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 );
             }
             xdg_toplevel::Request::SetMaxSize { width, height } => {
-                if let Some(mut c)=state.get_mut::<XdgToplevel>(*data){
-                    if c.max_size != Some(IVec2::new(width, height)){
+                if let Some(mut c) = state.get_mut::<XdgToplevel>(*data) {
+                    if c.max_size != Some(IVec2::new(width, height)) {
                         c.max_size = Some(IVec2::new(width, height))
                     }
                 }
             }
             xdg_toplevel::Request::SetMinSize { width, height } => {
-                if let Some(mut c)=state.get_mut::<XdgToplevel>(*data){
-                    if c.min_size != Some(IVec2::new(width, height)){
+                if let Some(mut c) = state.get_mut::<XdgToplevel>(*data) {
+                    if c.min_size != Some(IVec2::new(width, height)) {
                         c.min_size = Some(IVec2::new(width, height))
                     }
                 }
@@ -244,7 +244,7 @@ pub fn process_window_action_event(
     for e in events.iter() {
         match e {
             WindowAction::Close(e) => {
-                if let Ok((mut c, s)) = window_query.get_mut(*e) {
+                if let Ok((c, s)) = window_query.get_mut(*e) {
                     c.raw.close();
                     s.configure();
                 }
@@ -277,8 +277,8 @@ pub fn process_window_action_event(
                     s.configure();
                 }
             }
-            WindowAction::Minimize(_) => { },
-            WindowAction::UnMinimize(_) => { },
+            WindowAction::Minimize(_) => {}
+            WindowAction::UnMinimize(_) => {}
             WindowAction::SetRect(e, rect) => {
                 if let Ok((mut c, s)) = window_query.get_mut(*e) {
                     c.size = Some(rect.size());
@@ -296,6 +296,9 @@ impl Plugin for XdgToplevelPlugin {
         app.add_event::<Insert<XdgToplevel>>();
         app.add_event::<Destroy<XdgToplevel>>();
         app.register_type::<XdgToplevel>();
-        app.add_system(process_window_action_event.in_set(DWayServerSet::WindowAction));
+        app.add_systems(
+            Last,
+            process_window_action_event.in_set(DWayServerSet::ProcessWindowAction),
+        );
     }
 }

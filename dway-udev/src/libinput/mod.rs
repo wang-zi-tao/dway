@@ -20,8 +20,8 @@ use bevy::{
 };
 use input::{
     event::{
-        keyboard::{KeyboardEventTrait, KeyboardKeyEvent},
-        pointer::{Axis, PointerAxisEvent, PointerButtonEvent},
+        keyboard::KeyboardEventTrait,
+        pointer::Axis,
         tablet_pad, EventTrait, KeyboardEvent, PointerEvent, TouchEvent,
     },
     Led, Libinput, LibinputInterface,
@@ -127,6 +127,9 @@ pub fn receive_events(
     if let Err(e) = libinput.libinput.dispatch() {
         error!("libinput error: {e}");
     };
+    let Some((default_window_entity, _default_window)) = windows.iter().next() else {
+        return;
+    };
     while let Some(event) = libinput.libinput.next() {
         debug!("libinput event: {event:?}");
         match event {
@@ -162,6 +165,7 @@ pub fn receive_events(
                                 tablet_pad::KeyState::Pressed => ButtonState::Pressed,
                                 tablet_pad::KeyState::Released => ButtonState::Released,
                             },
+                            window: default_window_entity,
                         });
                     }
                     _ => {}
@@ -205,17 +209,23 @@ pub fn receive_events(
                             ButtonState::Pressed => button_state.press(button),
                             ButtonState::Released => button_state.release(button),
                         }
-                        button_events.send(MouseButtonInput { button, state });
+                        button_events.send(MouseButtonInput {
+                            button,
+                            state,
+                            window: default_window_entity,
+                        });
                     }
                     PointerEvent::Axis(m) => axis_events.send(MouseWheel {
                         unit: bevy::input::mouse::MouseScrollUnit::Pixel,
                         x: m.axis_value(Axis::Horizontal) as f32,
                         y: m.axis_value(Axis::Vertical) as f32,
+                        window: default_window_entity,
                     }),
                     PointerEvent::ScrollWheel(m) => axis_events.send(MouseWheel {
                         unit: bevy::input::mouse::MouseScrollUnit::Pixel,
                         x: m.scroll_value_v120(Axis::Horizontal) as f32,
                         y: m.scroll_value_v120(Axis::Vertical) as f32,
+                        window: default_window_entity,
                     }),
                     PointerEvent::ScrollFinger(m) => {}
                     PointerEvent::ScrollContinuous(m) => {}
@@ -246,14 +256,14 @@ impl Plugin for LibInputPlugin {
     fn build(&self, app: &mut App) {
         let mut seat = app.world.non_send_resource_mut::<SeatState>();
         let libinput = LibinputDevice::new(&mut seat).unwrap();
-        app.insert_non_send_resource(libinput)
+        app.add_systems(First, receive_events.in_set(DWayTTYSet::LibinputSystem))
+            .insert_non_send_resource(libinput)
             .init_resource::<Input<MouseButton>>()
             .init_resource::<Input<KeyCode>>()
             .init_resource::<KeyLockState>()
             .init_resource::<PointerState>()
             .register_type::<KeyLockState>()
             .register_type::<PointerState>()
-            .add_system(receive_events.in_set(DWayTTYSet::LibinputSystem))
             .add_event::<MouseMotion>()
             .add_event::<MouseButtonInput>()
             .add_event::<MouseWheel>()

@@ -1,45 +1,31 @@
 use std::{collections::HashMap, sync::Mutex};
 
+use super::{
+    gles::EglState,
+    util::DWayRenderError,
+    vulkan::{self, VulkanState},
+};
 use crate::{
     prelude::*,
-    render::gles::import_wl_surface,
-    schedule::DWayServerSet,
     state::{WaylandDisplayCreated, WaylandDisplayDestroyed},
     wl::{
-        buffer::{EGLBuffer, UninitedWlBuffer, WlShmBuffer},
+        buffer::{UninitedWlBuffer, WlShmBuffer},
         surface::WlSurface,
     },
     zwp::dmabufparam::DmaBuffer,
 };
-
 use bevy::{
     core::FrameCount,
-    core_pipeline::clear_color::ClearColorConfig,
-    ecs::system::{
-        lifetimeless::{Read, SRes},
-        RemoveResource, SystemState,
-    },
+    ecs::system::SystemState,
     render::{
-        camera::ExtractedCamera,
-        render_asset::{ExtractedAssets, RenderAssets},
-        render_graph::{Node, SlotInfo, SlotType},
-        render_phase::{DrawFunctionId, DrawFunctions, PhaseItem, RenderCommand, RenderPhase},
+        render_asset::RenderAssets,
+        render_graph::Node,
         renderer::{RenderDevice, RenderQueue},
         texture::GpuImage,
-        view::{ExtractedView, NonSendMarker, ViewTarget},
+        view::NonSendMarker,
         Extract,
     },
-    utils::{tracing, HashSet},
-};
-
-use wgpu::{LoadOp, Operations, RenderPassDescriptor};
-
-use super::gles;
-use super::vulkan;
-use super::{
-    gles::{bind_wayland, EglState},
-    util::{with_hal, DWayRenderError},
-    vulkan::VulkanState,
+    utils::HashSet,
 };
 
 #[derive(Default, Debug)]
@@ -56,6 +42,8 @@ pub struct ImportState {
     pub removed_image: Vec<Handle<Image>>,
     pub image_set: HashSet<Handle<Image>>,
 }
+
+#[derive(Debug)]
 pub enum ImportStateKind {
     Egl(EglState),
     Vulkan(VulkanState),
@@ -120,21 +108,22 @@ pub fn extract_surface(
             continue;
         };
 
-        let entity = if let Ok(buffer) = shm_buffer_query.get(buffer_entity) {
+        if let Ok(buffer) = shm_buffer_query.get(buffer_entity) {
             commands.spawn((surface.clone(), buffer.clone()));
         } else if let Ok(dma_buffer) = dma_buffer_query.get(buffer_entity) {
-            let mut entity_mut = commands.spawn((surface.clone(), dma_buffer.clone()));
+            commands.spawn((surface.clone(), dma_buffer.clone()));
         } else if let Ok(egl_buffer) = egl_buffer_query.get(buffer_entity) {
-            let mut entity_mut = commands.spawn((surface.clone(), egl_buffer.clone()));
+            commands.spawn((surface.clone(), egl_buffer.clone()));
         } else {
             error!(entity=?buffer_entity,"buffer not found");
         };
+        debug!("extract wayland buffer: {buffer_entity:?}");
         state.image_set.insert(surface.image.clone_weak());
     }
     for WaylandDisplayCreated(entity, display_handle) in create_events.iter() {
         wayland_map.map.insert(*entity, display_handle.clone());
     }
-    for WaylandDisplayDestroyed(entity, display_handle) in destroy_events.iter() {
+    for WaylandDisplayDestroyed(entity, _display_handle) in destroy_events.iter() {
         wayland_map.map.remove(entity);
     }
     for event in image_events.iter() {
@@ -146,14 +135,9 @@ pub fn extract_surface(
 }
 
 pub fn prepare_surfaces(
-    surface_query: Query<(
-        &WlSurface,
-        Option<&WlShmBuffer>,
-        Option<&DmaBuffer>,
-        Option<&UninitedWlBuffer>,
-    )>,
+    surface_query: Query<(&WlSurface, Option<&WlShmBuffer>, Option<&DmaBuffer>)>,
     render_device: Res<RenderDevice>,
-    mut import_state: ResMut<ImportState>,
+    import_state: ResMut<ImportState>,
     mut images: ResMut<RenderAssets<Image>>,
 ) {
     let mut state_guard = import_state.inner.lock().unwrap();
@@ -168,7 +152,7 @@ pub fn prepare_surfaces(
     let Some(state_guard) = state_guard.as_mut() else {
         return;
     };
-    surface_query.for_each(|(surface, shm_buffer, dma_buffer, uninitede_buffer)| {
+    surface_query.for_each(|(surface, _shm_buffer, dma_buffer)| {
         match state_guard {
             ImportStateKind::Egl(_) => {}
             ImportStateKind::Vulkan(vulkan) => {
@@ -176,7 +160,6 @@ pub fn prepare_surfaces(
                     vulkan,
                     render_device.wgpu_device(),
                     surface,
-                    shm_buffer,
                     dma_buffer,
                     &mut images,
                 ) {
@@ -185,16 +168,6 @@ pub fn prepare_surfaces(
             }
         };
     });
-    for image in import_state.removed_image.iter() {
-        match state_guard {
-            ImportStateKind::Egl(_) => {}
-            ImportStateKind::Vulkan(vulkan) => {
-                // if let Err(e) = vulkan::remove_image(vulkan, render_device.wgpu_device(), image) {
-                //     error!("{e}");
-                // };
-            }
-        };
-    }
 }
 
 pub struct ImportSurfacePassNode {
@@ -229,12 +202,12 @@ impl ImportSurfacePassNode {
 impl Node for ImportSurfacePassNode {
     fn run(
         &self,
-        graph: &mut bevy::render::render_graph::RenderGraphContext,
-        render_context: &mut bevy::render::renderer::RenderContext,
+        _graph: &mut bevy::render::render_graph::RenderGraphContext,
+        _render_context: &mut bevy::render::renderer::RenderContext,
         world: &bevy::prelude::World,
     ) -> Result<(), bevy::render::render_graph::NodeRunError> {
         let mut guard = self.state.lock().unwrap();
-        let (render_device,render_queue, textures, import_state, surface_query) = guard.get(world);
+        let (render_device, render_queue, textures, import_state, surface_query) = guard.get(world);
         surface_query.for_each(|(entity, surface, buffer, dma_buffer, egl_buffer)| {
             let texture: &GpuImage = textures.get(&surface.image).unwrap();
             let mut state = import_state.inner.lock().unwrap();
@@ -248,17 +221,9 @@ impl Node for ImportSurfacePassNode {
                     render_device.wgpu_device(),
                     gles,
                 ),
-                Some(ImportStateKind::Vulkan(vulkan)) => super::vulkan::import_wl_surface(
-                    surface,
-                    buffer,
-                    dma_buffer,
-                    egl_buffer,
-                    &texture.texture,
-                    render_device.wgpu_device(),
-                    &render_queue,
-                    render_context,
-                    vulkan,
-                ),
+                Some(ImportStateKind::Vulkan(_)) => {
+                    super::vulkan::import_wl_surface(buffer, &texture.texture, &render_queue)
+                }
                 None => return,
             };
 
@@ -278,10 +243,6 @@ impl Node for ImportSurfacePassNode {
         });
 
         Ok(())
-    }
-
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
     }
 
     fn update(&mut self, world: &mut bevy::prelude::World) {

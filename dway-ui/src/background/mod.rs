@@ -4,20 +4,11 @@ use kayak_ui::{prelude::*, KayakUIPlugin};
 #[derive(Default)]
 pub struct DWayBackgroundPlugin {}
 impl Plugin for DWayBackgroundPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_startup_system(add_background);
-    }
+    fn build(&self, app: &mut bevy::prelude::App) {}
 }
 
 impl KayakUIPlugin for DWayBackgroundPlugin {
-    fn build(&self, _context: &mut kayak_ui::prelude::KayakRootContext) {
-        // context.add_widget_data::<DWayBackgroundProps, DWayBackgroundStates>();
-        // context.add_widget_system(
-        //     DWayBackgroundProps::default().get_name(),
-        //     widget_update::<DWayBackgroundProps, DWayBackgroundStates>,
-        //     render,
-        // );
-    }
+    fn build(&self, _context: &mut kayak_ui::prelude::KayakRootContext) {}
 }
 
 #[derive(Component, Clone, PartialEq, Default)]
@@ -43,54 +34,3 @@ impl Default for DWayBackgroundBundle {
         }
     }
 }
-pub fn add_background(mut commands: Commands, assets: ResMut<AssetServer>) {
-    let image = assets.load("background.jpg");
-    commands.spawn(ImageBundle {
-        style: Style {
-            position_type: PositionType::Absolute,
-            position: UiRect::all(Val::Px(0.0)),
-            ..Default::default()
-        },
-        // image_mode: bevy::ui::widget::ImageMode::KeepAspect,
-        image: UiImage::new(image),
-        focus_policy: bevy::ui::FocusPolicy::Pass,
-        ..Default::default()
-    });
-}
-// pub fn render(
-//     In((widget_context, entity)): In<(KayakWidgetContext, Entity)>,
-//     mut commands: Commands,
-//     query: Query<&DWayBackgroundStates>,
-//     assets: ResMut<AssetServer>,
-// ) -> bool {
-//     let state_entity =
-//         widget_context.use_state(&mut commands, entity, DWayBackgroundStates::default());
-//     let image = assets.load("background.jpg");
-//     if let Ok(status) = query.get(state_entity) {
-//         let parent_id = Some(entity);
-//
-//         rsx! {
-//             // <ElementBundle
-//             // styles={KStyle {
-//             //     layout_type:LayoutType::Column.into(),
-//             //     position_type: KPositionType::SelfDirected.into(),
-//             //     ..Default::default()
-//             // }}
-//             // >
-//                 <KImageBundle
-//                 image={KImage(image)}
-//                 styles={KStyle{
-//                     left:Units::Pixels(0.0).into(),
-//                     right:Units::Pixels(0.0).into(),
-//                     top:Units::Pixels(0.0).into(),
-//                     bottom:Units::Pixels(0.0).into(),
-//                 position_type: KPositionType::SelfDirected.into(),
-//                     // z_index: (-1024).into(),
-//                     ..Default::default()
-//                 }}
-//                 />
-//             // </ElementBundle>
-//         };
-//     }
-//     true
-// }

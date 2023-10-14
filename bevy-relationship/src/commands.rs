@@ -34,7 +34,7 @@ where
     R::From: ConnectableMut + Default,
     R::To: ConnectableMut + Default,
 {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         if world.get_entity(self.to).is_none() {
             return;
         };
@@ -94,7 +94,7 @@ where
     R::From: ConnectableMut,
     R::To: ConnectableMut,
 {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         if let Some(mut component) = world.get_mut::<R::From>(self.from) {
             component.disconnect(self.to);
         }
@@ -122,7 +122,7 @@ where
     R::From: ConnectableMut,
     R::To: ConnectableMut,
 {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         let mut from_query = world.query::<&mut R::From>();
         let mut to_query = world.query::<&mut R::To>();
         let target = if let Ok(mut from_component) = from_query.get_mut(world, self.from) {
@@ -157,7 +157,7 @@ where
     R::From: ConnectableMut,
     R::To: ConnectableMut,
 {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         let mut from_query = world.query::<&mut R::From>();
         let target = if let Ok(mut from_component) = from_query.get_mut(world, self.from) {
             from_component.drain().collect::<SmallVec<[Entity; 8]>>()
@@ -184,14 +184,14 @@ where
 
 pub struct DespawnRecursiveCommand(pub Entity);
 impl Command for DespawnRecursiveCommand {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         despawn_recursive(world, self.0);
     }
 }
 
 pub struct DespawnCommand(pub Entity);
 impl Command for DespawnCommand {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         despawn(world, self.0);
     }
 }

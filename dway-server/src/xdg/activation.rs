@@ -15,7 +15,7 @@ impl SurfaceActivate {
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct XdgActivation {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: xdg_activation_v1::XdgActivationV1,
 }
 impl XdgActivation {
@@ -31,11 +31,11 @@ impl Drop for XdgActivation {
 impl Dispatch<xdg_activation_v1::XdgActivationV1, Entity> for DWay {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &xdg_activation_v1::XdgActivationV1,
         request: <xdg_activation_v1::XdgActivationV1 as WlResource>::Request,
         data: &Entity,
-        dhandle: &DisplayHandle,
+        _dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span =
@@ -69,10 +69,10 @@ impl Dispatch<xdg_activation_v1::XdgActivationV1, Entity> for DWay {
 impl GlobalDispatch<xdg_activation_v1::XdgActivationV1, Entity> for DWay {
     fn bind(
         state: &mut Self,
-        handle: &DisplayHandle,
+        _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<xdg_activation_v1::XdgActivationV1>,
-        global_data: &bevy::prelude::Entity,
+        _global_data: &bevy::prelude::Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         state.bind(client, resource, data_init, |o| XdgActivation::new(o));

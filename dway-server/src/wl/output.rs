@@ -17,7 +17,7 @@ use super::surface::{ClientHasSurface, WlSurface};
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct WlOutput {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: wl_output::WlOutput,
 }
 
@@ -114,8 +114,13 @@ impl GlobalDispatch<wl_output::WlOutput, Entity> for DWay {
 pub struct WlOutputPlugin;
 impl Plugin for WlOutputPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(create_global_system_config::<wl_output::WlOutput, 4>());
-        app.add_system(surface_enter_output.in_set(DWayServerSet::UpdateJoin));
+        app.add_systems(
+            PreUpdate,
+            (
+                create_global_system_config::<wl_output::WlOutput, 4>(),
+                surface_enter_output.in_set(DWayServerSet::UpdateJoin),
+            ),
+        );
         app.register_type::<HashSet<Entity>>();
         app.register_type::<WlOutput>();
         app.register_relation::<ClientHasOutput>();

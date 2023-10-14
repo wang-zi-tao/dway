@@ -36,6 +36,7 @@ impl Plugin for DWayInputPlugin {
         // app.add_system(print_pick_events.label(WindowLabel::Input));
         use DWayClientSystem::*;
         app.add_systems(
+            PreUpdate,
             (
                 mouse_move_on_window.run_if(on_event::<CursorMoved>()),
                 cursor_move_on_window.run_if(on_event::<MouseMotion>()),
@@ -46,8 +47,8 @@ impl Plugin for DWayInputPlugin {
                 .in_set(DWayServerSet::Input),
         );
         if self.debug | true {
-            app.add_startup_system(setup_debug_cursor);
-            app.add_system(debug_follow_cursor.in_set(UpdateUI));
+            app.add_systems(Startup, setup_debug_cursor);
+            app.add_systems(PreUpdate, debug_follow_cursor.in_set(UpdateUI));
         }
     }
 }
@@ -62,12 +63,10 @@ pub fn setup_debug_cursor(mut commands: Commands) {
             background_color: Color::rgba_linear(0.5, 0.5, 0.5, 0.5).into(),
             style: Style {
                 position_type: PositionType::Absolute,
-                position: UiRect {
-                    left: Val::Px(0.0),
-                    top: Val::Px(0.0),
-                    ..default()
-                },
-                size: Size::new(Val::Px(16.0), Val::Px(16.0)),
+                left: Val::Px(0.0),
+                top: Val::Px(0.0),
+                width: Val::Px(16.0),
+                height: Val::Px(16.0),
                 ..default()
             },
             z_index: ZIndex::Global(1024),
@@ -92,11 +91,8 @@ pub fn debug_follow_cursor(
         )
             .into();
         let mut cursor = cursor.single_mut();
-        cursor.position = UiRect {
-            left: Val::Px(pos.x),
-            top: Val::Px(pos.y),
-            ..default()
-        };
+        cursor.left = Val::Px(pos.x);
+        cursor.top = Val::Px(pos.y);
     }
 }
 graph_query!(KeyboardInputGraph=>[

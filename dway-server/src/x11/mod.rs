@@ -1,25 +1,25 @@
 mod display;
 pub mod events;
-use std::sync::Arc;
-
 pub use display::*;
 pub mod screen;
 pub mod util;
 pub mod window;
 use dway_winit::FrameConditionSchedule;
-
 use crate::{
-    client::{self, Client, ClientData, ClientEvents},
+    client::{Client, ClientEvents},
     prelude::*,
-    schedule::{DWayServerSet, DWayStartSet},
+    schedule::DWayServerSet,
     state::{on_create_display_event, DWayDisplay, DWayWrapper, WaylandDisplayCreated},
 };
 
 relationship!(XDisplayHasWindow=>XWindowList-<XDisplayRef);
 
 use self::{
-    events::{dispatch_x11_events, flush_xwayland, x11_frame_condition},
-    window::{x11_window_attach_wl_surface, MappedXWindow, XWindow, XWindowAttachSurface, process_window_action_events},
+    events::{dispatch_x11_events, x11_frame_condition},
+    window::{
+        process_window_action_events, x11_window_attach_wl_surface, MappedXWindow, XWindow,
+        XWindowAttachSurface,
+    },
 };
 
 #[derive(Bundle)]
@@ -47,6 +47,7 @@ pub fn launch_xwayland(
     }
 }
 
+#[derive(Event)]
 pub struct DWayXWaylandReady {
     pub dway_entity: Entity,
 }
@@ -56,6 +57,8 @@ impl DWayXWaylandReady {
         Self { dway_entity }
     }
 }
+
+#[derive(Event)]
 pub struct DWayXWaylandStoped {
     pub dway_entity: Entity,
 }
@@ -70,27 +73,32 @@ relationship!(DWayHasXWayland=>XWaylandRef--DWayRef);
 pub struct DWayXWaylandPlugin;
 impl Plugin for DWayXWaylandPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            (
-                launch_xwayland.run_if(on_event::<WaylandDisplayCreated>()),
-                apply_system_buffers,
-            )
-                .chain()
-                .in_set(DWayServerSet::Create)
-                .after(on_create_display_event),
-        );
         if app.get_schedule(FrameConditionSchedule).is_some() {
-            app.add_system(x11_frame_condition.in_schedule(FrameConditionSchedule));
+            app.add_systems(FrameConditionSchedule, x11_frame_condition);
         }
-        app.add_system(dispatch_x11_events.in_set(DWayServerSet::Dispatch));
-        app.register_relation::<XDisplayHasWindow>();
-        app.add_system(x11_window_attach_wl_surface.in_set(DWayServerSet::UpdateXWayland));
-        app.add_system(process_window_action_events.in_set(DWayServerSet::WindowAction));
-        // app.add_system(flush_xwayland.in_set(DWayServerSet::PostUpdate));
+        app.add_systems(
+            PreUpdate,
+            (
+                (
+                    launch_xwayland.run_if(on_event::<WaylandDisplayCreated>()),
+                    apply_deferred,
+                )
+                    .chain()
+                    .in_set(DWayServerSet::Create)
+                    .after(on_create_display_event),
+                dispatch_x11_events.in_set(DWayServerSet::Dispatch),
+                x11_window_attach_wl_surface.in_set(DWayServerSet::UpdateXWayland),
+            ),
+        );
+        app.add_systems(
+            Last,
+            process_window_action_events.in_set(DWayServerSet::ProcessWindowAction),
+        );
         app.register_type::<XWindow>();
         app.register_type::<MappedXWindow>();
         app.add_event::<DWayXWaylandReady>();
         app.add_event::<DWayXWaylandStoped>();
+        app.register_relation::<XDisplayHasWindow>();
         app.register_relation::<DWayHasXWayland>();
         app.register_relation::<XWindowAttachSurface>();
     }

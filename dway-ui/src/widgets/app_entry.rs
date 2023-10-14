@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use dway_client_core::desktop::{FocusedWindow, CursorOnWindow};
+use dway_client_core::desktop::FocusedWindow;
 use dway_server::apps::DesktopEntry;
 use kayak_ui::{prelude::*, widgets::*};
 

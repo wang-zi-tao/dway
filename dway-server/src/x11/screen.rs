@@ -7,7 +7,7 @@ use crate::{
 
 use super::window::XWindow;
 
-#[derive(Component, Debug, Reflect, FromReflect)]
+#[derive(Component, Debug, Reflect)]
 pub struct XScreen {
     pub raw: Screen,
 }

@@ -1,68 +1,39 @@
-use crate::prelude::*;
-use crate::util::rect::IRect;
-use crate::wl::buffer::UninitedWlBuffer;
-use crate::wl::buffer::WlShmBuffer;
-use crate::wl::buffer::WlShmPoolInner;
-use crate::wl::surface::WlSurface;
-use crate::zwp::dmabufparam::DmaBuffer;
-use anyhow::anyhow;
-use anyhow::bail;
-use anyhow::Result;
-use ash::extensions::ext::PhysicalDeviceDrm;
-use ash::extensions::khr::ExternalMemoryFd;
-use ash::extensions::khr::Maintenance4;
-use ash::prelude::*;
-use ash::vk;
-use ash::vk::*;
-use ash::Device;
-use ash::RawPtr;
-use bevy::asset::Handle;
-use bevy::prelude::IVec2;
-use bevy::prelude::Vec2;
-use bevy::render::render_asset::RenderAssets;
-use bevy::render::renderer::RenderContext;
-use bevy::render::renderer::RenderQueue;
-use bevy::render::texture::GpuImage;
-use bevy::utils::Entry;
-use bevy::utils::HashMap;
-use bevy::utils::HashSet;
+use super::{
+    drm::{DrmInfo, DrmNode},
+    util::DWayRenderError::{self, *},
+};
+use crate::{
+    prelude::*,
+    util::rect::IRect,
+    wl::{
+        buffer::{WlShmBuffer, WlShmPoolInner},
+        surface::WlSurface,
+    },
+    zwp::dmabufparam::DmaBuffer,
+};
+use anyhow::{anyhow, bail, Result};
+use ash::{
+    extensions::{ext::PhysicalDeviceDrm, khr::ExternalMemoryFd},
+    vk::{self, *},
+};
+use bevy::{
+    prelude::IVec2,
+    render::{render_asset::RenderAssets, texture::GpuImage},
+    utils::{Entry, HashMap},
+};
 use bevy_relationship::reexport::SmallVec;
-use drm_fourcc::DrmFormat;
-use drm_fourcc::DrmFourcc;
-use drm_fourcc::DrmModifier;
+use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use nix::libc::makedev;
-use scopeguard::defer;
-use std::ffi::CStr;
-use std::os::fd::AsFd;
-use std::os::fd::AsRawFd;
-use std::ptr::null;
-use std::sync::Arc;
-use std::sync::RwLock;
-use wayland_server::protocol::wl_buffer;
-use wayland_server::protocol::wl_shm;
-use wayland_server::Resource;
-use wgpu::util::DeviceExt;
-use wgpu::CommandEncoder;
-use wgpu::Extent3d;
-use wgpu::FilterMode;
-use wgpu::ImageCopyTexture;
-use wgpu::SamplerDescriptor;
-use wgpu::TextureAspect;
-use wgpu::TextureDimension;
-use wgpu::TextureFormat;
-use wgpu_hal::api::Vulkan;
-use wgpu_hal::vulkan::Texture;
-use wgpu_hal::CommandEncoderDescriptor;
-use wgpu_hal::Device as HalDevice;
-use wgpu_hal::MemoryFlags;
-use wgpu_hal::TextureDescriptor;
-use wgpu_hal::TextureUses;
-
-use super::drm::DrmInfo;
-use super::drm::DrmNode;
-use super::importnode::RenderImage;
-use super::util::DWayRenderError;
-use super::util::DWayRenderError::*;
+use std::{
+    ffi::CStr,
+    os::fd::{AsFd, AsRawFd},
+    sync::{Arc, RwLock},
+};
+use wayland_server::protocol::{wl_buffer, wl_shm};
+use wgpu::{
+    Extent3d, FilterMode, ImageCopyTexture, SamplerDescriptor, TextureAspect, TextureDimension,
+};
+use wgpu_hal::{api::Vulkan, MemoryFlags, TextureUses};
 
 pub const MEM_PLANE_ASCPECT: [ImageAspectFlags; 4] = [
     ImageAspectFlags::MEMORY_PLANE_0_EXT,
@@ -93,7 +64,6 @@ pub fn convert_wl_format(
         wl_shm::Format::Xrgb8888 => (Format::B8G8R8A8_SRGB, wgpu::TextureFormat::Bgra8Unorm),
         wl_shm::Format::Abgr8888 => (Format::R8G8B8A8_SRGB, wgpu::TextureFormat::Bgra8Unorm),
         wl_shm::Format::Xbgr8888 => (Format::R8G8B8A8_SRGB, wgpu::TextureFormat::Bgra8Unorm),
-        _ => todo!(),
         f => return Err(UnsupportedFormat(f)),
     })
 }
@@ -105,7 +75,7 @@ pub fn convert_drm_format(
         DrmFourcc::Argb8888 => (Format::B8G8R8A8_SRGB, wgpu::TextureFormat::Bgra8Unorm),
         DrmFourcc::Xrgb8888 => (Format::B8G8R8A8_SRGB, wgpu::TextureFormat::Bgra8Unorm),
         DrmFourcc::Abgr8888 => (Format::R8G8B8A8_SRGB, wgpu::TextureFormat::Bgra8Unorm),
-        DrmFourcc::Abgr8888 => (Format::R8G8B8A8_SRGB, wgpu::TextureFormat::Bgra8Unorm),
+        DrmFourcc::Xbgr8888 => (Format::R8G8B8A8_SRGB, wgpu::TextureFormat::Bgra8Unorm),
         f => return Err(UnsupportedDrmFormat(f)),
     })
 }
@@ -121,8 +91,6 @@ pub fn drm_info(render_device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError
             let raw_phy = hal_device.raw_physical_device();
 
             let mut formats = Vec::new();
-            let phy_info = instance.get_physical_device_properties(raw_phy);
-
             for fourcc in SUPPORTED_FORMATS {
                 let vk_format = convert_drm_format(fourcc)?.0;
 
@@ -355,7 +323,7 @@ pub fn create_shm_image(
             image,
             fence,
             memory: SmallVec::from_slice(&[memory]),
-            buffer_to_release: Some(buffer.raw.lock().unwrap().clone()),
+            buffer_to_release: Some(buffer.raw.clone()),
             shm_pool: Some(buffer.pool.clone()),
         })
     }
@@ -432,7 +400,7 @@ pub unsafe fn hal_texture_to_gpuimage(
         min_filter: FilterMode::Nearest,
         mipmap_filter: FilterMode::Nearest,
         compare: None,
-        anisotropy_clamp: None,
+        anisotropy_clamp: 1,
         border_color: None,
         address_mode_u: Default::default(),
         address_mode_v: Default::default(),
@@ -450,21 +418,10 @@ pub unsafe fn hal_texture_to_gpuimage(
     }
 }
 
-pub unsafe fn import_dma(
-    device: &wgpu::Device,
-    render_context: &mut CommandEncoder,
-    buffer: &DmaBuffer,
-    dest: vk::Image,
-    surface: &WlSurface,
-) -> Result<(), DWayRenderError> {
-    Ok(())
-}
-
 pub unsafe fn import_shm(
     queue: &wgpu::Queue,
     shm_buffer: &WlShmBuffer,
     texture: &wgpu::Texture,
-    surface: &WlSurface,
 ) -> Result<()> {
     let buffer_guard = shm_buffer.pool.read().unwrap();
     let size = shm_buffer.size;
@@ -496,7 +453,6 @@ pub unsafe fn import_shm(
             },
             data,
             wgpu::ImageDataLayout {
-                // offset: 4 * (shm_buffer.stride * rect.y() + rect.x()) as u64, // TODO
                 offset: 0,
                 bytes_per_row: (shm_buffer.stride as u32).try_into().ok(),
                 rows_per_image: None,
@@ -509,13 +465,6 @@ pub unsafe fn import_shm(
         );
     };
     emit_rect(image_area);
-    // if surface.commited.damages.is_empty() { // TODO
-    //     emit_rect(image_area);
-    // } else {
-    //     for &region in &surface.commited.damages {
-    //         emit_rect(region);
-    //     }
-    // }
 
     Ok(())
 }
@@ -524,17 +473,16 @@ pub fn prepare_wl_surface(
     state: &mut VulkanState,
     device: &wgpu::Device,
     surface: &WlSurface,
-    shm_buffer: Option<&WlShmBuffer>,
     dma_buffer: Option<&DmaBuffer>,
     image_assets: &mut RenderAssets<bevy::render::texture::Image>,
 ) -> Result<()> {
     unsafe {
         if let Some(dma_buffer) = dma_buffer {
             match state.image_map.entry(dma_buffer.raw.clone()) {
-                Entry::Occupied(mut o) => {
+                Entry::Occupied(o) => {
                     image_assets.insert(surface.image.clone(), o.get().1.clone());
                 }
-                Entry::Vacant(mut v) => {
+                Entry::Vacant(v) => {
                     let (size, format, image) = device.as_hal::<Vulkan, _, _>(|hal_device| {
                         let hal_device = hal_device.ok_or_else(|| BackendIsNotVulkan)?;
                         let size = dma_buffer.size;
@@ -557,36 +505,16 @@ pub fn prepare_wl_surface(
     }
 }
 
-pub fn remove_image(
-    state: &mut VulkanState,
-    device: &wgpu::Device,
-    image: &Handle<bevy::render::texture::Image>,
-) -> Result<()> {
-    todo!()
-}
-
 #[tracing::instrument(skip_all)]
 pub fn import_wl_surface(
-    surface: &WlSurface,
     shm_buffer: Option<&WlShmBuffer>,
-    dma_buffer: Option<&DmaBuffer>,
-    egl_buffer: Option<&UninitedWlBuffer>,
     texture: &wgpu::Texture,
-    device: &wgpu::Device,
     queue: &wgpu::Queue,
-    render_context: &mut RenderContext,
-    state: &mut VulkanState,
 ) -> Result<(), DWayRenderError> {
     unsafe {
-        let mut image = None;
-        texture.as_hal::<Vulkan, _>(|texture| image = texture.map(|t| t.raw_handle()));
-        let Some(image) = image else {
-            return Err(BackendIsNotVulkan);
-        };
         if let Some(shm_buffer) = shm_buffer {
-            import_shm(queue, shm_buffer, texture, surface)?;
+            import_shm(queue, shm_buffer, texture)?;
         }
-
         Ok(())
     }
 }

@@ -6,7 +6,7 @@ use proc_macro2::{Ident, TokenStream as TokenStream2};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
 use regex::Regex;
 use syn::{
-    braced, bracketed,
+    bracketed,
     parse::{Parse, ParseStream},
     parse_macro_input,
     spanned::Spanned,
@@ -42,22 +42,7 @@ impl NodeQuery {
             NodeQueryKind::WithFilter { ty, .. } => ty,
         }
     }
-    fn query_type(&self) -> TokenStream2 {
-        match &self.kind {
-            NodeQueryKind::WithoutFilter { ty, .. } => {
-                let span = ty.span();
-                quote_spanned! { span=>
-                    Query<'w, 's, #ty>
-                }
-            }
-            NodeQueryKind::WithFilter { ty, filter, .. } => {
-                let span = ty.span();
-                quote_spanned! { span=>
-                    Query<'w, 's, #ty, #filter>
-                }
-            }
-        }
-    }
+
     fn gen_query(&self) -> TokenStream2 {
         let name = &self.name;
         match &self.kind {
@@ -360,6 +345,5 @@ pub fn graph_query(input: TokenStream) -> TokenStream {
             #(#for_each_mut_function)*
         }
     };
-    // panic!("{}", output);
     output.into()
 }

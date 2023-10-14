@@ -11,6 +11,7 @@ use schedule::DWayServerSet;
 use state::{create_display, DWayWrapper, NonSendMark, WaylandDisplayCreated};
 use std::process;
 use x11::DWayXWaylandReady;
+pub mod apps;
 pub mod client;
 pub mod dispatch;
 pub mod display;
@@ -31,35 +32,41 @@ pub mod x11;
 pub mod xdg;
 pub mod zwp;
 pub mod zxdg;
-pub mod apps;
 
 #[derive(Default)]
 pub struct DWayServerPlugin;
 impl Plugin for DWayServerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(bevy_tokio_tasks::TokioTasksPlugin::default());
-        app.add_plugin(state::DWayStatePlugin);
-        app.add_plugin(client::ClientPlugin);
-        app.add_plugin(geometry::GeometryPlugin);
-        app.add_plugin(schedule::DWayServerSchedulePlugin);
-        app.add_plugin(events::EventPlugin);
-        app.add_plugin(wl::output::WlOutputPlugin);
-        app.add_plugin(wl::surface::WlSurfacePlugin);
-        app.add_plugin(wl::buffer::WlBufferPlugin);
-        app.add_plugin(wl::region::WlRegionPlugin);
-        app.add_plugin(wl::compositor::WlCompositorPlugin);
-        app.add_plugin(input::seat::WlSeatPlugin);
-        app.add_plugin(render::DWayServerRenderPlugin);
-        app.add_plugin(xdg::XdgShellPlugin);
-        app.add_plugin(xdg::toplevel::XdgToplevelPlugin);
-        app.add_plugin(xdg::popup::XdgPopupPlugin);
-        app.add_plugin(zxdg::outputmanager::XdgOutputManagerPlugin);
-        app.add_plugin(wp::PrimarySelectionPlugin);
-        app.add_plugin(x11::DWayXWaylandPlugin);
-        app.add_plugin(zwp::DmaBufferPlugin);
-        app.add_plugin(apps::DesktopEntriesPlugin);
-        app.add_startup_systems((init_display, apply_system_buffers, spawn).chain());
-        app.add_system(
+        app.add_plugins((
+            bevy_tokio_tasks::TokioTasksPlugin::default(),
+            state::DWayStatePlugin,
+            client::ClientPlugin,
+            geometry::GeometryPlugin,
+            schedule::DWayServerSchedulePlugin,
+            events::EventPlugin,
+            input::seat::WlSeatPlugin,
+            render::DWayServerRenderPlugin,
+        ));
+        app.add_plugins((
+            wl::output::WlOutputPlugin,
+            wl::surface::WlSurfacePlugin,
+            wl::buffer::WlBufferPlugin,
+            wl::region::WlRegionPlugin,
+            wl::compositor::WlCompositorPlugin,
+            xdg::XdgShellPlugin,
+            xdg::toplevel::XdgToplevelPlugin,
+            xdg::popup::XdgPopupPlugin,
+            zxdg::outputmanager::XdgOutputManagerPlugin,
+        ));
+        app.add_plugins((
+            wp::PrimarySelectionPlugin,
+            x11::DWayXWaylandPlugin,
+            zwp::DmaBufferPlugin,
+            apps::DesktopEntriesPlugin,
+        ));
+        app.add_systems(Startup, (init_display, apply_deferred, spawn).chain());
+        app.add_systems(
+            PreUpdate,
             spawn_x11
                 .run_if(on_event::<DWayXWaylandReady>())
                 .in_set(DWayServerSet::UpdateXWayland),
@@ -84,7 +91,6 @@ pub fn spawn(query: Query<&DWayWrapper>, tokio: Res<TokioTasksRuntime>) {
     compositor.spawn_process(process::Command::new("gnome-calculator"), &tokio);
     compositor.spawn_process(process::Command::new("gedit"), &tokio);
     compositor.spawn_process(process::Command::new("gnome-system-monitor"), &tokio);
-    compositor.spawn_process(process::Command::new("glxgears"), &tokio);
     compositor.spawn_process(
         process::Command::new(
             "/home/wangzi/.build/5e0dff7f0473a25a4eb0bbaeeda9b3fa091ba89-wgpu/debug/examples/cube",
@@ -111,6 +117,7 @@ pub fn spawn_x11(
     for DWayXWaylandReady { dway_entity } in events.iter() {
         if let Ok(dway) = query.get(*dway_entity) {
             let compositor = dway.lock().unwrap();
+            compositor.spawn_process(process::Command::new("glxgears"), &tokio);
             // compositor.spawn_process_x11(process::Command::new("/mnt/weed/mount/wangzi-nuc/wangzi/workspace/waylandcompositor/source/gtk+-3.24.37/build/examples/sunny"), &tokio);
             // compositor.spawn_process_x11(process::Command::new("gnome-system-monitor"), &tokio);
         }

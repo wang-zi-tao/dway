@@ -77,7 +77,7 @@ pub struct UDevPlugin {
 impl Plugin for UDevPlugin {
     fn build(&self, app: &mut App) {
         app.insert_non_send_resource(UDevMonitor::new(&self.sub_system).unwrap());
-        app.add_system(receive_events.in_set(DWayTTYSet::UdevSystem));
+        app.add_systems(First, receive_events.in_set(DWayTTYSet::UdevSystem));
     }
 }
 
@@ -89,10 +89,12 @@ mod tests {
     #[test]
     pub fn test_udev_plugin() {
         App::new()
-            .add_plugin(LogPlugin::default())
-            .add_plugin(UDevPlugin {
-                sub_system: "drm".into(),
-            })
+            .add_plugins((
+                LogPlugin::default(),
+                UDevPlugin {
+                    sub_system: "drm".into(),
+                },
+            ))
             .update();
     }
 }

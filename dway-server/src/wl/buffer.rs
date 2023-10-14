@@ -2,10 +2,10 @@ use std::{
     num::NonZeroUsize,
     os::fd::{AsRawFd, OwnedFd},
     ptr::NonNull,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, RwLock},
 };
 
-use drm_fourcc::{DrmFourcc, DrmModifier};
+use drm_fourcc::DrmModifier;
 use khronos_egl::EGLDisplay;
 use nix::sys::mman;
 use wayland_server::{Resource, WEnum};
@@ -20,14 +20,14 @@ use super::surface::AttachedBy;
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct WlShmBuffer {
-    #[reflect(ignore)]
-    pub raw: Arc<Mutex<wl_buffer::WlBuffer>>,// TODO remove arc and mutex
+    #[reflect(ignore, default = "unimplemented")]
+    pub raw: wl_buffer::WlBuffer,
     pub offset: i32,
     pub size: IVec2,
     pub stride: i32,
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub format: wl_shm::Format,
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub pool: Arc<RwLock<WlShmPoolInner>>,
 }
 #[derive(Bundle)]
@@ -301,7 +301,7 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                 state.spawn(
                     (id, data_init, |o| {
                         WlMemoryBufferBundle::new(WlShmBuffer {
-                            raw: Arc::new(Mutex::new(o)),
+                            raw: o,
                             offset,
                             size: IVec2::new(width, height),
                             stride,
@@ -382,7 +382,7 @@ impl wayland_server::GlobalDispatch<wl_shm::WlShm, Entity> for DWay {
 pub struct WlBufferPlugin;
 impl Plugin for WlBufferPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(create_global_system_config::<wl_shm::WlShm, 1>());
+        app.add_systems(PreUpdate, create_global_system_config::<wl_shm::WlShm, 1>());
         app.register_type::<WlShmBuffer>();
     }
 }

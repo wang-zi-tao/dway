@@ -1,9 +1,4 @@
-use dway_server::{
-    geometry::{Geometry, GlobalGeometry},
-    schedule::DWayStartSet,
-    util::rect::IRect,
-};
-
+use dway_server::{geometry::{Geometry, GlobalGeometry}, util::rect::IRect};
 use crate::prelude::*;
 
 #[derive(Component)]
@@ -39,6 +34,9 @@ pub fn create_screen(
 pub struct ScreenPlugin;
 impl Plugin for ScreenPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(create_screen.in_set(DWayClientSystem::CreateComponent));
+        app.add_systems(
+            PreUpdate,
+            create_screen.in_set(DWayClientSystem::CreateComponent),
+        );
     }
 }

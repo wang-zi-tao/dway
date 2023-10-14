@@ -1,13 +1,10 @@
 use std::sync::Arc;
-
 use bevy::utils::HashMap;
 use bevy_svg::prelude::Svg;
 use dway_util::try_or;
-use icon_loader::ThemeNameProvider;
-
 use crate::prelude::*;
 
-#[derive(Clone, Debug, Reflect,FromReflect)]
+#[derive(Clone, Debug, Reflect)]
 pub enum IconResorce {
     Image(Handle<Image>),
     Svg(Handle<Svg>),

@@ -5,7 +5,7 @@ pub mod keys;
 // use dway_ui::kayak_ui::{prelude::KayakContextPlugin, widgets::KayakWidgets};
 
 use bevy::{
-    app::{ScheduleRunnerPlugin, ScheduleRunnerSettings},
+    app::ScheduleRunnerPlugin,
     audio::AudioPlugin,
     core::TaskPoolThreadAssignmentPolicy,
     core_pipeline::CorePipelinePlugin,
@@ -87,7 +87,7 @@ fn main() {
                 level: Level::INFO,
                 filter: std::env::var("RUST_LOG").unwrap_or_else(|_| LOG.to_string()),
             })
-            .disable::<PbrPlugin>()
+            // .disable::<PbrPlugin>()
             .disable::<GltfPlugin>()
             .disable::<ScenePlugin>()
             .disable::<WinitPlugin>()
@@ -101,10 +101,10 @@ fn main() {
     );
 
     if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
-        app.insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f32(
+        app.add_plugin(DWayTTYPlugin::default());
+        app.add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f32(
             1.0 / 60.0,
         )));
-        app.add_plugin(DWayTTYPlugin::default());
     } else {
         // app.add_plugin(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
         app.insert_resource(dway_winit::WinitSettings {
@@ -145,6 +145,7 @@ fn main() {
     app.add_startup_system(setup);
     app.add_system(wm_mouse_action);
     app.add_system(wm_keys);
+
     app.run();
 
     // wayland_thread.join().unwrap();

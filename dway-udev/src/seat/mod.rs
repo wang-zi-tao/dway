@@ -31,7 +31,7 @@ impl AsFd for DeviceFd {
 }
 
 #[derive(Getters)]
-#[get="pub"]
+#[get = "pub"]
 pub struct SeatState {
     pub(crate) name: String,
     pub(crate) seat: Arc<Mutex<Seat>>,
@@ -66,7 +66,7 @@ impl SeatState {
 }
 
 pub fn process_seat_event(mut seat: NonSendMut<SeatState>) {
-    if let Err(e) = seat.seat.lock().unwrap().dispatch(0){
+    if let Err(e) = seat.seat.lock().unwrap().dispatch(0) {
         error!("seat error: {e}");
     };
     while let Some(event) = seat.queue.clone().pop() {
@@ -81,7 +81,7 @@ pub struct SeatPlugin;
 impl Plugin for SeatPlugin {
     fn build(&self, app: &mut App) {
         app.insert_non_send_resource(SeatState::new().unwrap())
-            .add_system(process_seat_event.in_set(DWayTTYSet::SeatSystem));
+            .add_systems(First, process_seat_event.in_set(DWayTTYSet::SeatSystem));
     }
 }
 
@@ -93,8 +93,7 @@ mod tests {
     #[test]
     pub fn test_seat_plugin() {
         App::new()
-            .add_plugin(LogPlugin::default())
-            .add_plugin(SeatPlugin)
+            .add_plugins((LogPlugin::default(), SeatPlugin))
             .update();
     }
 }

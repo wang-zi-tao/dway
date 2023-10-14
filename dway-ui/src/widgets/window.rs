@@ -66,7 +66,7 @@ impl Default for WindowBundle {
     }
 }
 
-#[derive(Component, Reflect, FromReflect, Clone, PartialEq, Eq)]
+#[derive(Component, Reflect, Clone, PartialEq, Eq)]
 pub struct WindowUI {
     pub entity: Entity,
 }

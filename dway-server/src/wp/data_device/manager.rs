@@ -6,7 +6,7 @@ use crate::{
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct WlDataDeviceManager {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: wl_data_device_manager::WlDataDeviceManager,
 }
 impl WlDataDeviceManager {

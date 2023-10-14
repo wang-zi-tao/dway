@@ -137,11 +137,13 @@ impl wayland_server::GlobalDispatch<wl_subcompositor::WlSubcompositor, Entity> f
 pub struct WlCompositorPlugin;
 impl Plugin for WlCompositorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(create_global_system_config::<wl_compositor::WlCompositor, 6>());
-        app.add_system(create_global_system_config::<
-            wl_subcompositor::WlSubcompositor,
-            1,
-        >());
+        app.add_systems(
+            PreUpdate,
+            (
+                create_global_system_config::<wl_compositor::WlCompositor, 6>(),
+                create_global_system_config::<wl_subcompositor::WlSubcompositor, 1>(),
+            ),
+        );
         app.register_relation::<HasSubsurface>();
     }
 }

@@ -9,9 +9,9 @@ pub struct DebugPlugin {}
 
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_system(
+        app.add_systems(
+            PostUpdate,
             pring_stage_stack::<DWayClientState>
-                .in_base_set(CoreSet::PostUpdate)
                 .after(DWayClientSystem::UpdateState),
         );
     }

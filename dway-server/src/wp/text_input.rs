@@ -7,7 +7,7 @@ use crate::prelude::*;
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct ZwpTextInput {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: zwp_text_input_v3::ZwpTextInputV3,
 }
 impl ZwpTextInput {
@@ -63,7 +63,7 @@ impl Dispatch<zwp_text_input_v3::ZwpTextInputV3, Entity> for DWay {
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct ZwpTextInputManager {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: zwp_text_input_manager_v3::ZwpTextInputManagerV3,
 }
 impl ZwpTextInputManager {

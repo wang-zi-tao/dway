@@ -252,7 +252,7 @@ impl DWay {
         let world = self.world_mut();
         let command = ConnectCommand::<R>::new(from, to);
         trace!("connect ({:?})-[{}]->({:?})", from, type_name::<R>(), to);
-        command.write(world);
+        command.apply(world);
     }
     pub fn disconnect<R>(&mut self, from: Entity, to: Entity)
     where
@@ -268,7 +268,7 @@ impl DWay {
             type_name::<R>(),
             to
         );
-        command.write(world);
+        command.apply(world);
     }
     pub fn disconnect_all<R>(&mut self, from: Entity)
     where
@@ -283,7 +283,7 @@ impl DWay {
             from,
             type_name::<R>(),
         );
-        command.write(world);
+        command.apply(world);
     }
     pub fn disconnect_all_rev<R>(&mut self, from: Entity)
     where
@@ -298,7 +298,7 @@ impl DWay {
             type_name::<R>(),
             from,
         );
-        command.write(world);
+        command.apply(world);
     }
     pub fn destroy_object(&mut self, object: &impl wayland_server::Resource) {
         let entity = DWay::get_entity(object);
@@ -562,9 +562,15 @@ impl DWay {
     }
 }
 
+#[derive(Event)]
 pub struct CreateDisplay;
+
+#[derive(Event)]
 pub struct WaylandDisplayCreated(pub Entity, pub DisplayHandle);
+
+#[derive(Event)]
 pub struct WaylandDisplayDestroyed(pub Entity, pub DisplayHandle);
+
 pub struct DWayStatePlugin;
 impl Plugin for DWayStatePlugin {
     fn build(&self, app: &mut App) {
@@ -573,22 +579,20 @@ impl Plugin for DWayStatePlugin {
         app.add_event::<WaylandDisplayCreated>();
         app.add_event::<WaylandDisplayDestroyed>();
         app.add_systems(
+            PreUpdate,
             (
                 on_create_display_event.run_if(on_event::<CreateDisplay>()),
-                apply_system_buffers,
+                apply_deferred,
             )
-                .chain()
-                .in_set(DWayServerSet::Create),
+                .chain(),
         );
         if app.get_schedule(FrameConditionSchedule).is_some() {
-            app.add_system(frame_condition.in_schedule(FrameConditionSchedule));
+            app.add_systems(FrameConditionSchedule, frame_condition);
         } else {
-            app.add_system(frame_condition.in_base_set(CoreSet::First));
+            app.add_systems(First, frame_condition);
         }
-        app.add_system(dispatch_events.in_set(DWayServerSet::Dispatch));
-        // app.add_system(flush_display.in_set(DWayServerSet::InputFlush));
-        // app.add_system(flush_display.in_set(DWayServerSet::PostUpdate));
-        app.add_system(flush_display.in_set(DWayServerSet::Last));
+        app.add_systems(PreUpdate, dispatch_events.in_set(DWayServerSet::Dispatch));
+        app.add_systems(Last, flush_display.in_set(DWayServerSet::Clean));
         set_signal_handler();
     }
 }
@@ -730,7 +734,7 @@ pub fn create_global<T, const VERSION: u32>(
         }
     }
 }
-pub fn create_global_system_config<T, const VERSION: u32>() -> bevy::ecs::schedule::SystemConfig
+pub fn create_global_system_config<T, const VERSION: u32>() -> bevy::ecs::schedule::SystemConfigs
 where
     DWay: GlobalDispatch<T, Entity>,
     T: wayland_server::Resource + 'static,
@@ -1008,7 +1012,7 @@ where
             type_name::<R>(),
             target
         );
-        command.write(world);
+        command.apply(world);
         world.entity_mut(entity)
     }
 
@@ -1026,7 +1030,7 @@ where
             type_name::<R>(),
             target
         );
-        command.write(world);
+        command.apply(world);
         world.entity_mut(entity)
     }
 }

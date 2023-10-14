@@ -39,10 +39,10 @@ pub fn convert_keycode(
         KEY_I => I,
         KEY_O => O,
         KEY_P => P,
-        KEY_LEFTBRACE => LBracket,
-        KEY_RIGHTBRACE => RBracket,
+        KEY_LEFTBRACE => BracketLeft,
+        KEY_RIGHTBRACE => BracketRight,
         KEY_ENTER => Return,
-        KEY_LEFTCTRL => LControl,
+        KEY_LEFTCTRL => ControlLeft,
         KEY_A => A,
         KEY_S => S,
         KEY_D => D,
@@ -55,7 +55,7 @@ pub fn convert_keycode(
         KEY_SEMICOLON => Semicolon,
         KEY_APOSTROPHE => Apostrophe,
         KEY_GRAVE => Grave,
-        KEY_LEFTSHIFT => LShift,
+        KEY_LEFTSHIFT => ShiftLeft,
         KEY_BACKSLASH => Backslash,
         KEY_Z => Z,
         KEY_X => X,
@@ -67,8 +67,8 @@ pub fn convert_keycode(
         KEY_COMMA => Comma,
         KEY_DOT => Period,
         KEY_SLASH => Slash,
-        KEY_RIGHTSHIFT => RShift,
-        KEY_LEFTALT => LAlt,
+        KEY_RIGHTSHIFT => ShiftRight,
+        KEY_LEFTALT => AltLeft,
         KEY_SPACE => Space,
         KEY_CAPSLOCK => Capital,
         KEY_F1 => F1,
@@ -108,10 +108,10 @@ pub fn convert_keycode(
         // KEY_MUHENKAN => Key1,
         KEY_KPJPCOMMA => NumpadComma,
         KEY_KPENTER => NumpadEnter,
-        KEY_RIGHTCTRL => RControl,
+        KEY_RIGHTCTRL => ControlRight,
         KEY_KPSLASH => NumpadDivide,
         KEY_SYSRQ => Sysrq,
-        KEY_RIGHTALT => RAlt,
+        KEY_RIGHTALT => AltRight,
         // KEY_LINEFEED => Key1,
         KEY_HOME => Home,
         KEY_UP => Up,
@@ -137,8 +137,8 @@ pub fn convert_keycode(
         // KEY_HANGUEL => Key1,
         // KEY_HANJA => Key1,
         KEY_YEN => Yen,
-        KEY_LEFTMETA => LWin,
-        KEY_RIGHTMETA => RWin,
+        KEY_LEFTMETA => SuperLeft,
+        KEY_RIGHTMETA => SuperRight,
         KEY_COMPOSE => Compose,
         KEY_STOP => Stop,
         // KEY_AGAIN => Key1,
@@ -218,7 +218,7 @@ pub fn convert_keycode(
         }
     };
 
-    let shift = input_state.any_pressed([LShift, RShift]);
+    let shift = input_state.any_pressed([ShiftLeft, ShiftRight]);
 
     if shift {
         keycode = match keycode {
@@ -228,7 +228,7 @@ pub fn convert_keycode(
             Key8 => Asterisk,
             Key9 | Key0 | Minus => return None,
             Equals => Plus,
-            LBracket | RBracket | Backslash => return None,
+            BracketLeft | BracketRight | Backslash => return None,
             Semicolon => Colon,
             Apostrophe => return None,
             Comma | Period | Slash => return None,

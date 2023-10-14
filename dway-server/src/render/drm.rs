@@ -1,35 +1,22 @@
-use super::{
-    gles,
-    util::{egl_check_extensions, get_egl_function, with_gl, DWayRenderError::*, DEVICE_EXT},
-};
+use super::util::DWayRenderError::*;
 use crate::{
     prelude::*,
     util::file::create_sealed_file,
-    zwp::dmabuffeedback::{do_init_feedback, DmabufFeedback},
 };
 use bevy::{
-    render::{renderer::RenderDevice, Extract},
+    render::renderer::RenderDevice,
     utils::tracing,
 };
-use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
-use glow::HasContext;
-use khronos_egl::{Attrib, Boolean, EGLDisplay, Enum, Int};
+use drm_fourcc::DrmFormat;
 use nix::libc::{self, dev_t};
-use scopeguard::defer;
 use std::{
-    any,
-    collections::{BTreeSet, HashSet},
-    ffi::{c_char, CStr, CString, OsString},
+    ffi::{CStr, CString},
     fs::File,
-    ptr::null,
     sync::{
         mpsc::{channel, Receiver, Sender},
         Arc, Mutex,
     },
 };
-use thiserror::Error;
-use wgpu_hal::{api::Gles, gles::AdapterContext, MemoryFlags, TextureUses};
-
 use super::util::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

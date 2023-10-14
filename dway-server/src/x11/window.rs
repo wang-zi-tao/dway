@@ -14,7 +14,6 @@ use x11rb::{
 };
 
 use crate::{
-    client::Client,
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
     state::DWayWrapper,
@@ -24,12 +23,12 @@ use crate::{
 };
 
 use super::{
-    atoms::Atoms, screen::XScreen, XDisplayHasWindow, XDisplayRef, XWaylandDisplay,
+    atoms::Atoms, screen::XScreen, XDisplayRef, XWaylandDisplay,
     XWaylandDisplayWrapper,
 };
 use bevy_relationship::ConnectCommand;
 
-#[derive(Component, Reflect, FromReflect)]
+#[derive(Component, Reflect)]
 pub struct MappedXWindow;
 
 #[derive(Bundle)]
@@ -39,9 +38,9 @@ pub struct XWindowBundle {
     pub global_geometry: GlobalGeometry,
 }
 
-#[derive(Clone, Debug, Component, Reflect, FromReflect)]
+#[derive(Clone, Debug, Component, Reflect)]
 pub struct XWindow {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub connection: Arc<(RustConnection, Atoms)>,
     pub window: x11rb::protocol::xproto::Window,
     pub parent_window: Option<x11rb::protocol::xproto::Window>,

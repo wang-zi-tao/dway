@@ -1,11 +1,10 @@
 use rstar::{PointDistance, RTree, RTreeObject, SelectionFunction, AABB};
-
-use crate::{prelude::*, state::create_global_system_config, util::rect::IRect};
+use crate::{prelude::*, util::rect::IRect};
 
 #[derive(Resource)]
 struct RegionDelegate(pub GlobalId);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect, FromReflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
 pub enum RegionOperator {
     Add,
     Sub,
@@ -13,7 +12,7 @@ pub enum RegionOperator {
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct WlRegion {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: wl_region::WlRegion,
     pub rects: Vec<(RegionOperator, IRect)>,
     pub union: IRect,
@@ -50,8 +49,13 @@ impl PointDistance for RectRTreeObject {
     }
 }
 
+#[derive(Event)]
 pub struct RectAddEvent(pub RectRTreeObject);
+
+#[derive(Event)]
 pub struct RectRemoveEvent(pub RectRTreeObject);
+
+#[derive(Event)]
 pub struct RectRemoveAllEvent(pub Entity);
 
 #[derive(Resource, Component)]
@@ -61,7 +65,6 @@ pub struct RTreeIndex {
 impl RTreeIndex {
     pub fn find_all(&self, position: IVec2) {
         self.rtree.locate_all_at_point(&[position.x, position.y]);
-    
     }
 }
 
@@ -75,7 +78,7 @@ pub fn update_region_index(
         index.rtree.insert(rect.clone());
     }
     for RectRemoveEvent(rect) in remove_event.iter() {
-        index.rtree.remove(rect);
+        index.rtree.remove(&rect);
     }
     struct Selection(pub Entity);
     impl SelectionFunction<RectRTreeObject> for Selection {
@@ -168,7 +171,7 @@ impl wayland_server::Dispatch<wl_region::WlRegion, bevy::prelude::Entity, DWay> 
                 state.with_component(resource, |c: &mut WlRegion| {
                     c.add(RegionOperator::Sub, IRect::new(x, y, width, height))
                 });
-            },
+            }
             _ => todo!(),
         }
     }

@@ -1,9 +1,9 @@
 use bevy::{
     prelude::IVec2,
-    reflect::{FromReflect, Reflect},
+    reflect::Reflect,
 };
 
-#[derive(Default, Debug, Reflect, FromReflect, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Default, Debug, Reflect, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct IRect {
     pub min: IVec2,
     pub max: IVec2,

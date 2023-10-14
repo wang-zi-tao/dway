@@ -2,17 +2,11 @@
 #![feature(extract_if)]
 #![feature(result_flattening)]
 
-use std::time::Duration;
-
-use bevy::{
-    app::{ScheduleRunnerPlugin, ScheduleRunnerSettings},
-    prelude::*,
-};
+use bevy::prelude::*;
 use drm::DrmPlugin;
 use render::TtyRenderPlugin;
 
 pub mod drm;
-pub mod egl;
 pub mod failure;
 pub mod gbm;
 pub mod libinput;
@@ -28,14 +22,15 @@ pub struct DWayTTYPlugin {}
 
 impl Plugin for DWayTTYPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ScheduleRunnerPlugin)
-            .add_plugin(seat::SeatPlugin)
-            .add_plugin(libinput::LibInputPlugin)
-            .add_plugin(udev::UDevPlugin {
+        app.add_plugins((
+            seat::SeatPlugin,
+            libinput::LibInputPlugin,
+            udev::UDevPlugin {
                 sub_system: "drm".into(),
-            })
-            .add_plugin(DrmPlugin)
-            .add_plugin(TtyRenderPlugin);
+            },
+            DrmPlugin,
+            TtyRenderPlugin,
+        ));
     }
 }
 
@@ -59,8 +54,7 @@ mod test {
         tracing_subscriber::fmt().with_writer(non_blocking).init();
 
         let mut app = App::new();
-        app.add_plugin(LogPlugin::default())
-            .add_plugin(DWayTTYPlugin::default());
+        app.add_plugins((LogPlugin::default(), DWayTTYPlugin::default()));
         app.update();
     }
 }

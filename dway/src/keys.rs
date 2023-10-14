@@ -8,10 +8,10 @@ pub fn wm_keys(
     mut exit: EventWriter<AppExit>,
     mut window_action: EventWriter<WindowAction>,
 ) {
-    let meta = input.any_pressed([KeyCode::LWin, KeyCode::RWin]);
-    let shift = input.any_pressed([KeyCode::RShift, KeyCode::LShift]);
-    let ctrl = input.any_pressed([KeyCode::LControl, KeyCode::RControl]);
-    let alt = input.any_pressed([KeyCode::LAlt, KeyCode::RAlt]);
+    let meta = input.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
+    let shift = input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+    let ctrl = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
+    let alt = input.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
 
     if alt | meta {
         if shift && input.just_pressed(KeyCode::Q) {
@@ -28,8 +28,8 @@ pub fn wm_mouse_action(
     input: Res<Input<KeyCode>>,
     mut mouse_button_events: EventReader<MouseButtonInput>,
 ) {
-    let meta = input.any_pressed([KeyCode::LWin, KeyCode::RWin]);
-    let shift = input.any_pressed([KeyCode::RShift, KeyCode::LShift]);
-    let ctrl = input.any_pressed([KeyCode::LControl, KeyCode::RControl]);
-    let alt = input.any_pressed([KeyCode::LAlt, KeyCode::RAlt]);
+    let meta = input.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
+    let shift = input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+    let ctrl = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
+    let alt = input.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
 }

@@ -12,7 +12,7 @@ use kayak_ui::{prelude::*, KayakUIPlugin};
 pub struct DWayWidgetsPlugin {}
 impl Plugin for DWayWidgetsPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_plugin(clock::DWayClockPlugin::default());
+        app.add_plugins(clock::DWayClockPlugin::default());
     }
 }
 impl KayakUIPlugin for DWayWidgetsPlugin {

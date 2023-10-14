@@ -12,10 +12,9 @@ use drm::{
         property::{self, Value},
         AtomicCommitFlags, Device, Mode, PageFlipEvent,
     },
-    Device as drm_device, VblankWaitFlags,
+    Device as drm_device,
 };
 use drm_fourcc::DrmFormat;
-use smallvec::SmallVec;
 use tracing::{span, Level};
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 
@@ -25,9 +24,7 @@ use crate::{
     gbm::{buffer::GbmBuffer, GbmDevice},
 };
 
-use super::{
-    connectors::Connector, planes::PlaneConfig, DrmConnectorEvent, DrmDevice, DrmDeviceFd, PropMap,
-};
+use super::{connectors::Connector, planes::PlaneConfig, DrmDevice, DrmDeviceFd, PropMap};
 
 bitflags::bitflags! {
     #[derive(Clone,Copy, Debug,Hash,PartialEq, Eq, PartialOrd, Ord)]
@@ -115,7 +112,7 @@ impl SurfaceInner {
         }
     }
 
-    pub fn on_page_flip(&mut self, event: &PageFlipEvent) {
+    pub fn on_page_flip(&mut self, _event: &PageFlipEvent) {
         if let Some(commited) = self.showing.take() {
             self.available.push_back(commited);
         }

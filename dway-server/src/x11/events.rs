@@ -13,7 +13,6 @@ use x11rb::{
 };
 
 use crate::{
-    client::Client,
     geometry::{Geometry, GlobalGeometry},
     input::{
         grab::{Grab, ResizeEdges},
@@ -26,12 +25,11 @@ use crate::{
         screen::{XScreen, XScreenBundle},
         util::geo_to_irect,
         window::{
-            MappedXWindow, XWindow, XWindowAttachSurface, XWindowBundle, XWindowRef,
-            XWindowSurfaceRef,
+            MappedXWindow, XWindow, XWindowAttachSurface, XWindowBundle, XWindowSurfaceRef,
         },
-        DWayXWaylandStoped, XDisplayHasWindow, XWaylandBundle,
+        DWayXWaylandStoped, XDisplayHasWindow,
     },
-    xdg::{DWayToplevelWindow, DWayWindow},
+    xdg::DWayWindow,
 };
 
 use super::{DWayHasXWayland, DWayXWaylandReady, XWaylandDisplay, XWaylandDisplayWrapper};
@@ -272,7 +270,7 @@ pub fn process_x11_event(
         x11rb::protocol::Event::EnterNotify(_) => todo!(),
         x11rb::protocol::Event::Expose(_) => todo!(),
         x11rb::protocol::Event::FocusIn(_) => {}
-        x11rb::protocol::Event::FocusOut(r) => {}
+        x11rb::protocol::Event::FocusOut(_) => {}
         x11rb::protocol::Event::GeGeneric(_) => todo!(),
         x11rb::protocol::Event::GraphicsExposure(_) => todo!(),
         x11rb::protocol::Event::GravityNotify(_) => todo!(),

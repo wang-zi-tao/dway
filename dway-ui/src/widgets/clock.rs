@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use chrono::Local;
 use kayak_ui::{
     prelude::*,
-    widgets::{BackgroundBundle, TextProps, TextWidgetBundle},
+    widgets::{TextProps, TextWidgetBundle},
     KayakUIPlugin,
 };
 
@@ -10,15 +10,15 @@ use kayak_ui::{
 pub struct DWayClockPlugin {}
 impl Plugin for DWayClockPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_system(update);
+        app.add_systems(Update, update);
     }
 }
 pub fn widget_update2(
     In((entity, previous_entity)): In<(Entity, Entity)>,
- widget_context: Res<KayakWidgetContext>,
+    widget_context: Res<KayakWidgetContext>,
     widget_param: WidgetParam<Clock, ClockState>,
 ) -> bool {
-    let dirty=widget_param.has_changed(&widget_context, entity, previous_entity);
+    let dirty = widget_param.has_changed(&widget_context, entity, previous_entity);
     dbg!(dirty);
     dirty
 }

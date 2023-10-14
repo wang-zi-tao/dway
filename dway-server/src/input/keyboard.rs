@@ -1,13 +1,7 @@
-use std::fs::File;
-use std::io::Write;
-use std::os::fd::AsRawFd;
-use std::path::PathBuf;
-
+use crate::{input::time, prelude::*, util::serial::next_serial, wl::surface::WlSurface};
 use bevy::input::keyboard::KeyboardInput;
+use std::{fs::File, io::Write, os::fd::AsRawFd, path::PathBuf};
 use xkbcommon::xkb;
-
-use crate::input::time;
-use crate::{prelude::*, util::serial::next_serial, wl::surface::WlSurface};
 
 #[derive(Resource, Reflect)]
 pub struct Keymap {
@@ -203,10 +197,10 @@ impl
 pub struct WlKeyboardPlugin;
 impl Plugin for WlKeyboardPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Keymap>();
         let keymap = Keymap::default();
         app.insert_non_send_resource(XkbState::new(&keymap).unwrap());
         app.insert_resource(keymap);
-        app.add_system(update_keymap);
+        app.register_type::<Keymap>();
+        app.add_systems(PostUpdate, update_keymap.in_set(UpdateKeymap));
     }
 }

@@ -1,6 +1,5 @@
 use crate::prelude::*;
 
-
 #[derive(Resource)]
 pub struct ShellDelegate(pub GlobalId);
 

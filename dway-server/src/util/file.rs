@@ -1,5 +1,5 @@
 use std::{
-    ffi::{CStr, CString},
+    ffi::CStr,
     fs::File,
     io::{Seek, Write},
     os::fd::{AsRawFd, FromRawFd},

@@ -6,7 +6,7 @@ use crate::prelude::*;
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct XdgActivationToken {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: xdg_activation_token_v1::XdgActivationTokenV1,
     pub seat: Option<Entity>,
     pub app_id: Option<String>,
@@ -36,19 +36,19 @@ impl Drop for XdgActivationToken {
 impl Dispatch<xdg_activation_token_v1::XdgActivationTokenV1, Entity> for DWay {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &xdg_activation_token_v1::XdgActivationTokenV1,
         request: <xdg_activation_token_v1::XdgActivationTokenV1 as WlResource>::Request,
         data: &Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span =
             span!(Level::ERROR,"request",entity = ?data,resource = %WlResource::id(resource));
         let _enter = span.enter();
         debug!("request {:?}", &request);
         match request {
-            xdg_activation_token_v1::Request::SetSerial { serial, seat } => {
+            xdg_activation_token_v1::Request::SetSerial { seat, .. } => {
                 let mut component = state.get_mut::<XdgActivationToken>(*data).unwrap();
                 component.seat = Some(DWay::get_entity(&seat));
             }

@@ -8,10 +8,10 @@ use crate::prelude::*;
 use ash::vk;
 use drm_fourcc::DrmFourcc;
 use glow::HasContext;
-use khronos_egl::{Attrib, Boolean, Enum, Int};
+use khronos_egl::{Attrib, Boolean, Int};
 use scopeguard::defer;
 use thiserror::Error;
-use wgpu_hal::{api::Gles, gles::AdapterContext, MemoryFlags, TextureUses};
+use wgpu_hal::{gles::AdapterContext, api::Gles};
 
 pub const LINUX_DMA_BUF_EXT: u32 = 0x3270;
 pub const WAYLAND_PLANE_WL: c_uint = 0x31D6;

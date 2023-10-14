@@ -6,7 +6,7 @@ use crate::prelude::*;
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct WlDataSource {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: wl_data_source::WlDataSource,
     pub mime_type: SmallVec<[String; 1]>,
 }
@@ -41,14 +41,12 @@ impl Dispatch<wl_data_source::WlDataSource, Entity> for DWay {
             wl_data_source::Request::Destroy => {
                 state.destroy_object(resource);
             }
-            wl_data_source::Request::SetActions { dnd_actions } => {
-                match dnd_actions{
-                    WEnum::Value(DndAction::Ask) => todo!(),
-                    WEnum::Value(DndAction::None) => todo!(),
-                    WEnum::Value(DndAction::Copy) => todo!(),
-                    WEnum::Value(DndAction::Move) => todo!(),
-                    _ => todo!(),
-                }
+            wl_data_source::Request::SetActions { dnd_actions } => match dnd_actions {
+                WEnum::Value(DndAction::Ask) => todo!(),
+                WEnum::Value(DndAction::None) => todo!(),
+                WEnum::Value(DndAction::Copy) => todo!(),
+                WEnum::Value(DndAction::Move) => todo!(),
+                _ => todo!(),
             },
             _ => todo!(),
         }

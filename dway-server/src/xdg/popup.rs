@@ -15,7 +15,7 @@ use super::positioner::Positioner;
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct XdgPopup {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: xdg_popup::XdgPopup,
     pub send_configure: bool,
     pub positioner: Positioner,
@@ -68,12 +68,12 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
             }
             xdg_popup::Request::Grab { seat, serial } => {
                 let seat_entity = DWay::get_entity(&seat);
-                let Some(_pointer_list) = state.world_mut().get::<PointerList>(seat_entity).cloned()
+                let Some(_pointer_list) =
+                    state.world_mut().get::<PointerList>(seat_entity).cloned()
                 else {
                     return;
                 };
-                let Some(parent_entity) = state.get::<Parent>(*data).map(|p| p.get())
-                else {
+                let Some(parent_entity) = state.get::<Parent>(*data).map(|p| p.get()) else {
                     return;
                 };
                 let parent_is_popup = state.entity(parent_entity).contains::<XdgPopup>();
@@ -90,19 +90,21 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
                             dbg!(parent_entity, parent_is_popup);
                             if parent_is_popup {
                                 let index =
-                                    popup_stack.iter().rev().enumerate().find(|(_index, popup)| {
-                                        DWay::get_entity(*popup) == parent_entity
-                                    });
+                                    popup_stack
+                                        .iter()
+                                        .rev()
+                                        .enumerate()
+                                        .find(|(_index, popup)| {
+                                            DWay::get_entity(*popup) == parent_entity
+                                        });
                                 dbg!(index);
                                 if let Some((index, _)) = index {
                                     if index + 1 != popup_stack.len() {
-                                        popup_stack.drain(index + 1..).for_each(
-                                            |popup| {
-                                                if popup.is_alive() {
-                                                    popup.popup_done()
-                                                }
-                                            },
-                                        );
+                                        popup_stack.drain(index + 1..).for_each(|popup| {
+                                            if popup.is_alive() {
+                                                popup.popup_done()
+                                            }
+                                        });
                                     }
                                     popup_stack.push(resource.clone());
                                     *surface_entity = *data;
@@ -122,7 +124,10 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
                     },
                 );
             }
-            xdg_popup::Request::Reposition { positioner, token: _ } => {
+            xdg_popup::Request::Reposition {
+                positioner,
+                token: _,
+            } => {
                 let positioner =
                     state.with_component(&positioner, |c: &mut XdgPositioner| c.positioner.clone());
                 state.query::<(&mut XdgPopup, &mut Geometry), _, _>(*data, |(mut p, mut g)| {

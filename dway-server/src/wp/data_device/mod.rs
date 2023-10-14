@@ -6,7 +6,7 @@ use crate::prelude::*;
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct WlDataDevice {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: wl_data_device::WlDataDevice,
 }
 impl WlDataDevice {
@@ -45,7 +45,7 @@ impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
             }
             wl_data_device::Request::Release => {
                 state.entity_mut(*data).remove::<WlDataDevice>();
-            },
+            }
             _ => todo!(),
         }
     }
@@ -62,10 +62,10 @@ impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
 pub struct DataDevicePlugin;
 impl Plugin for DataDevicePlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(create_global_system_config::<
-            wl_data_device_manager::WlDataDeviceManager,
-            3,
-        >());
+        app.add_systems(
+            PreUpdate,
+            create_global_system_config::<wl_data_device_manager::WlDataDeviceManager, 3>(),
+        );
         app.register_relation::<SelectionOfDataDevice>();
     }
 }

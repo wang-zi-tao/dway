@@ -1,17 +1,10 @@
+use super::Slot;
+use crate::{layout::WorkspaceHasSlot, prelude::*, workspace, DWayClientSystem};
 use dway_server::{
     geometry::{Geometry, GlobalGeometry},
     util::rect::IRect,
     xdg::{DWayToplevelWindow, DWayWindow},
 };
-
-use crate::{
-    layout::WorkspaceHasSlot,
-    prelude::*,
-    workspace::{self, Workspace},
-    DWayClientSystem,
-};
-
-use super::{Slot, SlotList};
 
 #[derive(Component, Clone, Debug, Reflect)]
 pub enum TileLayoutKind {
@@ -157,7 +150,8 @@ pub struct TileLayoutPlugin;
 impl Plugin for TileLayoutPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<TileLayoutKind>();
-        app.add_system(
+        app.add_systems(
+            PreUpdate,
             update_tile_layout
                 .before(super::attach_window_to_slot)
                 .in_set(DWayClientSystem::UpdateLayout),

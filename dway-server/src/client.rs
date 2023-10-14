@@ -5,7 +5,7 @@ use std::{
 
 use wayland_backend::server::{ClientId, DisconnectReason};
 
-use crate::{prelude::*, schedule::DWayServerSet, state::DWayDisplay};
+use crate::{prelude::*, schedule::DWayServerSet};
 
 #[derive(Debug, Clone)]
 pub enum ClientEvent {
@@ -71,7 +71,9 @@ pub fn clean_client(
     while let Some(event) = queue.pop_front() {
         match event {
             ClientEvent::Destroyed { entity, .. } => {
-                commands.get_entity(entity).map(|c| c.despawn_recursive_with_relationship());
+                commands
+                    .get_entity(entity)
+                    .map(|c| c.despawn_recursive_with_relationship());
                 events_writer.send(Destroy::new(entity));
             }
         }
@@ -81,7 +83,7 @@ pub fn clean_client(
 pub struct ClientPlugin;
 impl Plugin for ClientPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(clean_client.in_set(DWayServerSet::Clean));
+        app.add_systems(Last, clean_client.in_set(DWayServerSet::Clean));
         app.add_event::<Insert<Client>>();
         app.add_event::<Destroy<Client>>();
         app.init_resource::<ClientEvents>();

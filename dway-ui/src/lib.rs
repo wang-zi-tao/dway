@@ -7,19 +7,17 @@ pub mod lock;
 pub mod logger;
 pub mod overview;
 pub mod panel;
+pub mod theme;
 pub mod title_bar;
 pub mod util;
 pub mod widgets;
 pub mod windows_area;
-pub mod theme;
 
-use std::{ptr::NonNull, sync::Arc};
-
+use std::sync::Arc;
 use dway_client_core::DWayClientSystem;
 use dway_udev::{drm::surface::DrmSurface, seat::SeatState};
 use failure::Fallible;
 pub use kayak_ui;
-
 use bevy::{prelude::*, render::camera::RenderTarget};
 use font_kit::{
     error::SelectionError,
@@ -33,14 +31,16 @@ use kayak_ui::{prelude::*, widgets::*};
 pub struct DWayUiPlugin;
 impl Plugin for DWayUiPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_plugin(KayakContextPlugin);
-        app.add_plugin(KayakWidgets);
-        app.add_plugin(bevy_svg::prelude::SvgPlugin);
         app.init_resource::<FontMapping>();
-        app.add_startup_system(setup.after(DWayClientSystem::Init));
-        app.add_plugin(panel::DWayPanelPlugin::default());
-        app.add_plugin(widgets::DWayWidgetsPlugin::default());
-        // app.add_plugin(background::DWayBackgroundPlugin::default());
+        app.add_systems(Startup, setup.after(DWayClientSystem::Init));
+        app.add_plugins((
+            KayakContextPlugin,
+            KayakWidgets,
+            bevy_svg::prelude::SvgPlugin,
+            panel::DWayPanelPlugin::default(),
+            widgets::DWayWidgetsPlugin::default(),
+            background::DWayBackgroundPlugin::default(),
+        ));
     }
 }
 pub fn default_system_font() -> Result<Handle, SelectionError> {

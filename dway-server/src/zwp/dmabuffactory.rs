@@ -14,7 +14,7 @@ relationship!(DmaBufferAttachSurface=>SurfaceListForDmaBuffer-<DmaBufferRefForSu
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct ZwpDmaBufferFactory {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1,
 }
 impl ZwpDmaBufferFactory {
@@ -25,11 +25,11 @@ impl ZwpDmaBufferFactory {
 impl Dispatch<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, Entity> for DWay {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1,
         request: <zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1 as WlResource>::Request,
         data: &Entity,
-        dhandle: &DisplayHandle,
+        _dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span =
@@ -45,7 +45,7 @@ impl Dispatch<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, Entity> for DWay {
             }
             zwp_linux_dmabuf_v1::Request::GetDefaultFeedback { id } => {
                 let entity = state
-                    .spawn((id, data_init, |o, world:&mut World| {
+                    .spawn((id, data_init, |o, world: &mut World| {
                         init_feedback(world, &o);
                         DmabufFeedback::new(o)
                     }))
@@ -57,7 +57,7 @@ impl Dispatch<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, Entity> for DWay {
                 let entity = state
                     .insert(
                         DWay::get_entity(&surface),
-                        (id, data_init, |o, world:&mut World| {
+                        (id, data_init, |o, world: &mut World| {
                             init_feedback(world, &o);
                             DmabufFeedback::new(o)
                         }),
@@ -80,10 +80,10 @@ impl Dispatch<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, Entity> for DWay {
 impl GlobalDispatch<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, Entity> for DWay {
     fn bind(
         state: &mut Self,
-        handle: &DisplayHandle,
+        _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1>,
-        global_data: &bevy::prelude::Entity,
+        _global_data: &bevy::prelude::Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         state.bind(client, resource, data_init, |o| {
@@ -106,9 +106,9 @@ impl Plugin for DWayDmaBufferFactoryPlugin {
         app.register_relation::<DmaBufferHasFeedback>();
         app.register_relation::<DmaBufferAttachSurface>();
         app.register_type::<ZwpDmaBufferFactory>();
-        app.add_system(create_global_system_config::<
-            zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1,
-            4,
-        >());
+        app.add_systems(
+            PreUpdate,
+            create_global_system_config::<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, 4>(),
+        );
     }
 }

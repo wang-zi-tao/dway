@@ -1,10 +1,6 @@
 use std::collections::LinkedList;
-
-use bevy::window::WindowFocused;
-use dway_server::xdg::DWayWindow;
-use getset::Getters;
-
 use crate::{desktop::FocusedWindow, prelude::*, DWayClientSystem};
+use dway_server::xdg::DWayWindow;
 
 #[derive(Component, Reflect, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WindowIndex {
@@ -48,7 +44,7 @@ impl WindowStack {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Event, Clone, Copy)]
 pub enum SetWindowIndex {
     ToTop(Entity),
     ToBottom(Entity),
@@ -159,12 +155,15 @@ impl Plugin for WindowStackPlugin {
             .init_resource::<WindowStackConfig>()
             .init_resource::<WindowStack>()
             .add_event::<SetWindowIndex>()
-            .add_system(init_window_index.in_set(DWayClientSystem::CreateComponent))
-            .add_system(update_window_index.in_set(DWayClientSystem::UpdateZIndex))
-            .add_system(
-                update_window_stack_by_focus
-                    .run_if(resource_changed::<FocusedWindow>())
-                    .in_set(DWayClientSystem::UpdateFocus),
+            .add_systems(
+                PreUpdate,
+                (
+                    init_window_index.in_set(DWayClientSystem::CreateComponent),
+                    update_window_index.in_set(DWayClientSystem::UpdateZIndex),
+                    update_window_stack_by_focus
+                        .run_if(resource_changed::<FocusedWindow>())
+                        .in_set(DWayClientSystem::UpdateFocus),
+                ),
             );
     }
 }

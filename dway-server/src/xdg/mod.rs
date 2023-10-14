@@ -5,9 +5,11 @@ pub mod positioner;
 pub mod toplevel;
 pub mod wm;
 
-use bevy_relationship::{relationship, AppExt};
-use wayland_protocols::xdg::activation::v1::server::xdg_activation_token_v1;
-
+use self::{
+    activation::{SurfaceActivate, XdgActivation},
+    activation_token::XdgActivationToken,
+    wm::XdgWmBase,
+};
 use crate::{
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
@@ -21,17 +23,12 @@ use crate::{
         toplevel::XdgToplevel,
     },
 };
+use bevy_relationship::{relationship, AppExt};
 
-use self::{
-    activation::{SurfaceActivate, XdgActivation},
-    activation_token::XdgActivationToken,
-    wm::XdgWmBase,
-};
-
-#[derive(Component, Default, Clone, Reflect, FromReflect)]
+#[derive(Component, Default, Clone, Reflect)]
 pub struct DWayWindow {}
 
-#[derive(Component, Default, Clone, Reflect, FromReflect)]
+#[derive(Component, Default, Clone, Reflect)]
 pub struct DWayToplevelWindow {}
 
 #[derive(Resource)]
@@ -41,7 +38,7 @@ pub struct XdgDelegate {
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct XdgSurface {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: xdg_surface::XdgSurface,
     pub send_configure: bool,
 }
@@ -174,7 +171,7 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                 width,
                 height,
             } => {
-                if let Some(mut c)=state.get_mut::<WlSurface>(*data){
+                if let Some(mut c) = state.get_mut::<WlSurface>(*data) {
                     let rect = IRect::from_pos_size(IVec2::new(x, y), IVec2::new(width, height));
                     if c.pending.window_geometry != Some(rect) {
                         c.pending.window_geometry = Some(rect);
@@ -219,11 +216,13 @@ impl
 pub struct XdgShellPlugin;
 impl Plugin for XdgShellPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(create_global_system_config::<xdg_wm_base::XdgWmBase, 6>());
-        app.add_system(create_global_system_config::<
-            xdg_activation_v1::XdgActivationV1,
-            1,
-        >());
+        app.add_systems(
+            PreUpdate,
+            (
+                create_global_system_config::<xdg_wm_base::XdgWmBase, 6>(),
+                create_global_system_config::<xdg_activation_v1::XdgActivationV1, 1>(),
+            ),
+        );
         app.register_relation::<SurfaceHasPopup>();
         app.add_event::<Insert<DWayWindow>>();
         app.add_event::<Destroy<DWayWindow>>();

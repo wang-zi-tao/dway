@@ -9,7 +9,7 @@ pub mod source;
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct PrimarySelectionDevice {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: ZwpPrimarySelectionDeviceV1,
     pub serial: Option<u32>,
 }
@@ -60,10 +60,13 @@ impl Dispatch<ZwpPrimarySelectionDeviceV1, Entity> for DWay {
 pub struct PrimarySelectionDevicePlugin;
 impl Plugin for PrimarySelectionDevicePlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(create_global_system_config::<
-            zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1,
-            1,
-        >());
+        app.add_systems(
+            PreUpdate,
+            create_global_system_config::<
+                zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1,
+                1,
+            >(),
+        );
         app.register_relation::<SourceOfSelection>();
     }
 }

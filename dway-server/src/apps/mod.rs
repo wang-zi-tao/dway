@@ -161,7 +161,10 @@ impl Plugin for DesktopEntriesPlugin {
         app.init_resource::<DesktopEntriesSet>();
         app.init_resource::<IconLoader>();
         app.register_relation::<ToplevelConnectAppEntry>();
-        app.add_startup_system(scan_desktop_file);
-        app.add_system(attach_to_app.in_set(DWayServerSet::UpdateAppInfo));
+        app.add_systems(Startup, scan_desktop_file);
+        app.add_systems(
+            PreUpdate,
+            attach_to_app.in_set(DWayServerSet::UpdateAppInfo),
+        );
     }
 }

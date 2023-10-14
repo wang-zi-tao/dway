@@ -93,7 +93,7 @@ impl Positioner {
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct XdgPositioner {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: xdg_positioner::XdgPositioner,
     pub positioner: Positioner,
 }

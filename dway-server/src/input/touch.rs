@@ -1,7 +1,4 @@
-
-
 use crate::prelude::*;
-
 use super::grab::Grab;
 
 #[derive(Component)]

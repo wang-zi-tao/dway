@@ -1,26 +1,24 @@
 use super::{
-    drm::{DrmInfo, DrmNode, DrmNodeState},
+    drm::{DrmInfo, DrmNode},
     util::*,
 };
 use crate::{
     prelude::*,
     util::rect::IRect,
     wl::{
-        buffer::{EGLBuffer, UninitedWlBuffer, WlShmBuffer},
+        buffer::{UninitedWlBuffer, WlShmBuffer},
         surface::WlSurface,
     },
     zwp::dmabufparam::DmaBuffer,
 };
-use ash::{vk, extensions::ext::PhysicalDeviceDrm};
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use image::{ImageBuffer, Rgba};
 use scopeguard::defer;
-use thiserror::Error;
 use wayland_backend::server::WeakHandle;
 
 use std::{
     collections::{HashMap, HashSet},
-    ffi::{c_char, c_int, c_uint, c_void},
+    ffi::{c_char, c_int, c_void},
     num::NonZeroU32,
     os::fd::AsRawFd,
     ptr::null_mut,
@@ -47,6 +45,7 @@ use super::{
 
 use DWayRenderError::*;
 
+#[derive(Debug)]
 pub struct EglState {
     pub egl_create_image_khr: unsafe extern "system" fn(
         EGLDisplay,
@@ -460,7 +459,6 @@ pub unsafe fn import_shm(
         }
     }
     gl.generate_mipmap(glow::TEXTURE_2D);
-    //glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
     gl.bind_texture(glow::TEXTURE_2D, None);
     Ok(())
 }
@@ -479,21 +477,10 @@ pub unsafe fn import_egl(
 
     let width = egl
         .query_surface(display, egl_surface, khronos_egl::WIDTH)
-        .map_err(|e| FailedToImportEglBuffer)?;
+        .map_err(|_| FailedToImportEglBuffer)?;
     let height = egl
         .query_surface(display, egl_surface, khronos_egl::HEIGHT)
-        .map_err(|e| FailedToImportEglBuffer)?;
-    // let format = egl.query_surface(display, egl_surface, khronos_egl::TEXTURE_FORMAT).map_err(|e|FailedToImportEglBuffer)?;
-    // dbg!(width,height,format);
-    // let _image_count = match format {
-    //     khronos_egl::TEXTURE_RGB => 1,
-    //     khronos_egl::TEXTURE_RGBA => 1,
-    //     // Format::RGB | Format::RGBA | Format::External => 1,
-    //     // Format::Y_UV | Format::Y_XUXV => 2,
-    //     // Format::Y_U_V => 3,
-    //     _ => panic!(),
-    // };
-    // let inverted = egl.query_surface(*display, egl_surface, 0x31DB)?;
+        .map_err(|_| FailedToImportEglBuffer)?;
 
     let out = [WAYLAND_PLANE_WL as i32, 0_i32, khronos_egl::NONE];
     let image = (egl_state.egl_create_image_khr)(
@@ -591,7 +578,7 @@ pub unsafe fn create_gpu_image(
         min_filter: FilterMode::Nearest,
         mipmap_filter: FilterMode::Nearest,
         compare: None,
-        anisotropy_clamp: None,
+        anisotropy_clamp: 1,
         border_color: None,
         address_mode_u: Default::default(),
         address_mode_v: Default::default(),

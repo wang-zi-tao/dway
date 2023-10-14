@@ -1,13 +1,13 @@
 pub mod equalsize;
 pub mod lsp;
 pub mod tile;
+
 use dway_server::{
     geometry::Geometry,
     util::rect::IRect,
-    xdg::{toplevel::{XdgToplevel, PinedWindow}, DWayToplevelWindow, DWayWindow, XdgSurface},
+    xdg::{toplevel::PinedWindow, DWayToplevelWindow, DWayWindow},
 };
-
-use crate::{prelude::*, workspace::Workspace, DWayClientSystem};
+use crate::{prelude::*, DWayClientSystem};
 
 #[derive(Component)]
 pub struct Slot;
@@ -125,10 +125,11 @@ impl Plugin for LayoutPlugin {
         app.register_relation::<WorkspaceHasSlot>();
         app.register_type::<CalculatedWindowGeometry>();
         app.add_systems(
-            (attach_window_to_slot, apply_system_buffers)
+            PreUpdate,
+            (attach_window_to_slot, apply_deferred)
                 .chain()
                 .in_set(DWayClientSystem::UpdateWindowGeometry),
         );
-        app.add_plugin(tile::TileLayoutPlugin);
+        app.add_plugins(tile::TileLayoutPlugin);
     }
 }

@@ -1,39 +1,16 @@
-use std::os::fd::AsRawFd;
-use std::ptr::null_mut;
-
-use anyhow::anyhow;
-use anyhow::bail;
-use anyhow::Result;
+use std::{os::fd::AsRawFd, ptr::null_mut};
+use anyhow::{anyhow, bail, Result};
 use bevy::utils::HashSet;
-use drm_fourcc::DrmFormat;
-use drm_fourcc::DrmFourcc;
-use drm_fourcc::DrmModifier;
+use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use gbm::EGLImage;
-use glow::HasContext;
-use glow::NativeRenderbuffer;
-use khronos_egl::EGLClientBuffer;
-use khronos_egl::EGLContext;
-use khronos_egl::EGLDisplay;
-use khronos_egl::Enum;
-use khronos_egl::{Boolean, Int};
+use glow::{HasContext, NativeRenderbuffer};
+use khronos_egl::{EGLClientBuffer, EGLContext, EGLDisplay, Enum, Boolean, Int};
 use tracing::debug;
-use wgpu::Extent3d;
-use wgpu::TextureDimension;
-use wgpu::TextureFormat;
-use wgpu_hal::gles::Device;
-use wgpu_hal::gles::Texture;
-
-use crate::drm::connectors;
-use crate::drm::connectors::Connector;
-use crate::drm::surface::DrmSurface;
-use crate::drm::DrmDevice;
-use crate::gbm::buffer::GbmBuffer;
-use crate::gbm::buffer::RenderImage;
-
-use super::RenderCache;
-use super::TtyRenderState;
+use wgpu::{Extent3d, TextureDimension, TextureFormat};
+use wgpu_hal::gles::{Device, Texture};
+use crate::{drm::{connectors::Connector, surface::DrmSurface, DrmDevice}, gbm::buffer::{GbmBuffer, RenderImage}};
+use super::{RenderCache, TtyRenderState};
 use wgpu_hal::{api::Gles, MemoryFlags, TextureUses};
-
 pub type EGLInstance = khronos_egl::DynamicInstance<khronos_egl::EGL1_4>;
 
 pub const LINUX_DRM_FOURCC_EXT: u32 = 0x3271;

@@ -1,23 +1,21 @@
-use bevy_relationship::{relationship, AppExt};
-use wayland_server::protocol::wl_seat::Capability;
-
-use crate::{
-    input::{keyboard::WlKeyboardBundle, pointer::WlPointerBundle, touch::WlTouchBundle},
-    prelude::*,
-    state::{create_global_system_config, EntityFactory},
-    wl::surface::WlSurface,
-};
-
 use super::{
     grab::{Grab, GrabPlugin},
     keyboard::WlKeyboard,
     pointer::WlPointer,
     touch::WlTouch,
 };
+use crate::{
+    input::{keyboard::WlKeyboardBundle, pointer::WlPointerBundle, touch::WlTouchBundle},
+    prelude::*,
+    state::{create_global_system_config, EntityFactory},
+    wl::surface::WlSurface,
+};
+use bevy_relationship::{relationship, AppExt};
+use wayland_server::protocol::wl_seat::Capability;
 
-#[derive(Component, Reflect, FromReflect)]
+#[derive(Component, Reflect)]
 pub struct WlSeat {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: wl_seat::WlSeat,
     #[reflect(ignore)]
     pub grab_by: Option<wl_surface::WlSurface>,
@@ -121,7 +119,8 @@ impl
                     .spawn(
                         (id, data_init, |kbd, world: &mut World| {
                             WlKeyboardBundle::new(
-                                WlKeyboard::new(kbd, world.resource(), world.non_send_resource()).unwrap(),
+                                WlKeyboard::new(kbd, world.resource(), world.non_send_resource())
+                                    .unwrap(),
                             )
                         })
                             .with_parent(*data),
@@ -166,15 +165,17 @@ impl wayland_server::GlobalDispatch<wayland_server::protocol::wl_seat::WlSeat, E
 pub struct WlSeatPlugin;
 impl Plugin for WlSeatPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(create_global_system_config::<wl_seat::WlSeat, 9>());
+        app.add_systems(
+            PreUpdate,
+            create_global_system_config::<wl_seat::WlSeat, 9>(),
+        );
+        app.add_plugins((super::keyboard::WlKeyboardPlugin, GrabPlugin));
         app.register_relation::<SeatHasPointer>();
         app.register_relation::<SeatHasKeyboard>();
         app.register_relation::<SeatHasTouch>();
         app.register_relation::<FocusOnSurface>();
         app.register_relation::<ActivePopup>();
         app.register_type::<WlPointer>();
-        app.add_plugin(super::keyboard::WlKeyboardPlugin);
-        app.add_plugin(GrabPlugin);
         app.register_type::<WlSeat>();
     }
 }

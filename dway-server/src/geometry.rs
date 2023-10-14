@@ -136,7 +136,10 @@ pub fn update_global_physical_rect(
 pub struct GeometryPlugin;
 impl Plugin for GeometryPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(update_global_physical_rect);
+        app.add_systems(
+            PreUpdate,
+            update_global_physical_rect.after(DWayServerSet::UpdateGeometry),
+        );
         app.register_type::<Geometry>();
         app.register_type::<GlobalGeometry>();
         app.register_type::<WlGeometry>();

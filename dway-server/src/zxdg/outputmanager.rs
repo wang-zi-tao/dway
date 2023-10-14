@@ -1,7 +1,6 @@
 use crate::{
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
-    state::create_global_system_config,
     util::rect::IRect,
     wl::output::SurfaceList,
 };
@@ -113,7 +112,7 @@ impl GlobalDispatch<zxdg_output_manager_v1::ZxdgOutputManagerV1, Entity> for DWa
 
 pub struct XdgOutputManagerPlugin;
 impl Plugin for XdgOutputManagerPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
         // app.add_system(create_global_system_config::<
         //     zxdg_output_manager_v1::ZxdgOutputManagerV1,
         //     3,

@@ -1,16 +1,14 @@
 pub mod gles;
-pub mod utils;
 pub mod vulkan;
 
 use anyhow::{anyhow, Result};
 use bevy::{
-    core::FrameCount,
     prelude::*,
     render::{
         render_asset::{PrepareAssetSet, RenderAssets},
-        renderer::{RenderDevice, RenderQueue},
+        renderer::RenderDevice,
         texture::{DefaultImageSampler, GpuImage},
-        Extract, RenderApp, RenderSet,
+        Extract, RenderApp, RenderSet, Render,
     },
     utils::HashMap,
 };
@@ -69,13 +67,16 @@ impl Plugin for TtyRenderPlugin {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<TtyRenderState>()
-                .add_system(extract_drm_surfaces.in_schedule(ExtractSchedule))
-                .add_system(prepare_drm_surface.in_set(PrepareAssetSet::PostAssetPrepare))
-                .add_system(
-                    commit
-                        .in_set(DWayTTYRemderSet::DrmCommitSystem)
-                        .after(RenderSet::Render)
-                        .before(RenderSet::Cleanup),
+                .add_systems(ExtractSchedule, extract_drm_surfaces)
+                .add_systems(
+                    Render,
+                    (
+                        prepare_drm_surface.in_set(PrepareAssetSet::PostAssetPrepare),
+                        commit
+                            .in_set(DWayTTYRemderSet::DrmCommitSystem)
+                            .after(RenderSet::Render)
+                            .before(RenderSet::Cleanup),
+                    ),
                 );
         }
     }

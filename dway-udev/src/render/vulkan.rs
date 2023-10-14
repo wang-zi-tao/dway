@@ -1,42 +1,13 @@
-use std::ffi::CStr;
-use std::os::fd::AsFd;
-use std::os::fd::AsRawFd;
-use std::ptr::null;
-
-use crate::drm::connectors::Connector;
-use crate::drm::surface::DrmSurface;
-use crate::drm::DrmDevice;
-use crate::gbm::buffer::GbmBuffer;
-use crate::gbm::buffer::RenderImage;
-use crate::gbm::SUPPORTED_FORMATS;
-
-use super::RenderCache;
-use super::TtyRenderState;
-use anyhow::bail;
-use anyhow::{anyhow, Result};
-use ash::extensions::khr::ExternalMemoryFd;
-use ash::extensions::khr::Maintenance4;
-use ash::prelude::*;
-use ash::vk;
-use ash::vk::*;
-use ash::Device;
-use ash::RawPtr;
-use bevy::utils::HashSet;
-use drm_fourcc::DrmFormat;
-use drm_fourcc::DrmFourcc;
-use drm_fourcc::DrmModifier;
+use std::{ffi::CStr, os::fd::{AsFd, AsRawFd}};
+use crate::{drm::{connectors::Connector, surface::DrmSurface, DrmDevice}, gbm::{buffer::{GbmBuffer, RenderImage}, SUPPORTED_FORMATS}};
+use anyhow::{bail, anyhow, Result};
+use ash::{extensions::khr::ExternalMemoryFd, vk::{self, *}};
+use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use smallvec::SmallVec;
-use tracing::debug;
-use tracing::error;
-use wgpu::Extent3d;
-use wgpu::TextureDimension;
-use wgpu::TextureFormat;
-use wgpu_hal::api::Vulkan;
-use wgpu_hal::vulkan::Texture;
-use wgpu_hal::Device as HalDevice;
-use wgpu_hal::MemoryFlags;
-use wgpu_hal::TextureDescriptor;
-use wgpu_hal::TextureUses;
+use tracing::{debug, error};
+use wgpu::{Extent3d, TextureDimension, TextureFormat};
+use wgpu_hal::{api::Vulkan, vulkan::Texture, MemoryFlags, TextureUses};
+
 
 pub const MEM_PLANE_ASCPECT: [ImageAspectFlags; 4] = [
     ImageAspectFlags::MEMORY_PLANE_0_EXT,

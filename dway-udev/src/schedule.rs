@@ -1,6 +1,6 @@
 use bevy::{
     prelude::*,
-    render::{RenderApp, RenderSet},
+    render::{RenderApp, RenderSet, Render},
 };
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
@@ -23,20 +23,21 @@ pub struct DWayUdevSchedulePlugin;
 impl Plugin for DWayUdevSchedulePlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets(
+            First,
             (
                 DWayTTYSet::SeatSystem,
                 DWayTTYSet::UdevSystem,
                 DWayTTYSet::GbmSystem,
                 DWayTTYSet::DrmSystem,
             )
-                .in_base_set(CoreSet::First)
                 .chain()
                 .ambiguous_with_all(),
         );
-        app.configure_set(DWayTTYSet::LibinputSystem.in_base_set(CoreSet::First));
+        app.configure_set(First, DWayTTYSet::LibinputSystem);
 
         let render_app = app.sub_app_mut(RenderApp);
         render_app.configure_sets(
+            Render,
             (
                 DWayTTYRemderSet::DrmEventSystem.after(RenderSet::Render),
                 DWayTTYRemderSet::DrmCommitSystem.before(RenderSet::Cleanup),

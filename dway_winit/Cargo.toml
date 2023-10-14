@@ -11,7 +11,7 @@ accesskit_unix = ["accesskit_winit/accesskit_unix"]
 
 [dependencies]
 # bevy
-bevy = { version = "0.10.1" }
+bevy = { version = "0.11" }
 
 # other
 winit = { version = "0.28", default-features = false }

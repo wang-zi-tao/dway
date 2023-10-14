@@ -1,10 +1,7 @@
-use std::num::NonZeroUsize;
-
+use crate::DWayClientSystem;
 use bevy::prelude::*;
 use lru::LruCache;
-
-
-use crate::DWayClientSystem;
+use std::num::NonZeroUsize;
 
 pub struct DWayDesktop;
 impl Plugin for DWayDesktop {
@@ -13,10 +10,13 @@ impl Plugin for DWayDesktop {
         app.insert_resource(FocusedWindow::default());
         app.insert_resource(CursorOnOutput::default());
         app.insert_resource(CursorOnWindow::default());
-        app.add_system(update_window_stack_by_focus.in_set(DWayClientSystem::UpdateState));
         app.register_type::<FocusedWindow>();
         app.register_type::<CursorOnOutput>();
         app.register_type::<CursorOnWindow>();
+        app.add_systems(
+            PreUpdate,
+            update_window_stack_by_focus.in_set(DWayClientSystem::UpdateState),
+        );
     }
 }
 

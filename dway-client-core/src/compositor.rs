@@ -1,13 +1,13 @@
 use bevy::{
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
 
 pub struct CompositorPlugin;
 impl Plugin for CompositorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(setup);
-        app.add_system(fps_update_system);
+        app.add_systems(Startup, setup);
+        app.add_systems(Update, fps_update_system);
     }
 }
 
@@ -41,7 +41,10 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         FpsText,
     ));
 }
-fn fps_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text, With<FpsText>>) {
+fn fps_update_system(
+    diagnostics: Res<DiagnosticsStore>,
+    mut query: Query<&mut Text, With<FpsText>>,
+) {
     for mut text in &mut query {
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(value) = fps.smoothed() {

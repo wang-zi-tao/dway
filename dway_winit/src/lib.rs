@@ -1,3 +1,4 @@
+use bevy::prelude::Last;
 pub use bevy::winit::accessibility;
 mod converters;
 mod system;
@@ -9,13 +10,13 @@ use bevy::a11y::AccessibilityRequested;
 use bevy::ecs::schedule::ScheduleLabel;
 use bevy::ecs::system::{SystemParam, SystemState};
 use bevy::utils::Duration;
+pub use bevy::winit::UpdateMode;
+pub use bevy::winit::WinitSettings;
 use std::sync::mpsc::{Receiver, Sender};
 use system::{changed_window, create_window, despawn_window, CachedWindow};
-pub use bevy::winit::WinitSettings;
-pub use bevy::winit::UpdateMode;
 pub use winit_windows::*;
 
-use bevy::app::{App, AppExit, CoreSet, Plugin};
+use bevy::app::{App, AppExit, Plugin};
 use bevy::ecs::event::{Events, ManualEventReader};
 use bevy::ecs::prelude::*;
 use bevy::input::{
@@ -80,12 +81,12 @@ impl Plugin for WinitPlugin {
             // exit_on_all_closed only uses the query to determine if the query is empty,
             // and so doesn't care about ordering relative to changed_window
             .add_systems(
+                Last,
                 (
                     changed_window.ambiguous_with(exit_on_all_closed),
                     // Update the state of the window before attempting to despawn to ensure consistent event ordering
                     despawn_window.after(changed_window),
-                )
-                    .in_base_set(CoreSet::Last),
+                ),
             );
 
         app.add_plugin(AccessibilityPlugin);
@@ -282,6 +283,12 @@ impl Default for UpdateRequestEvents {
 pub struct FrameConditionSchedule;
 
 pub fn winit_runner(mut app: App) {
+    while !app.ready() {
+        #[cfg(not(target_arch = "wasm32"))]
+        bevy::tasks::tick_global_task_pools_on_main_thread();
+    }
+    app.finish();
+    app.cleanup();
     // We remove this so that we have ownership over it.
     let mut event_loop = app
         .world
@@ -430,7 +437,7 @@ pub fn winit_runner(mut app: App) {
                     WindowEvent::KeyboardInput { ref input, .. } => {
                         input_events
                             .keyboard_input
-                            .send(converters::convert_keyboard_input(input));
+                            .send(converters::convert_keyboard_input(input, window_entity));
                     }
                     WindowEvent::CursorMoved { position, .. } => {
                         let physical_position = DVec2::new(
@@ -463,6 +470,7 @@ pub fn winit_runner(mut app: App) {
                         input_events.mouse_button_input.send(MouseButtonInput {
                             button: converters::convert_mouse_button(button),
                             state: converters::convert_element_state(state),
+                            window: window_entity,
                         });
                     }
                     WindowEvent::MouseWheel { delta, .. } => match delta {
@@ -471,6 +479,7 @@ pub fn winit_runner(mut app: App) {
                                 unit: MouseScrollUnit::Line,
                                 x,
                                 y,
+                                window: window_entity,
                             });
                         }
                         event::MouseScrollDelta::PixelDelta(p) => {
@@ -478,6 +487,7 @@ pub fn winit_runner(mut app: App) {
                                 unit: MouseScrollUnit::Pixel,
                                 x: p.x as f32,
                                 y: p.y as f32,
+                                window: window_entity,
                             });
                         }
                     },
@@ -566,7 +576,7 @@ pub fn winit_runner(mut app: App) {
                         });
                     }
                     WindowEvent::HoveredFileCancelled => {
-                        file_drag_and_drop_events.send(FileDragAndDrop::HoveredFileCancelled {
+                        file_drag_and_drop_events.send(FileDragAndDrop::HoveredFileCanceled {
                             window: window_entity,
                         });
                     }
@@ -663,8 +673,8 @@ pub fn winit_runner(mut app: App) {
                 if update || has_update_request {
                     winit_state.last_update = Instant::now();
                     app.update();
-                }else{
-                    std::thread::sleep(Duration::from_secs_f32(1.0/30.0));
+                } else {
+                    std::thread::sleep(Duration::from_secs_f32(1.0 / 30.0));
                 }
             }
             Event::RedrawEventsCleared => {

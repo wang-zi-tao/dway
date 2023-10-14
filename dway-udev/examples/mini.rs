@@ -61,7 +61,8 @@ pub fn main() {
         .add_system(setup.on_startup())
         .add_system(animate_cube)
         .add_system(input_event_system);
-    app.setup();
+    app.finish();
+    app.cleanup();
     for i in 0..8192 {
         info!("frame {i}");
         app.update();

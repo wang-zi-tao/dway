@@ -4,11 +4,9 @@ use std::{
         fd::{AsRawFd, FromRawFd, RawFd},
         unix::{net::UnixStream, process::CommandExt},
     },
-    process::{Child, ChildStdout, Stdio},
+    process::Child,
     sync::{Arc, Mutex, Weak},
-    time::Duration,
 };
-
 use bevy::utils::{HashMap, HashSet};
 use nix::{errno::Errno, sys::socket};
 pub use x11rb::protocol::xproto::Window as XWindowID;
@@ -43,7 +41,7 @@ pub enum XWaylandThreadEvent {
     Disconnect(anyhow::Error),
 }
 
-#[derive(Component, Clone, Reflect, FromReflect)]
+#[derive(Component, Clone, Reflect)]
 pub struct XWaylandDisplayWrapper {
     pub inner: Arc<Mutex<XWaylandDisplay>>,
 }
@@ -64,7 +62,7 @@ impl XWaylandDisplayWrapper {
     }
 }
 
-#[derive(Debug, Reflect, FromReflect)]
+#[derive(Debug, Reflect)]
 pub struct XWaylandDisplay {
     pub display_number: u32,
     pub connection: Weak<(RustConnection, Atoms)>,
@@ -318,7 +316,7 @@ impl XWaylandDisplay {
             });
         }
 
-        let mut child = command.spawn()?;
+        let child = command.spawn()?;
         Ok(child)
     }
     fn unset_cloexec(fd: RawFd) -> io::Result<()> {

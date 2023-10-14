@@ -83,15 +83,16 @@ impl Plugin for WorkspacePlugin {
         app.register_relation::<WindowOnWorkspace>();
         app.register_relation::<ScreenAttachWorkspace>();
         app.register_type::<Workspace>();
-        app.add_system(
-            attach_workspace_to_screen
-                .in_set(DWayClientSystem::CreateComponent)
-                .after(create_screen),
-        );
-        app.add_system(
-            attach_window_to_workspace
-                .in_set(DWayClientSystem::CreateComponent)
-                .after(attach_workspace_to_screen),
+        app.add_systems(
+            PreUpdate,
+            (
+                attach_workspace_to_screen
+                    .in_set(DWayClientSystem::CreateComponent)
+                    .after(create_screen),
+                attach_window_to_workspace
+                    .in_set(DWayClientSystem::CreateComponent)
+                    .after(attach_workspace_to_screen),
+            ),
         );
     }
 }

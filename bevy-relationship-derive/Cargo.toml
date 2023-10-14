@@ -16,3 +16,6 @@ regex = "1.8"
 lazy_static ="1.4"
 convert_case = "0.6.0"
 syn_derive = "0.1.6"
+
+[profile.dev.package."*"]
+opt-level = 3

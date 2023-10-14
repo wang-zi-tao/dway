@@ -7,7 +7,7 @@ use crate::prelude::*;
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct PrimarySelectionSource {
-    #[reflect(ignore)]
+    #[reflect(ignore, default = "unimplemented")]
     pub raw: ZwpPrimarySelectionSourceV1,
 }
 impl PrimarySelectionSource {

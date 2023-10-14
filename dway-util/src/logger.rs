@@ -1,7 +1,5 @@
 use std::num::NonZeroUsize;
-
-use bevy::{prelude::Resource, reflect::Reflect, utils::tracing::instrument::WithSubscriber};
-use tracing_subscriber::Registry;
+use bevy::{prelude::Resource, reflect::Reflect};
 
 #[derive(Resource, Reflect)]
 pub struct LoggerCache {

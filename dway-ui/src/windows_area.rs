@@ -3,7 +3,7 @@ use crate::widgets::cursor::{Cursor, CursorBundle};
 use crate::widgets::window::{WindowBundle, WindowUI};
 use bevy::prelude::*;
 use dway_client_core::navigation::windowstack::WindowStack;
-use dway_server::events::{Destroy, Insert};
+use dway_server::events::Insert;
 use dway_server::input::pointer::WlPointer;
 use dway_server::wl::surface::WlSurface;
 use dway_server::xdg::{DWayWindow, DWayToplevelWindow};

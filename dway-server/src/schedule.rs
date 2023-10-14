@@ -5,7 +5,7 @@ use crate::prelude::*;
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DWayStartSet {
     CreateDisplay,
-    Flush,
+    CreateDisplayFlush,
     Spawn,
 }
 
@@ -15,24 +15,28 @@ pub enum DWayServerSet {
     CreateGlobal,
     Dispatch,
 
+    InitDmaBufFeedback,
     UpdateXWayland,
     UpdateGeometry,
+    UpdateSurface,
     UpdateAppInfo,
 
-    UpdateJoin,
-    Update,
-    PostUpdate,
-    PostUpdateFlush,
-    Last,
-    LastFlush,
-
-    Clean,
     Input,
     GrabInput,
     InputFlush,
-    InitDmaBufFeedback,
 
-    WindowAction,
+    EndPreUpdate,
+
+    UpdateJoin,
+    Update,
+
+    StartPostUpdate,
+
+    UpdateKeymap,
+
+    ProcessWindowAction,
+    Clean,
+    CleanFlush,
 }
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum DWayServerSchedule {
@@ -45,51 +49,64 @@ pub struct DWayServerSchedulePlugin;
 impl Plugin for DWayServerSchedulePlugin {
     fn build(&self, app: &mut App) {
         use DWayServerSet::*;
+
         app.configure_sets(
+            PreUpdate,
             (
                 DWayStartSet::CreateDisplay,
-                DWayStartSet::Flush,
+                DWayStartSet::CreateDisplayFlush,
                 DWayStartSet::Spawn,
             )
+                .before(EndPreUpdate)
                 .chain()
                 .ambiguous_with_all(),
         );
         app.configure_sets(
+            PreUpdate,
             (
                 UpdateGeometry,
-                UpdateXWayland,
+                UpdateXWayland.after(UpdateGeometry),
                 InitDmaBufFeedback,
                 UpdateJoin.after(UpdateGeometry),
                 UpdateAppInfo,
+                UpdateSurface.after(UpdateGeometry),
             )
+                .before(EndPreUpdate)
                 .after(Dispatch)
-                .before(Update)
-                .in_base_set(CoreSet::PreUpdate),
+                .before(Update),
         );
         app.configure_sets(
+            PreUpdate,
             (Create, CreateGlobal, Dispatch, UpdateJoin, Update)
                 .chain()
-                .in_base_set(CoreSet::PreUpdate)
+                .before(EndPreUpdate)
                 .ambiguous_with_all(),
         );
         app.configure_sets(
-            (PostUpdate, PostUpdateFlush)
-                .chain()
-                .in_base_set(CoreSet::PostUpdate)
-                .ambiguous_with_all(),
-        );
-        app.configure_sets(
+            PreUpdate,
             (Input, GrabInput, InputFlush)
                 .chain()
-                .in_base_set(CoreSet::PreUpdate)
-                .before(Create),
+                .before(Create)
+                .before(EndPreUpdate),
         );
 
         app.configure_sets(
-            (WindowAction, Clean, Last, LastFlush)
+            bevy::prelude::PostUpdate,
+            (UpdateKeymap,).after(StartPostUpdate),
+        );
+
+        app.configure_sets(
+            bevy::prelude::Last,
+            (ProcessWindowAction, Clean, CleanFlush)
                 .chain()
-                .in_base_set(CoreSet::Last)
                 .ambiguous_with_all(),
         );
+
+        app.add_systems(
+            Startup,
+            apply_deferred.in_set(DWayStartSet::CreateDisplayFlush),
+        );
+        app.add_systems(bevy::prelude::PreUpdate, apply_deferred.in_set(InputFlush));
+        app.add_systems(bevy::prelude::Last, apply_deferred.in_set(CleanFlush));
     }
 }

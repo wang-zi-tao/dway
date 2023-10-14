@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use smallvec::SmallVec;
 
-
 #[derive(Component, Default)]
 pub struct OutputMark;
 

@@ -1,6 +1,3 @@
-use crate::{prelude::*, wl::surface::WlSurface, xdg::DWayWindow};
-use bevy::ecs::query::QueryEntityError;
-
 pub fn get_type_name_of<T>(_: &T) -> &'static str {
     std::any::type_name::<T>()
 }
