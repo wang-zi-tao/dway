@@ -1,7 +1,6 @@
 #![feature(linked_list_cursors)]
 
 use bevy::prelude::*;
-use bevy_prototype_lyon::prelude::ShapePlugin;
 use dway_server::schedule::DWayServerSet;
 use log::info;
 
@@ -57,7 +56,6 @@ pub struct DWayClientPlugin;
 impl Plugin for DWayClientPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         // app.insert_resource(Msaa::Off);
-        app.add_plugin(ShapePlugin);
         app.add_state::<DWayClientState>();
         use DWayClientSystem::*;
         app.configure_set(Init);
@@ -130,10 +128,4 @@ pub fn debug_info(cameras: Query<&Camera>, cameras2d: Query<&Camera2d>) {
     info!("cameras2d : {:?}", cameras2d.iter().count());
 }
 /// set up a simple 2D scene
-fn setup_2d(
-    _commands: Commands,
-    _meshes: ResMut<Assets<Mesh>>,
-    _materials: ResMut<Assets<ColorMaterial>>,
-    _asset_server: Res<AssetServer>,
-) {
-}
+fn setup_2d() {}

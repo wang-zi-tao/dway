@@ -1,5 +1,5 @@
-pub mod activation_token;
 pub mod activation;
+pub mod activation_token;
 pub mod popup;
 pub mod positioner;
 pub mod toplevel;
@@ -22,7 +22,11 @@ use crate::{
     },
 };
 
-use self::{wm::XdgWmBase, activation_token::XdgActivationToken, activation::{XdgActivation, SurfaceActivate}};
+use self::{
+    activation::{SurfaceActivate, XdgActivation},
+    activation_token::XdgActivationToken,
+    wm::XdgWmBase,
+};
 
 #[derive(Component, Default, Clone, Reflect, FromReflect)]
 pub struct DWayWindow {}
@@ -93,14 +97,20 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                     (
                         id,
                         data_init,
-                        (|o| (XdgToplevel::new(o),DWayToplevelWindow::default(), DWayWindow::default())),
+                        (|o| {
+                            (
+                                XdgToplevel::new(o),
+                                DWayToplevelWindow::default(),
+                                DWayWindow::default(),
+                            )
+                        }),
                     )
                         .check_component_not_exists::<XdgToplevel>(),
                 );
                 state.send_event(Insert::<DWayWindow>::new(*data));
-                state.query_object::<(&mut Geometry, &mut XdgSurface, &mut XdgToplevel), _, _>(
+                state.query_object::<(&mut XdgSurface, &mut XdgToplevel), _, _>(
                     resource,
-                    |(mut geometry, mut xdg_surface, mut xdg_toplevel)| {
+                    |(mut xdg_surface, mut xdg_toplevel)| {
                         if !xdg_toplevel.send_configure {
                             debug!("toplevel send configure ({},{})", 800, 600);
                             xdg_toplevel.raw.configure(0, 0, vec![4, 0, 0, 0]);
@@ -164,12 +174,12 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                 width,
                 height,
             } => {
-                state.with_component(resource, |c: &mut WlSurface| {
-                    c.pending.window_geometry = Some(IRect::from_pos_size(
-                        IVec2::new(x, y),
-                        IVec2::new(width, height),
-                    ));
-                });
+                if let Some(mut c)=state.get_mut::<WlSurface>(*data){
+                    let rect = IRect::from_pos_size(IVec2::new(x, y), IVec2::new(width, height));
+                    if c.pending.window_geometry != Some(rect) {
+                        c.pending.window_geometry = Some(rect);
+                    }
+                }
             }
             xdg_surface::Request::AckConfigure { serial } => {
                 info!("popup AckConfigure {serial}");

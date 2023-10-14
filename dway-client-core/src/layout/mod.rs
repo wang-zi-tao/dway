@@ -4,7 +4,7 @@ pub mod tile;
 use dway_server::{
     geometry::Geometry,
     util::rect::IRect,
-    xdg::{toplevel::XdgToplevel, DWayToplevelWindow, DWayWindow, XdgSurface},
+    xdg::{toplevel::{XdgToplevel, PinedWindow}, DWayToplevelWindow, DWayWindow, XdgSurface},
 };
 
 use crate::{prelude::*, workspace::Workspace, DWayClientSystem};
@@ -45,7 +45,7 @@ impl LayoutRect {
 #[derive(Component, Default, PartialEq, Eq, Hash, Debug, Clone)]
 pub struct LayoutStyle {
     pub flag: LayoutFlags,
-    pub pedding: LayoutRect,
+    pub padding: LayoutRect,
     pub margin: LayoutRect,
     pub min_size: IVec2,
     pub max_size: IVec2,
@@ -54,12 +54,12 @@ impl LayoutStyle {
     pub fn get_pedding_rect(&self, rect: IRect) -> IRect {
         IRect {
             min: IVec2 {
-                x: rect.x() + self.pedding.left,
-                y: rect.y() + self.pedding.top,
+                x: rect.x() + self.padding.left,
+                y: rect.y() + self.padding.top,
             },
             max: IVec2 {
-                x: rect.max.x - self.pedding.right,
-                y: rect.max.y - self.pedding.buttom,
+                x: rect.max.x - self.padding.right,
+                y: rect.max.y - self.padding.buttom,
             },
         }
     }
@@ -111,6 +111,7 @@ pub fn attach_window_to_slot(
                     if let Ok(mut window_geo) = window_query.get_mut(window) {
                         window_geo.geometry = rect;
                         window_actions.send(WindowAction::SetRect(window, rect));
+                        commands.entity(window).insert(PinedWindow);
                     }
                 }
             });

@@ -28,7 +28,7 @@ impl Default for FocusStack {
     }
 }
 
-#[derive(Resource, Default, Reflect)]
+#[derive(Resource, Default, Reflect, Debug)]
 pub struct FocusedWindow(pub Option<Entity>);
 
 #[derive(Resource, Default, Reflect)]

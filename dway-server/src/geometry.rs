@@ -78,7 +78,10 @@ fn do_update_node(
 ) {
     context_rect += relative.pos();
     if let Some(mut dest) = dest {
-        dest.geometry = IRect::from_pos_size(context_rect, relative.size());
+        let rect = IRect::from_pos_size(context_rect, relative.size());
+        if dest.geometry != rect {
+            dest.geometry = rect;
+        }
     }
     if let Some(c) = children {
         for child in c.iter() {

@@ -263,12 +263,10 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                     state.query_object::<(
                         &mut WlSurface,
                         Option<&mut Geometry>,
-                        Option<&mut XdgSurface>,
-                        Option<&mut XdgToplevel>,
                         Option<&mut XdgPopup>,
                     ), _, _>(
                         resource,
-                        |(mut surface, geometry, _xdg_surface, _toplevel, popup)| {
+                        |(mut surface, geometry, popup)| {
                             let old_buffer_entity = surface.commited.buffer;
                             if let Some(v) = surface.pending.buffer.take() {
                                 surface.commited.buffer = v;

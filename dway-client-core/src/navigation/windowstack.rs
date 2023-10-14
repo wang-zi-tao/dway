@@ -15,7 +15,7 @@ pub struct WindowIndex {
 pub enum WindowIndexDefaultPosition {
     #[default]
     Top,
-    Buttom,
+    Bottom,
     Index(usize),
 }
 #[derive(Resource, Default)]
@@ -51,7 +51,7 @@ impl WindowStack {
 #[derive(Clone, Copy)]
 pub enum SetWindowIndex {
     ToTop(Entity),
-    ToButtom(Entity),
+    ToBottom(Entity),
     Insert(Entity, usize),
     Swap(Entity, Entity),
 }
@@ -66,7 +66,7 @@ pub fn init_window_index(
             WindowIndexDefaultPosition::Top => {
                 stack.list.push_front(new_window);
             }
-            WindowIndexDefaultPosition::Buttom => {
+            WindowIndexDefaultPosition::Bottom => {
                 stack.list.push_back(new_window);
             }
             WindowIndexDefaultPosition::Index(i) => {
@@ -96,7 +96,7 @@ pub fn update_window_index(
                     stack.list.push_front(*e);
                 }
             }
-            SetWindowIndex::ToButtom(e) => {
+            SetWindowIndex::ToBottom(e) => {
                 if stack.list.back() != Some(&e) {
                     stack.remove_entity(*e);
                     stack.list.push_back(*e);

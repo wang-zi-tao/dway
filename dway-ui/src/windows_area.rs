@@ -25,6 +25,12 @@ pub fn widget_update(
 }
 
 create_widget!(WindowArea, WindowAreaPlugin, WindowAreaBundle, {},@widget_update widget_update);
+impl Default for WindowArea{
+    fn default() -> Self {
+        Self {  }
+    }
+}
+
 pub fn render(
     In(entity): In<Entity>,
     widget_context: Res<KayakWidgetContext>,

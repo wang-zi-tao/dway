@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use chrono::Local;
 use kayak_ui::{
     prelude::*,
-    widgets::{TextProps, TextWidgetBundle},
+    widgets::{BackgroundBundle, TextProps, TextWidgetBundle},
     KayakUIPlugin,
 };
 
@@ -13,14 +13,14 @@ impl Plugin for DWayClockPlugin {
         app.add_system(update);
     }
 }
-pub fn widget_update2<
-    Props: PartialEq + Component + Clone,
-    State: PartialEq + Component + Clone,
->(
-    In((widget_context, entity, previous_entity)): In<(KayakWidgetContext, Entity, Entity)>,
-    widget_param: WidgetParam<Props, State>,
+pub fn widget_update2(
+    In((entity, previous_entity)): In<(Entity, Entity)>,
+ widget_context: Res<KayakWidgetContext>,
+    widget_param: WidgetParam<Clock, ClockState>,
 ) -> bool {
-    widget_param.has_changed(&widget_context, entity, previous_entity)
+    let dirty=widget_param.has_changed(&widget_context, entity, previous_entity);
+    dbg!(dirty);
+    dirty
 }
 
 impl KayakUIPlugin for DWayClockPlugin {
@@ -36,7 +36,10 @@ impl KayakUIPlugin for DWayClockPlugin {
 pub fn update(mut clock_states: Query<&mut ClockState, Without<PreviousWidget>>) {
     for mut state in clock_states.iter_mut() {
         let date = Local::now().naive_local();
-        state.time = date.format(&state.format).to_string();
+        let date_string = date.format(&state.format).to_string();
+        if state.time != date_string {
+            state.time = date_string;
+        }
     }
 }
 
@@ -115,8 +118,6 @@ pub fn render(
                 ..Default::default()
             }}
             styles={KStyle{
-                left: Units::Stretch(0.5).into(),
-                right: Units::Stretch(0.5).into(),
                 ..Default::default()
             }}
         />

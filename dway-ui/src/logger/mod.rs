@@ -8,6 +8,11 @@ use kayak_ui::{
 };
 
 create_widget!(Logger,LoggerPlugin,LoggerBundle,{ });
+impl Default for Logger{
+    fn default() -> Self {
+        Self {  }
+    }
+}
 
 pub fn render(
     In(entity): In<Entity>,

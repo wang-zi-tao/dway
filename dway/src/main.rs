@@ -6,9 +6,11 @@ pub mod keys;
 
 use bevy::{
     app::{ScheduleRunnerPlugin, ScheduleRunnerSettings},
+    audio::AudioPlugin,
     core::TaskPoolThreadAssignmentPolicy,
+    core_pipeline::CorePipelinePlugin,
     diagnostic::{
-        EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin,
+        EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
         SystemInformationDiagnosticsPlugin,
     },
     gltf::GltfPlugin,
@@ -17,11 +19,14 @@ use bevy::{
     prelude::*,
     render::{settings::Backends, RenderPlugin},
     scene::ScenePlugin,
+    sprite::SpritePlugin,
+    text::TextPlugin,
+    ui::UiPlugin,
     winit::WinitPlugin,
 };
 use bevy_framepace::Limiter;
 use dway_client_core::{
-    layout::{tile::TileLayoutKind, LayoutStyle, LayoutRect},
+    layout::{tile::TileLayoutKind, LayoutRect, LayoutStyle},
     workspace::{Workspace, WorkspaceBundle},
 };
 use dway_udev::DWayTTYPlugin;
@@ -83,11 +88,16 @@ fn main() {
                 filter: std::env::var("RUST_LOG").unwrap_or_else(|_| LOG.to_string()),
             })
             .disable::<PbrPlugin>()
-            // .disable::<SpritePlugin>()
             .disable::<GltfPlugin>()
             .disable::<ScenePlugin>()
             .disable::<WinitPlugin>()
+            .disable::<AudioPlugin>()
+            .disable::<UiPlugin>()
+            // .disable::<TextPlugin>()
             .disable::<GilrsPlugin>(),
+        // .disable::<RenderPlugin>()
+        // .disable::<CorePipelinePlugin>()
+        // .disable::<SpritePlugin>()
     );
 
     if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
@@ -98,15 +108,15 @@ fn main() {
     } else {
         // app.add_plugin(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
         app.insert_resource(dway_winit::WinitSettings {
-            focused_mode: dway_winit::UpdateMode::ReactiveLowPower {
-                max_wait: Duration::from_secs(1),
+            focused_mode: dway_winit::UpdateMode::Reactive {
+                max_wait: Duration::from_secs_f32(1.0 / 60.0),
             },
-            unfocused_mode: dway_winit::UpdateMode::ReactiveLowPower {
-                max_wait: Duration::from_secs(1),
+            unfocused_mode: dway_winit::UpdateMode::Reactive {
+                max_wait: Duration::from_secs_f32(1.0 / 60.0),
             },
             ..Default::default()
-        })
-        .add_plugin(dway_winit::WinitPlugin);
+        });
+        app.add_plugin(dway_winit::WinitPlugin);
         app.insert_resource(
             bevy_framepace::FramepaceSettings::default()
                 .with_limiter(Limiter::from_framerate(60.0)),
@@ -117,6 +127,10 @@ fn main() {
     app.add_plugin(EntityCountDiagnosticsPlugin);
     app.add_plugin(FrameTimeDiagnosticsPlugin);
     app.add_plugin(SystemInformationDiagnosticsPlugin);
+    app.add_plugin(LogDiagnosticsPlugin {
+        wait_duration: Duration::from_secs(8),
+        ..Default::default()
+    });
 
     // app.add_plugin(KayakWidgets);
     // app.add_plugin(KayakContextPlugin);
@@ -146,7 +160,7 @@ pub fn setup(mut commands: Commands) {
         },
         TileLayoutKind::Grid,
         LayoutStyle {
-            pedding: LayoutRect::new(4),
+            padding: LayoutRect::new(4),
             ..Default::default()
         },
     ));

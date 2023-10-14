@@ -22,7 +22,6 @@ bytemuck = "1.13.0"
 smallvec = "1.10.0"
 bevy = "0.10"
 serde={}
-bevy_prototype_lyon = "0.8.0"
 getset = "0.1.2"
 bitflags = "2.4.0"
 

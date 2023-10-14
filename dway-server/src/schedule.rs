@@ -17,6 +17,7 @@ pub enum DWayServerSet {
 
     UpdateXWayland,
     UpdateGeometry,
+    UpdateAppInfo,
 
     UpdateJoin,
     Update,
@@ -59,6 +60,7 @@ impl Plugin for DWayServerSchedulePlugin {
                 UpdateXWayland,
                 InitDmaBufFeedback,
                 UpdateJoin.after(UpdateGeometry),
+                UpdateAppInfo,
             )
                 .after(Dispatch)
                 .before(Update)

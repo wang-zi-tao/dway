@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! create_widget {
     ($name:ident,$plugin:ident,$bundle:ident,$props:tt,@widget_update $widget_update:expr) => {
-#[derive(bevy::prelude::Component, Default, Clone, PartialEq, Eq)]
+#[derive(bevy::prelude::Component, Debug, Clone, PartialEq, Eq)]
 pub struct $name $props
 impl kayak_ui::prelude::Widget for $name {}
 
@@ -26,6 +26,7 @@ pub struct $bundle {
     // pub on_event: OnEvent,
     pub children: KChildren,
 }
+
 impl Default for $bundle {
     fn default() -> Self {
         Self {
@@ -41,5 +42,41 @@ impl Default for $bundle {
     };
     ($name:ident,$plugin:ident,$bundle:ident,$props:tt) => {
         create_widget!($name,$plugin,$bundle,$props,@widget_update kayak_ui::prelude::widget_update::<$name, kayak_ui::prelude::EmptyState>);
-    }
+    };
+}
+
+#[macro_export]
+macro_rules! create_render {
+    ($prop:ident) => {
+pub fn render(
+    In(entity): In<Entity>,
+    widget_context: Res<KayakWidgetContext>,
+    props_query: Query<&$prop>,
+    mut commands: Commands,
+) -> bool {
+    let Ok(props) = props_query.get(entity) else {
+        return true;
+    };
+    let parent_id = Some(entity);
+    rsx! {
+        <ElementBundle>
+        </ElementBundle>
+    };
+    true
+}
+    };
+}
+
+#[macro_export]
+macro_rules! create_update_function {
+    ($prop:ident) => {
+pub fn widget_update(
+    In((entity, previous_entity)): In<(Entity, Entity)>,
+    widget_context: Res<KayakWidgetContext>,
+    widget_param: WidgetParam<$prop, EmptyState>,
+) -> bool {
+    let should_update = widget_param.has_changed(&widget_context, entity, previous_entity);
+    should_update
+}
+    };
 }

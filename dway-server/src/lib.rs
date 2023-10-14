@@ -31,6 +31,7 @@ pub mod x11;
 pub mod xdg;
 pub mod zwp;
 pub mod zxdg;
+pub mod apps;
 
 #[derive(Default)]
 pub struct DWayServerPlugin;
@@ -56,6 +57,7 @@ impl Plugin for DWayServerPlugin {
         app.add_plugin(wp::PrimarySelectionPlugin);
         app.add_plugin(x11::DWayXWaylandPlugin);
         app.add_plugin(zwp::DmaBufferPlugin);
+        app.add_plugin(apps::DesktopEntriesPlugin);
         app.add_startup_systems((init_display, apply_system_buffers, spawn).chain());
         app.add_system(
             spawn_x11

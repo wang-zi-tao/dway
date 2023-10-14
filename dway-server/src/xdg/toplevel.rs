@@ -12,6 +12,9 @@ use crate::{
 
 use super::{DWayWindow, XdgSurface};
 
+#[derive(Component)]
+pub struct PinedWindow;
+
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct XdgToplevel {
@@ -92,6 +95,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
     ) {
         let span = span!(Level::ERROR, "request", entity=?data, resource=%WlResource::id(resource));
         let _enter = span.enter();
+        debug!("request {:?}", &request);
         match request {
             xdg_toplevel::Request::Destroy => {
                 state.send_event(Destroy::<DWayWindow>::new(*data));
@@ -118,6 +122,9 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 warn!("TODO: xdg_toplevel::Request::ShowWindowMenu");
             }
             xdg_toplevel::Request::Move { seat, serial } => {
+                if state.entity(*data).contains::<PinedWindow>(){
+                    return
+                }
                 let rect = state.query::<&Geometry, _, _>(*data, |r| r.geometry);
                 let pos = rect.pos();
                 state.query::<(&mut Grab, &mut WlSeat), _, _>(
@@ -137,6 +144,9 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 serial,
                 edges,
             } => {
+                if state.entity(*data).contains::<PinedWindow>(){
+                    return
+                }
                 let edges = match edges {
                     WEnum::Value(xdg_toplevel::ResizeEdge::Top) => ResizeEdges::TOP,
                     WEnum::Value(xdg_toplevel::ResizeEdge::TopRight) => {
@@ -175,14 +185,18 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 );
             }
             xdg_toplevel::Request::SetMaxSize { width, height } => {
-                state.with_component(resource, |c: &mut XdgToplevel| {
-                    c.max_size = Some(IVec2::new(width, height))
-                });
+                if let Some(mut c)=state.get_mut::<XdgToplevel>(*data){
+                    if c.max_size != Some(IVec2::new(width, height)){
+                        c.max_size = Some(IVec2::new(width, height))
+                    }
+                }
             }
             xdg_toplevel::Request::SetMinSize { width, height } => {
-                state.with_component(resource, |c: &mut XdgToplevel| {
-                    c.min_size = Some(IVec2::new(width, height))
-                });
+                if let Some(mut c)=state.get_mut::<XdgToplevel>(*data){
+                    if c.min_size != Some(IVec2::new(width, height)){
+                        c.min_size = Some(IVec2::new(width, height))
+                    }
+                }
             }
             xdg_toplevel::Request::SetMaximized => {
                 state.with_component(resource, |c: &mut XdgToplevel| {
