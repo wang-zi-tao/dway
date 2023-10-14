@@ -19,7 +19,7 @@ failure = {}
 uuid = {}
 lru = {}
 rand = {}
-kayak_font = {path="../../../../Code/bevy-kayak/kayak_font/"}
+kayak_font = {git="https://github.com/wang-zi-tao/dway_kayak_ui", branch="dway"}
 bevy = "0.11"
 serde={}
 bevy_svg = { version="0.11", default-features = false }

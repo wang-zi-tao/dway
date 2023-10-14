@@ -2263,7 +2263,7 @@ dependencies = [
  "dway-util",
  "failure",
  "font-kit",
- "kayak_font 0.4.0",
+ "kayak_font",
  "kayak_ui",
  "log",
  "lru",
@@ -3495,22 +3495,6 @@ dependencies = [
 [[package]]
 name = "kayak_font"
 version = "0.4.0"
-dependencies = [
- "anyhow",
- "bevy",
- "image",
- "nanoserde",
- "num",
- "num-derive",
- "num-traits",
- "ttf-parser 0.17.1",
- "unicode-segmentation",
- "xi-unicode",
-]
-
-[[package]]
-name = "kayak_font"
-version = "0.4.0"
 source = "git+https://github.com/wang-zi-tao/dway_kayak_ui?branch=dway#b10b04fdef468892759881ea234e7dc1c8a7a248"
 dependencies = [
  "anyhow",
@@ -3539,7 +3523,7 @@ dependencies = [
  "indexmap 1.9.3",
  "instant",
  "interpolation",
- "kayak_font 0.4.0 (git+https://github.com/wang-zi-tao/dway_kayak_ui?branch=dway)",
+ "kayak_font",
  "kayak_ui_macros",
  "log",
  "morphorm",
