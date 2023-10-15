@@ -67,7 +67,7 @@ impl Dispatch<xdg_activation_token_v1::XdgActivationTokenV1, Entity> for DWay {
                 component.token = Some(uuid);
             }
             xdg_activation_token_v1::Request::Destroy => {
-                state.despawn_object_component::<XdgActivationToken>(*data, resource.id());
+                state.despawn_object_component::<XdgActivationToken>(*data, resource);
             }
             _ => todo!(),
         }
@@ -75,7 +75,7 @@ impl Dispatch<xdg_activation_token_v1::XdgActivationTokenV1, Entity> for DWay {
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &xdg_activation_token_v1::XdgActivationTokenV1,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object_component::<XdgActivationToken>(*data, resource);

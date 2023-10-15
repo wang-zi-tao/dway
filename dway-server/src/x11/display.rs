@@ -8,6 +8,7 @@ use std::{
     sync::{Arc, Mutex, Weak},
 };
 use bevy::utils::{HashMap, HashSet};
+use dway_util::eventloop::EventLoop;
 use nix::{errno::Errno, sys::socket};
 pub use x11rb::protocol::xproto::Window as XWindowID;
 use x11rb::{
@@ -85,22 +86,25 @@ impl XWaylandDisplay {
 
 impl XWaylandDisplay {
     pub fn spawn(
-        dway: &mut DWay,
-        display: &wayland_server::Display<DWay>,
+        dway_server: &mut DWayServer,
         dway_entity: Entity,
         commands: &mut Commands,
         events: &ClientEvents,
+        eventloop:&mut EventLoop,
     ) -> Result<Entity> {
         let (display_number, streams) =
             Self::get_number().ok_or_else(|| anyhow!("failed to alloc dissplay number"))?;
         let (x11_socket, x11_stream) = UnixStream::pair()?;
         let (wayland_socket, wayland_client_stream) = UnixStream::pair()?;
+
+        eventloop.add_fd_to_read(&x11_socket);
+        eventloop.add_fd_to_read(&wayland_socket);
         let child = Self::spawn_xwayland(display_number, streams, x11_socket, wayland_socket)?;
         let (tx, rx) = crossbeam_channel::bounded(1024);
-        dway.display_number = Some(display_number as usize);
+        dway_server.display_number = Some(display_number as usize);
 
         let mut entity_mut = commands.spawn((Name::new(format!("xwayland:{}", display_number)),));
-        let client = match display.handle().insert_client(
+        let client = match dway_server.display.handle().insert_client(
             wayland_client_stream,
             Arc::new(ClientData::new(entity_mut.id(), events)),
         ) {

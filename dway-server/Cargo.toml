@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 dway-util = {path="../dway-util/"}
 bevy-relationship = {path="../bevy-relationship/"}
-dway_winit = {path="../dway_winit"}
 
 lazy_static = "1.4.0"
 crossbeam-channel = "0.5.6"
@@ -29,15 +28,14 @@ khronos-egl = { version="4.1",features= ["dynamic","static"] }
 ash = { version = "0.37.3", features = [] }
 send_wrapper = "0.6.0"
 serde={}
-wayland-server = { version="0.30.0",features = ["log"] }
-wayland-backend = { version="0.1.2", features = ["server_system", "log"] }
-wayland-protocols = { version = "0.30.0", features = ["unstable", "staging", "server", "wayland-server"]}
-calloop = "0.10.5"
+wayland-server = { version="0.31.0",features = ["log"] }
+wayland-backend = { version="0.3.2", features = ["server_system", "log"] }
+wayland-protocols = { version = "0.31.0", features = ["unstable", "staging", "server", "wayland-server"]}
 inlinable_string = "0.1.15"
 nix = "0.26.2"
 phf = { version = "0.11", features = ["macros"] }
 bitflags = "2.3.1"
-drm-fourcc = "^2.2.0"
+drm-fourcc = "2.2.0"
 rstar = "0.11.0"
 tokio = { version="1.28.0", features = [ "full" ] }
 bytes = "1.4.0"

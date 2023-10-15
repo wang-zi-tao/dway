@@ -1,21 +1,21 @@
 mod display;
 pub mod events;
 pub use display::*;
+use dway_util::eventloop::EventLoop;
 pub mod screen;
 pub mod util;
 pub mod window;
-use dway_winit::FrameConditionSchedule;
 use crate::{
     client::{Client, ClientEvents},
     prelude::*,
     schedule::DWayServerSet,
-    state::{on_create_display_event, DWayDisplay, DWayWrapper, WaylandDisplayCreated},
+    state::{on_create_display_event, WaylandDisplayCreated},
 };
 
 relationship!(XDisplayHasWindow=>XWindowList-<XDisplayRef);
 
 use self::{
-    events::{dispatch_x11_events, x11_frame_condition},
+    events::dispatch_x11_events,
     window::{
         process_window_action_events, x11_window_attach_wl_surface, MappedXWindow, XWindow,
         XWindowAttachSurface,
@@ -29,18 +29,21 @@ pub struct XWaylandBundle {
 }
 
 pub fn launch_xwayland(
-    display_query: Query<(&DWayWrapper, &DWayDisplay)>,
+    mut display_query: Query<&mut DWayServer>,
     mut events: EventReader<WaylandDisplayCreated>,
     client_events: Res<ClientEvents>,
+    mut eventloop: NonSendMut<EventLoop>,
     mut commands: Commands,
 ) {
     for WaylandDisplayCreated(entity, _) in events.iter() {
-        if let Ok((dway_wrapper, display_wrapper)) = display_query.get(*entity) {
-            let mut dway = dway_wrapper.0.lock().unwrap();
-            let display = display_wrapper.0.lock().unwrap();
-            if let Err(e) =
-                XWaylandDisplay::spawn(&mut dway, &display, *entity, &mut commands, &client_events)
-            {
+        if let Ok(mut dway_server) = display_query.get_mut(*entity) {
+            if let Err(e) = XWaylandDisplay::spawn(
+                &mut dway_server,
+                *entity,
+                &mut commands,
+                &client_events,
+                &mut eventloop,
+            ) {
                 error!(error=%e,"failed to launch xwayland");
             };
         }
@@ -73,9 +76,6 @@ relationship!(DWayHasXWayland=>XWaylandRef--DWayRef);
 pub struct DWayXWaylandPlugin;
 impl Plugin for DWayXWaylandPlugin {
     fn build(&self, app: &mut App) {
-        if app.get_schedule(FrameConditionSchedule).is_some() {
-            app.add_systems(FrameConditionSchedule, x11_frame_condition);
-        }
         app.add_systems(
             PreUpdate,
             (

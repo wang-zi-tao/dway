@@ -229,7 +229,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &xdg_toplevel::XdgToplevel,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);

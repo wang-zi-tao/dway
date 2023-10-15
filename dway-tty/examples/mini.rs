@@ -15,7 +15,7 @@ use bevy::{
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
     winit::WinitPlugin,
 };
-use dway_udev::{drm::surface::DrmSurface, DWayTTYPlugin};
+use dway_tty::{drm::surface::DrmSurface, DWayTTYPlugin};
 use input::event::pointer::PointerAxisEvent;
 use tracing::Level;
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};

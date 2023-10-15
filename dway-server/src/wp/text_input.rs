@@ -53,7 +53,7 @@ impl Dispatch<zwp_text_input_v3::ZwpTextInputV3, Entity> for DWay {
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &zwp_text_input_v3::ZwpTextInputV3,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);
@@ -98,7 +98,7 @@ impl Dispatch<zwp_text_input_manager_v3::ZwpTextInputManagerV3, Entity> for DWay
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &zwp_text_input_manager_v3::ZwpTextInputManagerV3,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object_component::<ZwpTextInputManager>(*data, resource);

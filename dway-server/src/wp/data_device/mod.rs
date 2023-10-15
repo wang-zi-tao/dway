@@ -1,7 +1,7 @@
 pub mod data_source;
 pub mod manager;
 
-use crate::prelude::*;
+use crate::{prelude::*, state::add_global_dispatch};
 
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
@@ -52,7 +52,7 @@ impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &wl_data_device::WlDataDevice,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);
@@ -62,10 +62,7 @@ impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
 pub struct DataDevicePlugin;
 impl Plugin for DataDevicePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            PreUpdate,
-            create_global_system_config::<wl_data_device_manager::WlDataDeviceManager, 3>(),
-        );
+        add_global_dispatch::<wl_data_device_manager::WlDataDeviceManager, 3>(app);
         app.register_relation::<SelectionOfDataDevice>();
     }
 }

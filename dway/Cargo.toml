@@ -10,8 +10,7 @@ dway-client-core = { path="../dway-client-core/"}
 dway-ui = { path="../dway-ui/"}
 dway-util = {path="../dway-util/"}
 dway-server = {path="../dway-server/"}
-dway_winit = {path="../dway_winit"}
-dway-udev = {path="../dway-udev/"}
+dway-tty = {path="../dway-tty/"}
 
 pretty_env_logger = "0.5.0"
 log = "0.4.17"
@@ -21,14 +20,13 @@ crossbeam-channel = "0.5.6"
 uuid = "1.2.2"
 lru = "0.12.0"
 rand = "0.8"
-# bevy-inspector-egui = "0.18"
 bevy_framepace = "0.13"
 num_cpus = "1.15.0"
 serde={}
 bevy_prototype_lyon = "0.9.0"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-# bevy-inspector-egui = "0.18"
 chrono = "0.4.31"
+bevy-inspector-egui = "0.20"
 
 [profile.dev.package.bevy]
 opt-level = 3

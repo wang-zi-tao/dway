@@ -6,7 +6,7 @@ macro_rules! create_dispatch {
         create_dispatch!($resource=>$name)
         impl GlobalDispatch< $resource, Entity, > for DWay {
             fn bind(
-                state: &mut Self,
+                state: &mut World,
                 handle: &DisplayHandle,
                 client: &wayland_server::Client,
                 resource: wayland_server::New<$resource>,
@@ -43,7 +43,7 @@ macro_rules! create_dispatch {
 
         impl Dispatch<$resource, Entity> for DWay {
             fn request(
-                state: &mut Self,
+                state: &mut World,
                 client: &wayland_server::Client,
                 resource: &$resource,
                 request: <$resource as WlResource>::Request,

@@ -2,7 +2,7 @@ use bevy_relationship::{relationship, AppExt};
 
 use crate::{
     prelude::*,
-    state::{create_global_system_config, EntityFactory},
+    state::{add_global_dispatch, EntityFactory},
     wl::surface::{ClientHasSurface, WlSubsurface, WlSurface, WlSurfaceBundle},
 };
 
@@ -62,7 +62,7 @@ impl wayland_server::Dispatch<wl_compositor::WlCompositor, bevy::prelude::Entity
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &wl_compositor::WlCompositor,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object_component::<WlCompositor>(*data, resource);
@@ -102,7 +102,7 @@ impl wayland_server::Dispatch<wl_subcompositor::WlSubcompositor, bevy::prelude::
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &wl_subcompositor::WlSubcompositor,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object_component::<WlSubcompositor>(*data, resource);
@@ -137,13 +137,8 @@ impl wayland_server::GlobalDispatch<wl_subcompositor::WlSubcompositor, Entity> f
 pub struct WlCompositorPlugin;
 impl Plugin for WlCompositorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            PreUpdate,
-            (
-                create_global_system_config::<wl_compositor::WlCompositor, 6>(),
-                create_global_system_config::<wl_subcompositor::WlSubcompositor, 1>(),
-            ),
-        );
+        add_global_dispatch::<wl_compositor::WlCompositor, 6>(app);
+        add_global_dispatch::<wl_subcompositor::WlSubcompositor, 1>(app);
         app.register_relation::<HasSubsurface>();
     }
 }

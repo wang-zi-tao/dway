@@ -178,7 +178,7 @@ impl wayland_server::Dispatch<wl_region::WlRegion, bevy::prelude::Entity, DWay> 
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &wl_region::WlRegion,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);

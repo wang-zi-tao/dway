@@ -14,7 +14,7 @@ use crate::{
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
     resource::ResourceWrapper,
-    state::{create_global_system_config, EntityFactory},
+    state::{add_global_dispatch, EntityFactory},
     util::{rect::IRect, serial::next_serial},
     wl::surface::WlSurface,
     xdg::{
@@ -187,7 +187,7 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &xdg_surface::XdgSurface,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);
@@ -216,13 +216,8 @@ impl
 pub struct XdgShellPlugin;
 impl Plugin for XdgShellPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            PreUpdate,
-            (
-                create_global_system_config::<xdg_wm_base::XdgWmBase, 6>(),
-                create_global_system_config::<xdg_activation_v1::XdgActivationV1, 1>(),
-            ),
-        );
+        add_global_dispatch::<xdg_wm_base::XdgWmBase, 6>(app);
+        add_global_dispatch::<xdg_activation_v1::XdgActivationV1, 1>(app);
         app.register_relation::<SurfaceHasPopup>();
         app.add_event::<Insert<DWayWindow>>();
         app.add_event::<Destroy<DWayWindow>>();

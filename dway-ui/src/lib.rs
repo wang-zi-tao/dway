@@ -15,7 +15,7 @@ pub mod windows_area;
 
 use std::sync::Arc;
 use dway_client_core::DWayClientSystem;
-use dway_udev::{drm::surface::DrmSurface, seat::SeatState};
+use dway_tty::{drm::surface::DrmSurface, seat::SeatState};
 use failure::Fallible;
 pub use kayak_ui;
 use bevy::{prelude::*, render::camera::RenderTarget};

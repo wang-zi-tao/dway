@@ -1,8 +1,10 @@
 use anyhow::Result;
 use bevy::{prelude::*, utils::HashMap};
+use dway_util::eventloop::EventLoop;
 use std::{
     collections::VecDeque,
     ffi::{OsStr, OsString},
+    os::fd::AsRawFd,
     path::PathBuf,
 };
 use udev::{Device, MonitorBuilder, MonitorSocket};
@@ -23,6 +25,12 @@ pub struct UDevMonitor {
     pub(crate) monitor: MonitorSocket,
     pub(crate) events: VecDeque<UDevEvent>,
     pub device_entity_map: HashMap<PathBuf, Entity>,
+}
+
+impl AsRawFd for UDevMonitor {
+    fn as_raw_fd(&self) -> std::os::fd::RawFd {
+        self.monitor.as_raw_fd()
+    }
 }
 
 impl UDevMonitor {
@@ -76,7 +84,11 @@ pub struct UDevPlugin {
 }
 impl Plugin for UDevPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_non_send_resource(UDevMonitor::new(&self.sub_system).unwrap());
+        let udev = UDevMonitor::new(&self.sub_system).unwrap();
+        app.world
+            .non_send_resource_mut::<EventLoop>()
+            .add_fd_to_read(&udev);
+        app.insert_non_send_resource(udev);
         app.add_systems(First, receive_events.in_set(DWayTTYSet::UdevSystem));
     }
 }

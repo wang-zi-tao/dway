@@ -13,6 +13,7 @@ use bevy::{
         EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
         SystemInformationDiagnosticsPlugin,
     },
+    gizmos::GizmoPlugin,
     gltf::GltfPlugin,
     log::{Level, LogPlugin},
     pbr::PbrPlugin,
@@ -29,7 +30,8 @@ use dway_client_core::{
     layout::{tile::TileLayoutKind, LayoutRect, LayoutStyle},
     workspace::{Workspace, WorkspaceBundle},
 };
-use dway_udev::DWayTTYPlugin;
+use dway_tty::DWayTTYPlugin;
+use dway_util::{eventloop::EventLoopPlugin, logger::DWayLogPlugin};
 use keys::*;
 use tracing_subscriber::{
     fmt::{format::Writer, time::FormatTime},
@@ -83,16 +85,14 @@ fn main() {
                     compute: THREAD_POOL_CONFIG,
                 },
             })
-            .set(LogPlugin {
-                level: Level::INFO,
-                filter: std::env::var("RUST_LOG").unwrap_or_else(|_| LOG.to_string()),
-            })
-            // .disable::<PbrPlugin>()
+            .disable::<LogPlugin>()
+            .disable::<PbrPlugin>()
+            .disable::<GizmoPlugin>()
             .disable::<GltfPlugin>()
             .disable::<ScenePlugin>()
             .disable::<WinitPlugin>()
             .disable::<AudioPlugin>()
-            .disable::<UiPlugin>()
+            // .disable::<UiPlugin>()
             // .disable::<TextPlugin>()
             .disable::<GilrsPlugin>(),
         // .disable::<RenderPlugin>()
@@ -101,50 +101,60 @@ fn main() {
     );
 
     if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
-        app.add_plugin(DWayTTYPlugin::default());
-        app.add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f32(
-            1.0 / 60.0,
-        )));
+        app.add_plugins((
+            DWayLogPlugin {
+                level: Level::INFO,
+                filter: std::env::var("RUST_LOG").unwrap_or_else(|_| LOG.to_string()),
+            },
+            DWayTTYPlugin::default(),
+            // ScheduleRunnerPlugin::run_loop(Duration::from_secs_f32(1.0 / 60.0)),
+        ));
     } else {
         // app.add_plugin(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
-        app.insert_resource(dway_winit::WinitSettings {
-            focused_mode: dway_winit::UpdateMode::Reactive {
-                max_wait: Duration::from_secs_f32(1.0 / 60.0),
+        // app.insert_resource(dway_winit::WinitSettings {
+        //     focused_mode: dway_winit::UpdateMode::ReactiveLowPower {
+        //         max_wait: Duration::from_secs_f32(1.0),
+        //     },
+        //     unfocused_mode: dway_winit::UpdateMode::ReactiveLowPower {
+        //         max_wait: Duration::from_secs_f32(1.0),
+        //     },
+        //     ..Default::default()
+        // });
+        app.add_plugins((
+            LogPlugin {
+                level: Level::INFO,
+                filter: std::env::var("RUST_LOG").unwrap_or_else(|_| LOG.to_string()),
             },
-            unfocused_mode: dway_winit::UpdateMode::Reactive {
-                max_wait: Duration::from_secs_f32(1.0 / 60.0),
-            },
-            ..Default::default()
-        });
-        app.add_plugin(dway_winit::WinitPlugin);
+            EventLoopPlugin::default(),
+            WinitPlugin,
+            // dway_winit::WinitPlugin,
+            bevy_framepace::FramepacePlugin,
+        ));
         app.insert_resource(
             bevy_framepace::FramepaceSettings::default()
                 .with_limiter(Limiter::from_framerate(60.0)),
         );
-        app.add_plugin(bevy_framepace::FramepacePlugin);
     }
 
-    app.add_plugin(EntityCountDiagnosticsPlugin);
-    app.add_plugin(FrameTimeDiagnosticsPlugin);
-    app.add_plugin(SystemInformationDiagnosticsPlugin);
-    app.add_plugin(LogDiagnosticsPlugin {
-        wait_duration: Duration::from_secs(8),
-        ..Default::default()
-    });
+    app.add_plugins((
+        EntityCountDiagnosticsPlugin,
+        FrameTimeDiagnosticsPlugin,
+        SystemInformationDiagnosticsPlugin,
+        LogDiagnosticsPlugin {
+            wait_duration: Duration::from_secs(8),
+            ..Default::default()
+        },
+        bevy_inspector_egui::DefaultInspectorConfigPlugin,
+    ));
 
-    // app.add_plugin(KayakWidgets);
-    // app.add_plugin(KayakContextPlugin);
+    app.add_plugins((
+        dway_server::DWayServerPlugin,
+        dway_client_core::DWayClientPlugin,
+        dway_ui::DWayUiPlugin,
+    ));
 
-    app.add_plugin(dway_server::DWayServerPlugin);
-    app.add_plugin(dway_client_core::DWayClientPlugin);
-    app.add_plugin(dway_ui::DWayUiPlugin);
-
-    // app.insert_resource(WindowMessageReceiver(client_receiver));
-    // app.insert_resource(WindowMessageSender(client_sender));
-
-    app.add_startup_system(setup);
-    app.add_system(wm_mouse_action);
-    app.add_system(wm_keys);
+    app.add_systems(Startup, setup);
+    app.add_systems(Update, (wm_mouse_action, wm_keys));
 
     app.run();
 

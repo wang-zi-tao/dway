@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Result};
-use dway_winit::{UpdateRequest, UpdateRequestEvents};
 use scopeguard::defer;
 use thiserror::Error;
 use x11rb::{
@@ -19,7 +18,6 @@ use crate::{
         seat::WlSeat,
     },
     prelude::*,
-    state::DWayWrapper,
     util::rect::IRect,
     x11::{
         screen::{XScreen, XScreenBundle},
@@ -42,17 +40,6 @@ pub enum XWaylandError {
     InvalidWindowEntity(Entity),
     #[error("xwayland connection error: {}", _0)]
     ConnectionError(ConnectionError),
-}
-
-pub fn x11_frame_condition(
-    display_query: Query<&mut XWaylandDisplayWrapper>,
-    event_sender: NonSend<UpdateRequestEvents>,
-) {
-    for display in display_query.iter() {
-        if !display.inner.lock().unwrap().channel.is_empty() {
-            let _ = event_sender.sender.send(UpdateRequest::default());
-        }
-    }
 }
 
 pub fn process_x11_event(
@@ -395,11 +382,7 @@ pub fn dispatch_x11_events(world: &mut World) {
         .into_iter()
         .for_each(|(display_entity, display, dway_entity)| {
             let mut x = display.inner.lock().unwrap();
-            let Some(dway) = world.get::<DWayWrapper>(dway_entity).cloned() else {
-                return;
-            };
-            let mut dway_guard = dway.0.lock().unwrap();
-            dway_guard.scope(world, |dway| {
+            DWay::with(world, |dway| {
                 for event in x.channel.clone().try_iter() {
                     let result = (|| {
                         let event = match event {

@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{prelude::*, state::add_global_dispatch};
 
 use bevy_relationship::{relationship, AppExt};
 use wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
@@ -50,7 +50,7 @@ impl Dispatch<ZwpPrimarySelectionDeviceV1, Entity> for DWay {
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &ZwpPrimarySelectionDeviceV1,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);
@@ -60,13 +60,10 @@ impl Dispatch<ZwpPrimarySelectionDeviceV1, Entity> for DWay {
 pub struct PrimarySelectionDevicePlugin;
 impl Plugin for PrimarySelectionDevicePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            PreUpdate,
-            create_global_system_config::<
-                zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1,
-                1,
-            >(),
-        );
+        add_global_dispatch::<
+            zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1,
+            1,
+        >(app);
         app.register_relation::<SourceOfSelection>();
     }
 }

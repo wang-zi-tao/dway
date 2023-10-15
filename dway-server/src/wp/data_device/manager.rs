@@ -43,7 +43,7 @@ impl Dispatch<wl_data_device_manager::WlDataDeviceManager, Entity> for DWay {
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &wl_data_device_manager::WlDataDeviceManager,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);

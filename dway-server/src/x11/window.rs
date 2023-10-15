@@ -16,7 +16,6 @@ use x11rb::{
 use crate::{
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
-    state::DWayWrapper,
     util::rect::IRect,
     wl::surface::WlSurface,
     xdg::{DWayToplevelWindow, DWayWindow},
@@ -413,7 +412,7 @@ pub fn x11_window_attach_wl_surface(
         ),
     >,
     xdisplay_query: Query<(&XWaylandDisplayWrapper, &Parent)>,
-    wl_query: Query<&DWayWrapper>,
+    wl_query: Query<&DWayServer>,
     mut event_writter: EventWriter<Insert<DWayWindow>>,
     mut commands: Commands,
 ) {
@@ -428,15 +427,14 @@ pub fn x11_window_attach_wl_surface(
                 else {
                     return;
                 };
-                let Ok(dway_wrapper) = wl_query.get(wl_entity.get()) else {
+                let Ok(dway) = wl_query.get(wl_entity.get()) else {
                     return;
                 };
-                let dway = dway_wrapper.lock().unwrap();
                 let xdisplay = xdisplay_wrapper.lock().unwrap();
                 let Ok(wl_surface) = xdisplay
                     .client
                     .clone()
-                    .object_from_protocol_id::<wl_surface::WlSurface>(&dway.display_handle, wid)
+                    .object_from_protocol_id::<wl_surface::WlSurface>(&dway.display.handle(), wid)
                 else {
                     return;
                 };

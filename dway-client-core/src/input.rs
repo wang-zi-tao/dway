@@ -77,22 +77,12 @@ pub fn setup_debug_cursor(mut commands: Commands) {
 // #[tracing::instrument(skip_all)]
 pub fn debug_follow_cursor(
     mut cursor_moved_events: EventReader<CursorMoved>,
-    windows: Query<&Window>,
     mut cursor: Query<&mut Style, With<DebugCursor>>,
 ) {
     for event in cursor_moved_events.iter() {
-        let Ok(window) = windows.get(event.window) else {
-            error!("failed to get window {:?}", event.window);
-            continue;
-        };
-        let pos: Vec2 = (
-            event.position.x,
-            window.physical_height() as f32 - event.position.y,
-        )
-            .into();
         let mut cursor = cursor.single_mut();
-        cursor.left = Val::Px(pos.x);
-        cursor.top = Val::Px(pos.y);
+        cursor.left = Val::Px(event.position.x);
+        cursor.top = Val::Px(event.position.y);
     }
 }
 graph_query!(KeyboardInputGraph=>[
@@ -134,24 +124,16 @@ pub fn keyboard_input_system(
         });
     }
 }
-// #[tracing::instrument(skip_all)]
+
 pub fn mouse_move_on_window(
     mut cursor_moved_events: EventReader<CursorMoved>,
-    windows: Query<&Window>,
     mut focus: ResMut<CursorOnOutput>,
 ) {
     for event in cursor_moved_events.iter() {
-        let Ok(window) = windows.get(event.window) else {
-            error!("failed to get window {:?}", event.window);
-            continue;
-        };
-        let pos = IVec2::new(
-            event.position.x as i32,
-            window.physical_height() as i32 - event.position.y as i32,
-        );
-        focus.0 = Some((event.window, pos));
+        focus.0 = Some((event.window, event.position.as_ivec2()));
     }
 }
+
 graph_query!(PointInputGraph=>[
     surface=< (Entity, &'static WlSurface, &'static GlobalGeometry, Option<&'static XdgToplevel>, Option<&'static XdgPopup>),With<DWayWindow>>,
     client=(Entity,&'static mut WlSeat,&'static mut Grab),

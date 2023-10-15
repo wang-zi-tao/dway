@@ -1,6 +1,6 @@
 use crate::{input::time, prelude::*, util::serial::next_serial, wl::surface::WlSurface};
 use bevy::input::keyboard::KeyboardInput;
-use std::{fs::File, io::Write, os::fd::AsRawFd, path::PathBuf};
+use std::{fs::File, io::Write, os::fd::AsFd, path::PathBuf};
 use xkbcommon::xkb;
 
 #[derive(Resource, Reflect)]
@@ -101,7 +101,7 @@ impl WlKeyboard {
     pub fn new(kbd: wl_keyboard::WlKeyboard, keymap: &Keymap, keystate: &XkbState) -> Result<Self> {
         kbd.keymap(
             wl_keyboard::KeymapFormat::XkbV1,
-            keystate.file.as_raw_fd(),
+            keystate.file.as_fd(),
             keystate.keymap_string.bytes().len().try_into().unwrap(),
         );
         if kbd.version() >= 4 {
@@ -187,7 +187,7 @@ impl
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &wl_keyboard::WlKeyboard,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);

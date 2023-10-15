@@ -91,7 +91,7 @@ impl wayland_server::Dispatch<zxdg_output_v1::ZxdgOutputV1, Entity> for DWay {
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &zxdg_output_v1::ZxdgOutputV1,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object_component::<ZxdgOutput>(*data, resource);

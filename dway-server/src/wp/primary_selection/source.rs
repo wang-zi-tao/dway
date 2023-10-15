@@ -42,7 +42,7 @@ impl Dispatch<ZwpPrimarySelectionSourceV1, Entity> for DWay {
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &ZwpPrimarySelectionSourceV1,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);

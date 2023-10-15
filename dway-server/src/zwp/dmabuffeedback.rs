@@ -1,5 +1,5 @@
 use std::{
-    os::fd::AsRawFd,
+    os::fd::AsFd,
     sync::{Arc, Mutex},
 };
 
@@ -52,7 +52,7 @@ impl Dispatch<zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1, Entity> fo
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object_component::<DmabufFeedback>(*data, resource);
@@ -65,7 +65,7 @@ pub fn do_init_feedback(
 ) {
     feedback.main_device(drm_node_state.main_device.device.to_ne_bytes().to_vec());
     feedback.format_table(
-        drm_node_state.format_table.0.as_raw_fd(),
+        drm_node_state.format_table.0.as_fd(),
         drm_node_state.format_table.1 as u32,
     );
 

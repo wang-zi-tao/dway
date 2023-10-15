@@ -7,8 +7,7 @@ use wayland_server::protocol::wl_output::Mode;
 use crate::{
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
-    schedule::DWayServerSet,
-    state::create_global_system_config,
+    state::add_global_dispatch,
     util::rect::IRect,
 };
 
@@ -70,7 +69,7 @@ impl wayland_server::Dispatch<wl_output::WlOutput, bevy::prelude::Entity, DWay> 
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &wl_output::WlOutput,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);
@@ -114,13 +113,7 @@ impl GlobalDispatch<wl_output::WlOutput, Entity> for DWay {
 pub struct WlOutputPlugin;
 impl Plugin for WlOutputPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            PreUpdate,
-            (
-                create_global_system_config::<wl_output::WlOutput, 4>(),
-                surface_enter_output.in_set(DWayServerSet::UpdateJoin),
-            ),
-        );
+        add_global_dispatch::<wl_output::WlOutput, 4>(app);
         app.register_type::<HashSet<Entity>>();
         app.register_type::<WlOutput>();
         app.register_relation::<ClientHasOutput>();

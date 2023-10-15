@@ -8,7 +8,7 @@ pub use wayland_protocols::xdg::xdg_output::zv1::server::*;
 pub use wayland_server::delegate_dispatch;
 pub use wayland_server::protocol::*;
 
-pub use crate::state::DWay;
+pub use crate::state::{DWay,DWayServer};
 pub use bevy::log::Level;
 pub use tracing::instrument;
 pub use tracing::{debug, error, info, span, trace, warn};
@@ -23,7 +23,6 @@ pub use wayland_server::protocol::*;
 
 pub use crate::create_dispatch;
 pub use crate::macros::*;
-pub use crate::state::create_global_system_config;
 pub use bevy_relationship::*;
 
 pub use anyhow::{anyhow, bail, Result};

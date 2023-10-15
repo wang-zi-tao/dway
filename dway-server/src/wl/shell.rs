@@ -1,10 +1,6 @@
 use crate::prelude::*;
 
-#[derive(Resource)]
-pub struct ShellDelegate(pub GlobalId);
-
-delegate_dispatch!(DWay: [wl_shell::WlShell: Entity] => ShellDelegate);
-impl wayland_server::Dispatch<wl_shell::WlShell, bevy::prelude::Entity, DWay> for ShellDelegate {
+impl wayland_server::Dispatch<wl_shell::WlShell, bevy::prelude::Entity, DWay> for DWay {
     fn request(
         _state: &mut DWay,
         _client: &wayland_server::Client,
@@ -22,7 +18,7 @@ impl wayland_server::Dispatch<wl_shell::WlShell, bevy::prelude::Entity, DWay> fo
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &wl_shell::WlShell,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);

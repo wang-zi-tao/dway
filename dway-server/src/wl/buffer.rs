@@ -12,7 +12,7 @@ use wayland_server::{Resource, WEnum};
 
 use crate::{
     prelude::*,
-    state::{create_global_system_config, EntityFactory},
+    state::{EntityFactory, add_global_dispatch},
 };
 
 use super::surface::AttachedBy;
@@ -154,7 +154,7 @@ impl wayland_server::Dispatch<wl_buffer::WlBuffer, bevy::prelude::Entity, DWay> 
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &wl_buffer::WlBuffer,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);
@@ -214,7 +214,7 @@ impl wayland_server::Dispatch<wl_shm::WlShm, Entity, DWay> for BufferDelegate {
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &wl_shm::WlShm,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object_component::<WlShm>(*data, resource);
@@ -355,7 +355,7 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &wl_shm_pool::WlShmPool,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);
@@ -382,7 +382,7 @@ impl wayland_server::GlobalDispatch<wl_shm::WlShm, Entity> for DWay {
 pub struct WlBufferPlugin;
 impl Plugin for WlBufferPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreUpdate, create_global_system_config::<wl_shm::WlShm, 1>());
+        add_global_dispatch::<wl_shm::WlShm, 1>(app);
         app.register_type::<WlShmBuffer>();
     }
 }

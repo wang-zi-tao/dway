@@ -5,7 +5,7 @@ use crate::{
     zwp::{
         dmabuffeedback::{init_feedback, DmabufFeedback},
         dmabufparam::DmaBufferParams,
-    },
+    }, state::add_global_dispatch,
 };
 
 relationship!(DmaBufferHasFeedback=>FeedbackList-<DmaBufferRef);
@@ -38,7 +38,7 @@ impl Dispatch<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, Entity> for DWay {
         debug!("request {:?}", &request);
         match request {
             zwp_linux_dmabuf_v1::Request::Destroy => {
-                state.despawn_object_component::<ZwpDmaBufferFactory>(*data, resource.id());
+                state.despawn_object_component::<ZwpDmaBufferFactory>(*data, resource);
             }
             zwp_linux_dmabuf_v1::Request::CreateParams { params_id } => {
                 state.spawn_child_object(*data, params_id, data_init, DmaBufferParams::new);
@@ -71,7 +71,7 @@ impl Dispatch<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, Entity> for DWay {
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object_component::<ZwpDmaBufferFactory>(*data, resource);
@@ -106,9 +106,6 @@ impl Plugin for DWayDmaBufferFactoryPlugin {
         app.register_relation::<DmaBufferHasFeedback>();
         app.register_relation::<DmaBufferAttachSurface>();
         app.register_type::<ZwpDmaBufferFactory>();
-        app.add_systems(
-            PreUpdate,
-            create_global_system_config::<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, 4>(),
-        );
+        add_global_dispatch::<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, 4>(app);
     }
 }

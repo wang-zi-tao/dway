@@ -27,6 +27,7 @@ use drm_ffi::DRM_MODE_FB_MODIFIERS;
 use drm_fourcc::DrmFormat;
 use drm_fourcc::DrmFourcc;
 use drm_fourcc::DrmModifier;
+use dway_util::eventloop::EventLoop;
 use gbm::BufferObject;
 use nix::libc;
 use smallvec::SmallVec;

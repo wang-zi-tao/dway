@@ -1,7 +1,6 @@
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex}, os::fd::OwnedFd};
 
 use drm_fourcc::DrmModifier;
-use wayland_backend::io_lifetimes::OwnedFd;
 use wayland_protocols::wp::linux_dmabuf::zv1::server::zwp_linux_buffer_params_v1::Flags;
 
 use crate::prelude::*;
@@ -72,7 +71,7 @@ impl Dispatch<zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1, Entity> for DW
         debug!("request {:?}", &request);
         match request {
             zwp_linux_buffer_params_v1::Request::Destroy => {
-                state.despawn_object(*data, resource.id());
+                state.despawn_object(*data, resource);
             }
             zwp_linux_buffer_params_v1::Request::Add {
                 fd,
@@ -151,7 +150,7 @@ impl Dispatch<zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1, Entity> for DW
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);

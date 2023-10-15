@@ -8,7 +8,7 @@ use bevy::{
     log::LogPlugin,
     prelude::*,
 };
-use dway_udev::{
+use dway_tty::{
     libinput::LibInputPlugin, seat::SeatPlugin,
 };
 

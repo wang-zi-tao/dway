@@ -7,7 +7,7 @@ use super::{
 use crate::{
     input::{keyboard::WlKeyboardBundle, pointer::WlPointerBundle, touch::WlTouchBundle},
     prelude::*,
-    state::{create_global_system_config, EntityFactory},
+    state::{add_global_dispatch, EntityFactory},
     wl::surface::WlSurface,
 };
 use bevy_relationship::{relationship, AppExt};
@@ -140,7 +140,7 @@ impl
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &wl_seat::WlSeat,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object_component::<WlSeat>(*data, resource);
@@ -148,7 +148,7 @@ impl
 }
 impl wayland_server::GlobalDispatch<wayland_server::protocol::wl_seat::WlSeat, Entity> for DWay {
     fn bind(
-        state: &mut Self,
+        state: &mut DWay,
         _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<wayland_server::protocol::wl_seat::WlSeat>,
@@ -165,10 +165,7 @@ impl wayland_server::GlobalDispatch<wayland_server::protocol::wl_seat::WlSeat, E
 pub struct WlSeatPlugin;
 impl Plugin for WlSeatPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            PreUpdate,
-            create_global_system_config::<wl_seat::WlSeat, 9>(),
-        );
+        add_global_dispatch::<wl_seat::WlSeat, 9>(app);
         app.add_plugins((super::keyboard::WlKeyboardPlugin, GrabPlugin));
         app.register_relation::<SeatHasPointer>();
         app.register_relation::<SeatHasKeyboard>();

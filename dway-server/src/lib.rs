@@ -6,16 +6,15 @@
 
 use bevy::prelude::*;
 use bevy_tokio_tasks::TokioTasksRuntime;
-use dway_winit::UpdateRequestEvents;
+use dway_util::eventloop::EventLoop;
 use schedule::DWayServerSet;
-use state::{create_display, DWayWrapper, NonSendMark, WaylandDisplayCreated};
+use state::{create_display, WaylandDisplayCreated, DWayServerConfig, DWayServer};
 use std::process;
 use x11::DWayXWaylandReady;
 pub mod apps;
 pub mod client;
 pub mod dispatch;
 pub mod display;
-pub mod eventloop;
 pub mod events;
 pub mod geometry;
 pub mod input;
@@ -44,7 +43,6 @@ impl Plugin for DWayServerPlugin {
             geometry::GeometryPlugin,
             schedule::DWayServerSchedulePlugin,
             events::EventPlugin,
-            input::seat::WlSeatPlugin,
             render::DWayServerRenderPlugin,
         ));
         app.add_plugins((
@@ -57,6 +55,7 @@ impl Plugin for DWayServerPlugin {
             xdg::toplevel::XdgToplevelPlugin,
             xdg::popup::XdgPopupPlugin,
             zxdg::outputmanager::XdgOutputManagerPlugin,
+            input::seat::WlSeatPlugin,
         ));
         app.add_plugins((
             wp::PrimarySelectionPlugin,
@@ -74,20 +73,15 @@ impl Plugin for DWayServerPlugin {
     }
 }
 pub fn init_display(
-    _: NonSend<NonSendMark>,
     mut commands: Commands,
     mut event_sender: EventWriter<WaylandDisplayCreated>,
-    mut update_request_eventss: Option<NonSend<UpdateRequestEvents>>,
+    config: Res<DWayServerConfig>,
+    mut event_loop: NonSendMut<EventLoop>,
 ) {
-    let entity = create_display(
-        &mut commands,
-        &mut event_sender,
-        &mut update_request_eventss,
-    );
-    commands.entity(entity).log_components();
+    create_display(&mut commands, &config, &mut event_sender, &mut event_loop);
 }
-pub fn spawn(query: Query<&DWayWrapper>, tokio: Res<TokioTasksRuntime>) {
-    let compositor = query.single().0.lock().unwrap();
+pub fn spawn(query: Query<&DWayServer>, tokio: Res<TokioTasksRuntime>) {
+    let compositor = query.single();
     compositor.spawn_process(process::Command::new("gnome-calculator"), &tokio);
     compositor.spawn_process(process::Command::new("gedit"), &tokio);
     compositor.spawn_process(process::Command::new("gnome-system-monitor"), &tokio);
@@ -110,14 +104,13 @@ pub fn spawn(query: Query<&DWayWrapper>, tokio: Res<TokioTasksRuntime>) {
     // compositor.spawn_process(command, &tokio);
 }
 pub fn spawn_x11(
-    query: Query<&DWayWrapper>,
+    query: Query<&DWayServer>,
     tokio: Res<TokioTasksRuntime>,
     mut events: EventReader<DWayXWaylandReady>,
 ) {
     for DWayXWaylandReady { dway_entity } in events.iter() {
-        if let Ok(dway) = query.get(*dway_entity) {
-            let compositor = dway.lock().unwrap();
-            compositor.spawn_process(process::Command::new("glxgears"), &tokio);
+        if let Ok(compositor) = query.get(*dway_entity) {
+            // compositor.spawn_process(process::Command::new("glxgears"), &tokio);
             // compositor.spawn_process_x11(process::Command::new("/mnt/weed/mount/wangzi-nuc/wangzi/workspace/waylandcompositor/source/gtk+-3.24.37/build/examples/sunny"), &tokio);
             // compositor.spawn_process_x11(process::Command::new("gnome-system-monitor"), &tokio);
         }

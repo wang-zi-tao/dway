@@ -202,7 +202,7 @@ impl Dispatch<xdg_positioner::XdgPositioner, Entity> for DWay {
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
-        resource: wayland_backend::server::ObjectId,
+        resource: &xdg_positioner::XdgPositioner,
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);

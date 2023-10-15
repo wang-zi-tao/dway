@@ -6,10 +6,9 @@ members = [
     "dway-ui",
     "dway-server",
     "dway-util",
-    "dway_winit",
     "bevy-relationship",
     "bevy-relationship-derive",
-    "dway-udev",
+    "dway-tty",
 ]
 
 [workspace.dependencies]

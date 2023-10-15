@@ -2,6 +2,7 @@ pub mod convert;
 pub mod keys;
 
 use anyhow::anyhow;
+use dway_util::eventloop::EventLoop;
 use std::{
     os::fd::{AsFd, AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd},
     sync::{Arc, Mutex},
@@ -20,9 +21,8 @@ use bevy::{
 };
 use input::{
     event::{
-        keyboard::KeyboardEventTrait,
-        pointer::Axis,
-        tablet_pad, EventTrait, KeyboardEvent, PointerEvent, TouchEvent,
+        keyboard::KeyboardEventTrait, pointer::Axis, tablet_pad, EventTrait, KeyboardEvent,
+        PointerEvent, TouchEvent,
     },
     Led, Libinput, LibinputInterface,
 };
@@ -71,6 +71,12 @@ impl LibinputInterface for SeatLibinputInterface {
 
 pub struct LibinputDevice {
     pub(crate) libinput: Libinput,
+}
+
+impl AsRawFd for LibinputDevice {
+    fn as_raw_fd(&self) -> RawFd {
+        self.libinput.as_raw_fd()
+    }
 }
 
 impl LibinputDevice {
@@ -181,7 +187,7 @@ pub fn receive_events(
                             let pos =
                                 pointer_state.position + DVec2::new(m.dx(), -m.dy()).as_vec2();
                             if let Some(relative) = relative_to_window(window, pos) {
-                                pointer_state.position = pos;
+                                pointer_state.position = (pos.x, -pos.y).into();
                                 pointer_state.window = Some(entity);
                                 move_events.send(CursorMoved {
                                     window: entity,
@@ -256,6 +262,9 @@ impl Plugin for LibInputPlugin {
     fn build(&self, app: &mut App) {
         let mut seat = app.world.non_send_resource_mut::<SeatState>();
         let libinput = LibinputDevice::new(&mut seat).unwrap();
+        app.world
+            .non_send_resource_mut::<EventLoop>()
+            .add_fd_to_read(&libinput);
         app.add_systems(First, receive_events.in_set(DWayTTYSet::LibinputSystem))
             .insert_non_send_resource(libinput)
             .init_resource::<Input<MouseButton>>()
