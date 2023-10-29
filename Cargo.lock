@@ -1126,6 +1126,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_ui_styled"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79067de134ddda07d6baf514d0689153e0ab5f57f62af72befcc7696581ed30d"
+dependencies = [
+ "anyhow",
+ "bevy",
+ "bevy_ui_styled_macros",
+]
+
+[[package]]
+name = "bevy_ui_styled_macros"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "895abb613f618e43c938e04cd2b14882fe8f093604d6217326483ea03ed68271"
+dependencies = [
+ "anyhow",
+ "bevy",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "bevy_utils"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1788,6 +1812,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive-syn-parse"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e79116f119dd1dba1abf1f3405f03b9b0e79a27a3883864bfebded8a3dc768cd"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "dirs"
 version = "3.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2062,22 +2097,37 @@ name = "dway-ui"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy-relationship",
  "bevy_svg",
+ "bevy_ui_styled",
  "chrono",
  "crossbeam-channel",
  "dway-client-core",
  "dway-server",
  "dway-tty",
+ "dway-ui-derive",
  "dway-util",
  "failure",
  "font-kit",
- "kayak_font",
- "kayak_ui",
  "log",
  "lru",
  "rand",
  "serde",
  "uuid",
+]
+
+[[package]]
+name = "dway-ui-derive"
+version = "0.1.0"
+dependencies = [
+ "convert_case",
+ "derive-syn-parse",
+ "lazy_static",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "syn 2.0.38",
+ "syn_derive",
 ]
 
 [[package]]
@@ -3331,7 +3381,6 @@ dependencies = [
 [[package]]
 name = "kayak_font"
 version = "0.4.0"
-source = "git+https://github.com/wang-zi-tao/dway_kayak_ui?branch=dway#b10b04fdef468892759881ea234e7dc1c8a7a248"
 dependencies = [
  "anyhow",
  "bevy",
@@ -3348,7 +3397,6 @@ dependencies = [
 [[package]]
 name = "kayak_ui"
 version = "0.4.1"
-source = "git+https://github.com/wang-zi-tao/dway_kayak_ui?branch=dway#b10b04fdef468892759881ea234e7dc1c8a7a248"
 dependencies = [
  "bevy",
  "bevy_svg",
@@ -3372,7 +3420,6 @@ dependencies = [
 [[package]]
 name = "kayak_ui_macros"
 version = "0.4.0"
-source = "git+https://github.com/wang-zi-tao/dway_kayak_ui?branch=dway#b10b04fdef468892759881ea234e7dc1c8a7a248"
 dependencies = [
  "find-crate",
  "proc-macro-crate",

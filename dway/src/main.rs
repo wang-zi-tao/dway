@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{process, time::Duration};
 pub mod keys;
 
 // use dway_client_core::protocol::{WindowMessageReceiver, WindowMessageSender};
@@ -23,12 +23,18 @@ use bevy::{
     sprite::SpritePlugin,
     text::TextPlugin,
     ui::UiPlugin,
-    winit::WinitPlugin,
+    winit::{UpdateMode, WinitPlugin, WinitSettings},
 };
 use bevy_framepace::Limiter;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use dway_client_core::{
     layout::{tile::TileLayoutKind, LayoutRect, LayoutStyle},
     workspace::{Workspace, WorkspaceBundle},
+};
+use dway_server::{
+    schedule::DWayServerSet,
+    state::{DWayServer, TokioTasksRuntime, WaylandDisplayCreated},
+    x11::DWayXWaylandReady,
 };
 use dway_tty::DWayTTYPlugin;
 use dway_util::{eventloop::EventLoopPlugin, logger::DWayLogPlugin};
@@ -68,24 +74,22 @@ fn main() {
     let mut app = App::new();
     app.insert_resource(ClearColor(Color::NONE));
     // app.insert_resource(ReportExecutionOrderAmbiguities);
-    app.add_plugins(
-        DefaultPlugins
-            .set(RenderPlugin {
-                wgpu_settings: bevy::render::settings::WgpuSettings {
-                    // backends: Some(Backends::GL),
-                    ..Default::default()
-                },
-            })
-            .set(TaskPoolPlugin {
-                task_pool_options: TaskPoolOptions {
-                    min_total_threads: 1,
-                    max_total_threads: 1,
-                    io: THREAD_POOL_CONFIG,
-                    async_compute: THREAD_POOL_CONFIG,
-                    compute: THREAD_POOL_CONFIG,
-                },
-            })
-            .disable::<LogPlugin>()
+    app.add_plugins((
+        // DWayLogPlugin {
+        //     level: Level::INFO,
+        //     filter: std::env::var("RUST_LOG").unwrap_or_else(|_| LOG.to_string()),
+        // },
+        DefaultPlugins.build()
+            // .set(TaskPoolPlugin {
+            //     task_pool_options: TaskPoolOptions {
+            //         min_total_threads: 1,
+            //         max_total_threads: 1,
+            //         io: THREAD_POOL_CONFIG,
+            //         async_compute: THREAD_POOL_CONFIG,
+            //         compute: THREAD_POOL_CONFIG,
+            //     },
+            // })
+            // .disable::<LogPlugin>()
             .disable::<PbrPlugin>()
             .disable::<GizmoPlugin>()
             .disable::<GltfPlugin>()
@@ -98,37 +102,26 @@ fn main() {
         // .disable::<RenderPlugin>()
         // .disable::<CorePipelinePlugin>()
         // .disable::<SpritePlugin>()
-    );
+    ));
 
     if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
-        app.add_plugins((
-            DWayLogPlugin {
-                level: Level::INFO,
-                filter: std::env::var("RUST_LOG").unwrap_or_else(|_| LOG.to_string()),
-            },
-            DWayTTYPlugin::default(),
-            // ScheduleRunnerPlugin::run_loop(Duration::from_secs_f32(1.0 / 60.0)),
-        ));
+        app.add_plugins((DWayTTYPlugin::default(),));
     } else {
-        // app.add_plugin(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
-        // app.insert_resource(dway_winit::WinitSettings {
-        //     focused_mode: dway_winit::UpdateMode::ReactiveLowPower {
+        // app.insert_resource(WinitSettings::desktop_app());
+        // app.insert_resource(WinitSettings {
+        //     focused_mode: UpdateMode::Reactive {
         //         max_wait: Duration::from_secs_f32(1.0),
         //     },
-        //     unfocused_mode: dway_winit::UpdateMode::ReactiveLowPower {
+        //     unfocused_mode: UpdateMode::Reactive {
         //         max_wait: Duration::from_secs_f32(1.0),
         //     },
         //     ..Default::default()
         // });
         app.add_plugins((
-            LogPlugin {
-                level: Level::INFO,
-                filter: std::env::var("RUST_LOG").unwrap_or_else(|_| LOG.to_string()),
-            },
             EventLoopPlugin::default(),
             WinitPlugin,
-            // dway_winit::WinitPlugin,
             bevy_framepace::FramepacePlugin,
+            WorldInspectorPlugin::new(),
         ));
         app.insert_resource(
             bevy_framepace::FramepaceSettings::default()
@@ -144,7 +137,6 @@ fn main() {
             wait_duration: Duration::from_secs(8),
             ..Default::default()
         },
-        bevy_inspector_egui::DefaultInspectorConfigPlugin,
     ));
 
     app.add_plugins((
@@ -154,12 +146,24 @@ fn main() {
     ));
 
     app.add_systems(Startup, setup);
+    app.add_systems(
+        PreUpdate,
+        (
+            spawn
+                .run_if(on_event::<WaylandDisplayCreated>())
+                .in_set(DWayServerSet::CreateGlobal),
+            spawn_x11
+                .run_if(on_event::<DWayXWaylandReady>())
+                .in_set(DWayServerSet::UpdateXWayland),
+        ),
+    );
     app.add_systems(Update, (wm_mouse_action, wm_keys));
 
     app.run();
 
     // wayland_thread.join().unwrap();
 }
+
 pub fn setup(mut commands: Commands) {
     commands.spawn((
         WorkspaceBundle {
@@ -175,4 +179,63 @@ pub fn setup(mut commands: Commands) {
             ..Default::default()
         },
     ));
+}
+
+pub fn spawn(
+    mut events: EventReader<WaylandDisplayCreated>,
+    query: Query<&DWayServer, Added<DWayServer>>,
+    tokio: Res<TokioTasksRuntime>,
+) {
+    for WaylandDisplayCreated(dway_entity, _) in events.iter() {
+        if let Ok(compositor) = query.get(*dway_entity) {
+            // for i in 0..128 {
+            //     let mut command = process::Command::new("gedit");
+            //     command.arg("--new-window");
+            //     compositor.spawn_process(command, &tokio);
+            // }
+
+            for command in [
+                "gnome-system-monitor",
+                "gedit",
+                "gnome-calculator",
+                "gnome-clocks",
+                "gnome-disks",
+                "gnome-logs",
+                "gnome-music",
+                "gnome-maps",
+                "gnome-photos",
+                "gnome-text-editor",
+                "gnome-tweaks",
+                "gnome-weather",
+                "/home/wangzi/.build/5e0dff7f0473a25a4eb0bbaeeda9b3fa091ba89-wgpu/debug/examples/cube",
+            ]{
+                compositor.spawn_process(process::Command::new(command), &tokio);
+            }
+
+            // let mut command = process::Command::new("alacritty");
+            // command.args(["-e", "htop"]);
+            // command.current_dir("/home/wangzi/workspace/waylandcompositor/conrod/");
+            // let mut command = process::Command::new("/nix/store/gfn9ya0rwaffhfkpbbc3pynk247xap1h-qt5ct-1.5/bin/qt5ct");
+            // let mut command = process::Command::new("/home/wangzi/.build/0bd4966a8a745859d01236fd5f997041598cc31-bevy/debug/examples/animated_transform");
+            // let mut command = process::Command::new( "/home/wangzi/workspace/waylandcompositor/winit_demo/target/debug/winit_demo",);
+            // let mut command = process::Command::new("/home/wangzi/workspace/waylandcompositor/wayland-rs/wayland-client/../target/debug/examples/simple_window");
+            // let mut command = process::Command::new("/mnt/weed/mount/wangzi-nuc/wangzi/workspace/waylandcompositor/GTK-Demo-Examples/guidemo/00_hello_world_classic/hello_world_classic");
+            // let mut command =
+            //     process::Command::new("/home/wangzi/Code/winit/target/debug/examples/window_debug");
+            // compositor.spawn_process(command, &tokio);
+        }
+    }
+}
+pub fn spawn_x11(
+    query: Query<&DWayServer>,
+    tokio: Res<TokioTasksRuntime>,
+    mut events: EventReader<DWayXWaylandReady>,
+) {
+    for DWayXWaylandReady { dway_entity } in events.iter() {
+        if let Ok(compositor) = query.get(*dway_entity) {
+            // compositor.spawn_process(process::Command::new("glxgears"), &tokio);
+            // compositor.spawn_process_x11(process::Command::new("/mnt/weed/mount/wangzi-nuc/wangzi/workspace/waylandcompositor/source/gtk+-3.24.37/build/examples/sunny"), &tokio);
+            // compositor.spawn_process_x11(process::Command::new("gnome-system-monitor"), &tokio);
+        }
+    }
 }

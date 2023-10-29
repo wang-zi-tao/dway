@@ -23,7 +23,7 @@ use bevy_relationship::{
     reexport::SmallVec, ConnectCommand, ConnectableMut, DisconnectAllCommand, DisconnectCommand,
     Relationship, ReserveRelationship, ReverseRelationship,
 };
-use bevy_tokio_tasks::TokioTasksRuntime;
+pub use bevy_tokio_tasks::TokioTasksRuntime;
 use dway_util::eventloop::{EventLoop, Generic, Interest, Mode};
 use tokio::io::AsyncReadExt;
 use wayland_backend::server::{ClientId, ObjectId};

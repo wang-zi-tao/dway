@@ -114,6 +114,7 @@ impl DesktopEntry {
 pub fn scan_desktop_file(mut entries: ResMut<DesktopEntriesSet>, mut commands: Commands) {
     let dirs = freedesktop_desktop_entry::default_paths();
     let iter = freedesktop_desktop_entry::Iter::new(dirs);
+    let root_entity = commands.spawn_empty().id();
     for path in iter {
         try_or!(
             {
@@ -121,6 +122,7 @@ pub fn scan_desktop_file(mut entries: ResMut<DesktopEntriesSet>, mut commands: C
                 let raw_entry = freedesktop_desktop_entry::DesktopEntry::decode(&path, &data)?;
                 let entry = DesktopEntry::new(raw_entry);
                 let mut entity_mut = commands.spawn_empty();
+                entity_mut.set_parent(root_entity);
                 if let Some(icon) = entry.icon() {
                     entity_mut.insert(Icon::new(icon));
                 }

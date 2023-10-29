@@ -1,173 +1,132 @@
-use bevy::prelude::*;
-use dway_client_core::{desktop::FocusedWindow, navigation::windowstack::WindowStack};
+use bevy::utils::{HashMap, HashSet};
+use dway_client_core::navigation::windowstack::WindowStack;
 use dway_server::{
     geometry::GlobalGeometry,
-    macros::Connectable,
-    try_get,
+    util::rect::IRect,
     wl::surface::WlSurface,
-    xdg::{popup::XdgPopup, DWayWindow, PopupList},
-};
-use kayak_ui::{
-    prelude::{
-        constructor, rsx, EventType, KChildren, KEvent, KPositionType, KStyle, KayakWidgetContext,
-        OnEvent, StyleProp, Units, WidgetParam,
-    },
-    widgets::{ElementBundle, KImage, KImageBundle},
-    KayakUIPlugin,
+    xdg::{DWayToplevelWindow, DWayWindow, PopupList},
 };
 
-#[derive(Default)]
-pub struct DWayWindowPlugin {}
-impl KayakUIPlugin for DWayWindowPlugin {
-    fn build(&self, context: &mut kayak_ui::prelude::KayakRootContext) {
-        context.add_widget_data::<WindowUI, WindowState>();
-        context.add_widget_system(
-            kayak_ui::prelude::WidgetName(std::any::type_name::<WindowUI>().into()),
-            widget_update,
-            render,
-        );
-    }
-}
+use crate::prelude::*;
+use crate::util::irect_to_style;
 
-pub fn widget_update(
-    In((entity, previous_entity)): In<(Entity, Entity)>,
-    widget_context: Res<KayakWidgetContext>,
-    widget_param: WidgetParam<WindowUI, WindowState>,
-    window_query: Query<
-        Entity,
-        Or<(
-            Changed<DWayWindow>,
-            Changed<GlobalGeometry>,
-            Changed<WlSurface>,
-            Changed<PopupList>,
-        )>,
-    >,
-) -> bool {
-    let should_update = widget_param.has_changed(&widget_context, entity, previous_entity);
-    let props = widget_param.props_query.get(entity).unwrap();
-    should_update || window_query.contains(props.entity)
-}
+const WINDEOW_MAX_INDEX: i32 = 0;
+const WINDEOW_MAX_STEP: i32 = 64;
 
-#[derive(bevy::prelude::Bundle)]
-pub struct WindowBundle {
-    pub props: WindowUI,
-    pub styles: kayak_ui::prelude::KStyle,
-    pub computed_styles: kayak_ui::prelude::ComputedStyles,
-    pub widget_name: kayak_ui::prelude::WidgetName,
-}
-impl Default for WindowBundle {
-    fn default() -> Self {
-        Self {
-            props: Default::default(),
-            styles: Default::default(),
-            computed_styles: Default::default(),
-            widget_name: kayak_ui::prelude::WidgetName(std::any::type_name::<WindowUI>().into()),
-        }
-    }
-}
-
-#[derive(Component, Reflect, Clone, PartialEq, Eq)]
+#[derive(Component, Reflect, Debug)]
 pub struct WindowUI {
-    pub entity: Entity,
+    window_entity: Entity,
+    app_entry: Entity,
 }
 
-impl Default for WindowUI {
-    fn default() -> Self {
-        Self {
-            entity: Entity::PLACEHOLDER,
+dway_widget! {
+WindowUI(
+    window_query: Query<(Ref<GlobalGeometry>, Ref<WlSurface>, Option<&PopupList>), With<DWayWindow>>,
+){
+    image: Handle<Image>,
+    rect: IRect,
+    bbox_rect: IRect,
+}=>
+{
+    if let Ok((rect,surface,popup_list)) = window_query.get(prop.window_entity){
+        if rect.is_changed(){
+            update_state!(rect = rect.geometry);
         }
+        if rect.is_changed() || surface.is_changed() {
+            update_state!(bbox_rect = surface.image_rect().offset(rect.pos()));
+        }
+        update_state!(image = surface.image.clone());
     }
 }
-#[derive(Component, Default, Clone, PartialEq, Eq)]
-pub struct WindowState {
-    focused: bool,
-    mouse_in_rect: bool,
+<NodeBundle @style="absolute">
+    <ImageBundle UiImage=(UiImage::new(state.image.clone())) Style=(irect_to_style(state.bbox_rect))>
+        <NodeBundle Style=(irect_to_style(state.rect))/>
+    </ImageBundle>
+    <NodeBundle Style=(Style{
+            position_type: PositionType::Absolute,
+            left:Val::Px( state.rect.x() as f32 ),
+            top:Val::Px( ( state.rect.x() - 16 ) as f32 ),
+            width: Val::Px(state.rect.width() as f32),
+            height: Val::Px(16.0),
+            ..Style::default()
+        })
+        BackgroundColor=(BackgroundColor::from(Color::WHITE))
+    >
+        <TextBundle
+            @style=""
+            Visibility=(Visibility::Visible)
+            Text=(Text::from_section(
+                "window",
+                TextStyle {
+                    font_size: 20.0,
+                    color: Color::BLACK,
+                    ..default()
+                },
+            ))
+        />
+    </NodeBundle>
+</NodeBundle>
 }
 
-pub fn render(
-    In(entity): In<Entity>,
-    widget_context: Res<KayakWidgetContext>,
+pub fn attach_window(
     mut commands: Commands,
-    props_query: Query<&WindowUI>,
-    _state_query: Query<&WindowState>,
-    window_query: Query<(&GlobalGeometry, &WlSurface, Option<&PopupList>), With<DWayWindow>>,
-    popup_query: Query<Entity, With<XdgPopup>>,
-    _assets: ResMut<Assets<Image>>,
-) -> bool {
-    let Ok(props) = props_query.get(entity) else {
-        error!("no props");
-        return true;
-    };
-    let state_entity = widget_context.use_state(&mut commands, entity, WindowState::default());
-    let Some((rect, surface, popups)) = try_get!(window_query, props.entity) else {
-        return true;
-    };
-    let image_rect = surface.image_rect().offset(rect.pos());
-    let root_style = KStyle {
-        left: StyleProp::Inherit,
-        right: StyleProp::Inherit,
-        top: StyleProp::Inherit,
-        bottom: StyleProp::Inherit,
-        position_type: KPositionType::SelfDirected.into(),
-        ..Default::default()
-    };
-    let bbox_style = KStyle {
-        left: StyleProp::Value(Units::Pixels(image_rect.pos().x as f32)),
-        top: StyleProp::Value(Units::Pixels(image_rect.pos().y as f32)),
-        width: StyleProp::Value(Units::Pixels(image_rect.size().x as f32)),
-        height: StyleProp::Value(Units::Pixels(image_rect.size().y as f32)),
-        background_color: Color::WHITE.with_a(0.1).into(),
-        position_type: KPositionType::SelfDirected.into(),
-        ..Default::default()
-    };
-    let parent_id = Some(entity);
-    let _background_style = KStyle {
-        left: StyleProp::Inherit,
-        right: StyleProp::Inherit,
-        top: StyleProp::Inherit,
-        bottom: StyleProp::Inherit,
-        position_type: KPositionType::SelfDirected.into(),
-        ..Default::default()
-    };
-
-    let backend_entity = props.entity;
-    let _on_event = OnEvent::new(
-        move |In(_entity): In<Entity>,
-              event: ResMut<KEvent>,
-              mut state_query: Query<&mut WindowState>,
-              _stack: ResMut<WindowStack>,
-              mut output_focus: ResMut<FocusedWindow>| {
-            let mut state = state_query.get_mut(state_entity).unwrap();
-            match event.event_type {
-                EventType::MouseIn(_c) => {
-                    state.mouse_in_rect = true;
-                    output_focus.0 = Some(backend_entity);
-                }
-                EventType::MouseOut(_c) => {
-                    state.mouse_in_rect = false;
-                }
-                _ => {}
-            };
-        },
-    );
-    rsx! {
-        <ElementBundle styles={root_style} >
-            <KImageBundle
-                image={KImage(surface.image.clone())}
-                styles={bbox_style}
-            ></KImageBundle>
-            {
-                if let Some(popups)=popups {
-                    for popup_entity in popup_query.iter_many(popups.iter()){
-                        constructor!{
-                            <WindowBundle
-                              props = {WindowUI{entity: popup_entity}}
-                            />
-                        }
-                    }
+    mut create_window_events: EventReader<Insert<DWayWindow>>,
+    mut destroy_window_events: RemovedComponents<DWayWindow>,
+    window_stack: Res<WindowStack>,
+    mut ui_query: Query<(Entity, &mut WindowUI, &mut ZIndex)>,
+) {
+    if window_stack.is_changed()
+        || !create_window_events.is_empty()
+        || !destroy_window_events.is_empty()
+    {
+        let destroyed_windows: HashSet<_> = destroy_window_events.iter().collect();
+        let window_index_map: HashMap<_, _> = if window_stack.is_changed() {
+            window_stack
+                .list
+                .iter()
+                .enumerate()
+                .map(|(i, e)| (*e, i))
+                .collect()
+        } else {
+            HashMap::new()
+        };
+        create_window_events
+            .iter()
+            .for_each(|Insert { entity, .. }| {
+                commands.spawn(WindowUIBundle {
+                    node: NodeBundle {
+                        style: styled!("absolute"),
+                        ..NodeBundle::default()
+                    },
+                    prop: WindowUI {
+                        window_entity: *entity,
+                        app_entry: Entity::PLACEHOLDER,
+                    },
+                    state: WindowUIState::default(),
+                    widget: WindowUIWidget::default(),
+                });
+            });
+        ui_query.for_each_mut(|(entity, ui, mut z_index)| {
+            if window_stack.is_changed() {
+                if let Some(index) = window_index_map.get(&ui.window_entity) {
+                    *z_index =
+                        ZIndex::Global(WINDEOW_MAX_INDEX - WINDEOW_MAX_STEP * (*index as i32));
                 }
             }
-        </ElementBundle>
-    };
-    true
+            if destroyed_windows.contains(&ui.window_entity) {
+                commands
+                    .entity(entity)
+                    .despawn_recursive_with_relationship();
+            }
+        })
+    }
+}
+
+pub struct WindowUIPlugin;
+impl Plugin for WindowUIPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_type::<WindowUI>();
+        app.add_systems(Update, windowui_render.in_set(WindowUISystems::Render));
+        app.add_systems(Update, attach_window);
+    }
 }

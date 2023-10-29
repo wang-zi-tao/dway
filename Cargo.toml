@@ -4,6 +4,7 @@ members = [
     "dway",
     "dway-client-core",
     "dway-ui",
+    "dway-ui-derive",
     "dway-server",
     "dway-util",
     "bevy-relationship",

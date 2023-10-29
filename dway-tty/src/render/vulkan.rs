@@ -4,7 +4,7 @@ use anyhow::{bail, anyhow, Result};
 use ash::{extensions::khr::ExternalMemoryFd, vk::{self, *}};
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use smallvec::SmallVec;
-use tracing::{debug, error};
+use tracing::{debug, error, trace};
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 use wgpu_hal::{api::Vulkan, vulkan::Texture, MemoryFlags, TextureUses};
 
@@ -109,7 +109,7 @@ pub fn reset_framebuffer(
             hal_device.map(|hal_device| {
                 let device = hal_device.raw_device();
                 if let RenderImage::Vulkan(image) = &mut buffer.render_image {
-                    debug!(fence=?image.fence,"reset fence");
+                    trace!(fence=?image.fence,"reset fence");
                     device.reset_fences(&[image.fence])?;
                 }
                 Ok(())
@@ -313,7 +313,7 @@ pub fn commit_drm(
                     if let RenderImage::Vulkan(image) = &mut buffer.render_image {
                         match device.get_fence_status(image.fence) {
                             Ok(o) => {
-                                debug!(fence=?image.fence,"fence state: {o}");
+                                trace!(fence=?image.fence,"fence state: {o}");
                                 o
                             }
                             Err(e) => {

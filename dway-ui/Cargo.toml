@@ -10,6 +10,8 @@ dway-util = {path="../dway-util/"}
 dway-server = {path="../dway-server/"}
 dway-tty = {path="../dway-tty/"}
 dway-client-core = {path="../dway-client-core/"}
+dway-ui-derive = {path="../dway-ui-derive/"}
+bevy-relationship = {path="../bevy-relationship"}
 
 font-kit = "0.11.0"
 chrono = {}
@@ -19,11 +21,10 @@ failure = {}
 uuid = {}
 lru = {}
 rand = {}
-kayak_font = {git="https://github.com/wang-zi-tao/dway_kayak_ui", branch="dway"}
 bevy = "0.11"
 serde={}
 bevy_svg = { version="0.11", default-features = false }
-kayak_ui = {git="https://github.com/wang-zi-tao/dway_kayak_ui", branch="dway"}
+bevy_ui_styled = "0.4.0"
 
 [profile.dev]
 opt-level = 1

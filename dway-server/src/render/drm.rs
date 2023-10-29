@@ -123,6 +123,9 @@ impl DrmNodeState {
         Ok(())
     }
     pub fn create_format_table(texture_format: &Vec<DrmFormat>) -> Result<(File, usize)> {
+        if texture_format.is_empty(){
+            warn!("invalid drm format table");
+        }
         let data = texture_format
             .iter()
             .map(|format| (format.code as u32, 0u32, u64::from(format.modifier)))

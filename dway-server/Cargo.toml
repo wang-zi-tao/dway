@@ -53,7 +53,8 @@ gettext-rs = "0.7.0"
 current_locale = "0.1.1"
 icon-loader = "0.4.0"
 bevy_svg = { version="0.11", default-features = false }
-kayak_ui = {git="https://github.com/wang-zi-tao/dway_kayak_ui", branch="dway"}
+# kayak_ui = {git="https://github.com/wang-zi-tao/dway_kayak_ui", branch="dway"}
+kayak_ui = {path="../../../../Code/bevy-kayak/"}
 
 [dependencies.x11rb]
 default-features = false

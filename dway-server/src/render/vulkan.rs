@@ -102,21 +102,23 @@ pub fn drm_info(render_device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError
                     &mut format_properties2,
                 );
                 let count = list.drm_format_modifier_count;
-                let mut data = vec![Default::default(); count as usize];
+                let mut modifiers_list = vec![Default::default(); count as usize];
+                let mut modifier_list_prop = vk::DrmFormatModifierPropertiesListEXT::builder()
+                    .drm_format_modifier_properties(&mut modifiers_list)
+                    .build();
 
-                let mut list = vk::DrmFormatModifierPropertiesListEXT {
-                    p_drm_format_modifier_properties: data.as_mut_ptr(),
-                    drm_format_modifier_count: count as u32,
-                    ..Default::default()
-                };
-                let mut format_properties2 = vk::FormatProperties2::builder().push_next(&mut list);
+                let mut format_properties2 =
+                    vk::FormatProperties2::builder().push_next(&mut modifier_list_prop);
                 instance.get_physical_device_format_properties2(
                     raw_phy,
                     vk_format,
                     &mut format_properties2,
                 );
 
-                formats.extend(data.into_iter().map(|d| DrmFormat {
+                if modifiers_list.is_empty() {
+                    warn!(format=?fourcc, "no available modifier of format");
+                }
+                formats.extend(modifiers_list.into_iter().map(|d| DrmFormat {
                     code: fourcc,
                     modifier: DrmModifier::from(d.drm_format_modifier),
                 }));
@@ -150,6 +152,20 @@ pub fn create_dma_image(
         if planes.len() == 0 {
             bail!(InvalidDmaBuffer);
         }
+        let plane_layouts: Vec<_> = planes
+            .iter()
+            .map(|plane| {
+                SubresourceLayout::builder()
+                    .offset(plane.offset as u64)
+                    .row_pitch(plane.stride as u64)
+                    .build()
+            })
+            .collect();
+
+        let mut drm_info = ash::vk::ImageDrmFormatModifierExplicitCreateInfoEXT::builder()
+            .drm_format_modifier(planes[0].modifier().into())
+            .plane_layouts(&plane_layouts)
+            .build();
 
         let mut dmabuf_info = ash::vk::ExternalMemoryImageCreateInfoKHR::builder()
             .handle_types(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT)
@@ -176,6 +192,7 @@ pub fn create_dma_image(
                 flags
             })
             .push_next(&mut dmabuf_info)
+            .push_next(&mut drm_info)
             .build();
         let image = device.create_image(&create_image_info, None)?;
 
@@ -423,6 +440,7 @@ pub unsafe fn import_shm(
     shm_buffer: &WlShmBuffer,
     texture: &wgpu::Texture,
 ) -> Result<()> {
+    span!(Level::ERROR, "import-shm", shm_buffer = %WlResource::id(&shm_buffer.raw));
     let buffer_guard = shm_buffer.pool.read().unwrap();
     let size = shm_buffer.size;
 
@@ -505,7 +523,6 @@ pub fn prepare_wl_surface(
     }
 }
 
-#[tracing::instrument(skip_all)]
 pub fn import_wl_surface(
     shm_buffer: Option<&WlShmBuffer>,
     texture: &wgpu::Texture,

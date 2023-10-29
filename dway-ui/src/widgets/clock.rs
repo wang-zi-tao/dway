@@ -1,49 +1,6 @@
-use bevy::prelude::*;
-use chrono::Local;
-use kayak_ui::{
-    prelude::*,
-    widgets::{TextProps, TextWidgetBundle},
-    KayakUIPlugin,
-};
+use crate::{prelude::*};
 
-#[derive(Default)]
-pub struct DWayClockPlugin {}
-impl Plugin for DWayClockPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_systems(Update, update);
-    }
-}
-pub fn widget_update2(
-    In((entity, previous_entity)): In<(Entity, Entity)>,
-    widget_context: Res<KayakWidgetContext>,
-    widget_param: WidgetParam<Clock, ClockState>,
-) -> bool {
-    let dirty = widget_param.has_changed(&widget_context, entity, previous_entity);
-    dbg!(dirty);
-    dirty
-}
-
-impl KayakUIPlugin for DWayClockPlugin {
-    fn build(&self, context: &mut kayak_ui::prelude::KayakRootContext) {
-        context.add_widget_data::<Clock, ClockState>();
-        context.add_widget_system(
-            Clock::default().get_name(),
-            widget_update::<Clock, ClockState>,
-            render,
-        );
-    }
-}
-pub fn update(mut clock_states: Query<&mut ClockState, Without<PreviousWidget>>) {
-    for mut state in clock_states.iter_mut() {
-        let date = Local::now().naive_local();
-        let date_string = date.format(&state.format).to_string();
-        if state.time != date_string {
-            state.time = date_string;
-        }
-    }
-}
-
-#[derive(Component, Clone, PartialEq, Eq)]
+#[derive(Component)]
 pub struct Clock {
     pub format: String,
 }
@@ -54,73 +11,43 @@ impl Default for Clock {
         }
     }
 }
-impl Widget for Clock {}
-#[derive(Debug, Component, Clone, PartialEq, Eq)]
-pub struct ClockState {
-    format: String,
-    time: String,
-}
-impl Default for ClockState {
-    fn default() -> Self {
-        Self {
-            format: "".into(),
-            time: "".into(),
-            // date: Local::now(),
-        }
+
+dway_ui_derive::dway_widget!(
+    Clock{text:String}=>
+    (time:Res<Time>){
+        let date = chrono::Local::now().naive_local();
+        let date_string = date.format(&prop.format).to_string();
+        update_state!(text = date_string);
     }
-}
-#[derive(Bundle)]
-pub struct ClockBundle {
-    pub props: Clock,
-    pub styles: KStyle,
-    pub computed_styles: ComputedStyles,
-    pub widget_name: WidgetName,
-}
+    <NodeBundle>
+        <TextBundle
+        @style=""
+        Text=(Text::from_section(
+            &state.text,
+            TextStyle {
+                font_size: 40.0,
+                color: Color::WHITE,
+                ..default()
+            },
+        ))
+        />
+    </NodeBundle>
+);
+
 impl Default for ClockBundle {
     fn default() -> Self {
         Self {
-            props: Default::default(),
-            styles: Default::default(),
-            computed_styles: Default::default(),
-            widget_name: Clock::default().get_name(),
+            prop: Default::default(),
+            state: Default::default(),
+            widget: Default::default(),
+            node: Default::default(),
         }
     }
 }
-pub fn render(
-    In(entity): In<Entity>,
-    widget_context: Res<KayakWidgetContext>,
-    mut commands: Commands,
-    props_query: Query<&Clock>,
-    state_query: Query<&ClockState>,
-) -> bool {
-    let props = props_query.get(entity).unwrap();
-    let parent_id = Some(entity);
-    let state_entity = widget_context.use_state(
-        &mut commands,
-        entity,
-        ClockState {
-            format: props.format.clone(),
-            // date: Local::now(),
-            ..Default::default()
-        },
-    );
-    let date = state_query
-        .get(state_entity)
-        .map(|s| &*s.time)
-        .unwrap_or_else(|_| "")
-        .to_string();
-    // let date = date.format(&props.format).to_string();
-    rsx! {
-        <TextWidgetBundle
-            text={TextProps {
-                content: date,
-                size: 20.0,
-                ..Default::default()
-            }}
-            styles={KStyle{
-                ..Default::default()
-            }}
-        />
-    };
-    true
+
+pub struct ClockUiPlugin;
+impl Plugin for ClockUiPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Update, clock_render.in_set(ClockSystems::Render));
+    }
 }

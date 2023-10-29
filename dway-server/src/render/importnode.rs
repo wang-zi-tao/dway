@@ -134,6 +134,7 @@ pub fn extract_surface(
     }
 }
 
+#[tracing::instrument(skip_all)]
 pub fn prepare_surfaces(
     surface_query: Query<(&WlSurface, Option<&WlShmBuffer>, Option<&DmaBuffer>)>,
     render_device: Res<RenderDevice>,
@@ -163,7 +164,7 @@ pub fn prepare_surfaces(
                     dma_buffer,
                     &mut images,
                 ) {
-                    error!("{e}");
+                    error!("{e} \n{}",e.backtrace());
                 };
             }
         };

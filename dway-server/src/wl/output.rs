@@ -114,6 +114,10 @@ pub struct WlOutputPlugin;
 impl Plugin for WlOutputPlugin {
     fn build(&self, app: &mut App) {
         add_global_dispatch::<wl_output::WlOutput, 4>(app);
+        app.add_systems(
+            PreUpdate,
+            surface_enter_output.in_set(DWayServerSet::UpdateJoin),
+        );
         app.register_type::<HashSet<Entity>>();
         app.register_type::<WlOutput>();
         app.register_relation::<ClientHasOutput>();

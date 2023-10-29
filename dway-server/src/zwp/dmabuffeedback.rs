@@ -39,7 +39,7 @@ impl Dispatch<zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1, Entity> fo
         _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span =
-            span!(Level::ERROR,"request",entity = ?data,resource = %WlResource::id(resource));
+            span!(Level::ERROR,"request",entity = ?data, resource = %WlResource::id(resource));
         let _enter = span.enter();
         debug!("request {:?}", &request);
         match request {
@@ -100,14 +100,3 @@ pub fn init_feedback(
         warn!("failed to init dmabuf feedback");
     }
 }
-
-// pub fn update_feedback_state(
-//     feedback_query: Query<(Entity, &DmabufFeedback), With<PeddingDmabufFeedback>>,
-//     mut commands: Commands,
-// ) {
-//     feedback_query.for_each(|(entity, feedback)| {
-//         if feedback.inner.lock().unwrap().inited {
-//             commands.entity(entity).remove::<PeddingDmabufFeedback>();
-//         }
-//     })
-// }

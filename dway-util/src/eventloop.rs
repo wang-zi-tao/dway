@@ -1,8 +1,8 @@
-use bevy::prelude::{error, NonSend, NonSendMut, Plugin, Startup};
+use bevy::prelude::{error, Last, NonSend, NonSendMut, Plugin, Startup};
 use calloop::channel::{Channel, Sender};
 pub use calloop::{generic::Generic, EventSource, Interest, Mode, PostAction, Readiness};
 use log::info;
-use std::{os::fd::AsRawFd, time::Duration};
+use std::{os::fd::AsRawFd, sync::mpsc, time::{Duration, Instant, SystemTime}};
 use winit::event_loop::EventLoopProxy;
 
 pub type Register = Box<dyn FnOnce(&mut calloop::LoopHandle<'static, ()>) + Send + Sync>;
@@ -10,6 +10,7 @@ pub type Register = Box<dyn FnOnce(&mut calloop::LoopHandle<'static, ()>) + Send
 pub struct EventLoop {
     channel: Option<Channel<Register>>,
     sender: Sender<Register>,
+    tx: Option<mpsc::Sender<()>>,
 }
 
 pub enum EventLoopControl {
@@ -19,13 +20,24 @@ pub enum EventLoopControl {
 
 pub struct EventLoopRunner(Channel<Register>);
 impl EventLoopRunner {
-    pub fn start_thread(self, callback: impl FnMut() -> EventLoopControl + Send + Sync + 'static) {
-        let _ = std::thread::Builder::new()
+    pub fn start_thread(
+        self,
+        eventloop: &mut EventLoop,
+        mut callback: impl FnMut() -> EventLoopControl + Send + Sync + 'static,
+    ) {
+        let (tx, rx) = mpsc::channel();
+        eventloop.tx.replace(tx);
+        std::thread::Builder::new()
             .name("eventloop".to_string())
             .spawn(move || {
-                info!("start eventloop");
-                self.run(Duration::MAX, callback);
-            });
+                self.run(Duration::from_secs(2), move || {
+                    while let Ok(_) = rx.try_recv() {}
+                    let r = callback();
+                    let _ = rx.recv();
+                    r
+                });
+            })
+            .unwrap();
     }
 
     pub fn run(self, duration: Duration, mut callback: impl FnMut() -> EventLoopControl + 'static) {
@@ -50,6 +62,7 @@ impl EventLoopRunner {
                 EventLoopControl::Stop => signal.stop(),
             };
         });
+        info!("eventloop stopped");
     }
 }
 
@@ -59,6 +72,7 @@ impl EventLoop {
         Self {
             sender,
             channel: Some(channel),
+            tx: None,
         }
     }
 
@@ -75,7 +89,7 @@ impl EventLoop {
                 callback(event, metadata);
                 Ok(PostAction::Continue)
             }) {
-                error!("failed to insert source: {e}")
+                error!("failed to insert source: {e:?}")
             };
         }));
     }
@@ -89,7 +103,7 @@ impl EventLoop {
 
     pub fn start(&mut self, callback: impl FnMut() -> EventLoopControl + Send + Sync + 'static) {
         let runner = self.runner();
-        runner.start_thread(callback);
+        runner.start_thread(self, callback);
     }
 
     pub fn runner(&mut self) -> EventLoopRunner {
@@ -112,6 +126,12 @@ fn launch_on_winit(winit_proxy: NonSend<EventLoopProxy<()>>, mut eventloop: NonS
     }))
 }
 
+fn on_frame_finish(eventloop: NonSendMut<EventLoop>) {
+    if let Some(tx) = &eventloop.tx {
+        let _ = tx.send(());
+    }
+}
+
 #[derive(Default)]
 pub enum EventLoopPlugin {
     #[default]
@@ -127,5 +147,6 @@ impl Plugin for EventLoopPlugin {
             }
             EventLoopPlugin::ManualMode => {}
         }
+        app.add_systems(Last, on_frame_finish);
     }
 }
