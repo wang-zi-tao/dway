@@ -211,7 +211,7 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 } else {
                     None
                 };
-                if let Some(mut c) = state.get_mut::<WlSurface>(*data){
+                if let Some(mut c) = state.get_mut::<WlSurface>(*data) {
                     if resource.version() < 5 {
                         c.pending.position = Some(IVec2::new(x, y));
                     } else if x != 0 || y != 0 {
@@ -236,23 +236,24 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 width,
                 height,
             } => {
-                if let Some(mut c) = state.get_mut::<WlSurface>(*data){
+                if let Some(mut c) = state.get_mut::<WlSurface>(*data) {
                     c.pending.damages.push(IRect::new(x, y, width, height));
                 };
             }
             wl_surface::Request::Frame { callback } => {
-                if let Some(mut c) = state.get_mut::<WlSurface>(*data){
-                    let callback = data_init.init(callback, ());
+                let callback = data_init.init(callback, ());
+                if let Some(mut c) = state.get_mut::<WlSurface>(*data) {
                     c.pending.callbacks.push(callback);
+                } else {
                 };
             }
             wl_surface::Request::SetOpaqueRegion { region } => {
-                if let Some(mut c) = state.get_mut::<WlSurface>(*data){
+                if let Some(mut c) = state.get_mut::<WlSurface>(*data) {
                     c.pending.opaque_region = region.map(|region| DWay::get_entity(&region));
                 }
             }
             wl_surface::Request::SetInputRegion { region } => {
-                if let Some(mut c) = state.get_mut::<WlSurface>(*data){
+                if let Some(mut c) = state.get_mut::<WlSurface>(*data) {
                     c.pending.input_region = region.map(|region| DWay::get_entity(&region));
                 }
             }
@@ -260,7 +261,7 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 let _enterd = span!(Level::DEBUG, "commit").entered();
                 let frame_count = state.world().resource::<FrameCount>().0;
                 let _system = || {};
-                let (old_buffer_entity, buffer_entity, input_region_entity, opaque_region_entity) =
+                let Some(( old_buffer_entity, buffer_entity, input_region_entity, opaque_region_entity )) =
                     state.query_object::<(
                         &mut WlSurface,
                         Option<&mut Geometry>,
@@ -325,7 +326,7 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                                 surface.commited.opaque_region,
                             )
                         },
-                    );
+                    )else{return};
                 if let Some(buffer_entity) = buffer_entity {
                     state.connect::<AttachmentRelationship>(*data, buffer_entity);
                 } else if let Some(old_buffer_entity) = old_buffer_entity {
@@ -340,7 +341,7 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
             }
             wl_surface::Request::SetBufferTransform { transform: _ } => todo!(),
             wl_surface::Request::SetBufferScale { scale } => {
-                if let Some(mut c) = state.get_mut::<WlSurface>(*data){
+                if let Some(mut c) = state.get_mut::<WlSurface>(*data) {
                     c.pending.scale = Some(scale);
                 }
             }
@@ -350,12 +351,12 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 width,
                 height,
             } => {
-                if let Some(mut c) = state.get_mut::<WlSurface>(*data){
+                if let Some(mut c) = state.get_mut::<WlSurface>(*data) {
                     c.pending.damages.push(IRect::new(x, y, width, height));
                 }
             }
             wl_surface::Request::Offset { x, y } => {
-                if let Some(mut c) = state.get_mut::<WlSurface>(*data){
+                if let Some(mut c) = state.get_mut::<WlSurface>(*data) {
                     let _ = c.pending.offset.insert(IVec2::new(x, y));
                 }
             }
@@ -387,24 +388,27 @@ impl
         _dhandle: &DisplayHandle,
         _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
+        let span = span!(Level::ERROR, "request", entity=?data, resource=%WlResource::id(resource));
+        let _enter = span.enter();
+        debug!("request {:?}", &request);
         match request {
             wl_subsurface::Request::Destroy => {
-                state.destroy_object(resource);
+                state.despawn_object_component::<WlSubsurface>(*data, resource);
             }
             wl_subsurface::Request::SetPosition { x, y } => {
-                if let Some(mut c) = state.get_mut::<WlSubsurface>(*data){
+                if let Some(mut c) = state.get_mut::<WlSubsurface>(*data) {
                     c.position = Some(IVec2::new(x, y));
                 }
             }
             wl_subsurface::Request::PlaceAbove { sibling: _ } => todo!(),
             wl_subsurface::Request::PlaceBelow { sibling: _ } => todo!(),
             wl_subsurface::Request::SetSync => {
-                if let Some(mut c) = state.get_mut::<WlSubsurface>(*data){
+                if let Some(mut c) = state.get_mut::<WlSubsurface>(*data) {
                     c.sync = true;
                 }
             }
             wl_subsurface::Request::SetDesync => {
-                if let Some(mut c) = state.get_mut::<WlSubsurface>(*data){
+                if let Some(mut c) = state.get_mut::<WlSubsurface>(*data) {
                     c.desync = false;
                 }
             }
@@ -418,7 +422,7 @@ impl
         resource: &wl_subsurface::WlSubsurface,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data, resource);
+        state.despawn_object_component::<WlSubsurface>(*data, resource);
     }
 }
 

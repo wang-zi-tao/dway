@@ -12,7 +12,7 @@ use wayland_server::{Resource, WEnum};
 
 use crate::{
     prelude::*,
-    state::{EntityFactory, add_global_dispatch},
+    state::{add_global_dispatch, EntityFactory},
 };
 
 use super::surface::AttachedBy;
@@ -246,7 +246,8 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                 format,
             } => {
                 let size = state
-                    .with_component(resource, |c: &mut WlShmPool| c.inner.read().unwrap().size);
+                    .with_component(resource, |c: &mut WlShmPool| c.inner.read().unwrap().size)
+                    .unwrap_or_default();
                 let message = if offset < 0 {
                     Some("offset must not be negative".to_string())
                 } else if width <= 0 || height <= 0 {
@@ -295,9 +296,14 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                         return;
                     }
                 };
-                let pool =
-                    state.with_component(resource, |pool: &mut WlShmPool| pool.inner.clone());
-                let parent = state.with_component(resource, |p: &mut Parent| p.get());
+                let Some(pool) =
+                    state.with_component(resource, |pool: &mut WlShmPool| pool.inner.clone())
+                else {
+                    return;
+                };
+                let Some(parent) = state.with_component(resource, |p: &mut Parent| p.get()) else {
+                    return;
+                };
                 state.spawn(
                     (id, data_init, |o| {
                         WlMemoryBufferBundle::new(WlShmBuffer {

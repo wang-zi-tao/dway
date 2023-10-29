@@ -4,14 +4,14 @@ use dway_server::{
     geometry::GlobalGeometry,
     util::rect::IRect,
     wl::surface::WlSurface,
-    xdg::{DWayToplevelWindow, DWayWindow, PopupList},
+    xdg::{toplevel::DWayToplevel, DWayWindow, PopupList},
 };
 
-use crate::prelude::*;
 use crate::util::irect_to_style;
+use crate::{default_system_font, prelude::*};
 
-const WINDEOW_MAX_INDEX: i32 = 0;
-const WINDEOW_MAX_STEP: i32 = 64;
+pub const WINDEOW_MAX_INDEX: i32 = 0;
+pub const WINDEOW_MAX_STEP: i32 = 64;
 
 #[derive(Component, Reflect, Debug)]
 pub struct WindowUI {
@@ -21,21 +21,29 @@ pub struct WindowUI {
 
 dway_widget! {
 WindowUI(
-    window_query: Query<(Ref<GlobalGeometry>, Ref<WlSurface>, Option<&PopupList>), With<DWayWindow>>,
-){
+    window_query: Query<(Ref<GlobalGeometry>, Ref<WlSurface>, Ref<DWayToplevel>), With<DWayWindow>>,
+    asset_server: Res<AssetServer>,
+)
+#[derive(Reflect,Default)]{
     image: Handle<Image>,
     rect: IRect,
     bbox_rect: IRect,
+    title: String,
 }=>
 {
-    if let Ok((rect,surface,popup_list)) = window_query.get(prop.window_entity){
+    if let Ok((rect,surface, toplevel)) = window_query.get(prop.window_entity){
         if rect.is_changed(){
             update_state!(rect = rect.geometry);
         }
         if rect.is_changed() || surface.is_changed() {
             update_state!(bbox_rect = surface.image_rect().offset(rect.pos()));
         }
-        update_state!(image = surface.image.clone());
+        if toplevel.is_changed(){
+            update_state!(title = toplevel.title.clone().unwrap_or_default());
+        }
+        if surface.is_changed(){
+            update_state!(image = surface.image.clone());
+        }
     }
 }
 <NodeBundle @style="absolute">
@@ -45,24 +53,22 @@ WindowUI(
     <NodeBundle Style=(Style{
             position_type: PositionType::Absolute,
             left:Val::Px( state.rect.x() as f32 ),
-            top:Val::Px( ( state.rect.x() - 16 ) as f32 ),
+            top:Val::Px( ( state.rect.y() - 16 ) as f32 ),
             width: Val::Px(state.rect.width() as f32),
             height: Val::Px(16.0),
             ..Style::default()
         })
         BackgroundColor=(BackgroundColor::from(Color::WHITE))
     >
-        <TextBundle
-            @style=""
-            Visibility=(Visibility::Visible)
+        <TextBundle @style="items-center justify-center m-auto"
             Text=(Text::from_section(
-                "window",
+                &state.title,
                 TextStyle {
                     font_size: 20.0,
                     color: Color::BLACK,
                     ..default()
                 },
-            ))
+            ).with_alignment(TextAlignment::Center))
         />
     </NodeBundle>
 </NodeBundle>
@@ -126,6 +132,8 @@ pub struct WindowUIPlugin;
 impl Plugin for WindowUIPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<WindowUI>();
+        app.register_type::<WindowUIWidget>();
+        app.register_type::<WindowUIState>();
         app.add_systems(Update, windowui_render.in_set(WindowUISystems::Render));
         app.add_systems(Update, attach_window);
     }

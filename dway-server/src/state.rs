@@ -354,7 +354,7 @@ impl DWay {
     pub fn destroy_object(&mut self, object: &impl wayland_server::Resource) {
         let entity = DWay::get_entity(object);
         let world = self.world_mut();
-        trace!(?entity,resource=%wayland_server::Resource::id(object),"destroy wayland object");
+        debug!(?entity,resource=%wayland_server::Resource::id(object),"destroy wayland object");
         despawn_recursive(world, entity);
     }
     pub fn create_client(
@@ -539,7 +539,11 @@ impl DWay {
         trace!(entity=?entity,resource=%resource.id(),"despawn object");
         despawn_recursive(self.world_mut(), entity);
     }
-    pub fn with_component<T, F, R>(&mut self, object: &impl wayland_server::Resource, f: F) -> R
+    pub fn with_component<T, F, R>(
+        &mut self,
+        object: &impl wayland_server::Resource,
+        f: F,
+    ) -> Option<R>
     where
         T: Component,
         F: FnOnce(&mut T) -> R,
@@ -556,8 +560,8 @@ impl DWay {
                     object.id()
                 )
             })
-            .unwrap();
-        f(&mut component)
+            .ok()?;
+        Some(f(&mut component))
     }
     pub fn query<B, F, R>(&mut self, entity: Entity, f: F) -> R
     where
@@ -590,7 +594,11 @@ impl DWay {
         let entity = Self::get_entity(object);
         f(&mut world.get_mut(entity).unwrap())
     }
-    pub fn query_object<B, F, R>(&mut self, object: &impl wayland_server::Resource, f: F) -> R
+    pub fn query_object<B, F, R>(
+        &mut self,
+        object: &impl wayland_server::Resource,
+        f: F,
+    ) -> Option<R>
     where
         B: WorldQuery,
         F: FnOnce(<B as WorldQuery>::Item<'_>) -> R,
@@ -598,7 +606,7 @@ impl DWay {
         let world = self.world_mut();
         let entity = Self::get_entity(object);
         let mut query = world.query::<B>();
-        f(query.get_mut(world, entity).unwrap())
+        Some(f(query.get_mut(world, entity).ok()?))
     }
     pub fn send_event<T: Event>(&mut self, event: T) {
         let world = self.world_mut();

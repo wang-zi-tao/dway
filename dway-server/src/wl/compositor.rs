@@ -75,12 +75,15 @@ impl wayland_server::Dispatch<wl_subcompositor::WlSubcompositor, bevy::prelude::
     fn request(
         state: &mut DWay,
         _client: &wayland_server::Client,
-        _resource: &wl_subcompositor::WlSubcompositor,
+        resource: &wl_subcompositor::WlSubcompositor,
         request: <wl_subcompositor::WlSubcompositor as wayland_server::Resource>::Request,
-        _data: &bevy::prelude::Entity,
+        data: &bevy::prelude::Entity,
         _dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
+        let span = span!(Level::ERROR, "request", entity=?data, resource=%WlResource::id(resource));
+        let _enter = span.enter();
+        debug!("request {:?}", &request);
         match request {
             wl_subcompositor::Request::Destroy => todo!(),
             wl_subcompositor::Request::GetSubsurface {

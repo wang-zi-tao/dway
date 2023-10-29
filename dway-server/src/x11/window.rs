@@ -18,13 +18,10 @@ use crate::{
     prelude::*,
     util::rect::IRect,
     wl::surface::WlSurface,
-    xdg::{DWayToplevelWindow, DWayWindow},
+    xdg::{toplevel::DWayToplevel, DWayWindow},
 };
 
-use super::{
-    atoms::Atoms, screen::XScreen, XDisplayRef, XWaylandDisplay,
-    XWaylandDisplayWrapper,
-};
+use super::{atoms::Atoms, screen::XScreen, XDisplayRef, XWaylandDisplay, XWaylandDisplayWrapper};
 use bevy_relationship::ConnectCommand;
 
 #[derive(Component, Reflect)]
@@ -450,7 +447,7 @@ pub fn x11_window_attach_wl_surface(
                     DWayWindow::default(),
                 ));
                 if xwindow.is_toplevel {
-                    entity_mut.insert(DWayToplevelWindow::default());
+                    entity_mut.insert(DWayToplevel::default());
                 }
                 event_writter.send(Insert::new(wl_surface_entity));
                 commands.entity(xwindow_entity).insert(MappedXWindow);
@@ -465,7 +462,7 @@ pub fn x11_window_attach_wl_surface(
 
 graph_query!(
 XWindowGraph=>[
-    surface=<Entity,With<DWayToplevelWindow>>,
+    surface=<Entity,With<DWayToplevel>>,
     xwindow=&'static mut XWindow,
 ]=>{
     path=surface-[XWindowAttachSurface]->xwindow,

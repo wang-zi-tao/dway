@@ -55,6 +55,7 @@ impl Plugin for DWayServerPlugin {
             xdg::toplevel::XdgToplevelPlugin,
             xdg::popup::XdgPopupPlugin,
             zxdg::outputmanager::XdgOutputManagerPlugin,
+            zxdg::decoration::DecorationPlugin,
             input::seat::WlSeatPlugin,
         ));
         app.add_plugins((

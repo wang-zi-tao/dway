@@ -8,7 +8,7 @@ use crate::{
     input::{keyboard::WlKeyboardBundle, pointer::WlPointerBundle, touch::WlTouchBundle},
     prelude::*,
     state::{add_global_dispatch, EntityFactory},
-    wl::surface::WlSurface,
+    wl::{surface::WlSurface, cursor::PointerHasSurface},
 };
 use bevy_relationship::{relationship, AppExt};
 use wayland_server::protocol::wl_seat::Capability;
@@ -168,6 +168,7 @@ impl Plugin for WlSeatPlugin {
         add_global_dispatch::<wl_seat::WlSeat, 9>(app);
         app.add_plugins((super::keyboard::WlKeyboardPlugin, GrabPlugin));
         app.register_relation::<SeatHasPointer>();
+        app.register_relation::<PointerHasSurface>();
         app.register_relation::<SeatHasKeyboard>();
         app.register_relation::<SeatHasTouch>();
         app.register_relation::<FocusOnSurface>();

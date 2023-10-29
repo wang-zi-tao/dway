@@ -36,7 +36,7 @@ impl Dispatch<wl_data_source::WlDataSource, Entity> for DWay {
             wl_data_source::Request::Offer { mime_type } => {
                 state.with_component(resource, |c: &mut WlDataSource| {
                     c.mime_type.push(mime_type);
-                })
+                });
             }
             wl_data_source::Request::Destroy => {
                 state.destroy_object(resource);

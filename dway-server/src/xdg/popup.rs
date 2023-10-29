@@ -19,14 +19,16 @@ pub struct XdgPopup {
     pub raw: xdg_popup::XdgPopup,
     pub send_configure: bool,
     pub positioner: Positioner,
+    pub level: isize,
 }
 
 impl XdgPopup {
-    pub fn new(raw: xdg_popup::XdgPopup, positioner: Positioner) -> Self {
+    pub fn new(raw: xdg_popup::XdgPopup, positioner: Positioner, level: isize) -> Self {
         Self {
             raw,
             send_configure: false,
             positioner,
+            level,
         }
     }
 }
@@ -87,7 +89,6 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
                             serial: _,
                         } = &mut *grab
                         {
-                            dbg!(parent_entity, parent_is_popup);
                             if parent_is_popup {
                                 let index =
                                     popup_stack
@@ -97,7 +98,6 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
                                         .find(|(_index, popup)| {
                                             DWay::get_entity(*popup) == parent_entity
                                         });
-                                dbg!(index);
                                 if let Some((index, _)) = index {
                                     if index + 1 != popup_stack.len() {
                                         popup_stack.drain(index + 1..).for_each(|popup| {
@@ -128,8 +128,11 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
                 positioner,
                 token: _,
             } => {
-                let positioner =
-                    state.with_component(&positioner, |c: &mut XdgPositioner| c.positioner.clone());
+                let Some(positioner) =
+                    state.with_component(&positioner, |c: &mut XdgPositioner| c.positioner.clone())
+                else {
+                    return;
+                };
                 state.query::<(&mut XdgPopup, &mut Geometry), _, _>(*data, |(mut p, mut g)| {
                     p.positioner = positioner;
                     g.geometry = IRect::from_pos_size(

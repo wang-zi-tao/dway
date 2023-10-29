@@ -8,6 +8,10 @@ use bevy::prelude::Plugin;
 pub struct DWayWidgetsPlugin;
 impl Plugin for DWayWidgetsPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_plugins((clock::ClockUiPlugin, window::WindowUIPlugin));
+        app.add_plugins((
+            clock::ClockUiPlugin,
+            window::WindowUIPlugin,
+            popup::PopupUIPlugin,
+        ));
     }
 }

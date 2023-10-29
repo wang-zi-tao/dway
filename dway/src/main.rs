@@ -51,7 +51,7 @@ bevy_ui=trace,\
 dway=debug,\
 bevy_relationship=debug,\
 dway_server=trace,\
-dway_server::input=debug,\
+dway_server::input=info,\
 dway_server::render=info,\
 dway_server::state=info,\
 dway_server::wl::buffer=info,\
@@ -75,11 +75,12 @@ fn main() {
     app.insert_resource(ClearColor(Color::NONE));
     // app.insert_resource(ReportExecutionOrderAmbiguities);
     app.add_plugins((
-        // DWayLogPlugin {
-        //     level: Level::INFO,
-        //     filter: std::env::var("RUST_LOG").unwrap_or_else(|_| LOG.to_string()),
-        // },
-        DefaultPlugins.build()
+        DWayLogPlugin {
+            level: Level::INFO,
+            filter: std::env::var("RUST_LOG").unwrap_or_else(|_| LOG.to_string()),
+        },
+        DefaultPlugins
+            .build()
             // .set(TaskPoolPlugin {
             //     task_pool_options: TaskPoolOptions {
             //         min_total_threads: 1,
@@ -89,7 +90,7 @@ fn main() {
             //         compute: THREAD_POOL_CONFIG,
             //     },
             // })
-            // .disable::<LogPlugin>()
+            .disable::<LogPlugin>()
             .disable::<PbrPlugin>()
             .disable::<GizmoPlugin>()
             .disable::<GltfPlugin>()
@@ -134,7 +135,7 @@ fn main() {
         FrameTimeDiagnosticsPlugin,
         SystemInformationDiagnosticsPlugin,
         LogDiagnosticsPlugin {
-            wait_duration: Duration::from_secs(8),
+            wait_duration: Duration::from_secs(32),
             ..Default::default()
         },
     ));
@@ -188,7 +189,7 @@ pub fn spawn(
 ) {
     for WaylandDisplayCreated(dway_entity, _) in events.iter() {
         if let Ok(compositor) = query.get(*dway_entity) {
-            // for i in 0..128 {
+            // for i in 0..8 {
             //     let mut command = process::Command::new("gedit");
             //     command.arg("--new-window");
             //     compositor.spawn_process(command, &tokio);

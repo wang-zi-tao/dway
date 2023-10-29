@@ -20,16 +20,13 @@ use crate::{
     xdg::{
         popup::{XdgPopup, XdgPopupBundle},
         positioner::XdgPositioner,
-        toplevel::XdgToplevel,
+        toplevel::{DWayToplevel, XdgToplevel},
     },
 };
 use bevy_relationship::{relationship, AppExt};
 
 #[derive(Component, Default, Clone, Reflect)]
 pub struct DWayWindow {}
-
-#[derive(Component, Default, Clone, Reflect)]
-pub struct DWayToplevelWindow {}
 
 #[derive(Resource)]
 pub struct XdgDelegate {
@@ -97,7 +94,7 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                         (|o| {
                             (
                                 XdgToplevel::new(o),
-                                DWayToplevelWindow::default(),
+                                DWayToplevel::default(),
                                 DWayWindow::default(),
                             )
                         }),
@@ -126,6 +123,10 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                 parent,
                 positioner,
             } => {
+                let level = state
+                    .get::<XdgPopup>(*data)
+                    .map(|popup| popup.level + 1)
+                    .unwrap_or_default();
                 let positioner = state
                     .query_object_component(&positioner, |c: &mut XdgPositioner| {
                         c.positioner.clone()
@@ -135,13 +136,12 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                 state.insert(
                     *data,
                     (id, data_init, |o| XdgPopupBundle {
-                        raw: XdgPopup::new(o, positioner.clone()),
+                        raw: XdgPopup::new(o, positioner.clone(), level),
                         geometry: Geometry::new(geometry),
                         global_geometry: GlobalGeometry::new(geometry),
                         window: Default::default(),
                     })
-                        .with_parent(parent_entity),
-                );
+                        .with_parent(parent_entity),);
                 state.send_event(Insert::<DWayWindow>::new(*data));
                 state.connect::<SurfaceHasPopup>(parent_entity, *data);
                 state.query_object::<(&mut XdgSurface, &mut XdgPopup), _, _>(
@@ -179,7 +179,7 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                 }
             }
             xdg_surface::Request::AckConfigure { serial } => {
-                info!("popup AckConfigure {serial}");
+                debug!("popup AckConfigure {serial}");
             }
             _ => todo!(),
         }

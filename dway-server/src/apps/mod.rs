@@ -5,7 +5,12 @@ use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 use dway_util::try_or;
 use gettextrs::{dgettext, setlocale, LocaleCategory};
 
-use crate::{apps::icon::Icon, prelude::*, schedule::DWayServerSet, xdg::toplevel::XdgToplevel};
+use crate::{
+    apps::icon::Icon,
+    prelude::*,
+    schedule::DWayServerSet,
+    xdg::toplevel::{DWayToplevel, XdgToplevel},
+};
 
 use self::icon::IconLoader;
 
@@ -139,7 +144,7 @@ pub fn scan_desktop_file(mut entries: ResMut<DesktopEntriesSet>, mut commands: C
 relationship!(ToplevelConnectAppEntry=>AppRef>-WindowList);
 
 pub fn attach_to_app(
-    toplevel_query: Query<(Entity, &XdgToplevel), Changed<XdgToplevel>>,
+    toplevel_query: Query<(Entity, &DWayToplevel), Changed<DWayToplevel>>,
     register: Res<DesktopEntriesSet>,
     mut commands: Commands,
 ) {

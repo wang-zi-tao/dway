@@ -1,4 +1,4 @@
-use crate::{prelude::*};
+use crate::prelude::*;
 
 #[derive(Component)]
 pub struct Clock {
@@ -13,7 +13,8 @@ impl Default for Clock {
 }
 
 dway_ui_derive::dway_widget!(
-    Clock{text:String}=>
+Clock
+#[derive(Reflect,Default)]{text:String}=>
     (time:Res<Time>){
         let date = chrono::Local::now().naive_local();
         let date_string = date.format(&prop.format).to_string();

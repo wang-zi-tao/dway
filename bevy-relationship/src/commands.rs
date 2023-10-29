@@ -6,7 +6,7 @@ use bevy::{
         system::{Command, EntityCommands},
         world::EntityMut,
     },
-    prelude::{despawn_with_children_recursive, BuildWorldChildren, Children, Entity, World},
+    prelude::{despawn_with_children_recursive, BuildWorldChildren, Children, Entity, World, debug},
     utils::HashMap,
 };
 use smallvec::SmallVec;
@@ -185,6 +185,7 @@ where
 pub struct DespawnRecursiveCommand(pub Entity);
 impl Command for DespawnRecursiveCommand {
     fn apply(self, world: &mut World) {
+        debug!("Despawning entity {:?}",self.0);
         despawn_recursive(world, self.0);
     }
 }

@@ -13,6 +13,7 @@ impl Plugin for PrimarySelectionPlugin {
         app.add_plugins((
             data_device::DataDevicePlugin,
             primary_selection::PrimarySelectionDevicePlugin,
+            drmlease::DrmLeasePlugin,
         ));
         add_global_dispatch::<zwp_text_input_manager_v3::ZwpTextInputManagerV3, 1>(app);
     }

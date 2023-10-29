@@ -574,6 +574,8 @@ struct DWayWidget {
     name: Ident,
     #[peek(Paren)]
     params: Option<Params>,
+    #[call(Attribute::parse_outer)]
+    attributes: Vec<Attribute>,
     #[peek(Brace)]
     states: Option<States>,
     _split: Token![=>],
@@ -1066,8 +1068,8 @@ pub fn dway_widget(input: TokenStream) -> TokenStream {
     }
     let widget_field_decl = widget_fields.values().map(|f| &f.0);
     let widget_field_init = widget_fields.values().map(|w| &w.1);
-    let bundle_fields_init = bundle_fields.iter().map(|( name,_ )|quote!(#name,));
-    let bundle_fields:Vec<_> = bundle_fields.values().collect();
+    let bundle_fields_init = bundle_fields.iter().map(|(name, _)| quote!(#name,));
+    let bundle_fields: Vec<_> = bundle_fields.values().collect();
     let function_args = function_args.values();
     let state_component = format_ident!("{}State", &dsl.name, span = dsl.name.span());
     let widget_component = format_ident!("{}Widget", &dsl.name, span = dsl.name.span());
@@ -1082,9 +1084,11 @@ pub fn dway_widget(input: TokenStream) -> TokenStream {
         .flat_map(|f| f.fields.iter())
         .map(|field| &field.field)
         .collect::<Vec<_>>();
+    let state_attributes = &dsl.attributes;
 
     let render = quote! {
-        #[derive(Component, Default)]
+        #(#state_attributes)*
+        #[derive(Component)]
         pub struct #state_component {
             #(#state_fields),*
         }

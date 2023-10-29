@@ -3,7 +3,7 @@ use crate::{layout::WorkspaceHasSlot, prelude::*, workspace, DWayClientSystem};
 use dway_server::{
     geometry::{Geometry, GlobalGeometry},
     util::rect::IRect,
-    xdg::{DWayToplevelWindow, DWayWindow},
+    xdg::{toplevel::DWayToplevel, DWayWindow},
 };
 
 #[derive(Component, Clone, Debug, Reflect)]
@@ -116,7 +116,7 @@ pub fn update_tile_layout(
         ),
         Or<(Changed<workspace::WindowList>, Changed<TileLayoutKind>)>,
     >,
-    window_query: Query<Entity, (With<DWayWindow>, With<DWayToplevelWindow>)>,
+    window_query: Query<Entity, (With<DWayWindow>, With<DWayToplevel>)>,
     mut commands: Commands,
 ) {
     workspace.for_each(|(entity, geometry, global_geometry, windows, layout)| {

@@ -1,6 +1,7 @@
 pub mod dmabuffactory;
 pub mod dmabuffeedback;
 pub mod dmabufparam;
+pub mod idle;
 
 use crate::prelude::*;
 use self::{

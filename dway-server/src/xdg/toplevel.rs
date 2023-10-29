@@ -15,11 +15,9 @@ use super::{DWayWindow, XdgSurface};
 #[derive(Component)]
 pub struct PinedWindow;
 
-#[derive(Component, Reflect, Debug, Clone)]
+#[derive(Component, Reflect, Debug, Clone, Default)]
 #[reflect(Debug)]
-pub struct XdgToplevel {
-    #[reflect(ignore, default = "unimplemented")]
-    pub raw: xdg_toplevel::XdgToplevel,
+pub struct DWayToplevel {
     pub title: Option<String>,
     pub app_id: Option<String>,
     pub max: bool,
@@ -28,6 +26,13 @@ pub struct XdgToplevel {
     pub min_size: Option<IVec2>,
     pub max_size: Option<IVec2>,
     pub size: Option<IVec2>,
+}
+
+#[derive(Component, Reflect, Debug, Clone)]
+#[reflect(Debug)]
+pub struct XdgToplevel {
+    #[reflect(ignore, default = "unimplemented")]
+    pub raw: xdg_toplevel::XdgToplevel,
     pub send_configure: bool,
 }
 impl ResourceWrapper for XdgToplevel {
@@ -41,38 +46,30 @@ impl XdgToplevel {
     pub fn new(object: xdg_toplevel::XdgToplevel) -> Self {
         Self {
             raw: object,
-            title: None,
-            app_id: None,
-            max: false,
-            fullscreen: false,
-            min: false,
-            min_size: None,
-            max_size: None,
             send_configure: false,
-            size: None,
         }
     }
-    pub fn configure(&self) {
+    pub fn configure(&self, data: &DWayToplevel) {
         let mut states = vec![];
 
         states.extend((xdg_toplevel::State::Activated as u32).to_le_bytes());
-        if self.max {
+        if data.max {
             states.extend((xdg_toplevel::State::Maximized as u32).to_le_bytes());
         }
-        if self.fullscreen {
+        if data.fullscreen {
             states.extend((xdg_toplevel::State::Fullscreen as u32).to_le_bytes());
         }
 
         if self.raw.version() >= xdg_toplevel::EVT_CONFIGURE_BOUNDS_SINCE {
             self.raw.configure_bounds(
-                self.size.unwrap_or_default().x,
-                self.size.unwrap_or_default().y,
+                data.size.unwrap_or_default().x,
+                data.size.unwrap_or_default().y,
             );
         }
 
         self.raw.configure(
-            self.size.unwrap_or_default().x,
-            self.size.unwrap_or_default().y,
+            data.size.unwrap_or_default().x,
+            data.size.unwrap_or_default().y,
             states,
         );
     }
@@ -108,10 +105,10 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 }
             }
             xdg_toplevel::Request::SetTitle { title } => {
-                state.with_component(resource, |c: &mut XdgToplevel| c.title = Some(title));
+                state.with_component(resource, |c: &mut DWayToplevel| c.title = Some(title));
             }
             xdg_toplevel::Request::SetAppId { app_id } => {
-                state.with_component(resource, |c: &mut XdgToplevel| c.app_id = Some(app_id));
+                state.with_component(resource, |c: &mut DWayToplevel| c.app_id = Some(app_id));
             }
             xdg_toplevel::Request::ShowWindowMenu {
                 seat: _,
@@ -185,41 +182,41 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 );
             }
             xdg_toplevel::Request::SetMaxSize { width, height } => {
-                if let Some(mut c) = state.get_mut::<XdgToplevel>(*data) {
+                if let Some(mut c) = state.get_mut::<DWayToplevel>(*data) {
                     if c.max_size != Some(IVec2::new(width, height)) {
                         c.max_size = Some(IVec2::new(width, height))
                     }
                 }
             }
             xdg_toplevel::Request::SetMinSize { width, height } => {
-                if let Some(mut c) = state.get_mut::<XdgToplevel>(*data) {
+                if let Some(mut c) = state.get_mut::<DWayToplevel>(*data) {
                     if c.min_size != Some(IVec2::new(width, height)) {
                         c.min_size = Some(IVec2::new(width, height))
                     }
                 }
             }
             xdg_toplevel::Request::SetMaximized => {
-                state.with_component(resource, |c: &mut XdgToplevel| {
+                state.with_component(resource, |c: &mut DWayToplevel| {
                     c.max = true;
                 });
             }
             xdg_toplevel::Request::UnsetMaximized => {
-                state.with_component(resource, |c: &mut XdgToplevel| {
+                state.with_component(resource, |c: &mut DWayToplevel| {
                     c.max = false;
                 });
             }
             xdg_toplevel::Request::SetFullscreen { output: _ } => {
-                state.with_component(resource, |c: &mut XdgToplevel| {
+                state.with_component(resource, |c: &mut DWayToplevel| {
                     c.fullscreen = true;
                 });
             }
             xdg_toplevel::Request::UnsetFullscreen => {
-                state.with_component(resource, |c: &mut XdgToplevel| {
+                state.with_component(resource, |c: &mut DWayToplevel| {
                     c.fullscreen = false;
                 });
             }
             xdg_toplevel::Request::SetMinimized => {
-                state.with_component(resource, |c: &mut XdgToplevel| {
+                state.with_component(resource, |c: &mut DWayToplevel| {
                     c.min = true;
                 });
             }
@@ -239,50 +236,50 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
 
 pub fn process_window_action_event(
     mut events: EventReader<WindowAction>,
-    mut window_query: Query<(&mut XdgToplevel, &XdgSurface), With<DWayWindow>>,
+    mut window_query: Query<(&mut XdgToplevel, &mut DWayToplevel, &XdgSurface), With<DWayWindow>>,
 ) {
     for e in events.iter() {
         match e {
             WindowAction::Close(e) => {
-                if let Ok((c, s)) = window_query.get_mut(*e) {
+                if let Ok((c, mut t, s)) = window_query.get_mut(*e) {
                     c.raw.close();
                     s.configure();
                 }
             }
             WindowAction::Maximize(e) => {
-                if let Ok((mut c, s)) = window_query.get_mut(*e) {
-                    c.max = true;
-                    c.configure();
+                if let Ok((c, mut t, s)) = window_query.get_mut(*e) {
+                    t.max = true;
+                    c.configure(&mut t);
                     s.configure();
                 }
             }
             WindowAction::UnMaximize(e) => {
-                if let Ok((mut c, s)) = window_query.get_mut(*e) {
-                    c.max = true;
-                    c.configure();
+                if let Ok((c, mut t, s)) = window_query.get_mut(*e) {
+                    t.max = true;
+                    c.configure(&mut t);
                     s.configure();
                 }
             }
             WindowAction::Fullscreen(e) => {
-                if let Ok((mut c, s)) = window_query.get_mut(*e) {
-                    c.fullscreen = true;
-                    c.configure();
+                if let Ok((c, mut t, s)) = window_query.get_mut(*e) {
+                    t.fullscreen = true;
+                    c.configure(&mut t);
                     s.configure();
                 }
             }
             WindowAction::UnFullscreen(e) => {
-                if let Ok((mut c, s)) = window_query.get_mut(*e) {
-                    c.fullscreen = false;
-                    c.configure();
+                if let Ok((c, mut t, s)) = window_query.get_mut(*e) {
+                    t.fullscreen = false;
+                    c.configure(&mut t);
                     s.configure();
                 }
             }
             WindowAction::Minimize(_) => {}
             WindowAction::UnMinimize(_) => {}
             WindowAction::SetRect(e, rect) => {
-                if let Ok((mut c, s)) = window_query.get_mut(*e) {
-                    c.size = Some(rect.size());
-                    c.configure();
+                if let Ok((c, mut t, s)) = window_query.get_mut(*e) {
+                    t.size = Some(rect.size());
+                    c.configure(&mut t);
                     s.configure();
                 }
             }

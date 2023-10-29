@@ -2,12 +2,15 @@ pub mod equalsize;
 pub mod lsp;
 pub mod tile;
 
+use crate::{prelude::*, DWayClientSystem};
 use dway_server::{
     geometry::Geometry,
     util::rect::IRect,
-    xdg::{toplevel::PinedWindow, DWayToplevelWindow, DWayWindow},
+    xdg::{
+        toplevel::{DWayToplevel, PinedWindow},
+        DWayWindow,
+    },
 };
-use crate::{prelude::*, DWayClientSystem};
 
 #[derive(Component)]
 pub struct Slot;
@@ -88,10 +91,7 @@ pub fn attach_window_to_slot(
         )>,
     >,
     slot_query: Query<&Geometry, With<Slot>>,
-    mut window_query: Query<
-        &mut Geometry,
-        (With<DWayWindow>, With<DWayToplevelWindow>, Without<Slot>),
-    >,
+    mut window_query: Query<&mut Geometry, (With<DWayWindow>, With<DWayToplevel>, Without<Slot>)>,
     mut commands: Commands,
     mut window_actions: EventWriter<WindowAction>,
 ) {
