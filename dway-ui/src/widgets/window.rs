@@ -12,6 +12,7 @@ use crate::{default_system_font, prelude::*};
 
 pub const WINDEOW_MAX_INDEX: i32 = 0;
 pub const WINDEOW_MAX_STEP: i32 = 64;
+pub const DECORATION_HEIGHT:f32 = 24.0;
 
 #[derive(Component, Reflect, Debug)]
 pub struct WindowUI {
@@ -22,7 +23,9 @@ pub struct WindowUI {
 dway_widget! {
 WindowUI(
     window_query: Query<(Ref<GlobalGeometry>, Ref<WlSurface>, Ref<DWayToplevel>), With<DWayWindow>>,
+    button_query: Query<&Interaction>,
     asset_server: Res<AssetServer>,
+    mut window_action: EventWriter<WindowAction>,
 )
 #[derive(Reflect,Default)]{
     image: Handle<Image>,
@@ -45,6 +48,15 @@ WindowUI(
             update_state!(image = surface.image.clone());
         }
     }
+    if button_query.get(node!(close)).map(|e|*e==Interaction::Pressed).unwrap_or_default() {
+        window_action.send(WindowAction::Close(prop.window_entity));
+    }
+    if button_query.get(node!(min)).map(|e|*e==Interaction::Pressed).unwrap_or_default() {
+        window_action.send(WindowAction::Minimize(prop.window_entity));
+    }
+    if button_query.get(node!(max)).map(|e|*e==Interaction::Pressed).unwrap_or_default() {
+        window_action.send(WindowAction::Maximize(prop.window_entity));
+    }
 }
 <NodeBundle @style="absolute">
     <ImageBundle UiImage=(UiImage::new(state.image.clone())) Style=(irect_to_style(state.bbox_rect))>
@@ -52,21 +64,24 @@ WindowUI(
     </ImageBundle>
     <NodeBundle Style=(Style{
             position_type: PositionType::Absolute,
-            left:Val::Px( state.rect.x() as f32 ),
-            top:Val::Px( ( state.rect.y() - 16 ) as f32 ),
+            left:Val::Px(state.rect.x() as f32 ),
+            top:Val::Px(state.rect.y() as f32 - DECORATION_HEIGHT),
             width: Val::Px(state.rect.width() as f32),
-            height: Val::Px(16.0),
+            height: Val::Px(DECORATION_HEIGHT),
             ..Style::default()
         })
-        BackgroundColor=(BackgroundColor::from(Color::WHITE))
+        BackgroundColor=(Color::WHITE.into())
     >
+        <ButtonBundle @id="close" BackgroundColor=(Color::RED.into()) @style="m-4 w-16 h-16"/>
+        <ButtonBundle @id="min" BackgroundColor=(Color::ORANGE.into()) @style="m-4 w-16 h-16"/>
+        <ButtonBundle @id="max" BackgroundColor=(Color::GREEN.into()) @style="m-4 w-16 h-16"/>
         <TextBundle @style="items-center justify-center m-auto"
             Text=(Text::from_section(
                 &state.title,
                 TextStyle {
-                    font_size: 20.0,
+                    font_size: DECORATION_HEIGHT - 2.0,
                     color: Color::BLACK,
-                    ..default()
+                    font: asset_server.load("fonts/SmileySans-Oblique.ttf"),
                 },
             ).with_alignment(TextAlignment::Center))
         />

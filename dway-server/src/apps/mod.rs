@@ -9,7 +9,7 @@ use crate::{
     apps::icon::Icon,
     prelude::*,
     schedule::DWayServerSet,
-    xdg::toplevel::{DWayToplevel, XdgToplevel},
+    xdg::toplevel::DWayToplevel,
 };
 
 use self::icon::IconLoader;
@@ -25,6 +25,9 @@ impl DesktopEntriesSet {
         self.by_id.insert(entry.appid.clone(), entity);
     }
 }
+
+#[derive(Component)]
+pub struct AppEntryRoot;
 
 #[derive(Component, Debug, Reflect)]
 pub struct DesktopEntry {
@@ -119,7 +122,7 @@ impl DesktopEntry {
 pub fn scan_desktop_file(mut entries: ResMut<DesktopEntriesSet>, mut commands: Commands) {
     let dirs = freedesktop_desktop_entry::default_paths();
     let iter = freedesktop_desktop_entry::Iter::new(dirs);
-    let root_entity = commands.spawn_empty().id();
+    let root_entity = commands.spawn((Name::new("app_entry_root"),AppEntryRoot)).id();
     for path in iter {
         try_or!(
             {

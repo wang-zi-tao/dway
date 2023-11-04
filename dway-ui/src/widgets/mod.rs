@@ -2,6 +2,10 @@ pub mod clock;
 pub mod popup;
 pub mod window;
 
+pub mod windowlist;
+pub mod workspacelist;
+pub mod applist;
+
 use bevy::prelude::Plugin;
 
 #[derive(Default)]
@@ -12,6 +16,7 @@ impl Plugin for DWayWidgetsPlugin {
             clock::ClockUiPlugin,
             window::WindowUIPlugin,
             popup::PopupUIPlugin,
+            applist::AppListUIPlugin,
         ));
     }
 }

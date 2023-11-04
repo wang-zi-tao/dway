@@ -15,14 +15,13 @@ impl Default for Clock {
 dway_ui_derive::dway_widget!(
 Clock
 #[derive(Reflect,Default)]{text:String}=>
-    (time:Res<Time>){
+    {
         let date = chrono::Local::now().naive_local();
         let date_string = date.format(&prop.format).to_string();
         update_state!(text = date_string);
     }
     <NodeBundle>
-        <TextBundle
-        @style=""
+        <TextBundle @style=""
         Text=(Text::from_section(
             &state.text,
             TextStyle {

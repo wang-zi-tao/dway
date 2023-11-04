@@ -1,6 +1,6 @@
-use std::collections::LinkedList;
 use crate::{desktop::FocusedWindow, prelude::*, DWayClientSystem};
 use dway_server::xdg::DWayWindow;
+use std::collections::LinkedList;
 
 #[derive(Component, Reflect, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WindowIndex {
@@ -41,6 +41,10 @@ impl WindowStack {
             c.move_next();
         }
         c.insert_before(e);
+    }
+
+    pub fn focused(&self) -> Option<Entity> {
+        self.list.front().cloned()
     }
 }
 
@@ -138,7 +142,7 @@ pub fn update_window_stack_by_focus(
     mut window_stack: ResMut<WindowStack>,
 ) {
     if window_focus.is_changed() {
-        if let Some(focused_window) = window_focus.0.as_ref() {
+        if let Some(focused_window) = window_focus.window_entity.as_ref() {
             if window_stack.list.front() != Some(&focused_window) {
                 debug!(window=?*focused_window, "move focused window to top of stack");
                 window_stack.remove_entity(*focused_window);

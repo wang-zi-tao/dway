@@ -23,8 +23,10 @@ lru = {}
 rand = {}
 bevy = "0.11"
 serde={}
-bevy_svg = { version="0.11", default-features = false }
+bevy_svg = { version="0.11", default-features = false, features = ["2d"] }
 bevy_ui_styled = "0.4.0"
+bevy_vector_shapes = "0.5.2"
+const-fnv1a-hash = "1.1.0"
 
 [profile.dev]
 opt-level = 1

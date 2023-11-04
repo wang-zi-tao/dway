@@ -6,7 +6,7 @@ use derive_syn_parse::Parse;
 use generate::*;
 use proc_macro::TokenStream;
 use proc_macro2::{Group, Span, TokenStream as TokenStream2, TokenTree};
-use quote::{format_ident, quote, ToTokens};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
 use std::collections::HashMap;
 use syn::{
     parse::{ParseStream, Parser},
@@ -43,7 +43,7 @@ impl<'l> DomState<'l> {
         {
             format_ident!("{}", lit.value(), span = lit.span())
         } else {
-            format_ident!("n{}", self.widget_fields.len(), span = dom._lt0.span)
+            format_ident!("N{}", self.widget_fields.len(), span = dom._lt0.span)
         }
     }
     pub fn add_ui_state_field(&mut self, dom: &Dom) -> Ident {
@@ -52,6 +52,18 @@ impl<'l> DomState<'l> {
         self.widget_fields.insert(
             ident.to_string(),
             (quote!(#ident: Entity), quote!(#ident: Entity::PLACEHOLDER)),
+        );
+        ident
+    }
+    pub fn add_ui_state_map_field(&mut self, dom: &Dom, key_type: &TokenStream2) -> Ident {
+        let id = self.get_dom_id(dom);
+        let ident = format_ident!("node_{}_entity_map", id, span = id.span());
+        self.widget_fields.insert(
+            ident.to_string(),
+            (
+                quote!(#ident: bevy::utils::HashMap<#key_type, Entity>),
+                quote!(#ident: bevy::utils::HashMap::new()),
+            ),
         );
         ident
     }
@@ -166,6 +178,14 @@ impl Dom {
 
         let mut need_update = false;
         let update_stats = {
+            if let Some(DomArg::Instruction(_, DomInstruction::Id(_, _, _))) =
+                self.args.args.get("@id")
+            {
+                need_update = true;
+            }
+            if for_instruction.is_some() {
+                need_update = true;
+            }
             let bundle_update_condition = bundle_state.generate_condition();
             let bundle_update_stats = if bundle_state.use_state.is_empty()
                 && bundle_state.set_state.is_empty()
@@ -183,7 +203,7 @@ impl Dom {
                 quote! {
                     if #bundle_update_condition{
                         let bundle #bundle_type = #bundle_expr;
-                        commands.entity(entity).insert(bundle);
+                        commands.entity(node_entity).insert(bundle);
                     }
                 }
             };
@@ -202,10 +222,14 @@ impl Dom {
                         need_update = true;
                         let component_expr = expr;
                         let condition = block_state.generate_condition();
-                        update_stats.push(quote! {
+                        let span = match arg {
+                            DomArg::Component { _eq, .. } => _eq.span(),
+                            DomArg::Instruction(at, _) => at.span(),
+                        };
+                        update_stats.push(quote_spanned! {span=>
                             if #bundle_update_condition || #condition{
                                 let component: #component = #component_expr;
-                                commands.entity(entity).insert(component);
+                                commands.entity(node_entity).insert(component);
                             }
                         });
                     };
@@ -214,15 +238,10 @@ impl Dom {
             quote! {#(#update_stats)*}
         };
 
+        let mut dom_entity_field = None;
+
         let update_or_init_stat = if need_update {
-            let dom_entity_field = output.add_ui_state_field(self);
-            output.widget_fields.insert(
-                dom_entity_field.to_string(),
-                (
-                    quote!(#dom_entity_field: Entity),
-                    quote!(#dom_entity_field: Entity::PLACEHOLDER),
-                ),
-            );
+            let dom_entity_field = dom_entity_field.get_or_insert_with(||output.add_ui_state_field(self));
 
             let spawn_condition =
                 quote!(not_inited && widget.#dom_entity_field == Entity::PLACEHOLDER);
@@ -231,14 +250,14 @@ impl Dom {
             let update_or_init_stat = quote! {
                 match (enable_widget,not_inited) {
                     (true,true) => {
-                        let entity: Entity = {
+                        let node_entity: Entity = {
                             #init_entity_expr
                         };
-                        widget.#dom_entity_field = entity;
-                        entity
+                        widget.#dom_entity_field = node_entity;
+                        node_entity
                     },
                     (true,false) => {
-                        let entity: Entity = widget.#dom_entity_field;
+                        let node_entity: Entity = widget.#dom_entity_field;
                         #update_stats;
                         Entity::PLACEHOLDER
                     }
@@ -262,7 +281,7 @@ impl Dom {
                         #condition_expr
                     } else {
                         enable_widget
-                    }
+                    };
                 })
             });
             quote! {
@@ -283,22 +302,16 @@ impl Dom {
         };
 
         let stats = if let Some((patten, iterator)) = for_instruction {
-            let dom_entity_field = output.add_ui_state_field(self);
+            let dom_entity_field = dom_entity_field.get_or_insert_with(||output.add_ui_state_field(self));
             let (sub_widget_query, sub_widget_type) = output.add_loop_state_query(self);
             let (key_expr, key_type) = if let Some((key_expr, key_type)) = key_instruction {
                 (quote!(#key_expr), quote!(#key_type))
             } else {
                 (quote!(index), quote!(usize))
             };
-            output.widget_fields.insert(
-                dom_entity_field.to_string(),
-                (
-                    quote!(#dom_entity_field: HashMap<#key_type, Entity>),
-                    quote!(#dom_entity_field: HashMap::new()),
-                ),
-            );
-            let despawn_disabled = generate_despawn(quote!(entity.get()));
-            let despawn_removed = generate_despawn(quote!(entity));
+            let dom_entity_map_field = output.add_ui_state_map_field(self, &key_type);
+            let despawn_disabled = generate_despawn(quote!(node_entity));
+            let despawn_removed = generate_despawn(quote!(node_entity));
 
             let mut update_or_init_children_stat = None;
             {
@@ -332,50 +345,50 @@ impl Dom {
                     }
                 });
             }
-            quote! {
+            quote_spanned! {self._lt0.span()=>
                 {
-                    let this_entity = #update_or_init_stat;
-                    let children_map = &mut widget.#dom_entity_field;
-                    let mut nen_children_map = HashMap::<#key_type, Entity>::new();
+                    let node_entity = #update_or_init_stat;
+                    let children_map = &mut widget.#dom_entity_map_field;
+                    let mut new_children_map = bevy::utils::HashMap::<#key_type, Entity>::new();
                     let mut children = Vec::new();
                     for old_child in children_map.values() {
-                        commands.entity(old_child).remove_parent();
+                        commands.entity(*old_child).remove_parent();
                     }
                     for (index,#patten) in Iterator::enumerate(#iterator) {
                         let key = #key_expr;
                         match (enable_widget,children_map.remove(&key)) {
-                            (true,Some(entity)) => {
+                            (true,Some(node_entity)) => {
                                 let not_inited = false;
-                                if let Ok(widget) = #sub_widget_query.get_mut(entity) {
+                                if let Ok(mut widget) = #sub_widget_query.get_mut(node_entity) {
                                     #update_or_init_children_stat;
                                 }
-                                new_children_map.insert(key, entity.get());
-                                children.push(entity.get());
+                                new_children_map.insert(key, node_entity);
+                                children.push(node_entity);
                             },
                             (true,None) => {
-                                let widget = #sub_widget_type::default();
+                                let mut widget = #sub_widget_type::default();
                                 let not_inited = true;
-                                let entity: Entity = {
+                                let node_entity: Entity = {
                                     #update_or_init_children_stat
                                 };
-                                new_children_map.insert(key, entity);
-                                children.push(entity);
-                                commands.entity(entity).insert(widget);
+                                new_children_map.insert(key, node_entity);
+                                children.push(node_entity);
+                                commands.entity(node_entity).insert(widget);
                             },
-                            (false,Some(entity)) => {
+                            (false,Some(node_entity)) => {
                                 #despawn_disabled
                             },
                             _=>{}
                         }
-                        for old_child in children_map.values() {
-                            #despawn_removed
-                        }
-                        for child in children.iter() {
-                            commands.entity(child).set_parent(entity);
-                        }
-                        widget.#dom_entity_field = new_children_map;
                     }
-                    this_entity
+                    for old_child in children_map.values() {
+                        #despawn_removed
+                    }
+                    for child in children.iter() {
+                        commands.entity(*child).set_parent(widget.#dom_entity_field);
+                    }
+                    widget.#dom_entity_map_field = new_children_map;
+                    node_entity
                 }
             }
         } else {
@@ -385,15 +398,15 @@ impl Dom {
                 update_or_init_children_stat.push(quote! {
                     let child_entity = #update_or_init_child;
                     if child_entity != Entity::PLACEHOLDER {
-                        commands.entity(child_entity).set_parent(entity);
+                        commands.entity(child_entity).set_parent(node_entity);
                     }
                 });
             }
             quote! {
                 {
-                    let entity = #update_or_init_stat;
+                    let node_entity = #update_or_init_stat;
                     #(#update_or_init_children_stat)*
-                    entity
+                    node_entity
                 }
             }
         };
@@ -472,7 +485,7 @@ enum DomInstruction {
         _opcode: Ident,
         paren: Paren,
         expr: Expr,
-        _as: Token![as],
+        _as: Token![:],
         ty: Type,
     },
 }
@@ -626,7 +639,7 @@ impl BlockState {
 
     pub fn generate_condition(&self) -> TokenStream2 {
         if self.use_state.is_empty() {
-            quote!(false)
+            quote!(true)
         } else {
             let exprs = self
                 .use_state
@@ -890,6 +903,13 @@ pub fn state_changed(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
+pub fn node(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as Ident);
+    let ident = format_ident!("node_{}_entity", input, span = input.span());
+    TokenStream::from(quote!( { widget.#ident }))
+}
+
+#[proc_macro]
 pub fn state(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as Ident);
     let state_name = generate_state_change_variable(&input);
@@ -1074,7 +1094,7 @@ pub fn dway_widget(input: TokenStream) -> TokenStream {
     let state_component = format_ident!("{}State", &dsl.name, span = dsl.name.span());
     let widget_component = format_ident!("{}Widget", &dsl.name, span = dsl.name.span());
     let bundle = format_ident!("{}Bundle", &dsl.name, span = dsl.name.span());
-    // let plugin = format_ident!("{}Plugin", &dsl.name, span = dsl.name.span());
+    let plugin = format_ident!("{}RenderPlugin", &dsl.name, span = dsl.name.span());
     let system_set = format_ident!("{}Systems", &dsl.name, span = dsl.name.span());
     let prop_type = dsl.name;
     let state_fields = dsl
@@ -1132,6 +1152,7 @@ pub fn dway_widget(input: TokenStream) -> TokenStream {
 
         #(#items)*
 
+        #[allow(non_snake_case)]
         pub fn #function_name(mut this_query: Query<(Entity, Ref<#prop_type>, &mut #state_component, &mut #widget_component, #(#this_query),*)>, mut commands: Commands, #(#function_args),*) {
             for (this_entity, prop, mut state, mut widget) in this_query.iter_mut() {
                 let update_all = prop.is_changed();

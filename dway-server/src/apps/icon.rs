@@ -1,13 +1,18 @@
-use std::sync::Arc;
+use crate::prelude::*;
 use bevy::utils::HashMap;
 use bevy_svg::prelude::Svg;
 use dway_util::try_or;
-use crate::prelude::*;
+use std::{path::PathBuf, sync::Arc};
 
-#[derive(Clone, Debug, Reflect)]
+#[derive(Clone, Debug, Reflect, PartialEq, Eq)]
 pub enum IconResorce {
     Image(Handle<Image>),
     Svg(Handle<Svg>),
+}
+impl Default for IconResorce{
+    fn default() -> Self {
+        Self::Image(default())
+    }
 }
 
 #[derive(Component, Debug, Reflect, Clone)]
@@ -50,6 +55,8 @@ impl IconLoader {
         icon: &mut Icon,
         size: u16,
         asset_server: &mut AssetServer,
+        svg_assets: &mut Assets<Svg>,
+        mesh_assets: &mut Assets<Mesh>,
     ) -> Option<IconResorce> {
         if !icon.loaded {
             let icon_id = icon.id.to_string() + ".svg";
@@ -67,16 +74,20 @@ impl IconLoader {
         }
         if let Some(raw_icon) = &icon.icon {
             let file = raw_icon.file_for_size(size);
-            debug!(icon=%&icon.id,"loading icon file: {:?}",file.path());
             if file.path().extension().is_some_and(|e| e == "svg") {
-                let image = asset_server.load(file.path());
+                let data = std::fs::read(file.path()).ok()?;
+                let mut svg = Svg::from_bytes(&data, file.path(), Option::<PathBuf>::None).ok()?;
+                svg.mesh = mesh_assets.add(svg.tessellate());
+                let image = svg_assets.add(svg);
                 icon.cache
                     .insert(size, IconResorce::Svg(image.clone_weak()));
+                debug!(icon=%icon.id,"loading svg icon file: {:?}",file.path());
                 return Some(IconResorce::Svg(image.clone()));
             } else {
                 let image = asset_server.load(file.path());
                 icon.cache
                     .insert(size, IconResorce::Image(image.clone_weak()));
+                debug!(icon=%icon.id,"loading pixmap icon file: {:?}",file.path());
                 return Some(IconResorce::Image(image.clone()));
             }
         };

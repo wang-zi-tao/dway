@@ -1,18 +1,22 @@
 #![feature(arc_unwrap_or_clone)]
+pub mod framework;
+pub mod panels;
 pub mod prelude;
 pub mod util;
 pub mod widgets;
 
-use bevy::{prelude::*, render::camera::RenderTarget};
+use crate::prelude::*;
+use bevy::{render::camera::RenderTarget, ui::FocusPolicy};
 use dway_tty::{drm::surface::DrmSurface, seat::SeatState};
 use font_kit::{
     error::SelectionError, family_name::FamilyName, properties::Properties, source::SystemSource,
 };
+use widgets::applist::{AppListUI, AppListUIBundle};
 
 pub struct DWayUiPlugin;
 impl Plugin for DWayUiPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_plugins(widgets::DWayWidgetsPlugin);
+        app.add_plugins((framework::UiFrameworkPlugin, widgets::DWayWidgetsPlugin));
         app.add_systems(Startup, setup);
     }
 }
@@ -32,8 +36,6 @@ pub fn default_system_font() -> Option<String> {
         )
         .ok()?;
     let loaded = font.load().ok()?;
-    dbg!(&loaded);
-    dbg!(&loaded.full_name());
     Some(loaded.full_name())
 }
 
@@ -54,4 +56,18 @@ fn setup(mut commands: Commands, seat: Option<NonSend<SeatState>>, surfaces: Que
             },));
         });
     }
+
+    commands
+        .spawn((
+            Name::new("applist-ui"),
+            NodeBundle {
+                style: styled!("absolute bottom-4 w-full justify-center items-center"),
+                focus_policy: FocusPolicy::Pass,
+                z_index:ZIndex::Global(1024),
+                ..default()
+            },
+        ))
+        .with_children(|c| {
+            c.spawn(widgets::applist::AppListPanelBundle::default());
+        });
 }

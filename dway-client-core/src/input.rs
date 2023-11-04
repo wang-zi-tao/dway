@@ -5,7 +5,7 @@ use bevy::{
         ButtonState,
     },
     math::DVec2,
-    prelude::*,
+    prelude::*, core::FrameCount,
 };
 use bevy_relationship::{graph_query, ControlFlow};
 use dway_server::{
@@ -105,7 +105,7 @@ pub fn keyboard_input_system(
     }
     for event in keyboard_evens.iter() {
         keystate.key(event);
-        if let Some(window) = output_focus.0 {
+        if let Some(window) = output_focus.window_entity {
             graph.for_each_path_mut_from::<()>(
                 window,
                 |(surface, _rect, _toplevel, popup), _, keyboard| {
@@ -226,7 +226,7 @@ fn mouse_button_on_window(
                             return ControlFlow::Continue;
                         };
                         let relative = *pos - rect.geometry.pos() - surface.image_rect().pos();
-                        output_focus.0 = Some(*surface_entity);
+                        output_focus.window_entity = Some(*surface_entity);
 
                         if matches!(&**grab, Grab::OnPopup { .. }) {
                             pointer.button(seat, e, surface, relative.as_dvec2());
@@ -281,7 +281,7 @@ fn mouse_wheel_on_window(
                             surface,
                             relative.as_dvec2(),
                         );
-                        output_focus.0 = Some(*surface_entity);
+                        output_focus.window_entity = Some(*surface_entity);
                     }
                     ControlFlow::Continue
                 },
