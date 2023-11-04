@@ -1,14 +1,12 @@
-use std::{process, time::Duration};
 pub mod keys;
+pub mod opttions;
+pub mod debug;
 
-// use dway_client_core::protocol::{WindowMessageReceiver, WindowMessageSender};
-// use dway_ui::kayak_ui::{prelude::KayakContextPlugin, widgets::KayakWidgets};
-
+use std::{process, time::Duration};
+use clap::Parser;
 use bevy::{
-    app::ScheduleRunnerPlugin,
     audio::AudioPlugin,
     core::TaskPoolThreadAssignmentPolicy,
-    core_pipeline::CorePipelinePlugin,
     diagnostic::{
         EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
         SystemInformationDiagnosticsPlugin,
@@ -18,17 +16,14 @@ use bevy::{
     log::{Level, LogPlugin},
     pbr::PbrPlugin,
     prelude::*,
-    render::{settings::Backends, RenderPlugin},
     scene::ScenePlugin,
-    sprite::SpritePlugin,
-    text::TextPlugin,
-    ui::UiPlugin,
-    winit::{UpdateMode, WinitPlugin, WinitSettings},
+    winit::WinitPlugin,
 };
 use bevy_framepace::Limiter;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use debug::dump_schedules_system_graph;
 use dway_client_core::{
-    layout::{tile::TileLayoutKind, LayoutRect, LayoutStyle},
+    layout::{LayoutRect, LayoutStyle},
     workspace::{Workspace, WorkspaceBundle},
 };
 use dway_server::{
@@ -39,10 +34,7 @@ use dway_server::{
 use dway_tty::DWayTTYPlugin;
 use dway_util::{eventloop::EventLoopPlugin, logger::DWayLogPlugin};
 use keys::*;
-use tracing_subscriber::{
-    fmt::{format::Writer, time::FormatTime},
-    EnvFilter,
-};
+use opttions::DWayOption;
 
 const LOG: &str = "\
 bevy_ecs=info,\
@@ -64,16 +56,12 @@ naga=warn,\
 wgpu=warn,\
 ";
 
-const THREAD_POOL_CONFIG: TaskPoolThreadAssignmentPolicy = TaskPoolThreadAssignmentPolicy {
-    min_threads: 1,
-    max_threads: 1,
-    percent: 0.25,
-};
-
 fn main() {
+    let opts = DWayOption::parse();
     let mut app = App::new();
+    app.insert_resource(opts.clone());
     app.insert_resource(ClearColor(Color::NONE));
-    // app.insert_resource(ReportExecutionOrderAmbiguities);
+
     app.add_plugins((
         DWayLogPlugin {
             level: Level::INFO,
@@ -99,7 +87,7 @@ fn main() {
             .disable::<AudioPlugin>()
             // .disable::<UiPlugin>()
             // .disable::<TextPlugin>()
-            .disable::<GilrsPlugin>(),
+            .disable::<GilrsPlugin>()
         // .disable::<RenderPlugin>()
         // .disable::<CorePipelinePlugin>()
         // .disable::<SpritePlugin>()
@@ -160,6 +148,11 @@ fn main() {
     );
     app.add_systems(Update, (wm_mouse_action, wm_keys));
 
+    if opts.debug_schedule {
+        if let Err(e) = dump_schedules_system_graph(&mut app) {
+            error!("failed to dump system graph: {e}");
+        }
+    }
     app.run();
 
     // wayland_thread.join().unwrap();
@@ -174,7 +167,7 @@ pub fn setup(mut commands: Commands) {
             },
             ..Default::default()
         },
-        TileLayoutKind::Grid,
+        // TileLayoutKind::Grid,
         LayoutStyle {
             padding: LayoutRect::new(4),
             ..Default::default()
