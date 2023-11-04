@@ -48,7 +48,6 @@ pub fn update_window_stack_by_focus(
 ) {
     if window_focus.is_changed() {
         if let Some(focused_window) = window_focus.window_entity.as_ref() {
-            dbg!(focused_window);
             window_stack.0.push(*focused_window, ());
             window_focus.app_entity = window_query
                 .get(*focused_window)

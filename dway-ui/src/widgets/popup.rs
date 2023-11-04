@@ -53,7 +53,7 @@ pub fn attach_popup(
         if destroyed_windows.contains(&ui.window_entity) {
             commands
                 .entity(entity)
-                .despawn_recursive_with_relationship();
+                .despawn_recursive();
         }
     });
     popup_query.for_each(|(entity, popup)| {

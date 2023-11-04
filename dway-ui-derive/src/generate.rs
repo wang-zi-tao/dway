@@ -4,7 +4,9 @@ use quote::{format_ident, quote};
 pub fn generate_despawn(entity: TokenStream) -> TokenStream {
     quote! {
         if commands.get_entity(#entity).is_some() {
-            commands.add(bevy_relationship::DespawnRecursiveCommand(#entity));
+            commands
+                .entity(#entity)
+                .despawn_recursive();
         }
     }
 }

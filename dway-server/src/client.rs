@@ -73,7 +73,7 @@ pub fn clean_client(
             ClientEvent::Destroyed { entity, .. } => {
                 commands
                     .get_entity(entity)
-                    .map(|c| c.despawn_recursive_with_relationship());
+                    .map(|c| c.despawn_recursive());
                 events_writer.send(Destroy::new(entity));
             }
         }

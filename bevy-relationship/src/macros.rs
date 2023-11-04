@@ -1,6 +1,6 @@
 #[macro_export]
 macro_rules! relationship {
-    (#[derive $derive:tt] struct $name:ident($inner:ty)) => {
+    (#[derive $derive:tt] struct $name:ident($inner:ty) @peer($peer:ty)) => {
         #[derive $derive]
         pub struct $name(pub $inner);
 
@@ -36,13 +36,25 @@ macro_rules! relationship {
             fn drain<'l>(&'l mut self) -> Self::Drain<'l> {
                 self.0.drain()
             }
+
+            fn get_sender_mut(&mut self)->&mut $crate::ConnectionEventSender {
+                self.0.get_sender_mut()
+            }
+        }
+
+        impl Drop for $name {
+            fn drop(&mut self) {
+                for peer_entity in self.iter() {
+                    self.sender.send::<$peer>(peer_entity);
+                }
+            }
         }
     };
-    (-- $type1:ident) => {
-        relationship!(#[derive($crate::reexport::Component, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Default, Debug, $crate::reexport::Reflect)] struct $type1($crate::RelationshipToOneEntity));
+    (-- $type1:ident @peer($peer:ty)) => {
+        relationship!(#[derive($crate::reexport::Component, Clone, Default, Debug, $crate::reexport::Reflect)] struct $type1($crate::RelationshipToOneEntity) @peer($peer));
     };
-    (>- $type1:ident) => {
-        relationship!(#[derive($crate::reexport::Component, Clone, Default, Debug, $crate::reexport::Reflect)] struct $type1($crate::RelationshipToManyEntity));
+    (>- $type1:ident @peer($peer:ty)) => {
+        relationship!(#[derive($crate::reexport::Component, Clone, Default, Debug, $crate::reexport::Reflect)] struct $type1($crate::RelationshipToManyEntity) @peer($peer));
     };
     (@Relationship $relationship:ident => $type1:ident) => {
         impl $crate::Peer for $type1{
@@ -73,31 +85,31 @@ macro_rules! relationship {
         }
     };
     ($relationship:ident => $type1:ident -- $type2:ident) => {
-        relationship!(-- $type1);
-        relationship!(-- $type2);
+        relationship!(-- $type1 @peer($type2));
+        relationship!(-- $type2 @peer($type1));
         relationship!(@Relationship $relationship => $type1 - $type2);
     };
     ($relationship:ident => $type1:ident -< $type2:ident) => {
-        relationship!(>- $type1);
-        relationship!(-- $type2);
+        relationship!(>- $type1 @peer($type2));
+        relationship!(-- $type2 @peer($type1));
         relationship!(@Relationship $relationship => $type1 - $type2);
     };
     ($relationship:ident => $type1:ident >- $type2:ident) => {
-        relationship!(-- $type1);
-        relationship!(>- $type2);
+        relationship!(-- $type1 @peer($type2));
+        relationship!(>- $type2 @peer($type1));
         relationship!(@Relationship $relationship => $type1 - $type2);
     };
     ($relationship:ident => $type1:ident >-< $type2:ident) => {
-        relationship!(>- $type1);
-        relationship!(>- $type2);
+        relationship!(>- $type1 @peer($type2));
+        relationship!(>- $type2 @peer($type1));
         relationship!(@Relationship $relationship => $type1 - $type2);
     };
     ($relationship:ident => @both -- $type1:ident) => {
-        relationship!(-- $type1);
+        relationship!(-- $type1 @peer($type1));
         relationship!(@Relationship $relationship => $type1);
     };
     ($relationship:ident => @both -< $type1:ident) => {
-        relationship!(>- $type1);
+        relationship!(>- $type1 @peer($type1));
         relationship!(@Relationship $relationship => $type1);
     };
 }

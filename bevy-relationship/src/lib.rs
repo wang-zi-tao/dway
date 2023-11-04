@@ -8,45 +8,63 @@ mod register;
 
 pub use bevy_relationship_derive::graph_query;
 
-use std::{iter::Cloned, marker::PhantomData};
+use std::{iter::Cloned, marker::PhantomData, sync::Arc};
 
 pub use crate::{app::*, builtins::*, commands::*, graph::*, macros::*, register::*};
 
 use bevy::prelude::*;
 use smallvec::SmallVec;
 
-#[derive(Component, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Default, Debug, Reflect)]
+fn default_entity() -> Entity {
+    Entity::PLACEHOLDER
+}
+
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Debug)]
-pub struct RelationshipToOneEntity(pub Option<Entity>);
+pub struct RelationshipToOneEntity {
+    pub peer: Option<Entity>,
+    #[reflect(ignore)]
+    pub sender: ConnectionEventSender,
+}
+
+impl Default for RelationshipToOneEntity {
+    fn default() -> Self {
+        Self {
+            peer: Default::default(),
+            sender: Default::default(),
+        }
+    }
+}
+
 impl RelationshipToOneEntity {
     pub fn get(&self) -> Option<Entity> {
-        self.0
+        self.peer
     }
     pub fn connect(&mut self, entity: Entity) -> Option<Entity> {
-        self.0.replace(entity)
+        self.peer.replace(entity)
     }
     pub fn take(&mut self) -> Option<Entity> {
-        self.0.take()
+        self.peer.take()
     }
 }
 impl Connectable for RelationshipToOneEntity {
     type Iterator<'l> = Cloned<std::option::Iter<'l, Entity>>;
 
     fn iter(&self) -> Self::Iterator<'_> {
-        self.0.iter().cloned()
+        self.peer.iter().cloned()
     }
 }
 impl ConnectableMut for RelationshipToOneEntity {
     type Drain<'l> = std::option::IntoIter<Entity>;
 
     fn connect(&mut self, entity: Entity) -> Option<Entity> {
-        self.0.replace(entity)
+        self.peer.replace(entity)
     }
 
     fn disconnect(&mut self, target: Entity) -> bool {
-        if let Some(entity) = self.0 {
+        if let Some(entity) = self.peer {
             if entity == target {
-                self.0.take();
+                self.peer.take();
                 true
             } else {
                 false
@@ -57,38 +75,55 @@ impl ConnectableMut for RelationshipToOneEntity {
     }
 
     fn drain(&mut self) -> Self::Drain<'_> {
-        self.0.take().into_iter()
+        self.peer.take().into_iter()
+    }
+
+    fn get_sender_mut(&mut self)->&mut ConnectionEventSender {
+        &mut self.sender
     }
 }
-#[derive(Component, Clone, Default, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Debug)]
-pub struct RelationshipToManyEntity(pub SmallVec<[Entity; 4]>);
+pub struct RelationshipToManyEntity {
+    pub peers: SmallVec<[Entity; 4]>,
+    #[reflect(ignore)]
+    pub sender: ConnectionEventSender,
+}
+
+impl Default for RelationshipToManyEntity {
+    fn default() -> Self {
+        Self {
+            peers: Default::default(),
+            sender: Default::default(),
+        }
+    }
+}
 
 impl std::ops::Deref for RelationshipToManyEntity {
     type Target = SmallVec<[Entity; 4]>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.peers
     }
 }
 impl Connectable for RelationshipToManyEntity {
     type Iterator<'l> = Cloned<std::slice::Iter<'l, Entity>>;
 
     fn iter(&self) -> Self::Iterator<'_> {
-        self.0.iter().cloned()
+        self.peers.iter().cloned()
     }
 }
 impl ConnectableMut for RelationshipToManyEntity {
     type Drain<'l> = smallvec::Drain<'l, [Entity; 4]>;
 
     fn connect(&mut self, entity: Entity) -> Option<Entity> {
-        self.0.push(entity);
+        self.peers.push(entity);
         None
     }
 
     fn disconnect(&mut self, target: Entity) -> bool {
-        if let Some(index) = self.0.iter().position(|entity| target == *entity) {
-            self.0.swap_remove(index);
+        if let Some(index) = self.peers.iter().position(|entity| target == *entity) {
+            self.peers.swap_remove(index);
             true
         } else {
             false
@@ -96,7 +131,11 @@ impl ConnectableMut for RelationshipToManyEntity {
     }
 
     fn drain(&mut self) -> Self::Drain<'_> {
-        self.0.drain(..)
+        self.peers.drain(..)
+    }
+
+    fn get_sender_mut(&mut self)->&mut ConnectionEventSender {
+        &mut self.sender
     }
 }
 pub trait Peer: Connectable {
@@ -124,4 +163,6 @@ pub trait ConnectableMut: Connectable {
     fn connect(&mut self, target: Entity) -> Option<Entity>;
     fn disconnect(&mut self, target: Entity) -> bool;
     fn drain<'l>(&'l mut self) -> Self::Drain<'l>;
+
+    fn get_sender_mut(&mut self)->&mut ConnectionEventSender;
 }

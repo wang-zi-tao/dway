@@ -137,7 +137,7 @@ pub fn attach_window(
             if destroyed_windows.contains(&ui.window_entity) {
                 commands
                     .entity(entity)
-                    .despawn_recursive_with_relationship();
+                    .despawn_recursive();
             }
         })
     }

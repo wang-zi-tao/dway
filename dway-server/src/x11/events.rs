@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use bevy::prelude::DespawnRecursiveExt;
 use scopeguard::defer;
 use thiserror::Error;
 use x11rb::{
@@ -22,9 +23,7 @@ use crate::{
     x11::{
         screen::{XScreen, XScreenBundle},
         util::geo_to_irect,
-        window::{
-            MappedXWindow, XWindow, XWindowAttachSurface, XWindowBundle, XWindowSurfaceRef,
-        },
+        window::{MappedXWindow, XWindow, XWindowAttachSurface, XWindowBundle, XWindowSurfaceRef},
         DWayXWaylandStoped, XDisplayHasWindow,
     },
     xdg::DWayWindow,
@@ -251,7 +250,7 @@ pub fn process_x11_event(
             let world = dway.world_mut();
             if let Some(entity) = x.windows_entitys.remove(&e.window) {
                 debug!(entity=?entity,xwindow=%e.window,"destroy window");
-                despawn_recursive(world, entity);
+                world.entity_mut(entity).despawn_recursive();
             }
         }
         x11rb::protocol::Event::EnterNotify(_) => todo!(),
@@ -459,7 +458,7 @@ pub fn flush_xwayland(
     xwayland_query.for_each(|(entity, x)| {
         let guard = x.lock().unwrap();
         let Some(connection) = guard.connection.upgrade() else {
-            commands.entity(entity).despawn_recursive_with_relationship();
+            commands.entity(entity).despawn_recursive();
             return;
         };
         if let Err(e) = connection.0.flush() {

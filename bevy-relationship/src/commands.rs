@@ -6,12 +6,17 @@ use bevy::{
         system::{Command, EntityCommands},
         world::EntityMut,
     },
-    prelude::{despawn_with_children_recursive, BuildWorldChildren, Children, Entity, World, debug},
+    prelude::{
+        debug, despawn_with_children_recursive, BuildWorldChildren, Children, Entity, World,
+    },
     utils::HashMap,
 };
 use smallvec::SmallVec;
 
-use crate::{ConnectableMut, Relationship, RelationshipRegister, ReserveRelationship};
+use crate::{
+    ConnectableMut, ConnectionEventReceiver, ConnectionEventSender, Relationship,
+    ReserveRelationship,
+};
 
 #[derive(Debug)]
 pub struct ConnectCommand<R: Relationship> {
@@ -35,6 +40,14 @@ where
     R::To: ConnectableMut + Default,
 {
     fn apply(self, world: &mut World) {
+        fn get_sender(entity_mut: &mut EntityMut, entity: Entity) -> ConnectionEventSender {
+            entity_mut.world_scope(|world| {
+                world
+                    .non_send_resource::<ConnectionEventReceiver>()
+                    .get_sender(entity)
+            })
+        }
+
         if world.get_entity(self.to).is_none() {
             return;
         };
@@ -42,9 +55,16 @@ where
             return;
         };
         let old = if let Some(mut peer) = from_entity.get_mut::<R::From>() {
-            peer.connect(self.to)
+            let old = peer.connect(self.to);
+            if !peer.get_sender_mut().inited() {
+                let new_sender = get_sender(&mut from_entity, self.from);
+                let mut peer = from_entity.get_mut::<R::From>().unwrap();
+                *peer.get_sender_mut() = new_sender;
+            }
+            old
         } else {
             let mut peer = R::From::default();
+            *peer.get_sender_mut() = get_sender(&mut from_entity, self.from);
             let old = peer.connect(self.to);
             from_entity.insert(peer);
             old
@@ -59,9 +79,16 @@ where
             return;
         };
         let old = if let Some(mut peer) = to_entity.get_mut::<R::To>() {
-            peer.connect(self.from)
+            let old = peer.connect(self.from);
+            if !peer.get_sender_mut().inited() {
+                let new_sender = get_sender(&mut to_entity, self.to);
+                let mut peer = to_entity.get_mut::<R::To>().unwrap();
+                *peer.get_sender_mut() = new_sender;
+            }
+            old
         } else {
             let mut peer = R::To::default();
+            *peer.get_sender_mut() = get_sender(&mut to_entity, self.to);
             let old = peer.connect(self.from);
             to_entity.insert(peer);
             old
@@ -182,80 +209,7 @@ where
     type To = T::From;
 }
 
-pub struct DespawnRecursiveCommand(pub Entity);
-impl Command for DespawnRecursiveCommand {
-    fn apply(self, world: &mut World) {
-        debug!("Despawning entity {:?}",self.0);
-        despawn_recursive(world, self.0);
-    }
-}
-
-pub struct DespawnCommand(pub Entity);
-impl Command for DespawnCommand {
-    fn apply(self, world: &mut World) {
-        despawn(world, self.0);
-    }
-}
-
-pub fn despawn_recursive(world: &mut World, entity: Entity) {
-    let register = world
-        .non_send_resource::<RelationshipRegister>()
-        .components
-        .clone();
-    let guard = register.borrow();
-    world.get_entity_mut(entity).map(|mut e| {
-        e.remove_parent();
-    });
-    do_despawn_recursive(world, entity, &guard);
-}
-
-pub fn despawn(world: &mut World, entity: Entity) {
-    let register = world
-        .non_send_resource::<RelationshipRegister>()
-        .components
-        .clone();
-    let guard = register.borrow();
-    if let Some(entity_mut) = world.get_entity_mut(entity) {
-        do_despawn(entity_mut, &guard);
-    }
-}
-
-fn do_despawn_recursive(
-    world: &mut World,
-    entity: Entity,
-    register: &Ref<'_, HashMap<ComponentId, Box<dyn Fn(&mut EntityMut<'_>) + Send + Sync>>>,
-) {
-    if let Some(children) = world.get_mut::<Children>(entity) {
-        let children_entitys = children.iter().copied().collect::<SmallVec<[Entity; 63]>>();
-        drop(children);
-        for child in children_entitys {
-            do_despawn_recursive(world, child, register);
-        }
-    }
-    if let Some(entity_mut) = world.get_entity_mut(entity) {
-        do_despawn(entity_mut, register);
-    }
-}
-
-fn do_despawn(
-    mut entity_mut: EntityMut,
-    register: &Ref<'_, HashMap<ComponentId, Box<dyn Fn(&mut EntityMut<'_>) + Send + Sync>>>,
-) {
-    for component_id in entity_mut
-        .archetype()
-        .table_components()
-        .collect::<SmallVec<[ComponentId; 31]>>()
-    {
-        if let Some(callback) = register.get(&component_id) {
-            let _ = callback(&mut entity_mut);
-        }
-    }
-    entity_mut.despawn();
-}
-
 pub trait EntityCommandsExt {
-    fn despawn_with_relationship(self);
-    fn despawn_recursive_with_relationship(self);
     fn connect_to<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
     where
         R::From: ConnectableMut + Default,
@@ -283,16 +237,6 @@ pub trait EntityCommandsExt {
 }
 
 impl<'w, 's, 'a> EntityCommandsExt for EntityCommands<'w, 's, 'a> {
-    fn despawn_with_relationship(mut self) {
-        let entity = self.id();
-        self.commands().add(DespawnCommand(entity));
-    }
-
-    fn despawn_recursive_with_relationship(mut self) {
-        let entity = self.id();
-        self.commands().add(DespawnRecursiveCommand(entity));
-    }
-
     fn connect_to<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
     where
         R::From: ConnectableMut + Default,

@@ -110,7 +110,7 @@ impl XWaylandDisplay {
         ) {
             Ok(o) => o,
             Err(e) => {
-                entity_mut.despawn_with_relationship();
+                entity_mut.despawn();
                 return Err(e.into());
             }
         };

@@ -17,6 +17,7 @@ use bevy::{
         system::Command,
         world::EntityMut,
     },
+    prelude::DespawnRecursiveExt,
     utils::{tracing, HashMap},
 };
 use bevy_relationship::{
@@ -355,7 +356,7 @@ impl DWay {
         let entity = DWay::get_entity(object);
         let world = self.world_mut();
         debug!(?entity,resource=%wayland_server::Resource::id(object),"destroy wayland object");
-        despawn_recursive(world, entity);
+        self.despawn_tree(entity);
     }
     pub fn create_client(
         &mut self,
@@ -505,7 +506,9 @@ impl DWay {
             .unwrap()
     }
     pub fn despawn_tree(&mut self, entity: Entity) {
-        despawn_recursive(self.world_mut(), entity);
+        if let Some(entity_mut) = self.get_entity_mut(entity) {
+            entity_mut.despawn_recursive();
+        }
     }
     pub fn despawn(&mut self, entity: Entity) {
         if let Some(e) = self.world_mut().get_entity_mut(entity) {
@@ -537,7 +540,7 @@ impl DWay {
     }
     pub fn despawn_object(&mut self, entity: Entity, resource: &impl wayland_server::Resource) {
         trace!(entity=?entity,resource=%resource.id(),"despawn object");
-        despawn_recursive(self.world_mut(), entity);
+        self.despawn_tree(entity);
     }
     pub fn with_component<T, F, R>(
         &mut self,
