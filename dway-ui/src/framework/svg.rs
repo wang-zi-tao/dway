@@ -23,29 +23,24 @@ pub fn uisvg_render(
     svgs: Res<Assets<Svg>>,
 ) {
     svg_query.for_each_mut(|(ui_svg, node, render_command)| {
-        let svg_size = svgs.get(&ui_svg.svg).map(|svg|svg.size).unwrap_or(node.size());
-        commands
-            .spawn((
-                SpatialBundle {
-                    transform: render_command.transform(),
-                    ..default()
-                },
-                TemporaryTree,
-            ))
-            .with_children(|c| {
-                c.spawn((
-                    Svg2dBundle {
-                        svg: ui_svg.svg.clone(),
-                        origin: Origin::Center,
-                        transform: Transform::default().with_scale(Vec3::new(
-                            node.size().x / svg_size.x,
-                            node.size().y / svg_size.y,
-                            1.0,
-                        )),
-                        ..default()
-                    },
-                ));
-            });
+        let svg_size = svgs
+            .get(&ui_svg.svg)
+            .map(|svg| svg.size)
+            .unwrap_or(node.size());
+        commands.spawn((
+            Svg2dBundle {
+                svg: ui_svg.svg.clone(),
+                origin: Origin::Center,
+                transform: render_command.transform()
+                    * Transform::default().with_scale(Vec3::new(
+                        node.size().x / svg_size.x,
+                        node.size().y / svg_size.y,
+                        1.0,
+                    )),
+                ..default()
+            },
+            TemporaryEntity,
+        ));
     })
 }
 

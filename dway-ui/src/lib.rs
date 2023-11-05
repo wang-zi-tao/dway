@@ -39,7 +39,12 @@ pub fn default_system_font() -> Option<String> {
     Some(loaded.full_name())
 }
 
-fn setup(mut commands: Commands, seat: Option<NonSend<SeatState>>, surfaces: Query<&DrmSurface>) {
+fn setup(
+    mut commands: Commands,
+    seat: Option<NonSend<SeatState>>,
+    surfaces: Query<&DrmSurface>,
+    asset_server: Res<AssetServer>,
+) {
     if seat.is_none() {
         let camera = Camera2dBundle::default();
         commands.spawn(camera);
@@ -57,13 +62,19 @@ fn setup(mut commands: Commands, seat: Option<NonSend<SeatState>>, surfaces: Que
         });
     }
 
+    commands.spawn(ImageBundle {
+        style: styled!("absolute w-full h-full"),
+        image: asset_server.load("background.jpg").into(),
+        z_index: ZIndex::Global(-1024),
+        ..default()
+    });
     commands
         .spawn((
             Name::new("applist-ui"),
             NodeBundle {
                 style: styled!("absolute bottom-4 w-full justify-center items-center"),
                 focus_policy: FocusPolicy::Pass,
-                z_index:ZIndex::Global(1024),
+                z_index: ZIndex::Global(1024),
                 ..default()
             },
         ))

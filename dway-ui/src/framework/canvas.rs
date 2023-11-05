@@ -254,5 +254,5 @@ pub fn cleanup_render_command(
         commands.entity(rendercommand.camera).despawn();
         commands.entity(e).remove::<UiCanvasRenderCommand>();
     });
-    render_area.clear();
+    // render_area.clear();
 }
