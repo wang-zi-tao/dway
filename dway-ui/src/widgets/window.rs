@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::{
     transform::commands,
     utils::{HashMap, HashSet},
@@ -39,6 +41,7 @@ WindowUI(
     button_query: Query<&Interaction>,
     asset_server: Res<AssetServer>,
     mut window_action: EventWriter<WindowAction>,
+    mut canvas_query: Query<&mut UiCanvas>,
 )
 #[derive(Reflect,Default)]{
     image: Handle<Image>,
@@ -59,6 +62,11 @@ WindowUI(
         }
         if surface.is_changed(){
             update_state!(image = surface.image.clone());
+            if surface.just_commit {
+                if let Ok(mut canvas) = canvas_query.get_mut(widget.node_canvas_entity){
+                    canvas.set_refresh(true);
+                }
+            }
         }
     }
     if button_query.get(node!(close)).map(|e|*e==Interaction::Pressed).unwrap_or_default() {
@@ -72,9 +80,9 @@ WindowUI(
     }
 }
 <NodeBundle @style="absolute">
-    <ImageBundle @id="bbox" UiImage=(UiImage::new(state.image.clone())) Style=(irect_to_style(state.bbox_rect))>
+    <NodeBundle @id="bbox" Style=(irect_to_style(state.bbox_rect))>
         <NodeBundle @id="content" Style=(irect_to_style(state.rect))/>
-    </ImageBundle>
+    </NodeBundle>
     <UiCanvasBundle @id="canvas" Style=(Style{
         position_type: PositionType::Absolute,
         left:Val::Px(state.rect.x() as f32 ),
@@ -136,7 +144,9 @@ pub fn window_canvas_render(
             let base_transform = painter.transform;
 
             if let Ok((transform, node)) = widget_query.get(widget.node_content_entity) {
-                painter.transform = base_transform * transform.reparented_to(root_transform);
+                painter.transform = base_transform
+                    * transform.reparented_to(root_transform)
+                    * Transform::default().with_scale(Vec3::NEG_Y);
                 painter.color = Color::RED.with_a(0.1);
                 painter.corner_radii = Vec4::new(16.0, 16.0, 0.0, 0.0);
                 // painter.rect(node.size());
@@ -185,6 +195,17 @@ pub fn window_canvas_render(
                     },
                     TemporaryEntity,
                 ));
+            }
+            if let Ok((transform, node)) = widget_query.get(widget.node_bbox_entity) {
+                painter.transform = base_transform * transform.reparented_to(root_transform);
+                painter.corner_radii = Vec4::new(16.0, 16.0, 16.0, 16.0);
+                painter.rotate_z(PI);
+                painter.translate(Vec3::NEG_Z);
+                painter.texture = Some(state.image.clone());
+                painter.color = Color::WHITE;
+                painter.hollow = false;
+                painter.rect(state.bbox_rect.size().as_vec2());
+                painter.texture = None;
             }
         }
     });
