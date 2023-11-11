@@ -1,8 +1,13 @@
-use bevy::prelude::{error, Last, NonSend, NonSendMut, Plugin, Startup};
+use bevy::prelude::*;
 use calloop::channel::{Channel, Sender};
 pub use calloop::{generic::Generic, EventSource, Interest, Mode, PostAction, Readiness};
 use log::info;
-use std::{os::fd::AsRawFd, sync::mpsc, time::{Duration, Instant, SystemTime}};
+use std::{
+    any::{type_name, Any, TypeId},
+    os::fd::AsRawFd,
+    sync::mpsc,
+    time::{Duration, Instant, SystemTime},
+};
 use winit::event_loop::EventLoopProxy;
 
 pub type Register = Box<dyn FnOnce(&mut calloop::LoopHandle<'static, ()>) + Send + Sync>;
@@ -118,14 +123,6 @@ impl Drop for EventLoop {
     }
 }
 
-fn launch_on_winit(winit_proxy: NonSend<EventLoopProxy<()>>, mut eventloop: NonSendMut<EventLoop>) {
-    let winit_eventloop_proxy = winit_proxy.clone();
-    eventloop.start(Box::new(move || {
-        let _ = winit_eventloop_proxy.send_event(());
-        EventLoopControl::Continue
-    }))
-}
-
 fn on_frame_finish(eventloop: NonSendMut<EventLoop>) {
     if let Some(tx) = &eventloop.tx {
         let _ = tx.send(());
@@ -143,7 +140,21 @@ impl Plugin for EventLoopPlugin {
         app.insert_non_send_resource(EventLoop::new());
         match self {
             EventLoopPlugin::WinitMode => {
-                app.add_systems(Startup, launch_on_winit);
+                debug!(
+                    "require resource: [{:X?}] {}",
+                    TypeId::of::<winit::event_loop::EventLoop<()>>(),
+                    type_name::<winit::event_loop::EventLoop<()>>(),
+                );
+
+                let winit_eventloop_proxy = app
+                    .world
+                    .non_send_resource::<winit::event_loop::EventLoop<()>>()
+                    .create_proxy();
+                let mut eventloop = app.world.non_send_resource_mut::<EventLoop>();
+                eventloop.start(Box::new(move || {
+                    let _ = winit_eventloop_proxy.send_event(());
+                    EventLoopControl::Continue
+                }));
             }
             EventLoopPlugin::ManualMode => {}
         }

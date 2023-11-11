@@ -1,12 +1,16 @@
 #![feature(arc_unwrap_or_clone)]
+pub mod assets;
 pub mod framework;
 pub mod panels;
 pub mod prelude;
+pub mod render;
+pub mod sprite;
 pub mod util;
 pub mod widgets;
 
 use crate::prelude::*;
 use bevy::{render::camera::RenderTarget, ui::FocusPolicy};
+use bevy_svg::prelude::Svg2dBundle;
 use dway_tty::{drm::surface::DrmSurface, seat::SeatState};
 use font_kit::{
     error::SelectionError, family_name::FamilyName, properties::Properties, source::SystemSource,
@@ -16,7 +20,11 @@ use widgets::applist::{AppListUI, AppListUIBundle};
 pub struct DWayUiPlugin;
 impl Plugin for DWayUiPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_plugins((framework::UiFrameworkPlugin, widgets::DWayWidgetsPlugin));
+        app.add_plugins((
+            assets::DWayAssetsPlugin,
+            framework::UiFrameworkPlugin,
+            widgets::DWayWidgetsPlugin,
+        ));
         app.add_systems(Startup, setup);
     }
 }
@@ -54,7 +62,6 @@ fn setup(
             commands.spawn((Camera2dBundle {
                 camera: Camera {
                     target: RenderTarget::Image(image_handle),
-
                     ..default()
                 },
                 ..default()
@@ -62,23 +69,34 @@ fn setup(
         });
     }
 
-    commands.spawn(ImageBundle {
-        style: styled!("absolute w-full h-full"),
-        image: asset_server.load("background.jpg").into(),
-        z_index: ZIndex::Global(-1024),
-        ..default()
-    });
+    commands.spawn((
+        Name::new("background"),
+        ImageBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                ..Default::default()
+            },
+            image: asset_server.load("background.jpg").into(),
+            z_index: ZIndex::Global(-1024),
+            ..default()
+        },
+    ));
     commands
         .spawn((
             Name::new("applist-ui"),
             NodeBundle {
-                style: styled!("absolute bottom-4 w-full justify-center items-center"),
+                style: style!("absolute bottom-4 w-full justify-center items-center"),
                 focus_policy: FocusPolicy::Pass,
                 z_index: ZIndex::Global(1024),
                 ..default()
             },
         ))
         .with_children(|c| {
-            c.spawn(widgets::applist::AppListPanelBundle::default());
+            c.spawn(widgets::applist::AppListUIBundle::new(
+                Default::default(),
+                Default::default(),
+            ));
         });
 }

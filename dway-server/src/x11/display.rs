@@ -42,7 +42,7 @@ pub enum XWaylandThreadEvent {
     Disconnect(anyhow::Error),
 }
 
-#[derive(Component, Clone, Reflect)]
+#[derive(Component, Clone)]
 pub struct XWaylandDisplayWrapper {
     pub inner: Arc<Mutex<XWaylandDisplay>>,
 }
@@ -63,7 +63,7 @@ impl XWaylandDisplayWrapper {
     }
 }
 
-#[derive(Debug, Reflect)]
+#[derive(Debug)]
 pub struct XWaylandDisplay {
     pub display_number: u32,
     pub connection: Weak<(RustConnection, Atoms)>,

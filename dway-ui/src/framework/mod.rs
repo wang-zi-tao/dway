@@ -4,7 +4,7 @@ pub mod svg;
 
 use bevy::prelude::*;
 pub use bevy_svg::SvgPlugin;
-use bevy_vector_shapes::{ShapePlugin, Shape2dPlugin};
+use bevy_vector_shapes::{Shape2dPlugin, ShapePlugin};
 use dway_util::UtilPlugin;
 
 pub struct UiFrameworkPlugin;
@@ -33,5 +33,6 @@ impl Plugin for UiFrameworkPlugin {
         app.register_type::<canvas::UiCanvas>();
         app.register_type::<svg::UiSvg>();
         app.init_resource::<canvas::UiCanvasRenderArea>();
+        app.init_resource::<svg::SvgImageCache>();
     }
 }

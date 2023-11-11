@@ -38,7 +38,7 @@ pub struct GrabEvent {
 }
 
 bitflags! {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash, Reflect)]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash)]
     pub struct ResizeEdges: u8 {
         const TOP =     0b00000001;
         const BUTTOM =  0b00000010;

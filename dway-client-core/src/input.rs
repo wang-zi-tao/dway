@@ -1,11 +1,12 @@
 use bevy::{
+    core::FrameCount,
     input::{
         keyboard::KeyboardInput,
         mouse::{MouseButtonInput, MouseMotion, MouseWheel},
         ButtonState,
     },
     math::DVec2,
-    prelude::*, core::FrameCount,
+    prelude::*,
 };
 use bevy_relationship::{graph_query, ControlFlow};
 use dway_server::{
@@ -69,7 +70,7 @@ pub fn setup_debug_cursor(mut commands: Commands) {
                 height: Val::Px(16.0),
                 ..default()
             },
-            z_index: ZIndex::Global(1024),
+            z_index: ZIndex::Global(512),
             ..default()
         },
     ));

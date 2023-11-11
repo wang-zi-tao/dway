@@ -26,3 +26,6 @@ glow = "0.12.1"
 nix = "0.26.2"
 serde = "1.0.158"
 khronos-egl = { version="4.1",features= ["dynamic","static"] }
+
+[patch.crates-io]
+bevy = { git = "https://github.com/bevyengine/bevy", branch = "main" }

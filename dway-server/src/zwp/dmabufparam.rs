@@ -18,8 +18,7 @@ pub struct DmaBuffer {
     pub planes: Arc<Mutex<DmaBufferPlanes>>,
 }
 
-#[derive(Component, Reflect, Debug)]
-#[reflect(Debug)]
+#[derive(Component, Debug)]
 pub struct DmaBufferPlane {
     pub fd: OwnedFd,
     pub plane_idx: u32,
@@ -34,16 +33,13 @@ impl DmaBufferPlane {
     }
 }
 
-#[derive(Reflect, Debug, Default)]
-#[reflect(Debug)]
+#[derive(Debug, Default)]
 pub struct DmaBufferPlanes {
     pub list: Vec<DmaBufferPlane>,
 }
 
-#[derive(Component, Reflect, Debug)]
-#[reflect(Debug)]
+#[derive(Component, Debug)]
 pub struct DmaBufferParams {
-    #[reflect(ignore, default = "unimplemented")]
     pub raw: zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1,
     pub planes: Arc<Mutex<DmaBufferPlanes>>,
 }

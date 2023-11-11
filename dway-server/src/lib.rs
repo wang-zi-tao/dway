@@ -5,7 +5,7 @@
 #![feature(iterator_try_collect)]
 
 use bevy::prelude::*;
-use bevy_tokio_tasks::TokioTasksRuntime;
+// use bevy_tokio_tasks::TokioTasksRuntime;
 use dway_util::eventloop::EventLoop;
 use schedule::DWayServerSet;
 use state::{create_display, DWayServer, DWayServerConfig, WaylandDisplayCreated};
@@ -37,7 +37,7 @@ pub struct DWayServerPlugin;
 impl Plugin for DWayServerPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
-            bevy_tokio_tasks::TokioTasksPlugin::default(),
+            // bevy_tokio_tasks::TokioTasksPlugin::default(),
             state::DWayStatePlugin,
             client::ClientPlugin,
             geometry::GeometryPlugin,

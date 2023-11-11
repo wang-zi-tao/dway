@@ -21,13 +21,13 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextSection::new(
                     "FPS: ",
                     TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: asset_server.load("embedded://dway_ui/fonts/FiraSans-Bold.ttf"),
                         font_size: 30.0,
                         color: Color::WHITE,
                     },
                 ),
                 TextSection::from_style(TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: asset_server.load("embedded://dway_ui/fonts/FiraSans-Bold.ttf"),
                     font_size: 30.0,
                     color: Color::GOLD,
                 }),

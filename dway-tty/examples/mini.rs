@@ -31,12 +31,6 @@ pub fn main() {
     let mut app = App::new();
     app.add_plugins({
         let mut plugins = DefaultPlugins
-            .set(RenderPlugin {
-                wgpu_settings: bevy::render::settings::WgpuSettings {
-                    backends: Some(wgpu::Backends::VULKAN),
-                    ..Default::default()
-                },
-            })
             .set(TaskPoolPlugin {
                 task_pool_options: TaskPoolOptions {
                     min_total_threads: 1,
@@ -58,9 +52,9 @@ pub fn main() {
             plugins
         })
         .insert_resource(ClearColor(Color::WHITE))
-        .add_system(setup.on_startup())
-        .add_system(animate_cube)
-        .add_system(input_event_system);
+        .add_systems(Startup,setup)
+        .add_systems(Update,animate_cube)
+        .add_systems(Update,input_event_system);
     app.finish();
     app.cleanup();
     for i in 0..8192 {

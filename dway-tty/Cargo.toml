@@ -25,9 +25,9 @@ send_wrapper = "0.6.0"
 nix = "0.26.2"
 libloading = "0.7.4"
 glow = {}
-bevy = "0.11"
-wgpu={version="0.16",features=["angle"]}
-wgpu-hal={version="0.16",features=["gles"]}
+bevy = "0.12"
+wgpu={version="0.17",features=["angle"]}
+wgpu-hal={version="0.17",features=["gles"]}
 libseat = "0.2.1"
 crossbeam = "0.8.2"
 getset = "0.1.2"

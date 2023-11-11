@@ -21,11 +21,11 @@ failure = {}
 uuid = {}
 lru = {}
 rand = {}
-bevy = "0.11"
+bevy = "0.12"
 serde={}
-bevy_svg = { version="0.11", default-features = false, features = ["2d"] }
-bevy_ui_styled = "0.4.0"
-bevy_vector_shapes = "0.5.2"
+bevy_svg = { version="0.12", default-features = false, features = ["2d"] }
+# bevy_ui_styled = "0.4.0"
+bevy_vector_shapes = "0.6"
 const-fnv1a-hash = "1.1.0"
 
 [profile.dev]

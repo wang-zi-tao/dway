@@ -15,18 +15,16 @@ use bevy::{
     ecs::{
         query::{QueryEntityError, WorldQuery},
         system::Command,
-        world::EntityMut,
     },
     prelude::DespawnRecursiveExt,
-    utils::{tracing, HashMap},
+    utils::{tracing, HashMap}, tasks::IoTaskPool,
 };
 use bevy_relationship::{
     reexport::SmallVec, ConnectCommand, ConnectableMut, DisconnectAllCommand, DisconnectCommand,
     Relationship, ReserveRelationship, ReverseRelationship,
 };
-pub use bevy_tokio_tasks::TokioTasksRuntime;
 use dway_util::eventloop::{EventLoop, Generic, Interest, Mode};
-use tokio::io::AsyncReadExt;
+use futures::{io::BufReader, AsyncBufReadExt, StreamExt, FutureExt};
 use wayland_backend::server::{ClientId, ObjectId};
 use wayland_server::{DataInit, ListeningSocket, New};
 
@@ -150,32 +148,32 @@ impl DWayServer {
         Ok(())
     }
 
-    pub fn spawn_process_x11(&self, mut command: process::Command, tokio: &TokioTasksRuntime) {
+    pub fn spawn_process_x11(&self, mut command: process::Command) {
         if let Some(display_number) = self.display_number {
             command.env("DISPLAY", ":".to_string() + &display_number.to_string());
         } else {
             command.env_remove("DISPLAY");
         }
-        self.do_spawn_process(command, tokio);
+        self.do_spawn_process(command);
     }
-    pub fn spawn_process(&self, mut command: process::Command, tokio: &TokioTasksRuntime) {
+    pub fn spawn_process(&self, mut command: process::Command) {
         if let Some(display_number) = self.display_number {
             command.env("DISPLAY", ":".to_string() + &display_number.to_string());
         } else {
             command.env_remove("DISPLAY");
         }
         command.env("WAYLAND_DISPLAY", &*self.socket_name());
-        self.do_spawn_process(command, tokio);
+        self.do_spawn_process(command);
     }
-    pub fn spawn_process_wayland(&self, mut command: process::Command, tokio: &TokioTasksRuntime) {
+    pub fn spawn_process_wayland(&self, mut command: process::Command) {
         command
             .env("WAYLAND_DISPLAY", &*self.socket_name())
             .env_remove("DISPLAY");
-        self.do_spawn_process(command, tokio);
+        self.do_spawn_process(command);
     }
-    fn do_spawn_process(&self, mut command: process::Command, tokio: &TokioTasksRuntime) {
+    fn do_spawn_process(&self, mut command: process::Command) {
         command.envs(&self.envs);
-        tokio.spawn_background_task(|_ctx| async move {
+        IoTaskPool::get().spawn(async {
             let program = command.get_program().to_string_lossy();
             let program = String::from(
                 Path::new(&*program)
@@ -183,10 +181,10 @@ impl DWayServer {
                     .unwrap_or_default()
                     .to_string_lossy(),
             );
-            let mut command: tokio::process::Command = command.into();
+            let mut command: async_process::Command = command.into();
             command.stdout(Stdio::piped());
             command.stderr(Stdio::piped());
-
+    
             let mut subprocess = match command.spawn() {
                 Ok(subprocess) => subprocess,
                 Err(error) => {
@@ -194,41 +192,15 @@ impl DWayServer {
                     return;
                 }
             };
-            let mut stdout = subprocess.stdout.take().unwrap();
-            let mut stderr = subprocess.stderr.take().unwrap();
-
-            let id = subprocess.id().unwrap_or_default();
-            info!("process ({program}) [{id:?}] spawn");
-            let mut stdout_buffer = [0; 256];
-            let mut stderr_buffer = [0; 256];
-            let print_output = |buffer: &[u8; 256], result| {
-                let size = match result {
-                    Ok(size) => size,
-                    Err(e) => {
-                        error!("process ({program}) [{id:?}] io error: {e}");
-                        return;
-                    }
-                };
-                if size == 0 {
-                    return;
-                }
-                let buffer = &buffer[..size];
-                for line in buffer.lines() {
-                    if let Ok(line) = line {
-                        tracing::event!(
-                            target:"subprocess",
-                            tracing::Level::INFO,
-                            {},
-                            "({program}) [{id:?}] | {}",
-                            line
-                        );
-                    }
-                }
-            };
+            let mut stdout = BufReader::new(subprocess.stdout.take().unwrap()).lines().fuse();
+            let mut stderr = BufReader::new(subprocess.stderr.take().unwrap()).lines().fuse();
+    
+            let id = subprocess.id();
+            info!("spawn process ({program}) [{id:?}]");
             loop {
-                tokio::select! {
-                    o=subprocess.wait()=>{
-                        match o{
+                futures::select! {
+                    state=subprocess.status().fuse()=>{
+                        match state{
                             Ok(o) => {
                                 info!("process ({program}) [{id:?}] exited with status: {o}");
                             },
@@ -236,17 +208,39 @@ impl DWayServer {
                                 error!(%error);
                             },
                         }
-                        return;
+                        break;
                     }
-                    size=stdout.read(&mut stdout_buffer)=>{
-                        print_output(&stdout_buffer,size);
+                    line=stdout.next()=>{
+                        match line {
+                            Some(Ok(line))=>{
+                                tracing::event!(
+                                    target:"subprocess",
+                                    tracing::Level::INFO,
+                                    {},
+                                    "({program}) [{id:?}] | {}",
+                                    line
+                                );
+                            }
+                            _=>{}
+                        };
                     }
-                    size=stderr.read(&mut stderr_buffer)=>{
-                        print_output(&stdout_buffer,size);
+                    line=stderr.next()=>{
+                        match line {
+                            Some(Ok(line))=>{
+                                tracing::event!(
+                                    target:"subprocess",
+                                    tracing::Level::INFO,
+                                    {},
+                                    "({program}) [{id:?}] | {}",
+                                    line
+                                );
+                            }
+                            _=>{}
+                        };
                     }
                 };
-            }
-        });
+            };
+        }).detach();
     }
 }
 
@@ -354,7 +348,6 @@ impl DWay {
     }
     pub fn destroy_object(&mut self, object: &impl wayland_server::Resource) {
         let entity = DWay::get_entity(object);
-        let world = self.world_mut();
         debug!(?entity,resource=%wayland_server::Resource::id(object),"destroy wayland object");
         self.despawn_tree(entity);
     }
@@ -525,7 +518,7 @@ impl DWay {
             }
         }
         if let Some(e) = self.world_mut().get_entity_mut(entity) {
-            EntityMut::despawn(e)
+            EntityWorldMut::despawn(e)
         }
     }
     pub fn despawn_object_component<T: Bundle>(
@@ -736,20 +729,20 @@ pub fn set_signal_handler() {
 }
 
 impl DWay {
-    pub fn insert<T>(&mut self, entity: Entity, f: impl EntityFactory<T>) -> EntityMut {
+    pub fn insert<T>(&mut self, entity: Entity, f: impl EntityFactory<T>) -> EntityWorldMut {
         let world = self.world_mut();
         f.insert(world, entity)
     }
-    pub fn spawn<T>(&mut self, f: impl EntityFactory<T>) -> EntityMut {
+    pub fn spawn<T>(&mut self, f: impl EntityFactory<T>) -> EntityWorldMut {
         f.spawn(self.world_mut())
     }
 }
 
 pub trait EntityFactory<T> {
-    fn spawn(self, world: &mut World) -> EntityMut<'_>
+    fn spawn(self, world: &mut World) -> EntityWorldMut<'_>
     where
         Self: Sized;
-    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_>;
+    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_>;
 
     fn with_parent(self, parent: Entity) -> WithParent<Self, T>
     where
@@ -800,34 +793,34 @@ pub trait EntityFactory<T> {
 }
 
 impl<T: Bundle> EntityFactory<(T,)> for T {
-    fn spawn(self, world: &mut World) -> EntityMut {
+    fn spawn(self, world: &mut World) -> EntityWorldMut {
         world.spawn(self)
     }
 
-    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_> {
+    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_> {
         let mut entity_mut = world.entity_mut(entity);
         entity_mut.insert(self);
         entity_mut
     }
 }
 impl<T: FnOnce() -> B, B: Bundle> EntityFactory<()> for T {
-    fn spawn(self, world: &mut World) -> EntityMut {
+    fn spawn(self, world: &mut World) -> EntityWorldMut {
         world.spawn(self())
     }
 
-    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_> {
+    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_> {
         let mut entity_mut = world.entity_mut(entity);
         entity_mut.insert(self());
         entity_mut
     }
 }
 impl<T: FnOnce(&mut World) -> B, B: Bundle> EntityFactory<(&mut World,)> for T {
-    fn spawn(self, world: &mut World) -> EntityMut {
+    fn spawn(self, world: &mut World) -> EntityWorldMut {
         let bundle = self(world);
         world.spawn(bundle)
     }
 
-    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_> {
+    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_> {
         let bundle = self(world);
         let mut entity_mut = world.entity_mut(entity);
         entity_mut.insert(bundle);
@@ -841,7 +834,7 @@ where
     T: WlResource + 'static,
     DWay: wayland_server::Dispatch<T, Entity>,
 {
-    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_> {
+    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_> {
         let (resource, data_init, f) = self;
         let mut entity_mut = world.entity_mut(entity);
         let object = data_init.init(resource, entity_mut.id());
@@ -850,7 +843,7 @@ where
         entity_mut
     }
 
-    fn spawn(self, world: &mut World) -> EntityMut<'_>
+    fn spawn(self, world: &mut World) -> EntityWorldMut<'_>
     where
         Self: Sized,
     {
@@ -869,7 +862,7 @@ where
     T: WlResource + 'static,
     DWay: wayland_server::Dispatch<T, Entity>,
 {
-    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_> {
+    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_> {
         let (resource, data_init, f) = self;
         let object = data_init.init(resource, entity);
         debug!(entity=?entity,object=%wayland_server::Resource::id(&object),"new wayland object");
@@ -879,7 +872,7 @@ where
         entity_mut
     }
 
-    fn spawn(self, world: &mut World) -> EntityMut<'_>
+    fn spawn(self, world: &mut World) -> EntityWorldMut<'_>
     where
         Self: Sized,
     {
@@ -903,13 +896,13 @@ impl<F, T> EntityFactory<T> for WithParent<F, T>
 where
     F: EntityFactory<T>,
 {
-    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_> {
+    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_> {
         let mut entity = self.inner.insert(world, entity);
         entity.set_parent(self.parent);
         entity
     }
 
-    fn spawn(self, world: &mut World) -> EntityMut
+    fn spawn(self, world: &mut World) -> EntityWorldMut
     where
         Self: Sized,
     {
@@ -927,7 +920,7 @@ where
     F: EntityFactory<T>,
     C: Component,
 {
-    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_> {
+    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_> {
         assert!(
             !world.entity_mut(entity).contains::<C>(),
             "component {} already exist in entity {entity:?}",
@@ -936,7 +929,7 @@ where
         self.inner.insert(world, entity)
     }
 
-    fn spawn(self, world: &mut World) -> EntityMut
+    fn spawn(self, world: &mut World) -> EntityWorldMut
     where
         Self: Sized,
     {
@@ -956,7 +949,7 @@ where
     R::From: ConnectableMut + Default,
     R::To: ConnectableMut + Default,
 {
-    fn insert(self, world: &mut World, entity: Entity) -> EntityMut<'_> {
+    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_> {
         let target = self.target;
         let entity_mut = self.inner.insert(world, entity);
         let entity = entity_mut.id();
@@ -971,7 +964,7 @@ where
         world.entity_mut(entity)
     }
 
-    fn spawn(self, world: &mut World) -> EntityMut
+    fn spawn(self, world: &mut World) -> EntityWorldMut
     where
         Self: Sized,
     {

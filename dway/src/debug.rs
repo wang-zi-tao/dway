@@ -40,3 +40,24 @@ pub fn dump_schedules_system_graph(app: &mut App) -> Result<()> {
     dump_schedule(app, "Last", Last)?;
     Ok(())
 }
+
+pub fn print_resources(world: &mut World) {
+    let components = world.components();
+    let mut r: Vec<_> = world
+        .storages()
+        .resources
+        .iter()
+        .map(|(id, _)| id)
+        .chain(world.storages().non_send_resources.iter().map(|(id, _)| id))
+        .map(|id| components.get_info(id).unwrap())
+        .collect();
+    r.sort_by_key(|info| info.name());
+    r.iter().for_each(|info| {
+        debug!(
+            "resource: [{:X?}] name: {} is_sync:{}",
+            info.type_id(),
+            info.name(),
+            info.is_send_and_sync(),
+        );
+    });
+}

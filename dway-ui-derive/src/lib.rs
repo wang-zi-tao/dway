@@ -1,26 +1,27 @@
 #![feature(iter_map_windows)]
 
 mod generate;
+mod style;
 
 use derive_syn_parse::Parse;
 use generate::*;
 use proc_macro::TokenStream;
-use proc_macro2::{Group, Span, TokenStream as TokenStream2, TokenTree};
+use proc_macro2::{Span, TokenStream as TokenStream2, TokenTree};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
 use std::collections::HashMap;
 use syn::{
-    parse::{ParseStream, Parser},
+    parse::ParseStream,
     punctuated::Punctuated,
     spanned::Spanned,
-    token::{Brace, Bracket, Paren},
+    token::{At, Brace, Paren, RArrow},
     *,
 };
 
 #[derive(Parse)]
 struct Input {
     name: Ident,
-    colon: Option<Token![:]>,
-    #[parse_if(colon.is_some())]
+    _colon: Option<Token![:]>,
+    #[parse_if(_colon.is_some())]
     ty: Option<Type>,
 }
 
@@ -37,17 +38,21 @@ struct DomState<'l> {
     widget_fields: &'l mut HashMap<String, (TokenStream2, TokenStream2)>,
 }
 impl<'l> DomState<'l> {
-    pub fn get_dom_id(&mut self, dom: &Dom) -> Ident {
+    pub fn get_dom_id(&mut self, dom: &Dom, upper_case: bool) -> Ident {
         if let Some(DomArg::Instruction(_, DomInstruction::Id(_, _, lit))) =
             dom.args.args.get("@id")
         {
             format_ident!("{}", lit.value(), span = lit.span())
         } else {
-            format_ident!("N{}", self.widget_fields.len(), span = dom._lt0.span)
+            if upper_case {
+                format_ident!("N{}", self.widget_fields.len(), span = dom._lt0.span)
+            } else {
+                format_ident!("n{}", self.widget_fields.len(), span = dom._lt0.span)
+            }
         }
     }
     pub fn add_ui_state_field(&mut self, dom: &Dom) -> Ident {
-        let id = self.get_dom_id(dom);
+        let id = self.get_dom_id(dom, false);
         let ident = format_ident!("node_{}_entity", id, span = id.span());
         self.widget_fields.insert(
             ident.to_string(),
@@ -56,7 +61,7 @@ impl<'l> DomState<'l> {
         ident
     }
     pub fn add_ui_state_map_field(&mut self, dom: &Dom, key_type: &TokenStream2) -> Ident {
-        let id = self.get_dom_id(dom);
+        let id = self.get_dom_id(dom, false);
         let ident = format_ident!("node_{}_entity_map", id, span = id.span());
         self.widget_fields.insert(
             ident.to_string(),
@@ -68,7 +73,7 @@ impl<'l> DomState<'l> {
         ident
     }
     pub fn add_loop_state_query(&mut self, dom: &Dom) -> (Ident, Ident) {
-        let id = self.get_dom_id(dom);
+        let id = self.get_dom_id(dom, true);
         let widget_state_type_name = format_ident!("{}SubWidget{id}", &self.widget_name);
         let query_name = format_ident!("sub_widget_{id}_query");
         self.system_params.insert(
@@ -84,8 +89,8 @@ enum Bundle {
     #[peek(Paren, name = "Paren")]
     Expr {
         #[paren]
-        wrap: Paren,
-        #[inside(wrap)]
+        _wrap: Paren,
+        #[inside(_wrap)]
         expr: Expr,
     },
     #[peek(Ident, name = "Ident")]
@@ -105,11 +110,11 @@ struct Dom {
     _lt0: Token![<],
     bundle: Bundle,
     args: DomArguments,
-    end0: Option<Token![/]>,
+    _end0: Option<Token![/]>,
     _gt0: Token![>],
-    #[parse_if(end0.is_none())]
+    #[parse_if(_end0.is_none())]
     children: Option<DomChildren>,
-    #[parse_if(end0.is_none())]
+    #[parse_if(_end0.is_none())]
     end_tag: Option<TagEnd>,
 }
 impl Dom {
@@ -241,7 +246,8 @@ impl Dom {
         let mut dom_entity_field = None;
 
         let update_or_init_stat = if need_update {
-            let dom_entity_field = dom_entity_field.get_or_insert_with(||output.add_ui_state_field(self));
+            let dom_entity_field =
+                dom_entity_field.get_or_insert_with(|| output.add_ui_state_field(self));
 
             let spawn_condition =
                 quote!(not_inited && widget.#dom_entity_field == Entity::PLACEHOLDER);
@@ -302,7 +308,8 @@ impl Dom {
         };
 
         let stats = if let Some((patten, iterator)) = for_instruction {
-            let dom_entity_field = dom_entity_field.get_or_insert_with(||output.add_ui_state_field(self));
+            let dom_entity_field =
+                dom_entity_field.get_or_insert_with(|| output.add_ui_state_field(self));
             let (sub_widget_query, sub_widget_type) = output.add_loop_state_query(self);
             let (key_expr, key_type) = if let Some((key_expr, key_type)) = key_instruction {
                 (quote!(#key_expr), quote!(#key_type))
@@ -332,6 +339,8 @@ impl Dom {
                 let sub_widget_field_decl = sub_widget_fields.values().map(|w| &w.0);
                 let sub_widget_init = sub_widget_fields.values().map(|w| &w.1);
                 output.items.push(quote! {
+                    #[allow(non_snake_case)]
+                    #[allow(unused_variables)]
                     #[derive(Component)]
                     pub struct #sub_widget_type {
                         #(#sub_widget_field_decl),*
@@ -423,12 +432,6 @@ struct TagEnd {
     _gt1: Token![>],
 }
 
-#[derive(Parse)]
-struct DomId {
-    _prefix: Token![#],
-    name: Ident,
-}
-
 struct DomArguments {
     args: HashMap<String, DomArg>,
 }
@@ -439,7 +442,7 @@ impl syn::parse::Parse for DomArguments {
         while !input.peek(Token![>]) && !input.peek(Token![/]) {
             let mut arg: DomArg = input.parse()?;
             let name = match &arg {
-                DomArg::Component { component, .. } => component.to_string(),
+                DomArg::Component { component, .. } => quote!(#component).to_string(),
                 DomArg::Instruction(_, DomInstruction::If(..)) => "@if".to_string(),
                 DomArg::Instruction(_, DomInstruction::Style(..)) => "Style".to_string(),
                 DomArg::Instruction(_, DomInstruction::Id(..)) => "@id".to_string(),
@@ -447,7 +450,8 @@ impl syn::parse::Parse for DomArguments {
                 DomArg::Instruction(_, DomInstruction::Key { .. }) => "@key".to_string(),
             };
             if let DomArg::Instruction(_, DomInstruction::Style(_, _, lit)) = &arg {
-                let expr_tokens = quote!(Style = (bevy_ui_styled::styled!(#lit)));
+                let value_tokens = style::generate(lit);
+                let expr_tokens = quote!(Style=(#value_tokens));
                 arg = syn::parse2(expr_tokens).unwrap();
             }
             args.insert(name, arg);
@@ -460,14 +464,14 @@ impl syn::parse::Parse for DomArguments {
 enum DomArg {
     #[peek(Ident, name = "Component")]
     Component {
-        component: Ident,
+        component: Type,
         _eq: Token![=],
         #[paren]
-        wrap: Paren,
-        #[inside(wrap)]
+        _wrap: Paren,
+        #[inside(_wrap)]
         expr: Expr,
     },
-    #[peek(Token!(@),name = "Instruction")]
+    #[peek(At, name = "Instruction")]
     Instruction(Token![@], DomInstruction),
 }
 enum DomInstruction {
@@ -476,14 +480,14 @@ enum DomInstruction {
     Style(Ident, Token![=], LitStr),
     For {
         _opcode: Token![for],
-        paren: Paren,
+        _paren: Paren,
         pat: syn::Pat,
         _in: Token![in],
         expr: Expr,
     },
     Key {
         _opcode: Ident,
-        paren: Paren,
+        _paren: Paren,
         expr: Expr,
         _as: Token![:],
         ty: Type,
@@ -497,7 +501,7 @@ impl syn::parse::Parse for DomInstruction {
             let content;
             Ok(Self::For {
                 _opcode: input.parse()?,
-                paren: parenthesized!(content in input),
+                _paren: parenthesized!(content in input),
                 pat: Pat::parse_multi(&content)?,
                 _in: content.parse()?,
                 expr: content.parse()?,
@@ -509,7 +513,7 @@ impl syn::parse::Parse for DomInstruction {
                     let content;
                     Ok(Self::Key {
                         _opcode: instruction,
-                        paren: parenthesized!(content in input),
+                        _paren: parenthesized!(content in input),
                         expr: content.parse()?,
                         _as: content.parse()?,
                         ty: content.parse()?,
@@ -545,11 +549,11 @@ impl syn::parse::Parse for DomChildren {
 struct Stage {
     #[peek(Paren)]
     inputs: Option<StageInputs>,
-    output_split: Option<Token![->]>,
-    #[parse_if(output_split.is_some())]
+    _output_split: Option<Token![->]>,
+    #[parse_if(_output_split.is_some())]
     #[paren]
-    output_bracket: Option<Paren>,
-    #[peek(Token![->])]
+    _output_bracket: Option<Paren>,
+    #[peek(RArrow)]
     outputs: Option<StageOutputs>,
     functoin: Block,
 }
@@ -557,18 +561,18 @@ struct Stage {
 #[derive(Parse)]
 struct StageInputs {
     #[paren]
-    wrap: Paren,
-    #[inside(wrap)]
+    _wrap: Paren,
+    #[inside(_wrap)]
     #[call(Punctuated::parse_terminated)]
     inputs: Punctuated<Input, Token![,]>,
 }
 
 #[derive(Parse)]
 struct StageOutputs {
-    output_split: Token![->],
+    _output_split: Token![->],
     #[paren]
-    output_bracket: Paren,
-    #[inside(output_bracket)]
+    _output_bracket: Paren,
+    #[inside(_output_bracket)]
     #[call(Punctuated::parse_terminated)]
     output: Punctuated<Output, Token![,]>,
 }
@@ -576,8 +580,8 @@ struct StageOutputs {
 #[derive(Parse)]
 struct Params {
     #[paren]
-    paren_token: Paren,
-    #[inside(paren_token)]
+    _paren_token: Paren,
+    #[inside(_paren_token)]
     #[call(Punctuated::parse_terminated)]
     inputs: Punctuated<FnArg, Token![,]>,
 }
@@ -600,8 +604,8 @@ struct DWayWidget {
 #[derive(Parse)]
 struct States {
     #[brace]
-    wrap: Brace,
-    #[inside(wrap)]
+    _wrap: Brace,
+    #[inside(_wrap)]
     #[call(Punctuated::parse_terminated)]
     fields: Punctuated<DWayStateField, Token![,]>,
 }
@@ -633,10 +637,6 @@ impl BlockState {
     pub fn use_state(&mut self, ident: &Ident) {
         self.use_state.insert(ident.to_string(), ident.span());
     }
-    pub fn set_state(&mut self, ident: &Ident) {
-        self.add(ident)
-    }
-
     pub fn generate_condition(&self) -> TokenStream2 {
         if self.use_state.is_empty() {
             quote!(true)
@@ -845,8 +845,9 @@ fn parse_block(block: &Block, output: &mut BlockState) {
 
 #[proc_macro]
 pub fn style(input: TokenStream) -> TokenStream {
-    let dom = parse_macro_input!(input as LitStr);
-    TokenStream::from(quote!({}))
+    let lit = parse_macro_input!(input as LitStr);
+    let style = style::generate(&lit);
+    TokenStream::from(quote_spanned!(lit.span()=> #style))
 }
 
 #[proc_macro]
@@ -941,7 +942,7 @@ pub fn dway_widget(input: TokenStream) -> TokenStream {
         }
     }
     let mut items = Vec::new();
-    let mut this_query: Vec<TokenStream2> = Vec::new();
+    let this_query: Vec<TokenStream2> = Vec::new();
     let mut widget_fields: HashMap<String, (TokenStream2, TokenStream2)> = HashMap::new();
     let mut declares: Vec<TokenStream2> = Vec::new();
     let mut run_stage: Vec<TokenStream2> = Vec::new();
@@ -1094,7 +1095,6 @@ pub fn dway_widget(input: TokenStream) -> TokenStream {
     let state_component = format_ident!("{}State", &dsl.name, span = dsl.name.span());
     let widget_component = format_ident!("{}Widget", &dsl.name, span = dsl.name.span());
     let bundle = format_ident!("{}Bundle", &dsl.name, span = dsl.name.span());
-    let plugin = format_ident!("{}RenderPlugin", &dsl.name, span = dsl.name.span());
     let system_set = format_ident!("{}Systems", &dsl.name, span = dsl.name.span());
     let prop_type = dsl.name;
     let state_fields = dsl
@@ -1118,6 +1118,8 @@ pub fn dway_widget(input: TokenStream) -> TokenStream {
             Render
         }
 
+        #[allow(non_snake_case)]
+        #[allow(unused_variables)]
         #[derive(Component, Reflect)]
         pub struct #widget_component {
             #(#widget_field_decl),*
@@ -1152,7 +1154,9 @@ pub fn dway_widget(input: TokenStream) -> TokenStream {
 
         #(#items)*
 
+        #[allow(dead_code)]
         #[allow(non_snake_case)]
+        #[allow(unused_variables)]
         pub fn #function_name(mut this_query: Query<(Entity, Ref<#prop_type>, &mut #state_component, &mut #widget_component, #(#this_query),*)>, mut commands: Commands, #(#function_args),*) {
             for (this_entity, prop, mut state, mut widget) in this_query.iter_mut() {
                 let update_all = prop.is_changed();
@@ -1161,26 +1165,5 @@ pub fn dway_widget(input: TokenStream) -> TokenStream {
             }
         }
     };
-    // panic!("{}", render);
     render.into()
-}
-
-#[cfg(test)]
-mod test {
-    use proc_macro::TokenStream;
-    use quote::quote;
-    use syn::parse_macro_input;
-
-    use crate::DWayWidget;
-    #[test]
-    pub fn test_parse() {
-        let input = quote! {
-            ( clock:&Clock,state:&mut ClockState,time:Res<Time> )->(){
-                state.time = time.clone();
-                state.text = state.time;
-            };
-            (text)->() <node>{ui}</node>;
-        };
-        let _input = syn::parse2::<DWayWidget>(input).unwrap();
-    }
 }

@@ -40,9 +40,9 @@ impl Plugin for DWayTTYPlugin {
 }
 
 fn runner(mut app: App) {
-    while !app.ready() {
-        bevy::tasks::tick_global_task_pools_on_main_thread();
-    }
+    // while !app.ready() {
+    //     bevy::tasks::tick_global_task_pools_on_main_thread();
+    // }
     app.finish();
     app.cleanup();
     let runner = app.world.non_send_resource_mut::<EventLoop>().runner();

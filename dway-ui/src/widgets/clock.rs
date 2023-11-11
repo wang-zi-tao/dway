@@ -21,7 +21,7 @@ Clock
         update_state!(text = date_string);
     }
     <NodeBundle>
-        <TextBundle @style=""
+        <TextBundle
         Text=(Text::from_section(
             &state.text,
             TextStyle {

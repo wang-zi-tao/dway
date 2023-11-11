@@ -1,4 +1,5 @@
 use bevy::utils::HashSet;
+use dway_client_core::navigation::windowstack::WindowStack;
 use dway_server::{
     geometry::GlobalGeometry,
     util::rect::IRect,
@@ -8,7 +9,7 @@ use dway_server::{
 
 use crate::{prelude::*, util::irect_to_style};
 
-use super::window::{WINDEOW_MAX_INDEX, WINDEOW_MAX_STEP};
+use super::window::{WINDEOW_BASE_ZINDEX, WINDEOW_MAX_STEP};
 
 #[derive(Component, Reflect, Debug)]
 pub struct PopupUI {
@@ -47,21 +48,22 @@ pub fn attach_popup(
     mut ui_query: Query<(Entity, &mut PopupUI, &mut ZIndex)>,
     mut popup_query: Query<(Entity, &XdgPopup), (Added<DWayWindow>, Without<DWayToplevel>)>,
     mut destroy_window_events: RemovedComponents<DWayWindow>,
+    window_stack: Res<WindowStack>,
 ) {
     let destroyed_windows: HashSet<_> = destroy_window_events.iter().collect();
     ui_query.for_each_mut(|(entity, ui, ..)| {
         if destroyed_windows.contains(&ui.window_entity) {
-            commands
-                .entity(entity)
-                .despawn_recursive();
+            commands.entity(entity).despawn_recursive();
         }
     });
     popup_query.for_each(|(entity, popup)| {
         commands.spawn(PopupUIBundle {
             node: NodeBundle {
-                style: styled!("absolute"),
+                style: style!("absolute"),
                 z_index: ZIndex::Global(
-                    WINDEOW_MAX_INDEX + 1024 + WINDEOW_MAX_STEP * (popup.level as i32),
+                    WINDEOW_BASE_ZINDEX
+                        + WINDEOW_MAX_STEP
+                            * (window_stack.list.len() as isize + popup.level) as i32,
                 ),
                 ..NodeBundle::default()
             },

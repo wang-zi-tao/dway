@@ -68,14 +68,15 @@ impl IconLoader {
         }
         if let Some(image) = icon.cache.get(&size) {
             return Some(match image {
-                IconResorce::Image(h) => IconResorce::Image(asset_server.get_handle::<Image, _>(h)),
-                IconResorce::Svg(h) => IconResorce::Svg(asset_server.get_handle::<Svg, _>(h)),
+                IconResorce::Image(h) => IconResorce::Image(asset_server.get_id_handle(h.id())?),
+                IconResorce::Svg(h) => IconResorce::Svg(asset_server.get_id_handle(h.id())?),
             });
         }
         if let Some(raw_icon) = &icon.icon {
             let file = raw_icon.file_for_size(size);
-            if file.path().extension().is_some_and(|e| e == "svg") {
-                let data = std::fs::read(file.path()).ok()?;
+            let path = file.path().to_owned();
+            if path.extension().is_some_and(|e| e == "svg") {
+                let data = std::fs::read(&path).ok()?;
                 let mut svg = Svg::from_bytes(&data, file.path(), Option::<PathBuf>::None).ok()?;
                 svg.mesh = mesh_assets.add(svg.tessellate());
                 let image = svg_assets.add(svg);
@@ -84,10 +85,10 @@ impl IconLoader {
                 debug!(icon=%icon.id,"loading svg icon file: {:?}",file.path());
                 return Some(IconResorce::Svg(image.clone()));
             } else {
-                let image = asset_server.load(file.path());
+                let image = asset_server.load(path.clone());
                 icon.cache
                     .insert(size, IconResorce::Image(image.clone_weak()));
-                debug!(icon=%icon.id,"loading pixmap icon file: {:?}",file.path());
+                debug!(icon=%icon.id,"loading pixmap icon file: {:?}",path);
                 return Some(IconResorce::Image(image.clone()));
             }
         };

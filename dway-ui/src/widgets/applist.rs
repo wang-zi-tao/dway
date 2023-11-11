@@ -1,23 +1,14 @@
-use std::{collections::BTreeMap, ops::Mul};
+use std::collections::BTreeMap;
 
 use bevy_svg::prelude::Svg;
-use bevy_vector_shapes::{
-    painter::CanvasBundle,
-    prelude::*,
-    shapes::{DiscPainter, RectPainter},
-};
 use dway_client_core::{desktop::FocusedWindow, navigation::windowstack::WindowStack};
 use dway_server::apps::{
     icon::{Icon, IconLoader, IconResorce},
-    AppEntryRoot, AppRef, DesktopEntry, ToplevelConnectAppEntry, WindowList,
+    DesktopEntry, WindowList,
 };
 
 use crate::{
-    framework::{
-        canvas::{UiCanvas, UiCanvasBundle, UiCanvasRenderCommand, UiCanvasSystems},
-        icon::{uiicon_render, UiIcon},
-        svg::{UiSvg, UiSvgBundle},
-    },
+    framework::icon::UiIcon,
     prelude::*,
 };
 
@@ -30,6 +21,7 @@ AppEntryUI(
     mut icon_loader: ResMut<IconLoader>,
     mut svg_assets: ResMut<Assets<Svg>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
+    mut material_set: ResMut<Assets<RoundedUiRectMaterial>>,
 )#[derive(Default,Reflect)]{
     pub count: usize,
     pub icon: IconResorce,
@@ -47,7 +39,8 @@ AppEntryUI(
 (focused_window:Res<FocusedWindow>){
     update_state!(is_focused = focused_window.app_entity == Some(prop.0));
 }
-<NodeBundle @style="w-full h-full flex-col absolute" >
+<MaterialNodeBundle::<RoundedUiRectMaterial> @style="w-full h-full flex-col absolute"
+        Handle<RoundedUiRectMaterial>=(material_set.add(RoundedUiRectMaterial::new(Color::WHITE.with_a(0.4), 10.0))) >
     <ImageBundle @style="w-full h-full" UiIcon=(state.icon.clone().into())/>
     <NodeBundle Style=(Style{
         bottom:Val::Px(0.0),
@@ -68,6 +61,7 @@ dway_widget! {
 AppListUI(
     mut app_query: Query<(Entity,Ref<DesktopEntry>,Ref<WindowList>)>,
     window_index: Res<WindowStack>,
+    mut material_set: ResMut<Assets<RoundedUiRectMaterial>>,
 )#[derive(Default)]{
     pub list: BTreeMap<String,Entity>,
 }=>
@@ -81,49 +75,11 @@ AppListUI(
         });
     }
 }
-<UiCanvasBundle @id="list" @for(entry_entity in state.list.values()) @key(*entry_entity:Entity) >
+<MaterialNodeBundle::<RoundedUiRectMaterial> @id="list"
+    Handle<RoundedUiRectMaterial>=(material_set.add(RoundedUiRectMaterial::new(Color::WHITE.with_a(0.5), 16.0)))
+    @for(entry_entity in state.list.values()) @key(*entry_entity:Entity) >
     <(AppEntryUIBundle::new(AppEntryUI(*entry_entity),default())) @style="w-48 h-48 m-4 flex-col"/>
-</UiCanvasBundle>
-}
-
-pub fn applist_canvas_render(
-    canvas_query: Query<
-        (
-            &AppListUIWidget,
-            &UiCanvas,
-            &GlobalTransform,
-            &UiCanvasRenderCommand,
-        ),
-        With<AppListUI>,
-    >,
-    mut painter: ShapePainter,
-    mut sub_query: Query<(&GlobalTransform, &Node)>,
-) {
-    canvas_query.for_each(|(widgets, canvas, root_transform, render_command)| {
-        canvas.setup_painter(render_command, &mut painter);
-        let size = canvas.size();
-        painter.color = Color::WHITE.with_a(0.5);
-        painter.corner_radii = Vec4::splat(10.0);
-        painter.rect(size);
-
-        for (app_entity, element_entity) in widgets.node_list_entity_map.iter() {
-            if let Ok((transform, node)) = sub_query.get(*element_entity) {
-                painter.transform =
-                    render_command.transform() * transform.reparented_to(root_transform);
-                painter.color = Color::BLACK.with_a(0.4);
-                painter.rect(node.size());
-            }
-        }
-    });
-}
-
-#[derive(Bundle, Default)]
-pub struct AppListPanelBundle {
-    pub node: ImageBundle,
-    pub canvas: UiCanvas,
-    pub prop: AppListUI,
-    pub state: AppListUIState,
-    pub widget: AppListUIWidget,
+</NodeBundle>
 }
 
 pub struct AppListUIPlugin;
@@ -139,7 +95,6 @@ impl Plugin for AppListUIPlugin {
             (
                 applistui_render.in_set(AppListUISystems::Render),
                 appentryui_render.in_set(AppEntryUISystems::Render),
-                applist_canvas_render.after(UiCanvasSystems::Prepare),
             ),
         );
     }

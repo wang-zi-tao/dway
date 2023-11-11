@@ -39,7 +39,7 @@ pub enum RenderImage {
 #[derive(Resource, Default)]
 pub struct ImportState {
     pub inner: Mutex<Option<ImportStateKind>>,
-    pub removed_image: Vec<Handle<Image>>,
+    pub removed_image: Vec<AssetId<Image>>,
     pub image_set: HashSet<Handle<Image>>,
 }
 
@@ -84,7 +84,6 @@ pub fn extract_surface(
     dma_buffer_query: Extract<Query<&DmaBuffer>>,
     egl_buffer_query: Extract<Query<&UninitedWlBuffer>>,
     mut commands: Commands,
-    mut image_bind_groups: Option<ResMut<kayak_ui::render::unified::pipeline::ImageBindGroups>>,
     frame_count: Extract<Res<FrameCount>>,
     mut create_events: Extract<EventReader<WaylandDisplayCreated>>,
     mut destroy_events: Extract<EventReader<WaylandDisplayDestroyed>>,
@@ -99,9 +98,6 @@ pub fn extract_surface(
             || surface.commit_time + 2 >= frame_count.0 && surface.commit_count <= 2)
         {
             continue;
-        }
-        if let Some(image_bind_groups) = image_bind_groups.as_mut() {
-            image_bind_groups.values.remove(&surface.image);
         }
         let Some(buffer_entity) = surface.commited.buffer else {
             trace!("surface {:?} has no attachment", surface.raw.id());
@@ -128,7 +124,7 @@ pub fn extract_surface(
     }
     for event in image_events.iter() {
         match event {
-            AssetEvent::Removed { handle } => state.removed_image.push(handle.clone_weak()),
+            AssetEvent::Removed { id } => state.removed_image.push(id.clone()),
             _ => {}
         }
     }

@@ -1,4 +1,3 @@
-use std::time::Duration;
 use bevy::{
     core::TaskPoolThreadAssignmentPolicy,
     input::{
@@ -8,22 +7,23 @@ use bevy::{
     log::LogPlugin,
     prelude::*,
 };
-use dway_tty::{
-    libinput::LibInputPlugin, seat::SeatPlugin,
-};
+use dway_tty::{libinput::LibInputPlugin, seat::SeatPlugin};
+use std::time::Duration;
 
 use tracing::Level;
 
 pub fn main() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
-        .add_plugin(LogPlugin {
-            level: Level::INFO,
-            filter: "info".to_string(),
-        })
-        .add_plugin(SeatPlugin)
-        .add_plugin(LibInputPlugin)
-        .add_system(input_event_system);
+        .add_plugins((
+            LogPlugin {
+                level: Level::INFO,
+                filter: "info".to_string(),
+            },
+            SeatPlugin,
+            LibInputPlugin,
+        ))
+        .add_systems(Update,input_event_system);
     app.finish();
     app.cleanup();
     for i in 0..256 {

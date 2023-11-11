@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use bevy::{
     prelude::*,
     render::{
-        render_asset::{PrepareAssetSet, RenderAssets},
+        render_asset::RenderAssets,
         renderer::RenderDevice,
         texture::{DefaultImageSampler, GpuImage},
         Extract, RenderApp, RenderSet, Render,
@@ -71,7 +71,7 @@ impl Plugin for TtyRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        prepare_drm_surface.in_set(PrepareAssetSet::PostAssetPrepare),
+                        prepare_drm_surface.after(RenderSet::Prepare),
                         commit
                             .in_set(DWayTTYRemderSet::DrmCommitSystem)
                             .after(RenderSet::Render)

@@ -1,9 +1,9 @@
+#![feature(stmt_expr_attributes)]
+#[cfg(feature = "debug")]
+pub mod debug;
 pub mod keys;
 pub mod opttions;
-pub mod debug;
 
-use std::{process, time::Duration};
-use clap::Parser;
 use bevy::{
     audio::AudioPlugin,
     core::TaskPoolThreadAssignmentPolicy,
@@ -20,21 +20,21 @@ use bevy::{
     winit::WinitPlugin,
 };
 use bevy_framepace::Limiter;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use debug::dump_schedules_system_graph;
+use clap::Parser;
 use dway_client_core::{
     layout::{LayoutRect, LayoutStyle},
     workspace::{Workspace, WorkspaceBundle},
 };
 use dway_server::{
     schedule::DWayServerSet,
-    state::{DWayServer, TokioTasksRuntime, WaylandDisplayCreated},
+    state::{DWayServer, WaylandDisplayCreated},
     x11::DWayXWaylandReady,
 };
 use dway_tty::DWayTTYPlugin;
 use dway_util::{eventloop::EventLoopPlugin, logger::DWayLogPlugin};
 use keys::*;
 use opttions::DWayOption;
+use std::{process, time::Duration};
 
 const LOG: &str = "\
 bevy_ecs=info,\
@@ -54,6 +54,7 @@ dway_server::xdg=info,\
 nega::front=info,\
 naga=warn,\
 wgpu=warn,\
+naga_oil=trace,\
 ";
 
 fn main() {
@@ -62,55 +63,68 @@ fn main() {
     app.insert_resource(opts.clone());
     app.insert_resource(ClearColor(Color::NONE));
 
-    app.add_plugins((
-        DWayLogPlugin {
+    let mut default_plugins = DefaultPlugins.build();
+
+    #[cfg(feature = "single_thread")]
+    {
+        let thread_pool_config = TaskPoolThreadAssignmentPolicy {
+            min_threads: 1,
+            max_threads: 1,
+            percent: 1.0,
+        };
+        default_plugins = default_plugins.set(TaskPoolPlugin {
+            task_pool_options: TaskPoolOptions {
+                min_total_threads: 1,
+                max_total_threads: 1,
+                io: thread_pool_config.clone(),
+                async_compute: thread_pool_config.clone(),
+                compute: thread_pool_config.clone(),
+            },
+        });
+    }
+
+    #[cfg(feature = "dway_log")]
+    {
+        default_plugins = default_plugins.disable::<LogPlugin>().add(DWayLogPlugin {
             level: Level::INFO,
             filter: std::env::var("RUST_LOG").unwrap_or_else(|_| LOG.to_string()),
-        },
-        DefaultPlugins
-            .build()
-            // .set(TaskPoolPlugin {
-            //     task_pool_options: TaskPoolOptions {
-            //         min_total_threads: 1,
-            //         max_total_threads: 1,
-            //         io: THREAD_POOL_CONFIG,
-            //         async_compute: THREAD_POOL_CONFIG,
-            //         compute: THREAD_POOL_CONFIG,
-            //     },
-            // })
-            .disable::<LogPlugin>()
-            .disable::<PbrPlugin>()
-            .disable::<GizmoPlugin>()
-            .disable::<GltfPlugin>()
-            .disable::<ScenePlugin>()
-            .disable::<WinitPlugin>()
-            .disable::<AudioPlugin>()
-            // .disable::<UiPlugin>()
-            // .disable::<TextPlugin>()
-            .disable::<GilrsPlugin>()
-        // .disable::<RenderPlugin>()
-        // .disable::<CorePipelinePlugin>()
-        // .disable::<SpritePlugin>()
-    ));
+        });
+    }
+
+    #[cfg(feature = "debug")]
+    {
+        default_plugins =
+            default_plugins.add(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
+    }
+
+    default_plugins = default_plugins
+        .disable::<PbrPlugin>()
+        .disable::<GizmoPlugin>()
+        .disable::<GltfPlugin>()
+        .disable::<ScenePlugin>()
+        .disable::<WinitPlugin>()
+        .disable::<AudioPlugin>()
+        .disable::<GilrsPlugin>();
+
+    app.add_plugins(default_plugins);
 
     if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
         app.add_plugins((DWayTTYPlugin::default(),));
     } else {
         // app.insert_resource(WinitSettings::desktop_app());
-        // app.insert_resource(WinitSettings {
-        //     focused_mode: UpdateMode::Reactive {
-        //         max_wait: Duration::from_secs_f32(1.0),
-        //     },
-        //     unfocused_mode: UpdateMode::Reactive {
-        //         max_wait: Duration::from_secs_f32(1.0),
-        //     },
-        //     ..Default::default()
-        // });
+        app.insert_resource(bevy::winit::WinitSettings {
+            focused_mode: bevy::winit::UpdateMode::Reactive {
+                wait: Duration::from_secs_f32(1.0),
+            },
+            unfocused_mode: bevy::winit::UpdateMode::Reactive {
+                wait: Duration::from_secs_f32(1.0),
+            },
+            ..Default::default()
+        });
         app.add_plugins((
+            WinitPlugin::default(),
             EventLoopPlugin::default(),
-            WinitPlugin,
             bevy_framepace::FramepacePlugin,
-            WorldInspectorPlugin::new(),
         ));
         app.insert_resource(
             bevy_framepace::FramepaceSettings::default()
@@ -148,14 +162,15 @@ fn main() {
     );
     app.add_systems(Update, (wm_mouse_action, wm_keys));
 
+    #[cfg(feature = "debug")]
     if opts.debug_schedule {
-        if let Err(e) = dump_schedules_system_graph(&mut app) {
+        debug::print_resources(&mut app.world);
+        if let Err(e) = debug::dump_schedules_system_graph(&mut app) {
             error!("failed to dump system graph: {e}");
         }
     }
-    app.run();
 
-    // wayland_thread.join().unwrap();
+    app.run();
 }
 
 pub fn setup(mut commands: Commands) {
@@ -178,14 +193,13 @@ pub fn setup(mut commands: Commands) {
 pub fn spawn(
     mut events: EventReader<WaylandDisplayCreated>,
     query: Query<&DWayServer, Added<DWayServer>>,
-    tokio: Res<TokioTasksRuntime>,
 ) {
     for WaylandDisplayCreated(dway_entity, _) in events.iter() {
         if let Ok(compositor) = query.get(*dway_entity) {
             // for i in 0..8 {
             //     let mut command = process::Command::new("gedit");
             //     command.arg("--new-window");
-            //     compositor.spawn_process(command, &tokio);
+            //     compositor.spawn_process(command);
             // }
 
             for command in [
@@ -204,7 +218,7 @@ pub fn spawn(
                 "/home/wangzi/.build/5e0dff7f0473a25a4eb0bbaeeda9b3fa091ba89-wgpu/debug/examples/cube",
                 "alacritty",
             ]{
-                compositor.spawn_process(process::Command::new(command), &tokio);
+                compositor.spawn_process(process::Command::new(command));
             }
 
             // let mut command = process::Command::new("alacritty");
@@ -217,20 +231,16 @@ pub fn spawn(
             // let mut command = process::Command::new("/mnt/weed/mount/wangzi-nuc/wangzi/workspace/waylandcompositor/GTK-Demo-Examples/guidemo/00_hello_world_classic/hello_world_classic");
             // let mut command =
             //     process::Command::new("/home/wangzi/Code/winit/target/debug/examples/window_debug");
-            // compositor.spawn_process(command, &tokio);
+            // compositor.spawn_process(command);
         }
     }
 }
-pub fn spawn_x11(
-    query: Query<&DWayServer>,
-    tokio: Res<TokioTasksRuntime>,
-    mut events: EventReader<DWayXWaylandReady>,
-) {
+pub fn spawn_x11(query: Query<&DWayServer>, mut events: EventReader<DWayXWaylandReady>) {
     for DWayXWaylandReady { dway_entity } in events.iter() {
         if let Ok(compositor) = query.get(*dway_entity) {
-            // compositor.spawn_process(process::Command::new("glxgears"), &tokio);
-            // compositor.spawn_process_x11(process::Command::new("/mnt/weed/mount/wangzi-nuc/wangzi/workspace/waylandcompositor/source/gtk+-3.24.37/build/examples/sunny"), &tokio);
-            // compositor.spawn_process_x11(process::Command::new("gnome-system-monitor"), &tokio);
+            // compositor.spawn_process(process::Command::new("glxgears"));
+            // compositor.spawn_process_x11(process::Command::new("/mnt/weed/mount/wangzi-nuc/wangzi/workspace/waylandcompositor/source/gtk+-3.24.37/build/examples/sunny"));
+            // compositor.spawn_process_x11(process::Command::new("gnome-system-monitor"));
         }
     }
 }

@@ -1,8 +1,7 @@
 use crate::{prelude::*, state::add_global_dispatch, util::unwrap_wl_enum};
 
-#[derive(Component, Reflect)]
+#[derive(Component)]
 pub struct Decoration {
-    #[reflect(ignore, default = "unimplemented")]
     pub raw: zxdg_toplevel_decoration_v1::ZxdgToplevelDecorationV1,
     pub mode: Option<zxdg_toplevel_decoration_v1::Mode>,
 }

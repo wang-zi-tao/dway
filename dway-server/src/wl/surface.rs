@@ -133,8 +133,7 @@ impl WlSurface {
             ..default()
         };
         image.resize(image_size);
-        let assets = assets.set(self.image.clone(), image);
-        assert_eq!(self.image, assets);
+        assets.insert(self.image.clone(), image);
         debug!(resource=%self.raw.id(),"resize image to {:?}", size);
         self.size = Some(size);
         self.commited

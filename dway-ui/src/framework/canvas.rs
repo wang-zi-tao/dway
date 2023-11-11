@@ -50,6 +50,10 @@ impl UiCanvas {
         painter.set_translation(render_command.transform().translation);
         painter.pipeline = ShapePipelineType::Shape2d;
     }
+
+    pub fn set_image(&mut self, image: Handle<Image>) {
+        self.image = image;
+    }
 }
 
 #[derive(Resource)]
@@ -60,7 +64,7 @@ pub struct UiCanvasRenderArea {
 }
 impl UiCanvasRenderArea {
     pub fn alloc(&mut self, size: Vec2) -> Rect {
-        let alloc_size = size * 1.5;
+        let alloc_size = size * 16.0;
         self.alloc_count += 1;
         if self.line_to_alloc.max.x + alloc_size.x < self.rect.max.x {
             self.line_to_alloc.max = Vec2::new(
@@ -101,8 +105,8 @@ const DEFAULT_CANVAS_RENDER_AREA_BEGIN: IVec2 = IVec2::new(
 const DEFAULT_CANVAS_RENDER_AREA: IRect = IRect {
     min: DEFAULT_CANVAS_RENDER_AREA_BEGIN,
     max: IVec2::new(
-        DEFAULT_CANVAS_RENDER_AREA_BEGIN.x + 4096,
-        DEFAULT_CANVAS_RENDER_AREA_BEGIN.y + 4096,
+        DEFAULT_CANVAS_RENDER_AREA_BEGIN.x + 65536,
+        DEFAULT_CANVAS_RENDER_AREA_BEGIN.y + 65536,
     ),
 };
 impl Default for UiCanvasRenderArea {
@@ -116,6 +120,7 @@ impl Default for UiCanvasRenderArea {
 pub struct UiCanvasRenderCommand {
     camera: Entity,
     transform: Transform,
+    continue_rending: bool,
 }
 
 impl UiCanvasRenderCommand {
@@ -125,6 +130,10 @@ impl UiCanvasRenderCommand {
 
     pub fn transform(&self) -> Transform {
         self.transform
+    }
+
+    pub fn continue_rending(&mut self) {
+        self.continue_rending = true;
     }
 }
 
@@ -164,7 +173,6 @@ pub fn prepare_render_command(
                                 | TextureUsages::RENDER_ATTACHMENT,
                             view_formats: &[],
                         },
-                        sampler_descriptor: ImageSampler::Default,
                         ..default()
                     };
                     image.resize(size);
@@ -211,7 +219,7 @@ pub fn prepare_render_command(
                                 ..default()
                             },
                             camera_2d: Camera2d {
-                                clear_color: ClearColorConfig::Custom(Color::BLACK.with_a(0.0)),
+                                clear_color: ClearColorConfig::Custom(Color::NONE),
                             },
                             projection,
                             frustum,
@@ -224,6 +232,7 @@ pub fn prepare_render_command(
                 commands.entity(entity).insert(UiCanvasRenderCommand {
                     camera: camera_entity,
                     transform,
+                    continue_rending: false,
                 });
             }
         };
@@ -245,14 +254,17 @@ pub struct UiCanvasBundle {
 }
 
 pub fn cleanup_render_command(
-    mut render_stub_query: Query<(Entity, &UiCanvasRenderCommand, &mut UiImage)>,
+    mut render_stub_query: Query<(Entity, &mut UiCanvasRenderCommand, &mut UiImage)>,
     mut render_area: ResMut<UiCanvasRenderArea>,
     mut commands: Commands,
 ) {
-    render_stub_query.for_each_mut(|(e, rendercommand, mut image)| {
+    render_stub_query.for_each_mut(|(e, mut rendercommand, mut image)| {
         image.set_changed();
-        commands.entity(rendercommand.camera).despawn();
-        commands.entity(e).remove::<UiCanvasRenderCommand>();
+        if !rendercommand.continue_rending {
+            commands.entity(rendercommand.camera).despawn();
+            commands.entity(e).remove::<UiCanvasRenderCommand>();
+        }else{
+            rendercommand.continue_rending = false;
+        }
     });
-    // render_area.clear();
 }

@@ -7,7 +7,7 @@ use bevy::{
         world::EntityMut,
     },
     prelude::{
-        debug, despawn_with_children_recursive, BuildWorldChildren, Children, Entity, World,
+        debug, despawn_with_children_recursive, BuildWorldChildren, Children, Entity, World, EntityWorldMut,
     },
     utils::HashMap,
 };
@@ -40,7 +40,7 @@ where
     R::To: ConnectableMut + Default,
 {
     fn apply(self, world: &mut World) {
-        fn get_sender(entity_mut: &mut EntityMut, entity: Entity) -> ConnectionEventSender {
+        fn get_sender(entity_mut: &mut EntityWorldMut, entity: Entity) -> ConnectionEventSender {
             entity_mut.world_scope(|world| {
                 world
                     .non_send_resource::<ConnectionEventReceiver>()
