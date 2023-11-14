@@ -25,7 +25,7 @@ Clock
         Text=(Text::from_section(
             &state.text,
             TextStyle {
-                font_size: 40.0,
+                font_size: 24.0,
                 color: Color::WHITE,
                 ..default()
             },

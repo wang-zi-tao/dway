@@ -60,6 +60,15 @@ impl<'l> DomState<'l> {
         );
         ident
     }
+    pub fn add_ui_state_parent_field(&mut self, dom: &Dom) -> Ident {
+        let id = self.get_dom_id(dom, false);
+        let ident = format_ident!("node_{}_entity_parent", id, span = id.span());
+        self.widget_fields.insert(
+            ident.to_string(),
+            (quote!(#ident: Entity), quote!(#ident: Entity::PLACEHOLDER)),
+        );
+        ident
+    }
     pub fn add_ui_state_map_field(&mut self, dom: &Dom, key_type: &TokenStream2) -> Ident {
         let id = self.get_dom_id(dom, false);
         let ident = format_ident!("node_{}_entity_map", id, span = id.span());
@@ -118,13 +127,126 @@ struct Dom {
     end_tag: Option<TagEnd>,
 }
 impl Dom {
+    pub fn generate_spawn(&self) -> TokenStream2 {
+        let mut bundle_state = BlockState::default();
+        if let Bundle::Expr { expr, .. } = &self.bundle {
+            parse_expr(expr, &mut bundle_state);
+        }
+        let if_instruction = if let Some(DomArg::Instruction(
+            _,
+            DomInstruction::If {
+                expr: condition, ..
+            },
+        )) = self.args.args.get("@if")
+        {
+            Some(condition)
+        } else {
+            None
+        };
+        let for_instruction =
+            if let Some(DomArg::Instruction(_, DomInstruction::For { pat, expr, .. })) =
+                self.args.args.get("@for")
+            {
+                Some((pat, expr))
+            } else {
+                None
+            };
+
+        let pawn_stat = {
+            let expr = &self.bundle;
+            let init_expr = self
+                .args
+                .args
+                .iter()
+                .filter_map(|(_, arg)| {
+                    if let DomArg::Component {
+                        expr, component, ..
+                    } = arg
+                    {
+                        Some(quote!({ let component: #component = #expr; component }))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+            let mut spawn = match expr {
+                Bundle::Expr {
+                    expr: Expr::Tuple(inner),
+                    ..
+                } if inner.elems.is_empty() => {
+                    quote!(commands.spawn_empty())
+                }
+                expr => {
+                    quote!(commands.spawn(#expr))
+                }
+            };
+            if !init_expr.is_empty() {
+                spawn = quote!(#spawn.insert((#(#init_expr),*)));
+            }
+            spawn
+        };
+
+        let mut stats = if let Some((patten, iterator)) = for_instruction {
+            let mut update_or_init_children_stat = None;
+            {
+                for child in self.children.iter().flat_map(|c| c.list.iter()) {
+                    if update_or_init_children_stat.is_some() {
+                        panic!("node with `for` instruction can only has one child");
+                    }
+                    update_or_init_children_stat = Some(child.generate_spawn());
+                }
+            }
+            quote_spanned! {self._lt0.span()=>
+                (#pawn_stat).with_children(|commands|{
+                    for (index,#patten) in Iterator::enumerate(#iterator) {
+                        #update_or_init_children_stat;
+                    }
+                });
+            }
+        } else {
+            let mut spawn_children_stat = vec![];
+            for child in self.children.iter().flat_map(|c| c.list.iter()) {
+                let update_or_init_child = child.generate_spawn();
+                spawn_children_stat.push(update_or_init_child);
+            }
+            quote! {
+                (#pawn_stat).with_children(|commands|{
+                    #(#spawn_children_stat)*
+                });
+            }
+        };
+
+        if let Some(condition_expr) = if_instruction {
+            stats = quote! {
+                if #condition_expr {
+                    #stats
+                }
+            };
+        };
+
+        stats
+    }
+
+    pub fn entity_parent_expr(&self, dom_state: &mut DomState) -> Option<TokenStream2> {
+        if let Some(DomArg::Instruction(_, DomInstruction::If { .. })) = self.args.args.get("@if") {
+            let ident = dom_state.add_ui_state_parent_field(&self);
+            Some(quote!(widget.#ident))
+        } else {
+            None
+        }
+    }
+
     pub fn generate(&self, output: &mut DomState) -> TokenStream2 {
         let mut bundle_state = BlockState::default();
         if let Bundle::Expr { expr, .. } = &self.bundle {
             parse_expr(expr, &mut bundle_state);
         }
-        let if_instruction = if let Some(DomArg::Instruction(_, DomInstruction::If(_, condition))) =
-            self.args.args.get("@if")
+        let if_instruction = if let Some(DomArg::Instruction(
+            _,
+            DomInstruction::If {
+                expr: condition, ..
+            },
+        )) = self.args.args.get("@if")
         {
             Some(condition)
         } else {
@@ -250,34 +372,10 @@ impl Dom {
                 dom_entity_field.get_or_insert_with(|| output.add_ui_state_field(self));
 
             let spawn_condition =
-                quote!(not_inited && widget.#dom_entity_field == Entity::PLACEHOLDER);
+                quote!(not_inited || widget.#dom_entity_field == Entity::PLACEHOLDER);
             let despawn_state = generate_despawn(quote!(widget.#dom_entity_field));
 
-            let update_or_init_stat = quote! {
-                match (enable_widget,not_inited) {
-                    (true,true) => {
-                        let node_entity: Entity = {
-                            #init_entity_expr
-                        };
-                        widget.#dom_entity_field = node_entity;
-                        node_entity
-                    },
-                    (true,false) => {
-                        let node_entity: Entity = widget.#dom_entity_field;
-                        #update_stats;
-                        Entity::PLACEHOLDER
-                    }
-                    (false,false) => {
-                        #despawn_state
-                        widget.#dom_entity_field = Entity::PLACEHOLDER;
-                        Entity::PLACEHOLDER
-                    }
-                    _=>{
-                        Entity::PLACEHOLDER
-                    }
-                }
-            };
-            let update_condition = if_instruction.as_ref().map(|if_condition| {
+            let calculate_enable_widget = if_instruction.as_ref().map(|if_condition| {
                 let condition_expr = if_condition;
                 let mut condition_block_state = BlockState::default();
                 let condition_update_expr = condition_block_state.generate_condition();
@@ -291,23 +389,42 @@ impl Dom {
                 })
             });
             quote! {
-                {
-                    let not_inited = #spawn_condition;
-                    #update_condition
-                    #update_or_init_stat
-                }
+                let not_inited = #spawn_condition;
+                #calculate_enable_widget
+                let node_entity = match (enable_widget,not_inited) {
+                    (true,true) => {
+                        let node_entity: Entity = {
+                            #init_entity_expr
+                        };
+                        widget.#dom_entity_field = node_entity;
+                        node_entity
+                    },
+                    (true,false) => {
+                        let node_entity: Entity = widget.#dom_entity_field;
+                        #update_stats
+                        Entity::PLACEHOLDER
+                    }
+                    (false,false) => {
+                        #despawn_state
+                        widget.#dom_entity_field = Entity::PLACEHOLDER;
+                        Entity::PLACEHOLDER
+                    }
+                    _=>{
+                        Entity::PLACEHOLDER
+                    }
+                };
             }
         } else {
             quote! {
-                if not_inited && enable_widget {
+                let node_entity = if not_inited && enable_widget {
                     #init_entity_expr
                 } else {
                     Entity::PLACEHOLDER
-                }
+                };
             }
         };
 
-        let stats = if let Some((patten, iterator)) = for_instruction {
+        if let Some((patten, iterator)) = for_instruction {
             let dom_entity_field =
                 dom_entity_field.get_or_insert_with(|| output.add_ui_state_field(self));
             let (sub_widget_query, sub_widget_type) = output.add_loop_state_query(self);
@@ -341,7 +458,7 @@ impl Dom {
                 output.items.push(quote! {
                     #[allow(non_snake_case)]
                     #[allow(unused_variables)]
-                    #[derive(Component)]
+                    #[derive(Component, Debug, Reflect)]
                     pub struct #sub_widget_type {
                         #(#sub_widget_field_decl),*
                     }
@@ -356,7 +473,7 @@ impl Dom {
             }
             quote_spanned! {self._lt0.span()=>
                 {
-                    let node_entity = #update_or_init_stat;
+                    #update_or_init_stat
                     let children_map = &mut widget.#dom_entity_map_field;
                     let mut new_children_map = bevy::utils::HashMap::<#key_type, Entity>::new();
                     let mut children = Vec::new();
@@ -404,23 +521,34 @@ impl Dom {
             let mut update_or_init_children_stat = vec![];
             for child in self.children.iter().flat_map(|c| c.list.iter()) {
                 let update_or_init_child = child.generate(output);
+                let node_parent_entity = child.entity_parent_expr(output);
+                let node_entity_expr = node_parent_entity
+                    .as_ref()
+                    .cloned()
+                    .unwrap_or_else(|| quote!(node_entity));
+                let update_parent_entity = node_parent_entity.as_ref().map(|parent| {
+                    quote! {
+                        if node_entity != Entity::PLACEHOLDER {
+                            #parent = node_entity;
+                        }
+                    }
+                });
                 update_or_init_children_stat.push(quote! {
+                    #update_parent_entity
                     let child_entity = #update_or_init_child;
                     if child_entity != Entity::PLACEHOLDER {
-                        commands.entity(child_entity).set_parent(node_entity);
+                        commands.entity(child_entity).set_parent(#node_entity_expr);
                     }
                 });
             }
             quote! {
                 {
-                    let node_entity = #update_or_init_stat;
+                    #update_or_init_stat
                     #(#update_or_init_children_stat)*
                     node_entity
                 }
             }
-        };
-
-        stats
+        }
     }
 }
 
@@ -443,7 +571,7 @@ impl syn::parse::Parse for DomArguments {
             let mut arg: DomArg = input.parse()?;
             let name = match &arg {
                 DomArg::Component { component, .. } => quote!(#component).to_string(),
-                DomArg::Instruction(_, DomInstruction::If(..)) => "@if".to_string(),
+                DomArg::Instruction(_, DomInstruction::If { .. }) => "@if".to_string(),
                 DomArg::Instruction(_, DomInstruction::Style(..)) => "Style".to_string(),
                 DomArg::Instruction(_, DomInstruction::Id(..)) => "@id".to_string(),
                 DomArg::Instruction(_, DomInstruction::For { .. }) => "@for".to_string(),
@@ -475,7 +603,11 @@ enum DomArg {
     Instruction(Token![@], DomInstruction),
 }
 enum DomInstruction {
-    If(Token![if], Expr),
+    If {
+        _if: Token![if],
+        _wrap: Paren,
+        expr: Expr,
+    },
     Id(Ident, Token![=], LitStr),
     Style(Ident, Token![=], LitStr),
     For {
@@ -496,7 +628,12 @@ enum DomInstruction {
 impl syn::parse::Parse for DomInstruction {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.peek(Token![if]) {
-            Ok(Self::If(input.parse()?, input.parse()?))
+            let content;
+            Ok(Self::If {
+                _if: input.parse()?,
+                _wrap: parenthesized!(content in input),
+                expr: content.parse()?,
+            })
         } else if input.peek(Token![for]) {
             let content;
             Ok(Self::For {
@@ -765,10 +902,10 @@ fn parse_expr(expr: &Expr, output: &mut BlockState) {
         }
         Expr::Macro(i) => {
             if i.mac.path.is_ident("state") {
-                output.use_state(&syn::parse2::<Ident>(i.mac.tokens.clone()).unwrap());
+                // output.use_state(&syn::parse2::<Ident>(i.mac.tokens.clone()).unwrap());
             } else {
-                parse_expr_tokens(&i.mac.tokens, output);
             }
+                parse_expr_tokens(&i.mac.tokens, output);
         }
         Expr::Match(i) => {
             parse_expr(&i.expr, output);
@@ -841,6 +978,46 @@ fn parse_block(block: &Block, output: &mut BlockState) {
     for stmt in &block.stmts {
         parse_stmt(stmt, output);
     }
+}
+
+#[derive(Parse)]
+struct SpawnDomInput {
+    pub commands: Expr,
+    split: Token![=>],
+    pub dom: Dom,
+}
+
+#[proc_macro]
+pub fn spawn(input: TokenStream) -> TokenStream {
+    let SpawnDomInput {
+        commands,
+        split,
+        dom,
+    } = parse_macro_input!(input as SpawnDomInput);
+    let stats = dom.generate_spawn();
+    TokenStream::from(quote_spanned!(split.span()=> {
+        let commands = #commands;
+        #stats
+    }))
+}
+
+fn parse_color_str(input:&str) ->Option<[u8;4]>{
+    let re = regex_macro::regex!("#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})?");
+    let cap = re.captures(input)?;
+    let r = u8::from_str_radix(cap.get(1)?.as_str(), 16).ok()?;
+    let g = u8::from_str_radix(cap.get(2)?.as_str(), 16).ok()?;
+    let b = u8::from_str_radix(cap.get(3)?.as_str(), 16).ok()?;
+    let a = cap.get(4).and_then(|f|u8::from_str_radix(f.as_str(), 16).ok()).unwrap_or(0xff);
+    Some([r,g,b,a])
+}
+
+#[proc_macro]
+pub fn color(input: TokenStream) -> TokenStream {
+    let lit = parse_macro_input!(input as LitStr);
+    let Some([r,g,b,a]) = parse_color_str(&lit.value()) else{
+        return TokenStream::from(quote_spanned!(lit.span()=> compile_error!("failed to parse color")));
+    };
+    TokenStream::from(quote_spanned!(lit.span()=> Color::rgba_u8(#r,#g,#b,#a)))
 }
 
 #[proc_macro]
@@ -942,7 +1119,8 @@ pub fn dway_widget(input: TokenStream) -> TokenStream {
         }
     }
     let mut items = Vec::new();
-    let this_query: Vec<TokenStream2> = Vec::new();
+    let mut this_query: Vec<TokenStream2> = Vec::new();
+    let mut this_query_var: Vec<TokenStream2> = Vec::new();
     let mut widget_fields: HashMap<String, (TokenStream2, TokenStream2)> = HashMap::new();
     let mut declares: Vec<TokenStream2> = Vec::new();
     let mut run_stage: Vec<TokenStream2> = Vec::new();
@@ -981,6 +1159,9 @@ pub fn dway_widget(input: TokenStream) -> TokenStream {
                         if reference.mutability.is_some() {
                             state_changed_expr = quote!(#name.is_changed());
                         }
+                        declares.push(quote! {let mut #state_name = false;});
+                        this_query.push(quote!(#ty));
+                        this_query_var.push(quote!(mut #name));
                     }
                     Type::Path(path) => {
                         let segments = &path.path.segments;
@@ -1079,7 +1260,9 @@ pub fn dway_widget(input: TokenStream) -> TokenStream {
             let not_inited = !widget.inited;
             let enable_widget = true;
             if #conditions {
-                let ui_entity = #update_or_init_stat;
+                let ui_entity = {
+                    #update_or_init_stat
+                };
                 if ui_entity != Entity::PLACEHOLDER {
                     commands.entity(ui_entity).set_parent(this_entity);
                 }
@@ -1158,7 +1341,7 @@ pub fn dway_widget(input: TokenStream) -> TokenStream {
         #[allow(non_snake_case)]
         #[allow(unused_variables)]
         pub fn #function_name(mut this_query: Query<(Entity, Ref<#prop_type>, &mut #state_component, &mut #widget_component, #(#this_query),*)>, mut commands: Commands, #(#function_args),*) {
-            for (this_entity, prop, mut state, mut widget) in this_query.iter_mut() {
+            for (this_entity, prop, mut state, mut widget, #(#this_query_var),*) in this_query.iter_mut() {
                 let update_all = prop.is_changed();
                 #(#declares)*
                 #(#run_stage)*

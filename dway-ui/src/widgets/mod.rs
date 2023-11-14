@@ -1,6 +1,7 @@
 pub mod clock;
-pub mod popup;
+pub mod popupwindow;
 pub mod window;
+pub mod popup;
 
 pub mod windowlist;
 pub mod workspacelist;
@@ -17,8 +18,9 @@ impl Plugin for DWayWidgetsPlugin {
             render::DWayUiMaterialPlugin,
             clock::ClockUiPlugin,
             window::WindowUIPlugin,
-            popup::PopupUIPlugin,
+            popupwindow::PopupWindowUIPlugin,
             applist::AppListUIPlugin,
+            popup::PopupUiPlugin,
         ));
     }
 }

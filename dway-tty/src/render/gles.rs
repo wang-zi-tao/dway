@@ -7,7 +7,7 @@ use glow::{HasContext, NativeRenderbuffer};
 use khronos_egl::{EGLClientBuffer, EGLContext, EGLDisplay, Enum, Boolean, Int};
 use tracing::debug;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
-use wgpu_hal::gles::{Device, Texture};
+use wgpu_hal::gles::{Device, Texture, AdapterContextLock};
 use crate::{drm::{connectors::Connector, surface::DrmSurface, DrmDevice}, gbm::buffer::{GbmBuffer, RenderImage}};
 use super::{RenderCache, TtyRenderState};
 use wgpu_hal::{api::Gles, MemoryFlags, TextureUses};
@@ -294,7 +294,7 @@ pub fn create_framebuffer_texture(
 ) -> Result<Texture> {
     unsafe {
         let egl_context = hal_device.context();
-        let gl: &glow::Context = &egl_context.lock();
+        let gl: &AdapterContextLock<'_> = &egl_context.lock();
         let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> = egl_context
             .egl_instance()
             .ok_or_else(|| anyhow!("gpu backend is not egl"))?;
@@ -314,7 +314,7 @@ pub fn create_framebuffer_texture(
             RenderCache::Gles(g) => g,
         };
 
-        let renderbuffer = do_create_renderbuffer(gl, buffer, egl_display.as_ptr(), functions)?;
+        let renderbuffer = do_create_renderbuffer(&gl, buffer, egl_display.as_ptr(), functions)?;
         buffer.render_image = RenderImage::Gl(RenderBuffer { renderbuffer });
 
         let hal_texture = hal_device.texture_from_raw_renderbuffer(

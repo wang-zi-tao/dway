@@ -22,10 +22,22 @@ rand = "0.8"
 chrono = "0.4.23"
 crossbeam-channel = "0.5.6"
 lru = "0.10.0"
-glow = "0.12.1"
 nix = "0.26.2"
 serde = "1.0.158"
 khronos-egl = { version="4.1",features= ["dynamic","static"] }
 
 [patch.crates-io]
 bevy = { git = "https://github.com/bevyengine/bevy", branch = "main" }
+bevy_core = { git = "https://github.com/bevyengine/bevy", branch = "main" }
+bevy_app = { git = "https://github.com/bevyengine/bevy", branch = "main" }
+bevy_utils = { git = "https://github.com/bevyengine/bevy", branch = "main" }
+bevy_asset = { git = "https://github.com/bevyengine/bevy", branch = "main" }
+bevy_core_pipeline = { git = "https://github.com/bevyengine/bevy", branch = "main" }
+bevy_derive = { git = "https://github.com/bevyengine/bevy", branch = "main" }
+bevy_ecs = { git = "https://github.com/bevyengine/bevy", branch = "main" }
+bevy_math = { git = "https://github.com/bevyengine/bevy", branch = "main" }
+bevy_reflect = { git = "https://github.com/bevyengine/bevy", branch = "main" }
+bevy_render = { git = "https://github.com/bevyengine/bevy", branch = "main" }
+bevy_transform = { git = "https://github.com/bevyengine/bevy", branch = "main" }
+bevy_window = { git = "https://github.com/bevyengine/bevy", branch = "main" }
+bevy_hierarchy = { git = "https://github.com/bevyengine/bevy", branch = "main" }

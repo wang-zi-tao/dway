@@ -1,11 +1,29 @@
+pub mod button;
 pub mod canvas;
+pub mod evnet;
 pub mod icon;
 pub mod svg;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, ui::FocusPolicy, ecs::system::SystemId};
 pub use bevy_svg::SvgPlugin;
 use bevy_vector_shapes::{Shape2dPlugin, ShapePlugin};
 use dway_util::UtilPlugin;
+
+#[derive(Component, Default)]
+pub struct Callback(pub Option<SystemId>);
+
+#[derive(Bundle, Default)]
+pub struct MiniNodeBundle {
+    pub node: Node,
+    pub style: Style,
+    pub focus_policy: FocusPolicy,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    pub visibility: Visibility,
+    pub inherited_visibility: InheritedVisibility,
+    pub view_visibility: ViewVisibility,
+    pub z_index: ZIndex,
+}
 
 pub struct UiFrameworkPlugin;
 impl Plugin for UiFrameworkPlugin {
@@ -20,6 +38,7 @@ impl Plugin for UiFrameworkPlugin {
                 (canvas::prepare_render_command, apply_deferred)
                     .chain()
                     .in_set(canvas::UiCanvasSystems::Prepare),
+                (button::process_ui_button_event),
                 svg::uisvg_render.after(canvas::UiCanvasSystems::Prepare),
             ),
         );
@@ -29,6 +48,7 @@ impl Plugin for UiFrameworkPlugin {
         if !app.is_plugin_added::<ShapePlugin>() {
             app.add_plugins(Shape2dPlugin::default());
         }
+        app.add_event::<button::UiButtonEvent>();
         app.add_plugins(UtilPlugin);
         app.register_type::<canvas::UiCanvas>();
         app.register_type::<svg::UiSvg>();

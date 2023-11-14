@@ -27,7 +27,7 @@ pub struct UiCircleSettings {
 
 impl UiMaterial for UiCircleMaterial {
     fn fragment_shader() -> bevy::render::render_resource::ShaderRef {
-        "embedded://dway_ui/render/circle.wgsl".into()
+        "embedded://dway_ui/render/shapes/circle.wgsl".into()
     }
 }
 
@@ -59,7 +59,7 @@ pub struct RoundedUiRectSettings {
 
 impl UiMaterial for RoundedUiRectMaterial {
     fn fragment_shader() -> bevy::render::render_resource::ShaderRef {
-        "embedded://dway_ui/render/rounded_uirect.wgsl".into()
+        "embedded://dway_ui/render/shapes/rounded_uirect.wgsl".into()
     }
 }
 
@@ -123,22 +123,43 @@ impl RoundedUiImageMaterial {
 
 impl UiMaterial for RoundedUiImageMaterial {
     fn fragment_shader() -> bevy::render::render_resource::ShaderRef {
-        "embedded://dway_ui/render/rounded_uiimage.wgsl".into()
+        "embedded://dway_ui/render/shapes/rounded_uiimage.wgsl".into()
+    }
+}
+
+#[derive(Debug, Clone, Default, ShaderType, Reflect)]
+pub struct KwawaseRoundedRectMaterialSetting{
+    pub size: Vec2,
+    pub corner: f32,
+}
+#[derive(AsBindGroup, Asset, Reflect, Debug, Clone)]
+#[reflect(Debug)]
+pub struct KwawaseRoundedRectMaterial {
+    #[uniform(0)]
+    pub settings: KwawaseRoundedRectMaterialSetting,
+    #[texture(1)]
+    #[sampler(2)]
+    pub image: Handle<Image>,
+}
+impl UiMaterial for KwawaseRoundedRectMaterial {
+    fn fragment_shader() -> bevy::render::render_resource::ShaderRef {
+        "embedded://dway_ui/render/blur/kawase.wgsl".into()
     }
 }
 
 const SHAPES_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(121183247875205365928133316463072513415u128);
 
-use bevy::asset::*;
+pub type RounndedRectBundle = MaterialNodeBundle<RoundedUiRectMaterial>;
 
 pub struct DWayUiMaterialPlugin;
 impl Plugin for DWayUiMaterialPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, SHAPES_HANDLE, "shapes.wgsl", Shader::from_wgsl);
-        embedded_asset!(app, "rounded_uirect.wgsl");
-        embedded_asset!(app, "rounded_uiimage.wgsl");
-        embedded_asset!(app, "circle.wgsl");
+        load_internal_asset!(app, SHAPES_HANDLE, "shapes/shapes.wgsl", Shader::from_wgsl);
+        embedded_asset!(app, "shapes/rounded_uirect.wgsl");
+        embedded_asset!(app, "shapes/rounded_uiimage.wgsl");
+        embedded_asset!(app, "shapes/circle.wgsl");
+        embedded_asset!(app, "blur/kawase.wgsl");
         app.add_plugins(UiMaterialPlugin::<RoundedUiRectMaterial>::default())
             .add_plugins(UiMaterialPlugin::<RoundedUiImageMaterial>::default())
             .add_plugins(UiMaterialPlugin::<UiCircleMaterial>::default())

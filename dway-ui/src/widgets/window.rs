@@ -7,16 +7,25 @@ use dway_server::{
     xdg::{toplevel::DWayToplevel, DWayWindow},
 };
 
-use crate::{
-    framework::svg::UiSvgBundle,
-    prelude::*,
-};
 use crate::util::irect_to_style;
+use crate::{framework::svg::UiSvgBundle, prelude::*};
 
 pub const WINDEOW_BASE_ZINDEX: i32 = 128;
 pub const WINDEOW_MAX_STEP: i32 = 16;
 pub const DECORATION_HEIGHT: f32 = 24.0;
 pub const DECORATION_MARGIN: f32 = 2.0;
+
+pub fn create_window_material(surface: &WlSurface, geo: &GlobalGeometry) -> RoundedUiImageMaterial {
+    let rect = geo.geometry;
+    let bbox_rect = surface.image_rect().offset(rect.pos());
+    RoundedUiImageMaterial::new(
+        rect.size().as_vec2(),
+        16.0,
+        (bbox_rect.min - rect.min).as_vec2(),
+        bbox_rect.size().as_vec2(),
+        surface.image.clone(),
+    )
+}
 
 #[derive(Component, Reflect, Debug)]
 pub struct WindowUI {
@@ -81,7 +90,7 @@ WindowUI(
         Style=(irect_to_style(state.rect))
         Handle<RoundedUiImageMaterial>=(image_materials.add(RoundedUiImageMaterial::new(
             state.rect.size().as_vec2(),
-            16.0,
+            14.0,
             ( state.bbox_rect.min-state.rect.min ).as_vec2(),
             state.bbox_rect.size().as_vec2(),
             state.image.clone())))

@@ -6,7 +6,6 @@ pub mod opttions;
 
 use bevy::{
     audio::AudioPlugin,
-    core::TaskPoolThreadAssignmentPolicy,
     diagnostic::{
         EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
         SystemInformationDiagnosticsPlugin,
@@ -67,7 +66,7 @@ fn main() {
 
     #[cfg(feature = "single_thread")]
     {
-        let thread_pool_config = TaskPoolThreadAssignmentPolicy {
+        let thread_pool_config = bevy::core::TaskPoolThreadAssignmentPolicy {
             min_threads: 1,
             max_threads: 1,
             percent: 1.0,
@@ -196,11 +195,11 @@ pub fn spawn(
 ) {
     for WaylandDisplayCreated(dway_entity, _) in events.iter() {
         if let Ok(compositor) = query.get(*dway_entity) {
-            // for i in 0..8 {
-            //     let mut command = process::Command::new("gedit");
-            //     command.arg("--new-window");
-            //     compositor.spawn_process(command);
-            // }
+            for i in 0..3 {
+                let mut command = process::Command::new("gedit");
+                command.arg("--new-window");
+                compositor.spawn_process(command);
+            }
 
             for command in [
                 "gnome-system-monitor",

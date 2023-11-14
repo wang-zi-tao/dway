@@ -1,88 +1,108 @@
-use bevy::utils::HashSet;
-use dway_client_core::navigation::windowstack::WindowStack;
-use dway_server::{
-    geometry::GlobalGeometry,
-    util::rect::IRect,
-    wl::surface::WlSurface,
-    xdg::{popup::XdgPopup, toplevel::DWayToplevel, DWayWindow},
-};
+use bevy::{ecs::system::SystemId, ui::FocusPolicy};
 
-use crate::{prelude::*, util::irect_to_style};
+use crate::{framework::button::UiButton, prelude::*};
 
-use super::window::{WINDEOW_BASE_ZINDEX, WINDEOW_MAX_STEP};
-
-#[derive(Component, Reflect, Debug)]
-pub struct PopupUI {
-    window_entity: Entity,
+#[derive(Debug, Clone, Copy, Reflect, Default, PartialEq, Eq)]
+pub enum PopupState {
+    #[default]
+    Open,
+    Closed,
 }
 
-dway_widget! {
-PopupUI(
-    window_query: Query<(Ref<GlobalGeometry>, Ref<WlSurface>), With<DWayWindow>>,
-)
-#[derive(Reflect,Default)]{
-    image: Handle<Image>,
-    rect: IRect,
-    bbox_rect: IRect,
-} =>
-{
-    if let Ok((rect,surface)) = window_query.get(prop.window_entity){
-        if rect.is_changed(){
-            update_state!(rect = rect.geometry);
-        }
-        if rect.is_changed() || surface.is_changed() {
-            update_state!(bbox_rect = surface.image_rect().offset(rect.pos()));
-        }
-        if surface.is_changed(){
-            update_state!(image = surface.image.clone());
-        }
-    }
-}
-<ImageBundle UiImage=(UiImage::new(state.image.clone())) Style=(irect_to_style(state.bbox_rect))>
-    <NodeBundle Style=(irect_to_style(state.rect))/>
-</ImageBundle>
+#[derive(Debug, Clone, Copy, Reflect, Default, PartialEq, Eq)]
+pub enum PopupClosePolicy {
+    #[default]
+    MouseButton,
+    MouseLeave,
+    None,
 }
 
-pub fn attach_popup(
+#[derive(Default, Clone, Copy, Reflect, Debug)]
+pub enum PopupPosition {
+    Up,
+    #[default]
+    Down,
+    Left,
+    Right,
+}
+
+pub enum PopupEvent {
+    Opened,
+    Closed,
+}
+
+#[derive(Component, Reflect, Default, Clone, Debug)]
+pub struct UiPopup {
+    pub close_policy: PopupClosePolicy,
+    #[reflect(ignore)]
+    pub callback: Option<SystemId>,
+    pub state: PopupState,
+    pub position: PopupPosition,
+    pub moveable: bool,
+    pub hovered: bool,
+    pub anchor: Option<Entity>,
+}
+
+pub fn auto_close_popup(
+    mut popup_query: Query<(&mut UiPopup, &Interaction)>,
+    mouse: Res<Input<MouseButton>>,
     mut commands: Commands,
-    mut ui_query: Query<(Entity, &mut PopupUI, &mut ZIndex)>,
-    mut popup_query: Query<(Entity, &XdgPopup), (Added<DWayWindow>, Without<DWayToplevel>)>,
-    mut destroy_window_events: RemovedComponents<DWayWindow>,
-    window_stack: Res<WindowStack>,
 ) {
-    let destroyed_windows: HashSet<_> = destroy_window_events.iter().collect();
-    ui_query.for_each_mut(|(entity, ui, ..)| {
-        if destroyed_windows.contains(&ui.window_entity) {
-            commands.entity(entity).despawn_recursive();
+    let mouse_down =
+        || mouse.any_just_pressed([MouseButton::Left, MouseButton::Middle, MouseButton::Right]);
+    popup_query.for_each_mut(|(mut popup, button_state)| {
+        let mut run_callback = false;
+        match popup.close_policy {
+            PopupClosePolicy::MouseLeave => match button_state {
+                Interaction::Pressed => {}
+                Interaction::Hovered => {
+                    popup.hovered = true;
+                }
+                Interaction::None => {
+                    if popup.hovered || button_state == &Interaction::None && mouse_down() {
+                        popup.state = PopupState::Closed;
+                        run_callback = true;
+                    }
+                }
+            },
+            PopupClosePolicy::MouseButton => {
+                if button_state == &Interaction::None && mouse_down() {
+                    popup.state = PopupState::Closed;
+                    run_callback = true;
+                }
+            }
+            PopupClosePolicy::None => {}
         }
-    });
-    popup_query.for_each(|(entity, popup)| {
-        commands.spawn(PopupUIBundle {
-            node: NodeBundle {
-                style: style!("absolute"),
-                z_index: ZIndex::Global(
-                    WINDEOW_BASE_ZINDEX
-                        + WINDEOW_MAX_STEP
-                            * (window_stack.list.len() as isize + popup.level) as i32,
-                ),
-                ..NodeBundle::default()
-            },
-            prop: PopupUI {
-                window_entity: entity,
-            },
-            state: PopupUIState::default(),
-            widget: PopupUIWidget::default(),
-        });
+        if run_callback {
+            if let Some(callback) = popup.callback {
+                commands.run_system(callback);
+            }
+        }
     });
 }
 
-pub struct PopupUIPlugin;
-impl Plugin for PopupUIPlugin {
+#[derive(Bundle, Default)]
+pub struct UiPopupBundle {
+    pub popup: UiPopup,
+
+    pub button: UiButton,
+    pub interaction: Interaction,
+
+    pub node: Node,
+    pub style: Style,
+    pub focus_policy: FocusPolicy,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    pub visibility: Visibility,
+    pub inherited_visibility: InheritedVisibility,
+    pub view_visibility: ViewVisibility,
+    pub z_index: ZIndex,
+}
+
+pub struct PopupUiPlugin;
+impl Plugin for PopupUiPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<PopupUI>();
-        app.register_type::<PopupUIWidget>();
-        app.register_type::<PopupUIState>();
-        app.add_systems(Update, popupui_render.in_set(PopupUISystems::Render));
-        app.add_systems(Update, attach_popup);
+        app.register_type::<UiPopup>()
+            .add_systems(Update, auto_close_popup);
     }
 }

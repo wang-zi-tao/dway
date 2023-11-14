@@ -63,7 +63,6 @@ pub fn uisvg_render(
             ));
             match asset_server.load_state(&ui_svg.svg) {
                 LoadState::Loading => {
-                    dbg!(&ui_svg);
                     render_command.continue_rending();
                 }
                 _ => {

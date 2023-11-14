@@ -9,19 +9,25 @@ use dway_server::apps::{
 
 use crate::{
     framework::icon::UiIcon,
+    popups::app_window_preview::{AppWindowPreviewPopupSystems, OpenAppWindowPreviewPopup},
     prelude::*,
 };
+
+use super::popup::UiPopup;
 
 #[derive(Component, Reflect)]
 pub struct AppEntryUI(pub Entity);
 dway_widget! {
 AppEntryUI(
     mut app_query: Query<(Ref<WindowList>,Option<&mut Icon>)>,
+    button_query: Query<&Interaction>,
     mut assets_server: ResMut<AssetServer>,
     mut icon_loader: ResMut<IconLoader>,
     mut svg_assets: ResMut<Assets<Svg>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
     mut material_set: ResMut<Assets<RoundedUiRectMaterial>>,
+    mut focused_window: ResMut<FocusedWindow>,
+    mut open_popup_event: EventWriter<OpenAppWindowPreviewPopup>,
 )#[derive(Default,Reflect)]{
     pub count: usize,
     pub icon: IconResorce,
@@ -35,22 +41,37 @@ AppEntryUI(
         }
         update_state!(count = window_list.len());
     }
+    if focused_window.is_changed() {
+        update_state!(is_focused = focused_window.app_entity == Some(prop.0));
+    }
 }
-(focused_window:Res<FocusedWindow>){
-    update_state!(is_focused = focused_window.app_entity == Some(prop.0));
+{
+    if button_query.get(node!(button)).map(|e|*e==Interaction::Pressed).unwrap_or_default() {
+        if state!(count) == &1 {
+            if let Ok(window_list) = app_query.get_component::<WindowList>(prop.0){
+                 if let Some(window) = window_list.iter().next() {
+                    focused_window.window_entity = Some(window);
+                    focused_window.app_entity = Some(prop.0);
+                    set_state!(is_focused = true);
+                 }
+            }
+        }
+        open_popup_event.send(OpenAppWindowPreviewPopup {
+            app_entity: prop.0,
+            anchor: node!(root),
+        });
+    }
 }
-<MaterialNodeBundle::<RoundedUiRectMaterial> @style="w-full h-full flex-col absolute"
-        Handle<RoundedUiRectMaterial>=(material_set.add(RoundedUiRectMaterial::new(Color::WHITE.with_a(0.4), 10.0))) >
-    <ImageBundle @style="w-full h-full" UiIcon=(state.icon.clone().into())/>
-    <NodeBundle Style=(Style{
-        bottom:Val::Px(0.0),
-        width:Val::Percent(((state.count as f32)/4.0).min(1.0)*80.0),
-        height:Val::Px(2.0),
-        position_type:PositionType::Absolute,
-        align_self:AlignSelf::Center,
-        ..default()})
-        BackgroundColor=((if state.is_focused {Color::BLUE} else {Color::WHITE} ).into())
-    />
+<RounndedRectBundle @id="root" @style="full absolute"
+        Handle<_>=(material_set.add(RoundedUiRectMaterial::new(Color::WHITE.with_a(0.4), 10.0))) >
+    <ButtonBundle BackgroundColor=(Color::NONE.into()) @id="button" @style="absolute full flex-col" >
+        <ImageBundle @style="w-full h-full" UiIcon=(state.icon.clone().into())/>
+        <NodeBundle Style=(Style{
+                width:Val::Percent(((state.count as f32)/4.0).min(1.0)*80.0),
+            ..style!("absolute bottom-0 h-2 align-center")})
+            BackgroundColor=((if state.is_focused {Color::BLUE} else {Color::WHITE} ).into())
+        />
+    </ButtonBundle>
 </NodeBundle>
 }
 
@@ -93,7 +114,9 @@ impl Plugin for AppListUIPlugin {
         app.add_systems(
             Update,
             (
-                applistui_render.in_set(AppListUISystems::Render),
+                applistui_render
+                    .in_set(AppListUISystems::Render)
+                    .before(AppWindowPreviewPopupSystems::Render),
                 appentryui_render.in_set(AppEntryUISystems::Render),
             ),
         );
