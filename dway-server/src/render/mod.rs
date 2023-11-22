@@ -9,6 +9,7 @@ use bevy::{
     render::{
         render_asset::prepare_assets,
         render_graph::{RenderGraph, RunGraphOnViewNode},
+        renderer::RenderDevice,
         Render, RenderApp, RenderSet,
     },
 };

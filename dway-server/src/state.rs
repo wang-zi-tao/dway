@@ -17,14 +17,15 @@ use bevy::{
         system::Command,
     },
     prelude::DespawnRecursiveExt,
-    utils::{tracing, HashMap}, tasks::IoTaskPool,
+    tasks::IoTaskPool,
+    utils::{tracing, HashMap},
 };
 use bevy_relationship::{
     reexport::SmallVec, ConnectCommand, ConnectableMut, DisconnectAllCommand, DisconnectCommand,
     Relationship, ReserveRelationship, ReverseRelationship,
 };
 use dway_util::eventloop::{EventLoop, Generic, Interest, Mode};
-use futures::{io::BufReader, AsyncBufReadExt, StreamExt, FutureExt};
+use futures::{io::BufReader, AsyncBufReadExt, FutureExt, StreamExt};
 use wayland_backend::server::{ClientId, ObjectId};
 use wayland_server::{DataInit, ListeningSocket, New};
 
@@ -83,16 +84,22 @@ pub struct DWayServer {
 }
 
 impl DWayServer {
-    pub fn new(config: &DWayServerConfig, entity: Entity, eventloop: &mut EventLoop) -> Self {
+    pub fn new(
+        config: &DWayServerConfig,
+        entity: Entity,
+        eventloop: Option<&mut EventLoop>,
+    ) -> Self {
         let mut display = wayland_server::Display::<DWay>::new().unwrap();
-        let _ = eventloop.add(
-            Generic::new(
-                display.backend().poll_fd().as_raw_fd(),
-                Interest::READ,
-                Mode::Level,
-            ),
-            |_, _| {},
-        );
+        if let Some(eventloop) = eventloop {
+            let _ = eventloop.add(
+                Generic::new(
+                    display.backend().poll_fd().as_raw_fd(),
+                    Interest::READ,
+                    Mode::Level,
+                ),
+                |_, _| {},
+            );
+        }
         let socket = ListeningSocket::bind_auto("wayland", 1..33).unwrap();
         info!("create wayland server {:?}", &socket.socket_name().unwrap());
         let handle = display.handle();
@@ -173,74 +180,80 @@ impl DWayServer {
     }
     fn do_spawn_process(&self, mut command: process::Command) {
         command.envs(&self.envs);
-        IoTaskPool::get().spawn(async {
-            let program = command.get_program().to_string_lossy();
-            let program = String::from(
-                Path::new(&*program)
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy(),
-            );
-            let mut command: async_process::Command = command.into();
-            command.stdout(Stdio::piped());
-            command.stderr(Stdio::piped());
-    
-            let mut subprocess = match command.spawn() {
-                Ok(subprocess) => subprocess,
-                Err(error) => {
-                    error!(%error,?command,"failed to spawn process");
-                    return;
-                }
-            };
-            let mut stdout = BufReader::new(subprocess.stdout.take().unwrap()).lines().fuse();
-            let mut stderr = BufReader::new(subprocess.stderr.take().unwrap()).lines().fuse();
-    
-            let id = subprocess.id();
-            info!("spawn process ({program}) [{id:?}]");
-            loop {
-                futures::select! {
-                    state=subprocess.status().fuse()=>{
-                        match state{
-                            Ok(o) => {
-                                info!("process ({program}) [{id:?}] exited with status: {o}");
-                            },
-                            Err(error) => {
-                                error!(%error);
-                            },
-                        }
-                        break;
-                    }
-                    line=stdout.next()=>{
-                        match line {
-                            Some(Ok(line))=>{
-                                tracing::event!(
-                                    target:"subprocess",
-                                    tracing::Level::INFO,
-                                    {},
-                                    "({program}) [{id:?}] | {}",
-                                    line
-                                );
-                            }
-                            _=>{}
-                        };
-                    }
-                    line=stderr.next()=>{
-                        match line {
-                            Some(Ok(line))=>{
-                                tracing::event!(
-                                    target:"subprocess",
-                                    tracing::Level::INFO,
-                                    {},
-                                    "({program}) [{id:?}] | {}",
-                                    line
-                                );
-                            }
-                            _=>{}
-                        };
+        IoTaskPool::get()
+            .spawn(async {
+                let program = command.get_program().to_string_lossy();
+                let program = String::from(
+                    Path::new(&*program)
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy(),
+                );
+                let mut command: async_process::Command = command.into();
+                command.stdout(Stdio::piped());
+                command.stderr(Stdio::piped());
+
+                let mut subprocess = match command.spawn() {
+                    Ok(subprocess) => subprocess,
+                    Err(error) => {
+                        error!(%error,?command,"failed to spawn process");
+                        return;
                     }
                 };
-            };
-        }).detach();
+                let mut stdout = BufReader::new(subprocess.stdout.take().unwrap())
+                    .lines()
+                    .fuse();
+                let mut stderr = BufReader::new(subprocess.stderr.take().unwrap())
+                    .lines()
+                    .fuse();
+
+                let id = subprocess.id();
+                info!("spawn process ({program}) [{id:?}]");
+                loop {
+                    futures::select! {
+                        state=subprocess.status().fuse()=>{
+                            match state{
+                                Ok(o) => {
+                                    info!("process ({program}) [{id:?}] exited with status: {o}");
+                                },
+                                Err(error) => {
+                                    error!(%error);
+                                },
+                            }
+                            break;
+                        }
+                        line=stdout.next()=>{
+                            match line {
+                                Some(Ok(line))=>{
+                                    tracing::event!(
+                                        target:"subprocess",
+                                        tracing::Level::INFO,
+                                        {},
+                                        "({program}) [{id:?}] | {}",
+                                        line
+                                    );
+                                }
+                                _=>{}
+                            };
+                        }
+                        line=stderr.next()=>{
+                            match line {
+                                Some(Ok(line))=>{
+                                    tracing::event!(
+                                        target:"subprocess",
+                                        tracing::Level::INFO,
+                                        {},
+                                        "({program}) [{id:?}] | {}",
+                                        line
+                                    );
+                                }
+                                _=>{}
+                            };
+                        }
+                    };
+                }
+            })
+            .detach();
     }
 }
 
@@ -645,10 +658,15 @@ pub fn on_create_display_event(
     mut commands: Commands,
     mut event_sender: EventWriter<WaylandDisplayCreated>,
     config: Res<DWayServerConfig>,
-    mut event_loop: NonSendMut<EventLoop>,
+    mut event_loop: Option<NonSendMut<EventLoop>>,
 ) {
-    for _event in events.iter() {
-        create_display(&mut commands, &config, &mut event_sender, &mut event_loop);
+    for _event in events.read() {
+        create_display(
+            &mut commands,
+            &config,
+            &mut event_sender,
+            event_loop.as_mut().map(|r| &mut **r),
+        );
     }
 }
 
@@ -656,7 +674,7 @@ pub fn create_display(
     commands: &mut Commands,
     config: &DWayServerConfig,
     event_sender: &mut EventWriter<WaylandDisplayCreated>,
-    event_loop: &mut EventLoop,
+    event_loop: Option<&mut EventLoop>,
 ) -> Entity {
     let mut entity_command = commands.spawn_empty();
     let entity = entity_command.id();

@@ -71,7 +71,12 @@ pub fn init_display(
     mut commands: Commands,
     mut event_sender: EventWriter<WaylandDisplayCreated>,
     config: Res<DWayServerConfig>,
-    mut event_loop: NonSendMut<EventLoop>,
+    mut event_loop: Option<NonSendMut<EventLoop>>,
 ) {
-    create_display(&mut commands, &config, &mut event_sender, &mut event_loop);
+    create_display(
+        &mut commands,
+        &config,
+        &mut event_sender,
+        event_loop.as_mut().map(|r| &mut **r),
+    );
 }

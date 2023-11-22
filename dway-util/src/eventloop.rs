@@ -8,7 +8,6 @@ use std::{
     sync::mpsc,
     time::{Duration, Instant, SystemTime},
 };
-use winit::event_loop::EventLoopProxy;
 
 pub type Register = Box<dyn FnOnce(&mut calloop::LoopHandle<'static, ()>) + Send + Sync>;
 

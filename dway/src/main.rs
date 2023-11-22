@@ -35,6 +35,7 @@ use keys::*;
 use opttions::DWayOption;
 use std::{process, time::Duration};
 
+const LOG_LEVEL: Level = Level::TRACE;
 const LOG: &str = "\
 bevy_ecs=info,\
 bevy_render=debug,\
@@ -52,8 +53,8 @@ dway_server::xdg::popup=debug,\
 dway_server::xdg=info,\
 nega::front=info,\
 naga=warn,\
-wgpu=warn,\
-naga_oil=trace,\
+wgpu=trace,\
+wgpu-hal=trace
 ";
 
 fn main() {
@@ -85,7 +86,7 @@ fn main() {
     #[cfg(feature = "dway_log")]
     {
         default_plugins = default_plugins.disable::<LogPlugin>().add(DWayLogPlugin {
-            level: Level::INFO,
+            level: LOG_LEVEL,
             filter: std::env::var("RUST_LOG").unwrap_or_else(|_| LOG.to_string()),
         });
     }
@@ -110,7 +111,6 @@ fn main() {
     if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
         app.add_plugins((DWayTTYPlugin::default(),));
     } else {
-        // app.insert_resource(WinitSettings::desktop_app());
         app.insert_resource(bevy::winit::WinitSettings {
             focused_mode: bevy::winit::UpdateMode::Reactive {
                 wait: Duration::from_secs_f32(1.0),
@@ -120,15 +120,20 @@ fn main() {
             },
             ..Default::default()
         });
-        app.add_plugins((
-            WinitPlugin::default(),
-            EventLoopPlugin::default(),
-            bevy_framepace::FramepacePlugin,
-        ));
+        app.insert_resource(bevy::winit::WinitSettings {
+            focused_mode: bevy::winit::UpdateMode::Continuous,
+            unfocused_mode: bevy::winit::UpdateMode::Continuous,
+            ..Default::default()
+        });
+        app.add_plugins((WinitPlugin::default(), bevy_framepace::FramepacePlugin));
         app.insert_resource(
             bevy_framepace::FramepaceSettings::default()
-                .with_limiter(Limiter::from_framerate(60.0)),
+                .with_limiter(Limiter::from_framerate(1000.0)),
         );
+        #[cfg(feature = "debug")]
+        {
+            app.add_plugins(EventLoopPlugin::default());
+        }
     }
 
     app.add_plugins((
@@ -136,7 +141,7 @@ fn main() {
         FrameTimeDiagnosticsPlugin,
         SystemInformationDiagnosticsPlugin,
         LogDiagnosticsPlugin {
-            wait_duration: Duration::from_secs(32),
+            wait_duration: Duration::from_secs(8),
             ..Default::default()
         },
     ));
@@ -159,7 +164,7 @@ fn main() {
                 .in_set(DWayServerSet::UpdateXWayland),
         ),
     );
-    app.add_systems(Update, (wm_mouse_action, wm_keys));
+    app.add_systems(Update, (wm_mouse_action, wm_keys, update));
 
     #[cfg(feature = "debug")]
     if opts.debug_schedule {
@@ -242,4 +247,8 @@ pub fn spawn_x11(query: Query<&DWayServer>, mut events: EventReader<DWayXWayland
             // compositor.spawn_process_x11(process::Command::new("gnome-system-monitor"));
         }
     }
+}
+
+pub fn update(query:Query<&Window>){
+    // info!("window count: {}",window_query.iter().count());
 }

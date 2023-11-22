@@ -32,7 +32,7 @@ pub fn launch_xwayland(
     mut display_query: Query<&mut DWayServer>,
     mut events: EventReader<WaylandDisplayCreated>,
     client_events: Res<ClientEvents>,
-    mut eventloop: NonSendMut<EventLoop>,
+    mut eventloop: Option<NonSendMut<EventLoop>>,
     mut commands: Commands,
 ) {
     for WaylandDisplayCreated(entity, _) in events.iter() {
@@ -42,7 +42,7 @@ pub fn launch_xwayland(
                 *entity,
                 &mut commands,
                 &client_events,
-                &mut eventloop,
+                eventloop.as_mut().map(|r| &mut **r),
             ) {
                 error!(error=%e,"failed to launch xwayland");
             };

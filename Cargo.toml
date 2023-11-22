@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
-    "dway",
+    # "dway",
     "dway-client-core",
-    "dway-ui",
+    # "dway-ui",
     "dway-ui-derive",
     "dway-server",
     "dway-util",

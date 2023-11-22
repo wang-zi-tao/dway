@@ -80,7 +80,12 @@ pub fn convert_drm_format(
     })
 }
 
-pub const SUPPORTED_FORMATS: [DrmFourcc; 2] = [DrmFourcc::Argb8888, DrmFourcc::Xrgb8888];
+pub const SUPPORTED_FORMATS: [DrmFourcc; 4] = [
+    DrmFourcc::Argb8888,
+    DrmFourcc::Xrgb8888,
+    DrmFourcc::Abgr8888,
+    DrmFourcc::Xbgr8888,
+];
 
 pub fn drm_info(render_device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError> {
     unsafe {

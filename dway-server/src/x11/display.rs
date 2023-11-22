@@ -1,3 +1,6 @@
+use bevy::utils::{HashMap, HashSet};
+use dway_util::eventloop::EventLoop;
+use nix::{errno::Errno, sys::socket};
 use std::{
     io::{self, Read, Write},
     os::{
@@ -7,9 +10,6 @@ use std::{
     process::Child,
     sync::{Arc, Mutex, Weak},
 };
-use bevy::utils::{HashMap, HashSet};
-use dway_util::eventloop::EventLoop;
-use nix::{errno::Errno, sys::socket};
 pub use x11rb::protocol::xproto::Window as XWindowID;
 use x11rb::{
     connection::Connection,
@@ -90,15 +90,18 @@ impl XWaylandDisplay {
         dway_entity: Entity,
         commands: &mut Commands,
         events: &ClientEvents,
-        eventloop:&mut EventLoop,
+        eventloop: Option<&mut EventLoop>,
     ) -> Result<Entity> {
         let (display_number, streams) =
             Self::get_number().ok_or_else(|| anyhow!("failed to alloc dissplay number"))?;
         let (x11_socket, x11_stream) = UnixStream::pair()?;
         let (wayland_socket, wayland_client_stream) = UnixStream::pair()?;
 
-        eventloop.add_fd_to_read(&x11_socket);
-        eventloop.add_fd_to_read(&wayland_socket);
+        if let Some(eventloop) = eventloop {
+            eventloop.add_fd_to_read(&x11_socket);
+            eventloop.add_fd_to_read(&wayland_socket);
+        }
+
         let child = Self::spawn_xwayland(display_number, streams, x11_socket, wayland_socket)?;
         let (tx, rx) = crossbeam_channel::bounded(1024);
         dway_server.display_number = Some(display_number as usize);

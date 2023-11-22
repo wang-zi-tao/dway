@@ -1,4 +1,6 @@
-use bevy::utils::HashMap;
+use std::any::TypeId;
+
+use bevy::{ecs::system::SystemId, utils::HashMap};
 use bevy_svg::prelude::Svg;
 
 use crate::prelude::*;
@@ -22,7 +24,7 @@ pub mod iconname {
 }
 use classname::*;
 
-#[derive(Resource)]
+#[derive(Resource, Reflect, Default)]
 pub struct Theme {
     pub default_font: Handle<Font>,
     pub color_map: HashMap<String, Color>,
@@ -40,6 +42,11 @@ impl Theme {
     pub fn icon(&self, icon: &str) -> Handle<Svg> {
         self.icons.get(icon).cloned().unwrap_or_default()
     }
+}
+
+#[derive(Resource, Default)]
+pub struct SystemMap {
+    pub map: HashMap<(TypeId, String), SystemId>,
 }
 
 pub struct ThemePlugin;
@@ -86,6 +93,11 @@ impl Plugin for ThemePlugin {
             ]),
             style_map: HashMap::from([("popup".to_string(), style!("m-4"))]),
         };
-        app.insert_resource(theme);
+        let systems = SystemMap {
+            map: HashMap::from([]),
+        };
+        app.insert_resource(theme)
+            .insert_resource(systems)
+            .register_type::<Theme>();
     }
 }
