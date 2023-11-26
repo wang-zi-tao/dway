@@ -56,7 +56,7 @@ impl Plugin for DWayClientPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_state::<DWayClientState>();
         use DWayClientSystem::*;
-        app.configure_set(Startup, Init);
+        app.configure_sets(Startup, Init);
         app.configure_sets(
             PreUpdate,
             (

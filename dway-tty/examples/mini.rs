@@ -264,22 +264,22 @@ pub fn input_event_system(
     mut query: Query<&mut Transform, With<Mesh2dHandle>>,
     mut exit: EventWriter<AppExit>,
 ) {
-    for event in move_events.iter() {
+    for event in move_events.read() {
         dbg!(event);
         for mut transform in &mut query {
             transform.translation += Vec3::new(event.delta.x, event.delta.y, 0.0);
         }
     }
-    for event in whell_event.iter() {
+    for event in whell_event.read() {
         dbg!(event);
         for mut transform in &mut query {
             transform.scale += Vec3::new(event.x * 0.01, event.y * 0.01, 0.0);
         }
     }
-    for event in button_event.iter() {
+    for event in button_event.read() {
         dbg!(event);
     }
-    for event in keyboard_event.iter() {
+    for event in keyboard_event.read() {
         if event.key_code == Some(KeyCode::Escape) {
             exit.send(AppExit);
         }

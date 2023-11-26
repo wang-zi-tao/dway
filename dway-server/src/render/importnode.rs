@@ -116,13 +116,13 @@ pub fn extract_surface(
         debug!("extract wayland buffer: {buffer_entity:?}");
         state.image_set.insert(surface.image.clone_weak());
     }
-    for WaylandDisplayCreated(entity, display_handle) in create_events.iter() {
+    for WaylandDisplayCreated(entity, display_handle) in create_events.read() {
         wayland_map.map.insert(*entity, display_handle.clone());
     }
-    for WaylandDisplayDestroyed(entity, _display_handle) in destroy_events.iter() {
+    for WaylandDisplayDestroyed(entity, _display_handle) in destroy_events.read() {
         wayland_map.map.remove(entity);
     }
-    for event in image_events.iter() {
+    for event in image_events.read() {
         match event {
             AssetEvent::Removed { id } => state.removed_image.push(id.clone()),
             _ => {}

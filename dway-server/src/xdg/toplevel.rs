@@ -238,7 +238,7 @@ pub fn process_window_action_event(
     mut events: EventReader<WindowAction>,
     mut window_query: Query<(&mut XdgToplevel, &mut DWayToplevel, &XdgSurface), With<DWayWindow>>,
 ) {
-    for e in events.iter() {
+    for e in events.read() {
         match e {
             WindowAction::Close(e) => {
                 if let Ok((c, mut t, s)) = window_query.get_mut(*e) {

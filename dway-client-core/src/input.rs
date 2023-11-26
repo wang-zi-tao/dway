@@ -80,7 +80,7 @@ pub fn debug_follow_cursor(
     mut cursor_moved_events: EventReader<CursorMoved>,
     mut cursor: Query<&mut Style, With<DebugCursor>>,
 ) {
-    for event in cursor_moved_events.iter() {
+    for event in cursor_moved_events.read() {
         let mut cursor = cursor.single_mut();
         cursor.left = Val::Px(event.position.x);
         cursor.top = Val::Px(event.position.y);
@@ -104,7 +104,7 @@ pub fn keyboard_input_system(
     if keyboard_evens.is_empty() {
         return;
     }
-    for event in keyboard_evens.iter() {
+    for event in keyboard_evens.read() {
         keystate.key(event);
         if let Some(window) = output_focus.window_entity {
             graph.for_each_path_mut_from::<()>(
@@ -130,7 +130,7 @@ pub fn mouse_move_on_window(
     mut cursor_moved_events: EventReader<CursorMoved>,
     mut focus: ResMut<CursorOnOutput>,
 ) {
-    for event in cursor_moved_events.iter() {
+    for event in cursor_moved_events.read() {
         focus.0 = Some((event.window, event.position.as_ivec2()));
     }
 }
@@ -155,7 +155,7 @@ fn cursor_move_on_window(
     let Some((_output, pos)) = &cursor.0 else {
         return;
     };
-    for MouseMotion { delta: _ } in events.iter() {
+    for MouseMotion { delta: _ } in events.read() {
         for window in window_stack.list.iter() {
             if graph
                 .for_each_path_mut_from::<()>(
@@ -215,7 +215,7 @@ fn mouse_button_on_window(
         warn!("no cursor position data");
         return;
     };
-    for e in events.iter() {
+    for e in events.read() {
         if let Some((window, _)) = cursor_on_window.0.as_ref() {
             graph.for_each_path_mut_from::<()>(
                 *window,
@@ -263,7 +263,7 @@ fn mouse_wheel_on_window(
         warn!("no cursor position data");
         return;
     };
-    for e in events.iter() {
+    for e in events.read() {
         if let Some((window, _)) = cursor_on_window.0.as_ref() {
             graph.for_each_path_mut_from::<()>(
                 *window,

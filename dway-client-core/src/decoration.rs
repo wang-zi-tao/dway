@@ -29,7 +29,7 @@ pub fn add_decoration(
     mut frontend_query: Query<&WindowUiRoot, Added<WindowUiRoot>>,
     mut style_query: Query<(Entity, &mut Style)>,
 ) {
-    for CreateWindow(id) in events.iter() {
+    for CreateWindow(id) in events.read() {
         if let Some((entity, id, frontends, decoration)) = window_index.query(id, &surface_query) {
             if let Some(decoraration) = decoration {
                 for frontend_entity in frontends.iter() {

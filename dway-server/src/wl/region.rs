@@ -74,10 +74,10 @@ pub fn update_region_index(
     mut remove_event: EventReader<RectRemoveEvent>,
     mut remove_entity_event: EventReader<RectRemoveAllEvent>,
 ) {
-    for RectAddEvent(rect) in add_event.iter() {
+    for RectAddEvent(rect) in add_event.read() {
         index.rtree.insert(rect.clone());
     }
-    for RectRemoveEvent(rect) in remove_event.iter() {
+    for RectRemoveEvent(rect) in remove_event.read() {
         index.rtree.remove(&rect);
     }
     struct Selection(pub Entity);
@@ -93,7 +93,7 @@ pub fn update_region_index(
             leaf.entity == self.0
         }
     }
-    for RectRemoveAllEvent(entity) in remove_entity_event.iter() {
+    for RectRemoveAllEvent(entity) in remove_entity_event.read() {
         index
             .rtree
             .remove_with_selection_function(Selection(*entity));

@@ -471,7 +471,7 @@ pub fn process_window_action_events(
     mut events: EventReader<WindowAction>,
     mut query_graph: XWindowGraph,
 ) {
-    for event in events.iter() {
+    for event in events.read() {
         try_or! {
             {
                 match event {

@@ -101,7 +101,7 @@ pub fn on_grab_event(
     for GrabEvent {
         seat_entity,
         event_kind,
-    } in event.iter()
+    } in event.read()
     {
         if let Ok((pointer_list, mut seat, mut grab)) = seat_query.get_mut(*seat_entity) {
             match &mut *grab {

@@ -38,16 +38,16 @@ pub fn input_event_system(
     mut button_event: EventReader<MouseButtonInput>,
     mut keyboard_event: EventReader<KeyboardInput>,
 ) {
-    for event in move_events.iter() {
+    for event in move_events.read() {
         dbg!(event);
     }
-    for event in whell_event.iter() {
+    for event in whell_event.read() {
         dbg!(event);
     }
-    for event in button_event.iter() {
+    for event in button_event.read() {
         dbg!(event);
     }
-    for event in keyboard_event.iter() {
+    for event in keyboard_event.read() {
         dbg!(event);
     }
 }

@@ -128,7 +128,7 @@ fn main() {
         app.add_plugins((WinitPlugin::default(), bevy_framepace::FramepacePlugin));
         app.insert_resource(
             bevy_framepace::FramepaceSettings::default()
-                .with_limiter(Limiter::from_framerate(1000.0)),
+                .with_limiter(Limiter::from_framerate(60.0)),
         );
         #[cfg(feature = "debug")]
         {
@@ -141,7 +141,7 @@ fn main() {
         FrameTimeDiagnosticsPlugin,
         SystemInformationDiagnosticsPlugin,
         LogDiagnosticsPlugin {
-            wait_duration: Duration::from_secs(8),
+            wait_duration: Duration::from_secs(16),
             ..Default::default()
         },
     ));
@@ -198,7 +198,7 @@ pub fn spawn(
     mut events: EventReader<WaylandDisplayCreated>,
     query: Query<&DWayServer, Added<DWayServer>>,
 ) {
-    for WaylandDisplayCreated(dway_entity, _) in events.iter() {
+    for WaylandDisplayCreated(dway_entity, _) in events.read() {
         if let Ok(compositor) = query.get(*dway_entity) {
             for i in 0..3 {
                 let mut command = process::Command::new("gedit");
@@ -219,7 +219,7 @@ pub fn spawn(
                 "gnome-text-editor",
                 "gnome-tweaks",
                 "gnome-weather",
-                "/home/wangzi/.build/5e0dff7f0473a25a4eb0bbaeeda9b3fa091ba89-wgpu/debug/examples/cube",
+                // "/home/wangzi/.build/5e0dff7f0473a25a4eb0bbaeeda9b3fa091ba89-wgpu/debug/examples/cube",
                 "alacritty",
             ]{
                 compositor.spawn_process(process::Command::new(command));
@@ -240,7 +240,7 @@ pub fn spawn(
     }
 }
 pub fn spawn_x11(query: Query<&DWayServer>, mut events: EventReader<DWayXWaylandReady>) {
-    for DWayXWaylandReady { dway_entity } in events.iter() {
+    for DWayXWaylandReady { dway_entity } in events.read() {
         if let Ok(compositor) = query.get(*dway_entity) {
             // compositor.spawn_process(process::Command::new("glxgears"));
             // compositor.spawn_process_x11(process::Command::new("/mnt/weed/mount/wangzi-nuc/wangzi/workspace/waylandcompositor/source/gtk+-3.24.37/build/examples/sunny"));

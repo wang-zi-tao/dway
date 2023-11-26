@@ -794,7 +794,7 @@ pub fn recevie_drm_events(
                     trace!("drm event: Unknown({data:?})");
                 }
             }
-            events.send(DrmEvent { entity, event })
+            events.send(DrmEvent { entity, event });
         }
     });
 }

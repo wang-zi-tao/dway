@@ -33,7 +33,7 @@ impl Plugin for DWayUdevSchedulePlugin {
                 .chain()
                 .ambiguous_with_all(),
         );
-        app.configure_set(First, DWayTTYSet::LibinputSystem);
+        app.configure_sets(First, DWayTTYSet::LibinputSystem);
 
         let render_app = app.sub_app_mut(RenderApp);
         render_app.configure_sets(

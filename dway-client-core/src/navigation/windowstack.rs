@@ -84,11 +84,11 @@ pub fn update_window_index(
     mut removed_window_query: RemovedComponents<DWayWindow>,
     mut commands: Commands,
 ) {
-    removed_window_query.iter().for_each(|e| {
+    removed_window_query.read().for_each(|e| {
         stack.remove_entity(e);
     });
 
-    for event in events.iter() {
+    for event in events.read() {
         match event {
             SetWindowIndex::ToTop(e) => {
                 if stack.list.front() != Some(&e) {

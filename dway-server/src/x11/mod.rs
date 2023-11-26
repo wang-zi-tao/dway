@@ -35,7 +35,7 @@ pub fn launch_xwayland(
     mut eventloop: Option<NonSendMut<EventLoop>>,
     mut commands: Commands,
 ) {
-    for WaylandDisplayCreated(entity, _) in events.iter() {
+    for WaylandDisplayCreated(entity, _) in events.read() {
         if let Ok(mut dway_server) = display_query.get_mut(*entity) {
             if let Err(e) = XWaylandDisplay::spawn(
                 &mut dway_server,

@@ -44,7 +44,9 @@ impl Dispatch<wl_data_source::WlDataSource, Entity> for DWay {
             wl_data_source::Request::SetActions { dnd_actions } => match dnd_actions {
                 WEnum::Value(DndAction::Ask) => todo!(),
                 WEnum::Value(DndAction::None) => todo!(),
-                WEnum::Value(DndAction::Copy) => todo!(),
+                WEnum::Value(DndAction::Copy) => {
+                    warn!("TODO: Copy");
+                },
                 WEnum::Value(DndAction::Move) => todo!(),
                 _ => todo!(),
             },
