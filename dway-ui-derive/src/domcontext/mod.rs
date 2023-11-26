@@ -6,6 +6,7 @@ use crate::{
     dom::Dom,
     domarg::{control, DomArg, DomArgKey},
 };
+use convert_case::Casing;
 use derive_syn_parse::Parse;
 use proc_macro2::{Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
@@ -102,6 +103,11 @@ impl<'l> DomContext<'l> {
         }
     }
     pub fn wrap_dom_id(prefix: &str, ident: &Ident, suffix: &str) -> Ident {
-        format_ident!("{}{}{}", prefix, ident, suffix)
+        format_ident!(
+            "{}{}{}",
+            prefix,
+            ident.to_string().to_case(convert_case::Case::Snake),
+            suffix
+        )
     }
 }

@@ -4,7 +4,7 @@ use super::{DomArgKey, DomDecorator};
 
 #[derive(Parse)]
 pub struct UseState {
-    vis: Token![pub],
+    vis: Visibility,
     name: Ident,
     _col: Token![:],
     ty: Type,
@@ -12,7 +12,8 @@ pub struct UseState {
     #[parse_if(_eq.is_some())]
     init: Option<Expr>,
     _before_update: Option<Token![<=]>,
-    #[parse_if(_before_update.is_some())]
+    _before_update2: Option<Token![@]>,
+    #[parse_if(_before_update.is_some()||_before_update2.is_some())]
     check_change: Option<Expr>,
     _after_change: Option<Token![=>]>,
     #[parse_if(_after_change.is_some())]

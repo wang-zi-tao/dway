@@ -8,7 +8,7 @@ use dway_server::{
 };
 
 use crate::{
-    framework::button::{UiButton, UiButtonAddonBundle, UiButtonBundle, UiButtonEvent},
+    framework::button::{UiButton, UiButtonAddonBundle, UiButtonBundle, UiButtonEvent, UiButtonEventKind},
     util::irect_to_style,
 };
 use crate::{framework::svg::UiSvgBundle, prelude::*};
@@ -55,7 +55,6 @@ WindowUI=>
 @use_state(pub bbox_rect:IRect)
 @use_state(pub title:String)
 @use_state(pub image:Handle<Image>)
-@bundle({pub node: NodeBundle})
 @query(window_query:(rect,surface, toplevel)<-Query<(Ref<GlobalGeometry>, Ref<WlSurface>, Ref<DWayToplevel>), With<DWayWindow>>[prop.window_entity]->{
     let init = !widget.inited;
     if init || rect.is_changed(){
@@ -74,7 +73,12 @@ WindowUI=>
         mut events: EventWriter<WindowAction>,
     ) {
         let Ok(prop) = prop_query.get(event.receiver)else{return;};
-        events.send(WindowAction::Close(prop.window_entity));
+        match &event.kind{
+            UiButtonEventKind::Released=>{
+                events.send(WindowAction::Close(prop.window_entity));
+            }
+            _=>{}
+        }
     }
 }
 @callback{ [UiButtonEvent]
@@ -84,7 +88,12 @@ WindowUI=>
         mut events: EventWriter<WindowAction>,
     ) {
         let Ok(prop) = prop_query.get(event.receiver)else{return;};
-        events.send(WindowAction::Minimize(prop.window_entity));
+        match &event.kind{
+            UiButtonEventKind::Released=>{
+                events.send(WindowAction::Minimize(prop.window_entity));
+            }
+            _=>{}
+        }
     }
 }
 @callback{ [UiButtonEvent]
@@ -94,7 +103,12 @@ WindowUI=>
         mut events: EventWriter<WindowAction>,
     ) {
         let Ok(prop) = prop_query.get(event.receiver)else{return;};
-        events.send(WindowAction::Maximize(prop.window_entity));
+        match &event.kind{
+            UiButtonEventKind::Released=>{
+                events.send(WindowAction::Maximize(prop.window_entity));
+            }
+            _=>{}
+        }
     }
 }
 <NodeBundle @style="absolute" >
@@ -184,10 +198,7 @@ pub fn attach_window(
                 commands.spawn((
                     Name::from("WindowUI"),
                     WindowUIBundle {
-                        node: NodeBundle {
-                            style: style!("absolute"),
-                            ..NodeBundle::default()
-                        },
+                        style: style!("absolute"),
                         prop: WindowUI {
                             window_entity: *entity,
                             app_entry: Entity::PLACEHOLDER,

@@ -16,7 +16,6 @@ dway_ui_derive::dway_widget!(
 Clock=>
 @use_state{ pub text:String="".to_string() }
 @state_component{#[derive(Debug)]}
-@bundle{{pub node:MiniNodeBundle}}
 @before{
     let date = chrono::Local::now().naive_local();
     let date_string = date.format(&prop.format).to_string();

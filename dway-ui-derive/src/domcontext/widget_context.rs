@@ -187,14 +187,9 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                 #[dway_ui_derive::change_detact]
             });
             let mut widget_builder = ComponentBuilder::new(sub_widget_type.clone());
-            widget_builder
-                .attributes
-                .push(quote!(#[derive(Component, Reflect)]));
-            widget_builder.add_field_with_initer(
-                &format_ident!("inited"),
-                quote! {pub inited: bool},
-                quote! {false},
-            );
+            widget_builder.attributes.push(quote!(
+                #[derive(Component, Reflect, Debug)]
+            ));
             widget_builder.generate_init = true;
 
             std::mem::swap(&mut state_builder, &mut self.state_builder);
@@ -209,29 +204,22 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
 
             std::mem::swap(&mut state_builder, &mut self.state_builder);
             std::mem::swap(&mut widget_builder, &mut self.widget_builder);
+            let widget_name = &widget_builder.name;
+            self.plugin_builder.stmts.push(quote!{
+                app.register_type::<#widget_name>();
+            });
             self.plugin_builder.components.push(state_builder);
             self.plugin_builder.components.push(widget_builder);
 
             let ident = spawn_children.get(0).map(|f| f.0.clone());
             let spawn_children = spawn_children
                 .iter()
-                .map(|(key, value)| value)
+                .map(|(_key, value)| value)
                 .collect::<Vec<_>>();
-            let spawn_children = quote! {
-                let mut #lambda_var = |mut #ident, widget: &mut #sub_widget_type, state:&mut #sub_widget_state_type| {
-                    #(#spawn_children)*
-                    #ident
-                };
-                let #ident = if let Ok((mut widget,mut state)) = #sub_widget_query.get_mut(#entity_var) {
-                    #lambda_var(#ident, &mut widget, &mut state)
-                }else{
-                    let mut state = #sub_widget_state_type::default();
-                    let mut widget = #sub_widget_type::default();
-                    let #ident = #lambda_var(#ident, &mut widget, &mut state);
-                    commands.entity(#ident).insert((state,widget));
-                    #ident
-                };
+            let spawn_children = quote!{
+                #(#spawn_children)*
             };
+
             let mut context = WidgetNodeContext {
                 tree_context: self,
                 dom,
@@ -244,6 +232,22 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
             let spawn_children = dom.args.values().rev().fold(spawn_children, |stat, arg| {
                 arg.inner.wrap_sub_widget(stat, &mut context)
             });
+
+            let spawn_children = quote! {
+                let mut #lambda_var = |mut #ident, widget: &mut #sub_widget_type, state:&mut #sub_widget_state_type| {
+                    #spawn_children
+                    #ident
+                };
+                let #ident = if let Ok((mut widget,mut state)) = #sub_widget_query.get_mut(#ident) {
+                    #lambda_var(#ident, &mut widget, &mut state)
+                }else{
+                    let mut state = #sub_widget_state_type::default();
+                    let mut widget = #sub_widget_type::default();
+                    let #ident = #lambda_var(#ident, &mut widget, &mut state);
+                    commands.entity(#ident).insert((state,widget));
+                    #ident
+                };
+            };
             (ident, spawn_children)
         } else {
             let spawn_children = dom
@@ -342,10 +346,9 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
         #[dway_ui_derive::change_detact]
     });
 
-    context
-        .widget_builder
-        .attributes
-        .push(quote!(#[derive(Component, Reflect)]));
+    context.widget_builder.attributes.push(quote! {
+        #[derive(Component, Reflect)]
+    });
     context.widget_builder.add_field_with_initer(
         &format_ident!("inited"),
         quote! {pub inited: bool},
@@ -446,6 +449,7 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
     let this_query = world_query.values().map(|(_, ty)| ty);
     let this_query_var = world_query.values().map(|(pat, _)| pat);
     let system = quote! {
+        #[allow(non_snake_case)]
         pub fn #system_name(
             mut this_query: Query<(
                 Entity,

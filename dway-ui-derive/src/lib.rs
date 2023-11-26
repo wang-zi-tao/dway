@@ -99,8 +99,29 @@ pub fn change_detact(_attr: TokenStream, input:TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
-pub fn dway_widget(input: TokenStream) -> TokenStream {
+pub fn auto_expand(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as WidgetDeclare);
+    let plugin = domcontext::widget_context::generate(&input);
+    let output = quote!{
+        #plugin
+    };
+    TokenStream::from(output)
+}
+
+#[proc_macro]
+pub fn dway_widget(input: TokenStream) -> TokenStream {
+    let mut input = parse_macro_input!(input as WidgetDeclare);
+    input.args.push(parse_quote!(@bundle{{
+        pub node: Node,
+        pub style: Style,
+        pub focus_policy: bevy::ui::FocusPolicy,
+        pub transform: Transform,
+        pub global_transform: GlobalTransform,
+        pub visibility: Visibility,
+        pub inherited_visibility: InheritedVisibility,
+        pub view_visibility: ViewVisibility,
+        pub z_index: ZIndex,
+    }}));
     let plugin = domcontext::widget_context::generate(&input);
     let output = quote!{
         #plugin

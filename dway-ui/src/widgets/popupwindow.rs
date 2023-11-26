@@ -29,7 +29,6 @@ PopupUI=>
     app.register_type::<PopupUI>();
     app.add_systems(Update, attach_popup);
 }
-@bundle({pub node: NodeBundle})
 @use_state(pub rect:IRect)
 @use_state(pub bbox_rect:IRect)
 @use_state(pub image:Handle<Image>)
@@ -63,20 +62,16 @@ pub fn attach_popup(
         commands.spawn((
             Name::from("PopupUI"),
             PopupUIBundle {
-                node: NodeBundle {
-                    style: style!("absolute"),
-                    z_index: ZIndex::Global(
-                        WINDEOW_BASE_ZINDEX
-                            + WINDEOW_MAX_STEP
-                                * (window_stack.list.len() as isize + popup.level) as i32,
-                    ),
-                    ..NodeBundle::default()
-                },
+                style: style!("absolute"),
+                z_index: ZIndex::Global(
+                    WINDEOW_BASE_ZINDEX
+                        + WINDEOW_MAX_STEP
+                            * (window_stack.list.len() as isize + popup.level) as i32,
+                ),
                 prop: PopupUI {
                     window_entity: entity,
                 },
-                state: PopupUIState::default(),
-                widget: PopupUIWidget::default(),
+                ..default()
             },
         ));
     });

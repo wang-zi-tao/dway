@@ -2,7 +2,7 @@ use bevy::{ecs::system::SystemId, ui::FocusPolicy};
 
 use crate::prelude::*;
 
-#[derive(Event)]
+#[derive(Event, Debug, Clone, PartialEq, Eq)]
 pub enum UiButtonEventKind {
     Pressed,
     Released,
@@ -10,6 +10,7 @@ pub enum UiButtonEventKind {
     Leaved,
 }
 
+#[derive(Debug, Clone)]
 pub struct UiButtonEvent {
     pub kind: UiButtonEventKind,
     pub receiver: Entity,

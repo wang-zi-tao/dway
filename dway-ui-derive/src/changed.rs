@@ -62,17 +62,21 @@ pub fn generate_change_detect(structure: &ItemStruct) -> anyhow::Result<TokenStr
         let setter_name = format_ident!("set_{}", field_name, span = field_name.span());
         let changed_name = format_ident!("{}_is_changed", field_name, span = field_name.span());
         functions.push(quote_spanned! {field.span()=>
+            #[allow(dead_code)]
             #vis fn #getter_name(&self) -> & #ty {
                  &self.#field_name
             }
+            #[allow(dead_code)]
             #vis fn #get_mut_name(&mut self) -> &mut #ty {
                  self.__dway_changed_flags |= #bitflags_name::#bit_name;
                  &mut self.#field_name
             }
+            #[allow(dead_code)]
             #vis fn #setter_name(&mut self, value: #ty) {
                  self.__dway_changed_flags |= #bitflags_name::#bit_name;
                  self.#field_name = value;
             }
+            #[allow(dead_code)]
             #vis fn #changed_name(&self) -> bool {
                  self.__dway_changed_flags.contains(#bitflags_name::#bit_name)
             }

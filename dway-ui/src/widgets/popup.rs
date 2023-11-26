@@ -1,4 +1,5 @@
 use bevy::{ecs::system::SystemId, ui::FocusPolicy};
+use derive_builder::Builder;
 
 use crate::{framework::button::UiButton, prelude::*};
 
@@ -31,7 +32,7 @@ pub enum PopupEvent {
     Closed,
 }
 
-#[derive(Component, Reflect, Default, Clone, Debug)]
+#[derive(Component, Reflect, Default, Clone, Debug, Builder)]
 pub struct UiPopup {
     pub close_policy: PopupClosePolicy,
     #[reflect(ignore)]
@@ -40,17 +41,18 @@ pub struct UiPopup {
     pub position: PopupPosition,
     pub moveable: bool,
     pub hovered: bool,
+    pub auto_destroy: bool,
     pub anchor: Option<Entity>,
 }
 
 pub fn auto_close_popup(
-    mut popup_query: Query<(&mut UiPopup, &Interaction)>,
+    mut popup_query: Query<(Entity, &mut UiPopup, &Interaction)>,
     mouse: Res<Input<MouseButton>>,
     mut commands: Commands,
 ) {
     let mouse_down =
         || mouse.any_just_pressed([MouseButton::Left, MouseButton::Middle, MouseButton::Right]);
-    popup_query.for_each_mut(|(mut popup, button_state)| {
+    popup_query.for_each_mut(|(entity, mut popup, button_state)| {
         let mut run_callback = false;
         match popup.close_policy {
             PopupClosePolicy::MouseLeave => match button_state {
@@ -78,7 +80,26 @@ pub fn auto_close_popup(
                 commands.run_system(callback);
             }
         }
+        if popup.state == PopupState::Closed && popup.auto_destroy {
+            commands.entity(entity).despawn_recursive();
+        };
     });
+}
+
+#[derive(Bundle, Default)]
+pub struct UiPopupAddonBundle {
+    pub popup: UiPopup,
+
+    pub button: UiButton,
+    pub interaction: Interaction,
+}
+impl From<UiPopup> for UiPopupAddonBundle {
+    fn from(value: UiPopup) -> Self {
+        Self {
+            popup: value,
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Bundle, Default)]

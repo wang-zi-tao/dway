@@ -10,9 +10,6 @@ impl DomDecorator for Id {
     fn key(&self) -> DomArgKey {
         DomArgKey::Id
     }
-    fn need_node_entity_field(&self) -> bool {
-        true
-    }
 }
 
 #[derive(Parse)]
@@ -228,11 +225,11 @@ impl DomDecorator for Map {
                 widget.#dom_entity_list_field.clear();
             }
             if #just_inited || #changed {
-                let mut #child_entity_map_var = std::collections::BTreeMap::<#ty,Entity>::new();
+                let #child_entity_map_var = std::collections::BTreeMap::<#ty,Entity>::new();
                 for #item_var @ #pat in #expr{
                     #child_entity_map_var.insert(#key, #item_var);
                 }
-                let mut #child_list_var = Vec::<Entity>::with_capacity(#child_entity_map_var.len());
+                let #child_list_var = Vec::<Entity>::with_capacity(#child_entity_map_var.len());
                 for #item_var in #child_entity_map_var.values(){
                     if let Some(#child_ident) = widget.#dom_entity_list_field.remove(&#key) {
                         let #child_ident = #lambda_var(#child_ident, #item_var);
@@ -272,9 +269,11 @@ pub struct ForQuery {
     _in: Token![in],
     _query: Ident,
     _lt: Token![<],
+    #[paren]
+    _paren: Paren,
+    #[inside(_paren)]
     ty: Type,
     _gt: Token![>],
-    _split: Token![::],
     method: Ident,
     #[paren]
     _wrap2: Paren,
@@ -294,20 +293,21 @@ impl DomDecorator for ForQuery {
         true
     }
     fn update_context(&self, context: &mut WidgetNodeContext) {
-        let Self {
-            ty,
-            mutable,
+        let Self { ty, pat, expr,mut } = self;
+        let WidgetNodeContext {
+            tree_context,
+            dom_id,
             ..
-        } = self;
-        let dom_entity_list_field = DomContext::wrap_dom_id("node_", &context.dom_id, "_child_map");
+        } = context;
+        let dom_entity_list_field = DomContext::wrap_dom_id("node_", &dom_id, "_child_map");
         let arg_name = format_ident!("query_{}", context.dom_id);
         context.tree_context.system_querys.insert(
             arg_name.to_string(),
             quote!(#mutable #arg_name: Query<(Entity,#ty)>),
         );
-        context.tree_context.widget_builder.add_field_with_initer(
+        tree_context.widget_builder.add_field_with_initer(
             &dom_entity_list_field,
-            quote!(pub #dom_entity_list_field: bevy::utils::HashMap<Entity,Entity>),
+            quote!(pub #dom_entity_list_field: bevy::utils::HashMap<Entiy,Entity>),
             quote!(bevy::utils::HashMap::new()),
         );
     }
@@ -320,51 +320,63 @@ impl DomDecorator for ForQuery {
         let entity_var = &context.entity_var;
         let just_inited = &context.just_inited;
         let Self {
-            pat, expr, method, _in, ..
+            ty,
+            pat,
+            expr,
+            method,
+            ..
         } = self;
         let child_entity_map_var =
             DomContext::wrap_dom_id("__dway_ui_node_", &(&context.dom_id), "_child_entity_map");
         let child_list_var =
             DomContext::wrap_dom_id("__dway_ui_node_", &(&context.dom_id), "_child_list");
         let dom_entity_list_field = DomContext::wrap_dom_id("node_", &context.dom_id, "_child_map");
-        let data_entity_var =
-            DomContext::wrap_dom_id("__dway_ui_node_", &(&context.dom_id), "_data_entity");
+        let item_var = DomContext::wrap_dom_id("__dway_ui_node_", &(&context.dom_id), "_item");
+        let lambda_var = DomContext::wrap_dom_id("__dway_ui_node_", &(&context.dom_id), "_lambda");
         let arg_name = format_ident!("query_{}", context.dom_id);
-        let changed = expr
-            .as_ref()
-            .map(|expr| ParseCodeResult::from_expr(expr).changed_bool())
-            .unwrap_or_else(|| BoolExpr::False);
-        quote_spanned! {_in.span=>
+        let changed = expr.as_ref().map(|expr| ParseCodeResult::from_expr(expr).changed_bool() );
+        quote! {
+            let #lambda_var = |#child_ident,#pat| {
+                #inner
+                #child_ident
+            };
             if #just_inited {
                 widget.#dom_entity_list_field.clear();
             }
-            if !#just_inited || #changed {
-                let mut #child_entity_map_var = bevy::utils::HashMap::<Entity,Entity>::new();
-                let mut #child_list_var = Vec::<Entity>::new();
-                for (#data_entity_var,#pat) in #arg_name.#method(#expr) {
-                    let #child_ident: Entity = widget.#dom_entity_list_field.remove(&#data_entity_var).unwrap_or(Entity::PLACEHOLDER);
-                    let #just_inited = #child_ident == Entity::PLACEHOLDER;
-                    #inner
-                    #child_entity_map_var.insert(#data_entity_var,#child_ident);
-                    #child_list_var.push(#child_ident);
+            if #just_inited || #changed {
+                let #child_entity_map_var = bevy::collections::HashMap::<Entity,Entity>::new();
+                let #child_list_var = Vec::<Entity>::new();
+                for (#item_var,#entity_var) in #arg_name.#method(#expr) {
+                    if let Some(#child_ident) = widget.#dom_entity_list_field.remove(&#item_var) {
+                        let #child_ident = #lambda_var(#child_ident, #item_var);
+                        #child_list_var.push(#child_ident);
+                    } else {
+                        let #child_ident = #lambda_var(Entity::PLACEHOLDER, #item_var);
+                        #child_list_var.push(#child_ident);
+                    }
                 }
                 for (_,removeed_children) in widget.#dom_entity_list_field.drain() {
                     commands.entity(removeed_children).despawn_recursive();
                 }
                 commands.entity(#entity_var).replace_children(&#child_list_var);
                 widget.#dom_entity_list_field = #child_entity_map_var;
+            } else if #just_inited {
+                for (#item_var,#entity_var) in #arg_name.#method(#expr) {
+                    if let Some(#child_ident) = widget.#dom_entity_list_field.get(#item_var) {
+                        #lambda_var(#child_ident, #item_var);
+                    }
+                }
             } else {
-                let mut #child_entity_map_var = bevy::utils::HashMap::<Entity,Entity>::new();
-                let mut #child_list_var = Vec::<Entity>::new();
-                for (#data_entity_var,#pat) in #arg_name.#method(#expr) {
-                    let #child_ident = Entity::PLACEHOLDER;
-                    let #just_inited = true;
-                    #inner
+                let #child_entity_map_var = bevy::collections::HashMap::<Entity,Entity>::new();
+                let #child_list_var = Vec::<Entity>::new();
+                for (#item_var,#entity_var) in #arg_name.#method(#expr) {
+                    let #child_ident = #lambda_var(Entity::PLACEHOLDER, #item_var);
                     #child_list_var.push(#child_ident);
-                    widget.#dom_entity_list_field.insert(#data_entity_var,#child_ident);
+                    widget.#dom_entity_list_field.insert(#item_var,#child_ident);
                 }
                 widget.#dom_entity_list_field = #child_entity_map_var;
             }
         }
     }
 }
+
