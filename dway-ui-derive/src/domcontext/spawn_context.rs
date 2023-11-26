@@ -1,4 +1,4 @@
-use crate::dom::Dom;
+use crate::{dom::Dom, domcontext::widget_context::WidgetNodeContext};
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -24,6 +24,7 @@ impl<'l> std::ops::Deref for SpawnDomContext<'l> {
 
 impl<'l> SpawnDomContext<'l> {
     pub fn generate(&mut self, dom: &'l Dom) -> TokenStream {
+        self.push(dom);
         let spawn_expr = dom.generate_spawn();
 
         let spawn_children: Vec<TokenStream> = dom
@@ -32,28 +33,33 @@ impl<'l> SpawnDomContext<'l> {
             .flat_map(|c| c.list.iter())
             .map(|child| self.generate(child))
             .collect();
-        if spawn_children.is_empty() {
+
+        let tokens = if spawn_children.is_empty() {
             quote! {
                 #spawn_expr;
             }
         } else {
-            let mut spawn_children = quote! {#(#spawn_children)*};
-            for arg in dom.args.values() {
-                spawn_children = arg.wrap_for_spawn(spawn_children);
-            }
+            let spawn_children = dom
+                .args
+                .values()
+                .fold(quote! {#(#spawn_children)*}, |inner, arg| {
+                    arg.inner.wrap_spawn_children(inner, &mut self.dom_context)
+                });
             quote! {
                 #spawn_expr.with_children(|commands|{
                     #spawn_children
                 });
             }
-        }
+        };
+        self.pop();
+        tokens
     }
 }
 
 pub fn generate(dom: &Dom) -> TokenStream {
-    let root_context = Context::default();
+    let mut root_context = Context::default();
     let mut context = SpawnDomContext {
-        dom_context: DomContext::new(&root_context, dom),
+        dom_context: DomContext::new(&mut root_context, dom),
     };
     context.generate(dom)
 }

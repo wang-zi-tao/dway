@@ -10,7 +10,8 @@ pub mod widgets;
 pub mod popups;
 pub mod theme;
 
-use crate::prelude::*;
+pub use bitflags::bitflags as __bitflags;
+use crate::{prelude::*, widgets::applist::AppListUIBundle};
 use bevy::{render::camera::RenderTarget, ui::FocusPolicy};
 use bevy_svg::prelude::Svg2dBundle;
 use dway_tty::{drm::surface::DrmSurface, seat::SeatState};
@@ -18,7 +19,7 @@ use font_kit::{
     error::SelectionError, family_name::FamilyName, properties::Properties, source::SystemSource,
 };
 use widgets::{
-    applist::{AppListUI, AppListUIBundle},
+    // applist::{AppListUI, AppListUIBundle},
     clock::ClockBundle,
 };
 
@@ -27,6 +28,7 @@ impl Plugin for DWayUiPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_plugins((
             assets::DWayAssetsPlugin,
+            render::DWayUiMaterialPlugin,
             framework::UiFrameworkPlugin,
             widgets::DWayWidgetsPlugin,
             popups::app_window_preview::AppWindowPreviewPopupPlugin,
@@ -95,27 +97,27 @@ fn setup(
             ..Default::default()
         }) @id="left">
             <ClockBundle/>
-        </MaterialNodeBundle>
+        </>
         <(MaterialNodeBundle { style: style!("absolute flex-row m-4 right-4"),
             material: rect_material_set.add(RoundedUiRectMaterial::new((Color::RED*0.6).with_a(0.5),8.0,)),
             ..Default::default()
         }) @id="right">
             <ClockBundle/>
-        </MaterialNodeBundle>
+        </>
         <NodeBundle @style="absolute w-full h-full justify-center items-center" @id="center">
             <(MaterialNodeBundle { style: style!("flex-row m-4"),
                 material: rect_material_set.add(RoundedUiRectMaterial::new((Color::WHITE*0.6).with_a(0.5),8.0,)),
                 ..Default::default()
             })>
                 <ClockBundle/>
-            </MaterialNodeBundle>
+            </>
         </NodeBundle>
-    </MaterialNodeBundle> };
+    </> };
 
     spawn!{&mut commands=>
     <(NodeBundle{style: style!("absolute bottom-4 w-full justify-center items-center"),
         focus_policy: FocusPolicy::Pass, z_index: ZIndex::Global(1024),..default()})
     Name=(Name::new("dock")) >
-        <(AppListUIBundle::new(default(),default()))/>
+        <AppListUIBundle/>
     </NodeBundle> };
 }

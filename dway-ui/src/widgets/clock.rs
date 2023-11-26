@@ -13,17 +13,21 @@ impl Default for Clock {
 }
 
 dway_ui_derive::dway_widget!(
-Clock
-#[derive(Reflect,Default)]{text:String}=>
-    {
-        let date = chrono::Local::now().naive_local();
-        let date_string = date.format(&prop.format).to_string();
-        update_state!(text = date_string);
+Clock=>
+@use_state{ pub text:String="".to_string() }
+@state_component{#[derive(Debug)]}
+@bundle{{pub node:MiniNodeBundle}}
+@before{
+    let date = chrono::Local::now().naive_local();
+    let date_string = date.format(&prop.format).to_string();
+    if state.text() != &date_string{
+        state.set_text(date_string);
     }
+}
     <NodeBundle>
         <TextBundle
         Text=(Text::from_section(
-            &state.text,
+            state.text(),
             TextStyle {
                 font_size: 24.0,
                 color: Color::WHITE,
@@ -33,17 +37,6 @@ Clock
         />
     </NodeBundle>
 );
-
-impl Default for ClockBundle {
-    fn default() -> Self {
-        Self {
-            prop: Default::default(),
-            state: Default::default(),
-            widget: Default::default(),
-            node: Default::default(),
-        }
-    }
-}
 
 pub struct ClockUiPlugin;
 impl Plugin for ClockUiPlugin {

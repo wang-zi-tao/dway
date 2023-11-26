@@ -15,10 +15,9 @@ pub struct DWayWidgetsPlugin;
 impl Plugin for DWayWidgetsPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_plugins((
-            render::DWayUiMaterialPlugin,
             clock::ClockUiPlugin,
             window::WindowUIPlugin,
-            popupwindow::PopupWindowUIPlugin,
+            popupwindow::PopupUIPlugin,
             applist::AppListUIPlugin,
             popup::PopupUiPlugin,
         ));

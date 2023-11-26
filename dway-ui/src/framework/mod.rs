@@ -48,10 +48,10 @@ impl Plugin for UiFrameworkPlugin {
         if !app.is_plugin_added::<ShapePlugin>() {
             app.add_plugins(Shape2dPlugin::default());
         }
-        app.add_event::<button::UiButtonEvent>();
         app.add_plugins(UtilPlugin);
         app.register_type::<canvas::UiCanvas>();
         app.register_type::<svg::UiSvg>();
+        app.register_type::<icon::UiIcon>();
         app.init_resource::<canvas::UiCanvasRenderArea>();
         app.init_resource::<svg::SvgImageCache>();
     }

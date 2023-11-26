@@ -9,7 +9,7 @@ use dway_server::apps::{
 
 use crate::{
     framework::icon::UiIcon,
-    popups::app_window_preview::{AppWindowPreviewPopupSystems, OpenAppWindowPreviewPopup},
+    // popups::app_window_preview::{AppWindowPreviewPopupSystems, OpenAppWindowPreviewPopup},
     prelude::*,
 };
 
@@ -17,108 +17,39 @@ use super::popup::UiPopup;
 
 #[derive(Component, Reflect)]
 pub struct AppEntryUI(pub Entity);
-dway_widget! {
-AppEntryUI(
-    mut app_query: Query<(Ref<WindowList>,Option<&mut Icon>)>,
-    button_query: Query<&Interaction>,
-    mut assets_server: ResMut<AssetServer>,
-    mut icon_loader: ResMut<IconLoader>,
-    mut svg_assets: ResMut<Assets<Svg>>,
-    mut mesh_assets: ResMut<Assets<Mesh>>,
-    mut material_set: ResMut<Assets<RoundedUiRectMaterial>>,
-    mut focused_window: ResMut<FocusedWindow>,
-    mut open_popup_event: EventWriter<OpenAppWindowPreviewPopup>,
-)#[derive(Default,Reflect)]{
-    pub count: usize,
-    pub icon: IconResorce,
-    pub is_focused: bool,
-}=>
-{
-    if let Ok(( window_list,icon )) = app_query.get_mut(prop.0){
-        if let Some(mut icon) = icon{
-            let icon = icon_loader.load(&mut icon, 48, &mut assets_server, &mut svg_assets, &mut mesh_assets).unwrap_or_default();
-            update_state!(icon = icon);
-        }
-        update_state!(count = window_list.len());
-    }
-    if focused_window.is_changed() {
-        update_state!(is_focused = focused_window.app_entity == Some(prop.0));
-    }
-}
-{
-    if button_query.get(node!(button)).map(|e|*e==Interaction::Pressed).unwrap_or_default() {
-        if state!(count) == &1 {
-            if let Ok(window_list) = app_query.get_component::<WindowList>(prop.0){
-                 if let Some(window) = window_list.iter().next() {
-                    focused_window.window_entity = Some(window);
-                    focused_window.app_entity = Some(prop.0);
-                    set_state!(is_focused = true);
-                 }
-            }
-        }
-        open_popup_event.send(OpenAppWindowPreviewPopup {
-            app_entity: prop.0,
-            anchor: node!(root),
-        });
-    }
-}
-<RounndedRectBundle @id="root" @style="full absolute"
-        Handle<_>=(material_set.add(RoundedUiRectMaterial::new(Color::WHITE.with_a(0.4), 10.0))) >
-    <ButtonBundle BackgroundColor=(Color::NONE.into()) @id="button" @style="absolute full flex-col" >
-        <ImageBundle @style="w-full h-full" UiIcon=(state.icon.clone().into())/>
-        <NodeBundle Style=(Style{
-                width:Val::Percent(((state.count as f32)/4.0).min(1.0)*80.0),
-            ..style!("absolute bottom-0 h-2 align-center")})
-            BackgroundColor=((if state.is_focused {Color::BLUE} else {Color::WHITE} ).into())
-        />
-    </ButtonBundle>
-</NodeBundle>
-}
 
 #[derive(Component, Reflect, Default)]
 pub struct AppListUI {}
 
 dway_widget! {
-AppListUI(
-    mut app_query: Query<(Entity,Ref<DesktopEntry>,Ref<WindowList>)>,
-    window_index: Res<WindowStack>,
-    mut material_set: ResMut<Assets<RoundedUiRectMaterial>>,
-)#[derive(Default)]{
-    pub list: BTreeMap<String,Entity>,
-}=>
-{
-    if window_index.is_changed() {
-        state_mut!(list).clear();
-        app_query.for_each_mut(|(entry_entity,entry,window_list)|{
-            if window_list.len()>0{
-                state_mut!(list).insert(entry.appid.clone(),entry_entity);
-            }
-        });
-    }
-}
+AppListUI=>
+@bundle{{pub node:MiniNodeBundle}}
+@arg(mut icon_loader: ResMut<IconLoader>)
+@arg(mut svg_assets: ResMut<Assets<Svg>>)
+@arg(mut mesh_assets: ResMut<Assets<Mesh>>)
+@arg(mut icon_loader: ResMut<IconLoader>)
+@arg(mut assets_server: ResMut<AssetServer>)
 <MaterialNodeBundle::<RoundedUiRectMaterial> @id="list"
-    Handle<RoundedUiRectMaterial>=(material_set.add(RoundedUiRectMaterial::new(Color::WHITE.with_a(0.5), 16.0)))
-    @for(entry_entity in state.list.values()) @key(*entry_entity:Entity) >
-    <(AppEntryUIBundle::new(AppEntryUI(*entry_entity),default())) @style="w-48 h-48 m-4 flex-col"/>
-</NodeBundle>
-}
-
-pub struct AppListUIPlugin;
-impl Plugin for AppListUIPlugin {
-    fn build(&self, app: &mut App) {
-        app.register_type::<AppListUI>();
-        app.register_type::<AppListUIWidget>();
-        app.register_type::<AppEntryUI>();
-        app.register_type::<AppEntryUIWidget>();
-        app.register_type::<AppEntryUIState>();
-        app.add_systems(
-            Update,
-            (
-                applistui_render
-                    .in_set(AppListUISystems::Render)
-                    .before(AppWindowPreviewPopupSystems::Render),
-                appentryui_render.in_set(AppEntryUISystems::Render),
-            ),
-        );
-    }
+    @handle(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(Color::WHITE.with_a(0.5), 16.0))
+    @for_query(mut(entity,desktop,window_list,mut icon) in Query<(Entity,&DesktopEntry,&WindowList,Option<&mut Icon>)>::iter_mut()) >
+    <NodeBundle @if(window_list.len()>0) @id="app_root" >
+        <RounndedRectBundle @style="w-48 h-48 m-4 flex-col" @id="app_rect"
+            @use_state(pub count:usize <= window_list.len())
+            @use_state(pub icon:IconResorce <= icon.as_mut().and_then(|icon| icon_loader.load(icon, 48, &mut assets_server, &mut svg_assets, &mut mesh_assets) ).unwrap_or_default())
+            @use_state(pub is_focused:bool=false)
+            @arg(focused_window: ResMut<FocusedWindow> => {
+                state.set_is_focused(focused_window.app_entity == Some(entity));
+            })
+            @handle(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(Color::WHITE.with_a(0.4), 10.0)) >
+            <ButtonBundle BackgroundColor=(Color::NONE.into()) @id="button" @style="absolute full flex-col" >
+                <ImageBundle @style="w-full h-full" UiIcon=(state.icon().clone().into()) @id="app_icon" />
+                <NodeBundle @id="focus_mark" Style=(Style{
+                        width:Val::Percent(((*state.count() as f32)/4.0).min(1.0)*80.0),
+                    ..style!("absolute bottom-0 h-2 align-center")})
+                    BackgroundColor=((if *state.is_focused() {Color::BLUE} else {Color::WHITE} ).into())
+                />
+            </ButtonBundle>
+        </>
+    </NodeBundle>
+</>
 }

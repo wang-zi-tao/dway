@@ -27,6 +27,7 @@ bevy_svg = { version="0.12", default-features = false, features = ["2d"] }
 # bevy_ui_styled = "0.4.0"
 bevy_vector_shapes = "0.6"
 const-fnv1a-hash = "1.1.0"
+bitflags = "2.4.1"
 
 [profile.dev]
 opt-level = 1

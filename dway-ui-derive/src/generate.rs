@@ -1,5 +1,8 @@
+use convert_case::Casing;
+use lazy_static::lazy_static;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
+use syn::Type;
 
 pub fn generate_despawn(entity: TokenStream) -> TokenStream {
     quote! {
@@ -10,13 +13,6 @@ pub fn generate_despawn(entity: TokenStream) -> TokenStream {
         }
     }
 }
-pub fn generate_state_change_variable_from_raw(name: &str, span: Span) -> Ident {
-    format_ident!("state_changed_{}", name, span = span)
-}
-
-pub fn generate_state_change_variable(ident: &Ident) -> Ident {
-    generate_state_change_variable_from_raw(&ident.to_string(), ident.span())
-}
 
 #[derive(Clone)]
 pub enum BoolExpr {
@@ -25,6 +21,17 @@ pub enum BoolExpr {
     RuntimeValue(TokenStream),
 }
 impl BoolExpr {
+    pub fn optional(tokens: Option<TokenStream>, default: bool) -> Self {
+        if let Some(tokens) = tokens {
+            Self::RuntimeValue(tokens)
+        } else {
+            if default {
+                Self::True
+            } else {
+                Self::False
+            }
+        }
+    }
     pub fn map(&self, t: impl ToTokens, f: impl ToTokens) -> TokenStream {
         match self {
             BoolExpr::False => quote!(#f),
@@ -56,7 +63,14 @@ impl BoolExpr {
         match self {
             BoolExpr::False => Self::True,
             BoolExpr::True => Self::False,
-            BoolExpr::RuntimeValue(c) => Self::RuntimeValue(quote!(!(c))),
+            BoolExpr::RuntimeValue(c) => Self::RuntimeValue(quote!(!(#c))),
+        }
+    }
+    pub fn optional_token_stream(self) -> Option<TokenStream> {
+        match self {
+            BoolExpr::False => None,
+            BoolExpr::True => Some(quote!(true)),
+            BoolExpr::RuntimeValue(c) => Some(c),
         }
     }
 }
@@ -69,4 +83,20 @@ impl ToTokens for BoolExpr {
         };
         tokens.extend(bool);
     }
+}
+
+pub fn convert_type_name(ty: &Type) -> String {
+    let name = ty.to_token_stream().to_string();
+    let name = name.replace('_', "__");
+    let name = name.replace(
+        |char| {
+            !(char == '_'
+                || char >= '0' && char <= '9'
+                || char >= 'A' && char <= 'Z'
+                || char >= 'a' && char <= 'z')
+        },
+        "__",
+    );
+    let name = name.to_case(convert_case::Case::Snake);
+    name
 }

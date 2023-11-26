@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use convert_case::{Case, Casing};
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 use syn::LitStr;
@@ -38,6 +39,24 @@ fn parse_field_rect(prefix: &str, style: &str, field: &str) -> TokenStream {
     quote!(#ident: UiRect::all(#expr))
 }
 
+fn parse_align(prefix: &str, style: &str, field: &str, ty: &str) -> TokenStream {
+    let ident = format_ident!("{}", field);
+    let ty = format_ident!("{}", ty);
+    let style = &*style.replace(prefix, "");
+    let variant = match &*style {
+        "default" | "start" | "end" | "flex-start" | "flex-end" | "center" | "baseline"
+        | "stretch" | "space-between" | "space-evenly" | "space-around" => {
+            let member = format_ident!("{}", style.to_case(Case::Pascal));
+            quote!(#member)
+        }
+        _ => {
+            let message = format!("invalid value: {style:?}");
+            quote!(compile_error!(#message))
+        }
+    };
+    quote!(#ident: #ty::#variant)
+}
+
 pub fn generate(input: &LitStr) -> TokenStream {
     let mut fields = vec![];
     for component in input.value().split(' ') {
@@ -53,6 +72,24 @@ pub fn generate(input: &LitStr) -> TokenStream {
             "items-center" => quote!(align_items:AlignItems::Center),
             "align-center" => quote!(align_self:AlignSelf::Center),
             "justify-center" => quote!(justify_content:JustifyContent::Center),
+            o if o.starts_with("align-items:") => {
+                parse_align("align-items:", o, "align_items", "AlignItems")
+            }
+            o if o.starts_with("justify-items:") => {
+                parse_align("justify-items:", o, "justify_items", "JustifyItems")
+            }
+            o if o.starts_with("align-self:") => {
+                parse_align("align-self:", o, "align_self", "AlignSelf")
+            }
+            o if o.starts_with("justify-self:") => {
+                parse_align("justify-self:", o, "justify_self", "JustifySelf")
+            }
+            o if o.starts_with("align-content:") => {
+                parse_align("align-content:", o, "align_content", "AlignContent")
+            }
+            o if o.starts_with("justify-content:") => {
+                parse_align("justify-content:", o, "justify_content", "JustifyContent")
+            }
             o if o.starts_with("w-") => parse_field_value("w-", o, "width"),
             o if o.starts_with("h-") => parse_field_value("h-", o, "height"),
             o if o.starts_with("min-w-") => parse_field_value("min-w-", o, "min_width"),

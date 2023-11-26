@@ -15,31 +15,34 @@ use super::window::{WINDEOW_BASE_ZINDEX, WINDEOW_MAX_STEP};
 pub struct PopupUI {
     window_entity: Entity,
 }
-
-dway_widget! {
-PopupUI(
-    window_query: Query<(Ref<GlobalGeometry>, Ref<WlSurface>), With<DWayWindow>>,
-)
-#[derive(Reflect,Default)]{
-    image: Handle<Image>,
-    rect: IRect,
-    bbox_rect: IRect,
-} =>
-{
-    if let Ok((rect,surface)) = window_query.get(prop.window_entity){
-        if rect.is_changed(){
-            update_state!(rect = rect.geometry);
-        }
-        if rect.is_changed() || surface.is_changed() {
-            update_state!(bbox_rect = surface.image_rect().offset(rect.pos()));
-        }
-        if surface.is_changed(){
-            update_state!(image = surface.image.clone());
+impl Default for PopupUI {
+    fn default() -> Self {
+        Self {
+            window_entity: Entity::PLACEHOLDER,
         }
     }
 }
-<ImageBundle UiImage=(UiImage::new(state.image.clone())) Style=(irect_to_style(state.bbox_rect))>
-    <NodeBundle Style=(irect_to_style(state.rect))/>
+
+dway_widget! {
+PopupUI=>
+@plugin{
+    app.register_type::<PopupUI>();
+    app.add_systems(Update, attach_popup);
+}
+@bundle({pub node: NodeBundle})
+@use_state(pub rect:IRect)
+@use_state(pub bbox_rect:IRect)
+@use_state(pub image:Handle<Image>)
+@query(window_query:(rect,surface)<-Query<(Ref<GlobalGeometry>, Ref<WlSurface>), With<DWayWindow>>[prop.window_entity]->{
+    let init = !widget.inited;
+    if init || rect.is_changed(){ *state.rect_mut() = rect.geometry; }
+    if init || rect.is_changed() || surface.is_changed() {
+        *state.bbox_rect_mut() = surface.image_rect().offset(rect.pos());
+    }
+    if init || surface.is_changed(){ *state.image_mut() = surface.image.clone(); }
+})
+<ImageBundle UiImage=(UiImage::new(state.image().clone())) Style=(irect_to_style(*state.bbox_rect()))>
+    <NodeBundle Style=(irect_to_style(*state.rect()))/>
 </ImageBundle>
 }
 
@@ -50,39 +53,31 @@ pub fn attach_popup(
     mut destroy_window_events: RemovedComponents<DWayWindow>,
     window_stack: Res<WindowStack>,
 ) {
-    let destroyed_windows: HashSet<_> = destroy_window_events.iter().collect();
+    let destroyed_windows: HashSet<_> = destroy_window_events.read().collect();
     ui_query.for_each_mut(|(entity, ui, ..)| {
         if destroyed_windows.contains(&ui.window_entity) {
             commands.entity(entity).despawn_recursive();
         }
     });
     popup_query.for_each(|(entity, popup)| {
-        commands.spawn(PopupUIBundle {
-            node: NodeBundle {
-                style: style!("absolute"),
-                z_index: ZIndex::Global(
-                    WINDEOW_BASE_ZINDEX
-                        + WINDEOW_MAX_STEP
-                            * (window_stack.list.len() as isize + popup.level) as i32,
-                ),
-                ..NodeBundle::default()
+        commands.spawn((
+            Name::from("PopupUI"),
+            PopupUIBundle {
+                node: NodeBundle {
+                    style: style!("absolute"),
+                    z_index: ZIndex::Global(
+                        WINDEOW_BASE_ZINDEX
+                            + WINDEOW_MAX_STEP
+                                * (window_stack.list.len() as isize + popup.level) as i32,
+                    ),
+                    ..NodeBundle::default()
+                },
+                prop: PopupUI {
+                    window_entity: entity,
+                },
+                state: PopupUIState::default(),
+                widget: PopupUIWidget::default(),
             },
-            prop: PopupUI {
-                window_entity: entity,
-            },
-            state: PopupUIState::default(),
-            widget: PopupUIWidget::default(),
-        });
+        ));
     });
-}
-
-pub struct PopupWindowUIPlugin;
-impl Plugin for PopupWindowUIPlugin {
-    fn build(&self, app: &mut App) {
-        app.register_type::<PopupUI>();
-        app.register_type::<PopupUIWidget>();
-        app.register_type::<PopupUIState>();
-        app.add_systems(Update, popupui_render.in_set(PopupUISystems::Render));
-        app.add_systems(Update, attach_popup);
-    }
 }
