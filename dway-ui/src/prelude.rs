@@ -5,3 +5,6 @@ pub use dway_server::prelude::*;
 pub use dway_client_core::prelude::*;
 pub use crate::render::*;
 pub use crate::framework::MiniNodeBundle;
+pub use std::time::Duration;
+
+pub use bevy_tweening::{Animator, EaseFunction, lens::*, Tween};

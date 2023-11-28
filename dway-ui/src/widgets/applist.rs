@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{any::type_name, collections::BTreeMap};
 
 use bevy_svg::prelude::Svg;
 use dway_client_core::{desktop::FocusedWindow, navigation::windowstack::WindowStack};
@@ -35,6 +35,7 @@ fn open_popup(
     mut commands: Commands,
 ){
     let Ok((widget,state)) = prop_query.get(event.receiver)else{return;};
+    if widget.node_popup_entity == Entity::PLACEHOLDER {return;}
     match &event.kind{
         UiButtonEventKind::Pressed=>{
             commands.spawn(AppWindowPreviewPopupBundle{

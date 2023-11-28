@@ -6,8 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-log = {}
-memory-stats = {}
+log = { workspace = true}
+memory-stats = { workspace = true}
 calloop = "0.10"
 anyhow = "1.0.75"
 send_wrapper = "0.6.0"

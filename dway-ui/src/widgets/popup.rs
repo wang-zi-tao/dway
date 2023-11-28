@@ -120,10 +120,15 @@ pub struct UiPopupBundle {
     pub z_index: ZIndex,
 }
 
+#[derive(Clone, Copy, Hash, Debug, PartialEq, Eq, SystemSet)]
+pub enum PopupUiSystems {
+    Close,
+}
+
 pub struct PopupUiPlugin;
 impl Plugin for PopupUiPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<UiPopup>()
-            .add_systems(Update, auto_close_popup);
+            .add_systems(Update, auto_close_popup.in_set(PopupUiSystems::Close));
     }
 }

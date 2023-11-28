@@ -23,13 +23,10 @@ pub fn generate_change_detect(structure: &ItemStruct) -> anyhow::Result<TokenStr
         ..
     } = &structure;
     let name = &ident;
-    let bitflags_name = format_ident!("{}FieldChangeFlag", name, span = name.span());
-
-    let mut bit_map: HashMap<String, Ident> = HashMap::new();
     let mut functions: Vec<TokenStream2> = vec![];
-    let mut bits: Vec<TokenStream2> = vec![];
     let mut fields: Vec<TokenStream2> = vec![];
     
+    let all = (1<<(structure.fields.len()))-1;
     let integer_type = match structure.fields.len() {
         0..=7 => quote!(u8),
         8..=15 => quote!(u16),
@@ -39,23 +36,14 @@ pub fn generate_change_detect(structure: &ItemStruct) -> anyhow::Result<TokenStr
         _ => { anyhow::bail!("too much field") },
     };
 
-    for field in &structure.fields {
+    for (index, field ) in structure.fields.iter().enumerate(){
         let Field { attrs, vis, ident, colon_token, ty, .. } = &field;
         fields.push(quote!(#(#attrs)* #ident #colon_token #ty));
         let field_name = field
             .ident
             .as_ref()
             .ok_or_else(|| anyhow::format_err!("no field name"))?;
-        let bit_name = format_ident!(
-            "{}",
-            field_name
-                .to_string()
-                .to_case(convert_case::Case::UpperSnake),
-            span = name.span()
-        );
-        bit_map.insert(field_name.to_string(), bit_name.clone());
-        let pos = bits.len();
-        bits.push(quote!(const #bit_name = 1 << #pos; ));
+        let bit = quote!(( 1 << ( #index as #integer_type ) ));
 
         let getter_name = format_ident!("{}", field_name, span = field_name.span());
         let get_mut_name = format_ident!("{}_mut", field_name, span = field_name.span());
@@ -68,17 +56,17 @@ pub fn generate_change_detect(structure: &ItemStruct) -> anyhow::Result<TokenStr
             }
             #[allow(dead_code)]
             #vis fn #get_mut_name(&mut self) -> &mut #ty {
-                 self.__dway_changed_flags |= #bitflags_name::#bit_name;
+                 self.__dway_changed_flags |= #bit;
                  &mut self.#field_name
             }
             #[allow(dead_code)]
             #vis fn #setter_name(&mut self, value: #ty) {
-                 self.__dway_changed_flags |= #bitflags_name::#bit_name;
+                 self.__dway_changed_flags |= #bit;
                  self.#field_name = value;
             }
             #[allow(dead_code)]
             #vis fn #changed_name(&self) -> bool {
-                 self.__dway_changed_flags.contains(#bitflags_name::#bit_name)
+                (self.__dway_changed_flags & #bit) != 0
             }
         });
     }
@@ -86,31 +74,25 @@ pub fn generate_change_detect(structure: &ItemStruct) -> anyhow::Result<TokenStr
     let (impl_generics, ty_generics, where_clause) = structure.generics.split_for_impl();
 
     Ok(quote! {
-        bitflags::bitflags! {
-            #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-            #vis struct #bitflags_name : #integer_type {
-                #(#bits)*
-            }
-        }
 
         #(#attrs)*
         #vis #struct_token #ident #generics {
              #(#fields,)*
-             __dway_changed_flags: #bitflags_name,
+             __dway_changed_flags: #integer_type,
         }
 
         impl #impl_generics #name #ty_generics #where_clause {
             #(#functions)*
             #vis fn marks_all(&mut self) {
-                self.__dway_changed_flags = #bitflags_name::all();
+                self.__dway_changed_flags = #all as #integer_type;
             }
             #vis fn is_inner_changed(&mut self) -> bool {
-                !self.__dway_changed_flags.is_empty()
+                self.__dway_changed_flags != 0
             }
             #vis fn clear_marks(&mut self) -> bool {
-                let empty = self.__dway_changed_flags.is_empty();
-                self.__dway_changed_flags = #bitflags_name::empty();
-                empty
+                let empty = self.__dway_changed_flags == 0;
+                self.__dway_changed_flags = 0;
+                !empty
             }
         }
     })

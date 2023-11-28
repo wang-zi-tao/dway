@@ -434,10 +434,6 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
             .push(quote!(#[derive(Resource)]));
         context
             .plugin_builder
-            .stmts
-            .push(context.resources_builder.into_plugin());
-        context
-            .plugin_builder
             .resources
             .push(context.resources_builder);
     }

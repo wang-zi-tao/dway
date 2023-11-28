@@ -10,6 +10,7 @@ pub mod widgets;
 pub mod popups;
 pub mod theme;
 
+use bevy_tweening::TweeningPlugin;
 pub use bitflags::bitflags as __bitflags;
 use crate::{prelude::*, widgets::applist::AppListUIBundle};
 use bevy::{render::camera::RenderTarget, ui::FocusPolicy};
@@ -27,6 +28,7 @@ pub struct DWayUiPlugin;
 impl Plugin for DWayUiPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_plugins((
+            TweeningPlugin,
             assets::DWayAssetsPlugin,
             render::DWayUiMaterialPlugin,
             framework::UiFrameworkPlugin,

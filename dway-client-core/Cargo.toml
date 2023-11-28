@@ -10,16 +10,16 @@ dway-util = {path="../dway-util/"}
 dway-server = {path="../dway-server/"}
 bevy-relationship = {path="../bevy-relationship/"}
 
-log = {}
-crossbeam-channel = {}
-failure = {}
-uuid = {}
-lru = {}
-rand = {}
+log = { workspace = true }
+crossbeam-channel = { workspace = true }
+failure = { workspace = true }
+uuid = { workspace = true }
+lru = { workspace = true }
+rand = { workspace = true }
+serde={ workspace = true }
 bytemuck = "1.13.0"
 smallvec = "1.10.0"
 bevy = "0.12"
-serde={}
 getset = "0.1.2"
 bitflags = "2.4.0"
 

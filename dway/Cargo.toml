@@ -1,60 +1,91 @@
-[package]
-name = "dway"
-version = "0.1.0"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-dway-client-core = { path="../dway-client-core/"}
-dway-ui = { path="../dway-ui/"}
-dway-util = {path="../dway-util/"}
-dway-server = {path="../dway-server/"}
-dway-tty = {path="../dway-tty/"}
-
-pretty_env_logger = "0.5.0"
-log = "0.4.17"
+anyhow = "1.0.75"
+bevy_framepace = "0.14"
+bevy_mod_debugdump = "0.9.0"
+bevy_prototype_lyon = "0.10.0"
+chrono = "0.4.31"
+crossbeam-channel = "0.5.6"
 failure = "0.1.8"
 lazy_static = "1.4.0"
-crossbeam-channel = "0.5.6"
-uuid = "1.2.2"
+log = "0.4.17"
 lru = "0.12.0"
-rand = "0.8"
-bevy_framepace = "0.14"
 num_cpus = "1.15.0"
-serde={}
-bevy_prototype_lyon = "0.10.0"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-chrono = "0.4.31"
-bevy-inspector-egui = { version="0.21", optional=true }
-clap = { version = "4.4.7", features = ["derive"] }
-bevy_mod_debugdump = "0.9.0"
-anyhow = "1.0.75"
+pretty_env_logger = "0.5.0"
+rand = "0.8"
+uuid = "1.2.2"
+
+[dependencies.bevy]
+features = ["jpeg", "wayland", "serialize", "default_font", "subpixel_glyph_atlas"]
+version = "0.12"
+
+[dependencies.bevy-inspector-egui]
+optional = true
+version = "0.21"
+
+[dependencies.clap]
+features = ["derive"]
+version = "4.4.7"
+
+[dependencies.dexterous_developer]
+optional = true
+version = "0.0.12"
+
+[dependencies.dway-client-core]
+path = "../dway-client-core/"
+
+[dependencies.dway-server]
+path = "../dway-server/"
+
+[dependencies.dway-tty]
+path = "../dway-tty/"
+
+[dependencies.dway-ui]
+path = "../dway-ui/"
+
+[dependencies.dway-util]
+path = "../dway-util/"
+
+[dependencies.serde]
+optional = true
+version = "1"
+
+[dependencies.tracing-subscriber]
+features = ["env-filter"]
+version = "0.3"
 
 [features]
-default = [
-    "dway_log",
-    "debug",
-]
 debug = ["dep:bevy-inspector-egui"]
+default = ["dway_log", "debug", "dynamic_reload"]
 dway_log = []
-single_thread = []
+dynamic_reload = ["dep:dexterous_developer", "dep:serde", "dway-ui/dynamic_reload"]
 eventloop = []
+single_thread = []
 
-[profile.dev.package.bevy]
-opt-level = 3
+[lib]
+crate-type = ["dylib", "rlib"]
+name = "lib_dway"
+path = "src/lib.rs"
+
+[package]
+edition = "2021"
+name = "dway"
+version = "0.1.0"
 
 [profile.dev]
 opt-level = 1
 
-[dependencies.bevy]
-version = "0.12"
-features = ["jpeg","wayland", "serialize", "bevy_dynamic_plugin", "default_font", "subpixel_glyph_atlas"]
-
-# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
 [profile.dev.package."*"]
 opt-level = 3
 
+[profile.dev.package.bevy]
+opt-level = 3
+
+[profile.dev.package.bevy_prototype_lyon]
+debug-assertions = false
+
+[profile.dev.package.lyon_path]
+debug-assertions = false
+
 [profile.release]
-lto = "thin"
 debug = true
+lto = "thin"

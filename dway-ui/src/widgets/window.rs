@@ -112,7 +112,12 @@ WindowUI=>
     }
 }
 <NodeBundle @style="absolute" >
-    <MiniNodeBundle @id="content" Style=(irect_to_style(*state.rect())) >
+    <MiniNodeBundle @id="content" Style=(irect_to_style(*state.rect()))
+    Animator<_>=(Animator::new(Tween::new(
+        EaseFunction::BackOut,
+        Duration::from_secs_f32(0.5),
+        TransformScaleLens { start: Vec3::splat(0.8), end: Vec3::ONE, },
+    ))) >
         <MaterialNodeBundle::<RoundedUiRectMaterial> @id="outter"
             ZIndex=(ZIndex::Local(0))
             Style=(Style{
@@ -130,43 +135,43 @@ WindowUI=>
             ( state.bbox_rect().min-state.rect().min ).as_vec2(),
             state.bbox_rect().size().as_vec2(),
             state.image().clone())) />
+        <NodeBundle @id="bar"
+            ZIndex=(ZIndex::Local(2))
+            Style=(Style{
+                position_type: PositionType::Absolute,
+                left:Val::Px(0.),
+                right:Val::Px(0.),
+                top:Val::Px(- DECORATION_HEIGHT),
+                height: Val::Px(DECORATION_HEIGHT),
+                ..Style::default() })
+        >
+            <UiButtonBundle @id="close" @style="m-2 w-20 h-20"
+                UiButtonAddonBundle=(UiButton::new(this_entity, on_close_button_event).into())
+                @handle(UiCircleMaterial=>UiCircleMaterial::new(Color::WHITE*0.3, 8.0)) >
+                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg").into())) />
+            </UiButtonBundle>
+            <UiButtonBundle @id="max" @style="m-2 w-20 h-20"
+                UiButtonAddonBundle=(UiButton::new(this_entity, on_max_button_event).into())
+                @handle(UiCircleMaterial=>UiCircleMaterial::new(Color::WHITE*0.3, 8.0)) >
+                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/maximize.svg").into())) />
+            </UiButtonBundle>
+            <UiButtonBundle @id="min" @style="m-2 w-20 h-20"
+                UiButtonAddonBundle=(UiButton::new(this_entity, on_min_button_event).into())
+                @handle(UiCircleMaterial=>UiCircleMaterial::new(Color::WHITE*0.3, 8.0)) >
+                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/minimize.svg").into())) />
+            </UiButtonBundle>
+            <TextBundle @style="items-center justify-center m-auto"
+                Text=(Text::from_section(
+                    state.title(),
+                    TextStyle {
+                        font_size: DECORATION_HEIGHT - 2.0,
+                        color: Color::WHITE,
+                        font: asset_server.load("embedded://dway_ui/fonts/SmileySans-Oblique.ttf"),
+                    },
+                ).with_alignment(TextAlignment::Center))
+            />
+        </NodeBundle>
     </>
-    <NodeBundle @id="bar"
-        ZIndex=(ZIndex::Local(2))
-        Style=(Style{
-            position_type: PositionType::Absolute,
-            left:Val::Px(state.rect().x() as f32),
-            top:Val::Px(state.rect().y() as f32 - DECORATION_HEIGHT),
-            width: Val::Px(state.rect().width() as f32),
-            height: Val::Px(DECORATION_HEIGHT),
-            ..Style::default() })
-    >
-        <UiButtonBundle @id="close" @style="m-2 w-20 h-20"
-            UiButtonAddonBundle=(UiButton::new(this_entity, on_close_button_event).into())
-            @handle(UiCircleMaterial=>UiCircleMaterial::new(Color::WHITE*0.3, 8.0)) >
-            <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg").into())) />
-        </UiButtonBundle>
-        <UiButtonBundle @id="max" @style="m-2 w-20 h-20"
-            UiButtonAddonBundle=(UiButton::new(this_entity, on_max_button_event).into())
-            @handle(UiCircleMaterial=>UiCircleMaterial::new(Color::WHITE*0.3, 8.0)) >
-            <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/maximize.svg").into())) />
-        </UiButtonBundle>
-        <UiButtonBundle @id="min" @style="m-2 w-20 h-20"
-            UiButtonAddonBundle=(UiButton::new(this_entity, on_min_button_event).into())
-            @handle(UiCircleMaterial=>UiCircleMaterial::new(Color::WHITE*0.3, 8.0)) >
-            <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/minimize.svg").into())) />
-        </UiButtonBundle>
-        <TextBundle @style="items-center justify-center m-auto"
-            Text=(Text::from_section(
-                state.title(),
-                TextStyle {
-                    font_size: DECORATION_HEIGHT - 2.0,
-                    color: Color::WHITE,
-                    font: asset_server.load("embedded://dway_ui/fonts/SmileySans-Oblique.ttf"),
-                },
-            ).with_alignment(TextAlignment::Center))
-        />
-    </NodeBundle>
 </NodeBundle>
 }
 

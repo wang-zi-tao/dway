@@ -1,5 +1,7 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, time::Duration};
 
+use bevy_tweening::{Animator, EaseFunction, lens::*, Tween};
+use bitflags::bitflags;
 use dway_client_core::desktop::FocusedWindow;
 use dway_server::{
     apps::{icon::Icon, WindowList},
@@ -9,21 +11,26 @@ use dway_server::{
 };
 
 use crate::{
-    framework::{button::{UiButtonBundle, UiButtonEvent, UiButtonEventKind, UiButton, UiButtonAddonBundle}, svg::UiSvgBundle},
+    framework::{
+        button::{UiButton, UiButtonAddonBundle, UiButtonBundle, UiButtonEvent, UiButtonEventKind},
+        svg::UiSvgBundle,
+    },
     prelude::*,
     widgets::{
-        popup::{PopupState, UiPopup, UiPopupBundle, UiPopupAddonBundle},
+        popup::{PopupState, UiPopup, UiPopupAddonBundle, UiPopupBundle, PopupUiSystems},
         window::create_window_material,
     },
 };
 
-#[derive(Component,Reflect)]
-pub struct AppWindowPreviewPopup{
+#[derive(Component, Reflect)]
+pub struct AppWindowPreviewPopup {
     pub app: Entity,
 }
-impl Default for AppWindowPreviewPopup{
+impl Default for AppWindowPreviewPopup {
     fn default() -> Self {
-        Self { app: Entity::PLACEHOLDER }
+        Self {
+            app: Entity::PLACEHOLDER,
+        }
     }
 }
 
@@ -54,9 +61,17 @@ fn focus_window(
     }
 }}
 @bundle{{pub popup: UiPopupAddonBundle}}
-@plugin{app.register_type::<AppWindowPreviewPopup>();}
+@plugin{
+    app.register_type::<AppWindowPreviewPopup>();
+    app.configure_sets(Update, AppWindowPreviewPopupSystems::Render.before(PopupUiSystems::Close));
+}
 @arg(asset_server: Res<AssetServer>)
 <RounndedRectBundle @style="flex-row m-4" @id="List"
+    Animator<_>=(Animator::new(Tween::new(
+        EaseFunction::BackOut,
+        Duration::from_secs_f32(0.5),
+        TransformScaleLens { start: Vec3::splat(0.5), end: Vec3::ONE, },
+    )))
     @handle(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(Color::WHITE*0.2, 16.0))
     @use_state(windows: Vec<Entity>)
     @component(window_list<-Query<Ref<WindowList>>[prop.app]->{ state.set_windows(window_list.iter().collect()); })
@@ -65,7 +80,7 @@ fn focus_window(
             @use_state(title:String<=toplevel.title.clone().unwrap_or_default())
             @use_state(window_entity:Entity=Entity::PLACEHOLDER @ window_entity) >
             <NodeBundle @style="flex-row">
-                <UiButtonBundle @id="close" @style="m-2 w-20 h-20" 
+                <UiButtonBundle @id="close" @style="m-2 w-20 h-20"
                 UiButtonAddonBundle=(UiButton::new(node!(window_preview), close_window).into())>
                     <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg").into())) />
                 </UiButtonBundle>
@@ -80,7 +95,7 @@ fn focus_window(
                     ).with_alignment(TextAlignment::Center))
                 />
             </NodeBundle>
-            <UiButtonBundle 
+            <UiButtonBundle
             UiButtonAddonBundle=(UiButton::new(node!(window_preview), focus_window).into())>
                 <MaterialNodeBundle::<RoundedUiImageMaterial>
                 @handle(RoundedUiImageMaterial=>create_window_material(surface, geo))

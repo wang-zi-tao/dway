@@ -14,21 +14,26 @@ dway-ui-derive = {path="../dway-ui-derive/"}
 bevy-relationship = {path="../bevy-relationship"}
 
 font-kit = "0.11.0"
-chrono = {}
-log = {}
-crossbeam-channel = {}
-failure = {}
-uuid = {}
-lru = {}
-rand = {}
+chrono = { workspace = true }
+log = { workspace = true }
+crossbeam-channel = { workspace = true }
+failure = { workspace = true }
+uuid = { workspace = true }
+lru = { workspace = true }
+rand = { workspace = true }
 bevy = "0.12"
-serde={}
 bevy_svg = { version="0.12", default-features = false, features = ["2d"] }
 # bevy_ui_styled = "0.4.0"
 bevy_vector_shapes = "0.6"
 const-fnv1a-hash = "1.1.0"
 bitflags = "2.4.1"
 derive_builder = "0.12.0"
+bevy_tweening = "0.9.0"
+dexterous_developer = { version="0.0.12", optional=true }
+serde = { version="1", optional=true }
+
+[features]
+dynamic_reload = ["dep:dexterous_developer","dep:serde"]
 
 [profile.dev]
 opt-level = 1
