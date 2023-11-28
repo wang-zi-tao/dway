@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use crate::prelude::*;
 
 #[derive(Component, Default, Reflect)]
-pub struct EventQueue<T: Sized + Send + Sync + 'static>{
+pub struct EventQueue<T: Sized + Send + Sync + 'static> {
     queue: VecDeque<T>,
 }
 

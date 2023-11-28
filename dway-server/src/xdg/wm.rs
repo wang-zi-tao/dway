@@ -4,7 +4,6 @@ use crate::{
     state::EntityFactory,
 };
 
-
 use super::{
     positioner::{XdgPositioner, XdgPositionerBundle},
     XdgDelegate, XdgSurface, XdgSurfaceBundle,

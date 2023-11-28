@@ -78,7 +78,7 @@ impl ConnectableMut for RelationshipToOneEntity {
         self.peer.take().into_iter()
     }
 
-    fn get_sender_mut(&mut self)->&mut ConnectionEventSender {
+    fn get_sender_mut(&mut self) -> &mut ConnectionEventSender {
         &mut self.sender
     }
 }
@@ -134,7 +134,7 @@ impl ConnectableMut for RelationshipToManyEntity {
         self.peers.drain(..)
     }
 
-    fn get_sender_mut(&mut self)->&mut ConnectionEventSender {
+    fn get_sender_mut(&mut self) -> &mut ConnectionEventSender {
         &mut self.sender
     }
 }
@@ -164,5 +164,5 @@ pub trait ConnectableMut: Connectable {
     fn disconnect(&mut self, target: Entity) -> bool;
     fn drain<'l>(&'l mut self) -> Self::Drain<'l>;
 
-    fn get_sender_mut(&mut self)->&mut ConnectionEventSender;
+    fn get_sender_mut(&mut self) -> &mut ConnectionEventSender;
 }

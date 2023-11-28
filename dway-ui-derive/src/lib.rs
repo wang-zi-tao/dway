@@ -1,15 +1,15 @@
 #![feature(iter_map_windows)]
 #![feature(trait_upcasting)]
 
-mod prelude;
-mod changed;
 mod builder;
+mod changed;
 mod dom;
 mod domarg;
 mod domcontext;
 mod generate;
-mod style;
 mod parser;
+mod prelude;
+mod style;
 
 use crate::{dom::*, domarg::*, generate::*, parser::*};
 
@@ -89,7 +89,7 @@ pub fn node(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn change_detact(_attr: TokenStream, input:TokenStream) -> TokenStream {
+pub fn change_detact(_attr: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemStruct);
     let output = changed::generate_change_detect(&input).unwrap_or_else(|e| {
         let message = e.to_string();
@@ -102,7 +102,7 @@ pub fn change_detact(_attr: TokenStream, input:TokenStream) -> TokenStream {
 pub fn auto_expand(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as WidgetDeclare);
     let plugin = domcontext::widget_context::generate(&input);
-    let output = quote!{
+    let output = quote! {
         #plugin
     };
     TokenStream::from(output)
@@ -123,7 +123,7 @@ pub fn dway_widget(input: TokenStream) -> TokenStream {
         pub z_index: ZIndex,
     }}));
     let plugin = domcontext::widget_context::generate(&input);
-    let output = quote!{
+    let output = quote! {
         #plugin
     };
     TokenStream::from(output)

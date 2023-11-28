@@ -23,7 +23,7 @@ pub fn main() {
             SeatPlugin,
             LibInputPlugin,
         ))
-        .add_systems(Update,input_event_system);
+        .add_systems(Update, input_event_system);
     app.finish();
     app.cleanup();
     for i in 0..256 {

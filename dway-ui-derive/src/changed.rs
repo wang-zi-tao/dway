@@ -25,19 +25,28 @@ pub fn generate_change_detect(structure: &ItemStruct) -> anyhow::Result<TokenStr
     let name = &ident;
     let mut functions: Vec<TokenStream2> = vec![];
     let mut fields: Vec<TokenStream2> = vec![];
-    
-    let all = (1<<(structure.fields.len()))-1;
+
+    let all = (1 << (structure.fields.len())) - 1;
     let integer_type = match structure.fields.len() {
         0..=7 => quote!(u8),
         8..=15 => quote!(u16),
         16..=31 => quote!(u32),
         32..=63 => quote!(u64),
         64..=127 => quote!(u128),
-        _ => { anyhow::bail!("too much field") },
+        _ => {
+            anyhow::bail!("too much field")
+        }
     };
 
-    for (index, field ) in structure.fields.iter().enumerate(){
-        let Field { attrs, vis, ident, colon_token, ty, .. } = &field;
+    for (index, field) in structure.fields.iter().enumerate() {
+        let Field {
+            attrs,
+            vis,
+            ident,
+            colon_token,
+            ty,
+            ..
+        } = &field;
         fields.push(quote!(#(#attrs)* #ident #colon_token #ty));
         let field_name = field
             .ident

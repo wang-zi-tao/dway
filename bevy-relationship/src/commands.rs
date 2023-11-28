@@ -7,7 +7,8 @@ use bevy::{
         world::EntityMut,
     },
     prelude::{
-        debug, despawn_with_children_recursive, BuildWorldChildren, Children, Entity, World, EntityWorldMut,
+        debug, despawn_with_children_recursive, BuildWorldChildren, Children, Entity,
+        EntityWorldMut, World,
     },
     utils::HashMap,
 };

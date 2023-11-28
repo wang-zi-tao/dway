@@ -6,7 +6,7 @@ pub use syn::{
     parse::ParseStream,
     punctuated::Punctuated,
     spanned::Spanned,
-    token::{At,Bracket, Brace, If, Paren, RArrow,And,Lt},
+    token::{And, At, Brace, Bracket, If, Lt, Paren, RArrow},
     *,
 };
 

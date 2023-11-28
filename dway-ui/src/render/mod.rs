@@ -128,7 +128,7 @@ impl UiMaterial for RoundedUiImageMaterial {
 }
 
 #[derive(Debug, Clone, Default, ShaderType, Reflect)]
-pub struct KwawaseRoundedRectMaterialSetting{
+pub struct KwawaseRoundedRectMaterialSetting {
     pub size: Vec2,
     pub corner: f32,
 }

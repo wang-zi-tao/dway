@@ -2,7 +2,7 @@ use anyhow::Result;
 use bevy::prelude::Rect;
 use drm::control::{crtc, framebuffer, plane, property::Value, Device, PlaneType};
 
-use super::{DrmDevice, surface::DrmTransform};
+use super::{surface::DrmTransform, DrmDevice};
 use crate::failure::DWayTTYError::*;
 
 #[derive(Clone, Debug)]

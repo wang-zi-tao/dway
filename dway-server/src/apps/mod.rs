@@ -5,12 +5,7 @@ use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 use dway_util::try_or;
 use gettextrs::{dgettext, setlocale, LocaleCategory};
 
-use crate::{
-    apps::icon::Icon,
-    prelude::*,
-    schedule::DWayServerSet,
-    xdg::toplevel::DWayToplevel,
-};
+use crate::{apps::icon::Icon, prelude::*, schedule::DWayServerSet, xdg::toplevel::DWayToplevel};
 
 use self::icon::IconLoader;
 
@@ -122,7 +117,9 @@ impl DesktopEntry {
 pub fn scan_desktop_file(mut entries: ResMut<DesktopEntriesSet>, mut commands: Commands) {
     let dirs = freedesktop_desktop_entry::default_paths();
     let iter = freedesktop_desktop_entry::Iter::new(dirs);
-    let root_entity = commands.spawn((Name::new("app_entry_root"),AppEntryRoot)).id();
+    let root_entity = commands
+        .spawn((Name::new("app_entry_root"), AppEntryRoot))
+        .id();
     for path in iter {
         try_or!(
             {

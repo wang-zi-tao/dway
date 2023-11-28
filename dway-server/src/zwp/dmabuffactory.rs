@@ -2,10 +2,11 @@ use drm_fourcc::DrmFourcc;
 
 use crate::{
     prelude::*,
+    state::add_global_dispatch,
     zwp::{
         dmabuffeedback::{init_feedback, DmabufFeedback},
         dmabufparam::DmaBufferParams,
-    }, state::add_global_dispatch,
+    },
 };
 
 relationship!(DmaBufferHasFeedback=>FeedbackList-<DmaBufferRef);

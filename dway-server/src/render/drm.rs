@@ -1,12 +1,7 @@
 use super::util::DWayRenderError::*;
-use crate::{
-    prelude::*,
-    util::file::create_sealed_file,
-};
-use bevy::{
-    render::renderer::RenderDevice,
-    utils::tracing,
-};
+use super::util::*;
+use crate::{prelude::*, util::file::create_sealed_file};
+use bevy::{render::renderer::RenderDevice, utils::tracing};
 use drm_fourcc::DrmFormat;
 use nix::libc::{self, dev_t};
 use std::{
@@ -17,7 +12,6 @@ use std::{
         Arc, Mutex,
     },
 };
-use super::util::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DrmNodeType {
@@ -123,7 +117,7 @@ impl DrmNodeState {
         Ok(())
     }
     pub fn create_format_table(texture_format: &Vec<DrmFormat>) -> Result<(File, usize)> {
-        if texture_format.is_empty(){
+        if texture_format.is_empty() {
             warn!("invalid drm format table");
         }
         let data = texture_format

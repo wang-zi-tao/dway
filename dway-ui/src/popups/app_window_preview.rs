@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, time::Duration};
 
-use bevy_tweening::{Animator, EaseFunction, lens::*, Tween};
+use bevy_tweening::{lens::*, Animator, EaseFunction, Tween};
 use bitflags::bitflags;
 use dway_client_core::desktop::FocusedWindow;
 use dway_server::{
@@ -17,7 +17,7 @@ use crate::{
     },
     prelude::*,
     widgets::{
-        popup::{PopupState, UiPopup, UiPopupAddonBundle, UiPopupBundle, PopupUiSystems},
+        popup::{PopupState, PopupUiSystems, UiPopup, UiPopupAddonBundle, UiPopupBundle},
         window::create_window_material,
     },
 };

@@ -229,7 +229,7 @@ pub const KEY_BRIGHTNESSUP: u32 = 225;
 pub const KEY_MEDIA: u32 = 226;
 
 pub const KEY_SWITCHVIDEOMODE: u32 = 227; /* Cycle between available video
-                                      outputs (Monitor/LCD/TV-out/etc) */
+                                          outputs (Monitor/LCD/TV-out/etc) */
 pub const KEY_KBDILLUMTOGGLE: u32 = 228;
 pub const KEY_KBDILLUMDOWN: u32 = 229;
 pub const KEY_KBDILLUMUP: u32 = 230;
@@ -252,8 +252,8 @@ pub const KEY_VIDEO_NEXT: u32 = 241; /* drive next video source */
 pub const KEY_VIDEO_PREV: u32 = 242; /* drive previous video source */
 pub const KEY_BRIGHTNESS_CYCLE: u32 = 243; /* brightness up, after max is min */
 pub const KEY_BRIGHTNESS_AUTO: u32 = 244; /* Set Auto Brightness: manual
-                                      pub const control:u32= is; off,
-                                                            rely on ambient */
+                                          pub const control:u32= is; off,
+                                                                rely on ambient */
 pub const KEY_BRIGHTNESS_ZERO: u32 = KEY_BRIGHTNESS_AUTO;
 pub const KEY_DISPLAY_OFF: u32 = 245; /* display device to off state */
 

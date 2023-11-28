@@ -45,7 +45,7 @@ pub fn process_ui_button_event(
                     *callback,
                     UiButtonEvent {
                         kind,
-                        receiver:*receiver,
+                        receiver: *receiver,
                         button: entity,
                     },
                 );

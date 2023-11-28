@@ -34,7 +34,7 @@ macro_rules! create_dispatch {
                 }
             }
         }
-        
+
         impl Drop for $name {
             fn drop(&mut self) {
                 trace!(entity=?DWay::get_entity(&self.raw), resource=?self.raw.id(), "drop wayland resource");

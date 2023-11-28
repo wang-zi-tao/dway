@@ -1,4 +1,3 @@
-
 use crate::{prelude::*, state::add_global_dispatch};
 
 #[derive(Component)]
@@ -6,7 +5,7 @@ pub struct DrmLeaseDevice {
     pub raw: wp_drm_lease_device_v1::WpDrmLeaseDeviceV1,
 }
 
-impl wayland_server::Dispatch<wp_drm_lease_request_v1::WpDrmLeaseRequestV1,Entity> for DWay{
+impl wayland_server::Dispatch<wp_drm_lease_request_v1::WpDrmLeaseRequestV1, Entity> for DWay {
     fn request(
         state: &mut Self,
         client: &wayland_server::Client,
@@ -51,7 +50,7 @@ impl wayland_server::Dispatch<wp_drm_lease_device_v1::WpDrmLeaseDeviceV1, Entity
             wp_drm_lease_device_v1::Request::CreateLeaseRequest { id } => {
                 let request = data_init.init(id, *data);
                 todo!();
-            },
+            }
             wp_drm_lease_device_v1::Request::Release => {
                 state.destroy_object(resource);
             }

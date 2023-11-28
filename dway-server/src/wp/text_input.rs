@@ -39,7 +39,10 @@ impl Dispatch<zwp_text_input_v3::ZwpTextInputV3, Entity> for DWay {
                 anchor: _,
             } => todo!(),
             zwp_text_input_v3::Request::SetTextChangeCause { cause: _ } => todo!(),
-            zwp_text_input_v3::Request::SetContentType { hint: _, purpose: _ } => todo!(),
+            zwp_text_input_v3::Request::SetContentType {
+                hint: _,
+                purpose: _,
+            } => todo!(),
             zwp_text_input_v3::Request::SetCursorRectangle {
                 x: _,
                 y: _,

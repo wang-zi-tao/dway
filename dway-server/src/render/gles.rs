@@ -621,7 +621,7 @@ pub fn import_wl_surface(
     texture: &Texture,
     device: &wgpu::Device,
     egl_state: &mut EglState,
-) -> Result<(),DWayRenderError> {
+) -> Result<(), DWayRenderError> {
     unsafe {
         let display: khronos_egl::Display = device.as_hal::<Gles, _, _>(|hal_device| {
             hal_device

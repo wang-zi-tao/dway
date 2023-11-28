@@ -141,7 +141,8 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                         global_geometry: GlobalGeometry::new(geometry),
                         window: Default::default(),
                     })
-                        .with_parent(parent_entity),);
+                        .with_parent(parent_entity),
+                );
                 state.send_event(Insert::<DWayWindow>::new(*data));
                 state.connect::<SurfaceHasPopup>(parent_entity, *data);
                 state.query_object::<(&mut XdgSurface, &mut XdgPopup), _, _>(

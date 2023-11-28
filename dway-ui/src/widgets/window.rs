@@ -8,7 +8,9 @@ use dway_server::{
 };
 
 use crate::{
-    framework::button::{UiButton, UiButtonAddonBundle, UiButtonBundle, UiButtonEvent, UiButtonEventKind},
+    framework::button::{
+        UiButton, UiButtonAddonBundle, UiButtonBundle, UiButtonEvent, UiButtonEventKind,
+    },
     util::irect_to_style,
 };
 use crate::{framework::svg::UiSvgBundle, prelude::*};

@@ -1,6 +1,9 @@
-use bevy::{prelude::{App, Last}, reflect::GetTypeRegistration};
+use bevy::{
+    prelude::{App, Last},
+    reflect::GetTypeRegistration,
+};
 
-use crate::{ConnectableMut, Relationship, ConnectionEventReceiver, apply_disconnection};
+use crate::{apply_disconnection, ConnectableMut, ConnectionEventReceiver, Relationship};
 
 pub trait AppExt {
     fn register_relation<R>(&mut self)
@@ -18,10 +21,9 @@ impl AppExt for App {
     {
         self.register_type::<R::From>();
         self.register_type::<R::To>();
-        if !self.world.contains_non_send::<ConnectionEventReceiver>(){
+        if !self.world.contains_non_send::<ConnectionEventReceiver>() {
             self.init_non_send_resource::<ConnectionEventReceiver>();
-            self.add_systems(Last,apply_disconnection);
+            self.add_systems(Last, apply_disconnection);
         }
     }
 }
-

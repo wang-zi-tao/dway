@@ -11,7 +11,7 @@ use glow::HasContext;
 use khronos_egl::{Attrib, Boolean, Int};
 use scopeguard::defer;
 use thiserror::Error;
-use wgpu_hal::{gles::AdapterContext, api::Gles};
+use wgpu_hal::{api::Gles, gles::AdapterContext};
 
 pub const LINUX_DMA_BUF_EXT: u32 = 0x3270;
 pub const WAYLAND_PLANE_WL: c_uint = 0x31D6;
@@ -208,10 +208,10 @@ pub fn call_egl_string(
     }
 }
 
-pub fn call_gl<R>(gl:&glow::Context,f:impl FnOnce()->R)->Result<R,DWayRenderError>{
-    let r=f();
-    let err=unsafe{ gl.get_error() };
-    if err!=0{
+pub fn call_gl<R>(gl: &glow::Context, f: impl FnOnce() -> R) -> Result<R, DWayRenderError> {
+    let r = f();
+    let err = unsafe { gl.get_error() };
+    if err != 0 {
         return Err(DWayRenderError::GLError(err));
     }
     Ok(r)
@@ -288,7 +288,7 @@ pub fn gl_debug_message_callback(source: u32, gltype: u32, id: u32, _severity: u
     });
 }
 
-pub fn get_extensions<E>(f: impl FnOnce() -> Result<String,E>) -> Result<HashSet<String>,E> {
+pub fn get_extensions<E>(f: impl FnOnce() -> Result<String, E>) -> Result<HashSet<String>, E> {
     Ok(f()?
         .split(' ')
         .filter(|e| !e.is_empty())
@@ -306,17 +306,18 @@ pub fn get_egl_extensions(egl: &EGLInstance) -> Result<HashSet<String>> {
         .collect())
 }
 
-pub fn with_hal<R,FG,FV>(fn_vulkan:FV,fn_gl:FG)-> Result<R,DWayRenderError> where 
-FG:FnOnce()-> Result<R,DWayRenderError>,
-FV:FnOnce()-> Result<R,DWayRenderError>,
+pub fn with_hal<R, FG, FV>(fn_vulkan: FV, fn_gl: FG) -> Result<R, DWayRenderError>
+where
+    FG: FnOnce() -> Result<R, DWayRenderError>,
+    FV: FnOnce() -> Result<R, DWayRenderError>,
 {
-    match fn_vulkan(){
-        Err(DWayRenderError::BackendIsNotVulkan) => {},
-        o =>return o,
+    match fn_vulkan() {
+        Err(DWayRenderError::BackendIsNotVulkan) => {}
+        o => return o,
     }
-    match fn_gl(){
-        Err(DWayRenderError::BackendIsNotEGL) => {},
-        o =>return o,
+    match fn_gl() {
+        Err(DWayRenderError::BackendIsNotEGL) => {}
+        o => return o,
     }
     Err(DWayRenderError::UnknownBackend)
 }

@@ -44,7 +44,7 @@ impl ConnectionEventSender {
         }
     }
 
-    pub fn inited(&self)->bool{
+    pub fn inited(&self) -> bool {
         self.sender.is_some()
     }
 }
@@ -57,11 +57,14 @@ fn remove_peer<C: ConnectableMut>(world: &mut World, this_entity: Entity, peer_e
 
 pub struct ConnectionEventReceiver {
     pub receiver: Arc<Receiver<(DisconnectPeerFn, Entity, Entity)>>,
-    pub sender: Arc< Sender<(DisconnectPeerFn, Entity, Entity)> >,
+    pub sender: Arc<Sender<(DisconnectPeerFn, Entity, Entity)>>,
 }
 impl ConnectionEventReceiver {
-    pub fn get_sender(&self,this_entity:Entity) -> ConnectionEventSender {
-        ConnectionEventSender{this_entity,sender:Some(self.sender.clone())}
+    pub fn get_sender(&self, this_entity: Entity) -> ConnectionEventSender {
+        ConnectionEventSender {
+            this_entity,
+            sender: Some(self.sender.clone()),
+        }
     }
 }
 impl Default for ConnectionEventReceiver {

@@ -1,15 +1,18 @@
-use std::{os::fd::AsRawFd, ptr::null_mut};
+use super::{RenderCache, TtyRenderState};
+use crate::{
+    drm::{connectors::Connector, surface::DrmSurface, DrmDevice},
+    gbm::buffer::{GbmBuffer, RenderImage},
+};
 use anyhow::{anyhow, bail, Result};
 use bevy::utils::HashSet;
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use gbm::EGLImage;
 use glow::{HasContext, NativeRenderbuffer};
-use khronos_egl::{EGLClientBuffer, EGLContext, EGLDisplay, Enum, Boolean, Int};
+use khronos_egl::{Boolean, EGLClientBuffer, EGLContext, EGLDisplay, Enum, Int};
+use std::{os::fd::AsRawFd, ptr::null_mut};
 use tracing::debug;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
-use wgpu_hal::gles::{Device, Texture, AdapterContextLock};
-use crate::{drm::{connectors::Connector, surface::DrmSurface, DrmDevice}, gbm::buffer::{GbmBuffer, RenderImage}};
-use super::{RenderCache, TtyRenderState};
+use wgpu_hal::gles::{AdapterContextLock, Device, Texture};
 use wgpu_hal::{api::Gles, MemoryFlags, TextureUses};
 pub type EGLInstance = khronos_egl::DynamicInstance<khronos_egl::EGL1_4>;
 

@@ -2,19 +2,19 @@
 pub mod assets;
 pub mod framework;
 pub mod panels;
+pub mod popups;
 pub mod prelude;
 pub mod render;
 pub mod sprite;
+pub mod theme;
 pub mod util;
 pub mod widgets;
-pub mod popups;
-pub mod theme;
 
-use bevy_tweening::TweeningPlugin;
-pub use bitflags::bitflags as __bitflags;
 use crate::{prelude::*, widgets::applist::AppListUIBundle};
 use bevy::{render::camera::RenderTarget, ui::FocusPolicy};
 use bevy_svg::prelude::Svg2dBundle;
+use bevy_tweening::TweeningPlugin;
+pub use bitflags::bitflags as __bitflags;
 use dway_tty::{drm::surface::DrmSurface, seat::SeatState};
 use font_kit::{
     error::SelectionError, family_name::FamilyName, properties::Properties, source::SystemSource,
@@ -81,14 +81,14 @@ fn setup(
         });
     }
 
-    spawn!{&mut commands=>
+    spawn! {&mut commands=>
     <(ImageBundle{style: style!("absolute full"),
         image: asset_server.load("background.jpg").into(),
         z_index: ZIndex::Global(-1024),
     ..default()})
     Name=(Name::new("background")) /> };
 
-    spawn!{ &mut commands=>
+    spawn! { &mut commands=>
     <(MaterialNodeBundle { style: style!("absolute top-4 left-4 right-4 h-32"),
         material: rect_material_set.add(RoundedUiRectMaterial::new(Color::WHITE.with_a(0.5),8.0)),
         z_index: ZIndex::Global(1024),
@@ -116,7 +116,7 @@ fn setup(
         </NodeBundle>
     </> };
 
-    spawn!{&mut commands=>
+    spawn! {&mut commands=>
     <(NodeBundle{style: style!("absolute bottom-4 w-full justify-center items-center"),
         focus_policy: FocusPolicy::Pass, z_index: ZIndex::Global(1024),..default()})
     Name=(Name::new("dock")) >

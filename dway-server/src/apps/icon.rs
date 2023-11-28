@@ -9,7 +9,7 @@ pub enum IconResorce {
     Image(Handle<Image>),
     Svg(Handle<Svg>),
 }
-impl Default for IconResorce{
+impl Default for IconResorce {
     fn default() -> Self {
         Self::Image(default())
     }

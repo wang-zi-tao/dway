@@ -1,9 +1,9 @@
 pub mod callback;
 pub mod control;
 pub mod data;
+pub mod plugin;
 pub mod relation;
 pub mod state;
-pub mod plugin;
 pub mod ui;
 
 use derive_syn_parse::Parse;
@@ -51,7 +51,7 @@ pub enum DomArgKey {
     Plugin,
     For,
     If,
-    Other(TypeId,String),
+    Other(TypeId, String),
 }
 
 pub trait DomDecorator: Any {

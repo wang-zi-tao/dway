@@ -1,7 +1,4 @@
-use bevy::{
-    prelude::IVec2,
-    reflect::Reflect,
-};
+use bevy::{prelude::IVec2, reflect::Reflect};
 
 #[derive(Default, Debug, Reflect, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct IRect {

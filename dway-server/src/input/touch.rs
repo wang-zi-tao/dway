@@ -1,5 +1,5 @@
-use crate::prelude::*;
 use super::grab::Grab;
+use crate::prelude::*;
 
 #[derive(Component)]
 pub struct WlTouch {

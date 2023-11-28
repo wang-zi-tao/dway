@@ -294,11 +294,7 @@ impl DomDecorator for ForQuery {
         true
     }
     fn update_context(&self, context: &mut WidgetNodeContext) {
-        let Self {
-            ty,
-            mutable,
-            ..
-        } = self;
+        let Self { ty, mutable, .. } = self;
         let dom_entity_list_field = DomContext::wrap_dom_id("node_", &context.dom_id, "_child_map");
         let arg_name = format_ident!("query_{}", context.dom_id);
         context.tree_context.system_querys.insert(
@@ -320,7 +316,11 @@ impl DomDecorator for ForQuery {
         let entity_var = &context.entity_var;
         let just_inited = &context.just_inited;
         let Self {
-            pat, expr, method, _in, ..
+            pat,
+            expr,
+            method,
+            _in,
+            ..
         } = self;
         let child_entity_map_var =
             DomContext::wrap_dom_id("__dway_ui_node_", &(&context.dom_id), "_child_entity_map");

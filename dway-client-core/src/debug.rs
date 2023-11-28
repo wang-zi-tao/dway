@@ -11,8 +11,7 @@ impl Plugin for DebugPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_systems(
             PostUpdate,
-            pring_stage_stack::<DWayClientState>
-                .after(DWayClientSystem::UpdateState),
+            pring_stage_stack::<DWayClientState>.after(DWayClientSystem::UpdateState),
         );
     }
 }

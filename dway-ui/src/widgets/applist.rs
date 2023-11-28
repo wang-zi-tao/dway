@@ -13,7 +13,6 @@ use crate::{
         icon::UiIcon,
     },
     popups::app_window_preview::{AppWindowPreviewPopup, AppWindowPreviewPopupBundle},
-    // popups::app_window_preview::{AppWindowPreviewPopupSystems, OpenAppWindowPreviewPopup},
     prelude::*,
     widgets::popup::UiPopupAddonBundle,
 };
@@ -54,6 +53,7 @@ fn open_popup(
         _=>{}
     }
 }}
+@state_component(#[derive(serde::Serialize,serde::Deserialize)])
 @arg(mut icon_loader: ResMut<IconLoader>)
 @arg(mut svg_assets: ResMut<Assets<Svg>>)
 @arg(mut mesh_assets: ResMut<Assets<Mesh>>)

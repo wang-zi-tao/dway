@@ -8,7 +8,7 @@ use bevy::{
         render_asset::RenderAssets,
         renderer::RenderDevice,
         texture::{DefaultImageSampler, GpuImage},
-        Extract, RenderApp, RenderSet, Render,
+        Extract, Render, RenderApp, RenderSet,
     },
     utils::HashMap,
 };

@@ -71,9 +71,7 @@ pub fn clean_client(
     while let Some(event) = queue.pop_front() {
         match event {
             ClientEvent::Destroyed { entity, .. } => {
-                commands
-                    .get_entity(entity)
-                    .map(|c| c.despawn_recursive());
+                commands.get_entity(entity).map(|c| c.despawn_recursive());
                 events_writer.send(Destroy::new(entity));
             }
         }

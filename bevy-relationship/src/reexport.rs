@@ -1,3 +1,3 @@
 pub use bevy;
+pub use bevy::prelude::{Component, Entity, Reflect};
 pub use smallvec::SmallVec;
-pub use bevy::prelude::{ Entity,Component,Reflect };

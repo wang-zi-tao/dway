@@ -48,35 +48,35 @@ impl Default for $bundle {
 #[macro_export]
 macro_rules! create_render {
     ($prop:ident) => {
-pub fn render(
-    In(entity): In<Entity>,
-    widget_context: Res<KayakWidgetContext>,
-    props_query: Query<&$prop>,
-    mut commands: Commands,
-) -> bool {
-    let Ok(props) = props_query.get(entity) else {
-        return true;
-    };
-    let parent_id = Some(entity);
-    rsx! {
-        <ElementBundle>
-        </ElementBundle>
-    };
-    true
-}
+        pub fn render(
+            In(entity): In<Entity>,
+            widget_context: Res<KayakWidgetContext>,
+            props_query: Query<&$prop>,
+            mut commands: Commands,
+        ) -> bool {
+            let Ok(props) = props_query.get(entity) else {
+                return true;
+            };
+            let parent_id = Some(entity);
+            rsx! {
+                <ElementBundle>
+                </ElementBundle>
+            };
+            true
+        }
     };
 }
 
 #[macro_export]
 macro_rules! create_update_function {
     ($prop:ident) => {
-pub fn widget_update(
-    In((entity, previous_entity)): In<(Entity, Entity)>,
-    widget_context: Res<KayakWidgetContext>,
-    widget_param: WidgetParam<$prop, EmptyState>,
-) -> bool {
-    let should_update = widget_param.has_changed(&widget_context, entity, previous_entity);
-    should_update
-}
+        pub fn widget_update(
+            In((entity, previous_entity)): In<(Entity, Entity)>,
+            widget_context: Res<KayakWidgetContext>,
+            widget_param: WidgetParam<$prop, EmptyState>,
+        ) -> bool {
+            let should_update = widget_param.has_changed(&widget_context, entity, previous_entity);
+            should_update
+        }
     };
 }

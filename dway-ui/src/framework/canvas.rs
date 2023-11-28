@@ -263,7 +263,7 @@ pub fn cleanup_render_command(
         if !rendercommand.continue_rending {
             commands.entity(rendercommand.camera).despawn();
             commands.entity(e).remove::<UiCanvasRenderCommand>();
-        }else{
+        } else {
             rendercommand.continue_rending = false;
         }
     });

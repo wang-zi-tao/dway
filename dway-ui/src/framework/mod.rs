@@ -4,7 +4,7 @@ pub mod evnet;
 pub mod icon;
 pub mod svg;
 
-use bevy::{prelude::*, ui::FocusPolicy, ecs::system::SystemId};
+use bevy::{ecs::system::SystemId, prelude::*, ui::FocusPolicy};
 pub use bevy_svg::SvgPlugin;
 use bevy_vector_shapes::{Shape2dPlugin, ShapePlugin};
 use dway_util::UtilPlugin;

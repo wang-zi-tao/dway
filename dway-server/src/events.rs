@@ -8,7 +8,7 @@ pub struct Insert<T> {
     pub entity: Entity,
     pub phase: std::marker::PhantomData<T>,
 }
-impl<T:Component> Event for Insert<T> {}
+impl<T: Component> Event for Insert<T> {}
 impl<T> Insert<T> {
     pub fn new(entity: Entity) -> Self {
         Self {
@@ -22,7 +22,7 @@ pub struct Destroy<T> {
     pub entity: Entity,
     pub phase: std::marker::PhantomData<T>,
 }
-impl<T:Component> Event for Destroy<T> {}
+impl<T: Component> Event for Destroy<T> {}
 impl<T> Destroy<T> {
     pub fn new(entity: Entity) -> Self {
         Self {
@@ -46,7 +46,7 @@ pub struct MoveWindow {
 }
 
 #[derive(Event)]
-pub enum WindowAction{
+pub enum WindowAction {
     Close(Entity),
     Maximize(Entity),
     UnMaximize(Entity),
@@ -54,7 +54,7 @@ pub enum WindowAction{
     UnFullscreen(Entity),
     Minimize(Entity),
     UnMinimize(Entity),
-    SetRect(Entity,IRect),
+    SetRect(Entity, IRect),
 }
 
 #[derive(Event)]

@@ -1,5 +1,5 @@
-use rstar::{PointDistance, RTree, RTreeObject, SelectionFunction, AABB};
 use crate::{prelude::*, util::rect::IRect};
+use rstar::{PointDistance, RTree, RTreeObject, SelectionFunction, AABB};
 
 #[derive(Resource)]
 struct RegionDelegate(pub GlobalId);

@@ -8,7 +8,7 @@ use crate::{
     input::{keyboard::WlKeyboardBundle, pointer::WlPointerBundle, touch::WlTouchBundle},
     prelude::*,
     state::{add_global_dispatch, EntityFactory},
-    wl::{surface::WlSurface, cursor::PointerHasSurface},
+    wl::{cursor::PointerHasSurface, surface::WlSurface},
 };
 use bevy_relationship::{relationship, AppExt};
 use wayland_server::protocol::wl_seat::Capability;

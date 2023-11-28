@@ -3,11 +3,8 @@ pub mod dmabuffeedback;
 pub mod dmabufparam;
 pub mod idle;
 
+use self::{dmabuffeedback::DmabufFeedback, dmabufparam::DmaBuffer};
 use crate::prelude::*;
-use self::{
-    dmabuffeedback::DmabufFeedback,
-    dmabufparam::DmaBuffer,
-};
 
 pub struct DmaBufferPlugin;
 impl Plugin for DmaBufferPlugin {

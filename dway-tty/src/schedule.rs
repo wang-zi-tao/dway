@@ -1,6 +1,6 @@
 use bevy::{
     prelude::*,
-    render::{RenderApp, RenderSet, Render},
+    render::{Render, RenderApp, RenderSet},
 };
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]

@@ -6,6 +6,5 @@ pub struct Hidden;
 
 pub struct DWayWindowPlugin;
 impl Plugin for DWayWindowPlugin {
-    fn build(&self, _app: &mut App) {
-    }
+    fn build(&self, _app: &mut App) {}
 }

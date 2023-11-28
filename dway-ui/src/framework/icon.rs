@@ -30,13 +30,7 @@ pub struct UiIconBundle {
 
 pub fn uiicon_render(
     mut uiicon_query: Query<
-        (
-            Entity,
-            &Node,
-            &UiIcon,
-            &mut UiImage,
-            Option<&mut UiSvg>,
-        ),
+        (Entity, &Node, &UiIcon, &mut UiImage, Option<&mut UiSvg>),
         Changed<UiImage>,
     >,
     mut commands: Commands,

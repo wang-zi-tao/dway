@@ -37,7 +37,7 @@ impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
                 serial: _,
             } => {
                 warn!("TODO: wl_data_device::Request::StartDrag");
-            },
+            }
             wl_data_device::Request::SetSelection { source, serial: _ } => {
                 if let Some(source) = source {
                     state.connect::<SelectionOfDataDevice>(*data, DWay::get_entity(&source));

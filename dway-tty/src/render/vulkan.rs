@@ -1,13 +1,24 @@
-use std::{ffi::CStr, os::fd::{AsFd, AsRawFd}};
-use crate::{drm::{connectors::Connector, surface::DrmSurface, DrmDevice}, gbm::{buffer::{GbmBuffer, RenderImage}, SUPPORTED_FORMATS}};
-use anyhow::{bail, anyhow, Result};
-use ash::{extensions::khr::ExternalMemoryFd, vk::{self, *}};
+use crate::{
+    drm::{connectors::Connector, surface::DrmSurface, DrmDevice},
+    gbm::{
+        buffer::{GbmBuffer, RenderImage},
+        SUPPORTED_FORMATS,
+    },
+};
+use anyhow::{anyhow, bail, Result};
+use ash::{
+    extensions::khr::ExternalMemoryFd,
+    vk::{self, *},
+};
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use smallvec::SmallVec;
+use std::{
+    ffi::CStr,
+    os::fd::{AsFd, AsRawFd},
+};
 use tracing::{debug, error, trace};
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 use wgpu_hal::{api::Vulkan, vulkan::Texture, MemoryFlags, TextureUses};
-
 
 pub const MEM_PLANE_ASCPECT: [ImageAspectFlags; 4] = [
     ImageAspectFlags::MEMORY_PLANE_0_EXT,

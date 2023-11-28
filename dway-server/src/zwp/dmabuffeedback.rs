@@ -96,7 +96,7 @@ pub fn init_feedback(
 ) {
     if let Some(drm_node_state) = &world.resource::<DmaFeedbackWriter>().state {
         do_init_feedback(feedback, drm_node_state)
-    }else{
+    } else {
         warn!("failed to init dmabuf feedback");
     }
 }

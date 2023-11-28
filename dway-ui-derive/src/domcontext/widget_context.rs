@@ -205,7 +205,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
             std::mem::swap(&mut state_builder, &mut self.state_builder);
             std::mem::swap(&mut widget_builder, &mut self.widget_builder);
             let widget_name = &widget_builder.name;
-            self.plugin_builder.stmts.push(quote!{
+            self.plugin_builder.stmts.push(quote! {
                 app.register_type::<#widget_name>();
             });
             self.plugin_builder.components.push(state_builder);
@@ -216,7 +216,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                 .iter()
                 .map(|(_key, value)| value)
                 .collect::<Vec<_>>();
-            let spawn_children = quote!{
+            let spawn_children = quote! {
                 #(#spawn_children)*
             };
 

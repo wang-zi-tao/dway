@@ -17,13 +17,15 @@ impl DomDecorator for InsertComponent {
         !component_state.use_state.is_empty() || !component_state.set_state.is_empty()
     }
     fn get_component(&self) -> Option<TokenStream> {
-        let Self{ component, expr }=self;
-        Some(quote!{
+        let Self { component, expr } = self;
+        Some(quote! {
             {let value: #component = #expr;value}
         })
     }
     fn generate_update(&self, context: &mut WidgetNodeContext) -> Option<TokenStream> {
-        let Self { expr,component, .. } = self;
+        let Self {
+            expr, component, ..
+        } = self;
         let entity = &context.entity_var;
         let dependencies = ParseCodeResult::from_expr(expr);
         dependencies.is_changed().map(|check_changed| {
@@ -59,13 +61,11 @@ impl DomDecorator for Argument {
             .system_querys
             .insert(self.name.to_string(), quote!(#mutable #name: #ty));
     }
-    fn wrap_update(
-        &self,
-        inner: TokenStream,
-        context: &mut WidgetNodeContext,
-    ) -> TokenStream {
+    fn wrap_update(&self, inner: TokenStream, context: &mut WidgetNodeContext) -> TokenStream {
         let Self { name, block, .. } = self;
-        let WidgetNodeContext { parent_just_inited, .. } = context;
+        let WidgetNodeContext {
+            parent_just_inited, ..
+        } = context;
         let chech_change = block.as_ref().map(|b| {
             quote! {
                 if #parent_just_inited || #name.is_changed() {

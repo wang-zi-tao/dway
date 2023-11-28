@@ -1,5 +1,8 @@
-use dway_server::{geometry::{Geometry, GlobalGeometry}, util::rect::IRect};
 use crate::prelude::*;
+use dway_server::{
+    geometry::{Geometry, GlobalGeometry},
+    util::rect::IRect,
+};
 
 #[derive(Component)]
 pub struct Screen {

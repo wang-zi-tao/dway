@@ -11,5 +11,4 @@ pub struct DWayOption {
     pub debug_schedule: bool,
 }
 
-impl DWayOption {
-}
+impl DWayOption {}

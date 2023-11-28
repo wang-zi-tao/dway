@@ -35,7 +35,7 @@ impl Dispatch<ZwpPrimarySelectionSourceV1, Entity> for DWay {
             }
             zwp_primary_selection_source_v1::Request::Destroy => {
                 state.despawn(*data);
-            },
+            }
             _ => todo!(),
         }
     }
