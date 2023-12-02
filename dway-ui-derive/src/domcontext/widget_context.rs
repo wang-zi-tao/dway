@@ -239,11 +239,14 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                     #ident
                 };
                 let #ident = if let Ok((mut widget,mut state)) = #sub_widget_query.get_mut(#ident) {
-                    #lambda_var(#ident, &mut widget, &mut state)
+                    let #ident = #lambda_var(#ident, &mut widget, &mut state);
+                    state.clear_marks();
+                    #ident
                 }else{
                     let mut state = #sub_widget_state_type::default();
                     let mut widget = #sub_widget_type::default();
                     let #ident = #lambda_var(#ident, &mut widget, &mut state);
+                    state.clear_marks();
                     commands.entity(#ident).insert((state,widget));
                     #ident
                 };

@@ -8,6 +8,7 @@ use super::{
 use crate::{
     prelude::*,
     state::{WaylandDisplayCreated, WaylandDisplayDestroyed},
+    util::rect::IRect,
     wl::{
         buffer::{UninitedWlBuffer, WlShmBuffer},
         surface::WlSurface,
@@ -188,9 +189,8 @@ pub struct ImportSurfacePassNode {
         )>,
     >,
 }
-impl ImportSurfacePassNode {
-    pub const IN_VIEW: &'static str = "view";
-    pub fn new(world: &mut World) -> Self {
+impl FromWorld for ImportSurfacePassNode {
+    fn from_world(world: &mut World) -> Self {
         Self {
             state: Mutex::new(SystemState::new(world)),
         }
@@ -246,10 +246,24 @@ impl Node for ImportSurfacePassNode {
         self.state.lock().unwrap().update_archetypes(world);
     }
 }
-pub const NAME: &str = "wayland_server_graph";
-pub mod node {
-    pub const IMPORT_PASS: &str = "import_wayland_surface";
+impl ImportSurfacePassNode {
+    pub const NAME: &str = "import_wayland_surface";
 }
-pub mod input {
-    pub const VIEW_ENTITY: &str = "view_entity";
+
+pub fn merge_damage(damage: &[IRect]) -> Vec<IRect> {
+    let mut result = vec![];
+    for d in damage {
+        let mut merged = false;
+        for r in &mut result {
+            if d.union(*r).area() < d.area() + r.area() {
+                *r = r.union(*d);
+                merged = true;
+                break;
+            };
+        }
+        if !merged {
+            result.push(*d);
+        }
+    }
+    result
 }

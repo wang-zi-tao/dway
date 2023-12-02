@@ -1,7 +1,11 @@
 use bevy::{ecs::system::SystemId, ui::FocusPolicy};
 use derive_builder::Builder;
 
-use crate::{framework::button::UiButton, prelude::*};
+use crate::{
+    animation,
+    framework::{animation::despawn_animation, button::UiButton},
+    prelude::*,
+};
 
 #[derive(Debug, Clone, Copy, Reflect, Default, PartialEq, Eq)]
 pub enum PopupState {
@@ -27,16 +31,22 @@ pub enum PopupPosition {
     Right,
 }
 
-pub enum PopupEvent {
+#[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq)]
+pub enum PopupEventKind {
     Opened,
     Closed,
+}
+#[derive(Debug)]
+pub struct PopupEvent {
+    pub entity: Entity,
+    pub kind: PopupEventKind,
 }
 
 #[derive(Component, Reflect, Default, Clone, Debug, Builder)]
 pub struct UiPopup {
     pub close_policy: PopupClosePolicy,
     #[reflect(ignore)]
-    pub callback: Option<SystemId>,
+    pub callback: Option<SystemId<PopupEvent>>,
     pub state: PopupState,
     pub position: PopupPosition,
     pub moveable: bool,
@@ -53,7 +63,17 @@ pub fn auto_close_popup(
     let mouse_down =
         || mouse.any_just_pressed([MouseButton::Left, MouseButton::Middle, MouseButton::Right]);
     popup_query.for_each_mut(|(entity, mut popup, button_state)| {
-        let mut run_callback = false;
+        let run_close_callback = |popup: &UiPopup, commands: &mut Commands| {
+            if let Some(callback) = popup.callback {
+                commands.run_system_with_input(
+                    callback,
+                    PopupEvent {
+                        entity,
+                        kind: PopupEventKind::Closed,
+                    },
+                );
+            }
+        };
         match popup.close_policy {
             PopupClosePolicy::MouseLeave => match button_state {
                 Interaction::Pressed => {}
@@ -63,22 +83,17 @@ pub fn auto_close_popup(
                 Interaction::None => {
                     if popup.hovered || button_state == &Interaction::None && mouse_down() {
                         popup.state = PopupState::Closed;
-                        run_callback = true;
+                        run_close_callback(&popup, &mut commands);
                     }
                 }
             },
             PopupClosePolicy::MouseButton => {
                 if button_state == &Interaction::None && mouse_down() {
                     popup.state = PopupState::Closed;
-                    run_callback = true;
+                    run_close_callback(&popup, &mut commands);
                 }
             }
             PopupClosePolicy::None => {}
-        }
-        if run_callback {
-            if let Some(callback) = popup.callback {
-                commands.run_system(callback);
-            }
         }
         if popup.state == PopupState::Closed && popup.auto_destroy {
             commands.entity(entity).despawn_recursive();
@@ -125,10 +140,22 @@ pub enum PopupUiSystems {
     Close,
 }
 
+pub fn delay_destroy(
+    In(event): In<PopupEvent>,
+    mut commands: Commands,
+) {
+    if PopupEventKind::Closed == event.kind {
+        commands.entity(event.entity).insert(despawn_animation(
+            animation!(0.5 secs:BackIn->TransformScaleLens(Vec3::ONE=>Vec3::splat(0.5))),
+        ));
+    }
+}
+
 pub struct PopupUiPlugin;
 impl Plugin for PopupUiPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<UiPopup>()
+            .register_system(delay_destroy)
             .add_systems(Update, auto_close_popup.in_set(PopupUiSystems::Close));
     }
 }

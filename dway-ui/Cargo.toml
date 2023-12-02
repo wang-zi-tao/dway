@@ -23,14 +23,14 @@ lru = { workspace = true }
 rand = { workspace = true }
 bevy = "0.12"
 bevy_svg = { version="0.12", default-features = false, features = ["2d"] }
-# bevy_ui_styled = "0.4.0"
 bevy_vector_shapes = "0.6"
 const-fnv1a-hash = "1.1.0"
 bitflags = "2.4.1"
 derive_builder = "0.12.0"
 bevy_tweening = "0.9.0"
-dexterous_developer = { version="0.0.12", optional=true }
-serde = { version="1", optional=true }
+dexterous_developer = {  workspace = true, optional=true }
+serde = { workspace = true, optional=true }
+measure_time = {workspace = true}
 
 [features]
 dynamic_reload = ["dep:dexterous_developer","dep:serde"]

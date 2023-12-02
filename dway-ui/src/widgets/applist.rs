@@ -1,12 +1,11 @@
-use std::{any::type_name, collections::BTreeMap};
-
 use bevy_svg::prelude::Svg;
-use dway_client_core::{desktop::FocusedWindow, navigation::windowstack::WindowStack};
+use dway_client_core::desktop::FocusedWindow;
 use dway_server::apps::{
     icon::{Icon, IconLoader, IconResorce},
-    DesktopEntry, WindowList,
+    WindowList,
 };
 
+use super::popup::{delay_destroy, UiPopup};
 use crate::{
     framework::{
         button::{UiButton, UiButtonAddonBundle, UiButtonBundle, UiButtonEvent, UiButtonEventKind},
@@ -14,10 +13,9 @@ use crate::{
     },
     popups::app_window_preview::{AppWindowPreviewPopup, AppWindowPreviewPopupBundle},
     prelude::*,
+    theme::Theme,
     widgets::popup::UiPopupAddonBundle,
 };
-
-use super::popup::{UiPopup, UiPopupBundle};
 
 #[derive(Component, Reflect)]
 pub struct AppEntryUI(pub Entity);
@@ -31,26 +29,24 @@ AppListUI=>
 fn open_popup(
     In(event): In<UiButtonEvent>,
     prop_query: Query<(&AppListUISubWidgetList,&AppListUISubStateList)>,
+    theme: Res<Theme>,
     mut commands: Commands,
 ){
     let Ok((widget,state)) = prop_query.get(event.receiver)else{return;};
     if widget.node_popup_entity == Entity::PLACEHOLDER {return;}
-    match &event.kind{
-        UiButtonEventKind::Pressed=>{
-            commands.spawn(AppWindowPreviewPopupBundle{
-                prop:AppWindowPreviewPopup{app:*state.app_entity()},
-                popup: UiPopupAddonBundle{
-                    popup: UiPopup{
-                        auto_destroy: true,
-                        ..default()
-                    },
+    if event.kind == UiButtonEventKind::Pressed{
+        commands.spawn(AppWindowPreviewPopupBundle{
+            prop:AppWindowPreviewPopup{app:*state.app_entity()},
+            popup: UiPopupAddonBundle{
+                popup: UiPopup{
+                    callback: Some(theme.system(delay_destroy)),
                     ..default()
                 },
-                style: style!("absolute bottom-110% align-self:center"),
                 ..default()
-            }).set_parent(widget.node_popup_entity);
-        }
-        _=>{}
+            },
+            style: style!("absolute bottom-110% align-self:center"),
+            ..default()
+        }).set_parent(widget.node_popup_entity);
     }
 }}
 @state_component(#[derive(serde::Serialize,serde::Deserialize)])

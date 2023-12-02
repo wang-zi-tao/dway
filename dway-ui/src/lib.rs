@@ -12,31 +12,33 @@ pub mod widgets;
 
 use crate::{prelude::*, widgets::applist::AppListUIBundle};
 use bevy::{render::camera::RenderTarget, ui::FocusPolicy};
-use bevy_svg::prelude::Svg2dBundle;
+use bevy_svg::SvgPlugin;
 use bevy_tweening::TweeningPlugin;
 pub use bitflags::bitflags as __bitflags;
 use dway_tty::{drm::surface::DrmSurface, seat::SeatState};
-use font_kit::{
-    error::SelectionError, family_name::FamilyName, properties::Properties, source::SystemSource,
-};
-use widgets::{
-    // applist::{AppListUI, AppListUIBundle},
-    clock::ClockBundle,
-};
+use font_kit::{family_name::FamilyName, properties::Properties, source::SystemSource};
+use widgets::clock::ClockBundle;
 
 pub struct DWayUiPlugin;
 impl Plugin for DWayUiPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        if !app.is_plugin_added::<SvgPlugin>() {
+            app.add_plugins(SvgPlugin);
+        }
         app.add_plugins((
             TweeningPlugin,
             assets::DWayAssetsPlugin,
             render::DWayUiMaterialPlugin,
-            framework::UiFrameworkPlugin,
-            widgets::DWayWidgetsPlugin,
-            popups::app_window_preview::AppWindowPreviewPopupPlugin,
             theme::ThemePlugin,
+            framework::UiFrameworkPlugin,
+            widgets::clock::ClockUiPlugin,
+            widgets::window::WindowUIPlugin,
+            widgets::popupwindow::PopupUIPlugin,
+            widgets::applist::AppListUIPlugin,
+            widgets::popup::PopupUiPlugin,
+            popups::app_window_preview::AppWindowPreviewPopupPlugin,
         ));
-        app.add_systems(Startup, setup);
+        app.add_systems(Startup, (setup, init_ui));
     }
 }
 
@@ -58,13 +60,7 @@ pub fn default_system_font() -> Option<String> {
     Some(loaded.full_name())
 }
 
-fn setup(
-    mut commands: Commands,
-    seat: Option<NonSend<SeatState>>,
-    surfaces: Query<&DrmSurface>,
-    asset_server: Res<AssetServer>,
-    mut rect_material_set: ResMut<Assets<RoundedUiRectMaterial>>,
-) {
+fn setup(mut commands: Commands, seat: Option<NonSend<SeatState>>, surfaces: Query<&DrmSurface>) {
     if seat.is_none() {
         let camera = Camera2dBundle::default();
         commands.spawn(camera);
@@ -80,7 +76,13 @@ fn setup(
             },));
         });
     }
+}
 
+fn init_ui(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut rect_material_set: ResMut<Assets<RoundedUiRectMaterial>>,
+) {
     spawn! {&mut commands=>
     <(ImageBundle{style: style!("absolute full"),
         image: asset_server.load("background.jpg").into(),

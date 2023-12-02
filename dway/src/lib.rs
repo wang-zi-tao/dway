@@ -23,6 +23,7 @@ use bevy::{
 use bevy_framepace::Limiter;
 use clap::Parser;
 use dway_client_core::{
+    desktop::FocusedWindow,
     layout::{LayoutRect, LayoutStyle},
     workspace::{Workspace, WorkspaceBundle},
 };
@@ -32,7 +33,7 @@ use dway_server::{
     x11::DWayXWaylandReady,
 };
 use dway_tty::DWayTTYPlugin;
-use dway_util::{eventloop::EventLoopPlugin, logger::DWayLogPlugin};
+use dway_util::logger::DWayLogPlugin;
 use keys::*;
 use opttions::DWayOption;
 use std::{process, time::Duration};
@@ -56,7 +57,8 @@ dway_server::xdg=info,\
 nega::front=info,\
 naga=warn,\
 wgpu=trace,\
-wgpu-hal=trace
+wgpu-hal=trace,\
+dexterous_developer_internal=trace,\
 ";
 
 #[cfg(not(feature = "dynamic_reload"))]
@@ -73,11 +75,24 @@ use dexterous_developer::{hot_bevy_main, InitialPlugins};
 #[cfg(feature = "dynamic_reload")]
 #[hot_bevy_main]
 pub fn bevy_main(initial_plugins: impl InitialPlugins) {
+    use dexterous_developer::{ReloadableElementPolicy, ReloadSettings, ReloadMode};
+
     let mut app = App::new();
+    app.insert_resource(ReloadSettings {
+        display_update_time: true,
+        manual_reload: Some(KeyCode::F2),
+        toggle_reload_mode: None,
+        reload_mode: ReloadMode::Full,
+        reloadable_element_policy: ReloadableElementPolicy::All,
+        reloadable_element_selection: None,
+    });
     init_app(&mut app, initial_plugins.initialize::<DefaultPlugins>());
 }
 
 pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
+    #[cfg(feature = "dhat-heap")]
+    let _profiler = dhat::Profiler::new_heap();
+
     let opts = DWayOption::parse();
     app.insert_resource(opts.clone());
     app.insert_resource(ClearColor(Color::NONE));
@@ -100,7 +115,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         });
     }
 
-    #[cfg(feature = "dway_log")]
+    #[cfg(all(feature = "dway_log", not(feature = "cpu_profile")))]
     {
         default_plugins = default_plugins.disable::<LogPlugin>().add(DWayLogPlugin {
             level: LOG_LEVEL,
@@ -129,27 +144,29 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         app.add_plugins((DWayTTYPlugin::default(),));
     } else {
         app.insert_resource(bevy::winit::WinitSettings {
-            focused_mode: bevy::winit::UpdateMode::Reactive {
-                wait: Duration::from_secs_f32(1.0),
-            },
-            unfocused_mode: bevy::winit::UpdateMode::Reactive {
-                wait: Duration::from_secs_f32(1.0),
-            },
+            return_from_run: true,
             ..Default::default()
         });
-        app.insert_resource(bevy::winit::WinitSettings {
-            focused_mode: bevy::winit::UpdateMode::Continuous,
-            unfocused_mode: bevy::winit::UpdateMode::Continuous,
-            ..Default::default()
-        });
+        #[cfg(feature = "eventloop")]
+        {
+            app.insert_resource(bevy::winit::WinitSettings {
+                focused_mode: bevy::winit::UpdateMode::Reactive {
+                    wait: Duration::from_secs_f32(1.0),
+                },
+                unfocused_mode: bevy::winit::UpdateMode::Reactive {
+                    wait: Duration::from_secs_f32(1.0),
+                },
+                return_from_run: true,
+            });
+        }
         app.add_plugins((WinitPlugin::default(), bevy_framepace::FramepacePlugin));
         app.insert_resource(
             bevy_framepace::FramepaceSettings::default()
                 .with_limiter(Limiter::from_framerate(60.0)),
         );
-        #[cfg(feature = "debug")]
+        #[cfg(feature = "eventloop")]
         {
-            app.add_plugins(EventLoopPlugin::default());
+            app.add_plugins(dway_util::eventloop::EventLoopPlugin::default());
         }
     }
 
@@ -182,6 +199,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         ),
     );
     app.add_systems(Update, (wm_mouse_action, wm_keys, update));
+    app.add_systems(Last, last);
 
     #[cfg(feature = "debug")]
     if opts.debug_schedule {
@@ -192,6 +210,8 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     }
 
     app.run();
+
+    info!("exit");
 }
 
 pub fn setup(mut commands: Commands) {
@@ -214,3 +234,9 @@ pub fn setup(mut commands: Commands) {
 pub fn update(query: Query<&Window>) {
     // info!("window count: {}",window_query.iter().count());
 }
+
+pub fn last(mut commands: Commands) {}
+
+#[cfg(feature = "dhat-heap")]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;

@@ -38,6 +38,7 @@ drm-fourcc = "2.2.0"
 rstar = "0.11.0"
 async-process = "2.0.0"
 futures = "0.3.29"
+futures-lite = "2.0.0"
 # tokio = { version="1.28.0", features = [ "full" ] }
 # bytes = "1.4.0"
 # bevy-tokio-tasks = "0.11"
@@ -54,6 +55,7 @@ gettext-rs = "0.7.0"
 current_locale = "0.1.1"
 icon-loader = "0.4.0"
 bevy_svg = { version="0.12", default-features = false }
+measure_time = {workspace = true}
 
 [dependencies.x11rb]
 default-features = false
@@ -69,5 +71,4 @@ opt-level = 3
 
 [profile.release]
 lto = "thin"
-
 

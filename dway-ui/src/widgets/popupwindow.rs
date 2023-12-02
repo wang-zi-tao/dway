@@ -48,7 +48,7 @@ PopupUI=>
 pub fn attach_popup(
     mut commands: Commands,
     mut ui_query: Query<(Entity, &mut PopupUI, &mut ZIndex)>,
-    mut popup_query: Query<(Entity, &XdgPopup), (Added<DWayWindow>, Without<DWayToplevel>)>,
+    popup_query: Query<(Entity, &XdgPopup), (Added<DWayWindow>, Without<DWayToplevel>)>,
     mut destroy_window_events: RemovedComponents<DWayWindow>,
     window_stack: Res<WindowStack>,
 ) {

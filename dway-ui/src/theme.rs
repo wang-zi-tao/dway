@@ -1,4 +1,4 @@
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 
 use bevy::{ecs::system::SystemId, utils::HashMap};
 use bevy_svg::prelude::Svg;
@@ -24,12 +24,14 @@ pub mod iconname {
 }
 use classname::*;
 
-#[derive(Resource, Reflect, Default)]
+#[derive(Resource, Reflect, Default, Debug)]
 pub struct Theme {
     pub default_font: Handle<Font>,
     pub color_map: HashMap<String, Color>,
     pub style_map: HashMap<String, Style>,
     pub icons: HashMap<String, Handle<Svg>>,
+    #[reflect(ignore)]
+    pub callbacks: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
 }
 
 impl Theme {
@@ -41,6 +43,20 @@ impl Theme {
     }
     pub fn icon(&self, icon: &str) -> Handle<Svg> {
         self.icons.get(icon).cloned().unwrap_or_default()
+    }
+    pub fn system<T, M>(&self, system: T) -> SystemId<T::In, T::Out>
+    where
+        T: SystemParamFunction<M, Out = ()>,
+        T::In: 'static,
+        T::Out: 'static,
+    {
+        *self
+            .callbacks
+            .get(&system.type_id())
+            .unwrap()
+            .as_ref()
+            .downcast_ref()
+            .unwrap()
     }
 }
 
@@ -92,6 +108,7 @@ impl Plugin for ThemePlugin {
                 ),
             ]),
             style_map: HashMap::from([("popup".to_string(), style!("m-4"))]),
+            callbacks: default(),
         };
         let systems = SystemMap {
             map: HashMap::from([]),
@@ -99,5 +116,31 @@ impl Plugin for ThemePlugin {
         app.insert_resource(theme)
             .insert_resource(systems)
             .register_type::<Theme>();
+    }
+    fn finish(&self, app: &mut App) {
+        let theme = app.world.resource::<Theme>();
+        debug!("theme: {:?}", theme);
+    }
+}
+
+pub trait ThemeAppExt {
+    fn register_system<F, M: 'static>(&mut self, system: F) -> &mut App
+    where
+        F: SystemParamFunction<M, Out = ()> + 'static,
+        F::In: 'static,
+        F::Out: 'static;
+}
+impl ThemeAppExt for App {
+    fn register_system<F, M: 'static>(&mut self, system: F) -> &mut App
+    where
+        F: SystemParamFunction<M, Out = ()> + 'static,
+        F::In: 'static,
+        F::Out: 'static,
+    {
+        let type_id = system.type_id();
+        let system_id = self.world.register_system(system);
+        let mut theme = self.world.resource_mut::<Theme>();
+        theme.callbacks.insert(type_id, Box::new(system_id));
+        self
     }
 }

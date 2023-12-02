@@ -1,13 +1,13 @@
 use super::{
     drm::{DrmInfo, DrmNode},
-    util::DWayRenderError::{self, *},
+    util::DWayRenderError::{self, *}, importnode::merge_damage,
 };
 use crate::{
     prelude::*,
     util::rect::IRect,
     wl::{
         buffer::{WlShmBuffer, WlShmPoolInner},
-        surface::WlSurface,
+        surface::{WlSurface, self},
     },
     zwp::dmabufparam::DmaBuffer,
 };
@@ -500,6 +500,7 @@ pub fn prepare_wl_surface(
     image_assets: &mut RenderAssets<bevy::render::texture::Image>,
 ) -> Result<()> {
     unsafe {
+        let damage = merge_damage(&surface.commited.damages);
         if let Some(dma_buffer) = dma_buffer {
             match state.image_map.entry(dma_buffer.raw.clone()) {
                 Entry::Occupied(o) => {

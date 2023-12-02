@@ -5,10 +5,10 @@ pub mod util;
 pub mod vulkan;
 
 use bevy::{
-    core_pipeline::core_2d,
+    core_pipeline::core_2d::{self, CORE_2D},
     render::{
         render_asset::prepare_assets,
-        render_graph::{RenderGraph, RunGraphOnViewNode},
+        render_graph::{RenderGraph, RenderGraphApp, RunGraphOnViewNode},
         renderer::RenderDevice,
         Render, RenderApp, RenderSet,
     },
@@ -39,25 +39,15 @@ impl Plugin for DWayServerRenderPlugin {
                 importnode::prepare_surfaces.after(prepare_assets::<Image>),
             );
 
-            let import_node = ImportSurfacePassNode::new(&mut render_app.world);
-            let mut sub_graph = RenderGraph::default();
-            sub_graph.add_node(importnode::node::IMPORT_PASS, import_node);
-
-            let mut graph = render_app.world.resource_mut::<RenderGraph>();
-
-            if let Some(graph_2d) =
-                graph.get_sub_graph_mut(bevy::core_pipeline::core_2d::graph::NAME)
-            {
-                graph_2d.add_sub_graph(importnode::NAME, sub_graph);
-                graph_2d.add_node(
-                    importnode::node::IMPORT_PASS,
-                    RunGraphOnViewNode::new(importnode::NAME),
+            render_app
+                .add_render_graph_node::<ImportSurfacePassNode>(
+                    CORE_2D,
+                    ImportSurfacePassNode::NAME,
+                )
+                .add_render_graph_edges(
+                    CORE_2D,
+                    &[core_2d::graph::node::MAIN_PASS, ImportSurfacePassNode::NAME],
                 );
-                graph_2d.add_node_edge(
-                    core_2d::graph::node::MAIN_PASS,
-                    importnode::node::IMPORT_PASS,
-                );
-            }
 
             render_app.add_systems(
                 Render,

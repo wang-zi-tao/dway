@@ -29,13 +29,10 @@ pub struct UiIconBundle {
 }
 
 pub fn uiicon_render(
-    mut uiicon_query: Query<
-        (Entity, &Node, &UiIcon, &mut UiImage, Option<&mut UiSvg>),
-        Changed<UiImage>,
-    >,
+    mut uiicon_query: Query<(Entity, &UiIcon, &mut UiImage, Option<&mut UiSvg>), Changed<UiImage>>,
     mut commands: Commands,
 ) {
-    uiicon_query.for_each_mut(|(e, node, icon, mut image, svg)| {
+    uiicon_query.for_each_mut(|(e, icon, mut image, svg)| {
         match &icon.handle {
             IconResorce::Image(h) => {
                 if &image.texture != h {

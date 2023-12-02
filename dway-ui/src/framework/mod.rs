@@ -1,12 +1,12 @@
+pub mod animation;
 pub mod button;
 pub mod canvas;
 pub mod evnet;
 pub mod icon;
 pub mod svg;
 
-use bevy::{ecs::system::SystemId, prelude::*, ui::FocusPolicy};
+use crate::prelude::*;
 pub use bevy_svg::SvgPlugin;
-use bevy_vector_shapes::{Shape2dPlugin, ShapePlugin};
 use dway_util::UtilPlugin;
 
 #[derive(Component, Default)]
@@ -40,14 +40,11 @@ impl Plugin for UiFrameworkPlugin {
                     .in_set(canvas::UiCanvasSystems::Prepare),
                 (button::process_ui_button_event),
                 svg::uisvg_render.after(canvas::UiCanvasSystems::Prepare),
+                animation::after_animation_finish
+                    .run_if(on_event::<TweenCompleted>())
+                    .in_set(animation::AnimationSystems::Finish),
             ),
         );
-        if !app.is_plugin_added::<SvgPlugin>() {
-            app.add_plugins(SvgPlugin);
-        }
-        if !app.is_plugin_added::<ShapePlugin>() {
-            app.add_plugins(Shape2dPlugin::default());
-        }
         app.add_plugins(UtilPlugin);
         app.register_type::<canvas::UiCanvas>();
         app.register_type::<svg::UiSvg>();
