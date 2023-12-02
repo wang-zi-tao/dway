@@ -91,7 +91,7 @@ impl DWayServer {
     ) -> Self {
         let mut display = wayland_server::Display::<DWay>::new().unwrap();
         if let Some(eventloop) = eventloop {
-            let _ = eventloop.add(
+            eventloop.add(
                 Generic::new(
                     display.backend().poll_fd().as_raw_fd(),
                     Interest::READ,
@@ -665,7 +665,7 @@ pub fn on_create_display_event(
             &mut commands,
             &config,
             &mut event_sender,
-            event_loop.as_mut().map(|r| &mut **r),
+            event_loop.as_deref_mut(),
         );
     }
 }

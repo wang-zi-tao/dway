@@ -131,10 +131,10 @@ pub fn update_tile_layout(
         debug!(workspace=?entity,window_count=%windows.len(), "refresh tile layout: {slots:?}");
         for rect in slots {
             let slot_rect = IRect::new(
-                (rect.min.x as f32 * geometry.width() as f32) as i32,
-                (rect.min.y as f32 * geometry.height() as f32) as i32,
-                (rect.width() as f32 * geometry.width() as f32) as i32,
-                (rect.height() as f32 * geometry.height() as f32) as i32,
+                (rect.min.x * geometry.width() as f32) as i32,
+                (rect.min.y * geometry.height() as f32) as i32,
+                (rect.width() * geometry.width() as f32) as i32,
+                (rect.height() * geometry.height() as f32) as i32,
             );
             let slot_geo = Geometry::new(slot_rect);
             let slot_entity = commands

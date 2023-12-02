@@ -1,16 +1,16 @@
 use bevy::{app::AppExit, input::mouse::MouseButtonInput, prelude::*};
-use dway_client_core::desktop::{CursorOnWindow, FocusedWindow};
+use dway_client_core::desktop::{CursorOnWindow};
 use dway_server::prelude::WindowAction;
 
 pub fn wm_keys(
     input: Res<Input<KeyCode>>,
-    mut window_under_cursor: Res<CursorOnWindow>,
+    window_under_cursor: Res<CursorOnWindow>,
     mut exit: EventWriter<AppExit>,
     mut window_action: EventWriter<WindowAction>,
 ) {
     let meta = input.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
     let shift = input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
-    let ctrl = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
+    let _ctrl = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
     let alt = input.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
 
     if alt | meta {
@@ -26,10 +26,10 @@ pub fn wm_keys(
 
 pub fn wm_mouse_action(
     input: Res<Input<KeyCode>>,
-    mut mouse_button_events: EventReader<MouseButtonInput>,
+    _mouse_button_events: EventReader<MouseButtonInput>,
 ) {
-    let meta = input.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
-    let shift = input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
-    let ctrl = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
-    let alt = input.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
+    let _meta = input.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
+    let _shift = input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+    let _ctrl = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
+    let _alt = input.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
 }

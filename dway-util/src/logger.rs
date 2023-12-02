@@ -3,7 +3,7 @@ use bevy::{
     prelude::{Plugin, Resource},
     reflect::Reflect,
 };
-use std::{io::stdout, num::NonZeroUsize};
+use std::num::NonZeroUsize;
 use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, EnvFilter};
 
 #[derive(Resource, Reflect)]

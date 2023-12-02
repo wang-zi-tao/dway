@@ -57,7 +57,7 @@ impl TtyRenderState {
             .or_else(|| vulkan::get_formats(render_device))
             .ok_or_else(|| anyhow!("unknown wgpu backend"))??;
         self.formats = Some(formats);
-        Ok(&self.formats.as_ref().unwrap())
+        Ok(self.formats.as_ref().unwrap())
     }
 }
 
@@ -141,7 +141,7 @@ pub fn prepare_drm_surface(
             gpu_image.clone()
         } else {
             let Ok(texture) =
-                create_framebuffer_texture(&mut state, &render_device.wgpu_device(), buffer)
+                create_framebuffer_texture(&mut state, render_device.wgpu_device(), buffer)
                     .map_err(|e| error!("failed to bind gbm buffer: {e} \n{}", e.backtrace()))
             else {
                 return;

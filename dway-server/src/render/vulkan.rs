@@ -7,7 +7,7 @@ use crate::{
     util::rect::IRect,
     wl::{
         buffer::{WlShmBuffer, WlShmPoolInner},
-        surface::{WlSurface, self},
+        surface::{WlSurface},
     },
     zwp::dmabufparam::DmaBuffer,
 };
@@ -154,7 +154,7 @@ pub fn create_dma_image(
     let physical = hal_device.raw_physical_device();
     unsafe {
         let planes = &buffer.planes.lock().unwrap().list;
-        if planes.len() == 0 {
+        if planes.is_empty() {
             bail!(InvalidDmaBuffer);
         }
         let plane_layouts: Vec<_> = planes
@@ -500,7 +500,7 @@ pub fn prepare_wl_surface(
     image_assets: &mut RenderAssets<bevy::render::texture::Image>,
 ) -> Result<()> {
     unsafe {
-        let damage = merge_damage(&surface.commited.damages);
+        let _damage = merge_damage(&surface.commited.damages);
         if let Some(dma_buffer) = dma_buffer {
             match state.image_map.entry(dma_buffer.raw.clone()) {
                 Entry::Occupied(o) => {

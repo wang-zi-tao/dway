@@ -16,12 +16,12 @@ impl wayland_server::Dispatch<zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManager
 {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1,
         request: <zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1 as WlResource>::Request,
         data: &Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span = span!(Level::ERROR, "request", entity=?data, resource=%WlResource::id(resource));
         let _enter = span.enter();
@@ -30,7 +30,7 @@ impl wayland_server::Dispatch<zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManager
             zwp_idle_inhibit_manager_v1::Request::Destroy => {
                 state.destroy_object(resource);
             }
-            zwp_idle_inhibit_manager_v1::Request::CreateInhibitor { id, surface } => todo!(),
+            zwp_idle_inhibit_manager_v1::Request::CreateInhibitor { id: _, surface: _ } => todo!(),
             _ => todo!(),
         }
     }
@@ -50,10 +50,10 @@ impl wayland_server::GlobalDispatch<zwp_idle_inhibit_manager_v1::ZwpIdleInhibitM
 {
     fn bind(
         state: &mut Self,
-        handle: &DisplayHandle,
+        _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1>,
-        global_data: &Entity,
+        _global_data: &Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         state.bind(client, resource, data_init, IdleInhibitManager::new);

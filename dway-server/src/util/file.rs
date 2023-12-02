@@ -14,7 +14,7 @@ use crate::prelude::*;
 
 pub fn create_sealed_file(name: &CStr, data: &[u8]) -> Result<(File, usize)> {
     let fd = memfd_create(
-        &name,
+        name,
         MemFdCreateFlag::MFD_CLOEXEC | MemFdCreateFlag::MFD_ALLOW_SEALING,
     )?;
 

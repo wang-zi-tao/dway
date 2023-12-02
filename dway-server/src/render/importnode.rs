@@ -125,7 +125,7 @@ pub fn extract_surface(
     }
     for event in image_events.read() {
         match event {
-            AssetEvent::Removed { id } => state.removed_image.push(id.clone()),
+            AssetEvent::Removed { id } => state.removed_image.push(*id),
             _ => {}
         }
     }
@@ -247,7 +247,7 @@ impl Node for ImportSurfacePassNode {
     }
 }
 impl ImportSurfacePassNode {
-    pub const NAME: &str = "import_wayland_surface";
+    pub const NAME: &'static str = "import_wayland_surface";
 }
 
 pub fn merge_damage(damage: &[IRect]) -> Vec<IRect> {

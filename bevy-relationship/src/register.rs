@@ -1,21 +1,9 @@
-use std::{
-    any::TypeId,
-    cell::RefCell,
-    rc::Rc,
-    sync::{
-        mpsc::{Receiver, Sender},
-        Arc, Weak,
-    },
+use crate::ConnectableMut;
+use bevy::prelude::*;
+use std::sync::{
+    mpsc::{Receiver, Sender},
+    Arc,
 };
-
-use bevy::{
-    ecs::{component::ComponentId, world::EntityMut},
-    prelude::*,
-    utils::HashMap,
-};
-use smallvec::SmallVec;
-
-use crate::{ConnectableMut, Relationship, ReverseRelationship};
 
 pub type DisconnectPeerFn = fn(&mut World, Entity, Entity);
 

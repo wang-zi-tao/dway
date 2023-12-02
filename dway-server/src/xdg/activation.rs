@@ -75,6 +75,6 @@ impl GlobalDispatch<xdg_activation_v1::XdgActivationV1, Entity> for DWay {
         _global_data: &bevy::prelude::Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
-        state.bind(client, resource, data_init, |o| XdgActivation::new(o));
+        state.bind(client, resource, data_init, XdgActivation::new);
     }
 }

@@ -1,19 +1,12 @@
-use std::{cell::Ref, marker::PhantomData};
-
+use std::marker::PhantomData;
 use bevy::{
-    ecs::{
-        component::ComponentId,
-        system::{Command, EntityCommands},
-        world::EntityMut,
-    },
+    ecs::system::{Command, EntityCommands},
     prelude::{
-        debug, despawn_with_children_recursive, BuildWorldChildren, Children, Entity,
+        despawn_with_children_recursive, Entity,
         EntityWorldMut, World,
     },
-    utils::HashMap,
 };
 use smallvec::SmallVec;
-
 use crate::{
     ConnectableMut, ConnectionEventReceiver, ConnectionEventSender, Relationship,
     ReserveRelationship,

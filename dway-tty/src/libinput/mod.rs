@@ -136,7 +136,7 @@ pub fn receive_events(
     let Some((default_window_entity, _default_window)) = windows.iter().next() else {
         return;
     };
-    while let Some(event) = libinput.libinput.next() {
+    for event in libinput.libinput.by_ref() {
         debug!("libinput event: {event:?}");
         match event {
             input::Event::Device(e) => {
@@ -237,8 +237,8 @@ pub fn receive_events(
                             window: default_window_entity,
                         });
                     }
-                    PointerEvent::ScrollFinger(m) => {}
-                    PointerEvent::ScrollContinuous(m) => {}
+                    PointerEvent::ScrollFinger(_m) => {}
+                    PointerEvent::ScrollContinuous(_m) => {}
                     _ => {}
                 };
             }
@@ -252,10 +252,10 @@ pub fn receive_events(
                     _ => {}
                 };
             }
-            input::Event::Tablet(e) => {}
-            input::Event::TabletPad(e) => {}
-            input::Event::Gesture(e) => {}
-            input::Event::Switch(e) => {}
+            input::Event::Tablet(_e) => {}
+            input::Event::TabletPad(_e) => {}
+            input::Event::Gesture(_e) => {}
+            input::Event::Switch(_e) => {}
             _ => {}
         }
     }

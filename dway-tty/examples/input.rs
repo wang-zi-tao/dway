@@ -1,5 +1,4 @@
 use bevy::{
-    core::TaskPoolThreadAssignmentPolicy,
     input::{
         keyboard::KeyboardInput,
         mouse::{MouseButtonInput, MouseMotion, MouseWheel},
@@ -26,7 +25,7 @@ pub fn main() {
         .add_systems(Update, input_event_system);
     app.finish();
     app.cleanup();
-    for i in 0..256 {
+    for _i in 0..256 {
         app.update();
         std::thread::sleep(Duration::from_secs_f64(1.0 / 60.0));
     }

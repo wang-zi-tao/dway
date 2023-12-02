@@ -3,7 +3,6 @@ use bevy::{
     app::RunFixedUpdateLoop,
     ecs::schedule::ScheduleLabel,
     prelude::*,
-    render::{Extract, Render, RenderApp},
 };
 use bevy_mod_debugdump::schedule_graph;
 use std::path::{Path, PathBuf};

@@ -1,9 +1,9 @@
 use derive_syn_parse::Parse;
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
+use quote::{format_ident, quote, quote_spanned};
 use std::collections::HashMap;
 use syn::{
-    parse_quote, visit::Visit, Block, Expr, ExprAssign, ExprField, ExprReference, Macro, Member,
+    parse_quote, visit::Visit, Block, Expr, ExprField, Macro, Member,
     Stmt,
 };
 
@@ -102,8 +102,7 @@ impl ParseCodeResult {
                 })
                 .chain(
                     (!self.use_prop.is_empty())
-                        .then_some(quote!(__dway_prop_changed))
-                        .into_iter(),
+                        .then_some(quote!(__dway_prop_changed)),
                 );
             BoolExpr::RuntimeValue(quote!((#(#exprs)&&*)))
         }
@@ -137,14 +136,14 @@ fn parse_expr_tokens(tokens: &TokenStream, output: &mut ParseCodeResult) {
                     TokenTree::Ident(base_ident),
                     TokenTree::Punct(dot_punct),
                     TokenTree::Ident(member_ident),
-                ) if base_ident.to_string() == "state" && dot_punct.as_char() == '.' => {
+                ) if *base_ident == "state" && dot_punct.as_char() == '.' => {
                     output.add_state(member_ident);
                 }
                 (
                     TokenTree::Ident(base_ident),
                     TokenTree::Punct(dot_punct),
                     TokenTree::Ident(member_ident),
-                ) if base_ident.to_string() == "prop" && dot_punct.as_char() == '.' => {
+                ) if *base_ident == "prop" && dot_punct.as_char() == '.' => {
                     output.use_prop(member_ident);
                 }
                 _ => {}
@@ -153,15 +152,10 @@ fn parse_expr_tokens(tokens: &TokenStream, output: &mut ParseCodeResult) {
         .for_each(|_| {});
 }
 
-pub fn check_quote<T: syn::parse::Parse>(input: TokenStream) -> TokenStream {
-    let _: T = parse_quote!(input);
-    input
-}
-
 #[derive(Parse)]
 struct Stmts {
     #[call(Block::parse_within)]
-    pub stmts: Vec<Stmt>,
+    pub _stmts: Vec<Stmt>,
 }
 pub fn check_stmts(input: TokenStream) -> TokenStream {
     let _: Stmts = parse_quote!(input);

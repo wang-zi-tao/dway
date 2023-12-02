@@ -1,4 +1,4 @@
-use crate::{dom::Dom, domcontext::widget_context::WidgetNodeContext};
+use crate::dom::Dom;
 use proc_macro2::TokenStream;
 use quote::quote;
 

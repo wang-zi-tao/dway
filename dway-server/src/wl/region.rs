@@ -78,7 +78,7 @@ pub fn update_region_index(
         index.rtree.insert(rect.clone());
     }
     for RectRemoveEvent(rect) in remove_event.read() {
-        index.rtree.remove(&rect);
+        index.rtree.remove(rect);
     }
     struct Selection(pub Entity);
     impl SelectionFunction<RectRTreeObject> for Selection {

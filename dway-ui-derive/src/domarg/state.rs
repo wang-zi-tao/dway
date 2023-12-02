@@ -51,7 +51,7 @@ impl DomDecorator for UseState {
         } = self;
         let just_inited = &context.parent_just_inited;
         let check_change = check_change.as_ref().map(|check_change| {
-            let is_change = ParseCodeResult::from_expr(&check_change).changed_bool();
+            let is_change = ParseCodeResult::from_expr(check_change).changed_bool();
             let field_mut = format_ident!("{}_mut", name, span = name.span());
             quote! {
                 if #just_inited ||#is_change {

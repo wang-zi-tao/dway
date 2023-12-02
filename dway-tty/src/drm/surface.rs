@@ -101,7 +101,7 @@ impl SurfaceInner {
             }
             let size = self.mode.size();
             let size = IVec2::new(size.0 as i32, size.1 as i32);
-            let gbm = gbm.create_buffer(drm, size, &*self.formats, render_formats)?;
+            let gbm = gbm.create_buffer(drm, size, &self.formats, render_formats)?;
             Ok(self.pedding.get_or_insert(gbm))
         }
     }
@@ -151,7 +151,7 @@ impl DrmSurface {
         }
 
         let crtc_data = drm.fd.get_crtc(crtc)?;
-        let mode = crtc_data.mode().unwrap_or_else(|| connector.mode);
+        let mode = crtc_data.mode().unwrap_or(connector.mode);
 
         let state = SurfaceState::new(drm)?;
         let size = mode.size();

@@ -3,8 +3,8 @@ pub mod icon;
 use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 
 use bevy::tasks::{block_on, IoTaskPool, Task};
-use dway_util::try_or;
-use futures::future;
+
+
 use futures_lite::future::poll_once;
 use gettextrs::{dgettext, setlocale, LocaleCategory};
 
@@ -180,7 +180,7 @@ pub fn attach_to_app(
 ) {
     toplevel_query.for_each(|(entity, toplevel)| {
         if let Some(app_id) = &toplevel.app_id {
-            if let Some(entry_entity) = register.by_id.get(&*app_id) {
+            if let Some(entry_entity) = register.by_id.get(app_id) {
                 commands
                     .entity(entity)
                     .connect_to::<ToplevelConnectAppEntry>(*entry_entity);

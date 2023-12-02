@@ -91,13 +91,13 @@ pub fn update_window_index(
     for event in events.read() {
         match event {
             SetWindowIndex::ToTop(e) => {
-                if stack.list.front() != Some(&e) {
+                if stack.list.front() != Some(e) {
                     stack.remove_entity(*e);
                     stack.list.push_front(*e);
                 }
             }
             SetWindowIndex::ToBottom(e) => {
-                if stack.list.back() != Some(&e) {
+                if stack.list.back() != Some(e) {
                     stack.remove_entity(*e);
                     stack.list.push_back(*e);
                 }
@@ -143,7 +143,7 @@ pub fn update_window_stack_by_focus(
 ) {
     if window_focus.is_changed() {
         if let Some(focused_window) = window_focus.window_entity.as_ref() {
-            if window_stack.list.front() != Some(&focused_window) {
+            if window_stack.list.front() != Some(focused_window) {
                 debug!(window=?*focused_window, "move focused window to top of stack");
                 window_stack.remove_entity(*focused_window);
                 window_stack.list.push_front(*focused_window);

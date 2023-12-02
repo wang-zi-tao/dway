@@ -273,13 +273,6 @@ impl DomDecorator for QueryMany {
 }
 
 #[derive(Parse)]
-pub struct QuertComponentCallback {
-    ty: WorldQueryType,
-    _s: Token![=>],
-    block: Block,
-}
-
-#[derive(Parse)]
 pub struct Query {
     mutable: Option<Token![mut]>,
     query_name: Ident,

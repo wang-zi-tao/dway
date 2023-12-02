@@ -8,9 +8,9 @@ use bevy::prelude::*;
 // use bevy_tokio_tasks::TokioTasksRuntime;
 use dway_util::eventloop::EventLoop;
 use schedule::DWayServerSet;
-use state::{create_display, DWayServer, DWayServerConfig, WaylandDisplayCreated};
-use std::process;
-use x11::DWayXWaylandReady;
+use state::{create_display, DWayServerConfig, WaylandDisplayCreated};
+
+
 pub mod apps;
 pub mod client;
 pub mod dispatch;
@@ -77,6 +77,6 @@ pub fn init_display(
         &mut commands,
         &config,
         &mut event_sender,
-        event_loop.as_mut().map(|r| &mut **r),
+        event_loop.as_deref_mut(),
     );
 }

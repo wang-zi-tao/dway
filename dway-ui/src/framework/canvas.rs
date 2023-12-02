@@ -8,13 +8,10 @@ use bevy::{
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-        texture::{BevyDefault, ImageSampler},
-        view::RenderLayers,
     },
 };
 use bevy_vector_shapes::{
-    painter::CanvasBundle,
-    prelude::{Canvas, CanvasConfig, CanvasMode, ShapePainter},
+    prelude::ShapePainter,
     render::ShapePipelineType,
     shapes::RectPainter,
 };
@@ -255,7 +252,7 @@ pub struct UiCanvasBundle {
 
 pub fn cleanup_render_command(
     mut render_stub_query: Query<(Entity, &mut UiCanvasRenderCommand, &mut UiImage)>,
-    mut render_area: ResMut<UiCanvasRenderArea>,
+    _render_area: ResMut<UiCanvasRenderArea>,
     mut commands: Commands,
 ) {
     render_stub_query.for_each_mut(|(e, mut rendercommand, mut image)| {

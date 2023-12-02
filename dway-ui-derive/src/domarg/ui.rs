@@ -29,13 +29,9 @@ impl DomDecorator for BackgroundColor {
     fn get_component(&self) -> Option<TokenStream> {
         let lit = &self.lit;
         let Some([r, g, b, a]) = parse_color_str(&lit.value()) else {
-            return Some(TokenStream::from(
-                quote_spanned!(lit.span()=> compile_error!("failed to parse color")),
-            ));
+            return Some(quote_spanned!(lit.span()=> compile_error!("failed to parse color")));
         };
-        Some(TokenStream::from(
-            quote_spanned!(lit.span()=> BackgroundColor(Color::rgba_u8(#r,#g,#b,#a))),
-        ))
+        Some(quote_spanned!(lit.span()=> BackgroundColor(Color::rgba_u8(#r,#g,#b,#a))))
     }
 }
 
@@ -48,7 +44,7 @@ pub struct Handle {
 
 impl DomDecorator for Handle {
     fn key(&self) -> super::DomArgKey {
-        DomArgKey::Component(format!("Handle<{}>", self.ty.to_token_stream().to_string()))
+        DomArgKey::Component(format!("Handle<{}>", self.ty.to_token_stream()))
     }
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let ty = &self.ty;

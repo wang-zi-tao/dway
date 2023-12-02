@@ -42,7 +42,7 @@ pub fn launch_xwayland(
                 *entity,
                 &mut commands,
                 &client_events,
-                eventloop.as_mut().map(|r| &mut **r),
+                eventloop.as_deref_mut(),
             ) {
                 error!(error=%e,"failed to launch xwayland");
             };

@@ -241,7 +241,7 @@ pub fn process_window_action_event(
     for e in events.read() {
         match e {
             WindowAction::Close(e) => {
-                if let Ok((c, mut t, s)) = window_query.get_mut(*e) {
+                if let Ok((c, _t, s)) = window_query.get_mut(*e) {
                     c.raw.close();
                     s.configure();
                 }

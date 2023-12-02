@@ -5,23 +5,13 @@ use crate::{
     domcontext::Context,
     generate::BoolExpr,
     parser::check_stmts,
-    ParseCodeResult,
 };
 use convert_case::Casing;
 use derive_syn_parse::Parse;
-use proc_macro2::{Span, TokenStream, TokenTree};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
-use std::{
-    cell::RefCell,
-    collections::{BTreeMap, HashMap},
-};
-use syn::{
-    parse::ParseStream,
-    punctuated::Punctuated,
-    spanned::Spanned,
-    token::{At, Brace, Paren, RArrow},
-    *,
-};
+use proc_macro2::TokenStream;
+use quote::{format_ident, quote, quote_spanned};
+use std::collections::BTreeMap;
+use syn::*;
 
 use super::DomContext;
 
@@ -211,7 +201,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
             self.plugin_builder.components.push(state_builder);
             self.plugin_builder.components.push(widget_builder);
 
-            let ident = spawn_children.get(0).map(|f| f.0.clone());
+            let ident = spawn_children.first().map(|f| f.0.clone());
             let spawn_children = spawn_children
                 .iter()
                 .map(|(_key, value)| value)
@@ -260,10 +250,10 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                 .map(|child| self.generate(child, &entity_var, &just_init_var, false))
                 .collect::<Vec<_>>();
 
-            let ident = spawn_children.get(0).map(|f| f.0.clone());
+            let ident = spawn_children.first().map(|f| f.0.clone());
             let spawn_children = spawn_children
                 .iter()
-                .map(|(key, value)| value)
+                .map(|(_key, value)| value)
                 .collect::<Vec<_>>();
             (ident, quote!( #(#spawn_children)* ))
         };

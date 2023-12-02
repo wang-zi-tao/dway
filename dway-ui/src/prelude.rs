@@ -8,7 +8,7 @@ pub use crate::theme::Theme;
 pub use bevy::ecs::system::SystemId;
 pub use bevy::ui::FocusPolicy;
 pub use dway_client_core::prelude::*;
-pub use dway_server::prelude::*;
+
 pub use std::time::Duration;
 
 pub use bevy_tweening::{lens::*, Animator, EaseFunction, Tween};

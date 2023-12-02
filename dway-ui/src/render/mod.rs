@@ -64,12 +64,12 @@ impl UiMaterial for RoundedUiRectMaterial {
 }
 
 pub fn update_material_size(
-    ui_rect_query: Query<(&Node, &GlobalTransform, &Handle<RoundedUiRectMaterial>), Changed<Node>>,
+    ui_rect_query: Query<(&Node, &Handle<RoundedUiRectMaterial>), Changed<Node>>,
     ui_image_query: Query<(&Node, &Handle<RoundedUiImageMaterial>), Changed<Node>>,
     mut rect_material_set: ResMut<Assets<RoundedUiRectMaterial>>,
     mut image_material_set: ResMut<Assets<RoundedUiImageMaterial>>,
 ) {
-    ui_rect_query.for_each(|(node, trans, handle)| {
+    ui_rect_query.for_each(|(node, handle)| {
         let Some(group) = rect_material_set.get_mut(handle.id()) else {
             return;
         };

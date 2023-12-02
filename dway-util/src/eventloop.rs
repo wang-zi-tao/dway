@@ -3,10 +3,10 @@ use calloop::channel::{Channel, Sender};
 pub use calloop::{generic::Generic, EventSource, Interest, Mode, PostAction, Readiness};
 use log::info;
 use std::{
-    any::{type_name, Any, TypeId},
+    any::{type_name, TypeId},
     os::fd::AsRawFd,
     sync::mpsc,
-    time::{Duration, Instant, SystemTime},
+    time::Duration,
 };
 
 pub type Register = Box<dyn FnOnce(&mut calloop::LoopHandle<'static, ()>) + Send + Sync>;
@@ -35,7 +35,7 @@ impl EventLoopRunner {
             .name("eventloop".to_string())
             .spawn(move || {
                 self.run(Duration::from_secs(2), move || {
-                    while let Ok(_) = rx.try_recv() {}
+                    while rx.try_recv().is_ok() {}
                     let r = callback();
                     let _ = rx.recv();
                     r
@@ -67,6 +67,12 @@ impl EventLoopRunner {
             };
         });
         info!("eventloop stopped");
+    }
+}
+
+impl Default for EventLoop {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

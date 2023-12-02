@@ -36,7 +36,7 @@ impl DrmNode {
         let minor = ((dev >> 12) & 0xffff_ff00) | ((dev) & 0x0000_00ff);
 
         let path = format!("/sys/dev/char/{}:{}/device/drm", major, minor);
-        if !nix::sys::stat::stat(path.as_str()).is_ok() {
+        if nix::sys::stat::stat(path.as_str()).is_err() {
             return Err(NotDrmNode);
         }
         let ty = match minor >> 6 {
@@ -126,10 +126,10 @@ impl DrmNodeState {
             .flat_map(|f| bincode::serialize(&f).unwrap())
             .collect::<Vec<_>>();
 
-        Ok(create_sealed_file(
+        create_sealed_file(
             &CString::new("dway-dmabuffeedback-format-table").unwrap(),
             &data,
-        )?)
+        )
     }
 }
 #[derive(Debug)]

@@ -51,8 +51,8 @@ impl DomDecorator for If {
             just_inited,
             ..
         } = context;
-        let old_value = DomContext::wrap_dom_id("node_", &dom_id, "_child_inited");
-        let field = DomContext::wrap_dom_id("node_", &dom_id, "_enable_children");
+        let old_value = DomContext::wrap_dom_id("node_", dom_id, "_child_inited");
+        let field = DomContext::wrap_dom_id("node_", dom_id, "_enable_children");
         tree_context.widget_builder.add_field_with_initer(
             &field,
             quote!(pub #field: bool),
@@ -98,7 +98,7 @@ impl DomDecorator for For {
             dom_id,
             ..
         } = context;
-        let dom_entity_list_field = DomContext::wrap_dom_id("node_", &dom_id, "_child_map");
+        let dom_entity_list_field = DomContext::wrap_dom_id("node_", dom_id, "_child_map");
         tree_context.widget_builder.add_field_with_initer(
             &dom_entity_list_field,
             quote!(pub #dom_entity_list_field: Vec<Entity>),
@@ -125,8 +125,8 @@ impl DomDecorator for For {
             just_inited,
             ..
         } = context;
-        let child_entity_var = DomContext::wrap_dom_id("__dway_ui_node_", &dom_id, "_child_entity");
-        let dom_entity_list_field = DomContext::wrap_dom_id("node_", &dom_id, "_child_list");
+        let child_entity_var = DomContext::wrap_dom_id("__dway_ui_node_", dom_id, "_child_entity");
+        let dom_entity_list_field = DomContext::wrap_dom_id("node_", dom_id, "_child_list");
         let changed = ParseCodeResult::from_expr(expr).changed_bool();
         quote! {
             if #just_inited || #changed {
@@ -168,14 +168,14 @@ impl DomDecorator for Map {
     }
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let Self {
-            key, ty, pat, expr, ..
+             ty,   ..
         } = self;
         let WidgetNodeContext {
             tree_context,
             dom_id,
             ..
         } = context;
-        let dom_entity_list_field = DomContext::wrap_dom_id("node_", &dom_id, "_child_map");
+        let dom_entity_list_field = DomContext::wrap_dom_id("node_", dom_id, "_child_map");
         tree_context.widget_builder.add_field_with_initer(
             &dom_entity_list_field,
             quote!(pub #dom_entity_list_field: bevy::utils::HashMap<#ty,Entity>),
@@ -212,12 +212,12 @@ impl DomDecorator for Map {
             key, ty, pat, expr, ..
         } = self;
         let child_entity_map_var =
-            DomContext::wrap_dom_id("__dway_ui_node_", &(&context.dom_id), "_child_entity_map");
+            DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_child_entity_map");
         let child_list_var =
-            DomContext::wrap_dom_id("__dway_ui_node_", &(&context.dom_id), "_child_list");
+            DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_child_list");
         let dom_entity_list_field = DomContext::wrap_dom_id("node_", &context.dom_id, "_child_map");
-        let item_var = DomContext::wrap_dom_id("__dway_ui_node_", &(&context.dom_id), "_item");
-        let lambda_var = DomContext::wrap_dom_id("__dway_ui_node_", &(&context.dom_id), "_lambda");
+        let item_var = DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_item");
+        let lambda_var = DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_lambda");
         let changed = ParseCodeResult::from_expr(expr).changed_bool();
         quote! {
             let #lambda_var = |#child_ident,#pat| {
@@ -323,12 +323,12 @@ impl DomDecorator for ForQuery {
             ..
         } = self;
         let child_entity_map_var =
-            DomContext::wrap_dom_id("__dway_ui_node_", &(&context.dom_id), "_child_entity_map");
+            DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_child_entity_map");
         let child_list_var =
-            DomContext::wrap_dom_id("__dway_ui_node_", &(&context.dom_id), "_child_list");
+            DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_child_list");
         let dom_entity_list_field = DomContext::wrap_dom_id("node_", &context.dom_id, "_child_map");
         let data_entity_var =
-            DomContext::wrap_dom_id("__dway_ui_node_", &(&context.dom_id), "_data_entity");
+            DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_data_entity");
         let arg_name = format_ident!("query_{}", context.dom_id);
         let changed = expr
             .as_ref()

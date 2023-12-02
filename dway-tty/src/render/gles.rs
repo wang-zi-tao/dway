@@ -110,12 +110,12 @@ pub fn call_egl_double_vec<T1: Default, T2: Default>(
     let on_error = |egl: &EGLInstance| {
         if let Some(err) = egl.get_error() {
             if err == khronos_egl::Error::BadParameter {
-                return Ok((vec![], vec![]));
+                Ok((vec![], vec![]))
             } else {
-                return Err(err);
+                Err(err)
             }
         } else {
-            return Ok((vec![], vec![]));
+            Ok((vec![], vec![]))
         }
     };
     let mut num = 0;
@@ -263,7 +263,7 @@ pub fn get_formats(
                         )
                     })
                     .map_err(|e| anyhow!("egl error: {e}"))?;
-                    if mods.len() == 0 {
+                    if mods.is_empty() {
                         render_formats.insert(DrmFormat {
                             code: fourcc,
                             modifier: DrmModifier::Invalid,
@@ -317,7 +317,7 @@ pub fn create_framebuffer_texture(
             RenderCache::Gles(g) => g,
         };
 
-        let renderbuffer = do_create_renderbuffer(&gl, buffer, egl_display.as_ptr(), functions)?;
+        let renderbuffer = do_create_renderbuffer(gl, buffer, egl_display.as_ptr(), functions)?;
         buffer.render_image = RenderImage::Gl(RenderBuffer { renderbuffer });
 
         let hal_texture = hal_device.texture_from_raw_renderbuffer(

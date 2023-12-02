@@ -11,20 +11,17 @@ mod parser;
 mod prelude;
 mod style;
 
-use crate::{dom::*, domarg::*, generate::*, parser::*};
+use crate::dom::*;
 
 use derive_syn_parse::Parse;
 use domcontext::widget_context::WidgetDeclare;
-use generate::*;
+
 use proc_macro::TokenStream;
-use proc_macro2::{Span, TokenStream as TokenStream2, TokenTree};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
-use std::collections::HashMap;
+
+use quote::{format_ident, quote, quote_spanned};
+
 use syn::{
-    parse::ParseStream,
-    punctuated::Punctuated,
     spanned::Spanned,
-    token::{At, Brace, Paren, RArrow},
     *,
 };
 

@@ -2,25 +2,13 @@ pub mod spawn_context;
 pub mod widget_context;
 
 use crate::{
-    builder::ComponentBuilder,
     dom::Dom,
-    domarg::{control, DomArg, DomArgKey},
+    domarg::{control, DomArgKey},
 };
 use convert_case::Casing;
-use derive_syn_parse::Parse;
-use proc_macro2::{Span, TokenStream, TokenTree};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
-use std::{
-    any::Any,
-    collections::{BTreeMap, HashMap},
-};
-use syn::{
-    parse::ParseStream,
-    punctuated::Punctuated,
-    spanned::Spanned,
-    token::{At, Brace, Paren, RArrow},
-    *,
-};
+use quote::format_ident;
+use std::any::Any;
+use syn::*;
 
 #[derive(Default)]
 pub struct Context {
@@ -94,12 +82,10 @@ impl<'l> DomContext<'l> {
             .and_then(|a| (&*a.inner as &dyn Any).downcast_ref::<control::Id>())
         {
             format_ident!("{}", lit.value(), span = dom.span())
+        } else if upper_case {
+            format_ident!("N{}", self.dom_list.len(), span = dom.span())
         } else {
-            if upper_case {
-                format_ident!("N{}", self.dom_list.len(), span = dom.span())
-            } else {
-                format_ident!("n{}", self.dom_list.len(), span = dom.span())
-            }
+            format_ident!("n{}", self.dom_list.len(), span = dom.span())
         }
     }
     pub fn wrap_dom_id(prefix: &str, ident: &Ident, suffix: &str) -> Ident {

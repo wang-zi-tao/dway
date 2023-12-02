@@ -243,8 +243,7 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 let callback = data_init.init(callback, ());
                 if let Some(mut c) = state.get_mut::<WlSurface>(*data) {
                     c.pending.callbacks.push(callback);
-                } else {
-                };
+                } ;
             }
             wl_surface::Request::SetOpaqueRegion { region } => {
                 if let Some(mut c) = state.get_mut::<WlSurface>(*data) {

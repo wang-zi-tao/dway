@@ -5,9 +5,6 @@ use crate::prelude::*;
 #[macro_use]
 pub mod create_widget;
 
-#[macro_use]
-pub mod ui_system;
-
 pub fn irect_to_style(rect: IRect) -> Style {
     Style {
         position_type: PositionType::Absolute,

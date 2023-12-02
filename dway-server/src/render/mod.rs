@@ -8,8 +8,7 @@ use bevy::{
     core_pipeline::core_2d::{self, CORE_2D},
     render::{
         render_asset::prepare_assets,
-        render_graph::{RenderGraph, RenderGraphApp, RunGraphOnViewNode},
-        renderer::RenderDevice,
+        render_graph::{RenderGraphApp},
         Render, RenderApp, RenderSet,
     },
 };

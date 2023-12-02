@@ -23,20 +23,19 @@ use bevy::{
 use bevy_framepace::Limiter;
 use clap::Parser;
 use dway_client_core::{
-    desktop::FocusedWindow,
     layout::{LayoutRect, LayoutStyle},
     workspace::{Workspace, WorkspaceBundle},
 };
 use dway_server::{
     schedule::DWayServerSet,
-    state::{DWayServer, WaylandDisplayCreated},
+    state::{WaylandDisplayCreated},
     x11::DWayXWaylandReady,
 };
 use dway_tty::DWayTTYPlugin;
 use dway_util::logger::DWayLogPlugin;
 use keys::*;
 use opttions::DWayOption;
-use std::{process, time::Duration};
+use std::{time::Duration};
 
 const LOG_LEVEL: Level = Level::TRACE;
 const LOG: &str = "\
@@ -231,11 +230,11 @@ pub fn setup(mut commands: Commands) {
     ));
 }
 
-pub fn update(query: Query<&Window>) {
+pub fn update(_query: Query<&Window>) {
     // info!("window count: {}",window_query.iter().count());
 }
 
-pub fn last(mut commands: Commands) {}
+pub fn last(_commands: Commands) {}
 
 #[cfg(feature = "dhat-heap")]
 #[global_allocator]

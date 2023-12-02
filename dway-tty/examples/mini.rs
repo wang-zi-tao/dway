@@ -1,24 +1,24 @@
-use std::{f32::consts::PI, fs::OpenOptions, time::Duration};
+use std::{f32::consts::PI, time::Duration};
 
 use anyhow::anyhow;
 use bevy::{
-    app::{AppExit, ScheduleRunnerPlugin},
+    app::{AppExit},
     core::TaskPoolThreadAssignmentPolicy,
-    core_pipeline::{clear_color::ClearColorConfig, tonemapping::Tonemapping},
+    core_pipeline::{tonemapping::Tonemapping},
     input::{
         keyboard::KeyboardInput,
         mouse::{MouseButtonInput, MouseMotion, MouseWheel},
     },
     log::LogPlugin,
     prelude::*,
-    render::{camera::RenderTarget, RenderPlugin},
+    render::{camera::RenderTarget},
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
     winit::WinitPlugin,
 };
 use dway_tty::{drm::surface::DrmSurface, DWayTTYPlugin};
-use input::event::pointer::PointerAxisEvent;
+
 use tracing::Level;
-use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
+
 
 const THREAD_POOL_CONFIG: TaskPoolThreadAssignmentPolicy = TaskPoolThreadAssignmentPolicy {
     min_threads: 1,

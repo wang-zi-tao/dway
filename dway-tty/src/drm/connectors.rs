@@ -16,7 +16,7 @@ impl Connector {
     #[tracing::instrument(skip_all)]
     pub fn new(info: connector::Info) -> Result<Self> {
         let modes = info.modes();
-        if modes.len() == 0 {
+        if modes.is_empty() {
             bail!("no display mode");
         }
 

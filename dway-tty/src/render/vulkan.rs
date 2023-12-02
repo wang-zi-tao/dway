@@ -16,7 +16,7 @@ use std::{
     ffi::CStr,
     os::fd::{AsFd, AsRawFd},
 };
-use tracing::{debug, error, trace};
+use tracing::{error, trace};
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 use wgpu_hal::{api::Vulkan, vulkan::Texture, MemoryFlags, TextureUses};
 
@@ -88,7 +88,7 @@ pub fn get_formats(render_device: &wgpu::Device) -> Option<Result<Vec<DrmFormat>
 
                     let mut list = vk::DrmFormatModifierPropertiesListEXT {
                         p_drm_format_modifier_properties: data.as_mut_ptr(),
-                        drm_format_modifier_count: count as u32,
+                        drm_format_modifier_count: count,
                         ..Default::default()
                     };
                     let mut format_properties2 =

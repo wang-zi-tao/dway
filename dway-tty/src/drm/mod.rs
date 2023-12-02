@@ -27,7 +27,7 @@ use drm_ffi::DRM_MODE_FB_MODIFIERS;
 use drm_fourcc::DrmFormat;
 use drm_fourcc::DrmFourcc;
 use drm_fourcc::DrmModifier;
-use dway_util::eventloop::EventLoop;
+
 use gbm::BufferObject;
 use nix::libc;
 use smallvec::SmallVec;
@@ -375,7 +375,7 @@ impl DrmDeviceState {
             }
             DrmDeviceState::Legacy { .. } => {
                 let res_handles = fd.resource_handles().map_err(ResourceHandlesError)?;
-                set_connector_state(&fd, res_handles.connectors().iter().copied(), false)?;
+                set_connector_state(fd, res_handles.connectors().iter().copied(), false)?;
 
                 for crtc in res_handles.crtcs() {
                     #[allow(deprecated)]
@@ -503,7 +503,7 @@ impl DrmDevice {
                     .ok()
             })
             .filter(|conn| conn.state() == connector::State::Connected)
-            .map(|conn| Connector::new(conn))
+            .map(Connector::new)
             .try_collect()?;
         Ok(connectors)
     }
@@ -629,7 +629,7 @@ pub fn add_connector(
     }
 
     let Ok(surface) =
-        DrmSurface::new(&drm, &conn, images).map_err(|e| error!("failed to connect screen: {e}"))
+        DrmSurface::new(drm, &conn, images).map_err(|e| error!("failed to connect screen: {e}"))
     else {
         return;
     };

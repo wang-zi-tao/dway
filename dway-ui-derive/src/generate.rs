@@ -1,18 +1,8 @@
 use convert_case::Casing;
-use lazy_static::lazy_static;
-use proc_macro2::{Ident, Span, TokenStream};
-use quote::{format_ident, quote, ToTokens};
-use syn::Type;
 
-pub fn generate_despawn(entity: TokenStream) -> TokenStream {
-    quote! {
-        if commands.get_entity(#entity).is_some() {
-            commands
-                .entity(#entity)
-                .despawn_recursive();
-        }
-    }
-}
+use proc_macro2::TokenStream;
+use quote::{quote, ToTokens};
+use syn::Type;
 
 #[derive(Clone)]
 pub enum BoolExpr {
@@ -24,12 +14,10 @@ impl BoolExpr {
     pub fn optional(tokens: Option<TokenStream>, default: bool) -> Self {
         if let Some(tokens) = tokens {
             Self::RuntimeValue(tokens)
+        } else if default {
+            Self::True
         } else {
-            if default {
-                Self::True
-            } else {
-                Self::False
-            }
+            Self::False
         }
     }
     pub fn map(&self, t: impl ToTokens, f: impl ToTokens) -> TokenStream {
@@ -91,12 +79,12 @@ pub fn convert_type_name(ty: &Type) -> String {
     let name = name.replace(
         |char| {
             !(char == '_'
-                || char >= '0' && char <= '9'
-                || char >= 'A' && char <= 'Z'
-                || char >= 'a' && char <= 'z')
+                || ('0'..='9').contains(&char)
+                || ('A'..='Z').contains(&char)
+                || ('a'..='z').contains(&char))
         },
         "__",
     );
-    let name = name.to_case(convert_case::Case::Snake);
-    name
+    
+    name.to_case(convert_case::Case::Snake)
 }

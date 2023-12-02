@@ -1,14 +1,8 @@
 use derive_syn_parse::Parse;
-use proc_macro2::{Span, TokenStream, TokenTree};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
-use std::collections::{BTreeMap, HashMap};
-use syn::{
-    parse::ParseStream,
-    punctuated::Punctuated,
-    spanned::Spanned,
-    token::{At, Brace, Paren, RArrow},
-    *,
-};
+use proc_macro2::{Span, TokenStream};
+use quote::{quote, ToTokens};
+use std::collections::BTreeMap;
+use syn::{parse::ParseStream, spanned::Spanned, token::Paren, *};
 
 use crate::domarg::{DomArg, DomArgKey};
 
@@ -99,17 +93,16 @@ impl Dom {
     }
 
     pub fn generate_spawn(&self) -> TokenStream {
-        let mut spawn_bundle = self.bundle.generate_spawn(
+        let spawn_bundle = self.bundle.generate_spawn(
             self.end_tag
                 .as_ref()
                 .and_then(|end| end.end_bundle.as_ref())
                 .map(|ty| quote!(#ty)),
         );
-        let mut components_expr: Vec<_> = self
+        let components_expr: Vec<_> = self
             .args
             .values()
-            .map(|arg| arg.get_component_expr())
-            .flatten()
+            .filter_map(|arg| arg.get_component_expr())
             .collect();
         if components_expr.is_empty() {
             spawn_bundle

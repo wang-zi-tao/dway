@@ -1,8 +1,8 @@
 use convert_case::Casing;
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
-use std::collections::{BTreeMap, HashMap};
-use syn::{Attribute, Ident};
+use std::collections::BTreeMap;
+use syn::Ident;
 
 pub struct ComponentBuilder {
     pub name: Ident,

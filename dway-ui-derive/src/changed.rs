@@ -1,17 +1,6 @@
-use anyhow::anyhow;
-use convert_case::Casing;
-use derive_syn_parse::Parse;
-use proc_macro::TokenStream;
-use proc_macro2::{Span, TokenStream as TokenStream2, TokenTree};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
-use std::collections::HashMap;
-use syn::{
-    parse::ParseStream,
-    punctuated::Punctuated,
-    spanned::Spanned,
-    token::{At, Brace, Paren, RArrow},
-    *,
-};
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{format_ident, quote, quote_spanned};
+use syn::{spanned::Spanned, *};
 
 pub fn generate_change_detect(structure: &ItemStruct) -> anyhow::Result<TokenStream2> {
     let &ItemStruct {

@@ -12,7 +12,7 @@ pub fn spawn(
 ) {
     for WaylandDisplayCreated(dway_entity, _) in events.read() {
         if let Ok(compositor) = query.get(*dway_entity) {
-            for i in 0..3 {
+            for _i in 0..3 {
                 let mut command = process::Command::new("gedit");
                 command.arg("--new-window");
                 compositor.spawn_process(command);
@@ -53,7 +53,7 @@ pub fn spawn(
 }
 pub fn spawn_x11(query: Query<&DWayServer>, mut events: EventReader<DWayXWaylandReady>) {
     for DWayXWaylandReady { dway_entity } in events.read() {
-        if let Ok(compositor) = query.get(*dway_entity) {
+        if let Ok(_compositor) = query.get(*dway_entity) {
             // compositor.spawn_process(process::Command::new("glxgears"));
             // compositor.spawn_process_x11(process::Command::new("/mnt/weed/mount/wangzi-nuc/wangzi/workspace/waylandcompositor/source/gtk+-3.24.37/build/examples/sunny"));
             // compositor.spawn_process_x11(process::Command::new("gnome-system-monitor"));

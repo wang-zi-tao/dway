@@ -6,31 +6,16 @@ pub mod relation;
 pub mod state;
 pub mod ui;
 
-use derive_syn_parse::Parse;
-use proc_macro2::{Span, TokenStream, TokenTree};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
+use proc_macro2::{Span, TokenStream};
+use quote::quote_spanned;
 use std::{
     any::{Any, TypeId},
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
 };
-use syn::{
-    ext::IdentExt,
-    parse::ParseStream,
-    punctuated::Punctuated,
-    spanned::Spanned,
-    token::{At, Brace, If, Paren, RArrow},
-    *,
-};
-
-use crate::{
-    dom::Dom,
-    domcontext::{
-        widget_context::{WidgetDomContext, WidgetNodeContext},
-        DomContext,
-    },
-};
+use syn::{ext::IdentExt, parse::ParseStream, spanned::Spanned, token::Brace, *};
 
 use self::{control::Id, data::InsertComponent, ui::Style};
+use crate::domcontext::{widget_context::WidgetNodeContext, DomContext};
 
 #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DomArgKey {
@@ -83,7 +68,7 @@ pub trait DomDecorator: Any {
     }
     fn wrap_update_children(
         &self,
-        child_ident: Option<Ident>,
+        _child_ident: Option<Ident>,
         inner: TokenStream,
         _context: &mut WidgetNodeContext,
     ) -> TokenStream {

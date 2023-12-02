@@ -1,10 +1,10 @@
-use std::{collections::BTreeMap, time::Duration};
+use std::time::Duration;
 
 use bevy_tweening::{lens::*, Animator, EaseFunction, Tween};
-use bitflags::bitflags;
+
 use dway_client_core::desktop::FocusedWindow;
 use dway_server::{
-    apps::{icon::Icon, WindowList},
+    apps::WindowList,
     geometry::GlobalGeometry,
     wl::surface::WlSurface,
     xdg::toplevel::DWayToplevel,
@@ -17,7 +17,7 @@ use crate::{
     },
     prelude::*,
     widgets::{
-        popup::{PopupState, PopupUiSystems, UiPopup, UiPopupAddonBundle, UiPopupBundle},
+        popup::{PopupUiSystems, UiPopupAddonBundle},
         window::create_window_material,
     },
 };
@@ -82,7 +82,7 @@ fn focus_window(
             <NodeBundle @style="flex-row">
                 <UiButtonBundle @id="close" @style="m-2 w-20 h-20"
                 UiButtonAddonBundle=(UiButton::new(node!(window_preview), close_window).into())>
-                    <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg").into())) />
+                    <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg"))) />
                 </UiButtonBundle>
                 <TextBundle @style="items-center justify-center m-auto"
                     Text=(Text::from_section(

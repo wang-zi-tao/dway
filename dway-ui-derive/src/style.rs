@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use convert_case::{Case, Casing};
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::{format_ident, quote, quote_spanned};
 use syn::LitStr;
 
@@ -12,7 +12,7 @@ fn parse_val(prefix: &str, style: &str) -> TokenStream {
     } else if style == "auto" {
         quote!(Val::Auto)
     } else if style.contains('%') {
-        let style = &style.replace("%", "");
+        let style = &style.replace('%', "");
         let Ok(value) = style.parse::<f32>() else {
             let message = format!("invalid value: {style:?}");
             return quote!(compile_error!(#message));
@@ -43,7 +43,7 @@ fn parse_align(prefix: &str, style: &str, field: &str, ty: &str) -> TokenStream 
     let ident = format_ident!("{}", field);
     let ty = format_ident!("{}", ty);
     let style = &*style.replace(prefix, "");
-    let variant = match &*style {
+    let variant = match style {
         "default" | "start" | "end" | "flex-start" | "flex-end" | "center" | "baseline"
         | "stretch" | "space-between" | "space-evenly" | "space-around" => {
             let member = format_ident!("{}", style.to_case(Case::Pascal));

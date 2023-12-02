@@ -7,13 +7,13 @@ pub struct DrmLeaseDevice {
 
 impl wayland_server::Dispatch<wp_drm_lease_request_v1::WpDrmLeaseRequestV1, Entity> for DWay {
     fn request(
-        state: &mut Self,
-        client: &wayland_server::Client,
-        resource: &wp_drm_lease_request_v1::WpDrmLeaseRequestV1,
-        request: <wp_drm_lease_request_v1::WpDrmLeaseRequestV1 as WlResource>::Request,
-        data: &Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _state: &mut Self,
+        _client: &wayland_server::Client,
+        _resource: &wp_drm_lease_request_v1::WpDrmLeaseRequestV1,
+        _request: <wp_drm_lease_request_v1::WpDrmLeaseRequestV1 as WlResource>::Request,
+        _data: &Entity,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         todo!()
     }
@@ -36,11 +36,11 @@ impl DrmLeaseDevice {
 impl wayland_server::Dispatch<wp_drm_lease_device_v1::WpDrmLeaseDeviceV1, Entity> for DWay {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &wp_drm_lease_device_v1::WpDrmLeaseDeviceV1,
         request: <wp_drm_lease_device_v1::WpDrmLeaseDeviceV1 as WlResource>::Request,
         data: &Entity,
-        dhandle: &DisplayHandle,
+        _dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span = span!(Level::ERROR, "request", entity=?data, resource=%WlResource::id(resource));
@@ -48,7 +48,7 @@ impl wayland_server::Dispatch<wp_drm_lease_device_v1::WpDrmLeaseDeviceV1, Entity
         debug!("request {:?}", &request);
         match request {
             wp_drm_lease_device_v1::Request::CreateLeaseRequest { id } => {
-                let request = data_init.init(id, *data);
+                let _request = data_init.init(id, *data);
                 todo!();
             }
             wp_drm_lease_device_v1::Request::Release => {
@@ -71,10 +71,10 @@ impl wayland_server::Dispatch<wp_drm_lease_device_v1::WpDrmLeaseDeviceV1, Entity
 impl wayland_server::GlobalDispatch<wp_drm_lease_device_v1::WpDrmLeaseDeviceV1, Entity> for DWay {
     fn bind(
         state: &mut Self,
-        handle: &DisplayHandle,
+        _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<wp_drm_lease_device_v1::WpDrmLeaseDeviceV1>,
-        global_data: &Entity,
+        _global_data: &Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         state.bind(client, resource, data_init, DrmLeaseDevice::new);

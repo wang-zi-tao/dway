@@ -6,18 +6,12 @@ mod macros;
 pub mod reexport;
 mod register;
 
-pub use bevy_relationship_derive::graph_query;
-
-use std::{iter::Cloned, marker::PhantomData, sync::Arc};
-
 pub use crate::{app::*, builtins::*, commands::*, graph::*, macros::*, register::*};
-
+pub use app::AppExt;
 use bevy::prelude::*;
+pub use bevy_relationship_derive::graph_query;
 use smallvec::SmallVec;
-
-fn default_entity() -> Entity {
-    Entity::PLACEHOLDER
-}
+use std::{iter::Cloned, marker::PhantomData};
 
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Debug)]

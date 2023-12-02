@@ -95,6 +95,6 @@ impl GbmDevice {
                     .map(|b| (b, *fourcc))
             })
             .ok_or_else(|| anyhow!("no supported format"))?;
-        Ok(GbmBuffer::new(drm, buffer, size, format)?)
+        GbmBuffer::new(drm, buffer, size, format)
     }
 }

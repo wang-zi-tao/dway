@@ -60,7 +60,7 @@ impl IconLoader {
     ) -> Option<IconResorce> {
         if !icon.loaded {
             let icon_id = icon.id.to_string() + ".svg";
-            let raw_icon = self.icon_loader.load_icon(&icon_id);
+            let raw_icon = self.icon_loader.load_icon(icon_id);
             if raw_icon.is_none() {
                 warn!("icon not found: {}", &icon.id);
             }

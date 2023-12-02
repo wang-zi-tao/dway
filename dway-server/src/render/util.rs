@@ -129,7 +129,7 @@ pub fn check_extensions(supported_extensions: &HashSet<String>, extensions: &[&s
             unsupported_extensions.push(extension.to_string());
         }
     }
-    if unsupported_extensions.len() > 0 {
+    if !unsupported_extensions.is_empty() {
         bail!(DWayRenderError::EglExtensionNotSupported(
             unsupported_extensions
         ));
@@ -139,7 +139,7 @@ pub fn check_extensions(supported_extensions: &HashSet<String>, extensions: &[&s
 
 pub fn gl_check_extensions(gl: &glow::Context, extensions: &[&str]) -> Result<()> {
     let supported_extensions = gl.supported_extensions();
-    check_extensions(&supported_extensions, extensions)
+    check_extensions(supported_extensions, extensions)
 }
 
 pub fn egl_check_extensions(egl: &EGLInstance, extensions: &[&str]) -> Result<()> {

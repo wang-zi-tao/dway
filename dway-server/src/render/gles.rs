@@ -176,7 +176,7 @@ pub fn drm_info(device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError> {
         })
         .or_else(|_| call_egl_string(egl, || query_device_string_ext(device, DRM_DEVICE_FILE_EXT)))
         .map_err(|e| Unknown(anyhow!("failed to get device path: {e}")))?;
-        let drm_node = DrmNode::new(&path)?;
+        let drm_node = DrmNode::new(path)?;
 
         let formats = if !extensions.contains("EGL_EXT_image_dma_buf_import_modifiers") {
             vec![DrmFourcc::Argb8888, DrmFourcc::Xrgb8888]
@@ -203,7 +203,7 @@ pub fn drm_info(device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError> {
                     p_num,
                 )
             })?;
-            if mods.len() == 0 {
+            if mods.is_empty() {
                 texture_formats.insert(DrmFormat {
                     code: fourcc,
                     modifier: DrmModifier::Invalid,
@@ -643,7 +643,7 @@ pub fn import_wl_surface(
             }
         });
         let Some(texture_id) = texture_id else {
-            return Err(FailedToGetHal.into());
+            return Err(FailedToGetHal);
         };
         device.as_hal::<Gles, _, _>(|hal_device| {
             let hal_device = hal_device.ok_or_else(|| BackendIsNotEGL)?;

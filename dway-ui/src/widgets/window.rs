@@ -150,17 +150,17 @@ WindowUI=>
             <UiButtonBundle @id="close" @style="m-2 w-20 h-20"
                 UiButtonAddonBundle=(UiButton::new(this_entity, on_close_button_event).into())
                 @handle(UiCircleMaterial=>UiCircleMaterial::new(Color::WHITE*0.3, 8.0)) >
-                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg").into())) />
+                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg"))) />
             </UiButtonBundle>
             <UiButtonBundle @id="max" @style="m-2 w-20 h-20"
                 UiButtonAddonBundle=(UiButton::new(this_entity, on_max_button_event).into())
                 @handle(UiCircleMaterial=>UiCircleMaterial::new(Color::WHITE*0.3, 8.0)) >
-                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/maximize.svg").into())) />
+                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/maximize.svg"))) />
             </UiButtonBundle>
             <UiButtonBundle @id="min" @style="m-2 w-20 h-20"
                 UiButtonAddonBundle=(UiButton::new(this_entity, on_min_button_event).into())
                 @handle(UiCircleMaterial=>UiCircleMaterial::new(Color::WHITE*0.3, 8.0)) >
-                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/minimize.svg").into())) />
+                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/minimize.svg"))) />
             </UiButtonBundle>
             <TextBundle @style="items-center justify-center m-auto"
                 Text=(Text::from_section(
