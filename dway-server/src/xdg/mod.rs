@@ -21,7 +21,7 @@ use crate::{
         popup::{XdgPopup, XdgPopupBundle},
         positioner::XdgPositioner,
         toplevel::{DWayToplevel, XdgToplevel},
-    },
+    }, input::grab::WlSurfacePointerState, 
 };
 use bevy_relationship::{relationship, AppExt};
 
@@ -51,6 +51,7 @@ pub struct XdgSurfaceBundle {
     resource: XdgSurface,
     geometry: Geometry,
     global_geometry: GlobalGeometry,
+    seat_state: WlSurfacePointerState,
 }
 
 impl XdgSurface {

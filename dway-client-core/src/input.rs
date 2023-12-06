@@ -12,7 +12,7 @@ use dway_server::{
     geometry::{Geometry, GlobalGeometry},
     input::seat::SeatHasKeyboard,
     input::{
-        grab::{Grab, GrabEvent, GrabEventKind},
+        grab::{Grab, GrabEvent, GrabEventKind, WlSurfacePointerState},
         keyboard::XkbState,
         seat::{SeatHasPointer, WlSeat},
     },
@@ -39,13 +39,15 @@ impl Plugin for DWayInputPlugin {
             PreUpdate,
             (
                 mouse_move_on_window.run_if(on_event::<CursorMoved>()),
-                cursor_move_on_window.run_if(on_event::<MouseMotion>()),
-                mouse_button_on_window.run_if(on_event::<MouseButtonInput>()),
-                mouse_wheel_on_window.run_if(on_event::<MouseWheel>()),
-                keyboard_input_system.run_if(on_event::<KeyboardInput>()),
+                // cursor_move_on_window.run_if(on_event::<MouseMotion>()),
+                // mouse_button_on_window.run_if(on_event::<MouseButtonInput>()),
+                // mouse_wheel_on_window.run_if(on_event::<MouseWheel>()),
+                // keyboard_input_system.run_if(on_event::<KeyboardInput>()),
+                on_input_event,
             )
                 .in_set(DWayServerSet::Input),
         );
+        app.register_type::<SurfaceUiNode>();
         if self.debug | true {
             app.add_systems(Startup, setup_debug_cursor);
             app.add_systems(PreUpdate, debug_follow_cursor.in_set(UpdateUI));
@@ -292,6 +294,97 @@ fn mouse_wheel_on_window(
                 seat_entity: entity,
                 event_kind: GrabEventKind::PointerAxis(*e, pos.as_dvec2()),
             });
+        });
+    }
+}
+
+#[derive(Component, Reflect)]
+pub struct SurfaceUiNode {
+    pub surface_entity: Entity,
+    pub widget: Entity,
+    pub grab: bool,
+}
+
+impl SurfaceUiNode {
+    pub fn new(surface_entity: Entity, widget: Entity) -> Self {
+        Self {
+            surface_entity,
+            widget,
+            grab: false,
+        }
+    }
+}
+
+enum MouseEvent<'l> {
+    Move(&'l CursorMoved),
+    Button(&'l MouseButtonInput),
+    Wheel(&'l MouseWheel),
+}
+
+graph_query!(InputGraph=>[
+    surface=< (Entity, &'static WlSurface,&'static mut WlSurfacePointerState),With<DWayWindow>>,
+    client=&'static mut WlSeat,
+    pointer=&'static mut WlPointer,
+]=>{
+    pointer=surface<-[ClientHasSurface]-client-[SeatHasPointer]->pointer
+});
+
+pub fn on_input_event(
+    mut graph: InputGraph,
+    ui_query: Query<(&Node, &GlobalTransform, &Interaction, &SurfaceUiNode)>,
+    cursor: Res<CursorOnOutput>,
+    mut output_focus: ResMut<FocusedWindow>,
+    mut cursor_on_window: ResMut<CursorOnWindow>,
+    mut cursor_moved_events: EventReader<CursorMoved>,
+    mut button_events: EventReader<MouseButtonInput>,
+    mut wheel_events: EventReader<MouseWheel>,
+) {
+    let Some((_output, pos)) = &cursor.0 else {
+        return;
+    };
+    for event in cursor_moved_events
+        .read()
+        .map(|w| MouseEvent::Move(&w))
+        .chain(button_events.read().map(|w| MouseEvent::Button(w)))
+        .chain(wheel_events.read().map(|w| MouseEvent::Wheel(w)))
+    {
+        ui_query.for_each(|(content_node, content_geo, interaction, content)| {
+            if *interaction == Interaction::None {
+                return;
+            }
+            let content_rect =
+                Rect::from_center_size(content_geo.translation().xy(), content_node.size());
+            graph.for_each_pointer_mut_from::<()>(
+                content.surface_entity,
+                |(surface_entity, surface, surface_seat_state), ref mut seat, pointer| {
+                    let relative_pos =
+                        pos.as_vec2() - content_rect.min - surface.image_rect().pos().as_vec2();
+                    match event {
+                        MouseEvent::Move(e) => {
+                            let relative_pos = e.position
+                                - content_rect.min
+                                - surface.image_rect().pos().as_vec2();
+                            pointer.move_cursor(seat, surface, relative_pos);
+                            cursor_on_window.0 = Some((*surface_entity, relative_pos.as_ivec2()));
+                        }
+                        MouseEvent::Button(e) => {
+                            pointer.button(seat, e, surface, relative_pos.as_dvec2());
+                            surface_seat_state.is_clicked = content_rect.contains(pos.as_vec2());
+                        }
+                        MouseEvent::Wheel(e) => {
+                            let acc = |x: f64| x * 20.0;
+                            pointer.asix(
+                                seat,
+                                DVec2::new(-acc(e.x as f64), -acc(e.y as f64)),
+                                surface,
+                                relative_pos.as_dvec2(),
+                            );
+                            output_focus.window_entity = Some(*surface_entity);
+                        }
+                    }
+                    return ControlFlow::Continue;
+                },
+            );
         });
     }
 }

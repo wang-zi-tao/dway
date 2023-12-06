@@ -1,12 +1,9 @@
-use std::time::Duration;
-
 use bevy_tweening::{lens::*, Animator, EaseFunction, Tween};
+use std::time::Duration;
 
 use dway_client_core::desktop::FocusedWindow;
 use dway_server::{
-    apps::WindowList,
-    geometry::GlobalGeometry,
-    wl::surface::WlSurface,
+    apps::WindowList, geometry::GlobalGeometry, util::rect::IRect, wl::surface::WlSurface,
     xdg::toplevel::DWayToplevel,
 };
 
@@ -18,7 +15,7 @@ use crate::{
     prelude::*,
     widgets::{
         popup::{PopupUiSystems, UiPopupAddonBundle},
-        window::create_window_material,
+        window::create_raw_window_material,
     },
 };
 
@@ -41,23 +38,23 @@ AppWindowPreviewPopup=>
 @callback{ [UiButtonEvent]
 fn close_window(
     In(event): In<UiButtonEvent>,
-    prop_query: Query<&AppWindowPreviewPopupSubStateList>,
+    prop_query: Query<&AppWindowPreviewPopupSubWidgetList>,
     mut events: EventWriter<WindowAction>,
 ){
-    let Ok(state) = prop_query.get(event.receiver)else{return;};
+    let Ok(widget) = prop_query.get(event.receiver)else{return;};
     if event.kind == UiButtonEventKind::Released{
-        events.send(WindowAction::Close(*state.window_entity()));
+        events.send(WindowAction::Close(widget.data_entity));
     }
 }}
 @callback{ [UiButtonEvent]
 fn focus_window(
     In(event): In<UiButtonEvent>,
-    prop_query: Query<&AppWindowPreviewPopupSubStateList>,
+    prop_query: Query<&AppWindowPreviewPopupSubWidgetList>,
     mut focused: ResMut<FocusedWindow>,
 ){
-    let Ok(state) = prop_query.get(event.receiver)else{return;};
+    let Ok(widget) = prop_query.get(event.receiver)else{return;};
     if event.kind == UiButtonEventKind::Released{
-        focused.window_entity = Some(*state.window_entity());
+        focused.window_entity = Some(widget.data_entity);
     }
 }}
 @bundle{{pub popup: UiPopupAddonBundle}}
@@ -66,6 +63,8 @@ fn focus_window(
     app.configure_sets(Update, AppWindowPreviewPopupSystems::Render.before(PopupUiSystems::Close));
 }
 @arg(asset_server: Res<AssetServer>)
+@use_state(windows: Vec<Entity>)
+@component(window_list<-Query<Ref<WindowList>>[prop.app]->{ state.set_windows(window_list.iter().collect()); })
 <RounndedRectBundle @style="flex-row m-4" @id="List"
     Animator<_>=(Animator::new(Tween::new(
         EaseFunction::BackOut,
@@ -73,12 +72,16 @@ fn focus_window(
         TransformScaleLens { start: Vec3::splat(0.5), end: Vec3::ONE, },
     )))
     @handle(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(Color::WHITE*0.2, 16.0))
-    @use_state(windows: Vec<Entity>)
-    @component(window_list<-Query<Ref<WindowList>>[prop.app]->{ state.set_windows(window_list.iter().collect()); })
-    @for_query((window_entity,surface,geo,toplevel) in Query<(Entity,&WlSurface,&GlobalGeometry,&DWayToplevel)>::iter_many(state.windows().iter().cloned())) >
+    @for_query((surface,geo,toplevel) in Query<(Ref<WlSurface>,Ref<GlobalGeometry>,Ref<DWayToplevel>)>::iter_many(state.windows().iter().cloned()) =>[
+        toplevel=>{state.set_title(toplevel.title.clone().unwrap_or_default());},
+        geo=>{state.set_geo(geo.clone());},
+        surface=>{
+            state.set_image(surface.image.clone());
+            state.set_image_rect(surface.image_rect());
+        }
+    ]) >
         <RounndedRectBundle @style="flex-col m-4" @id="window_preview"
-            @use_state(title:String<=toplevel.title.clone().unwrap_or_default())
-            @use_state(window_entity:Entity=Entity::PLACEHOLDER @ window_entity) >
+            @use_state(title:String) @use_state(geo:GlobalGeometry) @use_state(image:Handle<Image>) @use_state(image_rect:IRect) >
             <NodeBundle @style="flex-row">
                 <UiButtonBundle @id="close" @style="m-2 w-20 h-20"
                 UiButtonAddonBundle=(UiButton::new(node!(window_preview), close_window).into())>
@@ -98,8 +101,8 @@ fn focus_window(
             <UiButtonBundle
             UiButtonAddonBundle=(UiButton::new(node!(window_preview), focus_window).into())>
                 <MaterialNodeBundle::<RoundedUiImageMaterial>
-                @handle(RoundedUiImageMaterial=>create_window_material(surface, geo))
-                Style=({ let size = geo.size().as_vec2() * PREVIEW_HIGHT / geo.height() as f32;
+                @handle(RoundedUiImageMaterial=>create_raw_window_material(*state.image_rect(),state.image().clone(),&state.geo))
+                Style=({ let size = state.geo().size().as_vec2() * PREVIEW_HIGHT / state.geo().height() as f32;
                         Style{ width:Val::Px(size.x), height:Val::Px(size.y), ..default() } }) />
             </UiButtonBundle>
         </RounndedRectBundle>

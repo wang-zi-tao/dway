@@ -10,11 +10,12 @@ pub mod theme;
 pub mod util;
 pub mod widgets;
 
-use crate::{prelude::*, widgets::applist::AppListUIBundle};
+use crate::{prelude::*, widgets::{applist::AppListUIBundle, screen::{ScreenWindows, ScreenWindowsBundle}}};
 use bevy::{render::camera::RenderTarget, ui::FocusPolicy};
 use bevy_svg::SvgPlugin;
 use bevy_tweening::TweeningPlugin;
 pub use bitflags::bitflags as __bitflags;
+use dway_client_core::screen::Screen;
 use dway_tty::{drm::surface::DrmSurface, seat::SeatState};
 use font_kit::{family_name::FamilyName, properties::Properties, source::SystemSource};
 use widgets::clock::ClockBundle;
@@ -36,9 +37,11 @@ impl Plugin for DWayUiPlugin {
             widgets::popupwindow::PopupUIPlugin,
             widgets::applist::AppListUIPlugin,
             widgets::popup::PopupUiPlugin,
+            widgets::screen::ScreenWindowsPlugin,
             popups::app_window_preview::AppWindowPreviewPopupPlugin,
         ));
-        app.add_systems(Startup, (setup, init_ui));
+        app.add_systems(PreUpdate, init_screen_ui);
+        app.add_systems(Startup, setup);
     }
 }
 
@@ -78,50 +81,52 @@ fn setup(mut commands: Commands, seat: Option<NonSend<SeatState>>, surfaces: Que
     }
 }
 
-fn init_ui(
+fn init_screen_ui(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut rect_material_set: ResMut<Assets<RoundedUiRectMaterial>>,
+    mut screen_query: Query<(Entity, &Screen),Added<Screen>>,
 ) {
-    spawn! {&mut commands=>
-    <(ImageBundle{style: style!("absolute full"),
-        image: asset_server.load("background.jpg").into(),
-        z_index: ZIndex::Global(-1024),
-    ..default()})
-    Name=(Name::new("background")) /> };
-
-    spawn! { &mut commands=>
-    <(MaterialNodeBundle { style: style!("absolute top-4 left-4 right-4 h-32"),
-        material: rect_material_set.add(RoundedUiRectMaterial::new(Color::WHITE.with_a(0.5),8.0)),
-        z_index: ZIndex::Global(1024),
-        ..Default::default()
-    }) Name=(Name::new("panel"))>
-        <(MaterialNodeBundle { style: style!("absolute flex-row m-4 left-4"),
-            material: rect_material_set.add(RoundedUiRectMaterial::new((Color::BLUE*0.6).with_a(0.5),8.0,)),
-            ..Default::default()
-        }) @id="left">
-            <ClockBundle/>
-        </>
-        <(MaterialNodeBundle { style: style!("absolute flex-row m-4 right-4"),
-            material: rect_material_set.add(RoundedUiRectMaterial::new((Color::RED*0.6).with_a(0.5),8.0,)),
-            ..Default::default()
-        }) @id="right">
-            <ClockBundle/>
-        </>
-        <NodeBundle @style="absolute w-full h-full justify-center items-center" @id="center">
-            <(MaterialNodeBundle { style: style!("flex-row m-4"),
-                material: rect_material_set.add(RoundedUiRectMaterial::new((Color::WHITE*0.6).with_a(0.5),8.0,)),
+    screen_query.for_each(|(entity,screen)|{
+        spawn! {&mut commands=>
+        <MiniNodeBundle Name=(Name::new("screen_ui")) @style="absolute full">
+            <MiniNodeBundle Name=(Name::new("background")) @style="absolute full">
+                <ImageBundle UiImage=(asset_server.load("background.jpg").into()) ZIndex=(ZIndex::Global(-1024))/>
+            </MiniNodeBundle> 
+            <ScreenWindowsBundle @style="absolute full" Name=(Name::new("windows"))
+                ScreenWindows=(ScreenWindows{screen:entity}) />
+            <(MaterialNodeBundle { style: style!("absolute top-4 left-4 right-4 h-32"),
+                material: rect_material_set.add(RoundedUiRectMaterial::new(Color::WHITE.with_a(0.5),8.0)),
+                z_index: ZIndex::Global(1024),
                 ..Default::default()
-            })>
-                <ClockBundle/>
-            </>
-        </NodeBundle>
-    </> };
-
-    spawn! {&mut commands=>
-    <(NodeBundle{style: style!("absolute bottom-4 w-full justify-center items-center"),
-        focus_policy: FocusPolicy::Pass, z_index: ZIndex::Global(1024),..default()})
-    Name=(Name::new("dock")) >
-        <AppListUIBundle/>
-    </NodeBundle> };
+            }) Name=(Name::new("panel"))>
+                <(MaterialNodeBundle { style: style!("absolute flex-row m-4 left-4"),
+                    material: rect_material_set.add(RoundedUiRectMaterial::new((Color::BLUE*0.6).with_a(0.5),8.0,)),
+                    ..Default::default()
+                }) @id="left">
+                    <ClockBundle/>
+                </>
+                <(MaterialNodeBundle { style: style!("absolute flex-row m-4 right-4"),
+                    material: rect_material_set.add(RoundedUiRectMaterial::new((Color::RED*0.6).with_a(0.5),8.0,)),
+                    ..Default::default()
+                }) @id="right">
+                    <ClockBundle/>
+                </>
+                <NodeBundle @style="absolute w-full h-full justify-center items-center" @id="center">
+                    <(MaterialNodeBundle { style: style!("flex-row m-4"),
+                        material: rect_material_set.add(RoundedUiRectMaterial::new((Color::WHITE*0.6).with_a(0.5),8.0,)),
+                        ..Default::default()
+                    })>
+                        <ClockBundle/>
+                    </>
+                </NodeBundle>
+            </> 
+            <(NodeBundle{style: style!("absolute bottom-4 w-full justify-center items-center"),
+                focus_policy: FocusPolicy::Pass, z_index: ZIndex::Global(1024),..default()})
+                Name=(Name::new("dock")) >
+                <AppListUIBundle/>
+            </NodeBundle>
+        </MiniNodeBundle>
+        };
+    });
 }

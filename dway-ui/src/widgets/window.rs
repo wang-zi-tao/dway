@@ -1,24 +1,44 @@
 use bevy::utils::{HashMap, HashSet};
-use dway_client_core::navigation::windowstack::WindowStack;
+use dway_client_core::{navigation::windowstack::{WindowIndex, WindowStack}, input::SurfaceUiNode};
 use dway_server::{
     geometry::GlobalGeometry,
     util::rect::IRect,
     wl::surface::WlSurface,
-    xdg::{toplevel::DWayToplevel, DWayWindow},
+    xdg::{toplevel::DWayToplevel, DWayWindow, PopupList},
 };
 
+use crate::{animation, framework::svg::UiSvgBundle, prelude::*};
 use crate::{
-    framework::button::{
-        UiButton, UiButtonAddonBundle, UiButtonBundle, UiButtonEvent, UiButtonEventKind,
+    framework::{
+        animation::despawn_animation,
+        button::{UiButton, UiButtonAddonBundle, UiButtonBundle, UiButtonEvent, UiButtonEventKind},
     },
     util::irect_to_style,
 };
-use crate::{framework::svg::UiSvgBundle, prelude::*};
+
+use super::popupwindow::{PopupUI, PopupUIBundle, PopupUISystems};
 
 pub const WINDEOW_BASE_ZINDEX: i32 = 128;
+pub const WINDEOW_POPUP_BASE_ZINDEX: i32 = WINDEOW_BASE_ZINDEX + 256;
 pub const WINDEOW_MAX_STEP: i32 = 16;
 pub const DECORATION_HEIGHT: f32 = 24.0;
 pub const DECORATION_MARGIN: f32 = 2.0;
+
+pub fn create_raw_window_material(
+    image_rect: IRect,
+    image: Handle<Image>,
+    geo: &GlobalGeometry,
+) -> RoundedUiImageMaterial {
+    let rect = geo.geometry;
+    let bbox_rect = image_rect.offset(rect.pos());
+    RoundedUiImageMaterial::new(
+        rect.size().as_vec2(),
+        16.0,
+        (bbox_rect.min - rect.min).as_vec2(),
+        bbox_rect.size().as_vec2(),
+        image,
+    )
+}
 
 pub fn create_window_material(surface: &WlSurface, geo: &GlobalGeometry) -> RoundedUiImageMaterial {
     let rect = geo.geometry;
@@ -32,10 +52,24 @@ pub fn create_window_material(surface: &WlSurface, geo: &GlobalGeometry) -> Roun
     )
 }
 
+pub fn window_mouse_event(
+    ui_query: Query<(&Node, &GlobalGeometry, &Interaction, &SurfaceUiNode)>,
+    window_query: Query<(&WlSurface, &GlobalGeometry)>,
+) {
+    ui_query.for_each(|(node, global, interaction, content)| {
+        if *interaction != Interaction::Hovered {
+            return;
+        }
+        let Ok((surface, global)) = window_query.get(content.surface_entity) else {
+            return;
+        };
+    });
+}
+
 #[derive(Component, Reflect, Debug)]
 pub struct WindowUI {
-    window_entity: Entity,
-    app_entry: Entity,
+    pub window_entity: Entity,
+    pub app_entry: Entity,
 }
 impl Default for WindowUI {
     fn default() -> Self {
@@ -45,29 +79,16 @@ impl Default for WindowUI {
         }
     }
 }
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct WindowUIFlush;
+
 dway_widget! {
 WindowUI=>
 @plugin{
     app.register_type::<WindowUI>();
-    app.add_systems(Update, attach_window);
+    app.add_systems(Update, apply_deferred.after(WindowUISystems::Render).before(PopupUISystems::Render));
 }
-@arg(asset_server: Res<AssetServer>)
-@state_component(#[derive(Debug)])
-@use_state(pub rect:IRect)
-@use_state(pub bbox_rect:IRect)
-@use_state(pub title:String)
-@use_state(pub image:Handle<Image>)
-@query(window_query:(rect,surface, toplevel)<-Query<(Ref<GlobalGeometry>, Ref<WlSurface>, Ref<DWayToplevel>), With<DWayWindow>>[prop.window_entity]->{
-    let init = !widget.inited;
-    if init || rect.is_changed(){
-        *state.rect_mut() = rect.geometry;
-    }
-    if init || rect.is_changed() || surface.is_changed() {
-        *state.bbox_rect_mut() = surface.image_rect().offset(rect.pos());
-    }
-    if init || toplevel.is_changed(){ *state.title_mut() = toplevel.title.clone().unwrap_or_default(); }
-    if init || surface.is_changed(){ *state.image_mut() = surface.image.clone(); }
-})
 @callback{ [UiButtonEvent]
     fn on_close_button_event(
         In(event): In<UiButtonEvent>,
@@ -75,11 +96,8 @@ WindowUI=>
         mut events: EventWriter<WindowAction>,
     ) {
         let Ok(prop) = prop_query.get(event.receiver)else{return;};
-        match &event.kind{
-            UiButtonEventKind::Released=>{
-                events.send(WindowAction::Close(prop.window_entity));
-            }
-            _=>{}
+        if event.kind == UiButtonEventKind::Released{
+            events.send(WindowAction::Close(prop.window_entity));
         }
     }
 }
@@ -90,11 +108,8 @@ WindowUI=>
         mut events: EventWriter<WindowAction>,
     ) {
         let Ok(prop) = prop_query.get(event.receiver)else{return;};
-        match &event.kind{
-            UiButtonEventKind::Released=>{
-                events.send(WindowAction::Minimize(prop.window_entity));
-            }
-            _=>{}
+        if event.kind == UiButtonEventKind::Released{
+            events.send(WindowAction::Minimize(prop.window_entity));
         }
     }
 }
@@ -105,16 +120,44 @@ WindowUI=>
         mut events: EventWriter<WindowAction>,
     ) {
         let Ok(prop) = prop_query.get(event.receiver)else{return;};
-        match &event.kind{
-            UiButtonEventKind::Released=>{
-                events.send(WindowAction::Maximize(prop.window_entity));
-            }
-            _=>{}
+        if event.kind == UiButtonEventKind::Released{
+            events.send(WindowAction::Maximize(prop.window_entity));
         }
     }
 }
-<NodeBundle @style="absolute" >
+@arg(asset_server: Res<AssetServer>)
+@arg(window_stack: Res<WindowStack>)
+@state_component(#[derive(Debug)])
+@use_state(pub rect:IRect)
+@use_state(pub bbox_rect:IRect)
+@use_state(pub title:String)
+@use_state(pub image:Handle<Image>)
+@use_state(pub z_index:i32)
+@use_state(pub popup_list:Vec<Entity>)
+@query(window_query:(rect,surface, toplevel, index, popups)<-Query<(Ref<GlobalGeometry>, Ref<WlSurface>, Ref<DWayToplevel>, Ref<WindowIndex>, Option<Ref<PopupList>>), With<DWayWindow>>[prop.window_entity]->{
+    let init = !widget.inited;
+    if init || rect.is_changed(){
+        *state.rect_mut() = rect.geometry;
+    }
+    if init || rect.is_changed() || surface.is_changed() {
+        *state.bbox_rect_mut() = surface.image_rect().offset(rect.pos());
+    }
+    if init || toplevel.is_changed(){ *state.title_mut() = toplevel.title.clone().unwrap_or_default(); }
+    if init || surface.is_changed(){ *state.image_mut() = surface.image.clone(); }
+    if init || index.is_changed() {
+        state.set_z_index(WINDEOW_BASE_ZINDEX + WINDEOW_MAX_STEP * (window_stack.list.len() - index.global) as i32);
+    }
+    if let Some(popups) = popups{
+        if init || popups.is_changed() {
+            state.set_popup_list(popups.iter().collect());
+        }
+    }
+})
+<NodeBundle @style="absolute full" >
     <MiniNodeBundle @id="content" Style=(irect_to_style(*state.rect()))
+    ZIndex=(ZIndex::Global(*state.z_index()))
+    SurfaceUiNode=(SurfaceUiNode::new(prop.window_entity,this_entity))
+    Interaction=(default()) FocusPolicy=(FocusPolicy::Block)
     Animator<_>=(Animator::new(Tween::new(
         EaseFunction::BackOut,
         Duration::from_secs_f32(0.5),
@@ -174,58 +217,22 @@ WindowUI=>
             />
         </NodeBundle>
     </>
+    <MiniNodeBundle @style="absolute full"
+        @for_query(_ in Query<Ref<WlSurface>>::iter_many(state.popup_list().iter())=>[ ])>
+        <PopupUIBundle ZIndex=(ZIndex::Global(WINDEOW_POPUP_BASE_ZINDEX))
+            PopupUI=(PopupUI{window_entity:widget.data_entity})/>
+    </MiniNodeBundle>
 </NodeBundle>
 }
 
-pub fn attach_window(
-    mut commands: Commands,
-    mut create_window_events: EventReader<Insert<DWayWindow>>,
-    mut destroy_window_events: RemovedComponents<DWayWindow>,
-    window_stack: Res<WindowStack>,
-    mut ui_query: Query<(Entity, &mut WindowUI, &mut ZIndex)>,
-) {
-    if window_stack.is_changed()
-        || !create_window_events.is_empty()
-        || !destroy_window_events.is_empty()
-    {
-        let destroyed_windows: HashSet<_> = destroy_window_events.read().collect();
-        let window_index_map: HashMap<_, _> = if window_stack.is_changed() {
-            window_stack
-                .list
-                .iter()
-                .enumerate()
-                .map(|(i, e)| (*e, i))
-                .collect()
-        } else {
-            HashMap::new()
-        };
-        create_window_events
-            .read()
-            .for_each(|Insert { entity, .. }| {
-                commands.spawn((
-                    Name::from("WindowUI"),
-                    WindowUIBundle {
-                        style: style!("absolute"),
-                        prop: WindowUI {
-                            window_entity: *entity,
-                            app_entry: Entity::PLACEHOLDER,
-                        },
-                        ..Default::default()
-                    },
-                ));
-            });
-        ui_query.for_each_mut(|(entity, ui, mut z_index)| {
-            if window_stack.is_changed() {
-                if let Some(index) = window_index_map.get(&ui.window_entity) {
-                    *z_index = ZIndex::Global(
-                        WINDEOW_BASE_ZINDEX
-                            + WINDEOW_MAX_STEP * (window_stack.list.len() - *index) as i32,
-                    );
-                }
-            }
-            if destroyed_windows.contains(&ui.window_entity) {
-                commands.entity(entity).despawn_recursive();
-            }
-        })
+#[derive(Component)]
+pub struct ScreenWindows {
+    pub screen: Entity,
+}
+impl Default for ScreenWindows {
+    fn default() -> Self {
+        Self {
+            screen: Entity::PLACEHOLDER,
+        }
     }
 }

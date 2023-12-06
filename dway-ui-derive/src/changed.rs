@@ -47,7 +47,7 @@ pub fn generate_change_detect(structure: &ItemStruct) -> anyhow::Result<TokenStr
         let get_mut_name = format_ident!("{}_mut", field_name, span = field_name.span());
         let setter_name = format_ident!("set_{}", field_name, span = field_name.span());
         let changed_name = format_ident!("{}_is_changed", field_name, span = field_name.span());
-        functions.push(quote_spanned! {field.span()=>
+        functions.push(quote_spanned! {ident.as_ref().unwrap().span()=>
             #[allow(dead_code)]
             #vis fn #getter_name(&self) -> & #ty {
                  &self.#field_name

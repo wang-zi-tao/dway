@@ -49,6 +49,7 @@ impl wayland_server::Dispatch<xdg_wm_base::XdgWmBase, bevy::prelude::Entity, DWa
                         resource: XdgSurface::new(o),
                         geometry: Geometry::default(),
                         global_geometry: GlobalGeometry::default(),
+                        seat_state: Default::default(),
                     }),
                 );
             }

@@ -11,8 +11,12 @@ use crate::{
 };
 
 #[derive(Component, Default, Debug, Reflect)]
+pub struct WorkspaceSet;
+
+#[derive(Component, Default, Debug, Reflect)]
 pub struct Workspace {
     pub name: String,
+    pub hide: bool,
 }
 
 #[derive(Bundle, Default)]
@@ -20,6 +24,9 @@ pub struct WorkspaceBundle {
     pub workspace: Workspace,
     pub geo: Geometry,
     pub global: GlobalGeometry,
+
+    pub window_list: WindowList,
+    pub screen_list: ScreenList,
 }
 
 relationship!(WindowOnWorkspace=>WindowWorkspaceList>-<WindowList);
@@ -55,7 +62,7 @@ pub fn attach_workspace_to_screen(
                     workspace_entity,
                 ));
                 commands.entity(screen_entity).add_child(workspace_entity);
-                workspace_geo.set_size(screen_geo.size());
+                workspace_geo.geometry = screen_geo.geometry;
                 return;
             }
         }
@@ -64,9 +71,9 @@ pub fn attach_workspace_to_screen(
         };
         let workspace_entity = commands
             .spawn(WorkspaceBundle {
-                workspace: Workspace::default(),
                 global: screen_geo.add(&geo),
                 geo,
+                ..Default::default()
             })
             .set_parent(screen_entity)
             .id();

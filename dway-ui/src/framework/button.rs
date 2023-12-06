@@ -1,4 +1,5 @@
 use bevy::{ecs::system::SystemId, ui::FocusPolicy};
+use bevy_relationship::reexport::SmallVec;
 
 use crate::prelude::*;
 
@@ -17,17 +18,17 @@ pub struct UiButtonEvent {
     pub button: Entity,
 }
 
-#[derive(Component, Default, Clone, Copy, Reflect)]
+#[derive(Component, Default, Clone, Reflect)]
 pub struct UiButton {
     #[reflect(ignore)]
-    pub callback: Option<(Entity, SystemId<UiButtonEvent>)>,
+    pub callback: SmallVec<[(Entity, SystemId<UiButtonEvent>); 2]>,
     pub state: Interaction,
 }
 
 impl UiButton {
     pub fn new(receiver: Entity, callback: SystemId<UiButtonEvent>) -> Self {
         Self {
-            callback: Some((receiver, callback)),
+            callback: SmallVec::from_slice(&[(receiver, callback)]),
             state: Interaction::None,
         }
     }
@@ -39,12 +40,12 @@ pub fn process_ui_button_event(
 ) {
     use UiButtonEventKind::*;
     ui_query.for_each_mut(|(entity, mut button, button_state)| {
-        let mut call = |kind| {
-            if let Some((receiver, callback)) = &button.callback {
+        let mut call = |kind: UiButtonEventKind| {
+            for (receiver, callback) in &button.callback {
                 commands.run_system_with_input(
                     *callback,
                     UiButtonEvent {
-                        kind,
+                        kind: kind.clone(),
                         receiver: *receiver,
                         button: entity,
                     },
@@ -104,7 +105,7 @@ impl UiButtonAddonBundle {
     }
 }
 
-#[derive(Bundle, Default)]
+#[derive(Bundle)]
 pub struct UiButtonBundle {
     pub button: UiButton,
     pub interaction: Interaction,
@@ -118,4 +119,22 @@ pub struct UiButtonBundle {
     pub inherited_visibility: InheritedVisibility,
     pub view_visibility: ViewVisibility,
     pub z_index: ZIndex,
+}
+
+impl Default for UiButtonBundle {
+    fn default() -> Self {
+        Self {
+            button: Default::default(),
+            interaction: Default::default(),
+            node: Default::default(),
+            style: Default::default(),
+            focus_policy: FocusPolicy::Block,
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
+            z_index: Default::default(),
+        }
+    }
 }

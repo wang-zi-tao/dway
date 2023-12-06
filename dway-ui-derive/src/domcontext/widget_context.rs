@@ -137,6 +137,12 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                 .unwrap_or_default(),
             |stat, arg| arg.inner.wrap_update(stat, &mut context),
         );
+        let process_node_stat = quote!{
+            let (#entity_var,#just_init_var) = {
+                #process_node_stat
+                (#entity_var,#just_init_var)
+            };
+        };
 
         std::mem::drop(context);
 
@@ -184,6 +190,19 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
 
             std::mem::swap(&mut state_builder, &mut self.state_builder);
             std::mem::swap(&mut widget_builder, &mut self.widget_builder);
+
+            let mut context = WidgetNodeContext {
+                tree_context: self,
+                dom,
+                dom_id: dom_id.clone(),
+                entity_var: entity_var.clone(),
+                parent_entity: parent_entity.clone(),
+                just_inited: just_init_var.clone(),
+                parent_just_inited: parent_just_inited.clone(),
+            };
+            dom.args
+                .values()
+                .for_each(|arg| arg.inner.update_sub_widget_context(&mut context));
 
             let spawn_children = dom
                 .children
@@ -447,9 +466,10 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
                 &mut #widget_name,
                 #(#this_query),*
             )>,
-            mut commands: Commands,
+            mut __dway_ui_commands: Commands,
             #(#system_args),*
         ) {
+            let commands = &mut __dway_ui_commands;
             for (
                 this_entity,
                 prop,

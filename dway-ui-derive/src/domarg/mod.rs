@@ -48,6 +48,7 @@ pub trait DomDecorator: Any {
         false
     }
     fn update_context(&self, _context: &mut WidgetNodeContext) {}
+    fn update_sub_widget_context(&self, _context: &mut WidgetNodeContext) {}
     fn get_component(&self) -> Option<TokenStream> {
         None
     }

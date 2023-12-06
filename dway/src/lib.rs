@@ -23,19 +23,15 @@ use bevy::{
 use bevy_framepace::Limiter;
 use clap::Parser;
 use dway_client_core::{
-    layout::{LayoutRect, LayoutStyle},
-    workspace::{Workspace, WorkspaceBundle},
+    layout::{tile::TileLayoutKind, LayoutRect, LayoutStyle},
+    workspace::{Workspace, WorkspaceBundle, WorkspaceSet},
 };
-use dway_server::{
-    schedule::DWayServerSet,
-    state::{WaylandDisplayCreated},
-    x11::DWayXWaylandReady,
-};
+use dway_server::{schedule::DWayServerSet, state::WaylandDisplayCreated, x11::DWayXWaylandReady};
 use dway_tty::DWayTTYPlugin;
 use dway_util::logger::DWayLogPlugin;
 use keys::*;
 use opttions::DWayOption;
-use std::{time::Duration};
+use std::time::Duration;
 
 const LOG_LEVEL: Level = Level::TRACE;
 const LOG: &str = "\
@@ -45,7 +41,7 @@ bevy_ui=trace,\
 dway=debug,\
 bevy_relationship=debug,\
 dway_server=trace,\
-dway_server::input=info,\
+dway_server::input=trace,\
 dway_server::render=info,\
 dway_server::state=info,\
 dway_server::wl::buffer=info,\
@@ -74,7 +70,7 @@ use dexterous_developer::{hot_bevy_main, InitialPlugins};
 #[cfg(feature = "dynamic_reload")]
 #[hot_bevy_main]
 pub fn bevy_main(initial_plugins: impl InitialPlugins) {
-    use dexterous_developer::{ReloadableElementPolicy, ReloadSettings, ReloadMode};
+    use dexterous_developer::{ReloadMode, ReloadSettings, ReloadableElementPolicy};
 
     let mut app = App::new();
     app.insert_resource(ReloadSettings {
@@ -214,20 +210,34 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
 }
 
 pub fn setup(mut commands: Commands) {
-    commands.spawn((
-        WorkspaceBundle {
-            workspace: Workspace {
-                name: "workspace0".to_string(),
+    commands
+        .spawn((WorkspaceSet, Name::from("WorkspaceSet")))
+        .with_children(|c| {
+            let layout = LayoutStyle {
+                padding: LayoutRect::new(4),
                 ..Default::default()
-            },
-            ..Default::default()
-        },
-        // TileLayoutKind::Grid,
-        LayoutStyle {
-            padding: LayoutRect::new(4),
-            ..Default::default()
-        },
-    ));
+            };
+            c.spawn((
+                WorkspaceBundle {
+                    workspace: Workspace {
+                        name: "workspace0".to_string(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                layout.clone(),
+            ));
+            c.spawn((
+                WorkspaceBundle {
+                    workspace: Workspace {
+                        name: "workspace1".to_string(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                layout.clone(),
+            ));
+        });
 }
 
 pub fn update(_query: Query<&Window>) {

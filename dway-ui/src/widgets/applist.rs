@@ -4,7 +4,6 @@ use dway_server::apps::{
     icon::{Icon, IconLoader, IconResorce},
     WindowList,
 };
-
 use super::popup::{delay_destroy, UiPopup};
 use crate::{
     framework::{
@@ -25,18 +24,21 @@ pub struct AppListUI {}
 
 dway_widget! {
 AppListUI=>
+@plugin{
+    app.register_type::<AppListUIState>();
+}
 @callback{ [UiButtonEvent]
 fn open_popup(
     In(event): In<UiButtonEvent>,
-    prop_query: Query<(&AppListUISubWidgetList,&AppListUISubStateList)>,
+    prop_query: Query<&AppListUISubWidgetList>,
     theme: Res<Theme>,
     mut commands: Commands,
 ){
-    let Ok((widget,state)) = prop_query.get(event.receiver)else{return;};
+    let Ok(widget) = prop_query.get(event.receiver)else{return;};
     if widget.node_popup_entity == Entity::PLACEHOLDER {return;}
     if event.kind == UiButtonEventKind::Pressed{
         commands.spawn(AppWindowPreviewPopupBundle{
-            prop:AppWindowPreviewPopup{app:*state.app_entity()},
+            prop:AppWindowPreviewPopup{app:widget.data_entity},
             popup: UiPopupAddonBundle{
                 popup: UiPopup{
                     callback: Some(theme.system(delay_destroy)),
@@ -49,7 +51,7 @@ fn open_popup(
         }).set_parent(widget.node_popup_entity);
     }
 }}
-@state_component(#[derive(serde::Serialize,serde::Deserialize)])
+@state_component(#[derive(Reflect,serde::Serialize,serde::Deserialize)])
 @arg(mut icon_loader: ResMut<IconLoader>)
 @arg(mut svg_assets: ResMut<Assets<Svg>>)
 @arg(mut mesh_assets: ResMut<Assets<Mesh>>)
@@ -57,18 +59,16 @@ fn open_popup(
 @arg(mut assets_server: ResMut<AssetServer>)
 <MaterialNodeBundle::<RoundedUiRectMaterial> @id="List"
     @handle(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(Color::WHITE.with_a(0.5), 16.0))
-    @for_query(mut(entity,window_list,mut icon) in Query<(Entity,&WindowList,Option<&mut Icon>)>::iter_mut()) >
-    <NodeBundle @id="app_root">
-        <MiniNodeBundle @if(window_list.len()>0)
-            @use_state(pub app_entity:Entity=Entity::PLACEHOLDER @ entity) >
+    @for_query(mut(window_list,mut icon) in Query<(Ref<WindowList>,&mut Icon)>::iter_mut()=>[
+        icon=>{state.set_icon(icon_loader.load(&mut icon, 48, &mut assets_server, &mut svg_assets, &mut mesh_assets).unwrap_or_default());},
+        window_list=>{ state.set_count(window_list.len()); },
+    ]) >
+    <NodeBundle @id="app_root"
+        @state_component(#[derive(Debug)])
+        @use_state(pub count:usize) @use_state(pub icon:IconResorce) @use_state(pub is_focused:bool)
+        @arg(focused_window: ResMut<FocusedWindow> => { state.set_is_focused(focused_window.app_entity == Some(widget.data_entity)); }) >
+        <MiniNodeBundle @if(*state.count()>0)  >
             <RounndedRectBundle @style="w-48 h-48 m-4 flex-col" @id="app_rect"
-                @state_component(#[derive(Debug)])
-                @use_state(pub count:usize <= window_list.len())
-                @use_state(pub icon:IconResorce <= icon.as_mut().and_then(|icon| icon_loader.load(icon, 48, &mut assets_server, &mut svg_assets, &mut mesh_assets) ).unwrap_or_default())
-                @use_state(pub is_focused:bool=false)
-                @arg(focused_window: ResMut<FocusedWindow> => {
-                    state.set_is_focused(focused_window.app_entity == Some(entity));
-                })
                 @handle(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(Color::WHITE.with_a(0.4), 10.0)) >
                 <UiButtonBundle @id="button" @style="absolute full flex-col"
                     UiButtonAddonBundle=(UiButton::new(node!(app_root), open_popup).into()) >
@@ -85,3 +85,4 @@ fn open_popup(
     </NodeBundle>
 </>
 }
+

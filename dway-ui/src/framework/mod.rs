@@ -40,10 +40,13 @@ impl Plugin for UiFrameworkPlugin {
                     .in_set(canvas::UiCanvasSystems::Prepare),
                 (button::process_ui_button_event),
                 svg::uisvg_render.after(canvas::UiCanvasSystems::Prepare),
-                animation::after_animation_finish
-                    .run_if(on_event::<TweenCompleted>())
-                    .in_set(animation::AnimationSystems::Finish),
             ),
+        );
+        app.add_systems(
+            PostUpdate,
+            animation::after_animation_finish
+                .run_if(on_event::<TweenCompleted>())
+                .in_set(animation::AnimationSystems::Finish),
         );
         app.add_plugins(UtilPlugin);
         app.register_type::<canvas::UiCanvas>();
