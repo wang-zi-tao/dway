@@ -1,5 +1,5 @@
 use bevy::utils::HashSet;
-use dway_client_core::{navigation::windowstack::WindowStack, input::SurfaceUiNode};
+use dway_client_core::{input::SurfaceUiNode, navigation::windowstack::WindowStack};
 use dway_server::{
     geometry::GlobalGeometry,
     util::rect::IRect,
@@ -46,17 +46,17 @@ PopupUI=>
     }
 })
 <MiniNodeBundle @style="absolute full">
-    <ImageBundle 
-        UiImage=(UiImage::new(state.image().clone())) 
-        Style=(irect_to_style(*state.bbox_rect()))
-        SurfaceUiNode=(SurfaceUiNode::new(prop.window_entity,this_entity))
-        Interaction=(default()) FocusPolicy=(FocusPolicy::Block) >
+    <ImageBundle UiImage=(UiImage::new(state.image().clone())) @id="content"
+        Style=(irect_to_style(*state.bbox_rect())) FocusPolicy=(FocusPolicy::Block) >
         <NodeBundle Style=(irect_to_style(*state.rect()))/>
+        <MiniNodeBundle @style="full absolute" @id="mouse_area"
+            SurfaceUiNode=(SurfaceUiNode::new(prop.window_entity,widget.node_content_entity))
+            Interaction=(default()) FocusPolicy=(FocusPolicy::Pass)
+        />
     </ImageBundle>
     <MiniNodeBundle @style="absolute full"
         @for_query(_ in Query<Ref<WlSurface>>::iter_many(state.popup_list().iter())=>[ ])>
-        <PopupUIBundle PopupUI=(PopupUI{window_entity:widget.data_entity})/>
+        <PopupUIBundle PopupUI=(PopupUI{window_entity:widget.data_entity}) @style="full absolute"/>
     </MiniNodeBundle>
 </MiniNodeBundle>
 }
-

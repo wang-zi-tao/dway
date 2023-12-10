@@ -1,5 +1,5 @@
 use bevy::utils::{HashMap, HashSet};
-use dway_client_core::{navigation::windowstack::{WindowIndex, WindowStack}, input::SurfaceUiNode};
+use dway_client_core::{navigation::windowstack::{WindowIndex, WindowStack}, input::SurfaceUiNode, UiAttachData};
 use dway_server::{
     geometry::GlobalGeometry,
     util::rect::IRect,
@@ -69,13 +69,17 @@ pub fn window_mouse_event(
 #[derive(Component, Reflect, Debug)]
 pub struct WindowUI {
     pub window_entity: Entity,
-    pub app_entry: Entity,
+    pub workspace_entity: Entity,
+    pub screen_entity: Entity,
+    pub workspace_rect: IRect,
 }
 impl Default for WindowUI {
     fn default() -> Self {
         Self {
             window_entity: Entity::PLACEHOLDER,
-            app_entry: Entity::PLACEHOLDER,
+            workspace_entity: Entity::PLACEHOLDER,
+            screen_entity: Entity::PLACEHOLDER,
+            workspace_rect: default(),
         }
     }
 }
@@ -155,14 +159,17 @@ WindowUI=>
 })
 <NodeBundle @style="absolute full" >
     <MiniNodeBundle @id="content" Style=(irect_to_style(*state.rect()))
-    ZIndex=(ZIndex::Global(*state.z_index()))
-    SurfaceUiNode=(SurfaceUiNode::new(prop.window_entity,this_entity))
-    Interaction=(default()) FocusPolicy=(FocusPolicy::Block)
+    ZIndex=(ZIndex::Global(*state.z_index())) FocusPolicy=(FocusPolicy::Block)
     Animator<_>=(Animator::new(Tween::new(
         EaseFunction::BackOut,
         Duration::from_secs_f32(0.5),
         TransformScaleLens { start: Vec3::splat(0.8), end: Vec3::ONE, },
     ))) >
+        <MiniNodeBundle @style="full absolute" @id="mouse_area"
+            SurfaceUiNode=(SurfaceUiNode::new(prop.window_entity,widget.node_content_entity))
+            @connect(-[UiAttachData]->(prop.window_entity))
+            Interaction=(default()) FocusPolicy=(FocusPolicy::Pass)
+        />
         <MaterialNodeBundle::<RoundedUiRectMaterial> @id="outter"
             ZIndex=(ZIndex::Local(0))
             Style=(Style{

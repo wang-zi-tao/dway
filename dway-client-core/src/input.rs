@@ -1,3 +1,7 @@
+use std::ops::Mul;
+
+use super::desktop::{CursorOnOutput, FocusedWindow};
+use crate::{desktop::CursorOnWindow, navigation::windowstack::WindowStack, DWayClientSystem};
 use bevy::{
     input::{
         keyboard::KeyboardInput,
@@ -12,20 +16,18 @@ use dway_server::{
     geometry::{Geometry, GlobalGeometry},
     input::seat::SeatHasKeyboard,
     input::{
-        grab::{Grab, GrabEvent, GrabEventKind, WlSurfacePointerState},
+        grab::{SurfaceGrabKind, WlSurfacePointerState},
         keyboard::XkbState,
         seat::{SeatHasPointer, WlSeat},
     },
     input::{keyboard::WlKeyboard, pointer::WlPointer},
+    macros::WindowAction,
     schedule::DWayServerSet,
     wl::surface::ClientHasSurface,
     wl::{region::WlRegion, surface::WlSurface},
     xdg::{popup::XdgPopup, toplevel::XdgToplevel, DWayWindow},
 };
-
-use crate::{desktop::CursorOnWindow, navigation::windowstack::WindowStack, DWayClientSystem};
-
-use super::desktop::{CursorOnOutput, FocusedWindow};
+use dway_server::{input::grab::ResizeEdges, util::rect::IRect};
 
 #[derive(Default)]
 pub struct DWayInputPlugin {
@@ -99,7 +101,6 @@ pub fn keyboard_input_system(
     mut graph: KeyboardInputGraph,
     mut keyboard_evens: EventReader<KeyboardInput>,
     output_focus: Res<FocusedWindow>,
-    mut grab_events_writer: EventWriter<GrabEvent>,
     mut keystate: NonSendMut<XkbState>,
 ) {
     if keyboard_evens.is_empty() {
@@ -118,12 +119,7 @@ pub fn keyboard_input_system(
                 },
             );
         }
-        graph.node_keyboard.for_each_mut(|(entity, _)| {
-            grab_events_writer.send(GrabEvent {
-                seat_entity: entity,
-                event_kind: GrabEventKind::Keyboard(*event, keystate.serialize()),
-            });
-        });
+        // TODO: keyboard on popup
     }
 }
 
@@ -136,169 +132,7 @@ pub fn mouse_move_on_window(
     }
 }
 
-graph_query!(PointInputGraph=>[
-    surface=< (Entity, &'static WlSurface, &'static GlobalGeometry, Option<&'static XdgToplevel>, Option<&'static XdgPopup>),With<DWayWindow>>,
-    client=(Entity,&'static mut WlSeat,&'static mut Grab),
-    pointer=(Entity, &'static mut WlPointer,&'static mut Geometry ),
-]=>{
-    path=surface<-[ClientHasSurface]-client-[SeatHasPointer]->pointer
-});
-
-fn cursor_move_on_window(
-    mut graph: PointInputGraph,
-    region_query: Query<&WlRegion>,
-    cursor: Res<CursorOnOutput>,
-    window_stack: Res<WindowStack>,
-    mut cursor_on_window: ResMut<CursorOnWindow>,
-    mut grab_events_writer: EventWriter<GrabEvent>,
-    mut events: EventReader<MouseMotion>,
-) {
-    let Some((_output, pos)) = &cursor.0 else {
-        return;
-    };
-    for MouseMotion { delta: _ } in events.read() {
-        for window in window_stack.list.iter() {
-            if graph
-                .for_each_path_mut_from::<()>(
-                    *window,
-                    |(surface_entity, surface, rect, _toplevel, popup),
-                     (_seat_entity, ref mut seat, ref mut _geab),
-                     (_pointer_entity, pointer, pointer_rect)| {
-                        pointer_rect.set_pos(*pos);
-                        if popup.is_none() {
-                            let relative = *pos - rect.geometry.pos() - surface.image_rect().pos();
-                            if !rect.include_point(*pos)
-                                || surface
-                                    .commited
-                                    .input_region
-                                    .and_then(|region| region_query.get(region).ok())
-                                    .map(|region| !region.is_inside(relative))
-                                    .unwrap_or(false)
-                            {
-                                if seat.can_focus_on(surface) {
-                                    // pointer.leave();
-                                }
-                                return ControlFlow::Continue;
-                            }
-                            pointer.move_cursor(seat, surface, relative.as_vec2());
-                            cursor_on_window.0 = Some((*surface_entity, relative));
-                            return ControlFlow::Return(());
-                        }
-                        ControlFlow::Continue
-                    },
-                )
-                .is_some()
-            {
-                break;
-            };
-        }
-        graph
-            .node_client
-            .for_each_mut(|(_, (entity, mut seat, ..))| {
-                seat.pointer_position = Some(*pos);
-                grab_events_writer.send(GrabEvent {
-                    seat_entity: entity,
-                    event_kind: dway_server::input::grab::GrabEventKind::PointerMove(pos.as_vec2()),
-                });
-            });
-    }
-}
-
-fn mouse_button_on_window(
-    mut graph: PointInputGraph,
-    mut events: EventReader<MouseButtonInput>,
-    cursor: Res<CursorOnOutput>,
-    mut output_focus: ResMut<FocusedWindow>,
-    cursor_on_window: Res<CursorOnWindow>,
-    mut grab_events_writer: EventWriter<GrabEvent>,
-) {
-    let Some((_output, pos)) = &cursor.0 else {
-        warn!("no cursor position data");
-        return;
-    };
-    for e in events.read() {
-        if let Some((window, _)) = cursor_on_window.0.as_ref() {
-            graph.for_each_path_mut_from::<()>(
-                *window,
-                |(surface_entity, surface, rect, _toplevel, popup),
-                 (_seat_entity, seat, ref mut grab),
-                 (_pointer_entity, pointer, _)| {
-                    if popup.is_none() {
-                        if !rect.include_point(*pos) {
-                            return ControlFlow::Continue;
-                        };
-                        let relative = *pos - rect.geometry.pos() - surface.image_rect().pos();
-                        output_focus.window_entity = Some(*surface_entity);
-
-                        if matches!(&**grab, Grab::OnPopup { .. }) {
-                            pointer.button(seat, e, surface, relative.as_dvec2());
-                        } else if e.state == ButtonState::Pressed {
-                            **grab = Grab::ButtonDown {
-                                surface: *surface_entity,
-                            };
-                            seat.enable();
-                            seat.grab(surface);
-                        }
-                    }
-                    ControlFlow::Continue
-                },
-            );
-        }
-        graph.node_client.for_each(|(_, (entity, ..))| {
-            grab_events_writer.send(GrabEvent {
-                seat_entity: entity,
-                event_kind: GrabEventKind::PointerButton(*e, pos.as_dvec2()),
-            });
-        });
-    }
-}
-fn mouse_wheel_on_window(
-    mut graph: PointInputGraph,
-    mut events: EventReader<MouseWheel>,
-    cursor: Res<CursorOnOutput>,
-    mut output_focus: ResMut<FocusedWindow>,
-    cursor_on_window: Res<CursorOnWindow>,
-    mut grab_events_writer: EventWriter<GrabEvent>,
-) {
-    let Some((_output, pos)) = &cursor.0 else {
-        warn!("no cursor position data");
-        return;
-    };
-    for e in events.read() {
-        if let Some((window, _)) = cursor_on_window.0.as_ref() {
-            graph.for_each_path_mut_from::<()>(
-                *window,
-                |(surface_entity, surface, rect, toplevel, _popup),
-                 (_seat_entity, ref mut seat, ref mut _grab),
-                 (_pointer_entity, pointer, ..)| {
-                    if toplevel.is_some() {
-                        if !rect.include_point(*pos) {
-                            return ControlFlow::Continue;
-                        };
-                        let relative = *pos - rect.geometry.pos() - surface.image_rect().pos();
-                        let acc = |x: f64| x * 20.0;
-                        pointer.asix(
-                            seat,
-                            DVec2::new(-acc(e.x as f64), -acc(e.y as f64)),
-                            surface,
-                            relative.as_dvec2(),
-                        );
-                        output_focus.window_entity = Some(*surface_entity);
-                    }
-                    ControlFlow::Continue
-                },
-            );
-        }
-        graph.node_client.for_each(|(_, (entity, ..))| {
-            grab_events_writer.send(GrabEvent {
-                seat_entity: entity,
-                event_kind: GrabEventKind::PointerAxis(*e, pos.as_dvec2()),
-            });
-        });
-    }
-}
-
-#[derive(Component, Reflect)]
+#[derive(Component, Debug, Reflect)]
 pub struct SurfaceUiNode {
     pub surface_entity: Entity,
     pub widget: Entity,
@@ -322,7 +156,7 @@ enum MouseEvent<'l> {
 }
 
 graph_query!(InputGraph=>[
-    surface=< (Entity, &'static WlSurface,&'static mut WlSurfacePointerState),With<DWayWindow>>,
+    surface=< (Entity, &'static WlSurface,&'static mut WlSurfacePointerState, &'static Geometry),With<DWayWindow>>,
     client=&'static mut WlSeat,
     pointer=&'static mut WlPointer,
 ]=>{
@@ -331,13 +165,15 @@ graph_query!(InputGraph=>[
 
 pub fn on_input_event(
     mut graph: InputGraph,
-    ui_query: Query<(&Node, &GlobalTransform, &Interaction, &SurfaceUiNode)>,
+    mut ui_query: Query<(&Interaction, &mut SurfaceUiNode, &mut Style)>,
+    window_root_ui_query: Query<(&Node, &GlobalTransform)>,
     cursor: Res<CursorOnOutput>,
     mut output_focus: ResMut<FocusedWindow>,
     mut cursor_on_window: ResMut<CursorOnWindow>,
     mut cursor_moved_events: EventReader<CursorMoved>,
     mut button_events: EventReader<MouseButtonInput>,
     mut wheel_events: EventReader<MouseWheel>,
+    mut window_action: EventWriter<WindowAction>,
 ) {
     let Some((_output, pos)) = &cursor.0 else {
         return;
@@ -348,15 +184,20 @@ pub fn on_input_event(
         .chain(button_events.read().map(|w| MouseEvent::Button(w)))
         .chain(wheel_events.read().map(|w| MouseEvent::Wheel(w)))
     {
-        ui_query.for_each(|(content_node, content_geo, interaction, content)| {
+        ui_query.for_each_mut(|(interaction, mut content, mut style)| {
             if *interaction == Interaction::None {
                 return;
             }
+            let Ok((content_node, content_geo)) = window_root_ui_query.get(content.widget) else {
+                return;
+            };
             let content_rect =
                 Rect::from_center_size(content_geo.translation().xy(), content_node.size());
             graph.for_each_pointer_mut_from::<()>(
                 content.surface_entity,
-                |(surface_entity, surface, surface_seat_state), ref mut seat, pointer| {
+                |(surface_entity, surface, window_pointer, window_geometry),
+                 ref mut seat,
+                 pointer| {
                     let relative_pos =
                         pos.as_vec2() - content_rect.min - surface.image_rect().pos().as_vec2();
                     match event {
@@ -364,21 +205,81 @@ pub fn on_input_event(
                             let relative_pos = e.position
                                 - content_rect.min
                                 - surface.image_rect().pos().as_vec2();
-                            pointer.move_cursor(seat, surface, relative_pos);
+                            if window_pointer.enabled() {
+                                pointer.move_cursor(seat, surface, relative_pos);
+                                window_pointer.mouse_pos = relative_pos.as_ivec2();
+                            }
                             cursor_on_window.0 = Some((*surface_entity, relative_pos.as_ivec2()));
+                            if let Some(grab) = &window_pointer.grab {
+                                match &**grab {
+                                    SurfaceGrabKind::Move { .. } => {
+                                        window_action.send(WindowAction::SetRect(
+                                            *surface_entity,
+                                            IRect::from_pos_size(
+                                                window_geometry.pos()
+                                                    + (relative_pos.as_ivec2()
+                                                        - window_pointer.mouse_pos)
+                                                        .as_vec2()
+                                                        .mul(0.5)
+                                                        .as_ivec2(),
+                                                window_geometry.size(),
+                                            ),
+                                        ));
+                                    }
+                                    SurfaceGrabKind::Resizing { edges, .. } => {
+                                        let mut geo = window_geometry.geometry;
+                                        if edges.contains(ResizeEdges::LEFT) {
+                                            geo.min.x += relative_pos.x as i32;
+                                        }
+                                        if edges.contains(ResizeEdges::TOP) {
+                                            geo.min.y += relative_pos.y as i32;
+                                        }
+                                        if edges.contains(ResizeEdges::RIGHT) {
+                                            geo.max.x = geo.max.x + relative_pos.x as i32;
+                                        }
+                                        if edges.contains(ResizeEdges::BUTTOM) {
+                                            geo.max.y = geo.max.y + relative_pos.y as i32;
+                                        }
+                                        window_action
+                                            .send(WindowAction::SetRect(*surface_entity, geo));
+                                    }
+                                }
+                            }
                         }
                         MouseEvent::Button(e) => {
-                            pointer.button(seat, e, surface, relative_pos.as_dvec2());
-                            surface_seat_state.is_clicked = content_rect.contains(pos.as_vec2());
+                            if window_pointer.enabled() {
+                                pointer.button(seat, e, surface, relative_pos.as_dvec2());
+                            }
+                            window_pointer.is_clicked = content_rect.contains(pos.as_vec2())
+                                && e.state == ButtonState::Pressed;
+                            let distant = if content.grab || e.state == ButtonState::Pressed {
+                                16384.0
+                            } else {
+                                1.0
+                            };
+                            *style = Style {
+                                position_type: PositionType::Absolute,
+                                left: Val::Px(-distant),
+                                top: Val::Px(-distant),
+                                right: Val::Px(distant),
+                                bottom: Val::Px(distant),
+                                ..default()
+                            };
+                            if e.state == ButtonState::Released {
+                                window_pointer.grab = None;
+                            }
+                            output_focus.window_entity = Some(*surface_entity);
                         }
                         MouseEvent::Wheel(e) => {
                             let acc = |x: f64| x * 20.0;
-                            pointer.asix(
-                                seat,
-                                DVec2::new(-acc(e.x as f64), -acc(e.y as f64)),
-                                surface,
-                                relative_pos.as_dvec2(),
-                            );
+                            if window_pointer.enabled() {
+                                pointer.asix(
+                                    seat,
+                                    DVec2::new(-acc(e.x as f64), -acc(e.y as f64)),
+                                    surface,
+                                    relative_pos.as_dvec2(),
+                                );
+                            }
                             output_focus.window_entity = Some(*surface_entity);
                         }
                     }

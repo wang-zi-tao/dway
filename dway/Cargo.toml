@@ -64,7 +64,8 @@ eventloop = []
 single_thread = []
 dhat-heap = ["dep:dhat"]    # if you are doing heap profiling
 dhat-ad-hoc = ["dep:dhat"]  # if you are doing ad hoc profiling
-trace_tracy = ["bevy/trace_tracy"]
+trace_tracy = ["bevy/trace_tracy","cpu_profile"]
+trace_chrome = ["bevy/trace_chrome","cpu_profile"]
 heap_profile = ["dhat-heap"]
 cpu_profile = []
 

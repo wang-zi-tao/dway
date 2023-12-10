@@ -44,7 +44,7 @@ macro_rules! relationship {
 
         impl Drop for $name {
             fn drop(&mut self) {
-                for peer_entity in self.iter() {
+                for peer_entity in $crate::Connectable::iter(self) {
                     self.sender.send::<$peer>(peer_entity);
                 }
             }

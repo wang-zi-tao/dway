@@ -1,5 +1,6 @@
 pub use bevy::prelude::*;
 pub use dway_ui_derive::*;
+pub use crate as dway_ui;
 
 pub use crate::framework::MiniNodeBundle;
 pub use crate::render::*;

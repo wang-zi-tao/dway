@@ -34,9 +34,13 @@ impl<'l> SpawnDomContext<'l> {
             .map(|child| self.generate(child))
             .collect();
 
+        let entity = self.top().get_node_entity();
+
         let tokens = if spawn_children.is_empty() {
             quote! {
-                #spawn_expr;
+                #[allow(non_snake_case)]
+                #[allow(unused_variables)]
+                let #entity = #spawn_expr;
             }
         } else {
             let spawn_children = dom
@@ -46,11 +50,19 @@ impl<'l> SpawnDomContext<'l> {
                     arg.inner.wrap_spawn_children(inner, &mut self.dom_context)
                 });
             quote! {
-                #spawn_expr.with_children(|commands|{
+                #[allow(non_snake_case)]
+                #[allow(unused_variables)]
+                let #entity = #spawn_expr.with_children(|commands|{
                     #spawn_children
                 });
             }
         };
+        let tokens = dom
+            .args
+            .values()
+            .fold(tokens, |inner, arg| {
+                arg.inner.wrap_spawn(inner, &mut self.dom_context, false)
+            });
         self.pop();
         tokens
     }

@@ -34,6 +34,7 @@ pub struct WidgetDomContext<'l: 'g, 'g> {
     pub plugin_builder: PluginBuilder,
     pub world_query: BTreeMap<String, (TokenStream, TokenStream)>,
     pub system_querys: BTreeMap<String, TokenStream>,
+    pub state_namespace: String,
 }
 
 impl<'l, 'g> std::ops::DerefMut for WidgetDomContext<'l, 'g> {
@@ -112,12 +113,20 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
 
         let init_stat = {
             let spawn_expr = dom.generate_spawn();
-            quote_spanned! {dom.span()=>
+            let init_stat = quote_spanned! {dom.span()=>
                 #entity_var = #spawn_expr.set_parent(#parent_entity).id();
                 #just_init_var = true;
                 #set_entity_stat
-            }
+            };
+            let init_stat = dom
+                .args
+                .values()
+                .fold(init_stat, |inner, arg| {
+                    arg.inner.wrap_spawn(inner, context.tree_context.dom_context,true)
+                });
+            init_stat
         };
+
         let update_component_stat = dom
             .args
             .values()
@@ -172,6 +181,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                     quote!(mut #sub_widget_query: Query<( &mut #sub_widget_type,&mut #sub_widget_state_type )>),
                 );
 
+            let mut state_namespace = dom_id.to_string().to_case(convert_case::Case::Snake);
             let mut state_builder = ComponentBuilder::new(sub_widget_state_type.clone());
             state_builder.generate_init = true;
             state_builder.init.insert(
@@ -188,6 +198,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
             ));
             widget_builder.generate_init = true;
 
+            std::mem::swap(&mut state_namespace, &mut self.state_namespace);
             std::mem::swap(&mut state_builder, &mut self.state_builder);
             std::mem::swap(&mut widget_builder, &mut self.widget_builder);
 
@@ -211,6 +222,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                 .map(|child| self.generate(child, &entity_var, &just_init_var, true))
                 .collect::<Vec<_>>();
 
+            std::mem::swap(&mut state_namespace, &mut self.state_namespace);
             std::mem::swap(&mut state_builder, &mut self.state_builder);
             std::mem::swap(&mut widget_builder, &mut self.widget_builder);
             let widget_name = &widget_builder.name;
@@ -346,6 +358,7 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
         dom_context: &mut dom_context,
         world_query: Default::default(),
         system_querys: Default::default(),
+        state_namespace: "root".to_string(),
     };
 
     context.state_builder.generate_init = true;

@@ -61,7 +61,7 @@ pub trait DomDecorator: Any {
     fn wrap_spawn_children(&self, inner: TokenStream, _context: &mut DomContext) -> TokenStream {
         inner
     }
-    fn wrap_spawn(&self, inner: TokenStream, _context: &mut WidgetNodeContext) -> TokenStream {
+    fn wrap_spawn(&self, inner: TokenStream, _context: &mut DomContext, need_update:bool) -> TokenStream {
         inner
     }
     fn wrap_update(&self, inner: TokenStream, _context: &mut WidgetNodeContext) -> TokenStream {
@@ -185,6 +185,7 @@ impl syn::parse::Parse for DomArg {
                         "state_component" => Box::new(content.parse::<state::StateComponent>()?),
                         "bundle" => Box::new(content.parse::<state::BundleStructure>()?),
                         "plugin" => Box::new(content.parse::<plugin::Plugin>()?),
+                        "connect" => Box::new(content.parse::<relation::Connect>()?),
                         _ => {
                             return Err(syn::Error::new_spanned(
                                 quote_spanned! {span=> #instruction },

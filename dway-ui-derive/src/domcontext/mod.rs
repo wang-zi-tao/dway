@@ -28,6 +28,9 @@ impl<'l> NodeContext<'l> {
     pub fn get_field(&self, name: &str) -> Ident {
         DomContext::wrap_dom_id("node_", &self.dom_id, name)
     }
+    pub fn get_node_entity(&self)->Ident{
+        self.get_var("_entity")
+    }
 }
 
 pub struct DomContext<'l> {

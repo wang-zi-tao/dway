@@ -25,26 +25,29 @@ ScreenWindows=>
     app.register_type::<ScreenWindowsSubStateWindow>();
 }
 @state_component(#[derive(Reflect,serde::Serialize,serde::Deserialize)])
-<MiniNodeBundle @id="Screen"
+<MiniNodeBundle @id="Screen" @style="full absolute"
     @for_query(workspace_list in Query<Ref<ScreenWorkspaceList>>::iter()=>[
         workspace_list=>{ state.set_workspace_list(workspace_list.iter().collect());
-    },
-    ]) >
-    <MiniNodeBundle @id="Workspace"
+    }])>
+    <MiniNodeBundle @id="Workspace" @style="full absolute"
         @state_component(#[derive(Reflect)]) @use_state(workspace_list:Vec<Entity>)
         @for_query((workspace_rect,window_list)in Query<(Ref<GlobalGeometry>,Ref<WindowList>)>::iter_many(state.workspace_list().iter())=>[
             workspace_rect=>{ state.set_workspace_rect(workspace_rect.geometry); },
             window_list=>{state.set_window_list(window_list.iter().collect());},
-        ]) >
-        <MiniNodeBundle Style=(irect_to_style(*state.workspace_rect())) @id="Window"
-            @state_component(#[derive(Reflect)])
+        ])>
+        <MiniNodeBundle @id="Window" @style="full absolute" @state_component(#[derive(Reflect)])
             @use_state(workspace_rect:IRect) @use_state(pub window_list:Vec<Entity>)
             @map(*window_entity:Entity <= window_entity in state.window_list().iter().cloned() => {
                 state.set_window_entity(window_entity);
             })>
             <WindowUIBundle @style="absolute full" @use_state(window_entity:Entity=Entity::PLACEHOLDER)
                 @state_component(#[derive(Reflect)])
-                WindowUI=(WindowUI{window_entity:*state.window_entity(),app_entry:Entity::PLACEHOLDER })  />
+                WindowUI=(WindowUI{
+                    window_entity:*state.window_entity(),
+                    workspace_entity:workspace_widget.data_entity,
+                    screen_entity:screen_widget.data_entity,
+                    workspace_rect:*workspace_state.workspace_rect(),
+                })/>
         </MiniNodeBundle>
     </MiniNodeBundle>
 </MiniNodeBundle>

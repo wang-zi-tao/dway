@@ -1,13 +1,9 @@
 use crate::{
     geometry::Geometry,
-    input::{
-        grab::{Grab, ResizeEdges},
-        seat::WlSeat,
-    },
+    input::grab::{ResizeEdges, SurfaceGrabKind, WlSurfacePointerState},
     prelude::*,
     resource::ResourceWrapper,
     schedule::DWayServerSet,
-    wl::surface::WlSurface,
 };
 
 use super::{DWayWindow, XdgSurface};
@@ -122,19 +118,12 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 if state.entity(*data).contains::<PinedWindow>() {
                     return;
                 }
-                let rect = state.query::<&Geometry, _, _>(*data, |r| r.geometry);
-                let pos = rect.pos();
-                state.query::<(&mut Grab, &mut WlSeat), _, _>(
-                    DWay::get_entity(&seat),
-                    |(mut grab, mut seat)| {
-                        *grab = Grab::Moving {
-                            surface: *data,
-                            serial,
-                            relative: pos - seat.pointer_position.unwrap_or_default(),
-                        };
-                        seat.disable();
-                    },
-                );
+                if let Some(mut pointer_state) = state.get_mut::<WlSurfacePointerState>(*data) {
+                    pointer_state.grab = Some(Box::new(SurfaceGrabKind::Move {
+                        seat: DWay::get_entity(&seat),
+                        serial,
+                    }));
+                }
             }
             xdg_toplevel::Request::Resize {
                 seat,
@@ -163,23 +152,13 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                     }
                     _ => return,
                 };
-                let (_surface, rect) = state
-                    .query::<(&WlSurface, &Geometry), _, _>(*data, |(s, r)| {
-                        (s.raw.clone(), r.geometry)
-                    });
-                state.query::<(&mut Grab, &mut WlSeat), _, _>(
-                    DWay::get_entity(&seat),
-                    |(mut grab, mut seat)| {
-                        *grab = Grab::Resizing {
-                            surface: *data,
-                            serial,
-                            edges,
-                            relative: rect.pos() - seat.pointer_position.unwrap_or_default(),
-                            origin_rect: rect,
-                        };
-                        seat.disable();
-                    },
-                );
+                if let Some(mut pointer_state) = state.get_mut::<WlSurfacePointerState>(*data) {
+                    pointer_state.grab = Some(Box::new(SurfaceGrabKind::Resizing {
+                        seat: DWay::get_entity(&seat),
+                        serial,
+                        edges,
+                    }));
+                }
             }
             xdg_toplevel::Request::SetMaxSize { width, height } => {
                 if let Some(mut c) = state.get_mut::<DWayToplevel>(*data) {
@@ -236,39 +215,47 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
 
 pub fn process_window_action_event(
     mut events: EventReader<WindowAction>,
-    mut window_query: Query<(&mut XdgToplevel, &mut DWayToplevel, &XdgSurface), With<DWayWindow>>,
+    mut window_query: Query<
+        (
+            &mut XdgToplevel,
+            &mut DWayToplevel,
+            &XdgSurface,
+            &mut Geometry,
+        ),
+        With<DWayWindow>,
+    >,
 ) {
     for e in events.read() {
         match e {
             WindowAction::Close(e) => {
-                if let Ok((c, _t, s)) = window_query.get_mut(*e) {
+                if let Ok((c, _t, s, _)) = window_query.get_mut(*e) {
                     c.raw.close();
                     s.configure();
                 }
             }
             WindowAction::Maximize(e) => {
-                if let Ok((c, mut t, s)) = window_query.get_mut(*e) {
+                if let Ok((c, mut t, s, _)) = window_query.get_mut(*e) {
                     t.max = true;
                     c.configure(&mut t);
                     s.configure();
                 }
             }
             WindowAction::UnMaximize(e) => {
-                if let Ok((c, mut t, s)) = window_query.get_mut(*e) {
+                if let Ok((c, mut t, s, _)) = window_query.get_mut(*e) {
                     t.max = true;
                     c.configure(&mut t);
                     s.configure();
                 }
             }
             WindowAction::Fullscreen(e) => {
-                if let Ok((c, mut t, s)) = window_query.get_mut(*e) {
+                if let Ok((c, mut t, s, _)) = window_query.get_mut(*e) {
                     t.fullscreen = true;
                     c.configure(&mut t);
                     s.configure();
                 }
             }
             WindowAction::UnFullscreen(e) => {
-                if let Ok((c, mut t, s)) = window_query.get_mut(*e) {
+                if let Ok((c, mut t, s, _)) = window_query.get_mut(*e) {
                     t.fullscreen = false;
                     c.configure(&mut t);
                     s.configure();
@@ -277,7 +264,8 @@ pub fn process_window_action_event(
             WindowAction::Minimize(_) => {}
             WindowAction::UnMinimize(_) => {}
             WindowAction::SetRect(e, rect) => {
-                if let Ok((c, mut t, s)) = window_query.get_mut(*e) {
+                if let Ok((c, mut t, s, mut g)) = window_query.get_mut(*e) {
+                    g.geometry.set_pos(rect.pos());
                     t.size = Some(rect.size());
                     c.configure(&mut t);
                     s.configure();

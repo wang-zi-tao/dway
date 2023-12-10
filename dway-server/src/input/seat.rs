@@ -1,5 +1,4 @@
 use super::{
-    grab::{Grab, GrabPlugin},
     keyboard::WlKeyboard,
     pointer::WlPointer,
     touch::WlTouch,
@@ -66,14 +65,12 @@ impl WlSeat {
 #[derive(Bundle)]
 pub struct WlSeatBundle {
     pub seat: WlSeat,
-    pub grab: Grab,
 }
 
 impl WlSeatBundle {
     pub fn new(seat: WlSeat) -> Self {
         Self {
             seat,
-            grab: Default::default(),
         }
     }
 }
@@ -166,7 +163,7 @@ pub struct WlSeatPlugin;
 impl Plugin for WlSeatPlugin {
     fn build(&self, app: &mut App) {
         add_global_dispatch::<wl_seat::WlSeat, 9>(app);
-        app.add_plugins((super::keyboard::WlKeyboardPlugin, GrabPlugin));
+        app.add_plugins(super::keyboard::WlKeyboardPlugin);
         app.register_relation::<SeatHasPointer>();
         app.register_relation::<PointerHasSurface>();
         app.register_relation::<SeatHasKeyboard>();

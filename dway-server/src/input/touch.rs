@@ -1,4 +1,3 @@
-use super::grab::Grab;
 use crate::prelude::*;
 
 #[derive(Component)]
@@ -15,14 +14,12 @@ impl WlTouch {
 #[derive(Bundle)]
 pub struct WlTouchBundle {
     resource: WlTouch,
-    grab: Grab,
 }
 
 impl WlTouchBundle {
     pub fn new(resource: WlTouch) -> Self {
         Self {
             resource,
-            grab: Default::default(),
         }
     }
 }

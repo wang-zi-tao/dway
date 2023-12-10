@@ -14,10 +14,7 @@ use x11rb::{
 
 use crate::{
     geometry::{Geometry, GlobalGeometry},
-    input::{
-        grab::{Grab, ResizeEdges},
-        seat::WlSeat,
-    },
+    input::grab::{ResizeEdges, SurfaceGrabKind, WlSurfacePointerState},
     prelude::*,
     util::rect::IRect,
     x11::{
@@ -97,53 +94,41 @@ pub fn process_x11_event(
                         .get_mut::<XWindowSurfaceRef>(xwindow_entity)
                         .and_then(|r| r.get());
                     if let Some(surface_entity) = surface_entity {
-                        let Some(rect) = dway.get::<Geometry>(surface_entity).map(|r| r.geometry)
-                        else {
-                            bail!("surface has no geometry component");
-                        };
-                        let pos = rect.pos();
-                        dway.query::<(&mut Grab, &mut WlSeat), _, _>(
-                            display_entity,
-                            |(mut grab, mut seat)| {
-                                let data = e.data.as_data32();
-                                match data[2] {
-                                    x @ 0..=7 => {
-                                        let edges = match x {
-                                            0 => ResizeEdges::TOP | ResizeEdges::LEFT,
-                                            1 => ResizeEdges::TOP,
-                                            2 => ResizeEdges::TOP | ResizeEdges::RIGHT,
-                                            3 => ResizeEdges::RIGHT,
-                                            4 => ResizeEdges::BUTTOM | ResizeEdges::RIGHT,
-                                            5 => ResizeEdges::BUTTOM,
-                                            6 => ResizeEdges::BUTTOM | ResizeEdges::LEFT,
-                                            7 => ResizeEdges::LEFT,
-                                            _ => unreachable!(),
-                                        };
-                                        *grab = Grab::Resizing {
-                                            surface: surface_entity,
+                        if let Some(mut window_pointer) =
+                            dway.get_mut::<WlSurfacePointerState>(surface_entity)
+                        {
+                            let data = e.data.as_data32();
+                            match data[2] {
+                                x @ 0..=7 => {
+                                    let edges = match x {
+                                        0 => ResizeEdges::TOP | ResizeEdges::LEFT,
+                                        1 => ResizeEdges::TOP,
+                                        2 => ResizeEdges::TOP | ResizeEdges::RIGHT,
+                                        3 => ResizeEdges::RIGHT,
+                                        4 => ResizeEdges::BUTTOM | ResizeEdges::RIGHT,
+                                        5 => ResizeEdges::BUTTOM,
+                                        6 => ResizeEdges::BUTTOM | ResizeEdges::LEFT,
+                                        7 => ResizeEdges::LEFT,
+                                        _ => unreachable!(),
+                                    };
+                                    window_pointer.grab =
+                                        Some(Box::new(SurfaceGrabKind::Resizing {
+                                            seat: display_entity,
                                             serial: 0,
                                             edges,
-                                            relative: rect.pos()
-                                                - seat.pointer_position.unwrap_or_default(),
-                                            origin_rect: rect,
-                                        };
-                                        debug!("xwindow start resizing");
-                                        seat.disable();
-                                    }
-                                    8 => {
-                                        *grab = Grab::Moving {
-                                            surface: surface_entity,
-                                            serial: 0,
-                                            relative: pos
-                                                - seat.pointer_position.unwrap_or_default(),
-                                        };
-                                        seat.disable();
-                                        debug!("xwindow start moving");
-                                    }
-                                    _ => {} // ignore keyboard moves/resizes for now
+                                        }));
+                                    debug!("xwindow start resizing");
                                 }
-                            },
-                        );
+                                8 => {
+                                    window_pointer.grab = Some(Box::new(SurfaceGrabKind::Move {
+                                        seat: display_entity,
+                                        serial: 0,
+                                    }));
+                                    debug!("xwindow start moving");
+                                }
+                                _ => {} // ignore keyboard moves/resizes for now
+                            }
+                        }
                     }
                 }
                 t => {

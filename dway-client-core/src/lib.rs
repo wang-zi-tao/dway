@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 use dway_server::schedule::DWayServerSet;
+use bevy_relationship::relationship;
 use log::info;
 
 pub mod components;
@@ -126,6 +127,8 @@ impl Plugin for DWayClientPlugin {
         ));
     }
 }
+
+relationship!(UiAttachData=>DataRef>-<UiList);
 
 pub fn debug_info(cameras: Query<&Camera>, cameras2d: Query<&Camera2d>) {
     info!("cameras : {:?}", cameras.iter().collect::<Vec<_>>());

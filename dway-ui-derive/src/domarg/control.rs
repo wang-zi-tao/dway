@@ -158,8 +158,25 @@ impl DomDecorator for For {
         let item_var = DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_item");
         let lambda_var = DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_lambda");
         let changed = ParseCodeResult::from_expr(&self.expr).changed_bool();
+
+        let backup_state = format_ident!("{}_state",context.tree_context.state_namespace);
+        let backup_widget = format_ident!("{}_widget",context.tree_context.state_namespace);
+        let state_name = &context.tree_context.state_builder.name;
+        let widget_name = &context.tree_context.widget_builder.name;
+
         quote! {
-            let mut #lambda_var = |#child_ident,#just_inited,commands:&mut Commands,#item_var| {
+            let mut #lambda_var = |
+                #child_ident,
+                #just_inited,
+                commands:&mut Commands,
+                #item_var,
+                #[allow(non_snake_case)]
+                #[allow(unused_variables)]
+                #backup_state: &#state_name,
+                #[allow(non_snake_case)]
+                #[allow(unused_variables)]
+                #backup_widget: &#widget_name,
+            | {
                 #inner
                 #child_ident
             };
@@ -171,13 +188,13 @@ impl DomDecorator for For {
                     commands.entity(#entity_var).despawn_descendants();
                 }
                 for #item_var in #expr {
-                    let #child_ident = #lambda_var(Entity::PLACEHOLDER,true,commands,Some(#item_var));
+                    let #child_ident = #lambda_var(Entity::PLACEHOLDER,true,commands,Some(#item_var),&state,&widget);
                     widget.#dom_entity_list_field.push(#child_ident);
                 }
                 widget.#dom_entity_list_field = #child_list_var;
             } else {
                 for #child_ident in widget.#dom_entity_list_field.iter() {
-                    #lambda_var(#child_ident,#just_inited,commands,None);
+                    #lambda_var(#child_ident,#just_inited,commands,None,&state,&widget);
                 }
             }
         }
@@ -270,8 +287,25 @@ impl DomDecorator for Map {
         let key_var = DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_child_key");
         let lambda_var = DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_lambda");
         let changed = ParseCodeResult::from_expr(expr).changed_bool();
+
+        let backup_state = format_ident!("{}_state",context.tree_context.state_namespace);
+        let backup_widget = format_ident!("{}_widget",context.tree_context.state_namespace);
+        let state_name = &context.tree_context.state_builder.name;
+        let widget_name = &context.tree_context.widget_builder.name;
+
         quote! {
-            let mut #lambda_var = |#child_ident,#just_inited,commands:&mut Commands,#item_var| {
+            let mut #lambda_var = |
+                #child_ident,
+                #just_inited,
+                commands:&mut Commands,
+                #item_var,
+                #[allow(non_snake_case)]
+                #[allow(unused_variables)]
+                #backup_state: &#state_name,
+                #[allow(non_snake_case)]
+                #[allow(unused_variables)]
+                #backup_widget: &#widget_name,
+            | {
                 #inner
                 #child_ident
             };
@@ -292,7 +326,7 @@ impl DomDecorator for Map {
                     };
                     let #child_ident: Entity = widget.#dom_entity_list_field.remove(&#key_var).unwrap_or(Entity::PLACEHOLDER);
                     let #just_inited = #child_ident == Entity::PLACEHOLDER;
-                    let #child_ident = #lambda_var(#child_ident,#just_inited,commands,Some(#item_var));
+                    let #child_ident = #lambda_var(#child_ident,#just_inited,commands,Some(#item_var),&state,&widget);
                     #child_entity_map_var.insert(#key_var, #child_ident);
                     #child_list_var.push(#child_ident);
                 }
@@ -303,7 +337,7 @@ impl DomDecorator for Map {
                 widget.#dom_entity_list_field = #child_entity_map_var;
             } else {
                 for &#child_ident in widget.#dom_entity_list_field.values() {
-                    #lambda_var(#child_ident,#just_inited,commands,None);
+                    #lambda_var(#child_ident,#just_inited,commands,None,&state,&widget);
                 }
             }
         }
@@ -428,8 +462,26 @@ impl DomDecorator for ForQuery {
         } else {
             quote!(<<#ty as bevy::ecs::query::WorldQuery>::ReadOnly as bevy::ecs::query::WorldQuery>::Item<'_>)
         };
+
+        let backup_state = format_ident!("{}_state",context.tree_context.state_namespace);
+        let backup_widget = format_ident!("{}_widget",context.tree_context.state_namespace);
+        let state_name = &context.tree_context.state_builder.name;
+        let widget_name = &context.tree_context.widget_builder.name;
+
         quote_spanned! {self._in.span=>
-            let mut #lambda_var = |#child_ident,#just_inited,commands:&mut Commands,#data_entity_var,#item_var:#item_type| {
+            let mut #lambda_var = |
+                #child_ident,
+                #just_inited,
+                commands:&mut Commands,
+                #data_entity_var,
+                #item_var:#item_type,
+                #[allow(non_snake_case)]
+                #[allow(unused_variables)]
+                #backup_state: &#state_name,
+                #[allow(non_snake_case)]
+                #[allow(unused_variables)]
+                #backup_widget: &#widget_name,
+            | {
                 #inner
                 #child_ident
             };
@@ -441,7 +493,7 @@ impl DomDecorator for ForQuery {
                 for (#data_entity_var,#item_var) in #arg_name.#method(#expr) {
                     let #child_ident: Entity = widget.#dom_entity_list_field.remove(&#data_entity_var).unwrap_or(Entity::PLACEHOLDER);
                     let #just_inited = #child_ident == Entity::PLACEHOLDER;
-                    let #child_ident = #lambda_var(#child_ident,#just_inited,commands,#data_entity_var,#item_var);
+                    let #child_ident = #lambda_var(#child_ident,#just_inited,commands,#data_entity_var,#item_var,&state,&widget);
                     #child_entity_map_var.insert(#data_entity_var,#child_ident);
                 }
                 for (_,removeed_children) in widget.#dom_entity_list_field.drain() {
@@ -451,7 +503,7 @@ impl DomDecorator for ForQuery {
             } else {
                 for (&#data_entity_var,&#child_ident) in widget.#dom_entity_list_field.iter() {
                     if let Ok((#data_entity_var,#item_var)) = #arg_name.#get_method(#data_entity_var) {
-                        #lambda_var(#child_ident,#just_inited,commands,#data_entity_var,#item_var);
+                        #lambda_var(#child_ident,#just_inited,commands,#data_entity_var,#item_var,&state,&widget);
                     }
                 }
             }

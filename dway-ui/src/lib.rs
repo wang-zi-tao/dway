@@ -10,6 +10,10 @@ pub mod theme;
 pub mod util;
 pub mod widgets;
 
+pub mod reexport{
+    pub use bevy_relationship;
+}
+
 use crate::{prelude::*, widgets::{applist::AppListUIBundle, screen::{ScreenWindows, ScreenWindowsBundle}}};
 use bevy::{render::camera::RenderTarget, ui::FocusPolicy};
 use bevy_svg::SvgPlugin;

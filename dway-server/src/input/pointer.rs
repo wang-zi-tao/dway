@@ -1,4 +1,4 @@
-use super::{grab::Grab, seat::WlSeat};
+use super::seat::WlSeat;
 use crate::{
     geometry::{Geometry, GlobalGeometry},
     input::time,
@@ -24,7 +24,6 @@ pub struct WlPointerBundle {
     resource: WlPointer,
     pos: Geometry,
     global_pos: GlobalGeometry,
-    grab: Grab,
 }
 
 impl WlPointerBundle {
@@ -33,7 +32,6 @@ impl WlPointerBundle {
             resource,
             pos: Default::default(),
             global_pos: Default::default(),
-            grab: Default::default(),
         }
     }
 }

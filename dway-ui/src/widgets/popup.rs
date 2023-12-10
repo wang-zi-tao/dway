@@ -3,7 +3,10 @@ use derive_builder::Builder;
 
 use crate::{
     animation,
-    framework::{animation::despawn_animation, button::UiButton},
+    framework::{
+        animation::despawn_animation,
+        button::{self, UiButton},
+    },
     prelude::*,
 };
 
@@ -140,10 +143,7 @@ pub enum PopupUiSystems {
     Close,
 }
 
-pub fn delay_destroy(
-    In(event): In<PopupEvent>,
-    mut commands: Commands,
-) {
+pub fn delay_destroy(In(event): In<PopupEvent>, mut commands: Commands) {
     if PopupEventKind::Closed == event.kind {
         commands.entity(event.entity).insert(despawn_animation(
             animation!(0.5 secs:BackIn->TransformScaleLens(Vec3::ONE=>Vec3::splat(0.5))),
@@ -156,6 +156,11 @@ impl Plugin for PopupUiPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<UiPopup>()
             .register_system(delay_destroy)
-            .add_systems(Update, auto_close_popup.in_set(PopupUiSystems::Close));
+            .add_systems(
+                Update,
+                auto_close_popup
+                    .in_set(PopupUiSystems::Close)
+                    .after(button::process_ui_button_event),
+            );
     }
 }
