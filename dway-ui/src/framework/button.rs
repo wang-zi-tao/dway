@@ -1,5 +1,6 @@
 use bevy::{ecs::system::SystemId, ui::FocusPolicy};
 use bevy_relationship::reexport::SmallVec;
+use bevy_tweening::{AssetAnimator, EaseMethod};
 
 use crate::prelude::*;
 
@@ -16,6 +17,8 @@ pub struct UiButtonEvent {
     pub kind: UiButtonEventKind,
     pub receiver: Entity,
     pub button: Entity,
+    pub state: Interaction,
+    pub prev_state: Interaction,
 }
 
 #[derive(Component, Default, Clone, Reflect)]
@@ -29,6 +32,12 @@ impl UiButton {
     pub fn new(receiver: Entity, callback: SystemId<UiButtonEvent>) -> Self {
         Self {
             callback: SmallVec::from_slice(&[(receiver, callback)]),
+            state: Interaction::None,
+        }
+    }
+    pub fn from_slice(callbacks: &[(Entity, SystemId<UiButtonEvent>)]) -> Self {
+        Self {
+            callback: SmallVec::from_slice(callbacks),
             state: Interaction::None,
         }
     }
@@ -48,6 +57,8 @@ pub fn process_ui_button_event(
                         kind: kind.clone(),
                         receiver: *receiver,
                         button: entity,
+                        state: *button_state,
+                        prev_state: button.state,
                     },
                 );
             }
@@ -103,6 +114,12 @@ impl UiButtonAddonBundle {
             interaction: Default::default(),
         }
     }
+    pub fn from_slice(callbacks: &[(Entity, SystemId<UiButtonEvent>)]) -> Self {
+        Self {
+            button: UiButton::from_slice(callbacks),
+            interaction: Default::default(),
+        }
+    }
 }
 
 #[derive(Bundle)]
@@ -137,4 +154,72 @@ impl Default for UiButtonBundle {
             z_index: Default::default(),
         }
     }
+}
+
+#[derive(Component, Reflect, Default)]
+pub struct ButtonColor {
+    pub normal: Color,
+    pub hover: Color,
+    pub clicked: Color,
+    #[reflect(ignore)]
+    pub animation_method: EaseMethod,
+    pub animation_duration: Duration,
+}
+
+impl ButtonColor {
+    pub fn new(normal: Color, hover: Color, clicked: Color) -> Self {
+        Self {
+            normal,
+            hover,
+            clicked,
+            animation_method: EaseMethod::Linear,
+            animation_duration: Duration::from_secs_f32(0.15),
+        }
+    }
+    pub fn from_theme(theme: &Theme, class: &str) -> Self {
+        Self::new(
+            theme.color(&format!("{class}")),
+            theme.color(&format!("{class}:hover")),
+            theme.color(&format!("{class}:clicked")),
+        )
+    }
+}
+
+impl ButtonColor {
+    pub fn callback_system<T>(
+        In(event): In<UiButtonEvent>,
+        style_query: Query<&Self>,
+        mut commands: Commands,
+    ) where
+        T: Asset,
+        ColorMaterialColorLens: Lens<T>,
+    {
+        let Ok(style) = style_query.get(event.button) else {
+            return;
+        };
+        let get_style = |state: &Interaction| match state {
+            Interaction::Pressed => &style.clicked,
+            Interaction::Hovered => &style.hover,
+            Interaction::None => &style.normal,
+        };
+        let tween = Tween::<T>::new(
+            style.animation_method,
+            style.animation_duration,
+            ColorMaterialColorLens {
+                start: get_style(&event.prev_state).clone(),
+                end: get_style(&event.state).clone(),
+            },
+        );
+        commands
+            .entity(event.button)
+            .insert(AssetAnimator::new(tween));
+    }
+}
+
+#[derive(Bundle, Default)]
+pub struct RoundedButtonAddonBundle {
+    pub button: UiButton,
+    pub interaction: Interaction,
+    pub color: ButtonColor,
+    pub material: Handle<RoundedUiRectMaterial>,
 }

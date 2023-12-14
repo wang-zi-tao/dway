@@ -4,7 +4,6 @@ use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 
 use bevy::tasks::{block_on, IoTaskPool, Task};
 
-
 use futures_lite::future::poll_once;
 use gettextrs::{dgettext, setlocale, LocaleCategory};
 
@@ -18,11 +17,15 @@ pub struct DesktopEntriesSet {
     pub scan_task: Option<Task<Vec<DesktopEntry>>>,
     pub list: Vec<Entity>,
     pub by_id: HashMap<String, Entity>,
+    pub by_categories: HashMap<String, Vec<Entity>>,
 }
 impl DesktopEntriesSet {
     pub fn register(&mut self, entry: &DesktopEntry, entity: Entity) {
         self.list.push(entity);
         self.by_id.insert(entry.appid.clone(), entity);
+        for c in entry.categories() {
+            self.by_categories.entry(c).or_default().push(entity);
+        }
     }
 }
 
@@ -117,6 +120,17 @@ impl DesktopEntry {
     pub fn name(&self) -> Option<Cow<str>> {
         self.get_in_current_locale("Desktop Entry", "Name")
     }
+
+    pub fn categories(&self) -> Vec<String> {
+        self.get_in_current_locale("Desktop Entry", "Categories")
+            .map(|c| {
+                c.to_string()
+                    .split(';')
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    }
 }
 
 pub fn start_scan_desktop_file(mut entries: ResMut<DesktopEntriesSet>) {
@@ -151,7 +165,9 @@ pub fn on_scan_task_finish(
     let Some(task) = &mut entries.scan_task else {
         return;
     };
-    if !task.is_finished() { return; }
+    if !task.is_finished() {
+        return;
+    }
     if let Some(entry_list) = block_on(poll_once(task)) {
         entries.scan_task = None;
         entries.list.clear();

@@ -182,17 +182,17 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     ));
 
     app.add_systems(Startup, setup);
-    app.add_systems(
-        PreUpdate,
-        (
-            spawn_app::spawn
-                .run_if(on_event::<WaylandDisplayCreated>())
-                .in_set(DWayServerSet::CreateGlobal),
-            spawn_app::spawn_x11
-                .run_if(on_event::<DWayXWaylandReady>())
-                .in_set(DWayServerSet::UpdateXWayland),
-        ),
-    );
+    // app.add_systems(
+    //     PreUpdate,
+    //     (
+    //         spawn_app::spawn
+    //             .run_if(on_event::<WaylandDisplayCreated>())
+    //             .in_set(DWayServerSet::CreateGlobal),
+    //         spawn_app::spawn_x11
+    //             .run_if(on_event::<DWayXWaylandReady>())
+    //             .in_set(DWayServerSet::UpdateXWayland),
+    //     ),
+    // );
     app.add_systems(Update, (wm_mouse_action, wm_keys, update));
     app.add_systems(Last, last);
 
@@ -213,30 +213,21 @@ pub fn setup(mut commands: Commands) {
     commands
         .spawn((WorkspaceSet, Name::from("WorkspaceSet")))
         .with_children(|c| {
-            let layout = LayoutStyle {
-                padding: LayoutRect::new(4),
-                ..Default::default()
-            };
-            c.spawn((
-                WorkspaceBundle {
-                    workspace: Workspace {
-                        name: "workspace0".to_string(),
+            for i in 0..=9 {
+                c.spawn((
+                    WorkspaceBundle {
+                        workspace: Workspace {
+                            name: format!("workspace{i}"),
+                            ..Default::default()
+                        },
                         ..Default::default()
                     },
-                    ..Default::default()
-                },
-                layout.clone(),
-            ));
-            c.spawn((
-                WorkspaceBundle {
-                    workspace: Workspace {
-                        name: "workspace1".to_string(),
+                    LayoutStyle {
+                        padding: LayoutRect::new(4),
                         ..Default::default()
                     },
-                    ..Default::default()
-                },
-                layout.clone(),
-            ));
+                ));
+            }
         });
 }
 

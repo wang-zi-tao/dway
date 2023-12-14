@@ -58,6 +58,10 @@ impl IconLoader {
         svg_assets: &mut Assets<Svg>,
         mesh_assets: &mut Assets<Mesh>,
     ) -> Option<IconResorce> {
+        #[cfg(debug_assertions)]
+        {
+            return None;
+        }
         if !icon.loaded {
             let icon_id = icon.id.to_string() + ".svg";
             let raw_icon = self.icon_loader.load_icon(icon_id);

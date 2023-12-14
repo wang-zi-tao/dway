@@ -1,3 +1,3 @@
 fn main() {
-    dway::bevy_main();
+    dway_main::bevy_main();
 }

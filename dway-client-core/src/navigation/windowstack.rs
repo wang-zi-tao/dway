@@ -46,6 +46,14 @@ impl WindowStack {
     pub fn focused(&self) -> Option<Entity> {
         self.list.front().cloned()
     }
+
+    pub fn at(&self, i: usize) -> Option<Entity> {
+        let mut c = self.list.cursor_front();
+        for _ in 0..i {
+            c.move_next();
+        }
+        return c.current().cloned();
+    }
 }
 
 #[derive(Event, Clone, Copy)]

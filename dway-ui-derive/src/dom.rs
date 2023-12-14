@@ -1,6 +1,6 @@
 use derive_syn_parse::Parse;
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, ToTokens};
+use quote::{quote, ToTokens, quote_spanned};
 use std::collections::BTreeMap;
 use syn::{parse::ParseStream, spanned::Spanned, token::Paren, *};
 
@@ -97,7 +97,7 @@ impl Dom {
             self.end_tag
                 .as_ref()
                 .and_then(|end| end.end_bundle.as_ref())
-                .map(|ty| quote!(#ty)),
+                .map(|ty| quote_spanned!(ty.span()=>#ty)),
         );
         let components_expr: Vec<_> = self
             .args

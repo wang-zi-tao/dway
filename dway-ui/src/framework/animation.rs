@@ -32,6 +32,9 @@ pub fn despawn_animation<T: Component>(
 #[macro_export]
 macro_rules! animation {
     ($time:literal secs:$func:ident->$t:ident($from:expr=>$to:expr)) => {
+        Animator::new(animation!(Tween $time secs:$func->$t($from=>$to)))
+    };
+    (Tween $time:literal secs:$func:ident->$t:ident($from:expr=>$to:expr)) => {
         Tween::new(
             EaseFunction::$func,
             Duration::from_secs_f32($time),

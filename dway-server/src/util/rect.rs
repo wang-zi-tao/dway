@@ -64,9 +64,9 @@ impl IRect {
             }
         }
     }
-    pub fn area(&self) -> i32 {
+    pub fn area(&self) -> isize {
         let size = self.size();
-        size.x * size.y
+        size.x as isize * size.y as isize
     }
     pub fn x(&self) -> i32 {
         self.min.x

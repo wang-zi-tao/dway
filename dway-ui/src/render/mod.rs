@@ -3,6 +3,7 @@ use bevy::{
     asset::{embedded_asset, load_internal_asset},
     render::render_resource::{AsBindGroup, ShaderType},
 };
+use bevy_tweening::{AnimationSystem, component_animator_system, asset_animator_system};
 
 #[derive(AsBindGroup, Asset, Reflect, Debug, Clone)]
 #[reflect(Debug)]
@@ -166,6 +167,33 @@ impl Plugin for DWayUiMaterialPlugin {
             .register_asset_reflect::<RoundedUiRectMaterial>()
             .register_asset_reflect::<RoundedUiImageMaterial>()
             .register_asset_reflect::<UiCircleMaterial>()
+            .add_systems(
+                Update,
+                (
+                    asset_animator_system::<RoundedUiRectMaterial>,
+                    asset_animator_system::<RoundedUiImageMaterial>,
+                    asset_animator_system::<UiCircleMaterial>,
+                )
+                    .in_set(AnimationSystem::AnimationUpdate),
+            )
             .add_systems(Last, update_material_size);
+    }
+}
+
+impl Lens<RoundedUiRectMaterial> for ColorMaterialColorLens{
+    fn lerp(&mut self, target: &mut RoundedUiRectMaterial, ratio: f32) {
+        let start: Vec4 = self.start.into();
+        let end: Vec4 = self.end.into();
+        let value = start.lerp(end, ratio);
+        target.settings.color = value.into();
+    }
+}
+
+impl Lens<UiCircleMaterial> for ColorMaterialColorLens{
+    fn lerp(&mut self, target: &mut UiCircleMaterial, ratio: f32) {
+        let start: Vec4 = self.start.into();
+        let end: Vec4 = self.end.into();
+        let value = start.lerp(end, ratio);
+        target.settings.color = value.into();
     }
 }

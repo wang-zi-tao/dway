@@ -1,16 +1,26 @@
 use bevy::{app::AppExit, input::mouse::MouseButtonInput, prelude::*};
-use dway_client_core::desktop::{CursorOnWindow};
-use dway_server::prelude::WindowAction;
+use dway_client_core::{
+    desktop::{CursorOnOutput, CursorOnWindow, FocusedWindow},
+    navigation::windowstack::{WindowIndex, WindowStack},
+    workspace::{ScreenAttachWorkspace, WindowOnWorkspace, Workspace, WorkspaceSet},
+};
+use dway_server::{macros::EntityCommandsExt, prelude::WindowAction};
 
 pub fn wm_keys(
     input: Res<Input<KeyCode>>,
     window_under_cursor: Res<CursorOnWindow>,
     mut exit: EventWriter<AppExit>,
     mut window_action: EventWriter<WindowAction>,
+    window_stack: Res<WindowStack>,
+    focus_screen: Res<CursorOnOutput>,
+    mut focus_window: ResMut<FocusedWindow>,
+    workspace_root_query: Query<&Children, With<WorkspaceSet>>,
+    mut commands: Commands,
+    mut tab_counter: Local<usize>,
 ) {
     let meta = input.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
     let shift = input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
-    let _ctrl = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
+    let ctrl = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
     let alt = input.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
 
     if alt | meta {
@@ -20,7 +30,73 @@ pub fn wm_keys(
             if let Some((window, _)) = &window_under_cursor.0 {
                 window_action.send(WindowAction::Close(*window));
             }
+        } else if input.just_pressed(KeyCode::Tab) {
+            *tab_counter += 1;
+            if let Some(window) = &window_stack.at(*tab_counter) {
+                focus_window.window_entity = Some(*window);
+            }
+        } else {
+            for (key, num) in [
+                (KeyCode::Key1, 0),
+                (KeyCode::Key2, 1),
+                (KeyCode::Key3, 2),
+                (KeyCode::Key4, 3),
+                (KeyCode::Key5, 4),
+                (KeyCode::Key6, 5),
+                (KeyCode::Key7, 6),
+                (KeyCode::Key8, 7),
+                (KeyCode::Key9, 8),
+                (KeyCode::Key0, 9),
+            ] {
+                if input.just_pressed(key) {
+                    match (meta, shift, ctrl, alt) {
+                        (true, false, false, false) => {
+                            if let Ok(workspaces) = workspace_root_query.get_single() {
+                                if let (Some(workspace), Some((screen, _))) =
+                                    (workspaces.get(num), &focus_screen.0)
+                                {
+                                    commands
+                                        .entity(*screen)
+                                        .disconnect_all::<ScreenAttachWorkspace>()
+                                        .connect_to::<ScreenAttachWorkspace>(*workspace);
+                                }
+                            }
+                        }
+                        (true, false, true, false) => {
+                            if let Ok(workspaces) = workspace_root_query.get_single() {
+                                if let (Some(workspace), Some((screen, _))) =
+                                    (workspaces.get(num), &focus_screen.0)
+                                {
+                                    commands
+                                        .entity(*screen)
+                                        .connect_to::<ScreenAttachWorkspace>(*workspace);
+                                }
+                            }
+                        }
+                        (true, true, false, false) => {
+                            if let Ok(workspaces) = workspace_root_query.get_single() {
+                                if let (Some(workspace), Some(window)) =
+                                    (workspaces.get(num), &focus_window.window_entity)
+                                {
+                                    commands
+                                        .entity(*window)
+                                        .disconnect_all::<WindowOnWorkspace>()
+                                        .connect_to::<WindowOnWorkspace>(*workspace);
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
         }
+    }
+
+    if input.just_released(KeyCode::SuperRight) || input.just_released(KeyCode::SuperLeft) {
+        *tab_counter = 0;
+    }
+    if input.just_released(KeyCode::AltLeft) || input.just_released(KeyCode::AltRight) {
+        *tab_counter = 0;
     }
 }
 

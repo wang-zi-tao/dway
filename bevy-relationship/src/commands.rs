@@ -204,52 +204,54 @@ where
 }
 
 pub trait EntityCommandsExt {
-    fn connect_to<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
+    fn connect_to<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity) -> &mut Self
     where
         R::From: ConnectableMut + Default,
         R::To: ConnectableMut + Default;
-    fn connect_from<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
+    fn connect_from<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity) -> &mut Self
     where
         R::From: ConnectableMut + Default,
         R::To: ConnectableMut + Default;
-    fn disconnect_to<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
+    fn disconnect_to<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity) -> &mut Self
     where
         R::From: ConnectableMut + Default,
         R::To: ConnectableMut + Default;
-    fn disconnect_from<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
+    fn disconnect_from<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity) -> &mut Self
     where
         R::From: ConnectableMut + Default,
         R::To: ConnectableMut + Default;
-    fn disconnect_all<R: Relationship + Send + Sync + 'static>(&mut self)
+    fn disconnect_all<R: Relationship + Send + Sync + 'static>(&mut self) -> &mut Self
     where
         R::From: ConnectableMut + Default,
         R::To: ConnectableMut + Default;
-    fn disconnect_all_rev<R: Relationship + Send + Sync + 'static>(&mut self)
+    fn disconnect_all_rev<R: Relationship + Send + Sync + 'static>(&mut self) -> &mut Self
     where
         R::From: ConnectableMut + Default,
         R::To: ConnectableMut + Default;
 }
 
 impl<'w, 's, 'a> EntityCommandsExt for EntityCommands<'w, 's, 'a> {
-    fn connect_to<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
+    fn connect_to<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity) -> &mut Self
     where
         R::From: ConnectableMut + Default,
         R::To: ConnectableMut + Default,
     {
         let entity = self.id();
         self.commands().add(ConnectCommand::<R>::new(entity, peer));
+        self
     }
 
-    fn connect_from<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
+    fn connect_from<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity) -> &mut Self
     where
         R::From: ConnectableMut + Default,
         R::To: ConnectableMut + Default,
     {
         let entity = self.id();
         self.commands().add(ConnectCommand::<R>::new(peer, entity));
+        self
     }
 
-    fn disconnect_to<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
+    fn disconnect_to<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity) -> &mut Self
     where
         R::From: ConnectableMut + Default,
         R::To: ConnectableMut + Default,
@@ -257,9 +259,10 @@ impl<'w, 's, 'a> EntityCommandsExt for EntityCommands<'w, 's, 'a> {
         let entity = self.id();
         self.commands()
             .add(DisconnectCommand::<R>::new(entity, peer));
+        self
     }
 
-    fn disconnect_from<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity)
+    fn disconnect_from<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity) -> &mut Self
     where
         R::From: ConnectableMut + Default,
         R::To: ConnectableMut + Default,
@@ -267,18 +270,20 @@ impl<'w, 's, 'a> EntityCommandsExt for EntityCommands<'w, 's, 'a> {
         let entity = self.id();
         self.commands()
             .add(DisconnectCommand::<R>::new(peer, entity));
+        self
     }
 
-    fn disconnect_all<R: Relationship + Send + Sync + 'static>(&mut self)
+    fn disconnect_all<R: Relationship + Send + Sync + 'static>(&mut self) -> &mut Self
     where
         R::From: ConnectableMut + Default,
         R::To: ConnectableMut + Default,
     {
         let entity = self.id();
         self.commands().add(DisconnectAllCommand::<R>::new(entity));
+        self
     }
 
-    fn disconnect_all_rev<R: Relationship + Send + Sync + 'static>(&mut self)
+    fn disconnect_all_rev<R: Relationship + Send + Sync + 'static>(&mut self) -> &mut Self
     where
         R::From: ConnectableMut + Default,
         R::To: ConnectableMut + Default,
@@ -286,5 +291,6 @@ impl<'w, 's, 'a> EntityCommandsExt for EntityCommands<'w, 's, 'a> {
         let entity = self.id();
         self.commands()
             .add(DisconnectAllCommand::<ReserveRelationship<R>>::new(entity));
+        self
     }
 }

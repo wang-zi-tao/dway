@@ -38,8 +38,8 @@ impl Theme {
     pub fn default_font(&self) -> Handle<Font> {
         self.default_font.clone()
     }
-    pub fn color(&self, color: &str) -> Option<Color> {
-        self.color_map.get(color).cloned()
+    pub fn color(&self, color: &str) -> Color {
+        self.color_map.get(color).cloned().unwrap_or(Color::NONE)
     }
     pub fn icon(&self, icon: &str) -> Handle<Svg> {
         self.icons.get(icon).cloned().unwrap_or_default()
@@ -69,6 +69,28 @@ pub struct ThemePlugin;
 impl Plugin for ThemePlugin {
     fn build(&self, app: &mut App) {
         let asset_server = app.world.resource_mut::<AssetServer>();
+        let icons = HashMap::from_iter(
+            [
+                "apps",
+                "close",
+                "dashboard",
+                "lock",
+                "logout",
+                "maximize",
+                "minimize",
+                "power",
+                "restart",
+                "settings",
+                "user",
+            ]
+            .iter()
+            .map(|name| {
+                (
+                    name.to_string(),
+                    asset_server.load(format!("embedded://dway_ui/icons/{name}.svg")),
+                )
+            }),
+        );
         let theme = Theme {
             default_font: asset_server.load("embedded://dway_ui/fonts/SmileySans-Oblique.ttf"),
             color_map: HashMap::from([
@@ -91,22 +113,16 @@ impl Plugin for ThemePlugin {
                 ("sky".to_string(), color!("#67AFC1")),
                 ("white".to_string(), color!("#D9D7D6")),
                 ("gray".to_string(), color!("#484E5B")),
+                ("panel".to_string(), Color::WHITE.with_a(0.5)),
+                ("panel:hover".to_string(), color!("#ffffff")),
+                ("panel:clicked".to_string(), color!("#D8DEE9")),
+                ("panel-popup".to_string(), Color::WHITE.with_a(0.5)),
+                ("panel-popup:hover".to_string(), color!("#ffffff")),
+                ("panel-popup:clicked".to_string(), color!("#D8DEE9")),
+                ("panel-foreground".to_string(), color!("#1b1d1e")),
                 (POPUP_BACKGROUND.to_string(), color!("#D8DEE9")),
             ]),
-            icons: HashMap::from([
-                (
-                    "close".to_string(),
-                    asset_server.load("embedded://dway_ui/icons/close.svg"),
-                ),
-                (
-                    "maximize".to_string(),
-                    asset_server.load("embedded://dway_ui/icons/maximize.svg"),
-                ),
-                (
-                    "minimize".to_string(),
-                    asset_server.load("embedded://dway_ui/icons/minimize.svg"),
-                ),
-            ]),
+            icons,
             style_map: HashMap::from([("popup".to_string(), style!("m-4"))]),
             callbacks: default(),
         };

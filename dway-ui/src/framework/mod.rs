@@ -9,6 +9,8 @@ use crate::prelude::*;
 pub use bevy_svg::SvgPlugin;
 use dway_util::UtilPlugin;
 
+use self::button::ButtonColor;
+
 #[derive(Component, Default)]
 pub struct Callback(pub Option<SystemId>);
 
@@ -38,7 +40,7 @@ impl Plugin for UiFrameworkPlugin {
                 (canvas::prepare_render_command, apply_deferred)
                     .chain()
                     .in_set(canvas::UiCanvasSystems::Prepare),
-                (button::process_ui_button_event),
+                (button::process_ui_button_event,),
                 svg::uisvg_render.after(canvas::UiCanvasSystems::Prepare),
             ),
         );
@@ -52,7 +54,11 @@ impl Plugin for UiFrameworkPlugin {
         app.register_type::<canvas::UiCanvas>();
         app.register_type::<svg::UiSvg>();
         app.register_type::<icon::UiIcon>();
+        app.register_type::<button::UiButton>();
+        app.register_type::<button::ButtonColor>();
         app.init_resource::<canvas::UiCanvasRenderArea>();
         app.init_resource::<svg::SvgImageCache>();
+        app.register_system(ButtonColor::callback_system::<RoundedUiRectMaterial>);
+        app.register_system(ButtonColor::callback_system::<UiCircleMaterial>);
     }
 }

@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use dway_server::xdg::DWayWindow;
 
 #[derive(Component)]
 #[component(storage = "SparseSet")]

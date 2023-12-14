@@ -72,6 +72,7 @@ cpu_profile = []
 [lib]
 crate-type = ["dylib", "rlib"]
 path = "src/lib.rs"
+name = "dway_main"
 
 [package]
 edition = "2021"

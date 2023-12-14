@@ -10,11 +10,19 @@ pub mod theme;
 pub mod util;
 pub mod widgets;
 
-pub mod reexport{
+pub mod reexport {
     pub use bevy_relationship;
 }
 
-use crate::{prelude::*, widgets::{applist::AppListUIBundle, screen::{ScreenWindows, ScreenWindowsBundle}}};
+use crate::{
+    framework::{button::{ButtonColor, RoundedButtonAddonBundle, UiButton}, svg::UiSvgBundle},
+    panels::{WindowTitleBundle, PanelButtonBundle},
+    prelude::*,
+    widgets::{
+        applist::AppListUIBundle,
+        screen::{ScreenWindows, ScreenWindowsBundle},
+    },
+};
 use bevy::{render::camera::RenderTarget, ui::FocusPolicy};
 use bevy_svg::SvgPlugin;
 use bevy_tweening::TweeningPlugin;
@@ -42,7 +50,9 @@ impl Plugin for DWayUiPlugin {
             widgets::applist::AppListUIPlugin,
             widgets::popup::PopupUiPlugin,
             widgets::screen::ScreenWindowsPlugin,
+            panels::WindowTitlePlugin,
             popups::app_window_preview::AppWindowPreviewPopupPlugin,
+            popups::launcher::LauncherUIPlugin,
         ));
         app.add_systems(PreUpdate, init_screen_ui);
         app.add_systems(Startup, setup);
@@ -89,7 +99,8 @@ fn init_screen_ui(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut rect_material_set: ResMut<Assets<RoundedUiRectMaterial>>,
-    mut screen_query: Query<(Entity, &Screen),Added<Screen>>,
+    mut screen_query: Query<(Entity, &Screen), Added<Screen>>,
+    theme: Res<Theme>,
 ) {
     screen_query.for_each(|(entity,screen)|{
         spawn! {&mut commands=>
@@ -104,31 +115,37 @@ fn init_screen_ui(
                 z_index: ZIndex::Global(1024),
                 ..Default::default()
             }) Name=(Name::new("panel"))>
-                <(MaterialNodeBundle { style: style!("absolute flex-row m-4 left-4"),
-                    material: rect_material_set.add(RoundedUiRectMaterial::new((Color::BLUE*0.6).with_a(0.5),8.0,)),
-                    ..Default::default()
-                }) @id="left">
-                    <ClockBundle/>
-                </>
-                <(MaterialNodeBundle { style: style!("absolute flex-row m-4 right-4"),
-                    material: rect_material_set.add(RoundedUiRectMaterial::new((Color::RED*0.6).with_a(0.5),8.0,)),
-                    ..Default::default()
-                }) @id="right">
-                    <ClockBundle/>
-                </>
-                <NodeBundle @style="absolute w-full h-full justify-center items-center" @id="center">
-                    <(MaterialNodeBundle { style: style!("flex-row m-4"),
-                        material: rect_material_set.add(RoundedUiRectMaterial::new((Color::WHITE*0.6).with_a(0.5),8.0,)),
-                        ..Default::default()
-                    })>
-                        <ClockBundle/>
-                    </>
-                </NodeBundle>
+                <MiniNodeBundle @style="absolute flex-row m-4 left-4" @id="left">
+                    <(PanelButtonBundle::with_callback(entity,&theme,&mut rect_material_set, &[
+                        (entity,theme.system(popups::launcher::open_popup))
+                    ]))>
+                        <(UiSvgBundle::new(theme.icon("dashboard"))) @style="w-24 h-24"/>
+                    </PanelButtonBundle>
+                    <WindowTitleBundle/>
+                </MiniNodeBundle>
+                <MiniNodeBundle @style="absolute flex-row m-4 right-4" @id="right">
+                    <(PanelButtonBundle::new(entity,&theme,&mut rect_material_set))>
+                        <(UiSvgBundle::new(theme.icon("settings"))) @style="w-24 h-24"/>
+                    </PanelButtonBundle>
+                </MiniNodeBundle>
+                <MiniNodeBundle @style="absolute w-full h-full justify-center items-center" @id="center">
+                    <MiniNodeBundle @style="flex-row m-0 h-90%" >
+                        <(PanelButtonBundle::new(entity,&theme,&mut rect_material_set))>
+                            <ClockBundle/>
+                        </PanelButtonBundle>
+                    </MiniNodeBundle>
+                </MiniNodeBundle>
             </> 
             <(NodeBundle{style: style!("absolute bottom-4 w-full justify-center items-center"),
                 focus_policy: FocusPolicy::Pass, z_index: ZIndex::Global(1024),..default()})
                 Name=(Name::new("dock")) >
-                <AppListUIBundle/>
+                <MiniNodeBundle 
+                    Handle<_>=(rect_material_set.add(RoundedUiRectMaterial::new(Color::WHITE.with_a(0.5), 16.0)))>
+                    <AppListUIBundle/>
+                    <(PanelButtonBundle::new(entity,&theme,&mut rect_material_set))>
+                        <(UiSvgBundle::new(theme.icon("apps"))) @style="w-48 h-48"/>
+                    </PanelButtonBundle>
+                </MiniNodeBundle>
             </NodeBundle>
         </MiniNodeBundle>
         };

@@ -93,7 +93,7 @@ pub fn generate(input: &LitStr) -> TokenStream {
             o if o.starts_with("w-") => parse_field_value("w-", o, "width"),
             o if o.starts_with("h-") => parse_field_value("h-", o, "height"),
             o if o.starts_with("min-w-") => parse_field_value("min-w-", o, "min_width"),
-            o if o.starts_with("min-h-") => parse_field_value("min-h-", o, "max_height"),
+            o if o.starts_with("min-h-") => parse_field_value("min-h-", o, "min_height"),
             o if o.starts_with("max-w-") => parse_field_value("max-w-", o, "max_width"),
             o if o.starts_with("max-h-") => parse_field_value("max-h-", o, "max_height"),
             o if o.starts_with("m-") => parse_field_rect("m-", o, "margin"),

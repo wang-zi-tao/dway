@@ -58,7 +58,6 @@ fn open_popup(
 @arg(mut icon_loader: ResMut<IconLoader>)
 @arg(mut assets_server: ResMut<AssetServer>)
 <MaterialNodeBundle::<RoundedUiRectMaterial> @id="List"
-    @handle(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(Color::WHITE.with_a(0.5), 16.0))
     @for_query(mut(window_list,mut icon) in Query<(Ref<WindowList>,&mut Icon)>::iter_mut()=>[
         icon=>{state.set_icon(icon_loader.load(&mut icon, 48, &mut assets_server, &mut svg_assets, &mut mesh_assets).unwrap_or_default());},
         window_list=>{ state.set_count(window_list.len()); },

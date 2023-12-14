@@ -146,7 +146,15 @@ pub enum PopupUiSystems {
 pub fn delay_destroy(In(event): In<PopupEvent>, mut commands: Commands) {
     if PopupEventKind::Closed == event.kind {
         commands.entity(event.entity).insert(despawn_animation(
-            animation!(0.5 secs:BackIn->TransformScaleLens(Vec3::ONE=>Vec3::splat(0.5))),
+            animation!(Tween 0.5 secs:BackIn->TransformScaleLens(Vec3::ONE=>Vec3::splat(0.5))),
+        ));
+    }
+}
+
+pub fn delay_destroy_up(In(event): In<PopupEvent>, mut commands: Commands) {
+    if PopupEventKind::Closed == event.kind {
+        commands.entity(event.entity).insert(despawn_animation(
+            animation!(Tween 0.5 secs:BackOut->TransformPositionLens(Vec3::NEG_Y=>Vec3::Y)),
         ));
     }
 }
@@ -156,6 +164,7 @@ impl Plugin for PopupUiPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<UiPopup>()
             .register_system(delay_destroy)
+            .register_system(delay_destroy_up)
             .add_systems(
                 Update,
                 auto_close_popup

@@ -23,13 +23,14 @@ Clock=>
         state.set_text(date_string);
     }
 }
+@global(theme:Theme)
     <NodeBundle>
         <TextBundle
         Text=(Text::from_section(
             state.text(),
             TextStyle {
                 font_size: 24.0,
-                color: Color::WHITE,
+                color: theme.color("panel-foreground"),
                 ..default()
             },
         ))

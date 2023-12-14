@@ -194,10 +194,17 @@ impl DomDecorator for Res {
         let Self {
             name, ty, mutable, ..
         } = self;
-        context
-            .tree_context
-            .system_querys
-            .insert(name.to_string(), quote!(#mutable #name: #ty));
+        if mutable.is_some(){
+            context
+                .tree_context
+                .system_querys
+                .insert(name.to_string(), quote!(#mutable #name: ResMut<#ty>));
+        }else{
+            context
+                .tree_context
+                .system_querys
+                .insert(name.to_string(), quote!(#mutable #name: Res<#ty>));
+        }
     }
     fn wrap_update(&self, inner: TokenStream, context: &mut WidgetNodeContext) -> TokenStream {
         let Self {

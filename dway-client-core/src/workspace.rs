@@ -61,7 +61,6 @@ pub fn attach_workspace_to_screen(
                     screen_entity,
                     workspace_entity,
                 ));
-                commands.entity(screen_entity).add_child(workspace_entity);
                 workspace_geo.geometry = screen_geo.geometry;
                 return;
             }
@@ -75,7 +74,6 @@ pub fn attach_workspace_to_screen(
                 geo,
                 ..Default::default()
             })
-            .set_parent(screen_entity)
             .id();
         commands.add(ConnectCommand::<ScreenAttachWorkspace>::new(
             screen_entity,
