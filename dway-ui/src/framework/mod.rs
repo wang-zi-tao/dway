@@ -3,9 +3,11 @@ pub mod button;
 pub mod canvas;
 pub mod drag;
 pub mod evnet;
+pub mod gallary;
 pub mod icon;
 pub mod slider;
 pub mod svg;
+pub mod text;
 
 use crate::prelude::*;
 use bevy::input::mouse::MouseMotion;
@@ -84,6 +86,6 @@ impl Plugin for UiFrameworkPlugin {
         app.init_resource::<svg::SvgImageCache>();
         app.register_system(ButtonColor::callback_system::<RoundedUiRectMaterial>);
         app.register_system(ButtonColor::callback_system::<UiCircleMaterial>);
-        app.add_plugins(slider::UiSliderPlugin);
+        app.add_plugins((slider::UiSliderPlugin, gallary::WidgetGallaryPlugin));
     }
 }

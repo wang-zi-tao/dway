@@ -57,20 +57,20 @@ fn parse_align(prefix: &str, style: &str, field: &str, ty: &str) -> TokenStream 
         "default" | "start" | "end" | "flex-start" | "flex-end" | "center" | "baseline"
         | "stretch" | "space-between" | "space-evenly" | "space-around" => {
             let member = format_ident!("{}", style.to_case(Case::Pascal));
-            quote!(#member)
+            quote!(bevy::ui::#ty::#member)
         }
         _ => {
             let message = format!("invalid value: {style:?}");
             quote!(compile_error!(#message))
         }
     };
-    quote!(#ident: #ty::#variant)
+    quote!(#ident: #variant)
 }
 
 pub fn generate(input: &LitStr) -> TokenStream {
     let mut fields = vec![];
     for component in input.value().split(' ') {
-        let tokens = match component {
+        let tokens = match component.trim() {
             "w-full" => quote!(width:Val::Percent(100.0)),
             "h-full" => quote!(height:Val::Percent(100.0)),
             "full" => quote!(width:Val::Percent(100.0),height:Val::Percent(100.0)),
@@ -101,17 +101,23 @@ pub fn generate(input: &LitStr) -> TokenStream {
                 parse_align("justify-content:", o, "justify_content", "JustifyContent")
             }
             o if o.starts_with("w-") => parse_field_value("w-", o, "width"),
+            o if o.starts_with("widget-") => parse_field_value("widget-", o, "width"),
             o if o.starts_with("h-") => parse_field_value("h-", o, "height"),
+            o if o.starts_with("height-") => parse_field_value("height-", o, "height"),
             o if o.starts_with("min-w-") => parse_field_value("min-w-", o, "min_width"),
             o if o.starts_with("min-h-") => parse_field_value("min-h-", o, "min_height"),
             o if o.starts_with("max-w-") => parse_field_value("max-w-", o, "max_width"),
             o if o.starts_with("max-h-") => parse_field_value("max-h-", o, "max_height"),
             o if o.starts_with("m-") => parse_field_rect("m-", o, "margin"),
+            o if o.starts_with("margin-") => parse_field_rect("margin-", o, "margin"),
+            o if o.starts_with("p-") => parse_field_rect("p-", o, "padding"),
+            o if o.starts_with("padding-") => parse_field_rect("padding-", o, "padding"),
             o if o.starts_with("left-") => parse_field_value("left-", o, "left"),
             o if o.starts_with("right-") => parse_field_value("right-", o, "right"),
             o if o.starts_with("top-") => parse_field_value("top-", o, "top"),
             o if o.starts_with("bottom-") => parse_field_value("bottom-", o, "bottom"),
             o if o.starts_with("w/h-") => parse_field_f32("w/h-", o, "aspect_ratio"),
+            o if o.starts_with("ratio-") => parse_field_f32("ratio-", o, "aspect_ratio"),
             o if o.contains(':') => TokenStream::from_str(o).unwrap_or_else(|e| {
                 let message = format!("invalid style: {o:?} error: {e:?}");
                 quote!(error: compile_error!(#message))

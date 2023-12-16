@@ -11,7 +11,7 @@ pub struct WindowTitle;
 
 dway_widget! {
 WindowTitle=>
-@global(stack: WindowStack -> { state.set_window_entity(stack.focused().unwrap_or(Entity::PLACEHOLDER)) })
+@global(stack: WindowStack -> { state.set_window_entity(stack.focused().unwrap_or(Entity::PLACEHOLDER)); })
 @use_state(pub window_entity:Entity=Entity::PLACEHOLDER)
 @query(window_query:(toplevel)<-Query<Ref<DWayToplevel>>[*state.window_entity()]->{
     if !widget.inited || toplevel.is_changed(){
