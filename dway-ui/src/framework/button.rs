@@ -97,6 +97,8 @@ pub fn process_ui_button_event(
 pub struct UiButtonAddonBundle {
     pub button: UiButton,
     pub interaction: Interaction,
+    #[default(FocusPolicy::Block)]
+    pub focus_policy: FocusPolicy,
 }
 
 impl From<UiButton> for UiButtonAddonBundle {
@@ -123,13 +125,14 @@ impl UiButtonAddonBundle {
     }
 }
 
-#[derive(Bundle)]
+#[derive(Bundle, SmartDefault)]
 pub struct UiButtonBundle {
     pub button: UiButton,
     pub interaction: Interaction,
 
     pub node: Node,
     pub style: Style,
+    #[default(FocusPolicy::Block)]
     pub focus_policy: FocusPolicy,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -137,24 +140,6 @@ pub struct UiButtonBundle {
     pub inherited_visibility: InheritedVisibility,
     pub view_visibility: ViewVisibility,
     pub z_index: ZIndex,
-}
-
-impl Default for UiButtonBundle {
-    fn default() -> Self {
-        Self {
-            button: Default::default(),
-            interaction: Default::default(),
-            node: Default::default(),
-            style: Default::default(),
-            focus_policy: FocusPolicy::Block,
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            inherited_visibility: Default::default(),
-            view_visibility: Default::default(),
-            z_index: Default::default(),
-        }
-    }
 }
 
 #[derive(Component, Reflect, Default)]
@@ -223,4 +208,6 @@ pub struct RoundedButtonAddonBundle {
     pub interaction: Interaction,
     pub color: ButtonColor,
     pub material: Handle<RoundedUiRectMaterial>,
+    #[default(FocusPolicy::Block)]
+    pub focus_policy: FocusPolicy,
 }

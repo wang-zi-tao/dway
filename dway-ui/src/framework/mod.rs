@@ -24,7 +24,6 @@ pub struct Callback(pub Option<SystemId>);
 pub struct MiniNodeBundle {
     pub node: Node,
     pub style: Style,
-    #[default(FocusPolicy::Block)]
     pub focus_policy: FocusPolicy,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -48,6 +47,22 @@ pub struct MiniButtonBundle {
     #[default(FocusPolicy::Block)]
     pub focus_policy: FocusPolicy,
     pub interaction: Interaction,
+}
+
+#[derive(Resource, Default, Reflect)]
+pub struct MousePosition {
+    pub window: Option<Entity>,
+    pub position: Option<Vec2>,
+}
+
+pub fn update_mouse_position(
+    mut mouse_event: EventReader<CursorMoved>,
+    mut mouse_position: ResMut<MousePosition>,
+) {
+    if let Some(mouse) = mouse_event.read().last() {
+        mouse_position.window = Some(mouse.window);
+        mouse_position.position = Some(mouse.position);
+    }
 }
 
 pub struct UiFrameworkPlugin;
@@ -75,6 +90,10 @@ impl Plugin for UiFrameworkPlugin {
                 .run_if(on_event::<TweenCompleted>())
                 .in_set(animation::AnimationSystems::Finish),
         );
+        app.add_systems(
+            PreUpdate,
+            update_mouse_position.run_if(on_event::<CursorMoved>()),
+        );
         app.add_plugins(UtilPlugin);
         app.register_type::<canvas::UiCanvas>();
         app.register_type::<svg::UiSvg>();
@@ -82,8 +101,10 @@ impl Plugin for UiFrameworkPlugin {
         app.register_type::<button::UiButton>();
         app.register_type::<button::ButtonColor>();
         app.register_type::<drag::Draggable>();
+        app.register_type::<MousePosition>();
         app.init_resource::<canvas::UiCanvasRenderArea>();
         app.init_resource::<svg::SvgImageCache>();
+        app.init_resource::<MousePosition>();
         app.register_system(ButtonColor::callback_system::<RoundedUiRectMaterial>);
         app.register_system(ButtonColor::callback_system::<UiCircleMaterial>);
         app.add_plugins((slider::UiSliderPlugin, gallary::WidgetGallaryPlugin));

@@ -76,7 +76,7 @@ pub fn generate_change_detect(structure: &ItemStruct) -> anyhow::Result<TokenStr
         #(#attrs)*
         #vis #struct_token #ident #generics {
              #(#fields,)*
-             __dway_changed_flags: #integer_type,
+             #vis  __dway_changed_flags: #integer_type,
         }
 
         impl #impl_generics #name #ty_generics #where_clause {

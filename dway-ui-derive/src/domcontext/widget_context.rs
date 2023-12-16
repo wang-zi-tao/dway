@@ -118,12 +118,10 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                 #just_init_var = true;
                 #set_entity_stat
             };
-            let init_stat = dom
-                .args
-                .values()
-                .fold(init_stat, |inner, arg| {
-                    arg.inner.wrap_spawn(inner, context.tree_context.dom_context,true)
-                });
+            let init_stat = dom.args.values().fold(init_stat, |inner, arg| {
+                arg.inner
+                    .wrap_spawn(inner, context.tree_context.dom_context, true)
+            });
             init_stat
         };
 
@@ -146,7 +144,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                 .unwrap_or_default(),
             |stat, arg| arg.inner.wrap_update(stat, &mut context),
         );
-        let process_node_stat = quote!{
+        let process_node_stat = quote! {
             let (#entity_var,#just_init_var) = {
                 #process_node_stat
                 (#entity_var,#just_init_var)
@@ -319,19 +317,15 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
 #[derive(Parse)]
 pub struct WidgetDeclare {
     pub name: Ident,
-    pub _arrow: Token![=>],
+    #[prefix(Token![=>])]
     #[call(DomArg::parse_vec)]
     pub args: Vec<DomArg>,
-    pub dom: Dom,
+    #[call(Dom::parse_vec)]
+    pub dom: Vec<Dom>,
 }
 
 pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
-    let WidgetDeclare {
-        name,
-        _arrow,
-        args,
-        dom,
-    } = decl;
+    let WidgetDeclare { name, args, dom } = decl;
     let state_name = format_ident!("{}State", name, span = name.span());
     let widget_name = format_ident!("{}Widget", name, span = name.span());
     let resource_name = format_ident!("{}Resource", name, span = name.span());
@@ -347,7 +341,7 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
     let parent_entity = format_ident!("this_entity");
     let mut root_context = Context::default();
     root_context.namespace = name.to_string();
-    let mut dom_context = DomContext::new(&mut root_context, dom);
+    let mut dom_context = DomContext::new(&mut root_context);
 
     let mut context = WidgetDomContext {
         state_builder: ComponentBuilder::new(state_name.clone()),
@@ -397,23 +391,28 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
     context.resources_builder.generate_init = true;
 
     let output = {
-        let (_, mut output) = context.generate(dom, &parent_entity, &parent_just_inited, false);
+        let outputs = dom.iter().map(|dom| {
+            context
+                .generate(dom, &parent_entity, &parent_just_inited, false)
+                .1
+        });
+        let mut output = quote!(#(#outputs)*);
         let entity_var = format_ident!("this_entity");
         let dom_id = format_ident!("_root");
         let mut node_context = WidgetNodeContext {
             tree_context: &mut context,
-            dom,
+            dom: &dom[0],
             dom_id,
             entity_var,
             parent_entity: parent_entity.clone(),
             just_inited: parent_just_inited.clone(),
             parent_just_inited: parent_just_inited.clone(),
         };
-        for arg in args {
+        for arg in args.iter().rev() {
             arg.inner.update_context(&mut node_context);
         }
         let mut update = quote!();
-        for arg in args {
+        for arg in args.iter().rev() {
             update = arg.inner.wrap_update(update, &mut node_context);
             output = arg
                 .inner

@@ -28,14 +28,13 @@ impl<'l> NodeContext<'l> {
     pub fn get_field(&self, name: &str) -> Ident {
         DomContext::wrap_dom_id("node_", &self.dom_id, name)
     }
-    pub fn get_node_entity(&self)->Ident{
+    pub fn get_node_entity(&self) -> Ident {
         self.get_var("_entity")
     }
 }
 
 pub struct DomContext<'l> {
     pub context: &'l mut Context,
-    pub root: &'l Dom,
     pub dom_list: Vec<&'l Dom>,
     pub dom_stack: Vec<NodeContext<'l>>,
 }
@@ -55,10 +54,9 @@ impl<'l> std::ops::Deref for DomContext<'l> {
 }
 
 impl<'l> DomContext<'l> {
-    pub fn new(context: &'l mut Context, root: &'l Dom) -> Self {
+    pub fn new(context: &'l mut Context) -> Self {
         Self {
             context,
-            root,
             dom_list: Default::default(),
             dom_stack: vec![],
         }

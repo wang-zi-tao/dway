@@ -49,8 +49,8 @@ WidgetGallary=>
     <MiniNodeBundle @style="p-4 justify-content:space-evenly flex-col"
         @material(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(theme.color("background1"), 16.0))
     >
-        <UiSliderBundle @style="h-16 w-80% m-16"/>
-        <UiSliderBundle @style="h-16 w-80% m-16"
+        <UiSliderBundle @style="h-16 m-16"/>
+        <UiSliderBundle @style="h-16 m-16"
             UiSliderState=({let mut s=UiSliderState::default();s.set_value(0.5); s}) />
     </MiniNodeBundle>
 </MiniNodeBundle>

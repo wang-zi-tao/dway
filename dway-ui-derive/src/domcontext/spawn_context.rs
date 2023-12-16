@@ -57,12 +57,9 @@ impl<'l> SpawnDomContext<'l> {
                 });
             }
         };
-        let tokens = dom
-            .args
-            .values()
-            .fold(tokens, |inner, arg| {
-                arg.inner.wrap_spawn(inner, &mut self.dom_context, false)
-            });
+        let tokens = dom.args.values().fold(tokens, |inner, arg| {
+            arg.inner.wrap_spawn(inner, &mut self.dom_context, false)
+        });
         self.pop();
         tokens
     }
@@ -71,7 +68,7 @@ impl<'l> SpawnDomContext<'l> {
 pub fn generate(dom: &Dom) -> TokenStream {
     let mut root_context = Context::default();
     let mut context = SpawnDomContext {
-        dom_context: DomContext::new(&mut root_context, dom),
+        dom_context: DomContext::new(&mut root_context),
     };
     context.generate(dom)
 }

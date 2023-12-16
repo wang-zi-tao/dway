@@ -57,6 +57,14 @@ pub struct UiPopup {
     pub auto_destroy: bool,
     pub anchor: Option<Entity>,
 }
+impl UiPopup {
+    pub fn new_auto_destroy(callback: SystemId<PopupEvent, ()>) -> Self {
+        UiPopup {
+            callback: Some(callback),
+            ..default()
+        }
+    }
+}
 
 pub fn auto_close_popup(
     mut popup_query: Query<(Entity, &mut UiPopup, &Interaction)>,

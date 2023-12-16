@@ -82,12 +82,21 @@ fn parse_fields(input: ParseStream<'_>) -> Result<Punctuated<Field, Token![,]>> 
 }
 
 #[derive(Parse)]
+pub struct FieldWithIniter {
+    #[call(Field::parse_named)]
+    pub raw_field: Field,
+    pub eq: Option<Token![=]>,
+    #[parse_if(eq.is_some())]
+    pub init: Option<Expr>,
+}
+
+#[derive(Parse)]
 pub struct StructBrace {
     #[brace]
     pub _wrap: Brace,
     #[inside(_wrap)]
-    #[call(parse_fields)]
-    pub fields: Punctuated<Field, Token![,]>,
+    #[call(Punctuated::parse_terminated)]
+    pub fields: Punctuated<FieldWithIniter, Token![,]>,
 }
 
 #[derive(Parse)]
@@ -114,10 +123,15 @@ impl DomDecorator for StateComponent {
         }
         if let Some(fields) = &self.fields {
             for field in &fields.fields {
+                let raw_field = &field.raw_field;
                 state_builder.add_field_with_initer(
-                    field.ident.as_ref().unwrap(),
-                    quote!(#field),
-                    quote!(Default::default()),
+                    field.raw_field.ident.as_ref().unwrap(),
+                    quote!(#raw_field),
+                    field
+                        .init
+                        .as_ref()
+                        .map(|e| e.to_token_stream())
+                        .unwrap_or_else(|| quote!(Default::default())),
                 );
             }
         }
@@ -169,10 +183,15 @@ impl DomDecorator for BundleStructure {
         }
         if let Some(fields) = &self.fields {
             for field in &fields.fields {
+                let raw_field = &field.raw_field;
                 bundle_builder.add_field_with_initer(
-                    field.ident.as_ref().unwrap(),
-                    quote!(#field),
-                    quote!(Default::default()),
+                    field.raw_field.ident.as_ref().unwrap(),
+                    quote!(#raw_field),
+                    field
+                        .init
+                        .as_ref()
+                        .map(|e| e.to_token_stream())
+                        .unwrap_or_else(|| quote!(Default::default())),
                 );
             }
         }

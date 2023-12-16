@@ -26,9 +26,17 @@ WindowTitle=>
 </MiniNodeBundle>
 }
 
-#[derive(Bundle)]
+#[derive(Bundle, Default)]
 pub struct PanelButtonBundle {
-    pub mini: MiniNodeBundle,
+    pub node: Node,
+    pub style: Style,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    pub visibility: Visibility,
+    pub inherited_visibility: InheritedVisibility,
+    pub view_visibility: ViewVisibility,
+    pub z_index: ZIndex,
+
     pub button: RoundedButtonAddonBundle,
 }
 
@@ -39,11 +47,8 @@ impl PanelButtonBundle {
         rect_material_set: &mut Assets<RoundedUiRectMaterial>,
     ) -> Self {
         Self {
-            mini: MiniNodeBundle {
-                style: Style {
-                    margin: UiRect::axes(Val::Px(4.0), Val::Auto),
-                    ..Default::default()
-                },
+            style: Style {
+                margin: UiRect::axes(Val::Px(4.0), Val::Auto),
                 ..Default::default()
             },
             button: RoundedButtonAddonBundle {
@@ -56,6 +61,7 @@ impl PanelButtonBundle {
                     .add(RoundedUiRectMaterial::new(theme.color("panel"), 8.0)),
                 ..Default::default()
             },
+            ..Default::default()
         }
     }
     pub fn with_callback(
@@ -70,11 +76,8 @@ impl PanelButtonBundle {
             theme.system(ButtonColor::callback_system::<RoundedUiRectMaterial>),
         ));
         Self {
-            mini: MiniNodeBundle {
-                style: Style {
-                    margin: UiRect::axes(Val::Px(4.0), Val::Auto),
-                    ..Default::default()
-                },
+            style: Style {
+                margin: UiRect::axes(Val::Px(4.0), Val::Auto),
                 ..Default::default()
             },
             button: RoundedButtonAddonBundle {
@@ -84,6 +87,7 @@ impl PanelButtonBundle {
                     .add(RoundedUiRectMaterial::new(theme.color("panel"), 8.0)),
                 ..Default::default()
             },
+            ..Default::default()
         }
     }
 }

@@ -24,18 +24,16 @@ Clock=>
     }
 }
 @global(theme:Theme)
-    <NodeBundle>
-        <TextBundle
-        Text=(Text::from_section(
-            state.text(),
-            TextStyle {
-                font_size: 24.0,
-                color: theme.color("panel-foreground"),
-                ..default()
-            },
-        ))
-        />
-    </NodeBundle>
+<TextBundle
+Text=(Text::from_section(
+    state.text(),
+    TextStyle {
+        font_size: 24.0,
+        color: theme.color("panel-foreground"),
+        ..default()
+    },
+))
+/>
 );
 
 pub struct ClockUiPlugin;

@@ -110,6 +110,7 @@ impl Plugin for ThemePlugin {
                 ("white".to_string(), color!("#D9D7D6")),
                 ("gray".to_string(), color!("#484E5B")),
                 ("slider:bar".to_string(), color!("#C8CED9")),
+                ("slider:bar:highlight".to_string(), color!("#DE8F78")),
                 ("slider:handle".to_string(), color!("#6791C9")),
                 ("panel".to_string(), Color::WHITE.with_a(0.5)),
                 ("panel:hover".to_string(), color!("#ffffff")),

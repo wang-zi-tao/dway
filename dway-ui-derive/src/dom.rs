@@ -1,6 +1,6 @@
 use derive_syn_parse::Parse;
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, ToTokens, quote_spanned};
+use quote::{quote, quote_spanned, ToTokens};
 use std::collections::BTreeMap;
 use syn::{parse::ParseStream, spanned::Spanned, token::Paren, *};
 
@@ -20,7 +20,7 @@ impl syn::parse::Parse for DomChildren {
 }
 
 #[derive(Parse)]
-enum DomBundle {
+pub(crate) enum DomBundle {
     #[peek(Paren, name = "Paren")]
     Expr {
         #[paren]
@@ -67,7 +67,7 @@ impl DomBundle {
 }
 
 #[derive(Parse)]
-struct DomEnd {
+pub(crate) struct DomEnd {
     _lt1: Token![<],
     _end1: Token![/],
     pub end_bundle: Option<Ident>,
@@ -90,6 +90,15 @@ pub struct Dom {
 impl Dom {
     pub fn span(&self) -> Span {
         self._lt0.span().join(self._gt0.span()).unwrap()
+    }
+
+    pub fn parse_vec(input: ParseStream) -> syn::Result<Vec<Self>> {
+        let mut vec = Vec::new();
+        while !input.is_empty() {
+            let arg: Self = input.parse()?;
+            vec.push(arg);
+        }
+        Ok(vec)
     }
 
     pub fn generate_spawn(&self) -> TokenStream {

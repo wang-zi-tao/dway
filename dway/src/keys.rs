@@ -5,10 +5,7 @@ use dway_client_core::{
     workspace::{ScreenAttachWorkspace, WindowOnWorkspace, Workspace, WorkspaceSet},
 };
 use dway_server::{macros::EntityCommandsExt, prelude::WindowAction};
-use dway_ui::{
-    framework::gallary::{Gallary, GallaryBundle},
-    prelude::spawn,
-};
+use dway_ui::{framework::gallary::WidgetGallaryBundle, prelude::spawn};
 
 pub fn wm_keys(
     input: Res<Input<KeyCode>>,
@@ -99,7 +96,7 @@ pub fn wm_keys(
     if alt && input.just_pressed(KeyCode::F5) {
         spawn! {
             &mut commands=>
-            <GallaryBundle @style="absolute right-32 bottom-32"/>
+            <WidgetGallaryBundle @style="absolute right-32 bottom-32"/>
         }
     }
 
