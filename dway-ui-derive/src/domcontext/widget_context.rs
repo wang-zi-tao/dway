@@ -184,7 +184,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
             state_builder.generate_init = true;
             state_builder.init.insert(
                 "__dway_changed_flags".to_string(),
-                quote!(Default::default()),
+                quote!(!0),
             );
             state_builder.attributes.push(quote! {
                 #[derive(Component)]
@@ -358,7 +358,7 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
     context.state_builder.generate_init = true;
     context.state_builder.init.insert(
         "__dway_changed_flags".to_string(),
-        quote!(Default::default()),
+        quote!(!0),
     );
     context.state_builder.attributes.push(quote! {
         #[derive(Component)]

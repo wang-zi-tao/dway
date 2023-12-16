@@ -1,6 +1,6 @@
+use smart_default::SmartDefault;
 use super::MousePosition;
 use crate::prelude::*;
-use smart_default::SmartDefault;
 
 #[derive(Component, SmartDefault, Reflect)]
 pub struct UiSlider {
@@ -31,7 +31,7 @@ UiSlider=>
 @global(theme:Theme)
 @global(mouse_position:MousePosition)
 @state_reflect()
-@use_state(pub value: f32<=prop.min)
+@use_state(pub value: f32)
 @bundle({
     pub interaction: Interaction,
     pub focus_policy: FocusPolicy = FocusPolicy::Block,
@@ -64,12 +64,12 @@ if ( slider_interaction.is_changed() || mouse_position.is_changed() )
 >
     <MiniNodeBundle @id="bar_highlight"
         @material(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(theme.color("slider:bar:highlight"), 4.0)) Style=(Style{
-        width: Val::Percent(100.0*(*state.value()-prop.min)/(prop.max-prop.min)),
+        width: Val::Percent(100.0*((*state.value()-prop.min)/(prop.max-prop.min)).max(0.0).min(1.0)),
         ..style!("m-2")
     }) />
 </MiniNodeBundle>
 <MiniNodeBundle Style=(Style{
-    margin:UiRect::left(Val::Percent(100.0*(*state.value()-prop.min)/(prop.max-prop.min))),
+    margin:UiRect::left(Val::Percent(100.0*((*state.value()-prop.min)/(prop.max-prop.min)).max(0.0).min(1.0))),
     ..style!("absolute w-0 h-full flex-col align-items:center justify-content:center align-self:center")
 }) >
     <MiniNodeBundle @id="handle" @style="absolute align-self:center w/h-1.0 h-80% min-w-16 min-h-16"

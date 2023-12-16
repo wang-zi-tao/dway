@@ -21,6 +21,7 @@ use crate::{
         svg::UiSvgBundle,
     },
     panels::{PanelButtonBundle, WindowTitleBundle},
+    popups::volume_control::VolumeControlBundle,
     prelude::*,
     widgets::{
         applist::AppListUIBundle,
@@ -57,6 +58,7 @@ impl Plugin for DWayUiPlugin {
             panels::WindowTitlePlugin,
             popups::app_window_preview::AppWindowPreviewPopupPlugin,
             popups::launcher::LauncherUIPlugin,
+            popups::volume_control::VolumeControlPlugin,
         ));
         app.add_systems(PreUpdate, init_screen_ui);
         app.add_systems(Startup, setup);
@@ -128,6 +130,7 @@ fn init_screen_ui(
                     <WindowTitleBundle/>
                 </MiniNodeBundle>
                 <MiniNodeBundle @style="absolute flex-row m-4 right-4" @id="right">
+                    <VolumeControlBundle/>
                     <(PanelButtonBundle::new(entity,&theme,&mut rect_material_set))>
                         <(UiSvgBundle::new(theme.icon("settings"))) @style="w-24 h-24"/>
                     </PanelButtonBundle>

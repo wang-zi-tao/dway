@@ -1,12 +1,13 @@
 #![feature(linked_list_cursors)]
 
 use bevy::prelude::*;
-use dway_server::schedule::DWayServerSet;
 use bevy_relationship::relationship;
+use dway_server::schedule::DWayServerSet;
 use log::info;
 
 pub mod components;
 pub mod compositor;
+pub mod controller;
 pub mod debug;
 pub mod desktop;
 pub mod input;
@@ -115,6 +116,7 @@ impl Plugin for DWayClientPlugin {
         app.add_systems(PreUpdate, (setup_2d, apply_deferred).chain().in_set(Init));
         app.add_systems(PostUpdate, apply_deferred.in_set(DestroyFlush));
         app.add_plugins((
+            controller::volume::VolumeControllerPlugin,
             compositor::CompositorPlugin,
             input::DWayInputPlugin { debug: false },
             desktop::DWayDesktop,

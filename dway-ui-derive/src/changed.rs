@@ -36,7 +36,7 @@ pub fn generate_change_detect(structure: &ItemStruct) -> anyhow::Result<TokenStr
             ty,
             ..
         } = &field;
-        fields.push(quote!(#(#attrs)* #ident #colon_token #ty));
+        fields.push(quote!(#(#attrs)* #vis #ident #colon_token #ty));
         let field_name = field
             .ident
             .as_ref()
