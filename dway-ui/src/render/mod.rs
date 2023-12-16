@@ -3,7 +3,7 @@ use bevy::{
     asset::{embedded_asset, load_internal_asset},
     render::render_resource::{AsBindGroup, ShaderType},
 };
-use bevy_tweening::{AnimationSystem, component_animator_system, asset_animator_system};
+use bevy_tweening::{asset_animator_system, component_animator_system, AnimationSystem};
 
 #[derive(AsBindGroup, Asset, Reflect, Debug, Clone)]
 #[reflect(Debug)]
@@ -67,8 +67,10 @@ impl UiMaterial for RoundedUiRectMaterial {
 pub fn update_material_size(
     ui_rect_query: Query<(&Node, &Handle<RoundedUiRectMaterial>), Changed<Node>>,
     ui_image_query: Query<(&Node, &Handle<RoundedUiImageMaterial>), Changed<Node>>,
+    ui_circle_query: Query<(&Node, &Handle<UiCircleMaterial>), Changed<Node>>,
     mut rect_material_set: ResMut<Assets<RoundedUiRectMaterial>>,
     mut image_material_set: ResMut<Assets<RoundedUiImageMaterial>>,
+    mut circle_material_set: ResMut<Assets<UiCircleMaterial>>,
 ) {
     ui_rect_query.for_each(|(node, handle)| {
         let Some(group) = rect_material_set.get_mut(handle.id()) else {
@@ -81,6 +83,12 @@ pub fn update_material_size(
             return;
         };
         group.settings.size = node.size();
+    });
+    ui_circle_query.for_each(|(node, handle)| {
+        let Some(group) = circle_material_set.get_mut(handle.id()) else {
+            return;
+        };
+        group.settings.corner = 0.5 * (node.size().x.min(node.size().y));
     });
 }
 
@@ -180,7 +188,7 @@ impl Plugin for DWayUiMaterialPlugin {
     }
 }
 
-impl Lens<RoundedUiRectMaterial> for ColorMaterialColorLens{
+impl Lens<RoundedUiRectMaterial> for ColorMaterialColorLens {
     fn lerp(&mut self, target: &mut RoundedUiRectMaterial, ratio: f32) {
         let start: Vec4 = self.start.into();
         let end: Vec4 = self.end.into();
@@ -189,7 +197,7 @@ impl Lens<RoundedUiRectMaterial> for ColorMaterialColorLens{
     }
 }
 
-impl Lens<UiCircleMaterial> for ColorMaterialColorLens{
+impl Lens<UiCircleMaterial> for ColorMaterialColorLens {
     fn lerp(&mut self, target: &mut UiCircleMaterial, ratio: f32) {
         let start: Vec4 = self.start.into();
         let end: Vec4 = self.end.into();

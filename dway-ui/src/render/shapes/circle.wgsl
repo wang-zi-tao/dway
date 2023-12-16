@@ -12,5 +12,5 @@ struct Settings {
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
 	let d = circleSDF(in.uv, rect.radius);
 
-    return rect.color * max(min(1.0-d,1.0),0.0);
+    return vec4(rect.color.xyz, rect.color.w * max(min(0.5-d,1.0),0.0));
 }

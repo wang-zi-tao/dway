@@ -33,6 +33,16 @@ fn parse_field_value(prefix: &str, style: &str, field: &str) -> TokenStream {
     quote!(#ident: #expr)
 }
 
+fn parse_field_f32(prefix: &str, style: &str, field: &str) -> TokenStream {
+    let ident = format_ident!("{}", field);
+    let style = &style.replace(prefix, "");
+    let Ok(value) = style.parse::<f32>() else {
+        let message = format!("invalid value: {style:?}");
+        return quote!(#ident: compile_error!(#message));
+    };
+    quote!(#ident: Some(#value))
+}
+
 fn parse_field_rect(prefix: &str, style: &str, field: &str) -> TokenStream {
     let ident = format_ident!("{}", field);
     let expr = parse_val(prefix, style);
@@ -101,6 +111,7 @@ pub fn generate(input: &LitStr) -> TokenStream {
             o if o.starts_with("right-") => parse_field_value("right-", o, "right"),
             o if o.starts_with("top-") => parse_field_value("top-", o, "top"),
             o if o.starts_with("bottom-") => parse_field_value("bottom-", o, "bottom"),
+            o if o.starts_with("w/h-") => parse_field_f32("w/h-", o, "aspect_ratio"),
             o if o.contains(':') => TokenStream::from_str(o).unwrap_or_else(|e| {
                 let message = format!("invalid style: {o:?} error: {e:?}");
                 quote!(error: compile_error!(#message))

@@ -389,7 +389,9 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
         }
     });
     context.plugin_builder.stmts.push(quote! {
-        app.add_systems(Update, #system_name.in_set(#systems_name::Render));
+        app.add_systems(Update, #system_name
+            .run_if(|query:Query<(),With<#name>>|{!query.is_empty()})
+            .in_set(#systems_name::Render));
     });
 
     context.resources_builder.generate_init = true;

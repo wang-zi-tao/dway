@@ -194,12 +194,12 @@ impl DomDecorator for Res {
         let Self {
             name, ty, mutable, ..
         } = self;
-        if mutable.is_some(){
+        if mutable.is_some() {
             context
                 .tree_context
                 .system_querys
                 .insert(name.to_string(), quote!(#mutable #name: ResMut<#ty>));
-        }else{
+        } else {
             context
                 .tree_context
                 .system_querys
@@ -340,5 +340,26 @@ impl DomDecorator for Query {
             }
             #inner
         }
+    }
+}
+
+#[derive(Parse)]
+pub struct WorldQuery {
+    name: Ident,
+    #[prefix(Token![:])]
+    ty: Type,
+}
+
+impl DomDecorator for WorldQuery {
+    fn key(&self) -> DomArgKey {
+        DomArgKey::WorldQuery(self.name.to_string())
+    }
+
+    fn update_context(&self, context: &mut WidgetNodeContext) {
+        let Self { name, ty, .. } = self;
+        context
+            .tree_context
+            .world_query
+            .insert(self.name.to_string(), (quote!(#name), quote!(#ty)));
     }
 }

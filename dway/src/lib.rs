@@ -33,15 +33,15 @@ use keys::*;
 use opttions::DWayOption;
 use std::time::Duration;
 
-const LOG_LEVEL: Level = Level::TRACE;
+const LOG_LEVEL: Level = Level::DEBUG;
 const LOG: &str = "\
 bevy_ecs=info,\
 bevy_render=debug,\
 bevy_ui=trace,\
 dway=debug,\
 bevy_relationship=debug,\
-dway_server=trace,\
-dway_server::input=trace,\
+dway_server=debug,\
+dway_server::input=debug,\
 dway_server::render=info,\
 dway_server::state=info,\
 dway_server::wl::buffer=info,\
@@ -182,17 +182,17 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     ));
 
     app.add_systems(Startup, setup);
-    // app.add_systems(
-    //     PreUpdate,
-    //     (
-    //         spawn_app::spawn
-    //             .run_if(on_event::<WaylandDisplayCreated>())
-    //             .in_set(DWayServerSet::CreateGlobal),
-    //         spawn_app::spawn_x11
-    //             .run_if(on_event::<DWayXWaylandReady>())
-    //             .in_set(DWayServerSet::UpdateXWayland),
-    //     ),
-    // );
+    app.add_systems(
+        PreUpdate,
+        (
+            spawn_app::spawn
+                .run_if(on_event::<WaylandDisplayCreated>())
+                .in_set(DWayServerSet::CreateGlobal),
+            spawn_app::spawn_x11
+                .run_if(on_event::<DWayXWaylandReady>())
+                .in_set(DWayServerSet::UpdateXWayland),
+        ),
+    );
     app.add_systems(Update, (wm_mouse_action, wm_keys, update));
     app.add_systems(Last, last);
 

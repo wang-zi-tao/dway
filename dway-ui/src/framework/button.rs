@@ -1,6 +1,7 @@
 use bevy::{ecs::system::SystemId, ui::FocusPolicy};
 use bevy_relationship::reexport::SmallVec;
 use bevy_tweening::{AssetAnimator, EaseMethod};
+use smart_default::SmartDefault;
 
 use crate::prelude::*;
 
@@ -92,7 +93,7 @@ pub fn process_ui_button_event(
     });
 }
 
-#[derive(Bundle, Default)]
+#[derive(Bundle, SmartDefault)]
 pub struct UiButtonAddonBundle {
     pub button: UiButton,
     pub interaction: Interaction,
@@ -102,7 +103,7 @@ impl From<UiButton> for UiButtonAddonBundle {
     fn from(value: UiButton) -> Self {
         Self {
             button: value,
-            interaction: Default::default(),
+            ..default()
         }
     }
 }
@@ -111,13 +112,13 @@ impl UiButtonAddonBundle {
     pub fn new(receiver: Entity, callback: SystemId<UiButtonEvent>) -> Self {
         Self {
             button: UiButton::new(receiver, callback),
-            interaction: Default::default(),
+            ..default()
         }
     }
     pub fn from_slice(callbacks: &[(Entity, SystemId<UiButtonEvent>)]) -> Self {
         Self {
             button: UiButton::from_slice(callbacks),
-            interaction: Default::default(),
+            ..default()
         }
     }
 }
@@ -216,7 +217,7 @@ impl ButtonColor {
     }
 }
 
-#[derive(Bundle, Default)]
+#[derive(Bundle, SmartDefault)]
 pub struct RoundedButtonAddonBundle {
     pub button: UiButton,
     pub interaction: Interaction,

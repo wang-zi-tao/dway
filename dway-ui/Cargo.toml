@@ -31,6 +31,7 @@ bevy_tweening = "0.9.0"
 dexterous_developer = {  workspace = true, optional=true }
 serde = { workspace = true, optional=true }
 measure_time = {workspace = true}
+smart-default = {workspace = true}
 
 [features]
 dynamic_reload = ["dep:dexterous_developer","dep:serde"]

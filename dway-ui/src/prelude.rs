@@ -19,3 +19,4 @@ pub use dexterous_developer::{
 pub use measure_time::{debug_time, error_time, info_time, print_time, trace_time};
 
 pub use bevy_tweening::TweenCompleted;
+use smart_default::SmartDefault;

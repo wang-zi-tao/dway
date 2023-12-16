@@ -82,7 +82,7 @@ pub fn style(input: TokenStream) -> TokenStream {
 pub fn node(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as Ident);
     let ident = format_ident!("node_{}_entity", input, span = input.span());
-    TokenStream::from(quote!( { widget.#ident }))
+    TokenStream::from(quote_spanned!(input.span()=> { widget.#ident }))
 }
 
 #[proc_macro_attribute]

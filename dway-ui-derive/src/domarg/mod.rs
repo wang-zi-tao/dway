@@ -61,7 +61,12 @@ pub trait DomDecorator: Any {
     fn wrap_spawn_children(&self, inner: TokenStream, _context: &mut DomContext) -> TokenStream {
         inner
     }
-    fn wrap_spawn(&self, inner: TokenStream, _context: &mut DomContext, need_update:bool) -> TokenStream {
+    fn wrap_spawn(
+        &self,
+        inner: TokenStream,
+        _context: &mut DomContext,
+        need_update: bool,
+    ) -> TokenStream {
         inner
     }
     fn wrap_update(&self, inner: TokenStream, _context: &mut WidgetNodeContext) -> TokenStream {
@@ -177,6 +182,7 @@ impl syn::parse::Parse for DomArg {
                         "query_many" => Box::new(content.parse::<data::QueryMany>()?),
                         "res" => Box::new(content.parse::<data::Res>()?),
                         "global" => Box::new(content.parse::<data::Res>()?),
+                        "world_query" => Box::new(content.parse::<data::WorldQuery>()?),
                         "background_color" => Box::new(content.parse::<ui::BackgroundColor>()?),
                         "handle" => Box::new(content.parse::<ui::Handle>()?),
                         "material" => Box::new(content.parse::<ui::Handle>()?),
@@ -185,6 +191,7 @@ impl syn::parse::Parse for DomArg {
                         "after" => Box::new(content.parse::<callback::AfterUpdate>()?),
                         "use_state" => Box::new(content.parse::<state::UseState>()?),
                         "state_component" => Box::new(content.parse::<state::StateComponent>()?),
+                        "state_reflect" => Box::new(content.parse::<state::StateReflect>()?),
                         "bundle" => Box::new(content.parse::<state::BundleStructure>()?),
                         "plugin" => Box::new(content.parse::<plugin::Plugin>()?),
                         "connect" => Box::new(content.parse::<relation::Connect>()?),

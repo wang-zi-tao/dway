@@ -1,3 +1,5 @@
+use std::any::TypeId;
+
 use crate::{parser::ParseCodeResult, prelude::*};
 
 use super::{DomArgKey, DomDecorator};
@@ -119,6 +121,27 @@ impl DomDecorator for StateComponent {
                 );
             }
         }
+    }
+}
+
+#[derive(Parse)]
+pub struct StateReflect {}
+
+impl DomDecorator for StateReflect {
+    fn key(&self) -> DomArgKey {
+        DomArgKey::Other(TypeId::of::<Self>(), "".to_owned())
+    }
+
+    fn update_context(&self, context: &mut WidgetNodeContext) {
+        context
+            .tree_context
+            .state_builder
+            .attributes
+            .push(quote! {#[derive(Reflect)]});
+        let state_name = context.tree_context.state_builder.name.clone();
+        context.tree_context.plugin_builder.stmts.push(quote! {
+            app.register_type::<#state_name>();
+        });
     }
 }
 

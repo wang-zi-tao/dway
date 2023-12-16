@@ -15,8 +15,12 @@ pub mod reexport {
 }
 
 use crate::{
-    framework::{button::{ButtonColor, RoundedButtonAddonBundle, UiButton}, svg::UiSvgBundle},
-    panels::{WindowTitleBundle, PanelButtonBundle},
+    framework::{
+        button::{ButtonColor, RoundedButtonAddonBundle, UiButton},
+        slider::UiSliderBundle,
+        svg::UiSvgBundle,
+    },
+    panels::{PanelButtonBundle, WindowTitleBundle},
     prelude::*,
     widgets::{
         applist::AppListUIBundle,
