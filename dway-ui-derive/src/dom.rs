@@ -78,8 +78,8 @@ pub(crate) struct DomEnd {
 pub struct Dom {
     _lt0: Token![<],
     pub bundle: DomBundle,
-    #[call(DomArg::parse_map)]
-    pub args: BTreeMap<DomArgKey, DomArg>,
+    #[call(DomArg::parse_vec)]
+    pub args: Vec<DomArg>,
     _end0: Option<Token![/]>,
     _gt0: Token![>],
     #[parse_if(_end0.is_none())]
@@ -110,7 +110,7 @@ impl Dom {
         );
         let components_expr: Vec<_> = self
             .args
-            .values()
+            .iter()
             .filter_map(|arg| arg.get_component_expr())
             .collect();
         if components_expr.is_empty() {

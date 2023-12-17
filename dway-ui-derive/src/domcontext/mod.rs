@@ -3,7 +3,10 @@ pub mod widget_context;
 
 use crate::{
     dom::Dom,
-    domarg::{control, DomArgKey},
+    domarg::{
+        control::{self, Id},
+        DomArgKey,
+    },
 };
 use convert_case::Casing;
 use quote::format_ident;
@@ -79,8 +82,13 @@ impl<'l> DomContext<'l> {
         self.dom_list.push(dom);
         if let Some(control::Id { id: lit }) = dom
             .args
-            .get(&DomArgKey::Id)
-            .and_then(|a| (&*a.inner as &dyn Any).downcast_ref::<control::Id>())
+            .iter()
+            .find(|f| f.inner.key() == DomArgKey::Id)
+            .map(|a| {
+                (&*a.inner as &dyn Any)
+                    .downcast_ref::<control::Id>()
+                    .unwrap()
+            })
         {
             format_ident!("{}", lit.value(), span = dom.span())
         } else if upper_case {

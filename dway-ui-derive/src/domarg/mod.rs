@@ -9,7 +9,7 @@ pub mod ui;
 use proc_macro2::{Span, TokenStream};
 use quote::quote_spanned;
 use std::{
-    any::{Any, TypeId},
+    any::{Any, TypeId, type_name},
     collections::BTreeMap,
 };
 use syn::{ext::IdentExt, parse::ParseStream, spanned::Spanned, token::Brace, *};
@@ -40,7 +40,12 @@ pub enum DomArgKey {
 }
 
 pub trait DomDecorator: Any {
-    fn key(&self) -> DomArgKey;
+    fn key(&self) -> DomArgKey{
+        DomArgKey::Other(
+            TypeId::of::<Self>(),
+            type_name::<Self>().to_string(),
+        )
+    }
     fn need_node_entity_field(&self) -> bool {
         false
     }
@@ -80,6 +85,12 @@ pub trait DomDecorator: Any {
     ) -> TokenStream {
         inner
     }
+    fn before_foreach(
+        &self,
+        _context: &mut WidgetNodeContext,
+    )->Option<TokenStream>{
+        None
+    }
 }
 
 pub struct DomArg {
@@ -94,16 +105,6 @@ impl DomArg {
 
     pub fn span(&self) -> Span {
         self.span
-    }
-
-    pub fn parse_map(input: ParseStream) -> syn::Result<BTreeMap<DomArgKey, Self>> {
-        let mut map = BTreeMap::default();
-        while input.peek(Token![@]) || input.peek(Ident) {
-            let arg: Self = input.parse()?;
-            let key = arg.key();
-            map.insert(key, arg);
-        }
-        Ok(map)
     }
 
     pub fn parse_vec(input: ParseStream) -> syn::Result<Vec<DomArg>> {
@@ -187,11 +188,13 @@ impl syn::parse::Parse for DomArg {
                         "handle" => Box::new(content.parse::<ui::Handle>()?),
                         "material" => Box::new(content.parse::<ui::Handle>()?),
                         "callback" => Box::new(content.parse::<callback::Callback>()?),
+                        "first" => Box::new(content.parse::<callback::First>()?),
                         "before" => Box::new(content.parse::<callback::BeforeUpdate>()?),
                         "after" => Box::new(content.parse::<callback::AfterUpdate>()?),
                         "use_state" => Box::new(content.parse::<state::UseState>()?),
                         "state_component" => Box::new(content.parse::<state::StateComponent>()?),
                         "state_reflect" => Box::new(content.parse::<state::StateReflect>()?),
+                        "prop_reflect" => Box::new(content.parse::<state::PropReflect>()?),
                         "bundle" => Box::new(content.parse::<state::BundleStructure>()?),
                         "plugin" => Box::new(content.parse::<plugin::Plugin>()?),
                         "connect" => Box::new(content.parse::<relation::Connect>()?),

@@ -66,7 +66,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
         let entity_var = node_context.get_var("_entity");
         let just_init_var = node_context.get_var("_just_inited");
 
-        let need_node_entity = dom.args.values().any(|arg| arg.need_node_entity());
+        let need_node_entity = dom.args.iter().any(|arg| arg.need_node_entity());
         let (entity_expr, set_entity_stat) = if need_node_entity {
             let field = node_context.get_field("_entity");
             self.widget_builder.add_field_with_initer(
@@ -93,7 +93,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
         };
 
         dom.args
-            .values()
+            .iter()
             .for_each(|arg| arg.inner.update_context(&mut context));
 
         let set_entity_var_stmt = if export_entity {
@@ -118,7 +118,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                 #just_init_var = true;
                 #set_entity_stat
             };
-            let init_stat = dom.args.values().fold(init_stat, |inner, arg| {
+            let init_stat = dom.args.iter().fold(init_stat, |inner, arg| {
                 arg.inner
                     .wrap_spawn(inner, context.tree_context.dom_context, true)
             });
@@ -127,7 +127,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
 
         let update_component_stat = dom
             .args
-            .values()
+            .iter()
             .map(|arg| arg.inner.generate_update(&mut context))
             .collect::<Vec<_>>();
         let update_stat = if update_component_stat.is_empty() {
@@ -138,7 +138,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
             })
         };
 
-        let process_node_stat = dom.args.values().rev().fold(
+        let process_node_stat = dom.args.iter().rev().fold(
             BoolExpr::RuntimeValue(quote!(#parent_just_inited ))
                 .to_if_else(quote! { #init_stat }, update_stat.as_ref())
                 .unwrap_or_default(),
@@ -155,7 +155,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
 
         let (child_ident, spawn_children): (Option<Ident>, TokenStream) = if dom
             .args
-            .values()
+            .iter()
             .any(|arg| arg.inner.need_sub_widget())
         {
             let lambda_var =
@@ -182,10 +182,9 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
             let mut state_namespace = dom_id.to_string().to_case(convert_case::Case::Snake);
             let mut state_builder = ComponentBuilder::new(sub_widget_state_type.clone());
             state_builder.generate_init = true;
-            state_builder.init.insert(
-                "__dway_changed_flags".to_string(),
-                quote!(!0),
-            );
+            state_builder
+                .init
+                .insert("__dway_changed_flags".to_string(), quote!(!0));
             state_builder.attributes.push(quote! {
                 #[derive(Component)]
                 #[dway_ui_derive::change_detact]
@@ -210,7 +209,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                 parent_just_inited: parent_just_inited.clone(),
             };
             dom.args
-                .values()
+                .iter()
                 .for_each(|arg| arg.inner.update_sub_widget_context(&mut context));
 
             let spawn_children = dom
@@ -248,7 +247,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                 just_inited: just_init_var.clone(),
                 parent_just_inited: parent_just_inited.clone(),
             };
-            let spawn_children = dom.args.values().rev().fold(spawn_children, |stat, arg| {
+            let spawn_children = dom.args.iter().rev().fold(spawn_children, |stat, arg| {
                 arg.inner.wrap_sub_widget(stat, &mut context)
             });
 
@@ -297,7 +296,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
             parent_just_inited: parent_just_inited.clone(),
         };
 
-        let spawn_children = dom.args.values().rev().fold(spawn_children, |stat, arg| {
+        let spawn_children = dom.args.iter().rev().fold(spawn_children, |stat, arg| {
             arg.inner
                 .wrap_update_children(child_ident.clone(), stat, &mut context)
         });
@@ -356,10 +355,10 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
     };
 
     context.state_builder.generate_init = true;
-    context.state_builder.init.insert(
-        "__dway_changed_flags".to_string(),
-        quote!(!0),
-    );
+    context
+        .state_builder
+        .init
+        .insert("__dway_changed_flags".to_string(), quote!(!0));
     context.state_builder.attributes.push(quote! {
         #[derive(Component)]
         #[dway_ui_derive::change_detact]
@@ -390,6 +389,8 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
 
     context.resources_builder.generate_init = true;
 
+    let mut before_foreach = Vec::new();
+
     let output = {
         let outputs = dom.iter().map(|dom| {
             context
@@ -417,6 +418,9 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
             output = arg
                 .inner
                 .wrap_update_children(None, output, &mut node_context);
+            if let Some(tokens) = arg.inner.before_foreach(&mut node_context){
+                before_foreach.push(tokens);
+            }
         }
         quote!( #update #output )
     };
@@ -484,6 +488,7 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
             #(#system_args),*
         ) {
             let commands = &mut __dway_ui_commands;
+            #(#before_foreach)*
             for (
                 this_entity,
                 prop,

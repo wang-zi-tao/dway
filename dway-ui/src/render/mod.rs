@@ -20,6 +20,12 @@ impl UiCircleMaterial {
     }
 }
 
+impl From<(Color, f32)> for UiCircleMaterial {
+    fn from((color, coner): (Color, f32)) -> Self {
+        Self::new(color, coner)
+    }
+}
+
 #[derive(Debug, Clone, Default, ShaderType, Reflect)]
 pub struct UiCircleSettings {
     pub color: Color,
@@ -48,6 +54,12 @@ impl RoundedUiRectMaterial {
                 size: Vec2::new(1.0, 1.0),
             },
         }
+    }
+}
+
+impl From<(Color, f32)> for RoundedUiRectMaterial {
+    fn from(value: (Color, f32)) -> Self {
+        Self::new(value.0, value.1)
     }
 }
 

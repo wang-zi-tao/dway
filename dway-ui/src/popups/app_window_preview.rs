@@ -57,7 +57,6 @@ fn focus_window(
         focused.window_entity = Some(widget.data_entity);
     }
 }}
-@bundle{{pub popup: UiPopupAddonBundle}}
 @plugin{
     app.register_type::<AppWindowPreviewPopup>();
     app.configure_sets(Update, AppWindowPreviewPopupSystems::Render.before(PopupUiSystems::Close));

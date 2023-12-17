@@ -1,3 +1,5 @@
+use std::any::TypeId;
+
 use crate::prelude::*;
 
 use super::{DomArgKey, DomDecorator};
@@ -97,5 +99,20 @@ impl DomDecorator for AfterUpdate {
             #inner
             #(#stmts)*
         }
+    }
+}
+
+#[derive(Parse)]
+pub struct First {
+    #[call(Block::parse_within)]
+    pub stmts: Vec<Stmt>,
+}
+
+impl DomDecorator for First {
+    fn before_foreach(&self, _context: &mut WidgetNodeContext) -> Option<TokenStream> {
+        let Self { stmts } = self;
+        Some(quote! {
+            #(#stmts)*
+        })
     }
 }

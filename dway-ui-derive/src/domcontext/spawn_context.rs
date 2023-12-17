@@ -45,7 +45,7 @@ impl<'l> SpawnDomContext<'l> {
         } else {
             let spawn_children = dom
                 .args
-                .values()
+                .iter()
                 .fold(quote! {#(#spawn_children)*}, |inner, arg| {
                     arg.inner.wrap_spawn_children(inner, &mut self.dom_context)
                 });
@@ -57,7 +57,7 @@ impl<'l> SpawnDomContext<'l> {
                 });
             }
         };
-        let tokens = dom.args.values().fold(tokens, |inner, arg| {
+        let tokens = dom.args.iter().fold(tokens, |inner, arg| {
             arg.inner.wrap_spawn(inner, &mut self.dom_context, false)
         });
         self.pop();

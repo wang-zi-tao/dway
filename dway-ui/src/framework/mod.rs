@@ -6,6 +6,7 @@ pub mod drag;
 pub mod evnet;
 pub mod gallary;
 pub mod icon;
+pub mod scroll;
 pub mod slider;
 pub mod svg;
 pub mod text;
@@ -116,6 +117,10 @@ impl Plugin for UiFrameworkPlugin {
         app.register_system(ButtonColor::callback_system::<UiCircleMaterial>);
         app.register_system(checkbox::checkbox_color_callback::<RoundedUiRectMaterial>);
         app.register_system(checkbox::checkbox_color_callback::<UiCircleMaterial>);
-        app.add_plugins((slider::UiSliderPlugin, gallary::WidgetGallaryPlugin));
+        app.add_plugins((
+            slider::UiSliderPlugin,
+            gallary::WidgetGallaryPlugin,
+            scroll::UiScrollPlugin,
+        ));
     }
 }

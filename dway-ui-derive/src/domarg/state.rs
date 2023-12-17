@@ -1,7 +1,4 @@
-use std::any::TypeId;
-
 use crate::{parser::ParseCodeResult, prelude::*};
-
 use super::{DomArgKey, DomDecorator};
 
 #[derive(Parse)]
@@ -77,10 +74,6 @@ impl DomDecorator for UseState {
     }
 }
 
-fn parse_fields(input: ParseStream<'_>) -> Result<Punctuated<Field, Token![,]>> {
-    input.parse_terminated(Field::parse_named, Token![,])
-}
-
 #[derive(Parse)]
 pub struct FieldWithIniter {
     #[call(Field::parse_named)]
@@ -142,10 +135,6 @@ impl DomDecorator for StateComponent {
 pub struct StateReflect {}
 
 impl DomDecorator for StateReflect {
-    fn key(&self) -> DomArgKey {
-        DomArgKey::Other(TypeId::of::<Self>(), "".to_owned())
-    }
-
     fn update_context(&self, context: &mut WidgetNodeContext) {
         context
             .tree_context
@@ -155,6 +144,18 @@ impl DomDecorator for StateReflect {
         let state_name = context.tree_context.state_builder.name.clone();
         context.tree_context.plugin_builder.stmts.push(quote! {
             app.register_type::<#state_name>();
+        });
+    }
+}
+
+#[derive(Parse)]
+pub struct PropReflect {}
+
+impl DomDecorator for PropReflect {
+    fn update_context(&self, context: &mut WidgetNodeContext) {
+        let prop_name = format_ident!("{}", &context.tree_context.context.namespace);
+        context.tree_context.plugin_builder.stmts.push(quote! {
+            app.register_type::<#prop_name>();
         });
     }
 }

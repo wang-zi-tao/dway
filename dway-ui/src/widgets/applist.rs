@@ -1,9 +1,3 @@
-use bevy_svg::prelude::Svg;
-use dway_client_core::desktop::FocusedWindow;
-use dway_server::apps::{
-    icon::{Icon, IconLoader, IconResorce},
-    WindowList,
-};
 use super::popup::{delay_destroy, UiPopup};
 use crate::{
     framework::{
@@ -14,6 +8,12 @@ use crate::{
     prelude::*,
     theme::Theme,
     widgets::popup::UiPopupAddonBundle,
+};
+use bevy_svg::prelude::Svg;
+use dway_client_core::desktop::FocusedWindow;
+use dway_server::apps::{
+    icon::{Icon, IconLoader, IconResorce},
+    WindowList,
 };
 
 #[derive(Component, Reflect)]
@@ -36,19 +36,17 @@ fn open_popup(
 ){
     let Ok(widget) = prop_query.get(event.receiver)else{return;};
     if widget.node_popup_entity == Entity::PLACEHOLDER {return;}
-    if event.kind == UiButtonEventKind::Pressed{
+    if event.kind == UiButtonEventKind::Released{
         commands.spawn(AppWindowPreviewPopupBundle{
             prop:AppWindowPreviewPopup{app:widget.data_entity},
-            popup: UiPopupAddonBundle{
-                popup: UiPopup{
-                    callback: Some(theme.system(delay_destroy)),
-                    ..default()
-                },
-                ..default()
-            },
             style: style!("absolute bottom-110% align-self:center"),
             ..default()
-        }).set_parent(widget.node_popup_entity);
+        })
+        .insert(UiPopupAddonBundle::from( UiPopup{
+            callback: Some(theme.system(delay_destroy)),
+            ..default()
+        }))
+        .set_parent(widget.node_popup_entity);
     }
 }}
 @state_component(#[derive(Reflect,serde::Serialize,serde::Deserialize)])
@@ -84,4 +82,3 @@ fn open_popup(
     </NodeBundle>
 </>
 }
-

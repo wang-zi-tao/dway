@@ -360,6 +360,6 @@ impl DomDecorator for WorldQuery {
         context
             .tree_context
             .world_query
-            .insert(self.name.to_string(), (quote!(#name), quote!(#ty)));
+            .insert(self.name.to_string(), (quote!(mut #name), quote!(#ty)));
     }
 }
