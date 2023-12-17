@@ -124,13 +124,17 @@ fn init_screen_ui(
                 <MiniNodeBundle @style="absolute flex-row m-4 left-4" @id="left">
                     <(PanelButtonBundle::with_callback(entity,&theme,&mut rect_material_set, &[
                         (entity,theme.system(popups::launcher::open_popup))
-                    ]))>
+                    ])) @style="flex-col">
                         <(UiSvgBundle::new(theme.icon("dashboard"))) @style="w-24 h-24"/>
                     </PanelButtonBundle>
                     <WindowTitleBundle/>
                 </MiniNodeBundle>
                 <MiniNodeBundle @style="absolute flex-row m-4 right-4" @id="right">
-                    <VolumeControlBundle/>
+                    <(PanelButtonBundle::with_callback(entity,&theme,&mut rect_material_set, &[
+                        (entity,theme.system(popups::volume_control::open_popup))
+                    ])) @style="flex-col">
+                        <(UiSvgBundle::new(theme.icon("volume_on"))) @style="w-24 h-24"/>
+                    </PanelButtonBundle>
                     <(PanelButtonBundle::new(entity,&theme,&mut rect_material_set))>
                         <(UiSvgBundle::new(theme.icon("settings"))) @style="w-24 h-24"/>
                     </PanelButtonBundle>

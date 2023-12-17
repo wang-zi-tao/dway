@@ -17,7 +17,7 @@ dhat = {version="0.3.2", optional=true}
 dexterous_developer = {  workspace = true, optional=true }
 
 [dependencies.bevy]
-features = ["jpeg", "wayland", "serialize", "default_font", "subpixel_glyph_atlas"]
+features = ["jpeg", "wayland", "serialize", "default_font", "subpixel_glyph_atlas", "file_watcher", "embedded_watcher"]
 version = "0.12"
 
 [dependencies.bevy-inspector-egui]

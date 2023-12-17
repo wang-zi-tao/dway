@@ -3,8 +3,8 @@ use crate::{panels::PanelButtonBundle, prelude::*, widgets::popup::UiPopupAddonB
 use super::{
     button::UiButtonBundle,
     slider::{UiSliderBundle, UiSliderState},
-    svg::UiSvgBundle,
-    text::UiTextBundle,
+    svg::{UiSvgBundle, UiSvg},
+    text::UiTextBundle, checkbox::{RoundedCheckBoxAddonBundle, UiCheckBox, UiCheckBoxState},
 };
 
 #[derive(Component, Default)]
@@ -14,6 +14,7 @@ dway_widget! {
 WidgetGallary=>
 @bundle{{pub popup: UiPopupAddonBundle}}
 @global(theme: Theme)
+@global(asset_server: AssetServer)
 <MiniNodeBundle @style="full flex-col min-w-512 min-h-512 p-8 justify-content:space-evenly"
         @material(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(theme.color("background"), 16.0))
     >
@@ -52,6 +53,19 @@ WidgetGallary=>
         <UiSliderBundle @style="h-16 m-16"/>
         <UiSliderBundle @style="h-16 m-16"
             UiSliderState=({let mut s=UiSliderState::default();s.set_value(0.5); s}) />
+    </MiniNodeBundle>
+    <(UiTextBundle::new("checkbox",24,&theme)) @style="w-256 h-24"/>
+    <MiniNodeBundle @style="p-4 justify-content:space-evenly"
+        @material(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(theme.color("background1"), 16.0))
+    >
+        <MiniNodeBundle @style="p-4 align-self:center"
+            RoundedCheckBoxAddonBundle=(RoundedCheckBoxAddonBundle::new(UiCheckBox::default(),&mut assets_rounded_ui_rect_material,&theme,"panel",this_entity)) >
+            <UiSvgBundle @style="w-32 h-32" UiSvg=(asset_server.load("embedded://dway_ui/icons/volume_off.svg").into()) />
+        </MiniNodeBundle>
+        <MiniNodeBundle @style="p-4 align-self:center"
+            RoundedCheckBoxAddonBundle=(RoundedCheckBoxAddonBundle::new(UiCheckBox::default(),&mut assets_rounded_ui_rect_material,&theme,"panel",this_entity)) >
+            <(UiTextBundle::new("text",24,&theme))/>
+        </MiniNodeBundle>
     </MiniNodeBundle>
 </MiniNodeBundle>
 }

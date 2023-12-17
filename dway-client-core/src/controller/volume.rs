@@ -17,6 +17,7 @@ impl VolumeController {
     }
 
     pub fn set_mute(&mut self, mute: bool) -> anyhow::Result<()> {
+        trace!("set mute: {mute}");
         let device = self.controller.get_default_device()?;
         if self.mute != mute {
             self.controller.set_device_mute_by_index(device.index, mute);
@@ -26,6 +27,7 @@ impl VolumeController {
     }
 
     pub fn increase(&mut self, delta: f32) -> anyhow::Result<()> {
+        trace!("increase volume: {delta}");
         let device = self.controller.get_default_device()?;
         self.controller
             .increase_device_volume_by_percent(device.index, delta as f64);
@@ -37,7 +39,8 @@ impl VolumeController {
     }
 
     pub fn set_volume(&mut self, value: f32) -> anyhow::Result<()> {
-        let mut device = self.controller.get_default_device()?;
+        trace!("set volume: {value}");
+        let device = self.controller.get_default_device()?;
         let current_volume = device
             .volume
             .get()
@@ -47,13 +50,17 @@ impl VolumeController {
             .unwrap_or_default();
         self.controller.increase_device_volume_by_percent(
             device.index,
-            (value as f64 - current_volume / Volume::NORMAL.0 as f64),
+            value as f64 - current_volume / Volume::NORMAL.0 as f64,
         );
         let volume = value as f64 * Volume::NORMAL.0 as f64;
         if self.volume != volume as u32 {
             self.volume = volume as u32;
         }
         Ok(())
+    }
+
+    pub fn is_mute(&self) -> bool {
+        self.mute
     }
 }
 

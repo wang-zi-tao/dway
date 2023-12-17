@@ -10,21 +10,27 @@ use bevy::{
         },
     },
 };
-use bevy_vector_shapes::{
-    prelude::ShapePainter,
-    render::ShapePipelineType,
-    shapes::RectPainter,
-};
+use bevy_vector_shapes::{prelude::ShapePainter, render::ShapePipelineType, shapes::RectPainter};
 use const_fnv1a_hash::fnv1a_hash_16_xor;
+use smart_default::SmartDefault;
 
-#[derive(Component, Debug, Clone, Reflect, Default)]
+#[derive(Component, Debug, Clone, Reflect, SmartDefault)]
 pub struct UiCanvas {
     image: Handle<Image>,
     size: Vec2,
     refresh: bool,
+    #[default(true)]
+    reuse_image: bool,
 }
 
 impl UiCanvas {
+    pub fn new_no_reuse() -> Self {
+        Self {
+            reuse_image: false,
+            ..Default::default()
+        }
+    }
+
     pub fn image(&self) -> &Handle<Image> {
         &self.image
     }
@@ -50,6 +56,14 @@ impl UiCanvas {
 
     pub fn set_image(&mut self, image: Handle<Image>) {
         self.image = image;
+    }
+
+    pub fn reuse_image(&self) -> bool {
+        self.reuse_image
+    }
+
+    pub fn set_reuse_image(&mut self, reuse_image: bool) {
+        self.reuse_image = reuse_image;
     }
 }
 
@@ -150,7 +164,10 @@ pub fn prepare_render_command(
             canvas.refresh = false;
             canvas.size = node.size();
             if node_size.x > 0.0 && node_size.y > 0.0 {
-                let handle = if node_size != canvas.size() || canvas.image.is_weak() {
+                let handle = if node_size != canvas.size()
+                    || !canvas.reuse_image
+                    || canvas.image.is_weak()
+                {
                     let size = Extent3d {
                         width: node_size.x as u32 * 2,
                         height: node_size.y as u32 * 2,

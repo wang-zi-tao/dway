@@ -15,6 +15,8 @@ impl Plugin for DWayAssetsPlugin {
         embedded_asset!(app, "/assets/", "icons/restart.svg");
         embedded_asset!(app, "/assets/", "icons/settings.svg");
         embedded_asset!(app, "/assets/", "icons/user.svg");
+        embedded_asset!(app, "/assets/", "icons/volume_off.svg");
+        embedded_asset!(app, "/assets/", "icons/volume_on.svg");
         embedded_asset!(app, "/assets/", "fonts/SmileySans-Oblique.otf");
         embedded_asset!(app, "/assets/", "fonts/SmileySans-Oblique.otf.woff2");
         embedded_asset!(app, "/assets/", "fonts/SmileySans-Oblique.ttf");

@@ -1,4 +1,4 @@
-use std::any::{Any, TypeId};
+use std::any::{type_name, Any, TypeId};
 
 use bevy::{ecs::system::SystemId, utils::HashMap};
 use bevy_svg::prelude::Svg;
@@ -50,13 +50,18 @@ impl Theme {
         T::In: 'static,
         T::Out: 'static,
     {
-        *self
-            .callbacks
-            .get(&system.type_id())
-            .unwrap()
-            .as_ref()
-            .downcast_ref()
-            .unwrap()
+        let Some(callback) = self.callbacks.get(&system.type_id()) else {
+            panic!(
+                "system is not registered: {system}
+note: add code
+```
+use dway_ui::theme::ThemeAppExt;
+app.register_system({system});
+``` to the plugin to register the system",
+                system = type_name::<T>()
+            );
+        };
+        *callback.as_ref().downcast_ref().unwrap()
     }
 }
 
@@ -82,6 +87,8 @@ impl Plugin for ThemePlugin {
                 "restart",
                 "settings",
                 "user",
+                "volume_off",
+                "volume_on",
             ]
             .iter()
             .map(|name| {

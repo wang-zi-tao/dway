@@ -70,7 +70,11 @@ fn parse_align(prefix: &str, style: &str, field: &str, ty: &str) -> TokenStream 
 pub fn generate(input: &LitStr) -> TokenStream {
     let mut fields = vec![];
     for component in input.value().split(' ') {
-        let tokens = match component.trim() {
+        let component = component.trim();
+        if component.is_empty(){
+            continue
+        }
+        let tokens = match component {
             "w-full" => quote!(width:Val::Percent(100.0)),
             "h-full" => quote!(height:Val::Percent(100.0)),
             "full" => quote!(width:Val::Percent(100.0),height:Val::Percent(100.0)),

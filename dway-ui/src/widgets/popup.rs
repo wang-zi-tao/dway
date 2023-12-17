@@ -58,6 +58,12 @@ pub struct UiPopup {
     pub anchor: Option<Entity>,
 }
 impl UiPopup {
+    pub fn new(callback: Option<SystemId<PopupEvent, ()>>) -> Self {
+        UiPopup {
+            callback,
+            ..default()
+        }
+    }
     pub fn new_auto_destroy(callback: Option<SystemId<PopupEvent, ()>>) -> Self {
         UiPopup {
             callback,

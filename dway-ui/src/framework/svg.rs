@@ -23,6 +23,23 @@ impl From<Handle<Svg>> for UiSvg {
     }
 }
 
+pub fn update_uisvg(
+    mut svg_query: Query<(&UiSvg, &Node, &mut UiCanvas, &mut UiImage), Changed<UiSvg>>,
+    mut cache: ResMut<SvgImageCache>,
+) {
+    svg_query.for_each_mut(|(ui_svg, node, mut ui_canvas, mut ui_image)| {
+        if let Some(image) = cache.cache.get(&(ui_svg.svg.id(), node.size().as_ivec2())) {
+            ui_image.texture = image.clone();
+            ui_canvas.set_image(image.clone());
+            debug!("UiSvg: reuse image {:?} {:?}", &ui_svg.svg, node.size());
+        } else {
+            ui_image.texture = Default::default();
+            ui_canvas.set_image(ui_image.texture.clone());
+            ui_canvas.set_refresh(true);
+        }
+    })
+}
+
 pub fn uisvg_render(
     mut svg_query: Query<(
         &UiSvg,
@@ -38,11 +55,14 @@ pub fn uisvg_render(
 ) {
     svg_query.for_each_mut(
         |(ui_svg, node, mut render_command, mut ui_canvas, mut ui_image)| {
+            ui_canvas.set_reuse_image(false);
             if let Some(image) = cache.cache.get(&(ui_svg.svg.id(), node.size().as_ivec2())) {
                 ui_image.texture = image.clone();
                 ui_canvas.set_image(image.clone());
+                debug!("UiSvg: reuse image {:?} {:?}", ui_svg.svg, node.size());
                 return;
             }
+            debug!("UiSvg: render image {:?} {:?}", ui_svg.svg, node.size());
             let svg_size = svgs
                 .get(&ui_svg.svg)
                 .map(|svg| svg.size)
@@ -76,9 +96,10 @@ pub fn uisvg_render(
     )
 }
 
-#[derive(Bundle, Default)]
+#[derive(Bundle, SmartDefault)]
 pub struct UiSvgBundle {
     pub svg: UiSvg,
+    #[default(UiCanvas::new_no_reuse())]
     pub canvas: UiCanvas,
     pub node: ImageBundle,
 }
@@ -103,9 +124,10 @@ impl Default for SvgImageCache {
     }
 }
 
-#[derive(Bundle, Default)]
+#[derive(Bundle, SmartDefault)]
 pub struct UiSvgAddonBundle {
     pub svg: UiSvg,
+    #[default(UiCanvas::new_no_reuse())]
     pub canvas: UiCanvas,
     pub image: UiImage,
     pub image_size: UiImageSize,

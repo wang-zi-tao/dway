@@ -1,6 +1,7 @@
 pub mod animation;
 pub mod button;
 pub mod canvas;
+pub mod checkbox;
 pub mod drag;
 pub mod evnet;
 pub mod gallary;
@@ -79,9 +80,13 @@ impl Plugin for UiFrameworkPlugin {
                     .chain()
                     .in_set(canvas::UiCanvasSystems::Prepare),
                 (button::process_ui_button_event,),
-                svg::uisvg_render.after(canvas::UiCanvasSystems::Prepare),
+                (
+                    svg::update_uisvg.before(canvas::UiCanvasSystems::Prepare),
+                    svg::uisvg_render.after(canvas::UiCanvasSystems::Prepare),
+                ),
                 drag::update_draggable
                     .run_if(on_event::<MouseMotion>().and_then(any_with_component::<Draggable>())),
+                (checkbox::process_ui_checkbox_event),
             ),
         );
         app.add_systems(
@@ -102,11 +107,15 @@ impl Plugin for UiFrameworkPlugin {
         app.register_type::<button::ButtonColor>();
         app.register_type::<drag::Draggable>();
         app.register_type::<MousePosition>();
+        app.register_type::<checkbox::UiCheckBox>();
+        app.register_type::<checkbox::UiCheckBoxState>();
         app.init_resource::<canvas::UiCanvasRenderArea>();
         app.init_resource::<svg::SvgImageCache>();
         app.init_resource::<MousePosition>();
         app.register_system(ButtonColor::callback_system::<RoundedUiRectMaterial>);
         app.register_system(ButtonColor::callback_system::<UiCircleMaterial>);
+        app.register_system(checkbox::checkbox_color_callback::<RoundedUiRectMaterial>);
+        app.register_system(checkbox::checkbox_color_callback::<UiCircleMaterial>);
         app.add_plugins((slider::UiSliderPlugin, gallary::WidgetGallaryPlugin));
     }
 }

@@ -1,0 +1,13 @@
+/target
+/output
+trace-*.json
+perf.data
+perf.data.old
+flamegraph.svg
+./dway/assets/background*.jpg
+*.tracy
+*.rs~
+.snapshot
+.*
+!.gitignore
+dhat-heap.json
