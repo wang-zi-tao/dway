@@ -88,8 +88,10 @@ pub fn open_popup(
                     style: style!("absolute top-120% align-self:end p-8"),
                     ..default()
                 },
-                UiPopupAddonBundle::from(UiPopup::new(Some(theme.system(delay_destroy)))),
             ))
+            .insert(UiPopupAddonBundle::from(UiPopup::new(Some(
+                theme.system(delay_destroy),
+            ))))
             .set_parent(event.button);
     }
 }

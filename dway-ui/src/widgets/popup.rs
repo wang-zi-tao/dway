@@ -6,6 +6,7 @@ use crate::{
     framework::{
         animation::despawn_animation,
         button::{self, UiButton},
+        MousePosition,
     },
     prelude::*,
 };
@@ -74,13 +75,14 @@ impl UiPopup {
 }
 
 pub fn auto_close_popup(
-    mut popup_query: Query<(Entity, &mut UiPopup, &Interaction)>,
+    mut popup_query: Query<(Entity, &mut UiPopup, &Node, &GlobalTransform)>,
     mouse: Res<Input<MouseButton>>,
+    mouse_position: Res<'_, MousePosition>,
     mut commands: Commands,
 ) {
     let mouse_down =
         || mouse.any_just_pressed([MouseButton::Left, MouseButton::Middle, MouseButton::Right]);
-    popup_query.for_each_mut(|(entity, mut popup, button_state)| {
+    popup_query.for_each_mut(|(entity, mut popup, node, transform)| {
         let run_close_callback = |popup: &UiPopup, commands: &mut Commands| {
             if let Some(callback) = popup.callback {
                 commands.run_system_with_input(
@@ -92,21 +94,21 @@ pub fn auto_close_popup(
                 );
             }
         };
+        let slider_rect = Rect::from_center_size(transform.translation().xy(), node.size());
+        let mouse_inside = slider_rect.contains(mouse_position.position.unwrap_or_default());
         match popup.close_policy {
-            PopupClosePolicy::MouseLeave => match button_state {
-                Interaction::Pressed => {}
-                Interaction::Hovered => {
-                    popup.hovered = true;
-                }
-                Interaction::None => {
-                    if popup.hovered || button_state == &Interaction::None && mouse_down() {
+            PopupClosePolicy::MouseLeave => {
+                if !mouse_inside {
+                    if !popup.hovered {
                         popup.state = PopupState::Closed;
                         run_close_callback(&popup, &mut commands);
                     }
+                } else {
+                    popup.hovered = true;
                 }
-            },
+            }
             PopupClosePolicy::MouseButton => {
-                if button_state == &Interaction::None && mouse_down() {
+                if !mouse_inside && mouse_down() {
                     popup.state = PopupState::Closed;
                     run_close_callback(&popup, &mut commands);
                 }
@@ -119,12 +121,14 @@ pub fn auto_close_popup(
     });
 }
 
-#[derive(Bundle, Default)]
+#[derive(Bundle, SmartDefault)]
 pub struct UiPopupAddonBundle {
     pub popup: UiPopup,
 
     pub button: UiButton,
     pub interaction: Interaction,
+    #[default(FocusPolicy::Block)]
+    pub focus_policy: FocusPolicy,
 }
 impl From<UiPopup> for UiPopupAddonBundle {
     fn from(value: UiPopup) -> Self {
@@ -135,7 +139,7 @@ impl From<UiPopup> for UiPopupAddonBundle {
     }
 }
 
-#[derive(Bundle, Default)]
+#[derive(Bundle, SmartDefault)]
 pub struct UiPopupBundle {
     pub popup: UiPopup,
 
@@ -144,6 +148,7 @@ pub struct UiPopupBundle {
 
     pub node: Node,
     pub style: Style,
+    #[default(FocusPolicy::Block)]
     pub focus_policy: FocusPolicy,
     pub transform: Transform,
     pub global_transform: GlobalTransform,

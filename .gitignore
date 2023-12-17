@@ -4,7 +4,7 @@ trace-*.json
 perf.data
 perf.data.old
 flamegraph.svg
-./dway/assets/background*.jpg
+*.jpg
 *.tracy
 *.rs~
 .snapshot
