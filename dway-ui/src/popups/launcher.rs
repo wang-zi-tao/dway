@@ -2,7 +2,7 @@ use std::process;
 
 use bevy_svg::prelude::Svg;
 use dway_server::apps::{
-    icon::{Icon, IconLoader, IconResorce},
+    icon::{LinuxIcon, LinuxIconLoader, LinuxIconKind},
     DesktopEntriesSet, DesktopEntry,
 };
 
@@ -58,7 +58,6 @@ LauncherUI=>
     app.register_system(open_popup);
     app.register_system(delay_destroy_launcher);
 }}
-@arg(mut icon_loader: ResMut<IconLoader>)
 @arg(mut svg_assets: ResMut<Assets<Svg>>)
 @arg(mut mesh_assets: ResMut<Assets<Mesh>>)
 @arg(mut assets_server: ResMut<AssetServer>)
@@ -75,11 +74,11 @@ LauncherUI=>
         >
             <UiScrollBundle @style="max-h-600 m-4 w-full" @id="app_list_scroll">
                 <MiniNodeBundle @style="absolute flex-col w-full" @id="AppList"
-                    @for_query(mut(entry,icon) in Query<(Ref<DesktopEntry>,Option< &mut Icon >)>::iter_mut()=>[
+                    @for_query(mut entry in Query<Ref<DesktopEntry>>::iter_mut()=>[
                         entry=>{
                             state.set_name(entry.name().unwrap_or_default().to_string());
-                            if let Some(mut icon) = icon {
-                                state.set_icon(icon_loader.load(&mut icon, 32, &mut assets_server, &mut svg_assets, &mut mesh_assets).unwrap_or_default());
+                            if let Some(mut icon_url) = entry.icon_url(32) {
+                                state.set_icon(assets_server.load(&icon_url));
                             }
                         }
                     ])>
@@ -87,7 +86,7 @@ LauncherUI=>
                         (widget.data_entity,on_launch)
                     ]) ) @style="m-4 p-4"
                         @use_state(pub name: String)
-                        @use_state(pub icon: IconResorce)
+                        @use_state(pub icon: Handle<LinuxIcon>)
                     >
                         <ImageBundle @style="w-24 h-24 align-self:center" UiIcon=(state.icon().clone().into()) @id="app_icon" />
                         <(UiTextBundle::new(&state.name(),24,&theme)) @id="app_name" @style="p-4 align-self:center"/>

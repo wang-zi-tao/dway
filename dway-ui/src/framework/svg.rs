@@ -2,7 +2,7 @@ use std::num::NonZeroUsize;
 
 use bevy::{
     asset::LoadState,
-    ui::{widget::UiImageSize, ContentSize},
+    ui::{widget::UiImageSize, ContentSize}, utils::HashMap,
 };
 use bevy_svg::prelude::{Origin, Svg, Svg2dBundle};
 use dway_util::temporary::TemporaryEntity;

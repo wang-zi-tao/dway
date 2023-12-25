@@ -9,12 +9,8 @@ use crate::{
     theme::Theme,
     widgets::popup::UiPopupAddonBundle,
 };
-use bevy_svg::prelude::Svg;
 use dway_client_core::desktop::FocusedWindow;
-use dway_server::apps::{
-    icon::{Icon, IconLoader, IconResorce},
-    WindowList,
-};
+use dway_server::apps::{icon::LinuxIcon, DesktopEntry, WindowList};
 
 #[derive(Component, Reflect)]
 pub struct AppEntryUI(pub Entity);
@@ -50,19 +46,15 @@ fn open_popup(
     }
 }}
 @state_component(#[derive(Reflect,serde::Serialize,serde::Deserialize)])
-@arg(mut icon_loader: ResMut<IconLoader>)
-@arg(mut svg_assets: ResMut<Assets<Svg>>)
-@arg(mut mesh_assets: ResMut<Assets<Mesh>>)
-@arg(mut icon_loader: ResMut<IconLoader>)
-@arg(mut assets_server: ResMut<AssetServer>)
+@arg(assets_server: ResMut<AssetServer>)
 <MaterialNodeBundle::<RoundedUiRectMaterial> @id="List"
-    @for_query(mut(window_list,mut icon) in Query<(Ref<WindowList>,&mut Icon)>::iter_mut()=>[
-        icon=>{state.set_icon(icon_loader.load(&mut icon, 48, &mut assets_server, &mut svg_assets, &mut mesh_assets).unwrap_or_default());},
+    @for_query(mut(window_list,entry) in Query<(Ref<WindowList>,Ref<DesktopEntry>)>::iter_mut()=>[
+        entry=>{if let Some(icon_url)=entry.icon_url(48){ state.set_icon(assets_server.load(icon_url)); }},
         window_list=>{ state.set_count(window_list.len()); },
     ]) >
     <NodeBundle @id="app_root"
         @state_component(#[derive(Debug)])
-        @use_state(pub count:usize) @use_state(pub icon:IconResorce) @use_state(pub is_focused:bool)
+        @use_state(pub count:usize) @use_state(pub icon:Handle<LinuxIcon>) @use_state(pub is_focused:bool)
         @arg(focused_window: ResMut<FocusedWindow> => { state.set_is_focused(focused_window.app_entity == Some(widget.data_entity)); }) >
         <MiniNodeBundle @if(*state.count()>0)  >
             <RounndedRectBundle @style="w-48 h-48 m-4 flex-col" @id="app_rect"

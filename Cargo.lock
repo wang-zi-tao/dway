@@ -360,6 +360,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-fs"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd1f344136bad34df1f83a47f3fd7f2ab85d75cb8a940af4ccf6d482a84ea01b"
+dependencies = [
+ "async-lock 3.1.2",
+ "blocking",
+ "futures-lite 2.0.1",
+]
+
+[[package]]
 name = "async-io"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -608,7 +619,7 @@ version = "0.12.0"
 source = "git+https://github.com/bevyengine/bevy?rev=dcfae723#dcfae723868efc380363caba1b69e90c3a72d804"
 dependencies = [
  "async-broadcast",
- "async-fs",
+ "async-fs 1.6.0",
  "async-lock 2.8.0",
  "bevy_app",
  "bevy_asset_macros",
@@ -759,6 +770,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.39",
+]
+
+[[package]]
+name = "bevy_ecss"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4cbdfc8456166d31c2faa9b9f31b663190e7d58d8cc1230cf80a0e37dbc309ac"
+dependencies = [
+ "bevy",
+ "cssparser",
+ "cssparser-color",
+ "smallvec",
+ "thiserror",
 ]
 
 [[package]]
@@ -2020,6 +2044,38 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 
 [[package]]
+name = "cssparser"
+version = "0.33.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9be934d936a0fbed5bcdc01042b770de1398bf79d0e192f49fa7faea0e99281e"
+dependencies = [
+ "cssparser-macros",
+ "dtoa-short",
+ "itoa",
+ "phf",
+ "smallvec",
+]
+
+[[package]]
+name = "cssparser-color"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "556c099a61d85989d7af52b692e35a8d68a57e7df8c6d07563dc0778b3960c9f"
+dependencies = [
+ "cssparser",
+]
+
+[[package]]
+name = "cssparser-macros"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13b588ba4ac1a99f7f2964d24b3d896ddc6bf847ee3855dbd4366f058cfcd331"
+dependencies = [
+ "quote",
+ "syn 2.0.39",
+]
+
+[[package]]
 name = "current_locale"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2349,6 +2405,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "dtoa"
+version = "1.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dcbb2bf8e87535c23f7a8a321e364ce21462d0ff10cb6407820e8e96dfff6653"
+
+[[package]]
+name = "dtoa-short"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dbaceec3c6e4211c79e7b1800fb9680527106beb2f9c51904a3210c03a448c74"
+dependencies = [
+ "dtoa",
+]
+
+[[package]]
 name = "dunce"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2416,6 +2487,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ash",
+ "async-fs 2.1.0",
  "async-process",
  "bevy",
  "bevy-relationship",
@@ -2445,10 +2517,12 @@ dependencies = [
  "phf",
  "rand",
  "renderdoc 0.11.0",
+ "ron",
  "rstar",
  "scan_dir",
  "scopeguard",
  "send_wrapper",
+ "serde",
  "tempfile",
  "thiserror",
  "tracing",
@@ -2458,6 +2532,7 @@ dependencies = [
  "wayland-server 0.31.0",
  "wgpu",
  "wgpu-hal",
+ "winnow",
  "x11rb",
  "xcursor",
  "xkbcommon",
@@ -2513,6 +2588,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy-relationship",
+ "bevy_ecss",
  "bevy_svg",
  "bevy_tweening",
  "bevy_vector_shapes",
@@ -7254,9 +7330,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.5.19"
+version = "0.5.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "829846f3e3db426d4cee4510841b71a8e58aa2a76b1132579487ae430ccd9c7b"
+checksum = "9b5c3db89721d50d0e2a673f5043fc4722f76dcc352d7b1ab8b8288bed4ed2c5"
 dependencies = [
  "memchr",
 ]

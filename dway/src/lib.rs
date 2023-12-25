@@ -26,7 +26,7 @@ use dway_client_core::{
     layout::{tile::TileLayoutKind, LayoutRect, LayoutStyle},
     workspace::{Workspace, WorkspaceBundle, WorkspaceSet},
 };
-use dway_server::{schedule::DWayServerSet, state::WaylandDisplayCreated, x11::DWayXWaylandReady};
+use dway_server::{schedule::DWayServerSet, state::WaylandDisplayCreated, x11::DWayXWaylandReady, apps::icon::LinuxIconSourcePlugin};
 use dway_tty::DWayTTYPlugin;
 use dway_util::logger::DWayLogPlugin;
 use keys::*;
@@ -54,6 +54,7 @@ naga=warn,\
 wgpu=trace,\
 wgpu-hal=trace,\
 dexterous_developer_internal=trace,\
+bevy_ecss=trace,\
 ";
 
 #[cfg(not(feature = "dynamic_reload"))]
@@ -125,6 +126,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     }
 
     default_plugins = default_plugins
+        .add_before::<AssetPlugin,_>(LinuxIconSourcePlugin)
         .disable::<PbrPlugin>()
         .disable::<GizmoPlugin>()
         .disable::<GltfPlugin>()

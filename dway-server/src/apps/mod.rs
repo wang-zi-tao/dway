@@ -1,15 +1,16 @@
 pub mod icon;
 
-use std::{borrow::Cow, collections::HashMap, path::PathBuf};
+use std::{borrow::Cow, collections::HashMap, path::PathBuf, any::type_name};
 
-use bevy::tasks::{block_on, IoTaskPool, Task};
+use bevy::{tasks::{block_on, IoTaskPool, Task}, asset::{io::{AssetSource, AssetSourceId}, saver::AssetSaver}};
 
+use bevy_svg::prelude::Svg;
 use futures_lite::future::poll_once;
 use gettextrs::{dgettext, setlocale, LocaleCategory};
 
-use crate::{apps::icon::Icon, prelude::*, schedule::DWayServerSet, xdg::toplevel::DWayToplevel};
+use crate::{apps::icon::LinuxIcon, prelude::*, schedule::DWayServerSet, xdg::toplevel::DWayToplevel};
 
-use self::icon::IconLoader;
+use self::icon::{LinuxIconLoader, LinuxIconReader};
 
 #[derive(Resource, Default, Reflect)]
 pub struct DesktopEntriesSet {
@@ -117,6 +118,10 @@ impl DesktopEntry {
         self.get_without_locale("Desktop Entry", "Icon")
     }
 
+    pub fn icon_url(&self,size:u16) -> Option<String> {
+        self.icon().map(|name|format!("linuxicon://{name}/{size}x{size}"))
+    }
+
     pub fn name(&self) -> Option<Cow<str>> {
         self.get_in_current_locale("Desktop Entry", "Name")
     }
@@ -161,6 +166,7 @@ pub fn on_scan_task_finish(
     root_query: Query<Entity, With<AppEntryRoot>>,
     mut entries: ResMut<DesktopEntriesSet>,
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
 ) {
     let Some(task) = &mut entries.scan_task else {
         return;
@@ -177,9 +183,6 @@ pub fn on_scan_task_finish(
         for entry in entry_list {
             let mut entity_mut = commands.spawn_empty();
             entity_mut.set_parent(root_entity);
-            if let Some(icon) = entry.icon() {
-                entity_mut.insert(Icon::new(icon));
-            }
             entries.register(&entry, entity_mut.id());
             entity_mut.insert(entry);
         }
@@ -209,10 +212,12 @@ pub struct DesktopEntriesPlugin;
 impl Plugin for DesktopEntriesPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<DesktopEntry>();
-        app.register_type::<Icon>();
+        app.register_type::<LinuxIcon>();
+        app.init_asset::<LinuxIcon>();
+        app.init_asset_loader::<LinuxIconLoader>();
+        app.register_asset_reflect::<LinuxIcon>();
         app.register_type::<DesktopEntriesSet>();
         app.init_resource::<DesktopEntriesSet>();
-        app.init_resource::<IconLoader>();
         app.register_relation::<ToplevelConnectAppEntry>();
         app.add_systems(Startup, start_scan_desktop_file);
         app.world.spawn((Name::new("app_entry_root"), AppEntryRoot));

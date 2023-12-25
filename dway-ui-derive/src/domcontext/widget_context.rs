@@ -381,6 +381,15 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
             Render
         }
     });
+
+    #[cfg(feature="css")]
+    {
+        let css_name = name.to_string().to_case(convert_case::Case::Kebab);
+        context.plugin_builder.stmts.push(quote! {
+            bevy_ecss::RegisterComponentSelector::register_component_selector::<#name>(app, #css_name);
+        });
+    }
+
     context.plugin_builder.stmts.push(quote! {
         app.add_systems(Update, #system_name
             .run_if(|query:Query<(),With<#name>>|{!query.is_empty()})

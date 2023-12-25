@@ -275,7 +275,7 @@ pub fn cleanup_render_command(
     render_stub_query.for_each_mut(|(e, mut rendercommand, mut image)| {
         image.set_changed();
         if !rendercommand.continue_rending {
-            commands.entity(rendercommand.camera).despawn();
+            commands.entity(rendercommand.camera).despawn(); // TODO  改进生命周期管理
             commands.entity(e).remove::<UiCanvasRenderCommand>();
         } else {
             rendercommand.continue_rending = false;

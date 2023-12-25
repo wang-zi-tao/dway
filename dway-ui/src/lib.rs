@@ -29,6 +29,7 @@ use crate::{
     },
 };
 use bevy::{render::camera::RenderTarget, ui::FocusPolicy};
+use bevy_ecss::{EcssPlugin, StyleSheet, Class};
 use bevy_svg::SvgPlugin;
 use bevy_tweening::TweeningPlugin;
 pub use bitflags::bitflags as __bitflags;
@@ -43,6 +44,7 @@ impl Plugin for DWayUiPlugin {
         if !app.is_plugin_added::<SvgPlugin>() {
             app.add_plugins(SvgPlugin);
         }
+        app.add_plugins(EcssPlugin::with_hot_reload());
         app.add_plugins((
             TweeningPlugin,
             assets::DWayAssetsPlugin,
@@ -110,7 +112,9 @@ fn init_screen_ui(
 ) {
     screen_query.for_each(|(entity,screen)|{
         spawn! {&mut commands=>
-        <MiniNodeBundle Name=(Name::new("screen_ui")) @style="absolute full">
+        <NodeBundle Name=(Name::new("screen_ui"))
+            StyleSheet=(StyleSheet::new(asset_server.load("style/style.css")))
+            @style="absolute full">
             <MiniNodeBundle Name=(Name::new("background")) @style="absolute full">
                 <ImageBundle UiImage=(asset_server.load("background.jpg").into()) ZIndex=(ZIndex::Global(-1024))/>
             </MiniNodeBundle> 
@@ -149,7 +153,7 @@ fn init_screen_ui(
             </> 
             <(NodeBundle{style: style!("absolute bottom-4 w-full justify-center items-center"),
                 focus_policy: FocusPolicy::Pass, z_index: ZIndex::Global(1024),..default()})
-                Name=(Name::new("dock")) >
+                Name=(Name::new("dock")) Class=(Class::new("dock")) >
                 <MiniNodeBundle 
                     Handle<_>=(rect_material_set.add(RoundedUiRectMaterial::new(Color::WHITE.with_a(0.5), 16.0)))>
                     <AppListUIBundle/>
@@ -158,7 +162,7 @@ fn init_screen_ui(
                     </PanelButtonBundle>
                 </MiniNodeBundle>
             </NodeBundle>
-        </MiniNodeBundle>
+        </NodeBundle>
         };
     });
 }
