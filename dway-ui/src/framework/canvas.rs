@@ -23,6 +23,11 @@ pub struct UiCanvas {
     reuse_image: bool,
 }
 
+#[derive(Component, Debug)]
+pub struct CanvasCamera {
+    pub canvas: Entity,
+}
+
 impl UiCanvas {
     pub fn new_no_reuse() -> Self {
         Self {
@@ -241,6 +246,7 @@ pub fn prepare_render_command(
                             ..default()
                         },
                         UiCameraConfig { show_ui: false },
+                        CanvasCamera { canvas: entity },
                     ))
                     .id();
                 commands.entity(entity).insert(UiCanvasRenderCommand {
@@ -269,16 +275,21 @@ pub struct UiCanvasBundle {
 
 pub fn cleanup_render_command(
     mut render_stub_query: Query<(Entity, &mut UiCanvasRenderCommand, &mut UiImage)>,
-    _render_area: ResMut<UiCanvasRenderArea>,
+    camera_query: Query<(Entity, &CanvasCamera)>,
     mut commands: Commands,
 ) {
     render_stub_query.for_each_mut(|(e, mut rendercommand, mut image)| {
         image.set_changed();
         if !rendercommand.continue_rending {
-            commands.entity(rendercommand.camera).despawn(); // TODO  改进生命周期管理
+            commands.entity(rendercommand.camera).despawn();
             commands.entity(e).remove::<UiCanvasRenderCommand>();
         } else {
             rendercommand.continue_rending = false;
+        }
+    });
+    camera_query.for_each(|(entity, camera)| {
+        if !render_stub_query.contains(camera.canvas) {
+            commands.entity(entity).despawn_recursive();
         }
     });
 }

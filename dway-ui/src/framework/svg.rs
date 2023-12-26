@@ -67,6 +67,7 @@ pub fn uisvg_render(
                 .get(&ui_svg.svg)
                 .map(|svg| svg.size)
                 .unwrap_or(node.size());
+            dbg!(svgs.get(&ui_svg.svg).map(|svg| svg.size));
             commands.spawn((
                 Svg2dBundle {
                     svg: ui_svg.svg.clone(),
