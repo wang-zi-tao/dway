@@ -116,7 +116,7 @@ impl KeyLockState {
 
 #[tracing::instrument(skip_all)]
 pub fn receive_events(
-    windows: Query<(Entity, &Window), With<DrmSurface>>,
+    mut windows: Query<(Entity, &mut Window), With<DrmSurface>>,
     mut libinput: NonSendMut<LibinputDevice>,
     mut motion_events: EventWriter<MouseMotion>,
     mut move_events: EventWriter<CursorMoved>,
@@ -180,19 +180,25 @@ pub fn receive_events(
             input::Event::Pointer(e) => {
                 match e {
                     PointerEvent::Motion(m) => {
+                        let motion = DVec2::new(m.dx(), m.dy()).as_vec2();
                         motion_events.send(MouseMotion {
-                            delta: DVec2::new(m.dx(), m.dy()).as_vec2(),
+                            delta: motion,
                         });
-                        windows.for_each(|(entity, window)| {
+                        debug!("mouse motion: {}", motion);
+                        windows.for_each_mut(|(entity, mut window)| {
+                            // TODO 改善边界
                             let pos =
-                                pointer_state.position + DVec2::new(m.dx(), -m.dy()).as_vec2();
-                            if let Some(relative) = relative_to_window(window, pos) {
-                                pointer_state.position = (pos.x, -pos.y).into();
+                                pointer_state.position + motion;
+                            if let Some(relative) = relative_to_window(&window, pos) {
+                                pointer_state.position = pos;
                                 pointer_state.window = Some(entity);
+                                window.set_cursor_position(Some(relative));
+                                window.set_physical_cursor_position(Some(relative.as_dvec2()));
                                 move_events.send(CursorMoved {
                                     window: entity,
                                     position: relative,
                                 });
+                                debug!("cursor move: absolute: {pos}; relative: {relative} on {entity:?}");
                             }
                         });
                     }
@@ -215,6 +221,7 @@ pub fn receive_events(
                             ButtonState::Pressed => button_state.press(button),
                             ButtonState::Released => button_state.release(button),
                         }
+                        debug!("mouse button: button={button:?}, state={state:?}, window={default_window_entity:?}");
                         button_events.send(MouseButtonInput {
                             button,
                             state,

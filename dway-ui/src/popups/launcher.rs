@@ -117,11 +117,6 @@ LauncherUI=>
 </MiniNodeBundle>
 }
 
-#[dexterous_developer_setup(LauncherUI)]
-fn reloadable(app: &mut ReloadableAppContents) {
-    app.add_systems(Update, launcher_ui_render.in_set(LauncherUISystems::Render));
-}
-
 pub fn open_popup(In(event): In<UiButtonEvent>, theme: Res<Theme>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         commands
@@ -136,15 +131,5 @@ pub fn open_popup(In(event): In<UiButtonEvent>, theme: Res<Theme>, mut commands:
                 theme.system(delay_destroy_launcher),
             ))))
             .set_parent(event.button);
-    }
-}
-
-pub struct LauncherUIPluginHotReload;
-impl Plugin for LauncherUIPluginHotReload {
-    fn build(&self, app: &mut App) {
-        app.setup_reloadable_elements::<reloadable>();
-        app.register_type::<LauncherUIWidget>();
-        app.register_system(open_popup);
-        app.register_system(delay_destroy_launcher);
     }
 }

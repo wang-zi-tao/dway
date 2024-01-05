@@ -3,28 +3,27 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use super::{connectors::Connector, planes::PlaneConfig, DrmDevice, DrmDeviceFd, PropMap};
+use crate::{
+    drm::{planes::Planes, DrmDeviceState},
+    failure::DWayTTYError::*,
+    gbm::{buffer::GbmBuffer, GbmDevice},
+};
 use anyhow::{anyhow, bail, Result};
 use bevy::prelude::*;
 use drm::{
     control::{
         atomic::AtomicModeReq,
-        crtc, plane,
+        connector, crtc, plane,
         property::{self, Value},
         AtomicCommitFlags, Device, Mode, PageFlipEvent,
     },
     Device as drm_device,
 };
 use drm_fourcc::DrmFormat;
+use measure_time::{debug_time, trace_time, info_time, print_time};
 use tracing::{span, Level};
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
-
-use crate::{
-    drm::{planes::Planes, DrmDeviceState},
-    failure::DWayTTYError::*,
-    gbm::{buffer::GbmBuffer, GbmDevice},
-};
-
-use super::{connectors::Connector, planes::PlaneConfig, DrmDevice, DrmDeviceFd, PropMap};
 
 bitflags::bitflags! {
     #[derive(Clone,Copy, Debug,Hash,PartialEq, Eq, PartialOrd, Ord)]
@@ -72,6 +71,7 @@ pub struct SurfaceInner {
     pub(crate) planes: Planes,
     pub(crate) transform: DrmTransform,
     pub(crate) formats: Vec<DrmFormat>,
+    pub(crate) connector: connector::Handle,
 
     pub(crate) pedding: Option<GbmBuffer>,
     pub(crate) commited: LinkedList<GbmBuffer>,
@@ -91,19 +91,18 @@ impl SurfaceInner {
         render_formats: &[DrmFormat],
     ) -> Result<&mut GbmBuffer> {
         if self.pedding.is_some() {
-            Ok(self.pedding.as_mut().unwrap())
-        } else if let Some(buffer) = self.available.pop_front() {
-            self.pedding = Some(buffer);
-            Ok(self.pedding.as_mut().unwrap())
-        } else {
-            if self.buffer_count() >= 8 {
-                bail!("Number of render buffers reached maximum");
-            }
-            let size = self.mode.size();
-            let size = IVec2::new(size.0 as i32, size.1 as i32);
-            let gbm = gbm.create_buffer(drm, size, &self.formats, render_formats)?;
-            Ok(self.pedding.get_or_insert(gbm))
+            return Ok(self.pedding.as_mut().unwrap());
         }
+        if let Some(buffer) = self.available.pop_front() {
+            return Ok(self.pedding.get_or_insert(buffer));
+        }
+        if self.buffer_count() >= 8 {
+            bail!("Number of render buffers reached maximum");
+        }
+        let size = self.mode.size();
+        let size = IVec2::new(size.0 as i32, size.1 as i32);
+        let gbm = gbm.create_buffer(drm, size, &self.formats, render_formats)?;
+        Ok(self.pedding.get_or_insert(gbm))
     }
 
     pub fn finish_frame(&mut self) {
@@ -130,6 +129,7 @@ impl SurfaceInner {
 pub struct DrmSurface {
     pub(crate) inner: Arc<Mutex<SurfaceInner>>,
     pub(crate) image: Handle<Image>,
+    pub(crate) drm_node: DrmDeviceFd,
 }
 
 impl DrmSurface {
@@ -188,8 +188,10 @@ impl DrmSurface {
                 transform: DrmTransform::NORMAL,
                 mode_blob,
                 showing: None,
+                connector: connector.info().handle(),
             })),
             image,
+            drm_node: drm.fd.clone(),
         })
     }
 
@@ -203,7 +205,7 @@ impl DrmSurface {
 
     pub fn commit(
         &self,
-        conn: &Connector,
+        conn: connector::Handle,
         drm: &DrmDevice,
         mut checker: impl FnMut(&mut GbmBuffer) -> bool,
     ) -> Result<()> {
@@ -255,16 +257,17 @@ impl DrmSurface {
                         drm_props,
                     )?;
 
-                    let _span = info_span!("atomic_commit",framebuffer=?framebuffer).entered();
-                    drm.atomic_commit(
-                        AtomicCommitFlags::ALLOW_MODESET
-                            | AtomicCommitFlags::NONBLOCK
-                            | AtomicCommitFlags::PAGE_FLIP_EVENT,
-                        req,
-                    )
-                    .map_err(|e| anyhow!("failed to commit drm atomic req: {e}"))?;
+                    {
+                        let _span = info_span!("atomic_commit",framebuffer=?framebuffer).entered();
+                        print_time!("atomic_commit");
+                        drm.atomic_commit(
+                            AtomicCommitFlags::ALLOW_MODESET ,
+                            req,
+                        )
+                        .map_err(|e| anyhow!("failed to commit drm atomic request: {e}"))?;
 
-                    debug!("commmit drm render buffer");
+                        debug!("commmit drm render buffer");
+                    }
                 }
             }
             (SurfaceState::Legacy {}, DrmDeviceState::Legacy { .. }) => todo!(),
@@ -319,7 +322,7 @@ fn to_fixed<N: Into<f64> + Copy>(n: N) -> u64 {
 
 pub fn create_request(
     surface: &SurfaceInner,
-    conn: &Connector,
+    conn: connector::Handle,
     planes: &[(plane::Handle, Option<PlaneConfig>)],
     drm_props: &PropMap,
 ) -> Result<AtomicModeReq> {
@@ -328,10 +331,10 @@ pub fn create_request(
     let mut req = AtomicModeReq::new();
 
     req.add_property(
-        conn.info.handle(),
+        conn,
         *drm_props
             .connector
-            .get(&(conn.info.handle(), "CRTC_ID".to_string()))
+            .get(&(conn, "CRTC_ID".to_string()))
             .ok_or_else(|| NoSuchProperty("CRTC_ID".to_string()))?,
         CRTC(Some(surface.crtc)),
     );

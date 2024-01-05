@@ -1,6 +1,6 @@
 use super::{RenderCache, TtyRenderState};
 use crate::{
-    drm::{connectors::Connector, surface::DrmSurface, DrmDevice},
+    drm::{surface::DrmSurface, DrmDevice},
     gbm::buffer::{GbmBuffer, RenderImage},
 };
 use anyhow::{anyhow, bail, Result};
@@ -411,12 +411,14 @@ unsafe fn do_create_renderbuffer(
 pub fn commit_drm(
     surface: &DrmSurface,
     render_device: &wgpu::Device,
-    conn: &Connector,
     drm: &DrmDevice,
 ) -> Option<Result<()>> {
     unsafe {
         render_device.as_hal::<Gles, _, _>(|hal_device| {
-            hal_device.map(|_hal_device| surface.commit(conn, drm, |_| true))
+            hal_device.map(|_hal_device| {
+                let conn = { surface.inner.lock().unwrap().connector };
+                surface.commit(conn, drm, |_| true)
+            })
         })
     }
 }

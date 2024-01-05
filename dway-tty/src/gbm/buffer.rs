@@ -5,7 +5,7 @@ use drm_fourcc::{DrmFourcc, DrmModifier};
 use getset::Getters;
 use smallvec::SmallVec;
 use std::os::fd::OwnedFd;
-use tracing::error;
+use tracing::{error, debug};
 
 use crate::drm::{DrmDevice, DrmDeviceFd};
 
@@ -80,6 +80,7 @@ impl GbmBuffer {
 
 impl Drop for GbmBuffer {
     fn drop(&mut self) {
+        debug!("destroy gbm buffer");
         if let Err(e) = self.drm.destroy_framebuffer(self.framebuffer) {
             error!("failed to destroy drm framebuffer: {e}");
         };

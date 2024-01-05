@@ -142,6 +142,15 @@ pub struct UiButtonBundle {
     pub z_index: ZIndex,
 }
 
+impl From<UiButton> for UiButtonBundle {
+    fn from(button: UiButton) -> Self {
+        Self {
+            button,
+            ..default()
+        }
+    }
+}
+
 #[derive(Component, Reflect, Default)]
 pub struct ButtonColor {
     pub normal: Color,

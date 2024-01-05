@@ -13,6 +13,7 @@ pub use dway_client_core::prelude::*;
 pub use std::time::Duration;
 
 pub use bevy_tweening::{lens::*, Animator, EaseFunction, Tween};
+#[cfg(feature="dynamic_reload")]
 pub use dexterous_developer::{
     dexterous_developer_setup, ReloadableApp, ReloadableAppContents, ReloadableElementsSetup,
 };

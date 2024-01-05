@@ -18,7 +18,7 @@ dexterous_developer = {  workspace = true, optional=true }
 
 [dependencies.bevy]
 features = ["jpeg", "wayland", "serialize", "default_font", "subpixel_glyph_atlas", "file_watcher", "embedded_watcher"]
-version = "0.12"
+workspace = true
 
 [dependencies.bevy-inspector-egui]
 optional = true
@@ -54,7 +54,7 @@ version = "0.3"
 [features]
 default = [
     "dway_log",
-    "dynamic_reload",
+    # "dynamic_reload",
     "debug",
 ]
 debug = ["dep:bevy-inspector-egui"]
@@ -70,7 +70,7 @@ heap_profile = ["dhat-heap"]
 cpu_profile = []
 
 [lib]
-crate-type = ["dylib", "rlib"]
+# crate-type = ["dylib", "rlib"]
 path = "src/lib.rs"
 name = "dway_main"
 

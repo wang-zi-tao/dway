@@ -23,17 +23,17 @@ use bevy::{
 use bevy_framepace::Limiter;
 use clap::Parser;
 use dway_client_core::{
-    layout::{tile::TileLayoutKind, LayoutRect, LayoutStyle},
+    layout::{LayoutRect, LayoutStyle},
     workspace::{Workspace, WorkspaceBundle, WorkspaceSet},
 };
-use dway_server::{schedule::DWayServerSet, state::WaylandDisplayCreated, x11::DWayXWaylandReady, apps::icon::LinuxIconSourcePlugin};
-use dway_tty::DWayTTYPlugin;
+use dway_server::apps::icon::LinuxIconSourcePlugin;
+use dway_tty::{DWayTTYPlugin, DWayTTYSettings};
 use dway_util::logger::DWayLogPlugin;
 use keys::*;
 use opttions::DWayOption;
 use std::time::Duration;
 
-const LOG_LEVEL: Level = Level::DEBUG;
+const LOG_LEVEL: Level = Level::TRACE;
 const LOG: &str = "\
 bevy_ecs=info,\
 bevy_render=debug,\
@@ -55,6 +55,7 @@ wgpu=trace,\
 wgpu-hal=trace,\
 dexterous_developer_internal=trace,\
 bevy_ecss=trace,\
+dway_tty=trace,\
 ";
 
 #[cfg(not(feature = "dynamic_reload"))]
@@ -126,7 +127,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     }
 
     default_plugins = default_plugins
-        .add_before::<AssetPlugin,_>(LinuxIconSourcePlugin)
+        .add_before::<AssetPlugin, _>(LinuxIconSourcePlugin)
         .disable::<PbrPlugin>()
         .disable::<GizmoPlugin>()
         .disable::<GltfPlugin>()
@@ -138,6 +139,9 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     app.add_plugins(default_plugins);
 
     if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
+        app.insert_resource(DWayTTYSettings {
+            frame_duration: Duration::from_secs_f32(1.0 / 144.0),
+        });
         app.add_plugins((DWayTTYPlugin::default(),));
     } else {
         app.insert_resource(bevy::winit::WinitSettings {

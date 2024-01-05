@@ -457,6 +457,38 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
         .bundle_builder
         .add_field(&format_ident!("prop"), quote!(pub prop: #name));
 
+    { 
+        let state_name = &context.state_builder.name;
+        let bundle_name = &context.bundle_builder.name;
+        context.plugin_builder.other_items.push(quote!{
+            impl From<#name> for #bundle_name {
+                fn from(prop: #name) -> Self {
+                    Self {
+                        prop,
+                        ..Default::default()
+                    }
+                }
+            }
+
+            impl #bundle_name {
+                pub fn from_prop(prop: #name) -> Self {
+                    Self {
+                        prop,
+                        ..Default::default()
+                    }
+                }
+
+                pub fn from_prop_state(prop: #name, state: #state_name) -> Self {
+                    Self {
+                        prop,
+                        state,
+                        ..Default::default()
+                    }
+                }
+            }
+        }); 
+    }
+
     context
         .plugin_builder
         .stmts

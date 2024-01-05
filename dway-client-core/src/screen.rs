@@ -10,7 +10,7 @@ pub struct Screen {
 }
 
 pub fn create_screen(
-    screen_query: Query<(Entity, &Window), Changed<Window>>,
+    screen_query: Query<(Entity, Ref<Window>), Changed<Window>>,
     mut commands: Commands,
 ) {
     screen_query.for_each(|(entity, window)| {
@@ -23,14 +23,16 @@ pub fn create_screen(
             window.resolution.width() as i32,
             window.resolution.height() as i32,
         );
-        commands.entity(entity).insert((
-            Screen {
-                name: window.title.clone(),
-            },
-            Name::new(window.title.clone()),
-            Geometry::new(rect),
-            GlobalGeometry::new(rect),
-        ));
+        if window.is_added() {
+            commands.entity(entity).insert((
+                Screen {
+                    name: window.title.clone(),
+                },
+                Name::new(window.title.clone()),
+                Geometry::new(rect),
+                GlobalGeometry::new(rect),
+            ));
+        }
     });
 }
 

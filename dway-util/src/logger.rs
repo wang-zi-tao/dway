@@ -47,5 +47,6 @@ impl Plugin for DWayLogPlugin {
             .with(tracing_subscriber::fmt::Layer::new().with_writer(log_file));
 
         let _ = bevy::utils::tracing::subscriber::set_global_default(subscriber);
+        // log_panics::init()
     }
 }

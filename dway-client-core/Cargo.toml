@@ -19,7 +19,7 @@ rand = { workspace = true }
 serde={ workspace = true }
 bytemuck = "1.13.0"
 smallvec = "1.10.0"
-bevy = "0.12"
+bevy = { workspace = true }
 getset = "0.1.2"
 bitflags = "2.4.0"
 anyhow = { version="1.0", features = ["backtrace"] }

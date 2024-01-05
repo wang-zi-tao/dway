@@ -27,12 +27,14 @@ serde = "1.0.158"
 khronos-egl = { version="4.1",features= ["dynamic","static"] }
 measure_time = "0.8.2"
 dexterous_developer = { version="0.0.12", features = ["hot_internal"] }
-bevy = "0.12"
+bevy = { git = "https://github.com/bevyengine/bevy", rev = "dcfae723" }
 derive_builder = "0.12.0"
 smart-default = "0.7.1"
 
 [patch.crates-io]
 bevy = { git = "https://github.com/bevyengine/bevy", rev = "dcfae723" }
+bevy_log = { git = "https://github.com/bevyengine/bevy", rev = "dcfae723" }
+bevy_pbr = { git = "https://github.com/bevyengine/bevy", rev = "dcfae723" }
 bevy_core = { git = "https://github.com/bevyengine/bevy", rev = "dcfae723" }
 bevy_app = { git = "https://github.com/bevyengine/bevy", rev = "dcfae723" }
 bevy_utils = { git = "https://github.com/bevyengine/bevy", rev = "dcfae723" }

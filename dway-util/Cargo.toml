@@ -14,6 +14,9 @@ send_wrapper = "0.6.0"
 winit = { version = "0.28.7", default-features = false }
 tracing-appender = "0.2.2"
 tracing-subscriber = { version="0.3.17",features=["env-filter"] }
+log-panics = { version = "2", features = ["with-backtrace"]}
+structstruck = "0.4.1"
+smart-default = {workspace = true}
 
 [dependencies.bevy]
 version = "0.12"

@@ -1,13 +1,14 @@
 use super::{
     drm::{DrmInfo, DrmNode},
-    util::DWayRenderError::{self, *}, importnode::merge_damage,
+    importnode::merge_damage,
+    util::DWayRenderError::{self, *},
 };
 use crate::{
     prelude::*,
     util::rect::IRect,
     wl::{
         buffer::{WlShmBuffer, WlShmPoolInner},
-        surface::{WlSurface},
+        surface::WlSurface,
     },
     zwp::dmabufparam::DmaBuffer,
 };

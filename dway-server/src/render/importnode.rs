@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Mutex};
 use super::{
     gles::EglState,
     util::DWayRenderError,
-    vulkan::{self, VulkanState},
+    vulkan::{self, drm_info, VulkanState},
 };
 use crate::{
     prelude::*,

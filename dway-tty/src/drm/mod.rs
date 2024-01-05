@@ -143,10 +143,12 @@ impl DrmDeviceFd {
     pub fn formats(&self, plane: plane::Handle) -> Result<HashSet<DrmFormat>> {
         let mut formats = HashSet::new();
         for format in self.get_plane(plane)?.formats() {
-            formats.insert(DrmFormat {
-                code: DrmFourcc::try_from(*format)?,
-                modifier: DrmModifier::Invalid,
-            });
+            if let Ok(fourcc) = DrmFourcc::try_from(*format) {
+                formats.insert(DrmFormat {
+                    code: fourcc,
+                    modifier: DrmModifier::Invalid,
+                });
+            }
         }
         self.try_with_prop(plane, "IN_FORMATS", |prop, value| {
             if let property::Value::Blob(blob) = prop.value_type().convert_value(value) {

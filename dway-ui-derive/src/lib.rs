@@ -105,6 +105,7 @@ pub fn auto_expand(input: TokenStream) -> TokenStream {
     TokenStream::from(output)
 }
 
+/// generate a bevy plugin to expand the ui component.
 #[proc_macro]
 pub fn dway_widget(input: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(input as WidgetDeclare);

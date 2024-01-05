@@ -2,11 +2,12 @@ use bevy::prelude::*;
 use calloop::channel::{Channel, Sender};
 pub use calloop::{generic::Generic, EventSource, Interest, Mode, PostAction, Readiness};
 use log::info;
+use smart_default::SmartDefault;
 use std::{
     any::{type_name, TypeId},
     os::fd::AsRawFd,
     sync::mpsc,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 pub type Register = Box<dyn FnOnce(&mut calloop::LoopHandle<'static, ()>) + Send + Sync>;
@@ -134,17 +135,22 @@ fn on_frame_finish(eventloop: NonSendMut<EventLoop>) {
     }
 }
 
-#[derive(Default)]
-pub enum EventLoopPlugin {
-    #[default]
-    WinitMode,
-    ManualMode,
+structstruck::strike! {
+    #[derive(SmartDefault)]
+    pub struct EventLoopPlugin {
+        pub mode: #[derive(Default,Clone)] enum EventLoopPluginMode {
+            #[default]
+            WinitMode,
+            ManualMode,
+        }
+    }
 }
+
 impl Plugin for EventLoopPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.insert_non_send_resource(EventLoop::new());
-        match self {
-            EventLoopPlugin::WinitMode => {
+        match &self.mode {
+            EventLoopPluginMode::WinitMode => {
                 debug!(
                     "require resource: [{:X?}] {}",
                     TypeId::of::<winit::event_loop::EventLoop<()>>(),
@@ -161,7 +167,7 @@ impl Plugin for EventLoopPlugin {
                     EventLoopControl::Continue
                 }));
             }
-            EventLoopPlugin::ManualMode => {}
+            EventLoopPluginMode::ManualMode => {}
         }
         app.add_systems(Last, on_frame_finish);
     }

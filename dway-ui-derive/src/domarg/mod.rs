@@ -6,10 +6,11 @@ pub mod relation;
 pub mod state;
 pub mod ui;
 
+use crate::prelude::*;
 use proc_macro2::{Span, TokenStream};
 use quote::quote_spanned;
 use std::{
-    any::{Any, TypeId, type_name},
+    any::{type_name, Any, TypeId},
     collections::BTreeMap,
 };
 use syn::{ext::IdentExt, parse::ParseStream, spanned::Spanned, token::Brace, *};
@@ -85,15 +86,13 @@ pub trait DomDecorator: Any {
     ) -> TokenStream {
         inner
     }
-    fn before_foreach(
-        &self,
-        _context: &mut WidgetNodeContext,
-    )->Option<TokenStream>{
+    fn before_foreach(&self, _context: &mut WidgetNodeContext) -> Option<TokenStream> {
         None
     }
 }
 
 pub struct DomArg {
+    tag: Option<Ident>,
     span: Span,
     pub inner: Box<dyn DomDecorator>,
 }
@@ -141,6 +140,7 @@ impl syn::parse::Parse for DomArg {
             Ok(Self {
                 span: content.span(),
                 inner: Box::new(InsertComponent { component, expr }),
+                tag: None,
             })
         } else {
             let _: Token![@] = input.parse()?;
@@ -152,6 +152,7 @@ impl syn::parse::Parse for DomArg {
                     Self {
                         span: id.span(),
                         inner: Box::new(Id { id }),
+                        tag: Some(instruction),
                     }
                 }
                 "style" => {
@@ -160,6 +161,7 @@ impl syn::parse::Parse for DomArg {
                     Self {
                         span: inner.style.span(),
                         inner: Box::new(inner),
+                        tag: Some(instruction),
                     }
                 }
                 name => {
@@ -205,7 +207,11 @@ impl syn::parse::Parse for DomArg {
                             ));
                         }
                     };
-                    Self { span, inner }
+                    Self {
+                        span,
+                        inner,
+                        tag: Some(instruction),
+                    }
                 }
             })
         }

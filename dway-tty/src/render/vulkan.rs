@@ -1,5 +1,5 @@
 use crate::{
-    drm::{connectors::Connector, surface::DrmSurface, DrmDevice},
+    drm::{surface::DrmSurface, DrmDevice},
     gbm::{
         buffer::{GbmBuffer, RenderImage},
         SUPPORTED_FORMATS,
@@ -117,7 +117,7 @@ pub fn reset_framebuffer(
 ) -> Option<Result<()>> {
     unsafe {
         render_device.as_hal::<Vulkan, _, _>(|hal_device| {
-            hal_device.map(|hal_device| {
+            hal_device.map(|hal_device: &wgpu_hal::vulkan::Device| {
                 let device = hal_device.raw_device();
                 if let RenderImage::Vulkan(image) = &mut buffer.render_image {
                     trace!(fence=?image.fence,"reset fence");
@@ -136,6 +136,7 @@ pub fn create_framebuffer_texture(
     let instance = hal_device.shared_instance().raw_instance();
     let device = hal_device.raw_device();
     let physical = hal_device.raw_physical_device();
+
     unsafe {
         let plane_layouts: Vec<_> = buffer
             .planes
@@ -304,24 +305,24 @@ pub fn create_framebuffer_texture(
 pub fn commit_drm(
     surface: &DrmSurface,
     render_device: &wgpu::Device,
-    conn: &Connector,
     drm: &DrmDevice,
 ) -> Option<Result<()>> {
     unsafe {
         render_device.as_hal::<Vulkan, _, _>(|hal_device| {
             hal_device.map(|hal_device| {
+                let guard = surface.inner.lock().unwrap();
+                let conn = guard.connector;
                 let device = hal_device.raw_device();
-                {
-                    let guard = surface.inner.lock().unwrap();
-                    if let Some(buffer) = &guard.pedding {
-                        if let RenderImage::Vulkan(image) = &buffer.render_image {
-                            device.queue_submit(hal_device.raw_queue(), &[], image.fence)?;
-                        }
+                if let Some(buffer) = &guard.pedding {
+                    if let RenderImage::Vulkan(image) = &buffer.render_image {
+                        device.queue_submit(hal_device.raw_queue(), &[], image.fence)?;
                     }
                 }
+                drop(guard);
 
                 surface.commit(conn, drm, |buffer| {
                     if let RenderImage::Vulkan(image) = &mut buffer.render_image {
+                        device.wait_for_fences(&[image.fence], true, 128000);
                         match device.get_fence_status(image.fence) {
                             Ok(o) => {
                                 trace!(fence=?image.fence,"fence state: {o}");

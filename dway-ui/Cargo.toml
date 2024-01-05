@@ -21,7 +21,7 @@ failure = { workspace = true }
 uuid = { workspace = true }
 lru = { workspace = true }
 rand = { workspace = true }
-bevy = "0.12"
+bevy = { workspace = true }
 bevy_svg = { version="0.12", default-features = false, features = ["2d"] }
 bevy_vector_shapes = "0.6"
 const-fnv1a-hash = "1.1.0"
@@ -29,13 +29,13 @@ bitflags = "2.4.1"
 derive_builder = "0.12.0"
 bevy_tweening = "0.9.0"
 dexterous_developer = {  workspace = true, optional=true }
-serde = { workspace = true, optional=true }
+serde = { workspace = true }
 measure_time = {workspace = true}
 smart-default = {workspace = true}
 bevy_ecss = "0.6.0"
 
 [features]
-dynamic_reload = ["dep:dexterous_developer","dep:serde","dway-ui-derive/dynamic_reload"]
+dynamic_reload = ["dep:dexterous_developer","dway-ui-derive/dynamic_reload"]
 
 [profile.dev]
 opt-level = 1

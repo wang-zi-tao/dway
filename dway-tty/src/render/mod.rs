@@ -10,7 +10,7 @@ use bevy::{
         texture::{DefaultImageSampler, GpuImage},
         Extract, Render, RenderApp, RenderSet,
     },
-    utils::HashMap,
+    utils::HashMap, core::FrameCount,
 };
 use drm::control::framebuffer;
 use drm_fourcc::DrmFormat;
@@ -56,6 +56,7 @@ impl TtyRenderState {
         let formats = gles::get_formats(&mut self.cache, render_device)
             .or_else(|| vulkan::get_formats(render_device))
             .ok_or_else(|| anyhow!("unknown wgpu backend"))??;
+        debug!("drm format: {formats:?}");
         self.formats = Some(formats);
         Ok(self.formats.as_ref().unwrap())
     }
@@ -72,7 +73,7 @@ impl Plugin for TtyRenderPlugin {
                     Render,
                     (
                         prepare_drm_surface.after(RenderSet::Prepare),
-                        commit
+                        commit_drm_surface
                             .in_set(DWayTTYRemderSet::DrmCommitSystem)
                             .after(RenderSet::Render)
                             .before(RenderSet::Cleanup),
@@ -204,19 +205,19 @@ pub fn create_framebuffer_texture(
 }
 
 #[tracing::instrument(skip_all)]
-pub fn commit(
-    surface_query: Query<(&DrmSurface, &Connector, &Parent)>,
+pub fn commit_drm_surface(
+    surface_query: Query<(&DrmSurface, &Parent)>,
     drm_query: Query<&DrmDevice>,
     render_device: Res<RenderDevice>,
 ) {
-    surface_query.for_each(|(surface, conn, parent)| {
+    surface_query.for_each(|(surface, parent)| {
         let Ok(drm) = drm_query.get(parent.get()) else {
             return;
         };
         let _span =
             span!(Level::ERROR,"commit drm buffer",device=%drm.path.to_string_lossy()).entered();
-        if let Err(e) = gles::commit_drm(surface, render_device.wgpu_device(), conn, drm)
-            .or_else(|| vulkan::commit_drm(surface, render_device.wgpu_device(), conn, drm))
+        if let Err(e) = gles::commit_drm(surface, render_device.wgpu_device(), drm)
+            .or_else(|| vulkan::commit_drm(surface, render_device.wgpu_device(), drm))
             .ok_or_else(|| anyhow!("unknown wgpu backend"))
             .flatten()
         {
@@ -225,3 +226,4 @@ pub fn commit(
         surface.finish_frame();
     });
 }
+
