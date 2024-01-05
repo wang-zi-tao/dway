@@ -52,10 +52,10 @@ dway_server::xdg=info,\
 nega::front=info,\
 naga=warn,\
 wgpu=trace,\
-wgpu-hal=trace,\
-dexterous_developer_internal=trace,\
-bevy_ecss=trace,\
-dway_tty=trace,\
+wgpu-hal=info,\
+dexterous_developer_internal=info,\
+bevy_ecss=info,\
+dway_tty=info,\
 ";
 
 #[cfg(not(feature = "dynamic_reload"))]

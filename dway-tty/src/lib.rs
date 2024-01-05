@@ -6,11 +6,12 @@ use std::time::{Duration, Instant};
 
 use bevy::{
     app::{AppExit, PluginsState},
+    core::FrameCount,
     prelude::*,
 };
 use drm::DrmPlugin;
 use dway_util::eventloop::{EventLoop, EventLoopControl, EventLoopPlugin, EventLoopPluginMode};
-use measure_time::print_time;
+use measure_time::{print_time, debug_time};
 use render::TtyRenderPlugin;
 use smart_default::SmartDefault;
 
@@ -27,7 +28,7 @@ pub mod window;
 
 #[derive(Resource, Debug, SmartDefault)]
 pub struct DWayTTYSettings {
-    #[default(Duration::from_secs_f32(1.0/60.0))]
+    #[default(Duration::from_secs_f32(1.0/144.0))]
     pub frame_duration: Duration,
 }
 
@@ -64,11 +65,14 @@ fn runner(mut app: App) {
     }
 
     let runner = app.world.non_send_resource_mut::<EventLoop>().runner();
-    runner.run(Duration::from_secs_f32(1.0), move || {
+    runner.run(Duration::from_secs_f32(0.2), move || {
         let start_time = Instant::now();
         if !app.world.resource_mut::<Events<AppExit>>().is_empty() {
             return EventLoopControl::Stop;
         }
+        let frame = app.world.resource::<FrameCount>();
+        debug!("frame number: {}", frame.0);
+        debug_time!("frame {}", frame.0);
         app.update();
         let end_time = Instant::now();
 

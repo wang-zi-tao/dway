@@ -39,7 +39,9 @@ impl Plugin for DWayUdevSchedulePlugin {
         render_app.configure_sets(
             Render,
             (
-                DWayTTYRemderSet::DrmEventSystem.after(RenderSet::Render),
+                DWayTTYRemderSet::DrmEventSystem
+                    .after(RenderSet::Render)
+                    .before(RenderSet::Cleanup),
                 DWayTTYRemderSet::DrmCommitSystem.before(RenderSet::Cleanup),
             )
                 .chain(),

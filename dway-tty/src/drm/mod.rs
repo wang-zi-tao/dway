@@ -763,12 +763,19 @@ pub struct DrmEvent {
 
 #[tracing::instrument(skip_all)]
 pub fn recevie_drm_events(
-    drm_query: Query<(Entity, &DrmDevice, &Children)>,
+    drm_query: Query<(Entity, &DrmDevice, Option<&Children>)>,
     surface_query: Query<&DrmSurface>,
-    mut events: EventWriter<DrmEvent>,
+    mut events_writer: EventWriter<DrmEvent>,
 ) {
     drm_query.for_each(|(entity, drm, children)| {
-        for event in drm.fd.receive_events().into_iter().flatten() {
+        let events = match drm.fd.receive_events() {
+            Ok(o) => o,
+            Err(e) => {
+                error!(?entity, "failed to receive drm events: {e}");
+                return;
+            }
+        };
+        for event in events {
             match &event {
                 drm::control::Event::Vblank(VblankEvent {
                     frame,
@@ -776,27 +783,29 @@ pub fn recevie_drm_events(
                     crtc,
                     user_data,
                 }) => {
-                    trace!("drm event: Vblank({frame:?},{time:?},{crtc:?},{user_data:?})");
+                    debug!("drm event: Vblank({frame:?},{time:?},{crtc:?},{user_data:?})");
                 }
                 drm::control::Event::PageFlip(e) => {
                     debug!(
                         "drm event: PageFlip({:?},{:?},{:?})",
                         &e.frame, &e.duration, &e.crtc
                     );
-                    for entity in children.iter() {
-                        if let Ok(surface) = surface_query.get(*entity) {
-                            let mut surface_guard = surface.inner.lock().unwrap();
-                            if surface_guard.crtc == e.crtc {
-                                surface_guard.on_page_flip(e);
+                    if let Some(children) = children {
+                        for entity in children.iter() {
+                            if let Ok(surface) = surface_query.get(*entity) {
+                                let mut surface_guard = surface.inner.lock().unwrap();
+                                if surface_guard.crtc == e.crtc {
+                                    surface_guard.on_page_flip(e);
+                                }
                             }
                         }
                     }
                 }
                 drm::control::Event::Unknown(data) => {
-                    trace!("drm event: Unknown({data:?})");
+                    debug!("drm event: Unknown({data:?})");
                 }
             }
-            events.send(DrmEvent { entity, event });
+            events_writer.send(DrmEvent { entity, event });
         }
     });
 }

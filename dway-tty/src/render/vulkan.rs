@@ -171,7 +171,7 @@ pub fn create_framebuffer_texture(
             .initial_layout(ImageLayout::PREINITIALIZED)
             .usage(ImageUsageFlags::COLOR_ATTACHMENT)
             .flags({
-                let mut flags = ImageCreateFlags::empty();
+                let mut flags = ImageCreateFlags::DISJOINT | ImageCreateFlags::DISJOINT_KHR;
                 if buffer.planes.len() > 1 {
                     flags |= ImageCreateFlags::DISJOINT;
                 };

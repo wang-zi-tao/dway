@@ -11,6 +11,7 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Result};
 use bevy::prelude::*;
+use crossbeam::epoch::Pointable;
 use drm::{
     control::{
         atomic::AtomicModeReq,
@@ -18,10 +19,11 @@ use drm::{
         property::{self, Value},
         AtomicCommitFlags, Device, Mode, PageFlipEvent,
     },
-    Device as drm_device,
+    Device as drm_device, VblankWaitFlags,
 };
+use drm_ffi::{drm_vblank_seq_type::_DRM_VBLANK_HIGH_CRTC_MASK, _DRM_VBLANK_HIGH_CRTC_SHIFT};
 use drm_fourcc::DrmFormat;
-use measure_time::{debug_time, trace_time, info_time, print_time};
+use measure_time::{debug_time, info_time, print_time, trace_time};
 use tracing::{span, Level};
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 
@@ -235,11 +237,6 @@ impl DrmSurface {
                     if let Some(buffer) = self_guard.showing.replace(buffer) {
                         self_guard.available.push_back(buffer);
                     }
-                    // if self_guard.showing.is_some() {
-                    //     self_guard.commited.push_front(buffer);
-                    //     bail!("waiting PageFlip event");
-                    // }
-                    // self_guard.showing = Some(buffer);
 
                     let size = self_guard.size();
                     let req = create_request(
@@ -256,12 +253,22 @@ impl DrmSurface {
                         )],
                         drm_props,
                     )?;
-
+                    {
+                        debug_time!("wait_vblank");
+                        if let Err(e) = drm.wait_vblank(
+                            drm::VblankWaitTarget::Relative(1),
+                            VblankWaitFlags::NEXT_ON_MISS,
+                            u32::from(self_guard.crtc) >> 27,
+                            15,
+                        ) {
+                            error!("wait error: {e}");
+                        };
+                    }
                     {
                         let _span = info_span!("atomic_commit",framebuffer=?framebuffer).entered();
-                        print_time!("atomic_commit");
+                        debug_time!("atomic_commit");
                         drm.atomic_commit(
-                            AtomicCommitFlags::ALLOW_MODESET ,
+                            AtomicCommitFlags::ALLOW_MODESET | AtomicCommitFlags::NONBLOCK,
                             req,
                         )
                         .map_err(|e| anyhow!("failed to commit drm atomic request: {e}"))?;

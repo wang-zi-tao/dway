@@ -121,15 +121,12 @@ pub fn receive_events(
     mut motion_events: EventWriter<MouseMotion>,
     mut move_events: EventWriter<CursorMoved>,
     mut button_events: EventWriter<MouseButtonInput>,
-    mut button_state: ResMut<Input<MouseButton>>,
     mut axis_events: EventWriter<MouseWheel>,
     mut keyboard_events: EventWriter<KeyboardInput>,
-    mut keycode_state: ResMut<Input<KeyCode>>,
+    keycode_state: Res<Input<KeyCode>>,
     mut lock_state: ResMut<KeyLockState>,
     mut pointer_state: ResMut<PointerState>,
 ) {
-    button_state.clear();
-    keycode_state.clear();
     if let Err(e) = libinput.libinput.dispatch() {
         error!("libinput error: {e}");
     };
@@ -159,7 +156,7 @@ pub fn receive_events(
                         let state = k.key_state();
                         let key_code = convert_keycode(
                             key,
-                            &mut keycode_state,
+                            &keycode_state,
                             state,
                             &mut lock_state,
                             &mut k.device(),
@@ -217,10 +214,6 @@ pub fn receive_events(
                             tablet_pad::ButtonState::Pressed => ButtonState::Pressed,
                             tablet_pad::ButtonState::Released => ButtonState::Released,
                         };
-                        match state {
-                            ButtonState::Pressed => button_state.press(button),
-                            ButtonState::Released => button_state.release(button),
-                        }
                         debug!("mouse button: button={button:?}, state={state:?}, window={default_window_entity:?}");
                         button_events.send(MouseButtonInput {
                             button,
@@ -278,7 +271,6 @@ impl Plugin for LibInputPlugin {
             .add_fd_to_read(&libinput);
         app.add_systems(First, receive_events.in_set(DWayTTYSet::LibinputSystem))
             .insert_non_send_resource(libinput)
-            .init_resource::<Input<MouseButton>>()
             .init_resource::<Input<KeyCode>>()
             .init_resource::<KeyLockState>()
             .init_resource::<PointerState>()

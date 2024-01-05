@@ -6,7 +6,7 @@ use tracing::warn;
 #[allow(non_upper_case_globals)]
 pub fn convert_keycode(
     code: u32,
-    input_state: &mut Input<KeyCode>,
+    input_state: &Input<KeyCode>,
     state: KeyState,
     lock_state: &mut KeyLockState,
     device: &mut Device,
