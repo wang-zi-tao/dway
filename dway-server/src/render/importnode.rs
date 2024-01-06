@@ -161,7 +161,7 @@ pub fn prepare_surfaces(
                     dma_buffer,
                     &mut images,
                 ) {
-                    error!("{e} \n{}", e.backtrace());
+                    error!("failed to prepare wayland surface: {e}");
                 };
             }
         };

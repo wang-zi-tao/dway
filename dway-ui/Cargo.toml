@@ -33,6 +33,7 @@ serde = { workspace = true }
 measure_time = {workspace = true}
 smart-default = {workspace = true}
 bevy_ecss = "0.6.0"
+ansi-str = "0.8.0"
 
 [features]
 dynamic_reload = ["dep:dexterous_developer","dway-ui-derive/dynamic_reload"]

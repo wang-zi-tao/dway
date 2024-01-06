@@ -8,3 +8,4 @@ pub mod workspacelist;
 pub mod applist;
 pub mod worksapce;
 pub mod screen;
+pub mod logger;

@@ -21,7 +21,7 @@ use crate::{
     widgets::{
         applist::AppListUIBundle,
         screen::{ScreenWindows, ScreenWindowsBundle},
-        workspacelist::WorkspaceListUIBundle,
+        workspacelist::WorkspaceListUIBundle, logger::LoggerUIBundle,
     },
 };
 use bevy::{render::camera::RenderTarget, ui::FocusPolicy, window::WindowRef};
@@ -57,6 +57,7 @@ impl Plugin for DWayUiPlugin {
             widgets::popup::PopupUiPlugin,
             widgets::screen::ScreenWindowsPlugin,
             widgets::workspacelist::WorkspaceListUIPlugin,
+            widgets::logger::LoggerUIPlugin,
             ScreenUIPlugin,
         ));
         app.add_plugins((
@@ -189,6 +190,7 @@ ScreenUI=>
             </PanelButtonBundle>
         </MiniNodeBundle>
     </NodeBundle>
+    <LoggerUIBundle @style="bottom-64 left-32 absolute"/>
 </NodeBundle>
 }
 

@@ -208,7 +208,7 @@ impl DWayServer {
                     .fuse();
 
                 let id = subprocess.id();
-                info!("spawn process ({program}) [{id:?}]");
+                info!("spawn process ({program}) [{id:?}] `{command:?}`");
                 loop {
                     futures::select! {
                         state=subprocess.status().fuse()=>{

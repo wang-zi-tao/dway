@@ -15,6 +15,7 @@ use bevy::utils::tracing;
 use bevy::utils::HashMap;
 use double_map::DHashMap;
 use drm::Driver;
+use drm::SystemError;
 use drm::{
     control::{
         atomic::AtomicModeReq, connector, crtc, framebuffer, plane, property, AtomicCommitFlags,
@@ -29,6 +30,7 @@ use drm_fourcc::DrmFourcc;
 use drm_fourcc::DrmModifier;
 
 use gbm::BufferObject;
+use nix::errno::Errno;
 use nix::libc;
 use smallvec::SmallVec;
 use std::borrow::Cow;
@@ -770,6 +772,9 @@ pub fn recevie_drm_events(
     drm_query.for_each(|(entity, drm, children)| {
         let events = match drm.fd.receive_events() {
             Ok(o) => o,
+            Err(SystemError::Unknown {
+                errno: Errno::EAGAIN,
+            }) => return,
             Err(e) => {
                 error!(?entity, "failed to receive drm events: {e}");
                 return;

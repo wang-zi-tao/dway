@@ -18,6 +18,7 @@ use bevy::{
     pbr::PbrPlugin,
     prelude::*,
     scene::ScenePlugin,
+    time::TimePlugin,
     winit::WinitPlugin,
 };
 use bevy_framepace::Limiter;
@@ -40,15 +41,15 @@ bevy_render=debug,\
 bevy_ui=trace,\
 dway=debug,\
 bevy_relationship=debug,\
-dway_server=debug,\
+dway_server=trace,\
 dway_server::input=debug,\
-dway_server::render=info,\
-dway_server::state=info,\
-dway_server::wl::buffer=info,\
-dway_server::wl::compositor=info,\
-dway_server::wl::surface=info,\
+dway_server::render=debug,\
+dway_server::state=debug,\
+dway_server::wl::buffer=debug,\
+dway_server::wl::compositor=debug,\
+dway_server::wl::surface=debug,\
 dway_server::xdg::popup=debug,\
-dway_server::xdg=info,\
+dway_server::xdg=debug,\
 nega::front=info,\
 naga=warn,\
 wgpu=trace,\
@@ -136,7 +137,8 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         .disable::<AudioPlugin>()
         .disable::<GilrsPlugin>();
 
-    app.add_plugins(default_plugins);
+    app.insert_resource(Time::<Virtual>::from_max_delta(Duration::from_secs(5)))
+        .add_plugins(default_plugins);
 
     if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
         app.insert_resource(DWayTTYSettings {
