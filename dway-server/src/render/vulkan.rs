@@ -184,19 +184,14 @@ pub fn create_dma_image(
                 height: buffer.size.y as u32,
                 depth: 1,
             })
+            .tiling(ImageTiling::DRM_FORMAT_MODIFIER_EXT)
             .mip_levels(1)
             .array_layers(1)
             .format(convert_drm_format(DrmFourcc::try_from(buffer.format)?)?.0)
             .samples(SampleCountFlags::TYPE_1)
             .initial_layout(ImageLayout::PREINITIALIZED)
             .usage(ImageUsageFlags::COLOR_ATTACHMENT)
-            .flags({
-                let mut flags = ImageCreateFlags::empty();
-                if planes.len() > 1 {
-                    flags |= ImageCreateFlags::DISJOINT;
-                };
-                flags
-            })
+            .flags(ImageCreateFlags::DISJOINT)
             .push_next(&mut dmabuf_info)
             .push_next(&mut drm_info)
             .build();

@@ -10,10 +10,10 @@ pub struct Screen {
 }
 
 pub fn create_screen(
-    screen_query: Query<(Entity, Ref<Window>), Changed<Window>>,
+    screen_query: Query<(Entity, Ref<Window>, Option<&Screen>), Changed<Window>>,
     mut commands: Commands,
 ) {
-    screen_query.for_each(|(entity, window)| {
+    screen_query.for_each(|(entity, window, screen)| {
         let WindowPosition::At(window_position) = window.position else {
             return;
         };
@@ -23,7 +23,7 @@ pub fn create_screen(
             window.resolution.width() as i32,
             window.resolution.height() as i32,
         );
-        if window.is_added() {
+        if screen.is_none() {
             commands.entity(entity).insert((
                 Screen {
                     name: window.title.clone(),
