@@ -262,7 +262,7 @@ pub fn create_framebuffer_texture(
                         .build(),
                 );
                 bind_info.p_next = info.as_mut() as *mut _ as *mut _;
-                plane_infos.push(bind_info);
+                plane_infos.push(info);
             }
 
             bind_infos.push(bind_info);

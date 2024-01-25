@@ -7,11 +7,13 @@ use std::time::{Duration, Instant};
 use bevy::{
     app::{AppExit, PluginsState},
     core::FrameCount,
+    ecs::event::ManualEventReader,
     prelude::*,
+    window::RequestRedraw,
 };
 use drm::DrmPlugin;
 use dway_util::eventloop::{EventLoop, EventLoopControl, EventLoopPlugin, EventLoopPluginMode};
-use measure_time::{print_time, debug_time};
+use measure_time::{debug_time, print_time};
 use render::TtyRenderPlugin;
 use smart_default::SmartDefault;
 
@@ -64,6 +66,8 @@ fn runner(mut app: App) {
         app.cleanup();
     }
 
+    let mut redraw_events_reader = ManualEventReader::<RequestRedraw>::default();
+
     let runner = app.world.non_send_resource_mut::<EventLoop>().runner();
     runner.run(Duration::from_secs_f32(0.2), move || {
         let start_time = Instant::now();
@@ -80,7 +84,15 @@ fn runner(mut app: App) {
             if end_time - start_time < frame.frame_duration {
                 std::thread::sleep(frame.frame_duration - (end_time - start_time));
             }
-        }
+
+            if redraw_events_reader
+                .read(&app.world.resource())
+                .last()
+                .is_some()
+            {
+                return EventLoopControl::ContinueImmediate;
+            }
+        };
 
         EventLoopControl::Continue
     });

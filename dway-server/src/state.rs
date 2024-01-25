@@ -26,6 +26,7 @@ use bevy_relationship::{
 };
 use dway_util::eventloop::{EventLoop, Generic, Interest, Mode};
 use futures::{io::BufReader, AsyncBufReadExt, FutureExt, StreamExt};
+use nix::sys::signal::Signal;
 use wayland_backend::server::{ClientId, ObjectId};
 use wayland_server::{DataInit, ListeningSocket, New};
 
@@ -717,6 +718,7 @@ pub fn client_name(id: &ClientId) -> String {
 pub fn set_signal_handler() {
     use nix::sys::signal;
     extern "C" fn handle_sigsegv(_: i32) {
+        unsafe { signal::signal(signal::SIGSEGV, signal::SigHandler::SigDfl) };
         std::env::set_var("RUST_BACKTRACE", "1");
         panic!("signal::SIGSEGV {}", anyhow!("").backtrace());
     }

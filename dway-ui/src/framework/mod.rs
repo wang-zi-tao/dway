@@ -14,6 +14,7 @@ pub mod text;
 use crate::prelude::*;
 use bevy::input::mouse::MouseMotion;
 pub use bevy_svg::SvgPlugin;
+use bevy_tweening::AssetAnimator;
 use dway_util::UtilPlugin;
 use smart_default::SmartDefault;
 
@@ -95,6 +96,10 @@ impl Plugin for UiFrameworkPlugin {
             animation::after_animation_finish
                 .run_if(on_event::<TweenCompleted>())
                 .in_set(animation::AnimationSystems::Finish),
+        );
+        app.add_systems(
+            Last,
+            animation::request_update_system.in_set(animation::AnimationSystems::PrepareNextFrame),
         );
         app.add_systems(
             PreUpdate,

@@ -18,6 +18,8 @@ pub enum LinuxIconError {
     Io(#[from] std::io::Error),
     #[error("icon not found")]
     NotFound,
+    #[error("failed to load an SVG")]
+    SvgError(),
 }
 
 #[derive(Clone, Debug, Reflect, PartialEq, Eq)]
@@ -99,7 +101,7 @@ impl AssetLoader for LinuxIconLoader {
             let name = &settings.icon.name;
             let raw_icon = self
                 .icon_loader
-                .load_icon(&name)
+                .load_icon(&format!("{}.svg", name))
                 .ok_or(LinuxIconError::NotFound)?;
             let file = raw_icon.file_for_size(settings.icon.width.max(settings.icon.height));
             let path = file.path().to_owned();

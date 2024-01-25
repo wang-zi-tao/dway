@@ -102,6 +102,6 @@ impl Plugin for DWayLogPlugin {
             .with(tracing_subscriber::fmt::Layer::new().with_writer(LoggerWritter { tx }));
 
         let _ = bevy::utils::tracing::subscriber::set_global_default(subscriber);
-        log_panics::init()
+        // log_panics::init()
     }
 }

@@ -2,23 +2,22 @@ use std::{f32::consts::PI, time::Duration};
 
 use anyhow::anyhow;
 use bevy::{
-    app::{AppExit},
+    app::AppExit,
     core::TaskPoolThreadAssignmentPolicy,
-    core_pipeline::{tonemapping::Tonemapping},
+    core_pipeline::tonemapping::Tonemapping,
     input::{
         keyboard::KeyboardInput,
         mouse::{MouseButtonInput, MouseMotion, MouseWheel},
     },
     log::LogPlugin,
     prelude::*,
-    render::{camera::RenderTarget},
+    render::camera::RenderTarget,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
     winit::WinitPlugin,
 };
 use dway_tty::{drm::surface::DrmSurface, DWayTTYPlugin};
 
 use tracing::Level;
-
 
 const THREAD_POOL_CONFIG: TaskPoolThreadAssignmentPolicy = TaskPoolThreadAssignmentPolicy {
     min_threads: 1,
@@ -60,7 +59,7 @@ pub fn main() {
     for i in 0..8192 {
         info!("frame {i}");
         app.update();
-        std::thread::sleep(Duration::from_secs_f64(1.0 / 60.0));
+        std::thread::sleep(Duration::from_secs_f64(1.0 / 144.0));
     }
 }
 

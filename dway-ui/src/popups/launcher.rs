@@ -3,7 +3,7 @@ use std::process;
 use bevy_svg::prelude::Svg;
 use dway_server::apps::{
     icon::{LinuxIcon, LinuxIconLoader, LinuxIconKind},
-    DesktopEntriesSet, DesktopEntry,
+    DesktopEntriesSet, DesktopEntry, launchapp::LaunchAppRequest,
 };
 
 use crate::{
@@ -39,16 +39,10 @@ LauncherUI=>
 @callback{[UiButtonEvent]
     fn on_launch(
         In(event): In<UiButtonEvent>,
-        app_query: Query<&DesktopEntry>,
-        server_query: Query<&DWayServer>,
+        mut event_writer: EventWriter<LaunchAppRequest>
     ) {
         if event.kind == UiButtonEventKind::Released {
-            let Ok(desktop_entry) = app_query.get(event.receiver) else {return};
-            let Some(exec) = desktop_entry.exec() else{return};
-            let Some(compositor) = server_query.iter().next() else{return};
-            let mut command = process::Command::new("sh");
-            command.arg("-c").arg(exec);
-            compositor.spawn_process(command);
+            event_writer.send(LaunchAppRequest::new(event.receiver));
         }
     }
 }

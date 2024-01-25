@@ -7,6 +7,7 @@ use log::info;
 
 pub mod components;
 pub mod compositor;
+pub mod config;
 pub mod controller;
 pub mod debug;
 pub mod desktop;

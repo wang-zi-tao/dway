@@ -66,7 +66,7 @@ pub fn uisvg_render(
             debug!("UiSvg: render image {:?} {:?}", ui_svg.svg, node.size());
             let svg_size = svgs
                 .get(&ui_svg.svg)
-                .map(|svg| svg.size)
+                .map(|svg| Vec2::new(svg.view_box.w as f32, svg.view_box.h as f32))
                 .unwrap_or(node.size());
             commands.spawn((
                 Svg2dBundle {

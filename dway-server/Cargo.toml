@@ -60,6 +60,7 @@ serde = {workspace = true}
 winnow = "0.5.30"
 async-fs = "2.1.0"
 ron = "0.8.1"
+derive_builder = "0.12.0"
 
 [dependencies.x11rb]
 default-features = false

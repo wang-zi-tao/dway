@@ -23,6 +23,8 @@ bevy = { workspace = true }
 getset = "0.1.2"
 bitflags = "2.4.0"
 anyhow = { version="1.0", features = ["backtrace"] }
+structstruck = "0.4.1"
+smart-default = {workspace = true}
 
 pulsectl-rs = "0.3.2"
 libpulse-binding = "2.24.0"

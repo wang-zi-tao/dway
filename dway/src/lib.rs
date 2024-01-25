@@ -59,7 +59,7 @@ bevy_ecss=info,\
 dway_tty=info,\
 ";
 
-#[cfg(not(feature = "dynamic_reload"))]
+#[cfg(not(feature = "hot_reload"))]
 pub fn bevy_main() {
     use bevy::prelude::*;
 
@@ -67,10 +67,10 @@ pub fn bevy_main() {
     init_app(&mut app, DefaultPlugins.build());
 }
 
-#[cfg(feature = "dynamic_reload")]
+#[cfg(feature = "hot_reload")]
 use dexterous_developer::{hot_bevy_main, InitialPlugins};
 
-#[cfg(feature = "dynamic_reload")]
+#[cfg(feature = "hot_reload")]
 #[hot_bevy_main]
 pub fn bevy_main(initial_plugins: impl InitialPlugins) {
     use dexterous_developer::{ReloadMode, ReloadSettings, ReloadableElementPolicy};
@@ -97,18 +97,19 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
 
     #[cfg(feature = "single_thread")]
     {
-        let thread_pool_config = bevy::core::TaskPoolThreadAssignmentPolicy {
-            min_threads: 1,
-            max_threads: 1,
-            percent: 1.0,
-        };
         default_plugins = default_plugins.set(TaskPoolPlugin {
             task_pool_options: TaskPoolOptions {
-                min_total_threads: 1,
                 max_total_threads: 1,
-                io: thread_pool_config.clone(),
-                async_compute: thread_pool_config.clone(),
-                compute: thread_pool_config.clone(),
+                ..Default::default()
+            },
+        });
+    }
+    #[cfg(not(feature = "single_thread"))]
+    {
+        default_plugins = default_plugins.set(TaskPoolPlugin {
+            task_pool_options: TaskPoolOptions {
+                max_total_threads: 8,
+                ..Default::default()
             },
         });
     }
@@ -119,12 +120,6 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             level: LOG_LEVEL,
             filter: std::env::var("RUST_LOG").unwrap_or_else(|_| LOG.to_string()),
         });
-    }
-
-    #[cfg(feature = "debug")]
-    {
-        default_plugins =
-            default_plugins.add(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
     }
 
     default_plugins = default_plugins
@@ -171,14 +166,16 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         {
             app.add_plugins(dway_util::eventloop::EventLoopPlugin::default());
         }
+        #[cfg(feature = "debug")]
+        {
+            app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
+        }
     }
 
     app.add_plugins((
-        EntityCountDiagnosticsPlugin,
         FrameTimeDiagnosticsPlugin,
-        SystemInformationDiagnosticsPlugin,
         LogDiagnosticsPlugin {
-            wait_duration: Duration::from_secs(16),
+            wait_duration: Duration::from_secs(256),
             ..Default::default()
         },
     ));

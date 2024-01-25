@@ -1,7 +1,14 @@
 use bevy::prelude::*;
-use calloop::channel::{Channel, Sender};
+use calloop::{
+    channel::{Channel, Sender},
+    signals::Signal,
+};
 pub use calloop::{generic::Generic, EventSource, Interest, Mode, PostAction, Readiness};
 use log::info;
+use nix::{
+    libc::{epoll_create, epoll_event, epoll_wait},
+    poll::{PollFd, PollFlags},
+};
 use smart_default::SmartDefault;
 use std::{
     any::{type_name, TypeId},
@@ -10,16 +17,41 @@ use std::{
     time::{Duration, Instant},
 };
 
+pub struct Poll {}
+
+pub unsafe fn poll() {
+    // let fd = PollFd::new(fd, PollFlags::POLLIN|PollFlags::POLLERR);
+    let fd = epoll_create(16);
+
+    let mut events = [epoll_event { events: 0, u64: 0 }; 16];
+    loop {
+        let nfds = epoll_wait(fd, events.as_mut_ptr(), events.len() as i32, 0);
+        for i in 0..nfds {
+            let ev = &events[i as usize];
+            let fd = ev.u64;
+        }
+    }
+}
+
 pub type Register = Box<dyn FnOnce(&mut calloop::LoopHandle<'static, ()>) + Send + Sync>;
+
+pub enum EventLoopOperate {
+    RequestUpdate,
+    FrameFinish,
+    Register(Register),
+}
 
 pub struct EventLoop {
     channel: Option<Channel<Register>>,
+    // signal: Signal,
     sender: Sender<Register>,
     tx: Option<mpsc::Sender<()>>,
 }
 
 pub enum EventLoopControl {
     Continue,
+    ContinueImmediate,
+    ContinueWithTimeout(Duration),
     Stop,
 }
 
@@ -60,13 +92,24 @@ impl EventLoopRunner {
                 }
             };
         });
-        let signal = event_loop.get_signal();
-        let _ = event_loop.run(duration, &mut (), |_| {
+        let mut timeout = duration;
+        loop {
+            if let Err(e) = event_loop.dispatch(timeout, &mut ()){
+                error!("{e}");
+            }
             match callback() {
-                EventLoopControl::Continue => {}
-                EventLoopControl::Stop => signal.stop(),
+                EventLoopControl::Continue => {
+                    timeout = duration;
+                }
+                EventLoopControl::Stop => break,
+                EventLoopControl::ContinueWithTimeout(t) => {
+                    timeout = t;
+                }
+                EventLoopControl::ContinueImmediate => {
+                    timeout = Duration::default();
+                },
             };
-        });
+        }
         info!("eventloop stopped");
     }
 }

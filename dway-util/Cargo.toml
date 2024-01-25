@@ -18,6 +18,7 @@ log-panics = { version = "2", features = ["with-backtrace", "backtrace"]}
 structstruck = "0.4.1"
 smart-default = {workspace = true}
 smallvec = "1.11.0"
+nix = { version="0.27.1", features=["poll"] }
 
 [dependencies.bevy]
 version = "0.12"

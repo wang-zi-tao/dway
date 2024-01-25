@@ -4,7 +4,11 @@ use dway_client_core::{
     navigation::windowstack::{WindowIndex, WindowStack},
     workspace::{ScreenAttachWorkspace, WindowOnWorkspace, Workspace, WorkspaceSet},
 };
-use dway_server::{macros::EntityCommandsExt, prelude::WindowAction};
+use dway_server::{
+    apps::launchapp::{RunCommandRequest, RunCommandRequestBuilder},
+    macros::EntityCommandsExt,
+    prelude::WindowAction,
+};
 use dway_ui::{framework::gallary::WidgetGallaryBundle, prelude::spawn};
 
 pub fn wm_keys(
@@ -18,6 +22,7 @@ pub fn wm_keys(
     workspace_root_query: Query<&Children, With<WorkspaceSet>>,
     mut commands: Commands,
     mut tab_counter: Local<usize>,
+    mut run_command_event: EventWriter<RunCommandRequest>,
 ) {
     let meta = input.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
     let shift = input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
@@ -25,7 +30,14 @@ pub fn wm_keys(
     let alt = input.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
 
     if alt | meta {
-        if shift && input.just_pressed(KeyCode::Q) {
+        if input.just_pressed(KeyCode::Return) {
+            run_command_event.send(
+                RunCommandRequestBuilder::default()
+                    .command("alacritty".to_string())
+                    .build()
+                    .unwrap(),
+            )
+        } else if shift && input.just_pressed(KeyCode::Q) {
             exit.send(AppExit);
         } else if input.just_pressed(KeyCode::Q) || input.just_pressed(KeyCode::F4) {
             if let Some((window, _)) = &window_under_cursor.0 {

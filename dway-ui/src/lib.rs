@@ -20,8 +20,9 @@ use crate::{
     prelude::*,
     widgets::{
         applist::AppListUIBundle,
+        logger::LoggerUIBundle,
         screen::{ScreenWindows, ScreenWindowsBundle},
-        workspacelist::WorkspaceListUIBundle, logger::LoggerUIBundle,
+        workspacelist::WorkspaceListUIBundle,
     },
 };
 use bevy::{render::camera::RenderTarget, ui::FocusPolicy, window::WindowRef};
@@ -190,7 +191,7 @@ ScreenUI=>
             </PanelButtonBundle>
         </MiniNodeBundle>
     </NodeBundle>
-    <LoggerUIBundle @style="bottom-64 left-32 absolute"/>
+    // <LoggerUIBundle @style="bottom-64 left-32 w-80% absolute"/>
 </NodeBundle>
 }
 

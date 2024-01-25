@@ -36,7 +36,7 @@ bevy_ecss = "0.6.0"
 ansi-str = "0.8.0"
 
 [features]
-dynamic_reload = ["dep:dexterous_developer","dway-ui-derive/dynamic_reload"]
+hot_reload = ["dep:dexterous_developer","dway-ui-derive/hot_reload"]
 
 [profile.dev]
 opt-level = 1

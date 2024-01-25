@@ -1,8 +1,12 @@
+use bevy::window::RequestRedraw;
+use bevy_tweening::{AnimatorState, AssetAnimator};
+
 use crate::prelude::*;
 
 #[derive(Clone, Copy, Hash, Debug, PartialEq, Eq, SystemSet)]
 pub enum AnimationSystems {
     Finish,
+    PrepareNextFrame,
 }
 
 #[derive(Component)]
@@ -19,6 +23,37 @@ pub fn after_animation_finish(
                 commands.entity(event.entity).despawn_recursive();
             }
         }
+    }
+}
+
+pub fn request_update_system(
+    style_animator_query: Query<&Animator<Style>, With<Animator<Style>>>,
+    transform_animator_query: Query<&Animator<Transform>, With<Animator<Transform>>>,
+    rounded_rect_animator_query: Query<
+        &AssetAnimator<RoundedUiRectMaterial>,
+        With<AssetAnimator<RoundedUiRectMaterial>>,
+    >,
+    circle_animator_query: Query<
+        &AssetAnimator<UiCircleMaterial>,
+        With<AssetAnimator<UiCircleMaterial>>,
+    >,
+    mut event_sender: EventWriter<RequestRedraw>,
+) {
+    let mut animation_playing = false;
+    style_animator_query.for_each(|e| {
+        animation_playing |= e.tweenable().progress() < 1.0;
+    });
+    transform_animator_query.for_each(|e| {
+        animation_playing |= e.tweenable().progress() < 1.0;
+    });
+    rounded_rect_animator_query.for_each(|e| {
+        animation_playing |= e.tweenable().progress() < 1.0;
+    });
+    circle_animator_query.for_each(|e| {
+        animation_playing |= e.tweenable().progress() < 1.0;
+    });
+    if animation_playing {
+        event_sender.send(RequestRedraw);
     }
 }
 

@@ -54,12 +54,12 @@ version = "0.3"
 [features]
 default = [
     "dway_log",
-    # "dynamic_reload",
-    "debug",
+    # "hot_reload",
+    # "debug",
 ]
 debug = ["dep:bevy-inspector-egui"]
 dway_log = []
-dynamic_reload = ["dep:dexterous_developer", "dep:serde", "dway-ui/dynamic_reload" , "bevy/dynamic_linking", "bevy/embedded_watcher"]
+hot_reload = ["dep:dexterous_developer", "dep:serde", "dway-ui/hot_reload" , "bevy/dynamic_linking", "bevy/embedded_watcher"]
 eventloop = []
 single_thread = []
 dhat-heap = ["dep:dhat"]    # if you are doing heap profiling

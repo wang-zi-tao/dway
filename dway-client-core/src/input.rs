@@ -41,10 +41,7 @@ impl Plugin for DWayInputPlugin {
             PreUpdate,
             (
                 mouse_move_on_window.run_if(on_event::<CursorMoved>()),
-                // cursor_move_on_window.run_if(on_event::<MouseMotion>()),
-                // mouse_button_on_window.run_if(on_event::<MouseButtonInput>()),
-                // mouse_wheel_on_window.run_if(on_event::<MouseWheel>()),
-                // keyboard_input_system.run_if(on_event::<KeyboardInput>()),
+                keyboard_input_system.run_if(on_event::<KeyboardInput>()),
                 on_input_event,
             )
                 .in_set(DWayServerSet::Input),

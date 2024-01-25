@@ -586,10 +586,12 @@ name = "bevy-relationship-derive"
 version = "0.1.0"
 dependencies = [
  "convert_case",
+ "derive-syn-parse",
  "lazy_static",
  "proc-macro2",
  "quote",
  "regex",
+ "structstruck",
  "syn 2.0.39",
  "syn_derive",
 ]
@@ -2461,6 +2463,8 @@ dependencies = [
  "rand",
  "serde",
  "smallvec",
+ "smart-default",
+ "structstruck",
  "uuid",
 ]
 
@@ -2479,6 +2483,7 @@ dependencies = [
  "bitflags 2.4.1",
  "crossbeam-channel",
  "current_locale",
+ "derive_builder",
  "drm-fourcc",
  "dway-util",
  "encoding",
@@ -2627,6 +2632,7 @@ dependencies = [
  "log",
  "log-panics",
  "memory-stats",
+ "nix 0.27.1",
  "send_wrapper",
  "smallvec",
  "smart-default",

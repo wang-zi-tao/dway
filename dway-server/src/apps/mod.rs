@@ -1,16 +1,28 @@
 pub mod icon;
+pub mod launchapp;
 
-use std::{borrow::Cow, collections::HashMap, path::PathBuf, any::type_name};
+use std::{any::type_name, borrow::Cow, collections::HashMap, path::PathBuf};
 
-use bevy::{tasks::{block_on, IoTaskPool, Task}, asset::{io::{AssetSource, AssetSourceId}, saver::AssetSaver}};
+use bevy::{
+    asset::{
+        io::{AssetSource, AssetSourceId},
+        saver::AssetSaver,
+    },
+    tasks::{block_on, IoTaskPool, Task},
+};
 
 use bevy_svg::prelude::Svg;
 use futures_lite::future::poll_once;
 use gettextrs::{dgettext, setlocale, LocaleCategory};
 
-use crate::{apps::icon::LinuxIcon, prelude::*, schedule::DWayServerSet, xdg::toplevel::DWayToplevel};
+use crate::{
+    apps::icon::LinuxIcon, prelude::*, schedule::DWayServerSet, xdg::toplevel::DWayToplevel,
+};
 
-use self::icon::{LinuxIconLoader, LinuxIconReader};
+use self::{
+    icon::{LinuxIconLoader, LinuxIconReader},
+    launchapp::{launch_app_system, run_command_system, LaunchAppRequest, RunCommandRequest},
+};
 
 #[derive(Resource, Default, Reflect)]
 pub struct DesktopEntriesSet {
@@ -114,12 +126,30 @@ impl DesktopEntry {
         self.get_without_locale("Desktop Entry", "Exec")
     }
 
+    pub fn try_exec(&self) -> Option<&str> {
+        self.get_without_locale("Desktop Entry", "TryExec")
+    }
+
+    pub fn current_dir(&self) -> Option<&str> {
+        self.get_without_locale("Desktop Entry", "Path")
+    }
+
     pub fn icon(&self) -> Option<&str> {
         self.get_without_locale("Desktop Entry", "Icon")
     }
 
-    pub fn icon_url(&self,size:u16) -> Option<String> {
-        self.icon().map(|name|format!("linuxicon://{name}/{size}x{size}"))
+    pub fn type_(&self) -> Option<&str> {
+        self.get_without_locale("Desktop Entry", "Type")
+    }
+
+    pub fn icon_url(&self, size: u16) -> Option<String> {
+        self.icon().map(|name| {
+            if name.starts_with('/') {
+                name.to_owned()
+            } else {
+                format!("linuxicon://{name}/{size}x{size}")
+            }
+        })
     }
 
     pub fn name(&self) -> Option<Cow<str>> {
@@ -211,6 +241,8 @@ pub fn attach_to_app(
 pub struct DesktopEntriesPlugin;
 impl Plugin for DesktopEntriesPlugin {
     fn build(&self, app: &mut App) {
+        app.add_event::<RunCommandRequest>();
+        app.add_event::<LaunchAppRequest>();
         app.register_type::<DesktopEntry>();
         app.register_type::<LinuxIcon>();
         app.init_asset::<LinuxIcon>();
@@ -230,6 +262,13 @@ impl Plugin for DesktopEntriesPlugin {
         app.add_systems(
             PreUpdate,
             attach_to_app.in_set(DWayServerSet::UpdateAppInfo),
+        );
+        app.add_systems(
+            PostUpdate,
+            (
+                run_command_system.run_if(on_event::<RunCommandRequest>()),
+                launch_app_system.run_if(on_event::<LaunchAppRequest>()),
+            ),
         );
     }
 }
