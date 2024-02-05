@@ -5,3 +5,9 @@ pub enum ControlFlow<T = ()> {
     Break,
     Return(T),
 }
+
+impl<T> ControlFlow<T>{
+    pub fn new()->ControlFlow<()>{
+        ControlFlow::<()>::Continue
+    }
+}

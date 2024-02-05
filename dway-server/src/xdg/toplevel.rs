@@ -1,9 +1,16 @@
+use bevy::ecs::query::WorldQuery;
+
 use crate::{
     geometry::Geometry,
-    input::grab::{ResizeEdges, SurfaceGrabKind, WlSurfacePointerState},
+    input::{
+        grab::{ResizeEdges, SurfaceGrabKind, WlSurfacePointerState},
+        pointer::WlPointer,
+        seat::WlSeat,
+    },
     prelude::*,
     resource::ResourceWrapper,
     schedule::DWayServerSet,
+    wl::surface::ClientHasSurface,
 };
 
 use super::{DWayWindow, XdgSurface};
@@ -121,7 +128,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 if let Some(mut pointer_state) = state.get_mut::<WlSurfacePointerState>(*data) {
                     pointer_state.grab = Some(Box::new(SurfaceGrabKind::Move {
                         seat: DWay::get_entity(&seat),
-                        serial,
+                        serial: Some(serial),
                     }));
                 }
             }
@@ -152,12 +159,16 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                     }
                     _ => return,
                 };
-                if let Some(mut pointer_state) = state.get_mut::<WlSurfacePointerState>(*data) {
-                    pointer_state.grab = Some(Box::new(SurfaceGrabKind::Resizing {
-                        seat: DWay::get_entity(&seat),
-                        serial,
-                        edges,
-                    }));
+                if let Some(geo) = state.get_mut::<Geometry>(*data) {
+                    let geo = geo.geometry;
+                    if let Some(mut pointer_state) = state.get_mut::<WlSurfacePointerState>(*data) {
+                        pointer_state.grab = Some(Box::new(SurfaceGrabKind::Resizing {
+                            seat: DWay::get_entity(&seat),
+                            serial: None,
+                            edges,
+                            geo,
+                        }));
+                    }
                 }
             }
             xdg_toplevel::Request::SetMaxSize { width, height } => {
@@ -213,62 +224,104 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
     }
 }
 
+graph_query!(InputGraph=>[
+    surface=Entity,
+    client=(Entity, &'static mut WlSeat ),
+]=>{
+    pointer=surface<-[ClientHasSurface]-client
+});
+
+#[derive(WorldQuery)]
+#[world_query(mutable)]
+pub struct ToplevelWorldQuery {
+    xdg_obj: &'static mut XdgToplevel,
+    data: &'static mut DWayToplevel,
+    surface: &'static XdgSurface,
+    geo: &'static mut Geometry,
+    pinned: Option<&'static PinedWindow>,
+    pointer_state: &'static mut WlSurfacePointerState,
+}
+
 pub fn process_window_action_event(
+    mut graph: InputGraph,
     mut events: EventReader<WindowAction>,
-    mut window_query: Query<
-        (
-            &mut XdgToplevel,
-            &mut DWayToplevel,
-            &XdgSurface,
-            &mut Geometry,
-        ),
-        With<DWayWindow>,
-    >,
+    mut window_query: Query<ToplevelWorldQuery, With<DWayWindow>>,
 ) {
     for e in events.read() {
         match e {
             WindowAction::Close(e) => {
-                if let Ok((c, _t, s, _)) = window_query.get_mut(*e) {
-                    c.raw.close();
-                    s.configure();
+                if let Ok(mut toplevel) = window_query.get_mut(*e) {
+                    toplevel.xdg_obj.raw.close();
+                    toplevel.surface.configure();
                 }
             }
             WindowAction::Maximize(e) => {
-                if let Ok((c, mut t, s, _)) = window_query.get_mut(*e) {
-                    t.max = true;
-                    c.configure(&mut t);
-                    s.configure();
+                if let Ok(mut toplevel) = window_query.get_mut(*e) {
+                    toplevel.data.max = true;
+                    toplevel.xdg_obj.configure(&mut toplevel.data);
+                    toplevel.surface.configure();
                 }
             }
             WindowAction::UnMaximize(e) => {
-                if let Ok((c, mut t, s, _)) = window_query.get_mut(*e) {
-                    t.max = true;
-                    c.configure(&mut t);
-                    s.configure();
+                if let Ok(mut toplevel) = window_query.get_mut(*e) {
+                    toplevel.data.max = true;
+                    toplevel.xdg_obj.configure(&mut toplevel.data);
+                    toplevel.surface.configure();
                 }
             }
             WindowAction::Fullscreen(e) => {
-                if let Ok((c, mut t, s, _)) = window_query.get_mut(*e) {
-                    t.fullscreen = true;
-                    c.configure(&mut t);
-                    s.configure();
+                if let Ok(mut toplevel) = window_query.get_mut(*e) {
+                    toplevel.data.fullscreen = true;
+                    toplevel.xdg_obj.configure(&mut toplevel.data);
+                    toplevel.surface.configure();
                 }
             }
             WindowAction::UnFullscreen(e) => {
-                if let Ok((c, mut t, s, _)) = window_query.get_mut(*e) {
-                    t.fullscreen = false;
-                    c.configure(&mut t);
-                    s.configure();
+                if let Ok(mut toplevel) = window_query.get_mut(*e) {
+                    toplevel.data.fullscreen = false;
+                    toplevel.xdg_obj.configure(&mut toplevel.data);
+                    toplevel.surface.configure();
                 }
             }
             WindowAction::Minimize(_) => {}
             WindowAction::UnMinimize(_) => {}
             WindowAction::SetRect(e, rect) => {
-                if let Ok((c, mut t, s, mut g)) = window_query.get_mut(*e) {
-                    g.geometry.set_pos(rect.pos());
-                    t.size = Some(rect.size());
-                    c.configure(&mut t);
-                    s.configure();
+                if let Ok(mut toplevel) = window_query.get_mut(*e) {
+                    toplevel.geo.geometry = *rect;
+                    // toplevel.geo.set_pos(rect.pos());
+                    toplevel.data.size = Some(rect.size());
+                    toplevel.xdg_obj.configure(&mut toplevel.data);
+                    toplevel.surface.configure();
+                }
+            }
+            WindowAction::RequestMove(e) => {
+                if let Ok(mut toplevel) = window_query.get_mut(*e) {
+                    if toplevel.pinned.is_some() {
+                        return;
+                    }
+                    graph.for_each_pointer_mut_from(*e, |_, (seat_entity, _)| {
+                        toplevel.pointer_state.grab = Some(Box::new(SurfaceGrabKind::Move {
+                            seat: *seat_entity,
+                            serial: None,
+                        }));
+                        ControlFlow::<()>::default()
+                    });
+                }
+            }
+            WindowAction::RequestResize(e, edges) => {
+                if let Ok(mut toplevel) = window_query.get_mut(*e) {
+                    if toplevel.pinned.is_some() {
+                        return;
+                    }
+                    graph.for_each_pointer_mut_from(*e, |_, (seat_entity, _)| {
+                        toplevel.pointer_state.grab = Some(Box::new(SurfaceGrabKind::Resizing {
+                            seat: *seat_entity,
+                            serial: None,
+                            edges: *edges,
+                            geo: toplevel.geo.geometry,
+                        }));
+                        ControlFlow::<()>::default()
+                    });
                 }
             }
         }

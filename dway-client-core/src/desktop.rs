@@ -35,10 +35,10 @@ pub struct FocusedWindow {
     pub app_entity: Option<Entity>,
 }
 
-#[derive(Resource, Default, Reflect)]
+#[derive(Resource, Default, Reflect, Debug)]
 pub struct CursorOnOutput(pub Option<(Entity, IVec2)>);
 
-#[derive(Resource, Default, Reflect)]
+#[derive(Resource, Default, Reflect, Debug)]
 pub struct CursorOnWindow(pub Option<(Entity, IVec2)>);
 
 pub fn update_window_stack_by_focus(

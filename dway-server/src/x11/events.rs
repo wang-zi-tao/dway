@@ -90,44 +90,50 @@ pub fn process_x11_event(
                 t if t == atoms._NET_WM_MOVERESIZE => {
                     debug!("message type: _NET_WM_MOVERESIZE");
                     let xwindow_entity = x.find_window(e.window)?;
-                    let surface_entity = dway
-                        .get_mut::<XWindowSurfaceRef>(xwindow_entity)
-                        .and_then(|r| r.get());
-                    if let Some(surface_entity) = surface_entity {
-                        if let Some(mut window_pointer) =
-                            dway.get_mut::<WlSurfacePointerState>(surface_entity)
-                        {
-                            let data = e.data.as_data32();
-                            match data[2] {
-                                x @ 0..=7 => {
-                                    let edges = match x {
-                                        0 => ResizeEdges::TOP | ResizeEdges::LEFT,
-                                        1 => ResizeEdges::TOP,
-                                        2 => ResizeEdges::TOP | ResizeEdges::RIGHT,
-                                        3 => ResizeEdges::RIGHT,
-                                        4 => ResizeEdges::BUTTOM | ResizeEdges::RIGHT,
-                                        5 => ResizeEdges::BUTTOM,
-                                        6 => ResizeEdges::BUTTOM | ResizeEdges::LEFT,
-                                        7 => ResizeEdges::LEFT,
-                                        _ => unreachable!(),
-                                    };
-                                    window_pointer.grab =
-                                        Some(Box::new(SurfaceGrabKind::Resizing {
-                                            seat: display_entity,
-                                            serial: 0,
-                                            edges,
-                                        }));
-                                    debug!("xwindow start resizing");
-                                }
-                                8 => {
-                                    window_pointer.grab = Some(Box::new(SurfaceGrabKind::Move {
-                                        seat: display_entity,
-                                        serial: 0,
-                                    }));
-                                    debug!("xwindow start moving");
-                                }
-                                _ => {} // ignore keyboard moves/resizes for now
+                    let Some(surface_entity) = dway
+                        .get::<XWindowSurfaceRef>(xwindow_entity)
+                        .and_then(|r| r.get())
+                    else {
+                        warn!(?xwindow_entity, "surface entity has no XWindowSurfaceRef");
+                        return Ok(());
+                    };
+                    let Some(geo) = dway.get::<Geometry>(surface_entity).map(|g| g.geometry) else {
+                        warn!(?surface_entity, "surface entity has no Geometry");
+                        return Ok(());
+                    };
+                    if let Some(mut window_pointer) =
+                        dway.get_mut::<WlSurfacePointerState>(surface_entity)
+                    {
+                        let data = e.data.as_data32();
+                        match data[2] {
+                            x @ 0..=7 => {
+                                let edges = match x {
+                                    0 => ResizeEdges::TOP | ResizeEdges::LEFT,
+                                    1 => ResizeEdges::TOP,
+                                    2 => ResizeEdges::TOP | ResizeEdges::RIGHT,
+                                    3 => ResizeEdges::RIGHT,
+                                    4 => ResizeEdges::BUTTOM | ResizeEdges::RIGHT,
+                                    5 => ResizeEdges::BUTTOM,
+                                    6 => ResizeEdges::BUTTOM | ResizeEdges::LEFT,
+                                    7 => ResizeEdges::LEFT,
+                                    _ => unreachable!(),
+                                };
+                                window_pointer.grab = Some(Box::new(SurfaceGrabKind::Resizing {
+                                    seat: display_entity,
+                                    serial: Some(0),
+                                    edges,
+                                    geo,
+                                }));
+                                debug!("xwindow start resizing");
                             }
+                            8 => {
+                                window_pointer.grab = Some(Box::new(SurfaceGrabKind::Move {
+                                    seat: display_entity,
+                                    serial: Some(0),
+                                }));
+                                debug!("xwindow start moving");
+                            }
+                            _ => {} // ignore keyboard moves/resizes for now
                         }
                     }
                 }

@@ -1,4 +1,4 @@
-use crate::{prelude::*, util::rect::IRect};
+use crate::{input::grab::ResizeEdges, prelude::*, util::rect::IRect};
 
 pub struct Bind<T: WlResource> {
     pub entity: Entity,
@@ -55,6 +55,8 @@ pub enum WindowAction {
     Minimize(Entity),
     UnMinimize(Entity),
     SetRect(Entity, IRect),
+    RequestMove(Entity),
+    RequestResize(Entity, ResizeEdges),
 }
 
 #[derive(Event)]

@@ -172,5 +172,6 @@ impl Plugin for WlSeatPlugin {
         app.register_relation::<ActivePopup>();
         app.register_type::<WlPointer>();
         app.register_type::<WlSeat>();
+        app.register_type::<super::grab::WlSurfacePointerState>();
     }
 }

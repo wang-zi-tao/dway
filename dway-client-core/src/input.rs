@@ -207,6 +207,7 @@ pub fn on_input_event(
                                 window_pointer.mouse_pos = relative_pos.as_ivec2();
                             }
                             cursor_on_window.0 = Some((*surface_entity, relative_pos.as_ivec2()));
+                            dbg!(relative_pos);
                             if let Some(grab) = &window_pointer.grab {
                                 match &**grab {
                                     SurfaceGrabKind::Move { .. } => {
@@ -223,19 +224,23 @@ pub fn on_input_event(
                                             ),
                                         ));
                                     }
-                                    SurfaceGrabKind::Resizing { edges, .. } => {
+                                    SurfaceGrabKind::Resizing { edges, geo, .. } => {
                                         let mut geo = window_geometry.geometry;
                                         if edges.contains(ResizeEdges::LEFT) {
                                             geo.min.x += relative_pos.x as i32;
+                                            geo.max.x = geo.max.x;
                                         }
                                         if edges.contains(ResizeEdges::TOP) {
                                             geo.min.y += relative_pos.y as i32;
+                                            geo.max.y = geo.max.y;
                                         }
                                         if edges.contains(ResizeEdges::RIGHT) {
-                                            geo.max.x = geo.max.x + relative_pos.x as i32;
+                                            geo.max.x = geo.min.x + relative_pos.x as i32;
+                                            geo.min.x = geo.min.x;
                                         }
                                         if edges.contains(ResizeEdges::BUTTOM) {
-                                            geo.max.y = geo.max.y + relative_pos.y as i32;
+                                            geo.max.y = geo.min.y + relative_pos.y as i32;
+                                            geo.min.y = geo.min.y;
                                         }
                                         window_action
                                             .send(WindowAction::SetRect(*surface_entity, geo));
@@ -252,14 +257,14 @@ pub fn on_input_event(
                             let distant = if content.grab || e.state == ButtonState::Pressed {
                                 16384.0
                             } else {
-                                1.0
+                                4.0
                             };
                             *style = Style {
                                 position_type: PositionType::Absolute,
                                 left: Val::Px(-distant),
                                 top: Val::Px(-distant),
-                                right: Val::Px(distant),
-                                bottom: Val::Px(distant),
+                                right: Val::Px(-distant),
+                                bottom: Val::Px(-distant),
                                 ..default()
                             };
                             if e.state == ButtonState::Released {

@@ -15,10 +15,17 @@ use x11rb::{
 
 use crate::{
     geometry::{Geometry, GlobalGeometry},
+    input::{
+        grab::{SurfaceGrabKind, WlSurfacePointerState},
+        seat::WlSeat,
+    },
     prelude::*,
     util::rect::IRect,
-    wl::surface::WlSurface,
-    xdg::{toplevel::DWayToplevel, DWayWindow},
+    wl::surface::{ClientHasSurface, WlSurface},
+    xdg::{
+        toplevel::{DWayToplevel, PinedWindow},
+        DWayWindow,
+    },
 };
 
 use super::{atoms::Atoms, screen::XScreen, XDisplayRef, XWaylandDisplay, XWaylandDisplayWrapper};
@@ -462,72 +469,132 @@ pub fn x11_window_attach_wl_surface(
 
 graph_query!(
 XWindowGraph=>[
-    surface=<Entity,With<DWayToplevel>>,
+    surface=<(&'static Geometry, &'static mut WlSurfacePointerState, Option<&'static PinedWindow> ),With<DWayToplevel>>,
     xwindow=&'static mut XWindow,
+    client=Entity,
 ]=>{
     path=surface-[XWindowAttachSurface]->xwindow,
+    seat_path=surface-[ClientHasSurface]->client,
 });
+
 pub fn process_window_action_events(
     mut events: EventReader<WindowAction>,
     mut query_graph: XWindowGraph,
 ) {
     for event in events.read() {
-        try_or! {
-            {
-                match event {
-                    WindowAction::Close(e) => {
-                        query_graph.for_each_path_mut_from(*e, |_,window|{
-                            ControlFlow::Return(window.close())
-                        }).transpose()?;
-                    },
-                    WindowAction::Maximize(e) => {
-                        query_graph.for_each_path_mut_from(*e, |_,window|{
-                            let atom_hor = window.atoms()._NET_WM_STATE_MAXIMIZED_HORZ;
-                            let atom_ver = window.atoms()._NET_WM_STATE_MAXIMIZED_VERT;
-                            ControlFlow::Return(window.change_net_state(atom_hor, true).and(window.change_net_state(atom_ver, true)))
-                        }).transpose()?;
-                    },
-                    WindowAction::UnMaximize(e) => {
-                        query_graph.for_each_path_mut_from(*e, |_,window|{
-                            let atom_hor = window.atoms()._NET_WM_STATE_MAXIMIZED_HORZ;
-                            let atom_ver = window.atoms()._NET_WM_STATE_MAXIMIZED_VERT;
-                            ControlFlow::Return(window.change_net_state(atom_hor, false).and(window.change_net_state(atom_ver, false)))
-                        }).transpose()?;
-                    },
-                    WindowAction::Fullscreen(e) => {
-                        query_graph.for_each_path_mut_from(*e, |_,window|{
-                            let atom = window.atoms()._NET_WM_STATE_FULLSCREEN;
-                            ControlFlow::Return(window.change_net_state(atom, true))
-                        }).transpose()?;
-                    },
-                    WindowAction::UnFullscreen(e) => {
-                        query_graph.for_each_path_mut_from(*e, |_,window|{
-                            let atom = window.atoms()._NET_WM_STATE_FULLSCREEN;
-                            ControlFlow::Return(window.change_net_state(atom, false))
-                        }).transpose()?;
-                    },
-                    WindowAction::Minimize(e) => {
-                        query_graph.for_each_path_mut_from(*e, |_,window|{
-                            let atom = window.atoms()._NET_WM_STATE_HIDDEN;
-                            ControlFlow::Return(window.change_net_state(atom, true))
-                        }).transpose()?;
-                    },
-                    WindowAction::UnMinimize(e) => {
-                        query_graph.for_each_path_mut_from(*e, |_,window|{
-                            let atom = window.atoms()._NET_WM_STATE_HIDDEN;
-                            ControlFlow::Return(window.change_net_state(atom, false))
-                        }).transpose()?;
-                    },
-                    WindowAction::SetRect(e, rect) => {
-                        query_graph.for_each_path_mut_from(*e, |_,window|{
-                            ControlFlow::Return(window.set_rect(*rect))
-                        }).transpose()?;
-                    },
+        match (|| {
+            match event {
+                WindowAction::Close(e) => {
+                    query_graph
+                        .for_each_path_mut_from(*e, |_, window| ControlFlow::Return(window.close()))
+                        .transpose()?;
                 }
-                Result::<_>::Ok(())
-            },
-            "failed to apply window action",
-            continue
+                WindowAction::Maximize(e) => {
+                    query_graph
+                        .for_each_path_mut_from(*e, |_, window| {
+                            let atom_hor = window.atoms()._NET_WM_STATE_MAXIMIZED_HORZ;
+                            let atom_ver = window.atoms()._NET_WM_STATE_MAXIMIZED_VERT;
+                            ControlFlow::Return(
+                                window
+                                    .change_net_state(atom_hor, true)
+                                    .and(window.change_net_state(atom_ver, true)),
+                            )
+                        })
+                        .transpose()?;
+                }
+                WindowAction::UnMaximize(e) => {
+                    query_graph
+                        .for_each_path_mut_from(*e, |_, window| {
+                            let atom_hor = window.atoms()._NET_WM_STATE_MAXIMIZED_HORZ;
+                            let atom_ver = window.atoms()._NET_WM_STATE_MAXIMIZED_VERT;
+                            ControlFlow::Return(
+                                window
+                                    .change_net_state(atom_hor, false)
+                                    .and(window.change_net_state(atom_ver, false)),
+                            )
+                        })
+                        .transpose()?;
+                }
+                WindowAction::Fullscreen(e) => {
+                    query_graph
+                        .for_each_path_mut_from(*e, |_, window| {
+                            let atom = window.atoms()._NET_WM_STATE_FULLSCREEN;
+                            ControlFlow::Return(window.change_net_state(atom, true))
+                        })
+                        .transpose()?;
+                }
+                WindowAction::UnFullscreen(e) => {
+                    query_graph
+                        .for_each_path_mut_from(*e, |_, window| {
+                            let atom = window.atoms()._NET_WM_STATE_FULLSCREEN;
+                            ControlFlow::Return(window.change_net_state(atom, false))
+                        })
+                        .transpose()?;
+                }
+                WindowAction::Minimize(e) => {
+                    query_graph
+                        .for_each_path_mut_from(*e, |_, window| {
+                            let atom = window.atoms()._NET_WM_STATE_HIDDEN;
+                            ControlFlow::Return(window.change_net_state(atom, true))
+                        })
+                        .transpose()?;
+                }
+                WindowAction::UnMinimize(e) => {
+                    query_graph
+                        .for_each_path_mut_from(*e, |_, window| {
+                            let atom = window.atoms()._NET_WM_STATE_HIDDEN;
+                            ControlFlow::Return(window.change_net_state(atom, false))
+                        })
+                        .transpose()?;
+                }
+                WindowAction::SetRect(e, rect) => {
+                    query_graph
+                        .for_each_path_mut_from(*e, |_, window| {
+                            ControlFlow::Return(window.set_rect(*rect))
+                        })
+                        .transpose()?;
+                }
+                WindowAction::RequestMove(e) => {
+                    query_graph.for_each_seat_path_mut_from(
+                        *e,
+                        |(_geo, surface_pointer_state, pinned), seat_entity| {
+                            if pinned.is_some() {
+                                return ControlFlow::<()>::default();
+                            }
+                            surface_pointer_state.grab = Some(Box::new(SurfaceGrabKind::Move {
+                                seat: *seat_entity,
+                                serial: None,
+                            }));
+                            ControlFlow::<()>::default()
+                        },
+                    );
+                }
+                WindowAction::RequestResize(e, edges) => {
+                    query_graph.for_each_seat_path_mut_from(
+                        *e,
+                        |(geo, surface_pointer_state, pinned), seat_entity| {
+                            if pinned.is_some() {
+                                return ControlFlow::<()>::default();
+                            }
+                            surface_pointer_state.grab =
+                                Some(Box::new(SurfaceGrabKind::Resizing {
+                                    seat: *seat_entity,
+                                    serial: None,
+                                    edges: *edges,
+                                    geo: geo.geometry,
+                                }));
+                            ControlFlow::<()>::default()
+                        },
+                    );
+                }
+            }
+            Result::<_>::Ok(())
+        })() {
+            Ok(o) => o,
+            Err(e) => {
+                error!("{}: {e}", "failed to apply window action");
+                continue;
+            }
         }
     }
 }

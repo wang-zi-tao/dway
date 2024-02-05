@@ -1,4 +1,10 @@
-use bevy::{app::AppExit, input::mouse::MouseButtonInput, prelude::*};
+use std::f32::consts::PI;
+
+use bevy::{
+    app::AppExit,
+    input::mouse::{MouseButtonInput, MouseMotion},
+    prelude::*,
+};
 use dway_client_core::{
     desktop::{CursorOnOutput, CursorOnWindow, FocusedWindow},
     navigation::windowstack::{WindowIndex, WindowStack},
@@ -6,6 +12,7 @@ use dway_client_core::{
 };
 use dway_server::{
     apps::launchapp::{RunCommandRequest, RunCommandRequestBuilder},
+    input::grab::ResizeEdges,
     macros::EntityCommandsExt,
     prelude::WindowAction,
 };
@@ -121,11 +128,64 @@ pub fn wm_keys(
 }
 
 pub fn wm_mouse_action(
-    input: Res<Input<KeyCode>>,
+    keys: Res<Input<KeyCode>>,
+    mut mouse_motion: EventReader<MouseMotion>,
+    mouse_buttons: Res<Input<MouseButton>>,
+    focused_window: Res<FocusedWindow>,
+    mut window_action: EventWriter<WindowAction>,
     _mouse_button_events: EventReader<MouseButtonInput>,
+    mut mouse_drag_delta: Local<Option<Vec2>>,
 ) {
-    let _meta = input.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
-    let _shift = input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
-    let _ctrl = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
-    let _alt = input.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
+    let meta = keys.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
+    let _shift = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+    let _ctrl = keys.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
+    let alt = keys.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
+    let mouse_down = mouse_buttons.get_pressed().next().is_some();
+    let mouse_just_down = mouse_buttons.get_just_pressed().next().is_some();
+    let _mouse_just_up = mouse_buttons.get_just_released().next().is_some();
+
+    if mouse_just_down {
+        *mouse_drag_delta = Some(Vec2::ZERO);
+    }
+    for motion in mouse_motion.read() {
+        if let Some(delta) = mouse_drag_delta.as_mut() {
+            *delta = *delta + motion.delta;
+        }
+    }
+    if !mouse_down {
+        *mouse_drag_delta = None;
+    }
+
+    if meta | alt {
+        if let Some(focused_window_entity) = focused_window.window_entity {
+            if mouse_buttons.just_pressed(MouseButton::Left) {
+                window_action.send(WindowAction::RequestMove(focused_window_entity));
+            } else if mouse_buttons.pressed(MouseButton::Right) {
+                if let Some(delta) = mouse_drag_delta.as_mut() {
+                    if delta.length_squared() >= 64.0 {
+                        let direction = delta.normalize();
+                        let threshold = (PI * 3.0 / 8.0).cos();
+                        let edges = (if direction.x > threshold {
+                            ResizeEdges::RIGHT
+                        } else if direction.x < -threshold {
+                            ResizeEdges::LEFT
+                        } else {
+                            ResizeEdges::default()
+                        }) | (if direction.y > threshold {
+                            ResizeEdges::BUTTOM
+                        } else if direction.y < -threshold {
+                            ResizeEdges::TOP
+                        } else {
+                            ResizeEdges::default()
+                        });
+                        if !edges.is_empty() {
+                            window_action
+                                .send(WindowAction::RequestResize(focused_window_entity, edges));
+                        }
+                        *mouse_drag_delta = None;
+                    }
+                }
+            }
+        }
+    }
 }

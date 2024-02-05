@@ -1,5 +1,5 @@
 use bitflags::bitflags;
-
+use crate::util::rect::IRect;
 use crate::prelude::*;
 
 bitflags! {
@@ -16,12 +16,13 @@ bitflags! {
 pub enum SurfaceGrabKind {
     Move {
         seat: Entity,
-        serial: u32,
+        serial: Option<u32>,
     },
     Resizing {
         seat: Entity,
         edges: ResizeEdges,
-        serial: u32,
+        serial: Option<u32>,
+        geo: IRect,
     },
 }
 
