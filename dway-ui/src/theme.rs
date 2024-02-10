@@ -130,6 +130,7 @@ impl Plugin for ThemePlugin {
                 ("panel-popup:clicked".to_string(), color!("#D8DEE9")),
                 ("panel-foreground".to_string(), color!("#1b1d1e")),
                 ("scroll-bar".to_string(), color!("#6791C9").with_a(0.5)),
+                ("shadow".to_string(), color!("#888888").with_a(0.5)),
                 (POPUP_BACKGROUND.to_string(), color!("#D8DEE9")),
             ]),
             icons,

@@ -9,7 +9,6 @@ edition = "2021"
 dway-util = {path="../dway-util/"}
 
 smallvec = "1.11.0"
-font-kit = "0.11.0"
 chrono = { workspace = true }
 crossbeam-channel = { workspace = true }
 uuid = { workspace = true }

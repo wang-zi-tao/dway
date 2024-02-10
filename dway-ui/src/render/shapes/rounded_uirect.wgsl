@@ -1,5 +1,6 @@
 #import bevy_ui::ui_vertex_output::UiVertexOutput
 #import dway_ui::shapes::boxSDF
+#import dway_ui::shapes::mix_color
 
 @group(1) @binding(0)
 var<uniform> rect: Settings;
@@ -11,8 +12,8 @@ struct Settings {
 
 @fragment
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
-	let d = boxSDF(in.uv, rect.size, rect.corner);
-
-    return rect.color * max(min(1.0-d,1.0),0.0);
+    let local_pos = (in.uv - 0.5) * rect.size;
+	let d = boxSDF(local_pos, rect.size, rect.corner);
+    return mix_color(rect.color, d);
 }
 

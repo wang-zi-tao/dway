@@ -1,18 +1,28 @@
 use crate::{panels::PanelButtonBundle, prelude::*, widgets::popup::UiPopupAddonBundle};
 
+use self::sharder_ml::{fill::FillColor, shape::Circle, ShaderAsset, ShaderPlugin, ShapeRender};
+
 use super::{
     button::UiButtonBundle,
+    checkbox::{RoundedCheckBoxAddonBundle, UiCheckBox, UiCheckBoxState},
     slider::{UiSliderBundle, UiSliderState},
-    svg::{UiSvgBundle, UiSvg},
-    text::UiTextBundle, checkbox::{RoundedCheckBoxAddonBundle, UiCheckBox, UiCheckBoxState},
+    svg::{UiSvg, UiSvgBundle},
+    text::UiTextBundle,
 };
 
 #[derive(Component, Default)]
 pub struct WidgetGallary;
 
+type CircleButton = ShapeRender<Circle, (FillColor,)>;
+fn circle_button_shader() -> CircleButton {
+    ShapeRender::new(Circle::new(32.0), (FillColor::new(Color::BLUE),))
+}
+
 dway_widget! {
 WidgetGallary=>
-@bundle{{pub popup: UiPopupAddonBundle}}
+@plugin{
+    app.add_plugins(ShaderPlugin::<CircleButton>::default());
+}
 @global(theme: Theme)
 @global(asset_server: AssetServer)
 <MiniNodeBundle @style="full flex-col min-w-512 min-h-512 p-8 justify-content:space-evenly"
@@ -65,6 +75,34 @@ WidgetGallary=>
         <MiniNodeBundle @style="p-4 align-self:center"
             RoundedCheckBoxAddonBundle=(RoundedCheckBoxAddonBundle::new(UiCheckBox::default(),&mut assets_rounded_ui_rect_material,&theme,"panel",this_entity)) >
             <(UiTextBundle::new("text",24,&theme))/>
+        </MiniNodeBundle>
+    </MiniNodeBundle>
+    <(UiTextBundle::new("shadow material",24,&theme)) @style="w-256 h-24"/>
+    <MiniNodeBundle @style="p-4 justify-content:space-evenly"
+        @material(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(theme.color("background1"), 16.0))
+    >
+        <MiniNodeBundle @style="p-4 full justify-content:space-evenly"
+            @material(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(Color::WHITE, 16.0))
+        >
+            <MiniNodeBundle Style=(Style{
+                ..style!("p-4 m-8 w-128 h-64 align-self:center")
+            })
+                @material(ShadowUiRectMaterial=>ShadowUiRectMaterial::new(
+                        Color::WHITE,
+                        8.0,
+                        // theme.color("shadow"),
+                        Color::BLACK.with_a(0.36),
+                        Vec2::new(1.0,1.0),
+                        Vec2::splat(3.0),
+                        6.0))
+            >
+                <(UiTextBundle::new("text",24,&theme)) @style=""/>
+            </MiniNodeBundle>
+            <MiniNodeBundle Style=(Style{
+                ..style!("p-4 m-8 w-64 h-64 align-self:center")
+            }) @material(ShaderAsset<CircleButton>=>circle_button_shader().into()) >
+                <(UiTextBundle::new("circle_button",12,&theme)) @style=""/>
+            </MiniNodeBundle>
         </MiniNodeBundle>
     </MiniNodeBundle>
 </MiniNodeBundle>

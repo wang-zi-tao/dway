@@ -13,7 +13,7 @@ dway-client-core = {path="../dway-client-core/"}
 dway-ui-derive = {path="../dway-ui-derive/", features=["css"]}
 bevy-relationship = {path="../bevy-relationship"}
 
-font-kit = "0.11.0"
+font-kit = { version="0.12.0", features=["loader-freetype-default", "source-fontconfig-default"] }
 chrono = { workspace = true }
 log = { workspace = true }
 crossbeam-channel = { workspace = true }
@@ -34,6 +34,12 @@ measure_time = {workspace = true}
 smart-default = {workspace = true}
 bevy_ecss = "0.6.0"
 ansi-str = "0.8.0"
+structstruck = "0.4.1"
+
+[dev-dependencies]
+regex = "1.10.3"
+lazy_static = "1.4.0"
+pretty_assertions = "1.4.0"
 
 [features]
 hot_reload = ["dep:dexterous_developer","dway-ui-derive/hot_reload"]

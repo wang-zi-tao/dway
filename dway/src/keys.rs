@@ -16,7 +16,7 @@ use dway_server::{
     macros::EntityCommandsExt,
     prelude::WindowAction,
 };
-use dway_ui::{framework::gallary::WidgetGallaryBundle, prelude::spawn};
+use dway_ui::{framework::gallary::WidgetGallaryBundle, prelude::spawn, widgets::popup::UiPopupAddonBundle};
 
 pub fn wm_keys(
     input: Res<Input<KeyCode>>,
@@ -115,7 +115,7 @@ pub fn wm_keys(
     if alt && input.just_pressed(KeyCode::F5) {
         spawn! {
             &mut commands=>
-            <WidgetGallaryBundle @style="absolute right-32 bottom-32"/>
+            <WidgetGallaryBundle @style="absolute right-32 bottom-32" UiPopupAddonBundle=(Default::default()) />
         }
     }
 
