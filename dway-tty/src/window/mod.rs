@@ -26,7 +26,6 @@ pub fn create_window(conn: &Connector, surface: &DrmSurface) -> Window {
         focused: false,
         window_level: WindowLevel::AlwaysOnTop,
         canvas: None,
-        fit_canvas_to_parent: false,
         prevent_default_event_handling: false,
         ..Default::default()
     }

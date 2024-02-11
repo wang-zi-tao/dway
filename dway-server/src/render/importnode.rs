@@ -16,18 +16,26 @@ use crate::{
     zwp::dmabufparam::DmaBuffer,
 };
 use bevy::{
-    core::FrameCount,
+    core::{FrameCount, NonSendMarker},
     ecs::system::SystemState,
     render::{
         render_asset::RenderAssets,
         render_graph::Node,
         renderer::{RenderDevice, RenderQueue},
         texture::GpuImage,
-        view::NonSendMarker,
         Extract,
     },
     utils::HashSet,
 };
+
+pub mod graph {
+    use bevy::render::render_graph::RenderLabel;
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+    pub enum Labels2d {
+        Import,
+    }
+}
 
 #[derive(Default, Debug)]
 pub enum RenderImage {
@@ -54,7 +62,7 @@ impl ImportStateKind {
         unsafe {
             if let Some(o) = device.as_hal::<wgpu_hal::api::Vulkan, _, _>(|hal_device| {
                 hal_device.map(|_| Self::Vulkan(VulkanState::default()))
-            }) {
+            }).flatten() {
                 return Ok(o);
             };
             if let Some(o) = device.as_hal::<wgpu_hal::api::Gles, _, _>(|hal_device| {
@@ -65,7 +73,7 @@ impl ImportStateKind {
                         egl_context.egl_instance().unwrap();
                     Ok(Self::Egl(EglState::new(gl, egl)?))
                 })
-            }) {
+            }).flatten() {
                 return o;
             };
             Err(DWayRenderError::UnknownBackend)
@@ -79,7 +87,6 @@ pub struct DWayDisplayHandles {
 }
 
 pub fn extract_surface(
-    _: NonSend<NonSendMarker>,
     surface_query: Extract<Query<&WlSurface>>,
     shm_buffer_query: Extract<Query<&WlShmBuffer>>,
     dma_buffer_query: Extract<Query<&DmaBuffer>>,
@@ -245,9 +252,6 @@ impl Node for ImportSurfacePassNode {
     fn update(&mut self, world: &mut bevy::prelude::World) {
         self.state.lock().unwrap().update_archetypes(world);
     }
-}
-impl ImportSurfacePassNode {
-    pub const NAME: &'static str = "import_wayland_surface";
 }
 
 pub fn merge_damage(damage: &[IRect]) -> Vec<IRect> {

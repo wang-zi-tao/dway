@@ -281,7 +281,7 @@ pub fn get_formats(
 
                 Result::<_, anyhow::Error>::Ok(render_formats.into_iter().collect())
             })
-        })
+        }).flatten()
     }
 }
 
@@ -419,6 +419,6 @@ pub fn commit_drm(
                 let conn = { surface.inner.lock().unwrap().connector };
                 surface.commit(conn, drm, |_| true)
             })
-        })
+        }).flatten()
     }
 }

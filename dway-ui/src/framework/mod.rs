@@ -14,7 +14,6 @@ pub mod text;
 use crate::prelude::*;
 use bevy::input::mouse::MouseMotion;
 pub use bevy_svg::SvgPlugin;
-use bevy_tweening::AssetAnimator;
 use dway_util::UtilPlugin;
 use smart_default::SmartDefault;
 
@@ -87,20 +86,20 @@ impl Plugin for UiFrameworkPlugin {
                     svg::uisvg_render.after(canvas::UiCanvasSystems::Prepare),
                 ),
                 drag::update_draggable
-                    .run_if(on_event::<MouseMotion>().and_then(any_with_component::<Draggable>())),
+                    .run_if(on_event::<MouseMotion>().and_then(any_with_component::<Draggable>)),
                 (checkbox::process_ui_checkbox_event),
             ),
         );
-        app.add_systems(
-            PostUpdate,
-            animation::after_animation_finish
-                .run_if(on_event::<TweenCompleted>())
-                .in_set(animation::AnimationSystems::Finish),
-        );
-        app.add_systems(
-            Last,
-            animation::request_update_system.in_set(animation::AnimationSystems::PrepareNextFrame),
-        );
+        // app.add_systems(
+        //     PostUpdate,
+        //     animation::after_animation_finish
+        //         .run_if(on_event::<TweenCompleted>())
+        //         .in_set(animation::AnimationSystems::Finish),
+        // );
+        // app.add_systems(
+        //     Last,
+        //     animation::request_update_system.in_set(animation::AnimationSystems::PrepareNextFrame),
+        // );
         app.add_systems(
             PreUpdate,
             update_mouse_position.run_if(on_event::<CursorMoved>()),
@@ -118,10 +117,10 @@ impl Plugin for UiFrameworkPlugin {
         app.init_resource::<canvas::UiCanvasRenderArea>();
         app.init_resource::<svg::SvgImageCache>();
         app.init_resource::<MousePosition>();
-        app.register_system(ButtonColor::callback_system::<RoundedUiRectMaterial>);
-        app.register_system(ButtonColor::callback_system::<UiCircleMaterial>);
-        app.register_system(checkbox::checkbox_color_callback::<RoundedUiRectMaterial>);
-        app.register_system(checkbox::checkbox_color_callback::<UiCircleMaterial>);
+        // app.register_system(ButtonColor::callback_system::<RoundedUiRectMaterial>);
+        // app.register_system(ButtonColor::callback_system::<UiCircleMaterial>);
+        // app.register_system(checkbox::checkbox_color_callback::<RoundedUiRectMaterial>);
+        // app.register_system(checkbox::checkbox_color_callback::<UiCircleMaterial>);
         app.add_plugins((
             slider::UiSliderPlugin,
             gallary::WidgetGallaryPlugin,

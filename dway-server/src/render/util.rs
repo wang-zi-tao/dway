@@ -76,6 +76,8 @@ pub enum DWayRenderError {
     FailedToImportEglBuffer,
     #[error("gpu backend is not egl")]
     BackendIsNotEGL,
+    #[error("gpu backend is invalid")]
+    BackendIsIsInvalid,
     #[error("gpu backend is not vulkan")]
     BackendIsNotVulkan,
     #[error("no valid memory type index")]
@@ -117,7 +119,7 @@ pub fn get_egl_display(device: &wgpu::Device) -> Result<khronos_egl::Display> {
                 .raw_display()
                 .cloned()
                 .ok_or_else(|| DWayRenderError::DisplayNotAvailable)
-        })?;
+        }).ok_or(DWayRenderError::BackendIsIsInvalid)??;
         Ok(display)
     }
 }
@@ -147,7 +149,7 @@ pub fn egl_check_extensions(egl: &EGLInstance, extensions: &[&str]) -> Result<()
     check_extensions(&supported_extensions, extensions)
 }
 
-pub fn get_egl_function(egl: &EGLInstance, func: &str) -> Result<extern "C" fn()> {
+pub fn get_egl_function(egl: &EGLInstance, func: &str) -> Result<extern "system" fn()> {
     Ok(egl
         .get_proc_address(func)
         .ok_or_else(|| DWayRenderError::FunctionNotExists(func.to_string()))?)
@@ -166,13 +168,8 @@ pub fn with_gl<R>(
             let egl: &EGLInstance = context
                 .egl_instance()
                 .ok_or_else(|| DWayRenderError::BackendIsNotEGL)?;
-            gl.enable(glow::DEBUG_OUTPUT);
-            gl.debug_message_callback(gl_debug_message_callback);
-            defer! {
-                gl.disable(glow::DEBUG_OUTPUT);
-            };
             f(context, egl, gl)
-        })
+        }).ok_or(DWayRenderError::BackendIsIsInvalid)?
     }
 }
 

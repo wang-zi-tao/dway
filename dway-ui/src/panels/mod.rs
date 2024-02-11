@@ -52,10 +52,12 @@ impl PanelButtonBundle {
                 ..Default::default()
             },
             button: RoundedButtonAddonBundle {
-                button: UiButton::from_slice(&[(
-                    entity,
-                    theme.system(ButtonColor::callback_system::<RoundedUiRectMaterial>),
-                )]),
+                button: UiButton::from_slice(&[
+                //                              (
+                //     entity,
+                //     theme.system(ButtonColor::callback_system::<RoundedUiRectMaterial>),
+                // )
+                ]),
                 color: ButtonColor::from_theme(&theme, "panel"),
                 material: rect_material_set
                     .add(RoundedUiRectMaterial::new(theme.color("panel"), 8.0)),
@@ -71,10 +73,10 @@ impl PanelButtonBundle {
         callback: &[(Entity, SystemId<UiButtonEvent>)],
     ) -> Self {
         let mut callbacks = callback.to_vec();
-        callbacks.push((
-            entity,
-            theme.system(ButtonColor::callback_system::<RoundedUiRectMaterial>),
-        ));
+        // callbacks.push((
+        //     entity,
+        //     theme.system(ButtonColor::callback_system::<RoundedUiRectMaterial>),
+        // ));
         Self {
             style: Style {
                 margin: UiRect::axes(Val::Px(4.0), Val::Auto),

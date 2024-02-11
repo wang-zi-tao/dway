@@ -26,9 +26,8 @@ use crate::{
     },
 };
 use bevy::{render::camera::RenderTarget, ui::FocusPolicy, window::WindowRef};
-use bevy_ecss::{Class, EcssPlugin, StyleSheet};
 use bevy_svg::SvgPlugin;
-use bevy_tweening::TweeningPlugin;
+// use bevy_tweening::TweeningPlugin;
 pub use bitflags::bitflags as __bitflags;
 use dway_client_core::screen::Screen;
 use dway_server::geometry::GlobalGeometry;
@@ -42,9 +41,12 @@ impl Plugin for DWayUiPlugin {
         if !app.is_plugin_added::<SvgPlugin>() {
             app.add_plugins(SvgPlugin);
         }
-        app.add_plugins(EcssPlugin::with_hot_reload());
+        #[cfg(feature="css")]
+        {
+            app.add_plugins(bevy_ecss::EcssPlugin::with_hot_reload());
+        }
         app.add_plugins((
-            TweeningPlugin,
+            // TweeningPlugin,
             assets::DWayAssetsPlugin,
             render::DWayUiMaterialPlugin,
             theme::ThemePlugin,
@@ -141,7 +143,7 @@ ScreenUI=>
     }
 })
 <NodeBundle Name=(Name::new("screen_ui"))
-    StyleSheet=(StyleSheet::new(asset_server.load("style/style.css")))
+    // StyleSheet=(StyleSheet::new(asset_server.load("style/style.css")))
     @style="absolute full">
     <MiniNodeBundle Name=(Name::new("background")) @style="absolute full" @id="background">
         <ImageBundle UiImage=(asset_server.load("background.jpg").into()) ZIndex=(ZIndex::Global(-1024))/>
@@ -182,7 +184,8 @@ ScreenUI=>
     </>
     <(NodeBundle{style: style!("absolute bottom-4 w-full justify-center items-center"),
         focus_policy: FocusPolicy::Pass, z_index: ZIndex::Global(1024),..default()})
-        Name=(Name::new("dock")) Class=(Class::new("dock")) @id="dock" >
+        // Class=(Class::new("dock"))
+        Name=(Name::new("dock")) @id="dock" >
         <MiniNodeBundle
             Handle<_>=(rect_material_set.add(RoundedUiRectMaterial::new(Color::WHITE.with_a(0.5), 16.0)))>
             <AppListUIBundle/>

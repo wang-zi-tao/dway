@@ -1,6 +1,6 @@
 use bevy::{ecs::system::SystemId, ui::FocusPolicy};
 use bevy_relationship::reexport::SmallVec;
-use bevy_tweening::{AssetAnimator, EaseMethod};
+// use bevy_tweening::{AssetAnimator, EaseMethod};
 use smart_default::SmartDefault;
 
 use crate::prelude::*;
@@ -156,8 +156,8 @@ pub struct ButtonColor {
     pub normal: Color,
     pub hover: Color,
     pub clicked: Color,
-    #[reflect(ignore)]
-    pub animation_method: EaseMethod,
+    // #[reflect(ignore)]
+    // pub animation_method: EaseMethod,
     pub animation_duration: Duration,
 }
 
@@ -167,7 +167,7 @@ impl ButtonColor {
             normal,
             hover,
             clicked,
-            animation_method: EaseMethod::Linear,
+            // animation_method: EaseMethod::Linear,
             animation_duration: Duration::from_secs_f32(0.15),
         }
     }
@@ -181,34 +181,35 @@ impl ButtonColor {
 }
 
 impl ButtonColor {
-    pub fn callback_system<T>(
-        In(event): In<UiButtonEvent>,
-        style_query: Query<&Self>,
-        mut commands: Commands,
-    ) where
-        T: Asset,
-        ColorMaterialColorLens: Lens<T>,
-    {
-        let Ok(style) = style_query.get(event.button) else {
-            return;
-        };
-        let get_style = |state: &Interaction| match state {
-            Interaction::Pressed => &style.clicked,
-            Interaction::Hovered => &style.hover,
-            Interaction::None => &style.normal,
-        };
-        let tween = Tween::<T>::new(
-            style.animation_method,
-            style.animation_duration,
-            ColorMaterialColorLens {
-                start: get_style(&event.prev_state).clone(),
-                end: get_style(&event.state).clone(),
-            },
-        );
-        commands
-            .entity(event.button)
-            .insert(AssetAnimator::new(tween));
-    }
+    // pub fn callback_system<T>(
+    //     In(event): In<UiButtonEvent>,
+    //     style_query: Query<&Self>,
+    //     mut commands: Commands,
+    // ) where
+    //     T: Asset,
+    //     ColorMaterialColorLens: Lens<T>,
+    // {
+    //     let Ok(style) = style_query.get(event.button) else {
+    //         return;
+    //     };
+    //     let get_style = |state: &Interaction| match state {
+    //         Interaction::Pressed => &style.clicked,
+    //         Interaction::Hovered => &style.hover,
+    //         Interaction::None => &style.normal,
+    //     };
+    //     let tween = Tween::<T>::new(
+    //         style.animation_method,
+    //         style.animation_duration,
+    //         ColorMaterialColorLens {
+    //             start: get_style(&event.prev_state).clone(),
+    //             end: get_style(&event.state).clone(),
+    //         },
+    //     );
+    //     commands
+    //         .entity(event.button)
+    //         // .insert(AssetAnimator::new(tween))
+    //         ;
+    // }
 }
 
 #[derive(Bundle, SmartDefault)]

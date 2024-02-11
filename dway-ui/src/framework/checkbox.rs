@@ -1,5 +1,5 @@
 use bevy_relationship::reexport::SmallVec;
-use bevy_tweening::AssetAnimator;
+// use bevy_tweening::AssetAnimator;
 use smart_default::SmartDefault;
 
 use crate::prelude::*;
@@ -149,40 +149,41 @@ pub fn process_ui_checkbox_event(
     });
 }
 
-pub fn checkbox_color_callback<T>(
-    In(event): In<UiCheckBoxEvent>,
-    style_query: Query<&ButtonColor>,
-    mut commands: Commands,
-) where
-    T: Asset,
-    ColorMaterialColorLens: Lens<T>,
-{
-    let Ok(style) = style_query.get(event.checkbox) else {
-        return;
-    };
-    let get_style = |state: &Interaction| match state {
-        Interaction::Pressed => &style.clicked,
-        Interaction::Hovered => &style.hover,
-        Interaction::None => {
-            if event.value {
-                &style.clicked
-            } else {
-                &style.normal
-            }
-        }
-    };
-    let tween = Tween::<T>::new(
-        style.animation_method,
-        style.animation_duration,
-        ColorMaterialColorLens {
-            start: get_style(&event.prev_state).clone(),
-            end: get_style(&event.state).clone(),
-        },
-    );
-    commands
-        .entity(event.checkbox)
-        .insert(AssetAnimator::new(tween));
-}
+// pub fn checkbox_color_callback<T>(
+//     In(event): In<UiCheckBoxEvent>,
+//     style_query: Query<&ButtonColor>,
+//     mut commands: Commands,
+// ) where
+//     T: Asset,
+//     ColorMaterialColorLens: Lens<T>,
+// {
+//     let Ok(style) = style_query.get(event.checkbox) else {
+//         return;
+//     };
+//     let get_style = |state: &Interaction| match state {
+//         Interaction::Pressed => &style.clicked,
+//         Interaction::Hovered => &style.hover,
+//         Interaction::None => {
+//             if event.value {
+//                 &style.clicked
+//             } else {
+//                 &style.normal
+//             }
+//         }
+//     };
+//     let tween = Tween::<T>::new(
+//         style.animation_method,
+//         style.animation_duration,
+//         ColorMaterialColorLens {
+//             start: get_style(&event.prev_state).clone(),
+//             end: get_style(&event.state).clone(),
+//         },
+//     );
+//     commands
+//         .entity(event.checkbox)
+//         // .insert(AssetAnimator::new(tween))
+//         ;
+// }
 
 #[derive(Bundle, SmartDefault)]
 pub struct RoundedCheckBoxAddonBundle {
@@ -203,10 +204,10 @@ impl RoundedCheckBoxAddonBundle {
         class: &str,
         entity: Entity,
     ) -> Self {
-        checkbox.callback.push((
-            entity,
-            theme.system(checkbox_color_callback::<RoundedUiRectMaterial>),
-        ));
+        // checkbox.callback.push((
+        //     entity,
+        //     theme.system(checkbox_color_callback::<RoundedUiRectMaterial>),
+        // ));
         Self {
             checkbox,
             color: ButtonColor::from_theme(theme, class),
@@ -236,10 +237,10 @@ impl RoundedCheckBoxAddonBundleWithoutState {
         class: &str,
         entity: Entity,
     ) -> Self {
-        checkbox.callback.push((
-            entity,
-            theme.system(checkbox_color_callback::<RoundedUiRectMaterial>),
-        ));
+        // checkbox.callback.push((
+        //     entity,
+        //     theme.system(checkbox_color_callback::<RoundedUiRectMaterial>),
+        // ));
         Self {
             checkbox,
             color: ButtonColor::from_theme(theme, class),

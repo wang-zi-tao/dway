@@ -1,5 +1,4 @@
 use bevy::{
-    core_pipeline::clear_color::ClearColorConfig,
     math::IRect,
     prelude::*,
     render::{
@@ -10,7 +9,6 @@ use bevy::{
         },
     },
 };
-use bevy_vector_shapes::{prelude::ShapePainter, render::ShapePipelineType, shapes::RectPainter};
 use const_fnv1a_hash::fnv1a_hash_16_xor;
 use smart_default::SmartDefault;
 
@@ -46,17 +44,6 @@ impl UiCanvas {
 
     pub fn set_refresh(&mut self, refresh: bool) {
         self.refresh = refresh;
-    }
-
-    pub fn setup_painter(
-        &self,
-        render_command: &UiCanvasRenderCommand,
-        painter: &mut ShapePainter,
-    ) {
-        painter.reset();
-        painter.image(self.image.clone(), Vec2::splat(1.0));
-        painter.set_translation(render_command.transform().translation);
-        painter.pipeline = ShapePipelineType::Shape2d;
     }
 
     pub fn set_image(&mut self, image: Handle<Image>) {
@@ -237,15 +224,13 @@ pub fn prepare_render_command(
                                 target: RenderTarget::Image(handle),
                                 ..default()
                             },
-                            camera_2d: Camera2d {
-                                clear_color: ClearColorConfig::Custom(Color::NONE),
-                            },
+                            camera_2d: Camera2d,
                             projection,
                             frustum,
                             transform,
                             ..default()
                         },
-                        UiCameraConfig { show_ui: false },
+                        // UiCameraConfig { show_ui: false }, TODO
                         CanvasCamera { canvas: entity },
                     ))
                     .id();

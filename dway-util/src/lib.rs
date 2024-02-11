@@ -6,6 +6,7 @@ pub mod logger;
 pub mod macros;
 pub mod stat;
 pub mod temporary;
+pub mod keys;
 
 pub struct UtilPlugin;
 impl Plugin for UtilPlugin {

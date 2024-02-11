@@ -8,7 +8,7 @@ use bevy_svg::prelude::Svg;
 use dway_util::try_or;
 use futures::ready;
 use futures_lite::AsyncRead;
-use std::{any::type_name, io, pin::Pin, str::FromStr, task::Poll};
+use std::{any::type_name, io, pin::Pin, str::FromStr, sync::Arc, task::Poll};
 use thiserror::Error;
 use winnow::{ascii::dec_uint, seq, token::take_while, PResult, Parser};
 
@@ -189,7 +189,7 @@ impl AssetReader for LinuxIconReader {
         Box::pin(async {
             use AssetReaderError::*;
             let icon_info = LinuxIconUrl::from_str(&path.to_string_lossy())
-                .map_err(|e| Io(io::Error::other(e)))?;
+                .map_err(|e| Io(Arc::new(io::Error::other(e))))?;
             let data = ron::to_string(&AssetMeta::<LinuxIconLoader, ()> {
                 meta_format_version: "1.0".to_string(),
                 processed_info: None,
@@ -198,7 +198,7 @@ impl AssetReader for LinuxIconReader {
                     settings: LinuxIconSettings { icon: icon_info },
                 },
             })
-            .map_err(|e| Io(io::Error::other(e)))?;
+            .map_err(|e| Io(Arc::new(io::Error::other(e))))?;
             let reader: Box<Reader> = Box::new(DataReader {
                 data: data.into_bytes(),
                 bytes_read: 0,

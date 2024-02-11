@@ -57,7 +57,7 @@ pub enum DWayClientState {
 pub struct DWayClientPlugin;
 impl Plugin for DWayClientPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_state::<DWayClientState>();
+        app.init_state::<DWayClientState>();
         use DWayClientSystem::*;
         app.configure_sets(Startup, Init);
         app.configure_sets(

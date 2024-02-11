@@ -1,4 +1,4 @@
-use bevy_tweening::{lens::*, Animator, EaseFunction, Tween};
+// use bevy_tweening::{lens::*, Animator, EaseFunction, Tween};
 use std::time::Duration;
 
 use dway_client_core::desktop::FocusedWindow;
@@ -65,11 +65,11 @@ fn focus_window(
 @use_state(windows: Vec<Entity>)
 @component(window_list<-Query<Ref<WindowList>>[prop.app]->{ state.set_windows(window_list.iter().collect()); })
 <RounndedRectBundle @style="flex-row m-4" @id="List"
-    Animator<_>=(Animator::new(Tween::new(
-        EaseFunction::BackOut,
-        Duration::from_secs_f32(0.5),
-        TransformScaleLens { start: Vec3::splat(0.5), end: Vec3::ONE, },
-    )))
+    // Animator<_>=(Animator::new(Tween::new(
+    //     EaseFunction::BackOut,
+    //     Duration::from_secs_f32(0.5),
+    //     TransformScaleLens { start: Vec3::splat(0.5), end: Vec3::ONE, },
+    // )))
     @handle(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(Color::WHITE*0.2, 16.0))
     @for_query((surface,geo,toplevel) in Query<(Ref<WlSurface>,Ref<GlobalGeometry>,Ref<DWayToplevel>)>::iter_many(state.windows().iter().cloned()) =>[
         toplevel=>{state.set_title(toplevel.title.clone().unwrap_or_default());},
@@ -94,7 +94,7 @@ fn focus_window(
                             color: Color::WHITE,
                             font: asset_server.load("embedded://dway_ui/fonts/SmileySans-Oblique.ttf"),
                         },
-                    ).with_alignment(TextAlignment::Center))
+                    ).with_justify(JustifyText::Center))
                 />
             </NodeBundle>
             <UiButtonBundle

@@ -139,8 +139,9 @@ impl XWaylandDisplay {
             .name(format!("xwayland:{display_number}"))
             .spawn(move || {
                 let result: Result<()> = (|| {
+                    let (stream,_peer) = DefaultStream::from_unix_stream(x11_stream)?;
                     let rust_connection = RustConnection::connect_to_stream(
-                        DefaultStream::from_unix_stream(x11_stream)?,
+                        stream,
                         0,
                     )?;
                     let (atoms, wm_window) = Self::start_wm(&rust_connection)?;
@@ -402,15 +403,15 @@ impl XWaylandDisplay {
             socket::SockFlag::SOCK_CLOEXEC,
             None,
         )?;
-        if let Err(e) = socket::bind(fd, &addr) {
-            let _ = ::nix::unistd::close(fd);
+        if let Err(e) = socket::bind(fd.as_raw_fd(), &addr) {
+            let _ = ::nix::unistd::close(fd.as_raw_fd());
             return Err(e);
         }
-        if let Err(e) = socket::listen(fd, 1) {
-            let _ = ::nix::unistd::close(fd);
+        if let Err(e) = socket::listen(&fd, 1) {
+            let _ = ::nix::unistd::close(fd.as_raw_fd());
             return Err(e);
         }
-        Ok(unsafe { FromRawFd::from_raw_fd(fd) })
+        Ok(unsafe { FromRawFd::from_raw_fd(fd.as_raw_fd()) })
     }
 }
 

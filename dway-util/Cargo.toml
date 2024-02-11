@@ -11,7 +11,7 @@ memory-stats = { workspace = true}
 calloop = "0.10"
 anyhow = "1.0.75"
 send_wrapper = "0.6.0"
-winit = { version = "0.28.7", default-features = false }
+winit = { version = "*", default-features = false }
 tracing-appender = "0.2.2"
 tracing-subscriber = { version="0.3.17",features=["env-filter"] }
 log-panics = { version = "2", features = ["with-backtrace", "backtrace"]}
@@ -19,6 +19,4 @@ structstruck = "0.4.1"
 smart-default = {workspace = true}
 smallvec = "1.11.0"
 nix = { version="0.27.1", features=["poll"] }
-
-[dependencies.bevy]
-version = "0.12"
+bevy = {workspace = true}

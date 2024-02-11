@@ -142,7 +142,7 @@ pub fn drm_info(render_device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError
                 render_formats: formats.clone(),
                 drm_node,
             })
-        })
+        }).ok_or(DWayRenderError::BackendIsIsInvalid)?
     }
 }
 
@@ -513,7 +513,7 @@ pub fn prepare_wl_surface(
                         .1;
                         let image = create_dma_image(hal_device, dma_buffer)?;
                         Result::<_, DWayRenderError>::Ok((size, format, image))
-                    })?;
+                    }).ok_or(DWayRenderError::BackendIsIsInvalid)??;
                     let hal_texture = image_to_hal_texture(size, format, image.image);
                     let gpu_image = hal_texture_to_gpuimage(device, size, format, hal_texture);
                     image_assets.insert(surface.image.clone(), gpu_image.clone());

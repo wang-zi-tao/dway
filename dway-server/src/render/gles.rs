@@ -541,7 +541,7 @@ pub unsafe fn create_gpu_image(
             },
             None,
         ))
-    })?;
+    }).ok_or(BackendIsIsInvalid)??;
     let wgpu_texture = device.create_texture_from_hal::<Gles>(
         hal_texture,
         &wgpu::TextureDescriptor {
@@ -630,7 +630,7 @@ pub fn import_wl_surface(
                 .raw_display()
                 .cloned()
                 .ok_or_else(|| DisplayNotAvailable)
-        })?;
+        }).ok_or(BackendIsIsInvalid)??;
         let mut texture_id = None;
         texture.as_hal::<Gles, _>(|texture| {
             let texture = texture.unwrap();
@@ -649,8 +649,6 @@ pub fn import_wl_surface(
             let hal_device = hal_device.ok_or_else(|| BackendIsNotEGL)?;
             let egl_context = hal_device.context();
             let gl: &glow::Context = &egl_context.lock();
-            gl.enable(glow::DEBUG_OUTPUT);
-            gl.debug_message_callback(gl_debug_message_callback);
             let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> =
                 egl_context.egl_instance().ok_or_else(|| {
                     gl.disable(glow::DEBUG_OUTPUT);
@@ -663,9 +661,9 @@ pub fn import_wl_surface(
             } else if let Some(shm_buffer) = shm_buffer {
                 import_shm(surface, shm_buffer, gl, texture_id)?;
             }
-            gl.disable(glow::DEBUG_OUTPUT);
-            Ok(())
-        })
+            Result::<(), DWayRenderError>::Ok(())
+        }).ok_or(BackendIsIsInvalid)??;
+        Ok(())
     }
 }
 

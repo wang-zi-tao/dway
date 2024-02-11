@@ -107,7 +107,7 @@ pub fn get_formats(render_device: &wgpu::Device) -> Option<Result<Vec<DrmFormat>
 
                 Ok(formats)
             })
-        })
+        }).flatten()
     }
 }
 
@@ -125,7 +125,7 @@ pub fn reset_framebuffer(
                 }
                 Ok(())
             })
-        })
+        }).flatten()
     }
 }
 
@@ -338,6 +338,6 @@ pub fn commit_drm(
                     }
                 })
             })
-        })
+        }).flatten()
     }
 }

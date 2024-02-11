@@ -9,16 +9,16 @@ edition = "2021"
 proc-macro = true
 
 [dependencies]
-syn = { version = "2.0", features = ["full", "visit"] }
-quote = "1.0"
-proc-macro2 = "1.0"
-regex = "1.8"
-regex-macro = "0.2.0"
-lazy_static ="1.4"
-convert_case = "0.6.0"
-syn_derive = "0.1.8"
-derive-syn-parse = "0.1.5"
-anyhow = "1.0.75"
+syn = {workspace=true}
+quote = {workspace=true}
+proc-macro2 = {workspace=true}
+regex = {workspace=true}
+regex-macro = {workspace=true}
+lazy_static ={workspace=true}
+convert_case = {workspace=true}
+syn_derive = {workspace=true}
+derive-syn-parse = {workspace=true}
+anyhow = {workspace=true}
 
 [features]
 default = []

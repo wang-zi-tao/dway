@@ -13,7 +13,7 @@ use std::{
 use anyhow::anyhow;
 use bevy::{
     ecs::{
-        query::{QueryEntityError, WorldQuery},
+        query::{QueryData, QueryEntityError, WorldQuery},
         system::Command,
     },
     prelude::DespawnRecursiveExt,
@@ -575,7 +575,7 @@ impl DWay {
     }
     pub fn query<B, F, R>(&mut self, entity: Entity, f: F) -> R
     where
-        B: WorldQuery,
+        B: QueryData,
         F: FnOnce(<B as WorldQuery>::Item<'_>) -> R,
     {
         let world = self.world_mut();
@@ -584,7 +584,7 @@ impl DWay {
     }
     pub fn try_query<B, F, R>(&mut self, entity: Entity, f: F) -> Result<R, QueryEntityError>
     where
-        B: WorldQuery,
+        B: QueryData,
         F: FnOnce(<B as WorldQuery>::Item<'_>) -> R,
     {
         let world = self.world_mut();
@@ -610,7 +610,7 @@ impl DWay {
         f: F,
     ) -> Option<R>
     where
-        B: WorldQuery,
+        B: QueryData,
         F: FnOnce(<B as WorldQuery>::Item<'_>) -> R,
     {
         let world = self.world_mut();
@@ -718,7 +718,9 @@ pub fn client_name(id: &ClientId) -> String {
 pub fn set_signal_handler() {
     use nix::sys::signal;
     extern "C" fn handle_sigsegv(_: i32) {
-        unsafe { signal::signal(signal::SIGSEGV, signal::SigHandler::SigDfl) };
+        unsafe {
+            let _ = signal::signal(signal::SIGSEGV, signal::SigHandler::SigDfl);
+        };
         std::env::set_var("RUST_BACKTRACE", "1");
         panic!("signal::SIGSEGV {}", anyhow!("").backtrace());
     }

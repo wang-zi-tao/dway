@@ -187,7 +187,7 @@ impl wayland_server::Dispatch<wl_shm::WlShm, Entity, DWay> for BufferDelegate {
                         NonZeroUsize::new(size as usize).unwrap(),
                         mman::ProtFlags::PROT_READ | mman::ProtFlags::PROT_WRITE,
                         mman::MapFlags::MAP_SHARED,
-                        fd.as_raw_fd(),
+                        Some(&fd),
                         0,
                     )
                 };
@@ -339,7 +339,7 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                             NonZeroUsize::new(size as usize).unwrap(),
                             mman::ProtFlags::PROT_READ | mman::ProtFlags::PROT_WRITE,
                             mman::MapFlags::MAP_SHARED,
-                            inner.fd.as_raw_fd(),
+                            Some(&inner.fd),
                             0,
                         )
                     } {

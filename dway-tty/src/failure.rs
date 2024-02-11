@@ -1,30 +1,31 @@
-use drm::SystemError;
+use std::io;
+
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum DWayTTYError {
     #[error("failed to get drm resource handles: {0}")]
-    ResourceHandlesError(SystemError),
+    ResourceHandlesError(io::Error),
     #[error("failed to get drm planes handles: {0}")]
-    PlanesHandlesError(SystemError),
+    PlanesHandlesError(io::Error),
     #[error("failed to get drm property: {0}")]
-    GetPropertyError(SystemError),
+    GetPropertyError(io::Error),
     #[error("failed to get drm connector: {0}")]
-    GetConnectorError(SystemError),
+    GetConnectorError(io::Error),
     #[error("failed to get drm encoder: {0}")]
-    GetEncoderError(SystemError),
+    GetEncoderError(io::Error),
     #[error("failed to get drm crtc: {0}")]
-    GetCrtcError(SystemError),
+    GetCrtcError(io::Error),
     #[error("failed to set drm property: {0}")]
-    SetPropertyError(SystemError),
+    SetPropertyError(io::Error),
     #[error("failed to set drm connector state: {0}")]
-    SetConnectorStateError(SystemError),
+    SetConnectorStateError(io::Error),
     #[error("failed to set drm cursor state: {0}")]
-    SetCursorStateError(SystemError),
+    SetCursorStateError(io::Error),
     #[error("failed to set drm crtc state: {0}")]
-    SetCrtcStateError(SystemError),
+    SetCrtcStateError(io::Error),
     #[error("failed to commit drm state: {0}")]
-    AtomicCommitError(SystemError),
+    AtomicCommitError(io::Error),
     #[error("no such property: {0}")]
     NoSuchProperty(String),
     #[error("drm has no promary plane")]

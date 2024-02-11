@@ -21,7 +21,7 @@ UiScroll=>
 @world_query(focus_police: &mut FocusPolicy)
 @world_query(children: &Children)
 @arg(mut mouse_wheel: EventReader<MouseWheel>)
-@global(key_input: Input<KeyCode>)
+@global(key_input: ButtonInput<KeyCode>)
 @first{
     let mut wheel_move: Vec2 = mouse_wheel.read().map(|m|Vec2::new(m.x,m.y)).sum();
     if key_input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
@@ -77,7 +77,7 @@ UiScroll=>
             top: Val::Percent(state.uv().min.y*100.0),
             height: Val::Px(state.uv().size().y*state.size().y),
             ..style!("right-1 w-4 absolute")})
-        @material(RoundedUiRectMaterial=>(theme.color("scroll-bar"), 4.0).into()) >
+        @material(RoundedUiRectMaterial=>(theme.color("scroll-bar"), 4.0)) >
     </MiniNodeBundle>
 </MiniNodeBundle>
 <MiniNodeBundle @if(prop.horizontal) @style="absolute full">
@@ -86,7 +86,7 @@ UiScroll=>
             left: Val::Percent(state.uv().min.x*100.0),
             width: Val::Px(state.uv().size().x*state.size().x),
             ..style!("bottom-1 h-4 absolute")})
-        @material(RoundedUiRectMaterial=>(theme.color("scroll-bar"), 4.0).into()) >
+        @material(RoundedUiRectMaterial=>(theme.color("scroll-bar"), 4.0)) >
     </MiniNodeBundle>
 </MiniNodeBundle>
 }

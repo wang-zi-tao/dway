@@ -9,15 +9,15 @@ edition = "2021"
 proc-macro = true
 
 [dependencies]
-syn = "2.0"
-quote = "1.0"
-proc-macro2 = "1.0"
-regex = "1.8"
-lazy_static ="1.4"
-convert_case = "0.6.0"
-syn_derive = "0.1.6"
-derive-syn-parse = "0.1.5"
-structstruck = "0.4.1"
+syn = {workspace=true}
+quote = {workspace=true}
+proc-macro2 = {workspace=true}
+regex = {workspace=true}
+lazy_static ={workspace=true}
+convert_case = {workspace=true}
+syn_derive = {workspace=true}
+derive-syn-parse = {workspace=true}
+structstruck = {workspace=true}
 
 [profile.dev.package."*"]
 opt-level = 3

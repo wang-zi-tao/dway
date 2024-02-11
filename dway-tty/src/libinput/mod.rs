@@ -1,5 +1,4 @@
 pub mod convert;
-pub mod keys;
 
 use anyhow::anyhow;
 use dway_util::eventloop::EventLoop;
@@ -7,6 +6,7 @@ use std::{
     os::fd::{AsFd, AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd},
     sync::{Arc, Mutex},
 };
+use wgpu::core::identity::Input;
 
 use anyhow::Result;
 use bevy::{
@@ -123,7 +123,7 @@ pub fn receive_events(
     mut button_events: EventWriter<MouseButtonInput>,
     mut axis_events: EventWriter<MouseWheel>,
     mut keyboard_events: EventWriter<KeyboardInput>,
-    keycode_state: Res<Input<KeyCode>>,
+    keycode_state: Res<ButtonInput<KeyCode>>,
     mut lock_state: ResMut<KeyLockState>,
     mut pointer_state: ResMut<PointerState>,
 ) {
@@ -154,7 +154,7 @@ pub fn receive_events(
                     KeyboardEvent::Key(k) => {
                         let key = k.key();
                         let state = k.key_state();
-                        let key_code = convert_keycode(
+                        let (key_code, logical_key) = convert_keycode(
                             key,
                             &keycode_state,
                             state,
@@ -162,7 +162,7 @@ pub fn receive_events(
                             &mut k.device(),
                         );
                         keyboard_events.send(KeyboardInput {
-                            scan_code: key,
+                            logical_key,
                             key_code,
                             state: match state {
                                 tablet_pad::KeyState::Pressed => ButtonState::Pressed,
@@ -178,9 +178,7 @@ pub fn receive_events(
                 match e {
                     PointerEvent::Motion(m) => {
                         let motion = DVec2::new(m.dx(), m.dy()).as_vec2();
-                        motion_events.send(MouseMotion {
-                            delta: motion,
-                        });
+                        motion_events.send(MouseMotion { delta: motion });
                         debug!("mouse motion: {}", motion);
                         windows.for_each_mut(|(entity, mut window)| {
                             // TODO 改善边界
@@ -271,7 +269,7 @@ impl Plugin for LibInputPlugin {
             .add_fd_to_read(&libinput);
         app.add_systems(First, receive_events.in_set(DWayTTYSet::LibinputSystem))
             .insert_non_send_resource(libinput)
-            .init_resource::<Input<KeyCode>>()
+            .init_resource::<ButtonInput<KeyCode>>()
             .init_resource::<KeyLockState>()
             .init_resource::<PointerState>()
             .register_type::<KeyLockState>()

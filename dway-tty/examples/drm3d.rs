@@ -42,6 +42,7 @@ pub fn main() {
             .set(LogPlugin {
                 level: Level::INFO,
                 filter: "info,dway=debug,dway_server::wl::surface=debug,bevy_ecs=info,wgpu=info,wgpu_hal::gles=info,naga=info,naga::front=info,bevy_render=debug,bevy_ui=trace,dway_server::input::pointer=info,kayak_ui=info,naga=info,dway-udev=trace".to_string(),
+                ..Default::default()
             });
             if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
                 plugins = plugins
@@ -104,15 +105,15 @@ fn setup(
     });
 
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::Cube::new(400.0).into()).into(),
+        mesh: meshes.add(shape::Cube::new(400.0)).into(),
         material: materials.add(ColorMaterial::from(Color::LIME_GREEN)),
         transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
         ..default()
     });
 
     commands.spawn((PbrBundle {
-        mesh: meshes.add(shape::Cube::default().into()),
-        material: standard_materials.add(Color::ORANGE.into()),
+        mesh: meshes.add(shape::Cube::default()),
+        material: standard_materials.add(Color::ORANGE),
         transform: Transform::from_xyz(0.0, -30.0, 0.0),
         ..default()
     },));
@@ -150,6 +151,7 @@ fn setup(
                 // be the same as the first one
                 Vec3::new(1.0, 0.0, 1.0),
             ]),
+            interpolation: Interpolation::Linear,
         },
     );
     // Or it can modify the rotation of the transform.
@@ -168,6 +170,7 @@ fn setup(
                 Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
                 Quat::IDENTITY,
             ]),
+            interpolation: Interpolation::Linear,
         },
     );
     // If a curve in an animation is shorter than the other, it will not repeat
@@ -190,6 +193,7 @@ fn setup(
                 Vec3::splat(1.2),
                 Vec3::splat(0.8),
             ]),
+            interpolation: Interpolation::Linear,
         },
     );
     // There can be more than one curve targeting the same entity path
@@ -206,6 +210,7 @@ fn setup(
                 Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
                 Quat::IDENTITY,
             ]),
+            interpolation: Interpolation::Linear,
         },
     );
 
@@ -219,7 +224,7 @@ fn setup(
         .spawn((
             PbrBundle {
                 mesh: meshes.add(Mesh::try_from(shape::Icosphere::default()).unwrap()),
-                material: standard_materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+                material: standard_materials.add(Color::rgb(0.8, 0.7, 0.6)),
                 ..default()
             },
             // Add the Name component, and the animation player
@@ -239,7 +244,7 @@ fn setup(
                     PbrBundle {
                         transform: Transform::from_xyz(1.5, 0.0, 0.0),
                         mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                        material: standard_materials.add(Color::rgb(0.3, 0.9, 0.3).into()),
+                        material: standard_materials.add(Color::rgb(0.3, 0.9, 0.3)),
                         ..default()
                     },
                     // Add the Name component
@@ -279,7 +284,7 @@ pub fn input_event_system(
         dbg!(event);
     }
     for event in keyboard_event.read() {
-        if event.key_code == Some(KeyCode::Escape) {
+        if event.key_code == KeyCode::Escape {
             exit.send(AppExit);
         }
         dbg!(event);

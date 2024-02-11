@@ -1,4 +1,5 @@
-use bevy::ecs::query::WorldQuery;
+
+use bevy::ecs::query::QueryData;
 
 use crate::{
     geometry::Geometry,
@@ -231,8 +232,8 @@ graph_query!(InputGraph=>[
     pointer=surface<-[ClientHasSurface]-client
 });
 
-#[derive(WorldQuery)]
-#[world_query(mutable)]
+#[derive(QueryData)]
+#[query_data(mutable)]
 pub struct ToplevelWorldQuery {
     xdg_obj: &'static mut XdgToplevel,
     data: &'static mut DWayToplevel,

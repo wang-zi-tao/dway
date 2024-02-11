@@ -19,7 +19,7 @@ use dway_server::{
 use dway_ui::{framework::gallary::WidgetGallaryBundle, prelude::spawn, widgets::popup::UiPopupAddonBundle};
 
 pub fn wm_keys(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     window_under_cursor: Res<CursorOnWindow>,
     mut exit: EventWriter<AppExit>,
     mut window_action: EventWriter<WindowAction>,
@@ -37,16 +37,16 @@ pub fn wm_keys(
     let alt = input.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
 
     if alt | meta {
-        if input.just_pressed(KeyCode::Return) {
+        if input.just_pressed(KeyCode::Enter) {
             run_command_event.send(
                 RunCommandRequestBuilder::default()
                     .command("alacritty".to_string())
                     .build()
                     .unwrap(),
-            )
-        } else if shift && input.just_pressed(KeyCode::Q) {
+            );
+        } else if shift && input.just_pressed(KeyCode::KeyQ) {
             exit.send(AppExit);
-        } else if input.just_pressed(KeyCode::Q) || input.just_pressed(KeyCode::F4) {
+        } else if input.just_pressed(KeyCode::KeyQ) || input.just_pressed(KeyCode::F4) {
             if let Some((window, _)) = &window_under_cursor.0 {
                 window_action.send(WindowAction::Close(*window));
             }
@@ -57,16 +57,16 @@ pub fn wm_keys(
             }
         } else {
             for (key, num) in [
-                (KeyCode::Key1, 0),
-                (KeyCode::Key2, 1),
-                (KeyCode::Key3, 2),
-                (KeyCode::Key4, 3),
-                (KeyCode::Key5, 4),
-                (KeyCode::Key6, 5),
-                (KeyCode::Key7, 6),
-                (KeyCode::Key8, 7),
-                (KeyCode::Key9, 8),
-                (KeyCode::Key0, 9),
+                (KeyCode::Digit1, 0),
+                (KeyCode::Digit2, 1),
+                (KeyCode::Digit3, 2),
+                (KeyCode::Digit4, 3),
+                (KeyCode::Digit5, 4),
+                (KeyCode::Digit6, 5),
+                (KeyCode::Digit7, 6),
+                (KeyCode::Digit8, 7),
+                (KeyCode::Digit9, 8),
+                (KeyCode::Digit0, 9),
             ] {
                 if input.just_pressed(key) {
                     match (meta, shift, ctrl, alt) {
@@ -109,7 +109,7 @@ pub fn wm_keys(
                     }
                 }
             }
-        }
+        };
     }
 
     if alt && input.just_pressed(KeyCode::F5) {
@@ -128,9 +128,9 @@ pub fn wm_keys(
 }
 
 pub fn wm_mouse_action(
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut mouse_motion: EventReader<MouseMotion>,
-    mouse_buttons: Res<Input<MouseButton>>,
+    mouse_buttons: Res<ButtonInput<MouseButton>>,
     focused_window: Res<FocusedWindow>,
     mut window_action: EventWriter<WindowAction>,
     _mouse_button_events: EventReader<MouseButtonInput>,

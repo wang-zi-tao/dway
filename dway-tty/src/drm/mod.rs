@@ -14,8 +14,8 @@ use bevy::render::RenderApp;
 use bevy::utils::tracing;
 use bevy::utils::HashMap;
 use double_map::DHashMap;
+use drm::control::FbCmd2Flags;
 use drm::Driver;
-use drm::SystemError;
 use drm::{
     control::{
         atomic::AtomicModeReq, connector, crtc, framebuffer, plane, property, AtomicCommitFlags,
@@ -522,18 +522,7 @@ impl DrmDevice {
             x => Some(x),
         };
         let plane_count = buffer.plane_count()?;
-        let handle = if let Some(modifier) = modifier {
-            let modifiers = [
-                Some(modifier),
-                (plane_count > 1).then_some(modifier),
-                (plane_count > 2).then_some(modifier),
-                (plane_count > 3).then_some(modifier),
-            ];
-            self.add_planar_framebuffer(buffer, &modifiers, DRM_MODE_FB_MODIFIERS)
-        } else {
-            let modifiers = [None, None, None, None];
-            self.add_planar_framebuffer(buffer, &modifiers, DRM_MODE_FB_MODIFIERS)
-        };
+        let handle = self.add_planar_framebuffer(buffer, FbCmd2Flags::MODIFIERS);
         let handle = handle.or_else(|_| {
             if plane_count > 1 {
                 bail!("too many plane");
@@ -772,9 +761,6 @@ pub fn recevie_drm_events(
     drm_query.for_each(|(entity, drm, children)| {
         let events = match drm.fd.receive_events() {
             Ok(o) => o,
-            Err(SystemError::Unknown {
-                errno: Errno::EAGAIN,
-            }) => return,
             Err(e) => {
                 error!(?entity, "failed to receive drm events: {e}");
                 return;

@@ -43,7 +43,7 @@ WorkspaceListUI=>
         @use_state(pub screen_list:Vec<Entity>)
     >
         <(UiButtonBundle::from(UiButton::new(this_entity,on_click)))
-            @material(UiCircleMaterial=>(theme.color("blue"),8.0).into())
+            @material(UiCircleMaterial=>(theme.color("blue"),8.0))
             Style=(Style{
                 width:Val::Px(if *state.is_focused() {12.0}else{8.0}),
                 height:Val::Px(if *state.is_focused() {12.0}else{8.0}),

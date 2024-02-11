@@ -100,7 +100,7 @@ WidgetGallary=>
             </MiniNodeBundle>
             <MiniNodeBundle Style=(Style{
                 ..style!("p-4 m-8 w-64 h-64 align-self:center")
-            }) @material(ShaderAsset<CircleButton>=>circle_button_shader().into()) >
+            }) @material(ShaderAsset<CircleButton>=>circle_button_shader()) >
                 <(UiTextBundle::new("circle_button",12,&theme)) @style=""/>
             </MiniNodeBundle>
         </MiniNodeBundle>

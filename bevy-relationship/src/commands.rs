@@ -230,7 +230,7 @@ pub trait EntityCommandsExt {
         R::To: ConnectableMut + Default;
 }
 
-impl<'w, 's, 'a> EntityCommandsExt for EntityCommands<'w, 's, 'a> {
+impl<'w> EntityCommandsExt for EntityCommands<'w> {
     fn connect_to<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity) -> &mut Self
     where
         R::From: ConnectableMut + Default,

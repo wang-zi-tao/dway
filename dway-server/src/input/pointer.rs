@@ -117,6 +117,8 @@ impl WlPointer {
                 MouseButton::Left => 0x110,
                 MouseButton::Right => 0x111,
                 MouseButton::Middle => 0x112,
+                MouseButton::Forward => 0x115,
+                MouseButton::Back => 0x116,
                 MouseButton::Other(o) => o as u32,
             },
             match input.state {

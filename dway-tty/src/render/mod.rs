@@ -113,7 +113,7 @@ pub fn prepare_drm_surface(
     render_device: Res<RenderDevice>,
     default_sampler: Res<DefaultImageSampler>,
 ) {
-    surface_query.for_each(|(surface, parent)| {
+    surface_query.iter().for_each(|(surface, parent)| {
         let Ok((drm, gbm)) = drm_query.get(parent.get()) else {
             return;
         };
@@ -175,7 +175,7 @@ pub fn create_framebuffer_texture(
             .as_hal::<Gles, _, _>(|hal_device| {
                 hal_device
                     .map(|hal_device| gles::create_framebuffer_texture(state, hal_device, buffer))
-            })
+            }).flatten()
             .map(|r| {
                 r.map(|hal_texture| {
                     render_device.create_texture_from_hal::<Gles>(
@@ -190,7 +190,7 @@ pub fn create_framebuffer_texture(
                         hal_device.map(|hal_device| {
                             vulkan::create_framebuffer_texture(hal_device, buffer)
                         })
-                    })
+                    }).flatten()
                     .map(|r| {
                         r.map(|hal_texture| {
                             render_device.create_texture_from_hal::<Vulkan>(

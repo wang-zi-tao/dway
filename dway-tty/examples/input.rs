@@ -18,6 +18,7 @@ pub fn main() {
             LogPlugin {
                 level: Level::INFO,
                 filter: "info".to_string(),
+                ..Default::default()
             },
             SeatPlugin,
             LibInputPlugin,

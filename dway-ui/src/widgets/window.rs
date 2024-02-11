@@ -7,10 +7,11 @@ use dway_server::{
     xdg::{toplevel::DWayToplevel, DWayWindow, PopupList},
 };
 
-use crate::{animation, framework::svg::UiSvgBundle, prelude::*};
 use crate::{
+    // animation,
+    framework::svg::UiSvgBundle, prelude::*,
     framework::{
-        animation::despawn_animation,
+        // animation::despawn_animation,
         button::{UiButton, UiButtonAddonBundle, UiButtonBundle, UiButtonEvent, UiButtonEventKind},
     },
     util::irect_to_style,
@@ -160,11 +161,12 @@ WindowUI=>
 <NodeBundle @style="absolute full" >
     <MiniNodeBundle @id="content" Style=(irect_to_style(*state.rect()))
     ZIndex=(ZIndex::Global(*state.z_index())) FocusPolicy=(FocusPolicy::Block)
-    Animator<_>=(Animator::new(Tween::new(
-        EaseFunction::BackOut,
-        Duration::from_secs_f32(0.5),
-        TransformScaleLens { start: Vec3::splat(0.8), end: Vec3::ONE, },
-    ))) >
+    // Animator<_>=(Animator::new(Tween::new(
+    //     EaseFunction::BackOut,
+    //     Duration::from_secs_f32(0.5),
+    //     TransformScaleLens { start: Vec3::splat(0.8), end: Vec3::ONE, },
+    // )))
+    >
         <MiniNodeBundle @style="full absolute" @id="mouse_area"
             SurfaceUiNode=(SurfaceUiNode::new(prop.window_entity,widget.node_content_entity))
             @connect(-[UiAttachData]->(prop.window_entity))
@@ -220,7 +222,7 @@ WindowUI=>
                         color: Color::WHITE,
                         font: asset_server.load("embedded://dway_ui/fonts/SmileySans-Oblique.ttf"),
                     },
-                ).with_alignment(TextAlignment::Center))
+                ).with_justify(JustifyText::Center))
             />
         </NodeBundle>
     </>

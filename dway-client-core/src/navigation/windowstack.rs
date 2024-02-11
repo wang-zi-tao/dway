@@ -173,7 +173,7 @@ impl Plugin for WindowStackPlugin {
                     init_window_index.in_set(DWayClientSystem::CreateComponent),
                     update_window_index.in_set(DWayClientSystem::UpdateZIndex),
                     update_window_stack_by_focus
-                        .run_if(resource_changed::<FocusedWindow>())
+                        .run_if(resource_changed::<FocusedWindow>)
                         .in_set(DWayClientSystem::UpdateFocus),
                 ),
             );

@@ -1,16 +1,14 @@
-use std::{
-    ffi::CStr,
-    fs::File,
-    io::{Seek, Write},
-    os::fd::{AsRawFd, FromRawFd},
-};
-
+use crate::prelude::*;
 use nix::{
     fcntl::{FcntlArg, SealFlag},
     sys::memfd::{memfd_create, MemFdCreateFlag},
 };
-
-use crate::prelude::*;
+use std::{
+    ffi::CStr,
+    fs::File,
+    io::{Seek, Write},
+    os::fd::AsRawFd,
+};
 
 pub fn create_sealed_file(name: &CStr, data: &[u8]) -> Result<(File, usize)> {
     let fd = memfd_create(
@@ -18,7 +16,7 @@ pub fn create_sealed_file(name: &CStr, data: &[u8]) -> Result<(File, usize)> {
         MemFdCreateFlag::MFD_CLOEXEC | MemFdCreateFlag::MFD_ALLOW_SEALING,
     )?;
 
-    let mut file = unsafe { File::from_raw_fd(fd) };
+    let mut file = unsafe { File::from(fd) };
     file.write_all(data)?;
     file.flush()?;
     file.seek(std::io::SeekFrom::Start(0))?;

@@ -1,13 +1,13 @@
 use crate::framework::button::{ButtonColor, UiButtonBundle, UiButtonEvent, UiButtonEventKind};
 use crate::framework::checkbox::{
-    checkbox_color_callback, RoundedCheckBoxAddonBundle, RoundedCheckBoxAddonBundleWithoutState,
+    RoundedCheckBoxAddonBundle, RoundedCheckBoxAddonBundleWithoutState,
     UiCheckBox, UiCheckBoxEvent, UiCheckBoxState,
 };
 use crate::framework::slider::{UiSlider, UiSliderBundle, UiSliderEvent, UiSliderState};
 use crate::framework::svg::{UiSvg, UiSvgBundle};
 use crate::prelude::MiniNodeBundle;
 use crate::widgets::popup::{delay_destroy, UiPopup, UiPopupAddonBundle};
-use crate::{animation, prelude::*};
+use crate::{prelude::*};
 use dway_client_core::controller::volume::VolumeController;
 use dway_ui_derive::dway_widget;
 
@@ -82,7 +82,7 @@ pub fn open_popup(
     if event.kind == UiButtonEventKind::Released {
         commands
             .spawn((
-                animation!(0.5 secs:BackOut->TransformScaleLens(Vec3::splat(0.5)=>Vec3::ONE)),
+                // animation!(0.5 secs:BackOut->TransformScaleLens(Vec3::splat(0.5)=>Vec3::ONE)),
                 rect_material_set.add(RoundedUiRectMaterial::new(theme.color("panel-popup"), 16.0)),
                 VolumeControlBundle {
                     style: style!("absolute top-120% align-self:end p-8"),

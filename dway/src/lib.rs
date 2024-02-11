@@ -21,7 +21,6 @@ use bevy::{
     time::TimePlugin,
     winit::WinitPlugin,
 };
-use bevy_framepace::Limiter;
 use clap::Parser;
 use dway_client_core::{
     layout::{LayoutRect, LayoutStyle},
@@ -40,6 +39,7 @@ bevy_ecs=info,\
 bevy_render=debug,\
 bevy_ui=trace,\
 dway=debug,\
+polling=info,\
 bevy_relationship=debug,\
 dway_server=trace,\
 dway_server::input=debug,\
@@ -124,8 +124,6 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
 
     default_plugins = default_plugins
         .add_before::<AssetPlugin, _>(LinuxIconSourcePlugin)
-        .disable::<PbrPlugin>()
-        .disable::<GizmoPlugin>()
         .disable::<GltfPlugin>()
         .disable::<ScenePlugin>()
         .disable::<WinitPlugin>()
@@ -141,10 +139,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         });
         app.add_plugins((DWayTTYPlugin::default(),));
     } else {
-        app.insert_resource(bevy::winit::WinitSettings {
-            return_from_run: true,
-            ..Default::default()
-        });
+        app.insert_resource(bevy::winit::WinitSettings::default());
         #[cfg(feature = "eventloop")]
         {
             app.insert_resource(bevy::winit::WinitSettings {
@@ -157,11 +152,12 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
                 return_from_run: true,
             });
         }
-        app.add_plugins((WinitPlugin::default(), bevy_framepace::FramepacePlugin));
-        app.insert_resource(
-            bevy_framepace::FramepaceSettings::default()
-                .with_limiter(Limiter::from_framerate(60.0)),
-        );
+        app.add_plugins(WinitPlugin::default());
+        // app.add_plugins(bevy_framepace::FramepacePlugin);
+        // app.insert_resource(
+        //     bevy_framepace::FramepaceSettings::default()
+        //         .with_limiter(Limiter::from_framerate(60.0)),
+        // );
         #[cfg(feature = "eventloop")]
         {
             app.add_plugins(dway_util::eventloop::EventLoopPlugin::default());

@@ -7,9 +7,9 @@ use dway_server::apps::{
 };
 
 use crate::{
-    animation,
+    // animation,
     framework::{
-        animation::despawn_animation,
+        // animation::despawn_animation,
         button::{UiButtonEvent, UiButtonEventKind},
         icon::UiIcon,
         scroll::UiScrollBundle,
@@ -28,9 +28,10 @@ pub struct LauncherUI;
 
 pub fn delay_destroy_launcher(In(event): In<PopupEvent>, mut commands: Commands) {
     if PopupEventKind::Closed == event.kind {
-        commands.entity(event.entity).insert(despawn_animation(
-            animation!(Tween 0.5 secs:BackIn->TransformScaleLens(Vec3::ONE=>Vec3::splat(0.5))),
-        ));
+        commands.entity(event.entity).despawn_recursive(); // TODO: remove
+        // commands.entity(event.entity).insert(despawn_animation(
+        //     animation!(Tween 0.5 secs:BackIn->TransformScaleLens(Vec3::ONE=>Vec3::splat(0.5))),
+        // ));
     }
 }
 
@@ -115,7 +116,7 @@ pub fn open_popup(In(event): In<UiButtonEvent>, theme: Res<Theme>, mut commands:
     if event.kind == UiButtonEventKind::Released {
         commands
             .spawn((
-                animation!(0.5 secs:BackOut->TransformScaleLens(Vec3::splat(0.5)=>Vec3::ONE)),
+                // animation!(0.5 secs:BackOut->TransformScaleLens(Vec3::splat(0.5)=>Vec3::ONE)),
                 LauncherUIBundle {
                     style: style!("absolute top-120% left-0"),
                     ..default()
