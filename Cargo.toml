@@ -9,7 +9,7 @@ members = [
     "dway-util",
     "bevy-relationship",
     "bevy-relationship-derive",
-    "dway-tty",
+    "dway-tty", "dway-ui-framework",
 ]
 
 [workspace.dependencies]
@@ -68,6 +68,7 @@ ash = { version = "*", features = [] }
 [patch.crates-io]
 bevy_svg = {path="../bevy_svg/"}
 bevy_prototype_lyon = {path="../bevy_prototype_lyon/"}
+bevy_image_export = {path="../bevy_image_export/"}
 bevy = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }
 bevy_log = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }
 bevy_pbr = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }

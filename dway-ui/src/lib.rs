@@ -15,14 +15,11 @@ pub mod reexport {
 }
 
 use crate::{
-    framework::svg::UiSvgBundle,
+    framework::{gallary::WidgetGallaryBundle, svg::UiSvgBundle},
     panels::{PanelButtonBundle, WindowTitleBundle},
     prelude::*,
     widgets::{
-        applist::AppListUIBundle,
-        logger::LoggerUIBundle,
-        screen::{ScreenWindows, ScreenWindowsBundle},
-        workspacelist::WorkspaceListUIBundle,
+        applist::AppListUIBundle, logger::LoggerUIBundle, popup::UiPopupAddonBundle, screen::{ScreenWindows, ScreenWindowsBundle}, workspacelist::WorkspaceListUIBundle
     },
 };
 use bevy::{render::camera::RenderTarget, ui::FocusPolicy, window::WindowRef};
@@ -53,21 +50,21 @@ impl Plugin for DWayUiPlugin {
             framework::UiFrameworkPlugin,
         ));
         app.add_plugins((
-            widgets::clock::ClockUiPlugin,
-            widgets::window::WindowUIPlugin,
-            widgets::popupwindow::PopupUIPlugin,
-            widgets::applist::AppListUIPlugin,
-            widgets::popup::PopupUiPlugin,
-            widgets::screen::ScreenWindowsPlugin,
-            widgets::workspacelist::WorkspaceListUIPlugin,
-            widgets::logger::LoggerUIPlugin,
-            ScreenUIPlugin,
+            // widgets::clock::ClockUiPlugin,
+            // widgets::window::WindowUIPlugin,
+            // widgets::popupwindow::PopupUIPlugin,
+            // widgets::applist::AppListUIPlugin,
+            // widgets::popup::PopupUiPlugin,
+            // widgets::screen::ScreenWindowsPlugin,
+            // widgets::workspacelist::WorkspaceListUIPlugin,
+            // widgets::logger::LoggerUIPlugin,
+            // ScreenUIPlugin,
         ));
         app.add_plugins((
-            panels::WindowTitlePlugin,
-            popups::app_window_preview::AppWindowPreviewPopupPlugin,
-            popups::launcher::LauncherUIPlugin,
-            popups::volume_control::VolumeControlPlugin,
+            // panels::WindowTitlePlugin,
+            // popups::app_window_preview::AppWindowPreviewPopupPlugin,
+            // popups::launcher::LauncherUIPlugin,
+            // popups::volume_control::VolumeControlPlugin,
         ));
         app.add_systems(PreUpdate, init_screen_ui);
         app.add_systems(Startup, setup);
@@ -119,6 +116,10 @@ fn setup(
             },));
         });
     }
+        spawn! {
+            &mut commands=>
+            <WidgetGallaryBundle @style="absolute right-32 bottom-32" UiPopupAddonBundle=(Default::default()) />
+        }
 }
 
 #[derive(Component, SmartDefault)]

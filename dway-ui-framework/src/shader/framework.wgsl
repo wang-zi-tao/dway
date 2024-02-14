@@ -1,4 +1,4 @@
-#define_import_path dway_ui::shapes
+#define_import_path dway_ui_framework::shader::framework
 
 fn rectSDF(pos: vec2<f32>, size: vec2<f32>) -> f32 {
    let pos2 = abs(pos) - size * 0.5;
@@ -16,7 +16,8 @@ fn circleSDF(pos: vec2<f32>, radius: f32) -> f32 {
 
 fn mix_color(color: vec4<f32>, value: f32) -> vec4<f32> {
     let alpha = max(min(1.0 - value, 1.0), 0.0);
-    return vec4(color.xyz, alpha * color.w);
+    // let alpha = smoothstep(-1.0, 1.0, value);
+    return vec4(color.rgb, alpha * color.a);
 }
 
 fn mix_inner_color(color: vec4<f32>, value: f32) -> vec4<f32> {

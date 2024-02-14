@@ -124,12 +124,12 @@ impl Plugin for LayoutPlugin {
         app.register_relation::<WindowInSlot>();
         app.register_relation::<WorkspaceHasSlot>();
         app.register_type::<CalculatedWindowGeometry>();
-        app.add_systems(
-            PreUpdate,
-            (attach_window_to_slot, apply_deferred)
-                .chain()
-                .in_set(DWayClientSystem::UpdateWindowGeometry),
-        );
+        // app.add_systems(
+        //     PreUpdate,
+        //     (attach_window_to_slot, apply_deferred)
+        //         .chain()
+        //         .in_set(DWayClientSystem::UpdateWindowGeometry),
+        // );
         app.add_plugins(tile::TileLayoutPlugin);
     }
 }

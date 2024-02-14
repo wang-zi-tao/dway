@@ -21,7 +21,7 @@ fn circle_button_shader() -> CircleButton {
 dway_widget! {
 WidgetGallary=>
 @plugin{
-    app.add_plugins(ShaderPlugin::<CircleButton>::default());
+    // app.add_plugins(ShaderPlugin::<CircleButton>::default());
 }
 @global(theme: Theme)
 @global(asset_server: AssetServer)
@@ -98,11 +98,11 @@ WidgetGallary=>
             >
                 <(UiTextBundle::new("text",24,&theme)) @style=""/>
             </MiniNodeBundle>
-            <MiniNodeBundle Style=(Style{
-                ..style!("p-4 m-8 w-64 h-64 align-self:center")
-            }) @material(ShaderAsset<CircleButton>=>circle_button_shader()) >
-                <(UiTextBundle::new("circle_button",12,&theme)) @style=""/>
-            </MiniNodeBundle>
+            // <MiniNodeBundle Style=(Style{
+            //     ..style!("p-4 m-8 w-64 h-64 align-self:center")
+            // }) @material(ShaderAsset<CircleButton>=>circle_button_shader()) >
+            //     <(UiTextBundle::new("circle_button",12,&theme)) @style=""/>
+            // </MiniNodeBundle>
         </MiniNodeBundle>
     </MiniNodeBundle>
 </MiniNodeBundle>

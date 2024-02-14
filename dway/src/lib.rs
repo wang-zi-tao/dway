@@ -177,8 +177,8 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     ));
 
     app.add_plugins((
-        dway_server::DWayServerPlugin,
-        dway_client_core::DWayClientPlugin,
+        // dway_server::DWayServerPlugin,
+        // dway_client_core::DWayClientPlugin,
         dway_ui::DWayUiPlugin,
     ));
 
@@ -194,7 +194,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     //             .in_set(DWayServerSet::UpdateXWayland),
     //     ),
     // );
-    app.add_systems(Update, (wm_mouse_action, wm_keys, update));
+    // app.add_systems(Update, (wm_mouse_action, wm_keys, update));
     app.add_systems(Last, last);
 
     #[cfg(feature = "debug")]

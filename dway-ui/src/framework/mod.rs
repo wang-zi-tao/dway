@@ -74,9 +74,9 @@ impl Plugin for UiFrameworkPlugin {
         app.add_systems(
             Update,
             (
-                (icon::uiicon_render, apply_deferred)
-                    .chain()
-                    .before(canvas::prepare_render_command),
+                // (icon::uiicon_render, apply_deferred)
+                //     .chain()
+                //     .before(canvas::prepare_render_command),
                 (canvas::prepare_render_command, apply_deferred)
                     .chain()
                     .in_set(canvas::UiCanvasSystems::Prepare),

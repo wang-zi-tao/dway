@@ -41,7 +41,7 @@ impl Plugin for DWayInputPlugin {
             PreUpdate,
             (
                 mouse_move_on_window.run_if(on_event::<CursorMoved>()),
-                keyboard_input_system.run_if(on_event::<KeyboardInput>()),
+                // keyboard_input_system.run_if(on_event::<KeyboardInput>()),
                 on_input_event,
             )
                 .in_set(DWayServerSet::Input),
@@ -170,7 +170,7 @@ pub fn on_input_event(
     mut cursor_moved_events: EventReader<CursorMoved>,
     mut button_events: EventReader<MouseButtonInput>,
     mut wheel_events: EventReader<MouseWheel>,
-    mut window_action: EventWriter<WindowAction>,
+    // mut window_action: EventWriter<WindowAction>,
 ) {
     let Some((_output, pos)) = &cursor.0 else {
         return;
@@ -211,18 +211,18 @@ pub fn on_input_event(
                             if let Some(grab) = &window_pointer.grab {
                                 match &**grab {
                                     SurfaceGrabKind::Move { .. } => {
-                                        window_action.send(WindowAction::SetRect(
-                                            *surface_entity,
-                                            IRect::from_pos_size(
-                                                window_geometry.pos()
-                                                    + (relative_pos.as_ivec2()
-                                                        - window_pointer.mouse_pos)
-                                                        .as_vec2()
-                                                        .mul(0.5)
-                                                        .as_ivec2(),
-                                                window_geometry.size(),
-                                            ),
-                                        ));
+                                        // window_action.send(WindowAction::SetRect(
+                                        //     *surface_entity,
+                                        //     IRect::from_pos_size(
+                                        //         window_geometry.pos()
+                                        //             + (relative_pos.as_ivec2()
+                                        //                 - window_pointer.mouse_pos)
+                                        //                 .as_vec2()
+                                        //                 .mul(0.5)
+                                        //                 .as_ivec2(),
+                                        //         window_geometry.size(),
+                                        //     ),
+                                        // ));
                                     }
                                     SurfaceGrabKind::Resizing { edges, geo, .. } => {
                                         let mut geo = window_geometry.geometry;
@@ -242,8 +242,8 @@ pub fn on_input_event(
                                             geo.max.y = geo.min.y + relative_pos.y as i32;
                                             geo.min.y = geo.min.y;
                                         }
-                                        window_action
-                                            .send(WindowAction::SetRect(*surface_entity, geo));
+                                        // window_action
+                                        //     .send(WindowAction::SetRect(*surface_entity, geo));
                                     }
                                 }
                             }

@@ -242,7 +242,6 @@ pub struct DWayUiMaterialPlugin;
 impl Plugin for DWayUiMaterialPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, SHAPES_HANDLE, "shapes/shapes.wgsl", Shader::from_wgsl);
-        load_internal_asset!(app, SHAPES_HANDLE, "shapes/shapes.wgsl", Shader::from_wgsl);
         embedded_asset!(app, "shapes/rounded_uirect.wgsl");
         embedded_asset!(app, "shapes/rounded_uiimage.wgsl");
         embedded_asset!(app, "shapes/circle.wgsl");
