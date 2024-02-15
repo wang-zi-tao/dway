@@ -2634,6 +2634,7 @@ dependencies = [
  "bevy-relationship",
  "bevy_ecss",
  "bevy_image_export",
+ "bevy_prototype_lyon",
  "bevy_svg",
  "bitflags 2.4.2",
  "bytemuck",
@@ -2647,6 +2648,7 @@ dependencies = [
  "font-kit",
  "image 0.23.14",
  "image-diff",
+ "interpolation",
  "lazy_static",
  "log",
  "lru",
@@ -2658,6 +2660,7 @@ dependencies = [
  "smart-default",
  "structstruck",
  "tempdir",
+ "undo",
  "uuid",
 ]
 
@@ -4005,6 +4008,12 @@ dependencies = [
  "wasm-bindgen",
  "web-sys",
 ]
+
+[[package]]
+name = "interpolation"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9c13ae9d91148fcb4aab6654c4c2a7d02a15395ea9e23f65170f175f8b269ce"
 
 [[package]]
 name = "io-kit-sys"
@@ -6697,6 +6706,15 @@ dependencies = [
  "libc",
  "libudev-sys",
  "pkg-config",
+]
+
+[[package]]
+name = "undo"
+version = "0.51.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd8be0a8a8e33d55025c36fc461beafffcaebe2ef104eca0287334310cb685b6"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

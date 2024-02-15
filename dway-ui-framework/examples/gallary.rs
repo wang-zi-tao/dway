@@ -8,6 +8,7 @@ use bevy::diagnostic::LogDiagnosticsPlugin;
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use bevy::render::render_resource::*;
+use dway_ui::animation::AssetAnimationPlugin;
 use dway_ui::render::mesh::UiMeshBundle;
 use dway_ui::render::mesh::UiMeshHandle;
 use dway_ui::render::mesh::UiMeshTransform;
@@ -24,6 +25,7 @@ use dway_ui::widgets::text::UiTextBundle;
 use dway_ui_derive::color;
 use dway_ui_derive::dway_widget;
 use dway_ui_framework::prelude::*;
+use interpolation::EaseFunction;
 
 const SVG_HANDLE: Handle<Shader> = Handle::weak_from_u128(15628284168829255748903736059973599232);
 
@@ -49,6 +51,7 @@ fn main() {
             CheckboxMaterial::plugin(),
             RoundedInnerShadowBlockMaterial::plugin(),
             ArcMaterial::plugin(),
+            AssetAnimationPlugin::<CheckboxMaterial>::default(),
         ))
         .add_systems(Startup, setup)
         .insert_resource(ClearColor(Color::WHITE));
@@ -187,7 +190,12 @@ Gallary=>
     </>
     <MiniNodeBundle Style=(cell_style())>
         <MiniButtonBundle Style=(checkbox_style())
-            @material(CheckboxMaterial=>checkbox_material(Vec2::new(64.0,32.0), &theme)) >
+            @material(CheckboxMaterial=>checkbox_material(false, Vec2::new(64.0,32.0), &theme))
+            AssetTweenAddonBundle<CheckboxMaterial>=(AssetTweenAddonBundle::new(
+                Animation::new(Duration::from_secs_f32(0.5), EaseFunction::QuarticIn),
+                Tween::new(checkbox_material(false, Vec2::new(64.0,32.0), &theme), checkbox_material(true, Vec2::new(64.0,32.0), &theme)),
+                &theme))
+        >
         </>
     </MiniNodeBundle>
     <MiniNodeBundle Style=(cell_style())>

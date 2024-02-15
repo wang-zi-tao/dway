@@ -180,13 +180,17 @@ pub mod shader {
         Transformed<ShapeRender<Circle, (Border, FillColor)>, Margins>,
         ShapeRender<RoundedBar, (Border, FillColor, Shadow)>,
     )>;
-    pub fn checkbox_material(size: Vec2, theme: &Theme) -> CheckboxMaterial {
+    pub fn checkbox_material(state: bool, size: Vec2, theme: &Theme) -> CheckboxMaterial {
         let ui_color = theme.color("checkbox:handle");
         let shadow = theme.default_shadow_material();
         (
             Circle::default()
                 .with_effect((Border::new(ui_color, 2.0), ui_color.into()))
-                .with_transform(Margins::new(5.0, 32.0 + 5.0, 5.0, 5.0)),
+                .with_transform(if state {
+                    Margins::new(0.5 * size.x + 5.0, 5.0, 5.0, 5.0)
+                } else {
+                    Margins::new(5.0, 0.5 * size.x + 5.0, 5.0, 5.0)
+                }),
             RoundedBar::default().with_effect((
                 Border::new(theme.color("checkbox:bar"), 3.0),
                 Color::WHITE.into(),
@@ -196,7 +200,7 @@ pub mod shader {
             .into_asset()
     }
 
-    pub type ArcMaterial = ShaderAsset<Transformed<ShapeRender<Arc, (Border,FillColor)>, Margins>>;
+    pub type ArcMaterial = ShaderAsset<Transformed<ShapeRender<Arc, (Border, FillColor)>, Margins>>;
     pub fn arc_material(
         color: Color,
         border_color: Color,
@@ -206,7 +210,7 @@ pub mod shader {
         Arc::new(angle, width)
             .with_effect((
                 Border::new(border_color, 0.25 * width),
-                FillColor::new(color)
+                FillColor::new(color),
             ))
             .with_transform(Margins::all(width))
             .into()

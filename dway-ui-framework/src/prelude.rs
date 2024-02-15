@@ -16,5 +16,6 @@ pub use measure_time::{debug_time, error_time, info_time, print_time, trace_time
 
 // pub use bevy_tweening::TweenCompleted;
 pub use smart_default::SmartDefault;
-
 pub use crate::{ theme::Theme,input::*,widgets::bundles::*,widgets::shader::* };
+pub use crate::animation::{ Interpolation, AssetAnimationPlugin,AssetTweenAddonBundle,Animation,Tween };
+pub use crate::UiFrameworkSystems;

@@ -6,7 +6,7 @@ use std::{
     mem::size_of,
     path::PathBuf,
 };
-
+use dway_ui_derive::Interpolation;
 use crate::prelude::*;
 use bevy::render::{render_asset::RenderAsset, render_resource::encase::private::Metadata};
 use bevy::{
@@ -423,6 +423,27 @@ macro_rules! impl_build_bind_group_for_tuple {
 }
 impl_build_bind_group_for_tuple!(E8, E7, E6, E5, E4, E3, E2, E1, E0,);
 
+macro_rules! impl_interpolation_for_tuple {
+    () => {};
+    ($($elem_field:tt : $elem:ident,)*) => {
+        impl<$($elem: Interpolation),* > Interpolation for ($($elem,)*){
+            fn interpolation(&self, other: &Self, v: f32) -> Self {
+                (
+                    $(Interpolation::interpolation(&self.$elem_field, &other.$elem_field, v),)*
+                )
+            }
+        }
+    };
+}
+impl_interpolation_for_tuple!(0:E0,1:E1,2:E2,3:E3,4:E4,5:E5,6:E6,7:E7,);
+impl_interpolation_for_tuple!(0:E0,1:E1,2:E2,3:E3,4:E4,5:E5,6:E6,);
+impl_interpolation_for_tuple!(0:E0,1:E1,2:E2,3:E3,4:E4,5:E5,);
+impl_interpolation_for_tuple!(0:E0,1:E1,2:E2,3:E3,4:E4,);
+impl_interpolation_for_tuple!(0:E0,1:E1,2:E2,3:E3,);
+impl_interpolation_for_tuple!(0:E0,1:E1,2:E2,);
+impl_interpolation_for_tuple!(0:E0,1:E1,);
+impl_interpolation_for_tuple!(0:E0,);
+
 pub mod effect {
     use bevy::render::render_resource::encase::internal::WriteInto;
     use encase::{
@@ -441,7 +462,7 @@ pub mod effect {
         fn to_wgsl<S: Shape>(shape_ns: &str, builder: &mut ShaderBuilder, var: &ShaderVariables);
     }
 
-    #[derive(Clone, Debug, Default)]
+    #[derive(Clone, Debug, Default, Interpolation)]
     pub struct Shadow {
         pub color: Color,
         pub offset: Vec2,
@@ -536,7 +557,7 @@ pub mod effect {
         }
     }
 
-    #[derive(Clone, Debug, Default)]
+    #[derive(Clone, Debug, Default, Interpolation)]
     pub struct InnerShadow<F: Fill = FillColor> {
         pub filler: F,
         pub color: Color,
@@ -627,7 +648,7 @@ pub mod effect {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug, Default, Interpolation)]
     pub struct Border<F: Fill = FillColor> {
         pub filler: F,
         pub width: f32,
@@ -683,7 +704,7 @@ pub mod effect {
         }
     }
 
-    #[derive(Clone, Debug, Default)]
+    #[derive(Clone, Debug, Default, Interpolation)]
     pub struct Arc {
         pub angle: [f32; 2],
         pub width: f32,
@@ -748,7 +769,7 @@ pub mod effect {
         }
     }
 
-    #[derive(Debug, Clone, Default)]
+    #[derive(Debug, Clone, Default, Interpolation)]
     pub struct Fake3D {
         pub color: Color,
         pub half_dir: Vec3,
@@ -834,7 +855,7 @@ pub mod fill {
         fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr;
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Default, Debug, Interpolation)]
     pub struct Gradient {
         pub color: Color,
         pub delta_color: Vec4,
@@ -877,7 +898,7 @@ pub mod fill {
         }
     }
 
-    #[derive(Default, Clone, Debug)]
+    #[derive(Clone, Default, Debug, Interpolation)]
     pub struct ColorWheel {}
     impl ColorWheel {
         pub fn new() -> Self {
@@ -901,7 +922,7 @@ pub mod fill {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Default, Debug, Interpolation)]
     pub struct FillColor {
         pub color: Color,
     }
@@ -937,7 +958,7 @@ pub mod fill {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Default, Debug)]
     pub struct FillImage {
         pub min_uv: Vec2,
         pub size_uv: Vec2,
@@ -1010,7 +1031,7 @@ pub mod shape {
         }
     }
 
-    #[derive(Clone, Default)]
+    #[derive(Clone, Default, Debug, Interpolation)]
     pub struct Circle {}
 
     impl Circle {
@@ -1044,7 +1065,7 @@ pub mod shape {
         }
     }
 
-    #[derive(Clone, Default)]
+    #[derive(Clone, Default, Debug, Interpolation)]
     pub struct Rect {}
 
     impl Rect {
@@ -1079,7 +1100,7 @@ pub mod shape {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Default, Debug, Interpolation)]
     pub struct RoundedRect {
         pub corner: f32,
     }
@@ -1128,7 +1149,7 @@ pub mod shape {
         }
     }
 
-    #[derive(Clone, Default)]
+    #[derive(Clone, Default, Debug, Interpolation)]
     pub struct RoundedBar {}
 
     impl RoundedBar {
@@ -1175,7 +1196,7 @@ pub mod transform {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Default, Debug, Interpolation)]
     pub struct Translation {
         pub offset: Vec2,
     }
@@ -1209,7 +1230,7 @@ pub mod transform {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Default, Debug, Interpolation)]
     pub struct Rotation {
         pub rotation: f32,
     }
@@ -1244,7 +1265,7 @@ pub mod transform {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Default, Debug, Interpolation)]
     pub struct Margins {
         pub margins: Vec4,
     }
@@ -1320,7 +1341,7 @@ pub trait Material: BuildBindGroup {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default, Debug, Interpolation)]
 pub struct ShapeRender<S: Shape, E: Effect> {
     pub shape: S,
     pub effect: E,
@@ -1407,7 +1428,7 @@ impl<S: Shape, E: Effect> BuildBindGroup for ShapeRender<S, E> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default, Debug, Interpolation)]
 pub struct Transformed<S: Material, T: Transform> {
     pub render: S,
     pub transform: T,
@@ -1486,7 +1507,7 @@ macro_rules! impl_render_for_tuple {
 }
 impl_render_for_tuple!(E8, E7, E6, E5, E4, E3, E2, E1, E0,);
 
-#[derive(Asset)]
+#[derive(Asset, Default, Debug, Interpolation)]
 pub struct ShaderAsset<T: Material> {
     pub render: T,
 }

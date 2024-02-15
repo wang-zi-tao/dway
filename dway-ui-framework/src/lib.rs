@@ -6,8 +6,16 @@ pub mod render;
 pub mod shader;
 pub mod theme;
 pub mod widgets;
-use crate::{prelude::*, render::mesh::{UiMeshMaterialPlugin, UiMeshPlugin}, widgets::{button::UiButton, checkbox::UiCheckBox, svg::{uisvg_update_system, SvgMagerial, UiSvg}}};
-use bevy::sprite::Material2dPlugin;
+use crate::{
+    prelude::*,
+    render::mesh::{UiMeshMaterialPlugin, UiMeshPlugin},
+    widgets::{
+        button::UiButton,
+        checkbox::UiCheckBox,
+        svg::{uisvg_update_system, SvgMagerial, UiSvg},
+    },
+};
+use bevy::{sprite::Material2dPlugin, ui::UiSystem};
 use bevy_svg::SvgPlugin;
 pub use dway_ui_derive::*;
 
@@ -21,6 +29,7 @@ impl Plugin for UiFrameworkPlugin {
                 render::mesh::UiMeshPlugin,
                 shader::ShaderFrameworkPlugin,
                 render::mesh::UiMeshMaterialPlugin::<ColorMaterial>::default(),
+                animation::AnimationPlugin,
             ))
             .add_plugins((
                 widgets::slider::UiSliderPlugin,
@@ -45,8 +54,25 @@ impl Plugin for UiFrameworkPlugin {
                     widgets::checkbox::process_ui_checkbox_event,
                     widgets::svg::uisvg_update_system,
                 ),
+            )
+            .configure_sets(
+                PostUpdate,
+                (
+                    UiFrameworkSystems::UpdateWidgets,
+                    UiFrameworkSystems::UpdatePopup,
+                    UiFrameworkSystems::ApplyAnimation,
+                )
+                    .before(UiSystem::Layout)
+                    .chain(),
             );
     }
+}
+
+#[derive(Clone, Copy, Hash, Debug, PartialEq, Eq, SystemSet)]
+pub enum UiFrameworkSystems {
+    UpdateWidgets,
+    UpdatePopup,
+    ApplyAnimation,
 }
 
 #[cfg(test)]
