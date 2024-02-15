@@ -1,16 +1,51 @@
 pub mod animation;
+pub mod assets;
+pub mod input;
 pub mod prelude;
+pub mod render;
 pub mod shader;
 pub mod theme;
 pub mod widgets;
-pub mod render;
-use crate::prelude::*;
+use crate::{prelude::*, render::mesh::{UiMeshMaterialPlugin, UiMeshPlugin}, widgets::{button::UiButton, checkbox::UiCheckBox, svg::{uisvg_update_system, SvgMagerial, UiSvg}}};
+use bevy::sprite::Material2dPlugin;
+use bevy_svg::SvgPlugin;
 pub use dway_ui_derive::*;
 
 pub struct UiFrameworkPlugin;
 impl Plugin for UiFrameworkPlugin {
     fn build(&self, app: &mut App) {
-        todo!()
+        app.add_plugins((SvgPlugin,))
+            .add_plugins((
+                assets::UiAssetsPlugin,
+                theme::ThemePlugin,
+                render::mesh::UiMeshPlugin,
+                shader::ShaderFrameworkPlugin,
+                render::mesh::UiMeshMaterialPlugin::<ColorMaterial>::default(),
+            ))
+            .add_plugins((
+                widgets::slider::UiSliderPlugin,
+                widgets::scroll::UiScrollPlugin,
+                widgets::inputbox::UiInputBoxPlugin,
+                UiMeshMaterialPlugin::<SvgMagerial>::default(),
+            ))
+            .register_type::<UiCheckBox>()
+            .register_type::<UiButton>()
+            .register_type::<UiSvg>()
+            .init_asset::<SvgMagerial>()
+            .register_type::<input::MousePosition>()
+            .init_resource::<input::MousePosition>()
+            .add_systems(
+                PreUpdate,
+                input::update_mouse_position.run_if(on_event::<CursorMoved>()),
+            )
+            .add_systems(
+                PostUpdate,
+                (
+                    widgets::button::process_ui_button_event,
+                    widgets::checkbox::process_ui_checkbox_event,
+                    widgets::svg::uisvg_update_system,
+                ),
+            );
     }
 }
 
@@ -49,7 +84,7 @@ pub mod tests {
                         let dest_pixel = Vec4::from_array(
                             dest_iamge.get_pixel(x, y).0.map(|m| m as f32 / 256.0),
                         );
-                        let diff = ( src_pixel - dest_pixel ).abs().max_element();
+                        let diff = (src_pixel - dest_pixel).abs().max_element();
                         if diff > 4.0 / 256.0 {
                             break 'l;
                         }

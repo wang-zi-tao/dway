@@ -21,6 +21,7 @@ use dway_ui_framework::shader::{ShaderAsset, ShaderPlugin, ShapeRender};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugins(dway_ui_framework::UiFrameworkPlugin)
         .add_plugins(ShaderPlugin::<CircleStyle>::default())
         .add_plugins(ShaderPlugin::<ButtonStyle>::default())
         .add_plugins(ShaderPlugin::<CheckboxStyle>::default())
@@ -105,14 +106,11 @@ fn setup(
                             margin: UiRect::all(Val::Px(8.0)),
                             ..default()
                         },
-                        material: ui_materials.add(ShapeRender::new(
-                            Circle::new(),
-                            (
-                                Border::new(Color::WHITE, 2.0),
-                                gradient.clone(),
-                                shadow.clone(),
-                            ),
-                        )),
+                        material: ui_materials.add(Circle::new().with_effect((
+                            Border::new(Color::WHITE, 2.0),
+                            gradient.clone(),
+                            shadow.clone(),
+                        ))),
                         ..default()
                     });
                     parent
@@ -122,10 +120,10 @@ fn setup(
                                 padding: UiRect::all(Val::Px(4.0)),
                                 ..default()
                             }),
-                            material: ui_material_button.add(ShapeRender::new(
-                                8.0.into(),
-                                effect_border_fill_shadow.clone(),
-                            )),
+                            material: ui_material_button.add(
+                                RoundedRect::new(8.0)
+                                    .with_effect(effect_border_fill_shadow.clone()),
+                            ),
                             ..default()
                         })
                         .with_children(|c| {
@@ -148,10 +146,11 @@ fn setup(
                                 padding: UiRect::all(Val::Px(4.0)),
                                 ..default()
                             }),
-                            material: ui_material_button.add(ShapeRender::new(
-                                8.0.into(),
-                                (Border::new(Color::WHITE, 0.0), blue.into(), shadow.clone()),
-                            )),
+                            material: ui_material_button.add(RoundedRect::new(8.0).with_effect((
+                                Border::new(Color::WHITE, 0.0),
+                                blue.into(),
+                                shadow.clone(),
+                            ))),
                             ..default()
                         })
                         .with_children(|c| {
@@ -170,21 +169,18 @@ fn setup(
                     parent.spawn(MaterialNodeBundle {
                         style: style.clone(),
                         material: ui_material_checkbox.add((
-                            Transformed::new(
-                                ShapeRender::new(
-                                    Circle::default(),
-                                    (Border::new(ui_color, 2.0), ui_color.into(), shadow.clone()),
-                                ),
-                                Margins::new(5.0, 32.0 + 5.0, 5.0, 5.0),
-                            ),
-                            ShapeRender::new(
-                                default(),
-                                (
-                                    Border::new(ui_color, 3.0),
-                                    Color::WHITE.into(),
+                            Circle::default()
+                                .with_effect((
+                                    Border::new(ui_color, 2.0),
+                                    ui_color.into(),
                                     shadow.clone(),
-                                ),
-                            ),
+                                ))
+                                .with_transform(Margins::new(5.0, 32.0 + 5.0, 5.0, 5.0)),
+                            RoundedBar::default().with_effect((
+                                Border::new(ui_color, 3.0),
+                                Color::WHITE.into(),
+                                shadow.clone(),
+                            )),
                         )),
                         ..default()
                     });

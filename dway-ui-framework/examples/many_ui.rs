@@ -65,7 +65,7 @@ fn setup(
                         Margins::new(1.0, 4.0 + 1.0, 1.0, 1.0),
                     ),
                     ShapeRender::new(
-                        default(),
+                        RoundedBar::new(),
                         (
                             Border::new(ui_color, 3.0),
                             Color::WHITE.into(),

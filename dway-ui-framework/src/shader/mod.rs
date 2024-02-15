@@ -8,7 +8,7 @@ use std::{
 };
 
 use crate::prelude::*;
-use bevy::render::render_resource::encase::private::Metadata;
+use bevy::render::{render_asset::RenderAsset, render_resource::encase::private::Metadata};
 use bevy::{
     asset::{embedded_asset, io::embedded::EmbeddedAssetRegistry, load_internal_asset},
     render::{
@@ -299,7 +299,7 @@ impl<'l> BindGroupLayoutBuilder<'l> {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: None, // TODO
+                    min_binding_size: None,
                 },
                 count: None,
             },
@@ -430,14 +430,18 @@ pub mod effect {
         ShaderType,
     };
 
-    use super::{fill::Fill, shape::Shape, BuildBindGroup, Expr, ShaderBuilder, ShaderVariables};
+    use super::{
+        fill::{Fill, FillColor},
+        shape::Shape,
+        BuildBindGroup, Expr, ShaderBuilder, ShaderVariables,
+    };
     use crate::prelude::*;
 
     pub trait Effect: BuildBindGroup {
         fn to_wgsl<S: Shape>(shape_ns: &str, builder: &mut ShaderBuilder, var: &ShaderVariables);
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug, Default)]
     pub struct Shadow {
         pub color: Color,
         pub offset: Vec2,
@@ -531,32 +535,119 @@ pub mod effect {
             layout.write_uniform(&self.radius, writer);
         }
     }
-    impl WriteInto for Shadow {
-        fn write_into<B>(&self, writer: &mut Writer<B>)
-        where
-            B: BufferMut,
-        {
-            self.color.write_into(writer);
-            self.offset.write_into(writer);
-            self.margin.write_into(writer);
-            self.radius.write_into(writer);
+
+    #[derive(Clone, Debug, Default)]
+    pub struct InnerShadow<F: Fill = FillColor> {
+        pub filler: F,
+        pub color: Color,
+        pub offset: Vec2,
+        pub radius: f32,
+    }
+
+    impl<F: Fill> InnerShadow<F> {
+        pub fn new(filler: impl Into<F>, color: Color, offset: Vec2, radius: f32) -> Self {
+            Self {
+                filler: filler.into(),
+                color,
+                offset,
+                radius,
+            }
+        }
+    }
+    impl<F: Fill> Effect for InnerShadow<F> {
+        fn to_wgsl<S: Shape>(shape_ns: &str, builder: &mut ShaderBuilder, var: &ShaderVariables) {
+            let ShaderVariables { pos, size } = var;
+            let color_expr = builder.in_new_namespace("filler", |builder| F::to_wgsl(builder, var));
+            builder.add_import("dway_ui_framework::shader::framework::sigmoid");
+            builder.add_import("dway_ui_framework::shader::framework::mix_alpha");
+            builder.add_import("dway_ui_framework::shader::framework::mix_color");
+            let uniform_color = builder.get_uniform("color", "", "vec4<f32>");
+            let uniform_offset = builder.get_uniform("offset", "", "vec2<f32>");
+            let uniform_radius = builder.get_uniform("radius", "", "f32");
+            let (pos_var, pos_stat) =
+                builder.add_var("shadow_pos", format!("{pos} - {uniform_offset}"));
+            let (size_var, size_stat) = builder.add_var("shadow_size", format!("{size}"));
+            let shadow_d_expr = builder.in_namespace(shape_ns, |builder| {
+                S::to_wgsl(
+                    builder,
+                    &ShaderVariables {
+                        pos: pos_var.clone(),
+                        size: size_var.clone(),
+                    },
+                )
+            });
+            let fragment_code = format!("
+                {{
+                    {pos_stat}
+                    {size_stat}
+                    if shape_d<0.5 {{
+                        out = mix_alpha(out, mix_color({color_expr}, shape_d));
+                    }}
+                    if shape_d < 0.0 {{
+                        let shadow_d = -{shadow_d_expr};
+                        let shadow_alpha = 1.42 * (1.0 - sigmoid(shadow_d / {uniform_radius}));
+                        if shadow_alpha > 1.0 / 16.0 {{
+                            out = mix_alpha(out, vec4({uniform_color}.rgb, shadow_alpha * {uniform_color}.a));
+                            if out.a > 255.0/256.0 {{
+                                return out;
+                            }}
+                        }}
+                    }}
+                }}
+            ");
+            builder.fragment_inner += &*fragment_code;
+        }
+    }
+    impl<F: Fill> BuildBindGroup for InnerShadow<F> {
+        fn bind_group_layout_entries(_builder: &mut super::BindGroupLayoutBuilder) {}
+
+        fn unprepared_bind_group(
+            &self,
+            builder: &mut super::BindGroupBuilder,
+        ) -> Result<(), bevy::render::render_resource::AsBindGroupError> {
+            Ok(())
+        }
+
+        fn update_layout(&self, layout: &mut super::UniformLayout) {
+            self.filler.update_layout(layout);
+            layout.update_layout(&self.color);
+            layout.update_layout(&self.offset);
+            layout.update_layout(&self.radius);
+        }
+
+        fn write_uniform<B: BufferMut>(
+            &self,
+            layout: &mut super::UniformLayout,
+            writer: &mut Writer<B>,
+        ) {
+            self.filler.write_uniform(layout, writer);
+            layout.write_uniform(&self.color, writer);
+            layout.write_uniform(&self.offset, writer);
+            layout.write_uniform(&self.radius, writer);
         }
     }
 
     #[derive(Clone)]
-    pub struct Border {
-        pub color: Color,
+    pub struct Border<F: Fill = FillColor> {
+        pub filler: F,
         pub width: f32,
     }
-
-    impl Border {
-        pub fn new(color: Color, width: f32) -> Self {
-            Self { color, width }
+    impl<F: Fill> Border<F> {
+        pub fn with_filler(filler: F, width: f32) -> Self {
+            Self { filler, width }
         }
     }
-    impl Effect for Border {
-        fn to_wgsl<S: Shape>(_shape_ns: &str, builder: &mut ShaderBuilder, _var: &ShaderVariables) {
-            let uniform_color = builder.get_uniform("color", "", "vec4<f32>");
+    impl Border<FillColor> {
+        pub fn new(color: Color, width: f32) -> Self {
+            Self {
+                filler: FillColor::new(color),
+                width,
+            }
+        }
+    }
+    impl<F: Fill> Effect for Border<F> {
+        fn to_wgsl<S: Shape>(_shape_ns: &str, builder: &mut ShaderBuilder, var: &ShaderVariables) {
+            let color_expr = builder.in_new_namespace("filler", |builder| F::to_wgsl(builder, var));
             let uniform_width = builder.get_uniform("width", "", "f32");
             builder.add_import("dway_ui_framework::shader::framework::mix_color");
             builder.add_import("dway_ui_framework::shader::framework::mix_alpha");
@@ -565,7 +656,7 @@ pub mod effect {
                 {{
                     let border_d = abs(shape_d + (0.5 - 1.0/16.0) * {uniform_width}) - 0.5 * {uniform_width};
                     if border_d < 0.5 {{
-                        out = mix_alpha(out, mix_color({uniform_color}, border_d));
+                        out = mix_alpha(out, mix_color({color_expr}, border_d));
                         if out.a > 255.0/256.0 {{
                             return out;
                         }}
@@ -576,9 +667,9 @@ pub mod effect {
             builder.fragment_inner += &*code;
         }
     }
-    impl BuildBindGroup for Border {
+    impl<F: Fill> BuildBindGroup for Border<F> {
         fn update_layout(&self, layout: &mut super::UniformLayout) {
-            layout.update_layout(&self.color);
+            self.filler.update_layout(layout);
             layout.update_layout(&self.width);
         }
 
@@ -587,7 +678,53 @@ pub mod effect {
             layout: &mut super::UniformLayout,
             writer: &mut Writer<B>,
         ) {
-            layout.write_uniform(&self.color, writer);
+            self.filler.write_uniform(layout, writer);
+            layout.write_uniform(&self.width, writer);
+        }
+    }
+
+    #[derive(Clone, Debug, Default)]
+    pub struct Arc {
+        pub angle: [f32; 2],
+        pub width: f32,
+    }
+
+    impl Arc {
+        pub fn new(angle: [f32; 2], width: f32) -> Self {
+            Self { angle, width }
+        }
+    }
+    impl Shape for Arc {
+        fn register_uniforms(builder: &mut ShaderBuilder) {}
+
+        fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
+            let ShaderVariables { pos, size } = var;
+            let uniform_angle = builder.get_uniform("angle", "", "vec2<f32>");
+            let uniform_width = builder.get_uniform("width", "", "f32");
+            builder.add_import("dway_ui_framework::shader::framework::arc_sdf");
+            format!("arc_sdf({pos}, {uniform_angle}, {uniform_width}, 0.5*min({size}.x,{size}.y))")
+        }
+
+        fn to_gradient_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
+            let ShaderVariables { pos, size } = var;
+            let uniform_angle = builder.get_uniform("angle", "", "vec2<f32>");
+            let uniform_width = builder.get_uniform("width", "", "f32");
+            builder.add_import("dway_ui_framework::shader::framework::arc_sdf_gradient");
+            format!("arc_sdf_gradient({pos}, {uniform_angle}, {uniform_width}, 0.5*min({size}.x,{size}.y))")
+        }
+    }
+    impl BuildBindGroup for Arc {
+        fn update_layout(&self, layout: &mut super::UniformLayout) {
+            layout.update_layout(&self.angle);
+            layout.update_layout(&self.width);
+        }
+
+        fn write_uniform<B: BufferMut>(
+            &self,
+            layout: &mut super::UniformLayout,
+            writer: &mut Writer<B>,
+        ) {
+            layout.write_uniform(&self.angle, writer);
             layout.write_uniform(&self.width, writer);
         }
     }
@@ -608,6 +745,66 @@ pub mod effect {
             "
             );
             builder.fragment_inner += &*code;
+        }
+    }
+
+    #[derive(Debug, Clone, Default)]
+    pub struct Fake3D {
+        pub color: Color,
+        pub half_dir: Vec3,
+        pub corner: f32,
+    }
+
+    impl Fake3D {
+        pub fn new(color: Color, light_direction: Vec3, corner: f32) -> Self {
+            Self {
+                color,
+                half_dir: (light_direction + Vec3::Z).normalize(),
+                corner,
+            }
+        }
+    }
+    impl Effect for Fake3D {
+        fn to_wgsl<S: Shape>(shape_ns: &str, builder: &mut ShaderBuilder, var: &ShaderVariables) {
+            let normal_expr =
+                builder.in_namespace(shape_ns, |builder| S::to_gradient_wgsl(builder, var));
+            let uniform_color = builder.get_uniform("color", "", "vec4<f32>");
+            let uniform_half_dir = builder.get_uniform("half_dir", "", "vec3<f32>");
+            let uniform_corner = builder.get_uniform("corner", "", "f32");
+            let code = format!("
+                {{
+                    if -{uniform_corner} < shape_d && shape_d < 0 {{
+                        let normal2d = {normal_expr};
+                        let fixed_x = shape_d + {uniform_corner};
+                        let border_normal2d = normalize(vec2(fixed_x, sqrt({uniform_corner} * {uniform_corner} - fixed_x * fixed_x )));
+                        let normal3d = vec3(normal2d.x * border_normal2d.x, normal2d.y * border_normal2d.x, border_normal2d.y);
+                        let color = vec4( saturate(dot(normal3d, {uniform_half_dir} )) * {uniform_color}.rgb, {uniform_color}.a );
+
+                        out = mix_alpha(out, color);
+                        if out.a > 255.0/256.0 {{
+                            return out;
+                        }}
+                    }}
+                }}
+            ");
+            builder.fragment_inner += &*code;
+        }
+    }
+    impl BuildBindGroup for Fake3D {
+        fn update_layout(&self, layout: &mut super::UniformLayout) {
+            layout.update_layout(&self.color);
+            layout.update_layout(&self.half_dir);
+            layout.update_layout(&self.corner);
+        }
+
+        fn write_uniform<B: BufferMut>(
+            &self,
+            layout: &mut super::UniformLayout,
+            writer: &mut Writer<B>,
+        ) {
+            layout.write_uniform(&self.color, writer);
+            layout.write_uniform(&self.half_dir, writer);
+            layout.write_uniform(&self.corner, writer);
         }
     }
 
@@ -677,6 +874,30 @@ pub mod fill {
             layout.write_uniform(&self.color, writer);
             layout.write_uniform(&self.delta_color, writer);
             layout.write_uniform(&self.direction, writer);
+        }
+    }
+
+    #[derive(Default, Clone, Debug)]
+    pub struct ColorWheel {}
+    impl ColorWheel {
+        pub fn new() -> Self {
+            Self {}
+        }
+    }
+    impl BuildBindGroup for ColorWheel {
+        fn update_layout(&self, _layout: &mut super::UniformLayout) {}
+        fn write_uniform<B: encase::internal::BufferMut>(
+            &self,
+            _layout: &mut super::UniformLayout,
+            _writer: &mut encase::internal::Writer<B>,
+        ) {
+        }
+    }
+    impl Fill for ColorWheel {
+        fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
+            let ShaderVariables { pos, .. } = var;
+            builder.add_import("dway_ui_framework::shader::framework::color_wheel");
+            format!("color_wheel({pos})")
         }
     }
 
@@ -774,14 +995,18 @@ pub mod fill {
 }
 
 pub mod shape {
-    use super::{BuildBindGroup, Expr, ShaderBuilder, ShaderVariables};
+    use super::{
+        effect::Effect, BuildBindGroup, Expr, ShaderBuilder, ShaderVariables, ShapeRender,
+    };
     use crate::prelude::*;
 
     pub trait Shape: BuildBindGroup {
         fn register_uniforms(builder: &mut ShaderBuilder);
         fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr;
-        fn to_normal_vector_wgsl(&self, _builder: &mut ShaderBuilder, _pos: Expr) -> Expr {
-            format!("vec3(0.0, 0.0, 1.0)")
+        fn to_gradient_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr;
+
+        fn with_effect<E: Effect>(self, e: E) -> ShapeRender<Self, E> {
+            ShapeRender::new(self, e)
         }
     }
 
@@ -796,11 +1021,17 @@ pub mod shape {
     impl Shape for Circle {
         fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
             let ShaderVariables { pos, size } = var;
-            builder.add_import("dway_ui_framework::shader::framework::circleSDF");
-            format!("circleSDF({pos}, 0.5 * min({size}.x, {size}.y))")
+            builder.add_import("dway_ui_framework::shader::framework::circle_sdf");
+            format!("circle_sdf({pos}, 0.5 * min({size}.x, {size}.y))")
         }
 
         fn register_uniforms(builder: &mut ShaderBuilder) {}
+
+        fn to_gradient_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
+            let ShaderVariables { pos, size } = var;
+            builder.add_import("dway_ui_framework::shader::framework::circle_sdf_gradient");
+            format!("circle_sdf_gradient({pos}, 0.5 * min({size}.x, {size}.y))")
+        }
     }
     impl BuildBindGroup for Circle {
         fn update_layout(&self, layout: &mut super::UniformLayout) {}
@@ -824,8 +1055,14 @@ pub mod shape {
     impl Shape for Rect {
         fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
             let ShaderVariables { pos, size } = var;
-            builder.add_import("dway_ui_framework::shader::framework::rectSDF");
-            format!("rectSDF({pos}, {size})")
+            builder.add_import("dway_ui_framework::shader::framework::rect_sdf");
+            format!("rect_sdf({pos}, {size})")
+        }
+
+        fn to_gradient_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
+            let ShaderVariables { pos, size } = var;
+            builder.add_import("dway_ui_framework::shader::framework::rect_sdf_gradient");
+            format!("rect_sdf_gradient({pos}, {size})")
         }
 
         fn register_uniforms(builder: &mut ShaderBuilder) {
@@ -862,12 +1099,19 @@ pub mod shape {
         fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
             let ShaderVariables { pos, size } = var;
             let uniform_radius = builder.get_uniform("radius", "", "f32");
-            builder.add_import("dway_ui_framework::shader::framework::boxSDF");
-            format!("boxSDF({pos}, {size}, {uniform_radius})")
+            builder.add_import("dway_ui_framework::shader::framework::rounded_rect_sdf");
+            format!("rounded_rect_sdf({pos}, {size}, {uniform_radius})")
         }
 
         fn register_uniforms(builder: &mut ShaderBuilder) {
             builder.get_uniform("radius", "", "f32");
+        }
+
+        fn to_gradient_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
+            let ShaderVariables { pos, size } = var;
+            let uniform_radius = builder.get_uniform("radius", "", "f32");
+            builder.add_import("dway_ui_framework::shader::framework::rounded_rect_sdf_gradient");
+            format!("rounded_rect_sdf_gradient({pos}, {size}, {uniform_radius})")
         }
     }
     impl BuildBindGroup for RoundedRect {
@@ -897,8 +1141,14 @@ pub mod shape {
 
         fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
             let ShaderVariables { pos, size } = var;
-            builder.add_import("dway_ui_framework::shader::framework::boxSDF");
-            format!("boxSDF({pos}, {size}, 0.5 * min({size}.x, {size}.y))")
+            builder.add_import("dway_ui_framework::shader::framework::rounded_rect_sdf");
+            format!("rounded_rect_sdf({pos}, {size}, 0.5 * min({size}.x, {size}.y))")
+        }
+
+        fn to_gradient_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
+            let ShaderVariables { pos, size } = var;
+            builder.add_import("dway_ui_framework::shader::framework::rounded_rect_sdf_gradient");
+            format!("rounded_rect_sdf_gradient({pos}, {size}, 0.5 * min({size}.x, {size}.y))")
         }
     }
     impl BuildBindGroup for RoundedBar {
@@ -916,9 +1166,13 @@ pub mod shape {
 pub mod transform {
     use crate::prelude::*;
 
-    use super::{BuildBindGroup, Expr, ShaderBuilder, ShaderVariables};
+    use super::{BuildBindGroup, Expr, Material, ShaderBuilder, ShaderVariables, Transformed};
     pub trait Transform: BuildBindGroup {
         fn transform(builder: &mut ShaderBuilder, var: &ShaderVariables) -> ShaderVariables;
+
+        fn then<R: Material>(self, material: R) -> Transformed<R, Self> {
+            Transformed::new(material, self)
+        }
     }
 
     #[derive(Clone)]
@@ -994,8 +1248,22 @@ pub mod transform {
     pub struct Margins {
         pub margins: Vec4,
     }
-
+    impl From<Vec4> for Margins {
+        fn from(value: Vec4) -> Self {
+            Self { margins: value }
+        }
+    }
     impl Margins {
+        pub fn all(value: f32) -> Self {
+            Self {
+                margins: Vec4::splat(value),
+            }
+        }
+        pub fn axes(horizontal: f32, vertical: f32) -> Self {
+            Self {
+                margins: Vec4::new(horizontal, horizontal, vertical, vertical),
+            }
+        }
         pub fn new(left: f32, right: f32, top: f32, bottom: f32) -> Self {
             Self {
                 margins: Vec4::new(left, right, top, bottom),
@@ -1046,6 +1314,10 @@ pub mod transform {
 
 pub trait Material: BuildBindGroup {
     fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables);
+
+    fn into_asset(self) -> ShaderAsset<Self> {
+        ShaderAsset::new(self)
+    }
 }
 
 #[derive(Clone)]
@@ -1055,8 +1327,18 @@ pub struct ShapeRender<S: Shape, E: Effect> {
 }
 
 impl<S: Shape, E: Effect> ShapeRender<S, E> {
-    pub fn new(shape: S, effect: E) -> Self {
-        Self { shape, effect }
+    pub fn new(shape: impl Into<S>, effect: impl Into<E>) -> Self {
+        Self {
+            shape: shape.into(),
+            effect: effect.into(),
+        }
+    }
+
+    pub fn with_transform<T: Transform>(self, transform: T) -> Transformed<Self, T> {
+        Transformed {
+            render: self,
+            transform,
+        }
     }
 }
 
@@ -1132,8 +1414,11 @@ pub struct Transformed<S: Material, T: Transform> {
 }
 
 impl<S: Material, T: Transform> Transformed<S, T> {
-    pub fn new(render: S, transform: T) -> Self {
-        Self { render, transform }
+    pub fn new(render: impl Into<S>, transform: impl Into<T>) -> Self {
+        Self {
+            render: render.into(),
+            transform: transform.into(),
+        }
     }
 }
 impl<S: Material, T: Transform> BuildBindGroup for Transformed<S, T> {
@@ -1230,10 +1515,14 @@ impl<T: Material> ShaderAsset<T> {
         (format!("{:?}", TypeId::of::<T>())).replace(|c: char| c == ':', "=")
     }
     pub fn raw_path() -> String {
-        format!("dway_ui/render/gen/{}/render.wgsl", Self::id())
+        format!("dway_ui_framework/render/gen/{}/render.wgsl", Self::id())
     }
     pub fn path() -> String {
-        format!("embedded://dway_ui/render/gen/{}/render.wgsl", Self::id())
+        format!("embedded://dway_ui_framework/render/gen/{}/render.wgsl", Self::id())
+    }
+
+    pub fn plugin() -> ShaderPlugin<T> {
+        ShaderPlugin::<T>::default()
     }
 }
 
@@ -1346,9 +1635,6 @@ impl<T: Material> Default for ShaderPlugin<T> {
 impl<T: Material> Plugin for ShaderPlugin<T> {
     fn build(&self, app: &mut App) {
         if !app.is_plugin_added::<UiMaterialPlugin<ShaderAsset<T>>>() {
-            if !app.is_plugin_added::<ShaderFrameworkPlugin>() {
-                app.add_plugins(ShaderFrameworkPlugin);
-            }
             let embedded = app.world.resource_mut::<EmbeddedAssetRegistry>();
             let path: PathBuf = ShaderAsset::<T>::raw_path().into();
             let wgsl = ShaderAsset::<T>::to_wgsl();
@@ -1641,18 +1927,15 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
             test_shader(
                 "test/comparison_image/shader/circle_gradient_border_shadow.png",
                 Vec2::splat(256.0),
-                ShapeRender::new(
-                    Circle::new(),
-                    (
-                        Border::new(Color::WHITE, 2.0),
-                        Gradient::new(
-                            Color::WHITE * 0.5,
-                            Color::BLUE.rgba_to_vec4() - Color::RED.rgba_to_vec4(),
-                            Vec2::ONE.normalize() / 256.0,
-                        ),
-                        Shadow::new(color!("#888888"), Vec2::ONE * 1.0, Vec2::ONE * 1.0, 2.0),
+                Circle::new().with_effect((
+                    Border::new(Color::WHITE, 2.0),
+                    Gradient::new(
+                        Color::WHITE * 0.5,
+                        Color::BLUE.rgba_to_vec4() - Color::RED.rgba_to_vec4(),
+                        Vec2::ONE.normalize() / 256.0,
                     ),
-                ),
+                    Shadow::new(color!("#888888"), Vec2::ONE * 1.0, Vec2::ONE * 1.0, 2.0),
+                )),
             ),
             //     test_shader(
             //     "test/comparison_image/shader/rect_fill.png1",

@@ -31,17 +31,35 @@ use bevy::{
     sprite::{
         tonemapping_pipeline_key, Material2d, Material2dBindGroupId, Material2dKey,
         Mesh2dPipelineKey, Mesh2dTransforms, Mesh2dUniform, MeshFlags, PreparedMaterial2d,
-        RenderMesh2dInstance, MESH2D_SHADER_HANDLE,
+        MESH2D_SHADER_HANDLE,
     },
     transform::prelude::GlobalTransform,
-    ui::TransparentUi,
+    ui::{TransparentUi, UiStack},
     utils::{EntityHashMap, FloatOrd, HashMap, HashSet},
 };
 use std::{hash::Hash, marker::PhantomData};
 
-#[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq)]
+#[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq, Deref, DerefMut)]
 #[reflect(Component)]
-pub struct UiMeshHandle(pub Handle<Mesh>);
+pub struct UiMeshHandle(Handle<Mesh>);
+
+#[derive(Component, Deref, DerefMut, Debug, Clone)]
+pub struct UiMeshTransform(Transform);
+impl Default for UiMeshTransform {
+    fn default() -> Self {
+        Self(Transform::default().with_scale(Vec3::new(1.0, -1.0, 1.0)))
+    }
+}
+impl From<Transform> for UiMeshTransform{
+    fn from(transform: Transform) -> Self{
+        Self(transform)
+    }
+}
+impl UiMeshTransform{
+    pub fn new(transform: Transform) -> Self{
+        Self(transform)
+    }
+}
 
 impl From<Handle<Mesh>> for UiMeshHandle {
     fn from(handle: Handle<Mesh>) -> Self {
@@ -57,7 +75,7 @@ impl Plugin for UiMeshPlugin {
             render_app
                 .init_resource::<RenderUiMesh2dInstances>()
                 .init_resource::<SpecializedMeshPipelines<UiMesh2dPipeline>>()
-                .add_systems(ExtractSchedule, (extract_ui_mesh_node,))
+                .add_systems(ExtractSchedule, extract_ui_mesh_node)
                 .add_systems(
                     bevy::render::Render,
                     (
@@ -83,8 +101,12 @@ impl Plugin for UiMeshPlugin {
     }
 }
 
-#[derive(Default)]
 pub struct UiMeshMaterialPlugin<R: Material2d>(PhantomData<R>);
+impl<R: Material2d> Default for UiMeshMaterialPlugin<R> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
 impl<T: Material2d> Plugin for UiMeshMaterialPlugin<T>
 where
     T::Data: PartialEq + Eq + Hash + Clone,
@@ -144,9 +166,7 @@ pub fn extract_ui_mesh_material_asset<M: Material2d>(
                 removed.push(*id);
             }
             AssetEvent::Unused { .. } => {}
-            AssetEvent::LoadedWithDependencies { .. } => {
-                // TODO: handle this
-            }
+            AssetEvent::LoadedWithDependencies { .. } => {}
         }
     }
 
@@ -191,10 +211,12 @@ pub fn extract_ui_mesh_node(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut render_mesh_instances: ResMut<RenderUiMesh2dInstances>,
+    ui_stack: Extract<Res<UiStack>>,
     query: Extract<
         Query<(
             Entity,
             &ViewVisibility,
+            &UiMeshTransform,
             &GlobalTransform,
             &UiMeshHandle,
             Has<NoAutomaticBatching>,
@@ -204,25 +226,30 @@ pub fn extract_ui_mesh_node(
     render_mesh_instances.clear();
     let mut entities = Vec::with_capacity(*previous_len);
 
-    for (entity, view_visibility, transform, handle, no_automatic_batching) in &query {
-        if !view_visibility.get() {
-            continue;
-        }
-        // FIXME: Remove this - it is just a workaround to enable rendering to work as
-        // render commands require an entity to exist at the moment.
-        entities.push((entity, UiMesh));
-        render_mesh_instances.insert(
-            entity,
-            RenderMesh2dInstance {
-                transforms: Mesh2dTransforms {
-                    transform: (&transform.affine()).into(),
-                    flags: MeshFlags::empty().bits(),
+    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
+        if let Ok((entity, view_visibility, mesh_transform, transform, handle, no_automatic_batching)) =
+            query.get(*entity)
+        {
+            if !view_visibility.get() {
+                continue;
+            }
+            // FIXME: Remove this - it is just a workaround to enable rendering to work as
+            // render commands require an entity to exist at the moment.
+            entities.push((entity, UiMesh));
+            render_mesh_instances.insert(
+                entity,
+                RenderUiMeshInstance {
+                    transforms: Mesh2dTransforms {
+                        transform: (&transform.mul_transform(**mesh_transform).affine()).into(),
+                        flags: MeshFlags::empty().bits(),
+                    },
+                    mesh_asset_id: handle.0.id(),
+                    material_bind_group_id: Material2dBindGroupId::default(),
+                    automatic_batching: !no_automatic_batching,
+                    stack_index,
                 },
-                mesh_asset_id: handle.0.id(),
-                material_bind_group_id: Material2dBindGroupId::default(),
-                automatic_batching: !no_automatic_batching,
-            },
-        );
+            );
+        }
     }
     *previous_len = entities.len();
     commands.insert_or_spawn_batch(entities);
@@ -607,8 +634,16 @@ pub fn prepare_mesh2d_view_bind_groups(
     }
 }
 
+pub struct RenderUiMeshInstance {
+    pub stack_index: usize,
+    pub transforms: Mesh2dTransforms,
+    pub mesh_asset_id: AssetId<Mesh>,
+    pub material_bind_group_id: Material2dBindGroupId,
+    pub automatic_batching: bool,
+}
+
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct RenderUiMesh2dInstances(pub EntityHashMap<Entity, RenderMesh2dInstance>);
+pub struct RenderUiMesh2dInstances(pub EntityHashMap<Entity, RenderUiMeshInstance>);
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_ui_meshes<M: Material2d>(
@@ -686,10 +721,9 @@ pub fn queue_ui_meshes<M: Material2d>(
 
             mesh_instance.material_bind_group_id = material2d.get_bind_group_id();
 
-            let mesh_z = mesh_instance.transforms.transform.translation.z;
             transparent_phase.add(TransparentUi {
                 sort_key: (
-                    FloatOrd(mesh_z + material2d.depth_bias),
+                    FloatOrd(mesh_instance.stack_index as f32),
                     visible_entity.index(),
                 ),
                 entity: *visible_entity,
@@ -761,7 +795,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
 
 pub struct SetUiMeshBindGroup<M: Material2d, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P> for SetUiMeshBindGroup<M, I> {
-    type Param = (SRes<RenderUiMesh<M>>, SRes<RenderUiMeshMaterialInstances<M>>);
+    type Param = (
+        SRes<RenderUiMesh<M>>,
+        SRes<RenderUiMeshMaterialInstances<M>>,
+    );
     type ViewQuery = ();
     type ItemQuery = ();
 
@@ -803,7 +840,7 @@ impl<P: PhaseItem> RenderCommand<P> for DoDrawUiMesh {
         let meshes = meshes.into_inner();
         let render_mesh2d_instances = render_mesh2d_instances.into_inner();
 
-        let Some(RenderMesh2dInstance { mesh_asset_id, .. }) =
+        let Some(RenderUiMeshInstance { mesh_asset_id, .. }) =
             render_mesh2d_instances.get(&item.entity())
         else {
             return RenderCommandResult::Failure;
@@ -950,6 +987,7 @@ fn prepare_material2d<M: Material2d>(
 #[derive(Bundle, Clone)]
 pub struct UiMeshBundle<M: Material2d> {
     pub mesh: UiMeshHandle,
+    pub mesh_transform: UiMeshTransform,
     pub material: Handle<M>,
     /// Describes the logical size of the node
     pub node: Node,
@@ -992,6 +1030,7 @@ impl<M: Material2d> Default for UiMeshBundle<M> {
             style: Default::default(),
             focus_policy: Default::default(),
             z_index: Default::default(),
+            mesh_transform: Default::default(),
         }
     }
 }

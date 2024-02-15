@@ -15,7 +15,10 @@ use dway_ui_framework::shader::{ShaderAsset, ShaderPlugin, ShapeRender};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(ShaderPlugin::<ButtonStyle>::default())
+        .add_plugins((
+            dway_ui_framework::UiFrameworkPlugin,
+            ShaderPlugin::<ButtonStyle>::default(),
+        ))
         .add_systems(Startup, setup)
         .insert_resource(ClearColor(Color::WHITE))
         .run();
