@@ -1,6 +1,6 @@
 use crate::{parser::ParseCodeResult, prelude::*};
 
-use super::{DomArgKey, DomDecorator};
+use super::{DomArg, DomArgKey, DomDecorator};
 
 #[derive(Parse)]
 pub struct Id {
@@ -507,6 +507,27 @@ impl DomDecorator for ForQuery {
                     }
                 }
             }
+        }
+    }
+}
+
+#[derive(Parse)]
+pub struct Command {
+    command: Expr,
+}
+
+impl DomDecorator for Command{
+    fn wrap_spawn(
+            &self,
+            inner: TokenStream,
+            context: &mut DomContext,
+            _need_update: bool,
+        ) -> TokenStream {
+        let entity = context.top().get_node_entity();
+        let command = &self.command;
+        quote!{
+            #inner
+            commands.entity(#entity).add(#command);
         }
     }
 }

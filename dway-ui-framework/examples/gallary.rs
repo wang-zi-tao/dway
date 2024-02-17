@@ -54,6 +54,15 @@ fn main() {
             AssetAnimationPlugin::<CheckboxMaterial>::default(),
         ))
         .add_systems(Startup, setup)
+.edit_schedule(PreUpdate, |schedule| {
+        schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+    })
+.edit_schedule(Update, |schedule| {
+        schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+    })
+.edit_schedule(PostUpdate, |schedule| {
+        schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+    })
         .insert_resource(ClearColor(Color::WHITE));
 
     {

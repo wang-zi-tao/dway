@@ -181,6 +181,7 @@ impl syn::parse::Parse for DomArg {
                         "for_query" => Box::new(content.parse::<control::ForQuery>()?),
                         "arg" => Box::new(content.parse::<data::Argument>()?),
                         "component" => Box::new(content.parse::<data::QueryComponent>()?),
+                        "command" => Box::new(content.parse::<control::Command>()?),
                         "query" => Box::new(content.parse::<data::Query>()?),
                         "query_many" => Box::new(content.parse::<data::QueryMany>()?),
                         "res" => Box::new(content.parse::<data::Res>()?),

@@ -197,6 +197,19 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     // app.add_systems(Update, (wm_mouse_action, wm_keys, update));
     app.add_systems(Last, last);
 
+    #[cfg(feature = "single_thread")]
+    {
+        app
+            .edit_schedule(PreUpdate, |schedule| {
+                schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+            })
+            .edit_schedule(Update, |schedule| {
+                schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+            })
+            .edit_schedule(PostUpdate, |schedule| {
+                schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+            });
+    }
     #[cfg(feature = "debug")]
     if opts.debug_schedule {
         debug::print_resources(&mut app.world);

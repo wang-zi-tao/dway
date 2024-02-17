@@ -1,4 +1,3 @@
-pub mod ease;
 use crate::{prelude::*, theme::ThemeAppExt};
 use bevy_relationship::reexport::SmallVec;
 pub use interpolation;
@@ -183,6 +182,9 @@ impl<I: Interpolation> Tween<I> {
     pub fn reverse(&mut self) {
         self.values.swap(0, 1);
     }
+    pub fn get_asset(&self, v: f32) -> I {
+        Interpolation::interpolation(&self.values[0], &self.values[1], v)
+    }
 }
 
 pub fn apply_tween_asset<I: Interpolation + Asset>(
@@ -193,8 +195,7 @@ pub fn apply_tween_asset<I: Interpolation + Asset>(
     let Ok((handle, tween)) = query.get(entity) else {
         return;
     };
-    let interpolation_value = Interpolation::interpolation(&tween.values[0], &tween.values[1], v);
-    assets.insert(handle.clone(), interpolation_value);
+    assets.insert(handle.clone(), tween.get_asset(v));
 }
 
 #[derive(Default)]

@@ -2660,6 +2660,7 @@ dependencies = [
  "smart-default",
  "structstruck",
  "tempdir",
+ "type-equals",
  "undo",
  "uuid",
 ]
@@ -6695,6 +6696,12 @@ dependencies = [
  "cfg-if",
  "static_assertions",
 ]
+
+[[package]]
+name = "type-equals"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a84e1896346ff3dc15668ce862ebcf159da02a836dde7e9ef0e0d2e8a10f1ceb"
 
 [[package]]
 name = "udev"

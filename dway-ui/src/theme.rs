@@ -1,6 +1,6 @@
-use std::any::{type_name, Any, TypeId};
+use std::{any::{type_name, Any, TypeId}, marker::PhantomData};
 
-use bevy::{ecs::system::SystemId, utils::HashMap};
+use bevy::{ecs::system::SystemId, utils::{HashMap, HashSet}};
 use bevy_svg::prelude::Svg;
 
 use crate::prelude::*;
@@ -147,6 +147,32 @@ impl Plugin for ThemePlugin {
     fn finish(&self, app: &mut App) {
         let theme = app.world.resource::<Theme>();
         debug!("theme: {:?}", theme);
+    }
+}
+
+pub trait ShaderTheme {
+    type BlockMaterial: UiMaterial;
+    type HollowBlockMaterial: UiMaterial;
+    type SunkenBlockMaterial: UiMaterial;
+    type HightlightButtonMaterial: UiMaterial;
+    type ButtonMaterial: UiMaterial;
+    type CheckboxMaterial: UiMaterial;
+    type SliderMaterial: UiMaterial;
+    type SliderHandlerMaterial: UiMaterial;
+    type InputboxMaterial: UiMaterial;
+    type ScrollBarMaterial: UiMaterial;
+}
+pub struct ShaderThemePlugin<T: ShaderTheme + Send + Sync + 'static>(PhantomData<T>);
+impl<T: ShaderTheme + ShaderTheme + Send + Sync + 'static> Plugin for ShaderThemePlugin<T>
+
+where
+    T::BlockMaterial::Data: PartialEq + Eq + std::hash::Hash + Clone,
+{
+    fn build(&self, app: &mut App) {
+        let mut types = HashSet::new();
+        if !types.contains(&TypeId::of::<T::BlockMaterial>()){
+            app.add_plugins(UiMaterialPlugin::<T::BlockMaterial>::default());
+        }
     }
 }
 

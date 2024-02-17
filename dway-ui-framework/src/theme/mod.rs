@@ -1,11 +1,23 @@
-use std::any::{type_name, Any, TypeId};
+use std::{
+    any::{type_name, Any, TypeId},
+    marker::PhantomData,
+};
 
-use bevy::{ecs::system::SystemId, utils::HashMap};
+use bevy::{
+    ecs::system::{Command, EntityCommand, SystemId},
+    render::render_resource::AsBindGroup,
+    utils::{HashMap, HashSet},
+};
 use bevy_svg::prelude::Svg;
 
 use crate::{
+    animation::AnimationEaseMethod,
     prelude::*,
-    shader::{effect::{InnerShadow, Shadow}, fill::Fill},
+    shader::{
+        effect::{InnerShadow, Shadow},
+        fill::Fill,
+        Material, ShaderAsset, ShaderPlugin,
+    },
 };
 
 pub mod classname {
@@ -199,5 +211,125 @@ impl ThemeAppExt for App {
         let mut theme = self.world.resource_mut::<Theme>();
         theme.callbacks.insert(type_id, Box::new(system_id));
         self
+    }
+}
+
+pub enum BlockVariant{ Normal, Hover }
+pub enum ButtonVariant{ Normal, Hover, Clicked }
+pub enum CheckboxVariant{ Up, UpHover, Down, DownHover }
+pub enum InputboxVariant{ Normal, Hover, Focused }
+
+pub enum ShaderThemeAnimationInfo {
+    Enable{
+        duration: Duration,
+    },
+    Disable{},
+    Default,
+}
+
+pub trait ShaderTheme {
+    type BlockMaterial: Material;
+    type HollowBlockMaterial: Material;
+    type SunkenBlockMaterial: Material;
+    type HightlightButtonMaterial: Material;
+    type ButtonMaterial: Material;
+    type CheckboxMaterial: Material;
+    type SliderMaterial: Material;
+    type SliderHandlerMaterial: Material;
+    type InputboxMaterial: Material;
+    type ScrollBarMaterial: Material;
+
+    fn block_material(&self, _variant: BlockVariant) -> Option<ShaderAsset<Self::BlockMaterial>> {None}
+    fn hollow_block_material(&self, _variant: BlockVariant) -> Option<ShaderAsset<Self::HollowBlockMaterial>> {None}
+    fn sunken_block_material(&self, _variant: BlockVariant) -> Option<ShaderAsset<Self::SunkenBlockMaterial>> {None}
+    fn hightlight_button_material(&self, _variant: ButtonVariant) -> Option<ShaderAsset<Self::HightlightButtonMaterial>> {None}
+    fn button_material(&self, _variant: ButtonVariant) -> Option<ShaderAsset<Self::ButtonMaterial>> {None}
+    fn checkbox_material(&self,_variant: ButtonVariant) -> Option<ShaderAsset<Self::CheckboxMaterial>> {None}
+    fn slider_material(&self) -> Option<ShaderAsset<Self::SliderMaterial>> {None}
+    fn slider_handler_material(&self, _variant: ButtonVariant) -> Option<ShaderAsset<Self::SliderHandlerMaterial>> {None}
+    fn inputbox_material(&self, _variant: InputboxVariant) -> Option<ShaderAsset<Self::InputboxMaterial>> {None}
+    fn scroll_bar_material(&self, _variant: ButtonVariant) -> Option<ShaderAsset<Self::ScrollBarMaterial>> {None}
+
+    fn block_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
+    fn hollow_block_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
+    fn sunken_block_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
+    fn hightlight_button_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
+    fn button_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
+    fn checkbox_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
+    fn slider_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
+    fn slider_handler_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
+    fn inputbox_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
+    fn scroll_bar_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
+}
+
+pub struct ShaderThemePlugin<T: ShaderTheme + Send + Sync + 'static>(PhantomData<T>);
+impl<T: ShaderTheme + ShaderTheme + Send + Sync + 'static> Plugin for ShaderThemePlugin<T> {
+    fn build(&self, app: &mut App) {
+        let mut types = HashSet::new();
+        if types.insert(TypeId::of::<T::BlockMaterial>()) {
+            app.add_plugins(ShaderPlugin::<T::BlockMaterial>::default());
+        }
+        if types.insert(TypeId::of::<T::HollowBlockMaterial>()) {
+            app.add_plugins(ShaderPlugin::<T::HollowBlockMaterial>::default());
+        }
+        if types.insert(TypeId::of::<T::SunkenBlockMaterial>()) {
+            app.add_plugins(ShaderPlugin::<T::SunkenBlockMaterial>::default());
+        }
+        if types.insert(TypeId::of::<T::HightlightButtonMaterial>()) {
+            app.add_plugins(ShaderPlugin::<T::HightlightButtonMaterial>::default());
+        }
+        if types.insert(TypeId::of::<T::ButtonMaterial>()) {
+            app.add_plugins(ShaderPlugin::<T::ButtonMaterial>::default());
+        }
+        if types.insert(TypeId::of::<T::CheckboxMaterial>()) {
+            app.add_plugins(ShaderPlugin::<T::CheckboxMaterial>::default());
+        }
+        if types.insert(TypeId::of::<T::SliderMaterial>()) {
+            app.add_plugins(ShaderPlugin::<T::SliderMaterial>::default());
+        }
+        if types.insert(TypeId::of::<T::SliderHandlerMaterial>()) {
+            app.add_plugins(ShaderPlugin::<T::SliderHandlerMaterial>::default());
+        }
+        if types.insert(TypeId::of::<T::InputboxMaterial>()) {
+            app.add_plugins(ShaderPlugin::<T::InputboxMaterial>::default());
+        }
+        if types.insert(TypeId::of::<T::ScrollBarMaterial>()) {
+            app.add_plugins(ShaderPlugin::<T::ScrollBarMaterial>::default());
+        }
+    }
+}
+
+fn insert_material_command<M: Material>(entity: Entity, material: M) -> impl Command {
+    move |world: &mut World| {
+        let mut assets = world.resource_mut::<Assets<ShaderAsset<M>>>();
+        let handle = assets.add(ShaderAsset::new(material));
+        world.entity_mut(entity).insert(handle);
+    }
+}
+
+fn insert_material_tween_command<M: Material + Interpolation>(
+    entity: Entity,
+    duration: Duration,
+    ease: AnimationEaseMethod,
+    begin_material: M,
+    end_material: M,
+    theme: &Theme,
+) -> impl Command {
+    let asset = ShaderAsset::new(begin_material.clone());
+    let mut animation = Animation::new(duration, ease);
+    animation.pause();
+    let animation_bundle = AssetTweenAddonBundle::new(
+        animation,
+        Tween::new(
+            ShaderAsset::new(begin_material),
+            ShaderAsset::new(end_material),
+        ),
+        theme,
+    );
+    move |world: &mut World| {
+        let mut assets = world.resource_mut::<Assets<ShaderAsset<M>>>();
+        let handle = assets.add(asset);
+        let mut e = world.entity_mut(entity);
+        e.insert((handle, animation_bundle));
     }
 }
