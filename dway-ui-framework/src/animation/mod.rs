@@ -1,4 +1,5 @@
 use crate::{prelude::*, theme::ThemeAppExt};
+use bevy::ecs::system::Command;
 use bevy_relationship::reexport::SmallVec;
 pub use interpolation;
 use interpolation::{Ease, EaseFunction};
@@ -22,7 +23,11 @@ make_interpolation!(f32);
 make_interpolation!(Vec2);
 make_interpolation!(Vec3);
 make_interpolation!(Vec4);
-make_interpolation!(Color);
+impl Interpolation for Color {
+    fn interpolation(&self, other: &Self, v: f32) -> Self {
+        Color::rgba_from_array(Interpolation::interpolation(&self.rgba_to_vec4(),&other.rgba_to_vec4(),v))
+    }
+}
 
 impl<T: Interpolation> Interpolation for [T; 1] {
     fn interpolation(&self, other: &Self, v: f32) -> Self {
@@ -128,20 +133,39 @@ impl Animation {
             self.state = AnimationState::Pause;
         }
     }
+    pub fn replay(&mut self) {
+        match self.state {
+            AnimationState::Play => {
+                self.clock.duration = Duration::ZERO;
+            }
+            AnimationState::Pause => {
+                self.state = AnimationState::Play;
+            }
+            AnimationState::Finished => {
+                self.clock.duration = Duration::ZERO;
+                self.state = AnimationState::Play;
+            }
+        }
+        self.state = AnimationState::Play;
+    }
     pub fn play(&mut self) {
         match self.state {
             AnimationState::Play => {}
             AnimationState::Pause => {
-                self.clock.duration = Duration::ZERO;
                 self.state = AnimationState::Play;
             }
             AnimationState::Finished => {
+                self.clock.duration = Duration::ZERO;
                 self.state = AnimationState::Play;
             }
         }
-        if self.state != AnimationState::Pause {
-            self.state = AnimationState::Play;
-        }
+        self.state = AnimationState::Play;
+    }
+    pub fn set_duration(&mut self, duration: Duration) {
+        self.clock.total_duration = duration;
+    }
+    pub fn set_ease_method(&mut self, ease: AnimationEaseMethod) {
+        self.ease = ease;
     }
 }
 
@@ -169,33 +193,43 @@ pub fn update_animation_system(
 }
 
 #[derive(Clone, Default, Component)]
-pub struct Tween<I: Interpolation> {
-    pub values: [I; 2],
+pub struct Tween<I: Interpolation + Asset> {
+    pub begin: Handle<I>,
+    pub end: Handle<I>,
 }
 
-impl<I: Interpolation> Tween<I> {
-    pub fn new(start_state: I, end_state: I) -> Self {
-        Self {
-            values: [start_state, end_state],
-        }
+impl<I: Interpolation + Asset> Tween<I> {
+    pub fn new(begin: Handle<I>, end: Handle<I>) -> Self {
+        Self { begin, end }
     }
     pub fn reverse(&mut self) {
-        self.values.swap(0, 1);
-    }
-    pub fn get_asset(&self, v: f32) -> I {
-        Interpolation::interpolation(&self.values[0], &self.values[1], v)
+        let Self { begin, end } = self;
+        std::mem::swap(begin, end);
     }
 }
 
 pub fn apply_tween_asset<I: Interpolation + Asset>(
     In((entity, v)): In<(Entity, f32)>,
     mut assets: ResMut<Assets<I>>,
-    query: Query<(&Handle<I>, &Tween<I>)>,
+    mut query: Query<(&mut Handle<I>, &Tween<I>)>,
 ) {
-    let Ok((handle, tween)) = query.get(entity) else {
+    let Ok((mut handle, tween)) = query.get_mut(entity) else {
         return;
     };
-    assets.insert(handle.clone(), tween.get_asset(v));
+    if v <= 0.0 {
+        *handle = tween.begin.clone();
+    } else if v >= 1.0 {
+        *handle = tween.end.clone();
+    } else if let (Some(begin_asset), Some(end_asset)) =
+        (assets.get(&tween.begin), assets.get(&tween.end))
+    {
+        let new_asset = Interpolation::interpolation(begin_asset, end_asset, v);
+        if &*handle == &tween.begin || &*handle == &tween.end {
+            *handle = assets.add(new_asset);
+        } else {
+            assets.insert(handle.clone(), new_asset);
+        }
+    }
 }
 
 #[derive(Default)]
@@ -205,10 +239,13 @@ impl<T: Interpolation + Asset> Plugin for AssetAnimationPlugin<T> {
     fn build(&self, app: &mut App) {
         app.register_system(apply_tween_asset::<T>);
     }
+    fn is_unique(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Bundle)]
-pub struct AssetTweenAddonBundle<T: Interpolation + Send + Sync + 'static> {
+pub struct AssetTweenAddonBundle<T: Interpolation + Asset> {
     animation: Animation,
     tween: Tween<T>,
 }

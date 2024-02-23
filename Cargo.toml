@@ -40,7 +40,7 @@ failure = "0.1"
 thiserror = "1"
 pretty_env_logger = "0.5.0"
 measure_time = "0.8.2"
-tracing = { version = "*", features = ["release_max_level_info", "log", "log-always", "max_level_trace"] }
+tracing = { version = "*", features = [] }
 tracing-appender = "*"
 tracing-subscriber = "*"
 
@@ -48,6 +48,7 @@ derive_builder = "0.13.0"
 smart-default = "0.7.1"
 structstruck = "0.4.1"
 getset = "0.1.2"
+downcast-rs = "1.2.0"
 
 convert_case = "0.6.0"
 syn = { version = "2.0", features = ["full", "visit"] }

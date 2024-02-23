@@ -1647,6 +1647,14 @@ impl<T: Material> UiMaterial for ShaderAsset<T> {
 
 pub struct ShaderPlugin<T: Material>(PhantomData<T>);
 
+impl<T: Material> ShaderPlugin<T> {
+    pub fn add_inoto(self, app: &mut App) {
+        if !app.is_plugin_added::<Self>(){
+            app.add_plugins(self);
+        }
+    }
+}
+
 impl<T: Material> Default for ShaderPlugin<T> {
     fn default() -> Self {
         Self(Default::default())
@@ -1663,6 +1671,10 @@ impl<T: Material> Plugin for ShaderPlugin<T> {
             embedded.insert_asset(std::path::PathBuf::new(), &path, wgsl.into_bytes());
             app.add_plugins(UiMaterialPlugin::<ShaderAsset<T>>::default());
         }
+    }
+
+    fn is_unique(&self) -> bool {
+        false
     }
 }
 

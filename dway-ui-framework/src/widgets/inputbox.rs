@@ -7,7 +7,7 @@ use crate::prelude::*;
 use super::text::UiTextBundle;
 
 structstruck::strike!{
-    pub struct UiInputEvent{
+    pub struct UiInputboxEvent{
         pub receiver: Entity,
         pub widget: Entity,
         pub kind: 
@@ -35,7 +35,7 @@ structstruck::strike!{
     #[derive(Debug, Component, SmartDefault)]
     pub struct UiInputBox{
         pub placeholder: String,
-        pub callback: Option<(Entity, SystemId<UiInputEvent>)>,
+        pub callback: CallbackSlots<UiInputboxEvent>,
         pub kind:
             #[derive(Debug, Clone, Default)]
             enum UiInputBoxKind{
@@ -47,6 +47,12 @@ structstruck::strike!{
         pub readonly: bool,
         pub multi_line: bool,
         pub storage_key: Option<String>,
+    }
+}
+
+impl UiInputBox {
+    pub fn register_callback(&mut self, callback: Callback<UiInputboxEvent>) {
+        self.callback.push(callback);
     }
 }
 

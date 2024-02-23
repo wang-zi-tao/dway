@@ -13,7 +13,9 @@ pub mod text;
 pub struct Callback(pub Option<SystemId>);
 
 pub mod bundles {
-    use crate::prelude::*;
+    use crate::{prelude::*, theme::{StyleFlags, ThemeComponent, WidgetKind}};
+
+    use super::button::UiButton;
     #[macro_export]
     macro_rules! make_bundle {
         ($name:ident {$($tt:tt)*}) => {
@@ -63,11 +65,36 @@ pub mod bundles {
         };
     }
 
+    make_bundle!(UiNodeBundle {
+        pub focus_policy: FocusPolicy,
+    });
+    make_bundle!(UiBlockBundle {
+        pub focus_policy: FocusPolicy,
+        #[default(ThemeComponent::new(StyleFlags::default(), WidgetKind::Block))]
+        pub theme: ThemeComponent,
+    });
+    make_bundle!(UiHollowBlockBundle {
+        pub focus_policy: FocusPolicy,
+        #[default(ThemeComponent::new(StyleFlags::HOLLOW, WidgetKind::Block))]
+        pub theme: ThemeComponent,
+    });
+    make_bundle!(UiSunkenBlockBundle {
+        pub focus_policy: FocusPolicy,
+        #[default(ThemeComponent::new(StyleFlags::SUNKEN, WidgetKind::Block))]
+        pub theme: ThemeComponent,
+    });
+    make_bundle!(UiHighlightBlockBundle {
+        pub focus_policy: FocusPolicy,
+        #[default(ThemeComponent::new(StyleFlags::HIGHLIGHT, WidgetKind::Block))]
+        pub theme: ThemeComponent,
+    });
+
     make_bundle!(MiniNodeBundle {
         pub focus_policy: FocusPolicy,
     });
 
     make_bundle!(MiniButtonBundle {
+        pub button: UiButton,
         #[default(FocusPolicy::Block)]
         pub focus_policy: FocusPolicy,
         pub interaction: Interaction,

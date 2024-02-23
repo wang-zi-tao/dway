@@ -12,6 +12,7 @@ use crate::{
     widgets::{
         button::UiButton,
         checkbox::UiCheckBox,
+        slider::UiSlider,
         svg::{uisvg_update_system, SvgMagerial, UiSvg},
     },
 };
@@ -22,10 +23,12 @@ pub use dway_ui_derive::*;
 pub struct UiFrameworkPlugin;
 impl Plugin for UiFrameworkPlugin {
     fn build(&self, app: &mut App) {
+        use UiFrameworkSystems::*;
         app.add_plugins((SvgPlugin,))
             .add_plugins((
                 assets::UiAssetsPlugin,
                 theme::ThemePlugin,
+                theme::flat::FlatThemePlugin::default(),
                 render::mesh::UiMeshPlugin,
                 shader::ShaderFrameworkPlugin,
                 render::mesh::UiMeshMaterialPlugin::<ColorMaterial>::default(),
@@ -38,6 +41,7 @@ impl Plugin for UiFrameworkPlugin {
                 UiMeshMaterialPlugin::<SvgMagerial>::default(),
             ))
             .register_type::<UiCheckBox>()
+            .register_type::<UiSlider>()
             .register_type::<UiButton>()
             .register_type::<UiSvg>()
             .init_asset::<SvgMagerial>()
@@ -45,23 +49,22 @@ impl Plugin for UiFrameworkPlugin {
             .init_resource::<input::MousePosition>()
             .add_systems(
                 PreUpdate,
-                input::update_mouse_position.run_if(on_event::<CursorMoved>()),
+                (
+                    input::update_mouse_position
+                        .run_if(on_event::<CursorMoved>())
+                        .in_set(InputSystems),
+                    update_ui_input.in_set(InputSystems),
+                    widgets::button::process_ui_button_event.in_set(WidgetInputSystems),
+                    widgets::checkbox::process_ui_checkbox_event.in_set(WidgetInputSystems),
+                ),
             )
             .add_systems(
                 PostUpdate,
-                (
-                    widgets::button::process_ui_button_event,
-                    widgets::checkbox::process_ui_checkbox_event,
-                    widgets::svg::uisvg_update_system,
-                ),
+                (widgets::svg::uisvg_update_system.in_set(UpdateWidgets),),
             )
             .configure_sets(
                 PostUpdate,
-                (
-                    UiFrameworkSystems::UpdateWidgets,
-                    UiFrameworkSystems::UpdatePopup,
-                    UiFrameworkSystems::ApplyAnimation,
-                )
+                (UpdateWidgets, UpdatePopup, UpdateTheme, ApplyAnimation)
                     .before(UiSystem::Layout)
                     .chain(),
             );
@@ -70,8 +73,11 @@ impl Plugin for UiFrameworkPlugin {
 
 #[derive(Clone, Copy, Hash, Debug, PartialEq, Eq, SystemSet)]
 pub enum UiFrameworkSystems {
+    InputSystems,
+    WidgetInputSystems,
     UpdateWidgets,
     UpdatePopup,
+    UpdateTheme,
     ApplyAnimation,
 }
 

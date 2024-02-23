@@ -1,4 +1,4 @@
-use bevy::input::mouse::MouseWheel;
+use bevy::{input::mouse::MouseWheel, ui::RelativeCursorPosition};
 
 use super::MousePosition;
 use crate::prelude::*;
@@ -28,6 +28,9 @@ UiScroll=>
         wheel_move = Vec2::new(wheel_move.y, wheel_move.x);
     }
 }
+@bundle({
+    pub cursor_positon: RelativeCursorPosition, // TODO 优化
+})
 @global(mouse_position:MousePosition)
 @world_query(node: &Node)
 @world_query(transform: &GlobalTransform)

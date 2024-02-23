@@ -13,6 +13,7 @@ use dway_ui::render::mesh::UiMeshBundle;
 use dway_ui::render::mesh::UiMeshHandle;
 use dway_ui::render::mesh::UiMeshTransform;
 use dway_ui::shader::ShaderPlugin;
+use dway_ui::widgets::button::UiButtonAddonBundle;
 use dway_ui::widgets::button::UiButtonBundle;
 use dway_ui::widgets::inputbox::UiInputBox;
 use dway_ui::widgets::inputbox::UiInputBoxBundle;
@@ -200,10 +201,6 @@ Gallary=>
     <MiniNodeBundle Style=(cell_style())>
         <MiniButtonBundle Style=(checkbox_style())
             @material(CheckboxMaterial=>checkbox_material(false, Vec2::new(64.0,32.0), &theme))
-            AssetTweenAddonBundle<CheckboxMaterial>=(AssetTweenAddonBundle::new(
-                Animation::new(Duration::from_secs_f32(0.5), EaseFunction::QuarticIn),
-                Tween::new(checkbox_material(false, Vec2::new(64.0,32.0), &theme), checkbox_material(true, Vec2::new(64.0,32.0), &theme)),
-                &theme))
         >
         </>
     </MiniNodeBundle>

@@ -3,7 +3,7 @@ use bevy_relationship::reexport::SmallVec;
 // use bevy_tweening::{AssetAnimator, EaseMethod};
 use smart_default::SmartDefault;
 
-use crate::prelude::*;
+use crate::{prelude::*, theme::{StyleFlags, ThemeComponent, WidgetKind}};
 
 #[derive(Event, Debug, Clone, PartialEq, Eq)]
 pub enum UiButtonEventKind {
@@ -42,14 +42,17 @@ impl UiButton {
             state: Interaction::None,
         }
     }
+    pub fn register_callback(&mut self, callback: Callback<UiButtonEvent>) {
+        self.callback.push(callback);
+    }
 }
 
 pub fn process_ui_button_event(
-    mut ui_query: Query<(Entity, &mut UiButton, &Interaction), Changed<Interaction>>,
+    mut ui_query: Query<(Entity, &mut UiButton, &Interaction, Option<&mut ThemeComponent>), Changed<Interaction>>,
     mut commands: Commands,
 ) {
     use UiButtonEventKind::*;
-    ui_query.for_each_mut(|(entity, mut button, button_state)| {
+    for (entity, mut button, button_state, theme) in &mut ui_query {
         let mut call = |kind: UiButtonEventKind| {
             for (receiver, callback) in &button.callback {
                 commands.run_system_with_input(
@@ -90,7 +93,12 @@ pub fn process_ui_button_event(
             | (Interaction::Pressed, Interaction::Pressed) => {}
         };
         button.state = *button_state;
-    });
+
+        if let Some(mut theme) = theme {
+            theme.style_flags.set(StyleFlags::HOVERED, button.state == Interaction::Hovered);
+            theme.style_flags.set(StyleFlags::CLICKED, button.state == Interaction::Pressed);
+        }
+    }
 }
 
 #[derive(Bundle, SmartDefault)]
@@ -99,6 +107,8 @@ pub struct UiButtonAddonBundle {
     pub interaction: Interaction,
     #[default(FocusPolicy::Block)]
     pub focus_policy: FocusPolicy,
+    #[default(ThemeComponent::new(StyleFlags::default(), WidgetKind::Button))]
+    pub theme: ThemeComponent,
 }
 
 impl From<UiButton> for UiButtonAddonBundle {
@@ -129,6 +139,8 @@ impl UiButtonAddonBundle {
 pub struct UiButtonBundle {
     pub button: UiButton,
     pub interaction: Interaction,
+    #[default(ThemeComponent::new(StyleFlags::default(), WidgetKind::Button))]
+    pub theme: ThemeComponent,
 
     pub node: Node,
     pub style: Style,

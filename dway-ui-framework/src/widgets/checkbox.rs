@@ -1,5 +1,5 @@
 use super::button::ButtonColor;
-use crate::prelude::*;
+use crate::{make_bundle, prelude::*, theme::{StyleFlags, ThemeComponent, WidgetKind}};
 use bevy_relationship::reexport::SmallVec;
 use smart_default::SmartDefault;
 
@@ -23,6 +23,9 @@ impl UiCheckBoxState {
 }
 
 impl UiCheckBox {
+    pub fn register_callback(&mut self, callback: Callback<UiCheckBoxEvent>) {
+        self.callback.push(callback);
+    }
     pub fn new(callback: Vec<(Entity, SystemId<UiCheckBoxEvent>)>) -> Self {
         Self {
             callback: callback.into(),
@@ -88,12 +91,12 @@ impl From<UiCheckBox> for UiCheckBoxAddonBundle {
 
 pub fn process_ui_checkbox_event(
     mut ui_query: Query<
-        (Entity, &mut UiCheckBox, &mut UiCheckBoxState, &Interaction),
+        (Entity, &mut UiCheckBox, &mut UiCheckBoxState, &Interaction, Option<&mut ThemeComponent>),
         Changed<Interaction>,
     >,
     mut commands: Commands,
 ) {
-    for (entity, mut checkbox, mut state, button_state) in ui_query.iter_mut() {
+    for (entity, mut checkbox, mut state, button_state, theme) in ui_query.iter_mut() {
         use UiCheckBoxEventKind::*;
         let mut call = |state: &UiCheckBoxState, kind: UiCheckBoxEventKind| {
             for (receiver, callback) in &checkbox.callback {
@@ -148,6 +151,12 @@ pub fn process_ui_checkbox_event(
             | (Interaction::Pressed, Interaction::Pressed) => {}
         };
         checkbox.state = *button_state;
+
+        if let Some(mut theme) = theme {
+            theme.style_flags.set(StyleFlags::HOVERED, checkbox.state == Interaction::Hovered);
+            theme.style_flags.set(StyleFlags::CLICKED, checkbox.state == Interaction::Pressed);
+            theme.style_flags.set(StyleFlags::DOWNED, state.value);
+        }
     }
 }
 
@@ -196,6 +205,9 @@ pub struct CheckBoxAddonBundle<M: UiMaterial> {
     pub material: Handle<M>,
     #[default(FocusPolicy::Block)]
     pub focus_policy: FocusPolicy,
+
+    #[default(ThemeComponent::new(StyleFlags::default(), WidgetKind::Checkbox))]
+    pub theme: ThemeComponent,
 }
 
 #[derive(Bundle, SmartDefault)]
@@ -206,4 +218,17 @@ pub struct RoundedCheckBoxAddonBundleWithoutState<M: UiMaterial> {
     pub material: Handle<M>,
     #[default(FocusPolicy::Block)]
     pub focus_policy: FocusPolicy,
+}
+
+make_bundle! {
+    UiCheckboxBundle{
+        pub checkbox: UiCheckBox,
+        pub state: UiCheckBoxState,
+        pub interaction: Interaction,
+        #[default(FocusPolicy::Block)]
+        pub focus_policy: FocusPolicy,
+
+        #[default(ThemeComponent::new(StyleFlags::default(), WidgetKind::Checkbox))]
+        pub theme: ThemeComponent,
+    }
 }

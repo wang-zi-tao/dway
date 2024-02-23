@@ -37,6 +37,7 @@ bevy_prototype_lyon = "0.10.0"
 undo = "0.51.0"
 interpolation = "0.3.0"
 type-equals = "0.1.0"
+downcast-rs = {workspace=true}
 
 [dev-dependencies]
 regex = {workspace=true}

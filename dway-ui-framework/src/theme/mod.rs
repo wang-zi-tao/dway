@@ -1,22 +1,34 @@
+pub mod flat;
+
 use std::{
     any::{type_name, Any, TypeId},
+    hash::Hash,
     marker::PhantomData,
+    sync::{Arc, Weak},
 };
 
 use bevy::{
+    app::DynEq,
     ecs::system::{Command, EntityCommand, SystemId},
     render::render_resource::AsBindGroup,
-    utils::{HashMap, HashSet},
+    utils::{label::DynHash, HashMap, HashSet},
 };
 use bevy_svg::prelude::Svg;
+use bitflags::bitflags;
+use downcast_rs::{impl_downcast, Downcast};
 
 use crate::{
-    animation::AnimationEaseMethod,
+    animation::{apply_tween_asset, AnimationEaseMethod},
     prelude::*,
     shader::{
         effect::{InnerShadow, Shadow},
         fill::Fill,
         Material, ShaderAsset, ShaderPlugin,
+    },
+    widgets::{
+        button::{UiButton, UiButtonEvent},
+        checkbox::{UiCheckBox, UiCheckBoxEvent},
+        inputbox::{UiInputBox, UiInputboxEvent},
     },
 };
 
@@ -39,7 +51,7 @@ pub mod iconname {
 }
 use classname::*;
 
-#[derive(Resource, Reflect, Debug)]
+#[derive(Resource, Reflect)]
 pub struct Theme {
     pub default_font: Handle<Font>,
     pub color_map: HashMap<String, Color>,
@@ -52,6 +64,8 @@ pub struct Theme {
     pub material_shadow: Shadow,
     #[reflect(ignore)]
     pub material_inner_shadow: (Color, Vec2, f32),
+    #[reflect(ignore)]
+    pub theme_dispatch: Option<Arc<dyn ThemeDispatch>>,
 }
 
 impl Default for Theme {
@@ -69,6 +83,7 @@ impl Default for Theme {
                 2.0,
             ),
             material_inner_shadow: (color!("#888888"), Vec2::new(1.0, 1.0), 1.0),
+            theme_dispatch: None,
         }
     }
 }
@@ -123,11 +138,41 @@ app.register_system({system});
             color: self.color(class_name),
         }
     }
+
+    pub fn set_theme_dispatch(&mut self, theme_dispatch: Option<Arc<dyn ThemeDispatch>>) {
+        self.theme_dispatch = theme_dispatch;
+    }
+
+    pub fn get_component(&self, flag: StyleFlags, widget_kind: WidgetKind) -> ThemeComponent {
+        ThemeComponent {
+            theme: self.theme_dispatch.clone(),
+            style_flags: flag,
+            old_style_flags: flag,
+            widget_kind,
+        }
+    }
 }
 
 #[derive(Resource, Default)]
 pub struct SystemMap {
     pub map: HashMap<(TypeId, String), SystemId>,
+}
+
+pub fn apply_theme_system(
+    mut query: Query<(Entity, &mut ThemeComponent), Changed<ThemeComponent>>,
+    mut commands: Commands,
+    theme: Res<Theme>,
+) {
+    for (entity, mut theme_component) in &mut query {
+        if let Some(theme_dispatch) = theme_component
+            .theme
+            .as_ref()
+            .or_else(|| theme.theme_dispatch.as_ref())
+        {
+            theme_dispatch.apply(entity, &theme_component, &mut commands);
+        }
+        theme_component.old_style_flags = theme_component.style_flags;
+    }
 }
 
 pub struct ThemePlugin;
@@ -184,11 +229,11 @@ impl Plugin for ThemePlugin {
         };
         app.insert_resource(theme)
             .insert_resource(systems)
+            .add_systems(
+                PostUpdate,
+                apply_theme_system.in_set(UiFrameworkSystems::UpdateTheme),
+            )
             .register_type::<Theme>();
-    }
-    fn finish(&self, app: &mut App) {
-        let theme = app.world.resource::<Theme>();
-        debug!("theme: {:?}", theme);
     }
 }
 
@@ -214,88 +259,102 @@ impl ThemeAppExt for App {
     }
 }
 
-pub enum BlockVariant{ Normal, Hover }
-pub enum ButtonVariant{ Normal, Hover, Clicked }
-pub enum CheckboxVariant{ Up, UpHover, Down, DownHover }
-pub enum InputboxVariant{ Normal, Hover, Focused }
+pub trait WidgetLabel: Sync + Send + DynHash + DynEq {}
 
-pub enum ShaderThemeAnimationInfo {
-    Enable{
-        duration: Duration,
-    },
-    Disable{},
-    Default,
+#[derive(Clone)]
+pub enum WidgetKind {
+    Block,
+    Button,
+    Checkbox,
+    Inputbox,
+    Slider,
+    SliderHandle,
+    SliderHightlightBar,
+    Other(Arc<dyn WidgetLabel>),
 }
 
-pub trait ShaderTheme {
-    type BlockMaterial: Material;
-    type HollowBlockMaterial: Material;
-    type SunkenBlockMaterial: Material;
-    type HightlightButtonMaterial: Material;
-    type ButtonMaterial: Material;
-    type CheckboxMaterial: Material;
-    type SliderMaterial: Material;
-    type SliderHandlerMaterial: Material;
-    type InputboxMaterial: Material;
-    type ScrollBarMaterial: Material;
+bitflags! {
+    #[derive(Clone,Copy, Debug,Hash,PartialEq, Eq, PartialOrd, Ord, Default)]
+    pub struct StyleFlags: u64 {
+        const CLICKED = 1;
+        const HOVERED = 1<<1;
+        const DOWNED = 1<<2;
+        const FOCUSED = 1<<3;
+        const DISABLE = 1<<4;
+        const HIGHLIGHT = 1<<5;
 
-    fn block_material(&self, _variant: BlockVariant) -> Option<ShaderAsset<Self::BlockMaterial>> {None}
-    fn hollow_block_material(&self, _variant: BlockVariant) -> Option<ShaderAsset<Self::HollowBlockMaterial>> {None}
-    fn sunken_block_material(&self, _variant: BlockVariant) -> Option<ShaderAsset<Self::SunkenBlockMaterial>> {None}
-    fn hightlight_button_material(&self, _variant: ButtonVariant) -> Option<ShaderAsset<Self::HightlightButtonMaterial>> {None}
-    fn button_material(&self, _variant: ButtonVariant) -> Option<ShaderAsset<Self::ButtonMaterial>> {None}
-    fn checkbox_material(&self,_variant: ButtonVariant) -> Option<ShaderAsset<Self::CheckboxMaterial>> {None}
-    fn slider_material(&self) -> Option<ShaderAsset<Self::SliderMaterial>> {None}
-    fn slider_handler_material(&self, _variant: ButtonVariant) -> Option<ShaderAsset<Self::SliderHandlerMaterial>> {None}
-    fn inputbox_material(&self, _variant: InputboxVariant) -> Option<ShaderAsset<Self::InputboxMaterial>> {None}
-    fn scroll_bar_material(&self, _variant: ButtonVariant) -> Option<ShaderAsset<Self::ScrollBarMaterial>> {None}
+        const SUNKEN = 1<<8;
+        const HOLLOW = 1<<9;
+    }
+}
 
-    fn block_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
-    fn hollow_block_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
-    fn sunken_block_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
-    fn hightlight_button_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
-    fn button_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
-    fn checkbox_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
-    fn slider_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
-    fn slider_handler_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
-    fn inputbox_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
-    fn scroll_bar_material_animation(&self) -> ShaderThemeAnimationInfo { ShaderThemeAnimationInfo::Default }
+#[derive(Component, Clone)]
+pub struct ThemeComponent {
+    pub theme: Option<Arc<dyn ThemeDispatch>>,
+    pub style_flags: StyleFlags,
+    pub old_style_flags: StyleFlags,
+    pub widget_kind: WidgetKind,
+}
+
+impl ThemeComponent {
+    pub fn new(
+        style_flags: StyleFlags,
+        widget_kind: WidgetKind,
+    ) -> Self {
+        Self {
+            theme: None,
+            style_flags,
+            old_style_flags: style_flags,
+            widget_kind,
+        }
+    }
+}
+
+pub trait ThemeDispatch: Downcast + Sync + Send + 'static {
+    fn apply(&self, entity: Entity, theme: &ThemeComponent, commands: &mut Commands);
+}
+impl_downcast!(ThemeDispatch);
+
+pub fn insert_material_tween<M: Asset + Interpolation>(
+    world: &mut World,
+    entity: Entity,
+    end_material: Handle<M>,
+    duration: Duration,
+    ease: AnimationEaseMethod,
+) {
+    let current_material = world.get::<Handle<M>>(entity).cloned();
+    let mut entity_mut = world.entity_mut(entity);
+    if let Some(current_material) = current_material {
+        entity_mut.insert(Tween::new(current_material.clone(), end_material));
+        if let Some(mut animation) = entity_mut.get_mut::<Animation>() {
+            animation.set_duration(duration);
+            animation.set_ease_method(ease);
+            animation.replay();
+        } else {
+            let mut animation = Animation::new(duration, ease);
+            {
+                let theme = world.resource::<Theme>();
+                animation
+                    .callbacks
+                    .push(theme.system(apply_tween_asset::<M>));
+            }
+            animation.replay();
+            world.entity_mut(entity).insert(animation);
+        }
+    } else {
+        entity_mut.insert(end_material);
+    }
+}
+
+pub struct AnimationConfig {
+    pub duration: Duration,
+    pub ease: AnimationEaseMethod,
 }
 
 pub struct ShaderThemePlugin<T: ShaderTheme + Send + Sync + 'static>(PhantomData<T>);
-impl<T: ShaderTheme + ShaderTheme + Send + Sync + 'static> Plugin for ShaderThemePlugin<T> {
-    fn build(&self, app: &mut App) {
-        let mut types = HashSet::new();
-        if types.insert(TypeId::of::<T::BlockMaterial>()) {
-            app.add_plugins(ShaderPlugin::<T::BlockMaterial>::default());
-        }
-        if types.insert(TypeId::of::<T::HollowBlockMaterial>()) {
-            app.add_plugins(ShaderPlugin::<T::HollowBlockMaterial>::default());
-        }
-        if types.insert(TypeId::of::<T::SunkenBlockMaterial>()) {
-            app.add_plugins(ShaderPlugin::<T::SunkenBlockMaterial>::default());
-        }
-        if types.insert(TypeId::of::<T::HightlightButtonMaterial>()) {
-            app.add_plugins(ShaderPlugin::<T::HightlightButtonMaterial>::default());
-        }
-        if types.insert(TypeId::of::<T::ButtonMaterial>()) {
-            app.add_plugins(ShaderPlugin::<T::ButtonMaterial>::default());
-        }
-        if types.insert(TypeId::of::<T::CheckboxMaterial>()) {
-            app.add_plugins(ShaderPlugin::<T::CheckboxMaterial>::default());
-        }
-        if types.insert(TypeId::of::<T::SliderMaterial>()) {
-            app.add_plugins(ShaderPlugin::<T::SliderMaterial>::default());
-        }
-        if types.insert(TypeId::of::<T::SliderHandlerMaterial>()) {
-            app.add_plugins(ShaderPlugin::<T::SliderHandlerMaterial>::default());
-        }
-        if types.insert(TypeId::of::<T::InputboxMaterial>()) {
-            app.add_plugins(ShaderPlugin::<T::InputboxMaterial>::default());
-        }
-        if types.insert(TypeId::of::<T::ScrollBarMaterial>()) {
-            app.add_plugins(ShaderPlugin::<T::ScrollBarMaterial>::default());
-        }
+impl<T: ShaderTheme + Send + Sync + 'static> Default for ShaderThemePlugin<T> {
+    fn default() -> Self {
+        Self(Default::default())
     }
 }
 
@@ -304,32 +363,5 @@ fn insert_material_command<M: Material>(entity: Entity, material: M) -> impl Com
         let mut assets = world.resource_mut::<Assets<ShaderAsset<M>>>();
         let handle = assets.add(ShaderAsset::new(material));
         world.entity_mut(entity).insert(handle);
-    }
-}
-
-fn insert_material_tween_command<M: Material + Interpolation>(
-    entity: Entity,
-    duration: Duration,
-    ease: AnimationEaseMethod,
-    begin_material: M,
-    end_material: M,
-    theme: &Theme,
-) -> impl Command {
-    let asset = ShaderAsset::new(begin_material.clone());
-    let mut animation = Animation::new(duration, ease);
-    animation.pause();
-    let animation_bundle = AssetTweenAddonBundle::new(
-        animation,
-        Tween::new(
-            ShaderAsset::new(begin_material),
-            ShaderAsset::new(end_material),
-        ),
-        theme,
-    );
-    move |world: &mut World| {
-        let mut assets = world.resource_mut::<Assets<ShaderAsset<M>>>();
-        let handle = assets.add(asset);
-        let mut e = world.entity_mut(entity);
-        e.insert((handle, animation_bundle));
     }
 }
