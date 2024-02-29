@@ -80,7 +80,7 @@ fn setup(mut commands: Commands, theme: Res<Theme>) {
                 })
                 .with_children(|c| {
                     c.spawn(UiInputBoxBundle {
-                        style: style!("full p-8 m-8"),
+                        style: style!("full m-8"),
                         ..Default::default()
                     });
                 });
