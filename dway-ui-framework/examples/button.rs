@@ -3,7 +3,15 @@ use dway_ui_derive::style;
 use dway_ui_framework::{
     theme::Theme,
     widgets::{
-        bundles::{UiBlockBundle, UiHighlightBlockBundle, UiHollowBlockBundle, UiNodeBundle, UiSunkenBlockBundle}, button::UiButtonBundle, checkbox::UiCheckboxBundle, slider::UiSliderBundle, text::UiTextBundle
+        bundles::{
+            UiBlockBundle, UiHighlightBlockBundle, UiHollowBlockBundle, UiNodeBundle,
+            UiSunkenBlockBundle,
+        },
+        button::UiButtonBundle,
+        checkbox::UiCheckboxBundle,
+        inputbox::UiInputBoxBundle,
+        slider::UiSliderBundle,
+        text::UiTextBundle,
     },
 };
 
@@ -64,6 +72,18 @@ fn setup(mut commands: Commands, theme: Res<Theme>) {
             c.spawn(UiHollowBlockBundle {
                 style: style!("w-256 h-256 p-8 m-8"),
                 ..Default::default()
+            })
+            .with_children(|c| {
+                c.spawn(UiHollowBlockBundle {
+                    style: style!("full m-8"),
+                    ..Default::default()
+                })
+                .with_children(|c| {
+                    c.spawn(UiInputBoxBundle {
+                        style: style!("full p-8 m-8"),
+                        ..Default::default()
+                    });
+                });
             });
             c.spawn(UiSunkenBlockBundle {
                 style: style!("w-256 h-256 p-8 m-8"),

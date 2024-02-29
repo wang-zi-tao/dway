@@ -3,12 +3,7 @@ use bevy::{
     app::{App, Plugin},
     core_pipeline::tonemapping::{DebandDither, Tonemapping},
     ecs::{
-        prelude::{Entity, EventReader},
-        query::{ROQueryItem, With},
-        schedule::IntoSystemConfigs,
-        system::lifetimeless::{Read, SRes},
-        system::*,
-        world::{FromWorld, World},
+        entity::EntityHashMap, prelude::{Entity, EventReader}, query::{ROQueryItem, With}, schedule::IntoSystemConfigs, system::lifetimeless::{Read, SRes}, system::*, world::{FromWorld, World}
     },
     render::{
         batching::{
@@ -35,7 +30,7 @@ use bevy::{
     },
     transform::prelude::GlobalTransform,
     ui::{TransparentUi, UiStack},
-    utils::{EntityHashMap, FloatOrd, HashMap, HashSet},
+    utils::{FloatOrd, HashMap, HashSet},
 };
 use std::{hash::Hash, marker::PhantomData};
 
@@ -184,7 +179,7 @@ pub fn extract_ui_mesh_material_asset<M: Material2d>(
 }
 
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderUiMeshMaterialInstances<M: Material2d>(EntityHashMap<Entity, AssetId<M>>);
+pub struct RenderUiMeshMaterialInstances<M: Material2d>(EntityHashMap<AssetId<M>>);
 
 impl<M: Material2d> Default for RenderUiMeshMaterialInstances<M> {
     fn default() -> Self {
@@ -643,7 +638,7 @@ pub struct RenderUiMeshInstance {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct RenderUiMesh2dInstances(pub EntityHashMap<Entity, RenderUiMeshInstance>);
+pub struct RenderUiMesh2dInstances(pub EntityHashMap<RenderUiMeshInstance>);
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_ui_meshes<M: Material2d>(
@@ -754,7 +749,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I
     fn render<'w>(
         _item: &P,
         (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewQuery>,
-        _view: (),
+        _view: std::option::Option<()>,
         _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -774,7 +769,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
+        _item_query: std::option::Option<()>,
         mesh2d_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -806,7 +801,7 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P> for SetUiMesh
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
+        _item_query: std::option::Option<()>,
         (materials, material_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -833,7 +828,7 @@ impl<P: PhaseItem> RenderCommand<P> for DoDrawUiMesh {
     fn render<'w>(
         item: &P,
         _view: (),
-        _item_query: (),
+        _item_query: std::option::Option<()>,
         (meshes, render_mesh2d_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

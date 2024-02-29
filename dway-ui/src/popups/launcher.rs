@@ -7,20 +7,11 @@ use dway_server::apps::{
 };
 
 use crate::{
-    // animation,
-    framework::{
-        // animation::despawn_animation,
-        button::{UiButtonEvent, UiButtonEventKind},
-        icon::UiIcon,
-        scroll::UiScrollBundle,
-        svg::UiSvgBundle,
-        text::UiTextBundle,
-    },
     panels::PanelButtonBundle,
     prelude::*,
-    widgets::popup::{
+    widgets::{icon::UiIcon, popup::{
         delay_destroy, delay_destroy_up, PopupEvent, PopupEventKind, UiPopup, UiPopupAddonBundle,
-    },
+    }},
 };
 
 #[derive(Component, Default)]
@@ -57,15 +48,15 @@ LauncherUI=>
 @arg(mut mesh_assets: ResMut<Assets<Mesh>>)
 @arg(mut assets_server: ResMut<AssetServer>)
 <MiniNodeBundle
-@material(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(theme.color("panel-popup"), 16.0))
+@material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup"), 16.0))
 @style="flex-col p-4">
     <MiniNodeBundle @style="min-h-600 w-full">
-        // <MiniNodeBundle @id="left_bar" @style="w-34% m-4 min-h-600"
-        //     @material(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(theme.color("panel-popup")*0.9, 16.0))
-        // >
-        // </MiniNodeBundle>
+        <MiniNodeBundle @id="left_bar" @style="w-34% m-4 min-h-600"
+            @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup")*0.9, 16.0))
+        >
+        </MiniNodeBundle>
         <MiniNodeBundle @id="right_block" @style="m-4 w-full"
-            @material(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(theme.color("panel-popup")*0.9, 16.0))
+            @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup")*0.9, 16.0))
         >
             <UiScrollBundle @style="max-h-600 m-4 w-full" @id="app_list_scroll">
                 <MiniNodeBundle @style="absolute flex-col w-full" @id="AppList"
@@ -91,7 +82,7 @@ LauncherUI=>
         </MiniNodeBundle>
     </MiniNodeBundle>
     <MiniNodeBundle @id="bottom_bar" @style="p-4 min-w-512 justify-content:space-evenly"
-        @material(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(theme.color("panel-popup")*0.9, 16.0))
+        @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup")*0.9, 16.0))
     >
         <( PanelButtonBundle::new(this_entity,&theme,&mut assets_rounded_ui_rect_material) ) @style="w-32 h-32" @id="user_icon">
             <(UiSvgBundle::new(theme.icon("user"))) @style="w-32 h-32"/>

@@ -1,12 +1,8 @@
-#![feature(arc_unwrap_or_clone)]
 pub mod assets;
-pub mod framework;
 pub mod panels;
 pub mod popups;
 pub mod prelude;
-pub mod render;
 pub mod sprite;
-pub mod theme;
 pub mod util;
 pub mod widgets;
 
@@ -15,7 +11,6 @@ pub mod reexport {
 }
 
 use crate::{
-    framework::{gallary::WidgetGallaryBundle, svg::UiSvgBundle},
     panels::{PanelButtonBundle, WindowTitleBundle},
     prelude::*,
     widgets::{
@@ -24,11 +19,11 @@ use crate::{
 };
 use bevy::{render::camera::RenderTarget, ui::FocusPolicy, window::WindowRef};
 use bevy_svg::SvgPlugin;
-// use bevy_tweening::TweeningPlugin;
 pub use bitflags::bitflags as __bitflags;
 use dway_client_core::screen::Screen;
 use dway_server::geometry::GlobalGeometry;
 use dway_tty::{drm::surface::DrmSurface, seat::SeatState};
+use dway_ui_framework::widgets::svg::UiSvgBundle;
 use font_kit::{family_name::FamilyName, properties::Properties, source::SystemSource};
 use widgets::clock::ClockBundle;
 
@@ -43,28 +38,25 @@ impl Plugin for DWayUiPlugin {
             app.add_plugins(bevy_ecss::EcssPlugin::with_hot_reload());
         }
         app.add_plugins((
-            // TweeningPlugin,
+            dway_ui_framework::UiFrameworkPlugin,
             assets::DWayAssetsPlugin,
-            render::DWayUiMaterialPlugin,
-            theme::ThemePlugin,
-            framework::UiFrameworkPlugin,
         ));
         app.add_plugins((
-            // widgets::clock::ClockUiPlugin,
-            // widgets::window::WindowUIPlugin,
-            // widgets::popupwindow::PopupUIPlugin,
-            // widgets::applist::AppListUIPlugin,
-            // widgets::popup::PopupUiPlugin,
-            // widgets::screen::ScreenWindowsPlugin,
-            // widgets::workspacelist::WorkspaceListUIPlugin,
-            // widgets::logger::LoggerUIPlugin,
-            // ScreenUIPlugin,
+            widgets::clock::ClockUiPlugin,
+            widgets::window::WindowUIPlugin,
+            widgets::popupwindow::PopupUIPlugin,
+            widgets::applist::AppListUIPlugin,
+            widgets::popup::PopupUiPlugin,
+            widgets::screen::ScreenWindowsPlugin,
+            widgets::workspacelist::WorkspaceListUIPlugin,
+            widgets::logger::LoggerUIPlugin,
+            ScreenUIPlugin,
         ));
         app.add_plugins((
-            // panels::WindowTitlePlugin,
-            // popups::app_window_preview::AppWindowPreviewPopupPlugin,
-            // popups::launcher::LauncherUIPlugin,
-            // popups::volume_control::VolumeControlPlugin,
+            panels::WindowTitlePlugin,
+            popups::app_window_preview::AppWindowPreviewPopupPlugin,
+            popups::launcher::LauncherUIPlugin,
+            popups::volume_control::VolumeControlPlugin,
         ));
         app.add_systems(PreUpdate, init_screen_ui);
         app.add_systems(Startup, setup);
@@ -116,10 +108,6 @@ fn setup(
             },));
         });
     }
-        spawn! {
-            &mut commands=>
-            <WidgetGallaryBundle @style="absolute right-32 bottom-32" UiPopupAddonBundle=(Default::default()) />
-        }
 }
 
 #[derive(Component, SmartDefault)]
@@ -136,7 +124,7 @@ ScreenUI=>
     name:Name = Name::from("ScreenUI"),
 }}
 @world_query(style: &mut Style)
-@query(screen_query: (screen,global_geo)<-Query<(Ref<Screen>,Ref<GlobalGeometry>)>[prop.screen] -> {
+@query(screen_query: (_screen,global_geo)<-Query<(Ref<Screen>,Ref<GlobalGeometry>)>[prop.screen] -> {
     if !widget.inited || global_geo.is_changed() {
         style.position_type = PositionType::Absolute;
         style.width = Val::Px(global_geo.width() as f32);
@@ -152,7 +140,7 @@ ScreenUI=>
     <ScreenWindowsBundle @style="absolute full" Name=(Name::new("windows")) @id="windows"
         ScreenWindows=(ScreenWindows{screen:prop.screen}) />
     <(MaterialNodeBundle { style: style!("absolute top-4 left-4 right-4 h-32"),
-        material: rect_material_set.add(RoundedUiRectMaterial::new(Color::WHITE.with_a(0.5),8.0)),
+        material: rect_material_set.add(rounded_rect(Color::WHITE.with_a(0.5),8.0)),
         z_index: ZIndex::Global(1024),
         ..Default::default()
     }) Name=(Name::new("panel")) @id="panel">
@@ -188,7 +176,7 @@ ScreenUI=>
         // Class=(Class::new("dock"))
         Name=(Name::new("dock")) @id="dock" >
         <MiniNodeBundle
-            Handle<_>=(rect_material_set.add(RoundedUiRectMaterial::new(Color::WHITE.with_a(0.5), 16.0)))>
+            Handle<_>=(rect_material_set.add(rounded_rect(Color::WHITE.with_a(0.5), 16.0)))>
             <AppListUIBundle/>
             <(PanelButtonBundle::new(prop.screen,&theme,&mut rect_material_set))>
                 <(UiSvgBundle::new(theme.icon("apps"))) @style="w-48 h-48" @id="apps"/>

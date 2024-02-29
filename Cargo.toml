@@ -58,7 +58,7 @@ syn_derive = "0.1.8"
 derive-syn-parse = "0.1.5"
 
 
-bevy = { version = "0.12" }
+bevy = { version = "0.13" }
 bevy_svg = { version="0.12", default-features = false, features = ["2d"] }
 wgpu={version="*",features=["angle"]}
 wgpu-hal={version="*",features=["gles"]}
@@ -70,19 +70,3 @@ ash = { version = "*", features = [] }
 bevy_svg = {path="../bevy_svg/"}
 bevy_prototype_lyon = {path="../bevy_prototype_lyon/"}
 bevy_image_export = {path="../bevy_image_export/"}
-bevy = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }
-bevy_log = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }
-bevy_pbr = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }
-bevy_core = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }
-bevy_app = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }
-bevy_utils = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }
-bevy_asset = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }
-bevy_core_pipeline = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }
-bevy_derive = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }
-bevy_ecs = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }
-bevy_math = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }
-bevy_reflect = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }
-bevy_render = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }
-bevy_transform = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }
-bevy_window = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }
-bevy_hierarchy = { git = "https://github.com/bevyengine/bevy", rev = "55ada617cb9fa51e8f6680738b0d1886320c1eaa" }

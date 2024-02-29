@@ -1,15 +1,9 @@
-use crate::framework::button::{ButtonColor, UiButtonBundle, UiButtonEvent, UiButtonEventKind};
-use crate::framework::checkbox::{
-    RoundedCheckBoxAddonBundle, RoundedCheckBoxAddonBundleWithoutState,
-    UiCheckBox, UiCheckBoxEvent, UiCheckBoxState,
-};
-use crate::framework::slider::{UiSlider, UiSliderBundle, UiSliderEvent, UiSliderState};
-use crate::framework::svg::{UiSvg, UiSvgBundle};
 use crate::prelude::MiniNodeBundle;
 use crate::widgets::popup::{delay_destroy, UiPopup, UiPopupAddonBundle};
 use crate::{prelude::*};
 use dway_client_core::controller::volume::VolumeController;
 use dway_ui_derive::dway_widget;
+use dway_ui_framework::widgets::checkbox::UiCheckboxBundle;
 
 #[derive(Component, Default)]
 pub struct VolumeControl;
@@ -53,12 +47,8 @@ VolumeControl=>
 })
 @global(asset_server: AssetServer)
 @global(mut rect_material_set: Assets<RoundedUiRectMaterial>)
-<MiniNodeBundle @style="p-4 align-self:center" @id="mute_checkbox"
-    RoundedCheckBoxAddonBundleWithoutState=(
-    RoundedCheckBoxAddonBundleWithoutState::new(
-        UiCheckBox::new(vec![(this_entity,on_mute_event)]),
-        &mut rect_material_set,&theme,
-        "panel",this_entity))
+<UiCheckboxBundle UiCheckBox=(UiCheckBox::new(vec![(this_entity,on_mute_event)]))
+    @style="p-4 align-self:center" @id="mute_checkbox"
     UiCheckBoxState=(UiCheckBoxState::new(*state.mute()))
 >
     <UiSvgBundle @style="w-32 h-32" @id="mute_icon"
@@ -67,7 +57,7 @@ VolumeControl=>
         } else {
             asset_server.load("embedded://dway_ui/icons/volume_on.svg")
         } )) />
-</MiniNodeBundle>
+</UiCheckboxBundle>
 <UiSliderBundle @id="slider" @style="m-8 h-32 w-256 align-self:center"
     UiSlider=(UiSlider{ callback:Some((this_entity,on_slider_event)), ..default() })
     UiSliderState=(UiSliderState{value: *state.volume(),..default()})/>
@@ -83,7 +73,7 @@ pub fn open_popup(
         commands
             .spawn((
                 // animation!(0.5 secs:BackOut->TransformScaleLens(Vec3::splat(0.5)=>Vec3::ONE)),
-                rect_material_set.add(RoundedUiRectMaterial::new(theme.color("panel-popup"), 16.0)),
+                rect_material_set.add(rounded_rect(theme.color("panel-popup"), 16.0)),
                 VolumeControlBundle {
                     style: style!("absolute top-120% align-self:end p-8"),
                     ..default()

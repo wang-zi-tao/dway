@@ -7,6 +7,14 @@ pub struct UiSvg {
     handle: Handle<Svg>,
 }
 
+impl std::ops::Deref for UiSvg {
+    type Target = Handle<Svg>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.handle
+    }
+}
+
 impl From<Handle<Svg>> for UiSvg {
     fn from(value: Handle<Svg>) -> Self {
         Self { handle: value }
@@ -37,6 +45,15 @@ make_bundle! {
         pub svg: UiSvg,
         pub layout: SvgLayout,
         pub mesh_transform: UiMeshTransform,
+    }
+}
+
+impl UiSvgBundle {
+    pub fn new(svg: Handle<Svg>) -> Self{
+        Self{
+            svg: UiSvg::new(svg),
+            ..Default::default()
+        }
     }
 }
 

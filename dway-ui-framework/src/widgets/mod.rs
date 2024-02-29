@@ -13,7 +13,10 @@ pub mod text;
 pub struct Callback(pub Option<SystemId>);
 
 pub mod bundles {
-    use crate::{prelude::*, theme::{StyleFlags, ThemeComponent, WidgetKind}};
+    use crate::{
+        prelude::*,
+        theme::{StyleFlags, ThemeComponent, WidgetKind},
+    };
 
     use super::button::UiButton;
     #[macro_export]
@@ -106,20 +109,12 @@ pub mod shader {
         prelude::*,
         shader::{
             effect::{Arc, Border, Fake3D, InnerShadow, Shadow},
-            fill::{ColorWheel, FillColor},
+            fill::{ColorWheel, FillColor, FillImage},
             shape::{Circle, RoundedBar, RoundedRect, Shape},
             transform::Margins,
             Material, ShaderAsset, ShapeRender, Transformed,
         },
     };
-
-    pub trait ShaderTheme {
-        type BlockMaterial: UiMaterial;
-        type HollowBlockMaterial: UiMaterial;
-        type ButtonMaterial: UiMaterial;
-        type CheckboxMaterial: UiMaterial;
-        type SliderMaterial: UiMaterial;
-    }
 
     pub type HollowBlockMaterial = ShaderAsset<ShapeRender<RoundedRect, Border>>;
     pub fn hollow_block(color: Color, corner: f32, width: f32) -> HollowBlockMaterial {
@@ -171,6 +166,18 @@ pub mod shader {
     pub type RoundedUiRectMaterial = ShaderAsset<ShapeRender<RoundedRect, FillColor>>;
     pub fn rounded_rect(color: Color, corner: f32) -> RoundedUiRectMaterial {
         ShapeRender::new(RoundedRect::new(corner), FillColor::new(color)).into()
+    }
+
+    pub type RoundedUiImageMaterial = ShaderAsset<ShapeRender<RoundedRect, FillImage>>;
+    pub fn rounded_ui_image(
+        corner: f32,
+        offset_uv: Vec2,
+        size_uv: Vec2,
+        image: Handle<Image>,
+    ) -> RoundedUiImageMaterial {
+        RoundedRect::new(corner)
+            .with_effect(FillImage::new(offset_uv, size_uv, image))
+            .into()
     }
 
     pub type ButtonMaterial = ShaderAsset<ShapeRender<RoundedRect, (FillColor, Shadow)>>;

@@ -1,5 +1,6 @@
-use crate::{framework::text::ansi_to_sections, prelude::*};
+use crate::{prelude::*};
 use bevy::utils::Instant;
+use dway_ui_framework::widgets::text::ansi_to_sections;
 use dway_util::logger::LoggerCache;
 
 #[derive(Component, SmartDefault)]

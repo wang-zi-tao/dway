@@ -42,7 +42,7 @@ structstruck::strike! {
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Default)]
 pub struct UiInput {
     pub callbacks: SmallVec<[(Entity, SystemId<UiInputEvent>); 2]>,
     pub mouse_focused: bool,
@@ -52,29 +52,36 @@ pub struct UiInput {
     pub mouse_state: Interaction,
 }
 
-#[derive(Resource)]
+impl UiInput {
+    pub fn can_receive_keyboard_input(&self) -> bool {
+        self.input_focused || self.input_grabed
+    }
+}
+
+#[derive(Event, Reflect)]
+pub enum UiFocusEvent {
+    FocusLeaveRequest(Entity),
+    FocusEnterRequest(Entity),
+}
+
+#[derive(Resource, Reflect, Default)]
 pub struct UiFocusState {
     pub mouse_focus: Option<Entity>,
     pub input_focus: Option<Entity>,
 }
 
 pub fn update_ui_input(
-    mut query: Query<
-        (
-            Entity,
-            &UiInput,
-            Ref<Interaction>,
-            Option<&mut ThemeComponent>,
-            Option<Ref<RelativeCursorPosition>>,
-        ),
-        Or<(
-            Changed<UiInput>,
-            Changed<Interaction>,
-            Changed<RelativeCursorPosition>,
-        )>,
-    >,
+    mut query: Query<(
+        Entity,
+        &mut UiInput,
+        Ref<Interaction>,
+        Option<&mut ThemeComponent>,
+        Option<Ref<RelativeCursorPosition>>,
+    )>,
     mut commands: Commands,
     mut keyboard_event: EventReader<KeyboardInput>,
+    mut ui_focus_event: EventReader<UiFocusEvent>,
+    mut ui_focus_state: ResMut<UiFocusState>,
 ) {
     let mut run_callback = |kind: UiInputEventKind, entity: Entity, ui_focus: &UiInput| {
         for (receiver, callback) in &ui_focus.callbacks {
@@ -89,9 +96,19 @@ pub fn update_ui_input(
         }
     };
     for (entity, ui_focus, interaction, theme_component, relative_cursor_position) in &mut query {
+        if !interaction.is_changed()
+            && !ui_focus.is_changed()
+            && relative_cursor_position
+                .as_ref()
+                .map(|r| r.is_changed())
+                .unwrap_or_default()
+        {
+            continue;
+        }
+
         use UiInputEventKind::*;
         let mut call = |kind: UiInputEventKind| {
-            run_callback(kind, entity, ui_focus);
+            run_callback(kind, entity, &ui_focus);
         };
         if let Some(relative_cursor_position) = relative_cursor_position.as_ref() {
             if relative_cursor_position.is_changed() {
@@ -132,8 +149,34 @@ pub fn update_ui_input(
                 run_callback(
                     UiInputEventKind::KeyboardInput(key.clone()),
                     entity,
-                    ui_focus,
+                    &ui_focus,
                 );
+            }
+        }
+    }
+
+    for event in ui_focus_event.read() {
+        match event {
+            UiFocusEvent::FocusLeaveRequest(e) => {
+                if let Ok((_, mut ui_focus, ..)) = query.get_mut(*e) {
+                    ui_focus.input_focused = false;
+                    run_callback(UiInputEventKind::KeyboardLeave, *e, &ui_focus);
+                }
+                ui_focus_state.input_focus = None;
+            }
+            UiFocusEvent::FocusEnterRequest(e) => {
+                if let Some((_, mut ui_focus, ..)) = ui_focus_state
+                    .input_focus
+                    .and_then(|old_node| query.get_mut(old_node).ok())
+                {
+                    ui_focus.input_focused = false;
+                    run_callback(UiInputEventKind::KeyboardLeave, *e, &ui_focus);
+                }
+                if let Ok((_, mut ui_focus, ..)) = query.get_mut(*e) {
+                    ui_focus.input_focused = true;
+                    run_callback(UiInputEventKind::KeybordEnter, *e, &ui_focus);
+                }
+                ui_focus_state.input_focus = Some(*e);
             }
         }
     }

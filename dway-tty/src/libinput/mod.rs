@@ -190,8 +190,9 @@ pub fn receive_events(
                                 window.set_cursor_position(Some(relative));
                                 window.set_physical_cursor_position(Some(relative.as_dvec2()));
                                 move_events.send(CursorMoved {
-                                    window: entity,
-                                    position: relative,
+                                    window:entity,
+                                    position:relative,
+                                    delta: Some(motion), 
                                 });
                                 debug!("cursor move: absolute: {pos}; relative: {relative} on {entity:?}");
                             }

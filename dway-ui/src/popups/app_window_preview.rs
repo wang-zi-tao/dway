@@ -8,10 +8,6 @@ use dway_server::{
 };
 
 use crate::{
-    framework::{
-        button::{UiButton, UiButtonAddonBundle, UiButtonBundle, UiButtonEvent, UiButtonEventKind},
-        svg::UiSvgBundle,
-    },
     prelude::*,
     widgets::{
         popup::{PopupUiSystems, UiPopupAddonBundle},
@@ -64,13 +60,13 @@ fn focus_window(
 @arg(asset_server: Res<AssetServer>)
 @use_state(windows: Vec<Entity>)
 @component(window_list<-Query<Ref<WindowList>>[prop.app]->{ state.set_windows(window_list.iter().collect()); })
-<RounndedRectBundle @style="flex-row m-4" @id="List"
+<MiniNodeBundle @style="flex-row m-4" @id="List"
     // Animator<_>=(Animator::new(Tween::new(
     //     EaseFunction::BackOut,
     //     Duration::from_secs_f32(0.5),
     //     TransformScaleLens { start: Vec3::splat(0.5), end: Vec3::ONE, },
     // )))
-    @handle(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(Color::WHITE*0.2, 16.0))
+    @handle(RoundedUiRectMaterial=>rounded_rect(Color::WHITE*0.2, 16.0))
     @for_query((surface,geo,toplevel) in Query<(Ref<WlSurface>,Ref<GlobalGeometry>,Ref<DWayToplevel>)>::iter_many(state.windows().iter().cloned()) =>[
         toplevel=>{state.set_title(toplevel.title.clone().unwrap_or_default());},
         geo=>{state.set_geo(geo.clone());},
@@ -79,7 +75,7 @@ fn focus_window(
             state.set_image_rect(surface.image_rect());
         }
     ]) >
-        <RounndedRectBundle @style="flex-col m-4" @id="window_preview"
+        <MiniNodeBundle @style="flex-col m-4" @id="window_preview"
             @use_state(title:String) @use_state(geo:GlobalGeometry) @use_state(image:Handle<Image>) @use_state(image_rect:IRect) >
             <NodeBundle @style="flex-row">
                 <UiButtonBundle @id="close" @style="m-2 w-20 h-20"
@@ -99,11 +95,11 @@ fn focus_window(
             </NodeBundle>
             <UiButtonBundle
             UiButtonAddonBundle=(UiButton::new(node!(window_preview), focus_window).into())>
-                <MaterialNodeBundle::<RoundedUiImageMaterial>
+                <MiniNodeBundle
                 @handle(RoundedUiImageMaterial=>create_raw_window_material(*state.image_rect(),state.image().clone(),&state.geo))
                 Style=({ let size = state.geo().size().as_vec2() * PREVIEW_HIGHT / state.geo().height() as f32;
                         Style{ width:Val::Px(size.x), height:Val::Px(size.y), ..default() } }) />
             </UiButtonBundle>
-        </RounndedRectBundle>
-</RounndedRectBundle>
+        </MiniNodeBundle>
+</MiniNodeBundle>
 }

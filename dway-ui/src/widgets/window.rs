@@ -1,4 +1,5 @@
 use bevy::utils::{HashMap, HashSet};
+use crate::prelude::*;
 use dway_client_core::{navigation::windowstack::{WindowIndex, WindowStack}, input::SurfaceUiNode, UiAttachData};
 use dway_server::{
     geometry::GlobalGeometry,
@@ -8,12 +9,6 @@ use dway_server::{
 };
 
 use crate::{
-    // animation,
-    framework::svg::UiSvgBundle, prelude::*,
-    framework::{
-        // animation::despawn_animation,
-        button::{UiButton, UiButtonAddonBundle, UiButtonBundle, UiButtonEvent, UiButtonEventKind},
-    },
     util::irect_to_style,
 };
 
@@ -32,8 +27,7 @@ pub fn create_raw_window_material(
 ) -> RoundedUiImageMaterial {
     let rect = geo.geometry;
     let bbox_rect = image_rect.offset(rect.pos());
-    RoundedUiImageMaterial::new(
-        rect.size().as_vec2(),
+    rounded_ui_image(
         16.0,
         (bbox_rect.min - rect.min).as_vec2(),
         bbox_rect.size().as_vec2(),
@@ -44,8 +38,7 @@ pub fn create_raw_window_material(
 pub fn create_window_material(surface: &WlSurface, geo: &GlobalGeometry) -> RoundedUiImageMaterial {
     let rect = geo.geometry;
     let bbox_rect = surface.image_rect().offset(rect.pos());
-    RoundedUiImageMaterial::new(
-        rect.size().as_vec2(),
+    rounded_ui_image(
         16.0,
         (bbox_rect.min - rect.min).as_vec2(),
         bbox_rect.size().as_vec2(),
@@ -181,10 +174,9 @@ WindowUI=>
                 bottom:Val::Px(-DECORATION_MARGIN),
                 top:Val::Px(-DECORATION_HEIGHT),
                 ..Style::default() })
-            @handle(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(Color::WHITE*0.2, 16.0)) />
+            @handle(RoundedUiRectMaterial=>rounded_rect(Color::WHITE*0.2, 16.0)) />
         <MaterialNodeBundle::<RoundedUiImageMaterial> @id="surface" @style="absolute full"
-        @handle(RoundedUiImageMaterial=>RoundedUiImageMaterial::new(
-            state.rect().size().as_vec2(),
+        @handle(RoundedUiImageMaterial=>rounded_ui_image(
             14.0,
             ( state.bbox_rect().min-state.rect().min ).as_vec2(),
             state.bbox_rect().size().as_vec2(),
@@ -201,17 +193,17 @@ WindowUI=>
         >
             <UiButtonBundle @id="close" @style="m-2 w-20 h-20"
                 UiButtonAddonBundle=(UiButton::new(this_entity, on_close_button_event).into())
-                @handle(UiCircleMaterial=>UiCircleMaterial::new(Color::WHITE*0.3, 8.0)) >
+                @handle(UiCircleMaterial=>circle_material(Color::WHITE*0.3)) >
                 <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg"))) />
             </UiButtonBundle>
             <UiButtonBundle @id="max" @style="m-2 w-20 h-20"
                 UiButtonAddonBundle=(UiButton::new(this_entity, on_max_button_event).into())
-                @handle(UiCircleMaterial=>UiCircleMaterial::new(Color::WHITE*0.3, 8.0)) >
+                @handle(UiCircleMaterial=>circle_material(Color::WHITE*0.3)) >
                 <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/maximize.svg"))) />
             </UiButtonBundle>
             <UiButtonBundle @id="min" @style="m-2 w-20 h-20"
                 UiButtonAddonBundle=(UiButton::new(this_entity, on_min_button_event).into())
-                @handle(UiCircleMaterial=>UiCircleMaterial::new(Color::WHITE*0.3, 8.0)) >
+                @handle(UiCircleMaterial=>circle_material(Color::WHITE*0.3)) >
                 <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/minimize.svg"))) />
             </UiButtonBundle>
             <TextBundle @style="items-center justify-center m-auto"

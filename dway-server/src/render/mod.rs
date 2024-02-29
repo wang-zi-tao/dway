@@ -5,7 +5,7 @@ pub mod util;
 pub mod vulkan;
 
 use bevy::{
-    core_pipeline::core_2d::graph::{Labels2d, SubGraph2d},
+    core_pipeline::core_2d::graph::{Node2d, Core2d},
     render::{
         render_asset::prepare_assets, render_graph::RenderGraphApp, Render, RenderApp, RenderSet,
     },
@@ -38,12 +38,12 @@ impl Plugin for DWayServerRenderPlugin {
 
             render_app
                 .add_render_graph_node::<ImportSurfacePassNode>(
-                    SubGraph2d,
+                    Core2d,
                     importnode::graph::Labels2d::Import,
                 )
                 .add_render_graph_edges(
-                    SubGraph2d,
-                    (Labels2d::MainPass, importnode::graph::Labels2d::Import),
+                    Core2d,
+                    (Node2d::MainPass, importnode::graph::Labels2d::Import),
                 );
 
             render_app.add_systems(

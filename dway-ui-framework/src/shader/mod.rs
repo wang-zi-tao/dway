@@ -132,7 +132,8 @@ impl ShaderBuilder {
         let bindings = self
             .binding
             .iter()
-            .map(|(attr, name, ty)| format!("@group(1) {attr} var {name}: {ty};"))
+            .enumerate()
+            .map(|(i, (attr, name, ty) )| format!("@group(1) @binding({}) {attr} var {name}: {ty};", i+1))
             .collect::<Vec<_>>()
             .join(&"\n");
         let vertex_fields = self
@@ -224,7 +225,7 @@ impl<'l> BindGroupBuilder<'l> {
     }
 
     pub fn binding_number(&self) -> u32 {
-        self.output.len() as u32 + 1
+        self.output.len() as u32
     }
 
     pub fn add_uniform_buffer<R: WriteInto + ShaderType>(
@@ -393,13 +394,13 @@ pub trait BuildBindGroup: Clone + Send + Sync + 'static {
 macro_rules! impl_build_bind_group_for_tuple {
     () => {};
     ($first_elem:ident,$($elem:ident,)*) => {
+        #[allow(non_snake_case)]
         impl<$first_elem: BuildBindGroup,$($elem: BuildBindGroup),* > BuildBindGroup for ($first_elem,$($elem),*){
             fn bind_group_layout_entries(builder: &mut BindGroupLayoutBuilder) {
                 $first_elem::bind_group_layout_entries(builder);
                 $($elem::bind_group_layout_entries(builder);)*
             }
 
-            #[allow(non_snake_case)]
             fn unprepared_bind_group(&self, builder: &mut BindGroupBuilder)
                 -> Result<(), bevy::render::render_resource::AsBindGroupError> {
                     let ($first_elem,$($elem),*) = self;
@@ -426,6 +427,7 @@ impl_build_bind_group_for_tuple!(E8, E7, E6, E5, E4, E3, E2, E1, E0,);
 macro_rules! impl_interpolation_for_tuple {
     () => {};
     ($($elem_field:tt : $elem:ident,)*) => {
+        #[allow(non_snake_case)]
         impl<$($elem: Interpolation),* > Interpolation for ($($elem,)*){
             fn interpolation(&self, other: &Self, v: f32) -> Self {
                 (
@@ -832,8 +834,8 @@ pub mod effect {
     macro_rules! impl_effect_for_tuple {
         () => { };
         ($first_elem:ident,$($elem:ident,)*) => {
+            #[allow(non_snake_case)]
             impl<$first_elem: Effect,$($elem: Effect),* > Effect for ($first_elem,$($elem),*){
-                #[allow(non_snake_case)]
                 fn to_wgsl<S: Shape>(shape_ns: &str, builder: &mut ShaderBuilder, var: &ShaderVariables) {
                     builder.in_new_namespace(stringify!($first_elem), |builder|$first_elem::to_wgsl::<S>(shape_ns, builder, var));
                     $( builder.in_new_namespace(stringify!($elem), |builder|$elem::to_wgsl::<S>(shape_ns, builder, var)); )*
@@ -962,16 +964,14 @@ pub mod fill {
     pub struct FillImage {
         pub min_uv: Vec2,
         pub size_uv: Vec2,
-        pub size: Vec2,
         pub image: Handle<Image>,
     }
 
     impl FillImage {
-        pub fn new(min_uv: Vec2, size_uv: Vec2, size: Vec2, image: Handle<Image>) -> Self {
+        pub fn new(min_uv: Vec2, size_uv: Vec2, image: Handle<Image>) -> Self {
             Self {
                 min_uv,
                 size_uv,
-                size,
                 image,
             }
         }

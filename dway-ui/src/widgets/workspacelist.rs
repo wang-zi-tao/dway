@@ -1,7 +1,4 @@
-use crate::{
-    framework::button::{UiButtonEvent, UiButtonEventKind, UiButtonBundle, UiButton},
-    prelude::*,
-};
+use crate::{ prelude::*, };
 use dway_client_core::workspace::{ScreenList, Workspace, ScreenAttachWorkspace};
 
 #[derive(Component, Default)]
@@ -43,7 +40,7 @@ WorkspaceListUI=>
         @use_state(pub screen_list:Vec<Entity>)
     >
         <(UiButtonBundle::from(UiButton::new(this_entity,on_click)))
-            @material(UiCircleMaterial=>(theme.color("blue"),8.0))
+            @material(UiCircleMaterial=>circle_material(theme.color("blue")))
             Style=(Style{
                 width:Val::Px(if *state.is_focused() {12.0}else{8.0}),
                 height:Val::Px(if *state.is_focused() {12.0}else{8.0}),

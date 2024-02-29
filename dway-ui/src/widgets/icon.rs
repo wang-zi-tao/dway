@@ -1,8 +1,5 @@
-use dway_server::apps::icon::{LinuxIcon, LinuxIconKind};
-
 use crate::prelude::*;
-
-use super::{canvas::UiCanvas, svg::UiSvg};
+use dway_server::apps::icon::{LinuxIcon, LinuxIconKind};
 
 #[derive(Component, Reflect, Debug)]
 pub struct UiIcon {
@@ -22,7 +19,14 @@ pub struct UiIconBundle {
 
 pub fn uiicon_render(
     mut uiicon_query: Query<
-        (Entity, &Node, &ViewVisibility, &UiIcon, &mut UiImage, Option<&mut UiSvg>),
+        (
+            Entity,
+            &Node,
+            &ViewVisibility,
+            &UiIcon,
+            &mut UiImage,
+            Option<&mut UiSvg>,
+        ),
         Changed<UiImage>,
     >,
     icons: Res<Assets<LinuxIcon>>,
@@ -41,13 +45,11 @@ pub fn uiicon_render(
                 }
                 LinuxIconKind::Svg(h) => {
                     if let Some(mut svg) = svg {
-                        if &svg.svg != h {
-                            svg.svg = h.clone();
+                        if &**svg != h {
+                            *svg = h.clone().into();
                         }
                     } else {
-                        commands
-                            .entity(e)
-                            .insert((UiSvg { svg: h.clone() }, UiCanvas::default()));
+                        commands.entity(e).insert(UiSvg::from(h.clone()));
                     }
                 }
             };

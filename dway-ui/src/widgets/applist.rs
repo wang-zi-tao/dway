@@ -1,12 +1,9 @@
+use super::icon::UiIcon;
 use super::popup::{delay_destroy, UiPopup};
+use crate::prelude::*;
 use crate::{
-    framework::{
-        button::{UiButton, UiButtonAddonBundle, UiButtonBundle, UiButtonEvent, UiButtonEventKind},
-        icon::UiIcon,
-    },
     popups::app_window_preview::{AppWindowPreviewPopup, AppWindowPreviewPopupBundle},
     prelude::*,
-    theme::Theme,
     widgets::popup::UiPopupAddonBundle,
 };
 use dway_client_core::desktop::FocusedWindow;
@@ -57,8 +54,8 @@ fn open_popup(
         @use_state(pub count:usize) @use_state(pub icon:Handle<LinuxIcon>) @use_state(pub is_focused:bool)
         @arg(focused_window: ResMut<FocusedWindow> => { state.set_is_focused(focused_window.app_entity == Some(widget.data_entity)); }) >
         <MiniNodeBundle @if(*state.count()>0)  >
-            <RounndedRectBundle @style="w-48 h-48 m-4 flex-col" @id="app_rect"
-                @handle(RoundedUiRectMaterial=>RoundedUiRectMaterial::new(Color::WHITE.with_a(0.4), 10.0)) >
+            <MiniNodeBundle @style="w-48 h-48 m-4 flex-col" @id="app_rect"
+                @handle(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.4), 10.0)) >
                 <UiButtonBundle @id="button" @style="absolute full flex-col"
                     UiButtonAddonBundle=(UiButton::new(node!(app_root), open_popup).into()) >
                     <ImageBundle @style="w-full h-full" UiIcon=(state.icon().clone().into()) @id="app_icon" />

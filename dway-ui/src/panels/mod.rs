@@ -2,7 +2,6 @@ use dway_client_core::navigation::windowstack::{WindowIndex, WindowStack};
 use dway_server::xdg::toplevel::DWayToplevel;
 
 use crate::{
-    framework::button::{ButtonColor, RoundedButtonAddonBundle, UiButton, UiButtonEvent},
     prelude::*,
 };
 
@@ -37,7 +36,8 @@ pub struct PanelButtonBundle {
     pub view_visibility: ViewVisibility,
     pub z_index: ZIndex,
 
-    pub button: RoundedButtonAddonBundle,
+    pub button: UiButtonAddonBundle,
+    // pub material: Handle<RoundedUiRectMaterial>,
 }
 
 impl PanelButtonBundle {
@@ -51,18 +51,12 @@ impl PanelButtonBundle {
                 margin: UiRect::axes(Val::Px(4.0), Val::Auto),
                 ..Default::default()
             },
-            button: RoundedButtonAddonBundle {
-                button: UiButton::from_slice(&[
-                //                              (
-                //     entity,
-                //     theme.system(ButtonColor::callback_system::<RoundedUiRectMaterial>),
-                // )
-                ]),
-                color: ButtonColor::from_theme(&theme, "panel"),
-                material: rect_material_set
-                    .add(RoundedUiRectMaterial::new(theme.color("panel"), 8.0)),
+            button: UiButtonAddonBundle {
+                button: UiButton::default(),
                 ..Default::default()
             },
+                // material: rect_material_set
+                //     .add(rounded_rect(theme.color("panel"), 8.0)),
             ..Default::default()
         }
     }
@@ -82,13 +76,12 @@ impl PanelButtonBundle {
                 margin: UiRect::axes(Val::Px(4.0), Val::Auto),
                 ..Default::default()
             },
-            button: RoundedButtonAddonBundle {
-                button: UiButton::from_slice(&callbacks),
-                color: ButtonColor::from_theme(&theme, "panel"),
-                material: rect_material_set
-                    .add(RoundedUiRectMaterial::new(theme.color("panel"), 8.0)),
+            button: UiButtonAddonBundle {
+                button: UiButton::default(),
                 ..Default::default()
             },
+                // material: rect_material_set
+                //     .add(rounded_rect(theme.color("panel"), 8.0)),
             ..Default::default()
         }
     }

@@ -351,13 +351,6 @@ pub struct AnimationConfig {
     pub ease: AnimationEaseMethod,
 }
 
-pub struct ShaderThemePlugin<T: ShaderTheme + Send + Sync + 'static>(PhantomData<T>);
-impl<T: ShaderTheme + Send + Sync + 'static> Default for ShaderThemePlugin<T> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
-
 fn insert_material_command<M: Material>(entity: Entity, material: M) -> impl Command {
     move |world: &mut World| {
         let mut assets = world.resource_mut::<Assets<ShaderAsset<M>>>();

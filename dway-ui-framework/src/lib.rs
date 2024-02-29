@@ -1,3 +1,5 @@
+#![feature(round_char_boundary)]
+
 pub mod animation;
 pub mod assets;
 pub mod input;
@@ -24,50 +26,72 @@ pub struct UiFrameworkPlugin;
 impl Plugin for UiFrameworkPlugin {
     fn build(&self, app: &mut App) {
         use UiFrameworkSystems::*;
-        app.add_plugins((SvgPlugin,))
-            .add_plugins((
-                assets::UiAssetsPlugin,
-                theme::ThemePlugin,
-                theme::flat::FlatThemePlugin::default(),
-                render::mesh::UiMeshPlugin,
-                shader::ShaderFrameworkPlugin,
-                render::mesh::UiMeshMaterialPlugin::<ColorMaterial>::default(),
-                animation::AnimationPlugin,
-            ))
-            .add_plugins((
-                widgets::slider::UiSliderPlugin,
-                widgets::scroll::UiScrollPlugin,
-                widgets::inputbox::UiInputBoxPlugin,
-                UiMeshMaterialPlugin::<SvgMagerial>::default(),
-            ))
-            .register_type::<UiCheckBox>()
-            .register_type::<UiSlider>()
-            .register_type::<UiButton>()
-            .register_type::<UiSvg>()
-            .init_asset::<SvgMagerial>()
-            .register_type::<input::MousePosition>()
-            .init_resource::<input::MousePosition>()
-            .add_systems(
-                PreUpdate,
-                (
-                    input::update_mouse_position
-                        .run_if(on_event::<CursorMoved>())
-                        .in_set(InputSystems),
-                    update_ui_input.in_set(InputSystems),
-                    widgets::button::process_ui_button_event.in_set(WidgetInputSystems),
-                    widgets::checkbox::process_ui_checkbox_event.in_set(WidgetInputSystems),
-                ),
-            )
-            .add_systems(
-                PostUpdate,
-                (widgets::svg::uisvg_update_system.in_set(UpdateWidgets),),
-            )
-            .configure_sets(
-                PostUpdate,
-                (UpdateWidgets, UpdatePopup, UpdateTheme, ApplyAnimation)
-                    .before(UiSystem::Layout)
-                    .chain(),
-            );
+        if !app.is_plugin_added::<SvgPlugin>() {
+            app.add_plugins(SvgPlugin);
+        }
+        app.add_plugins((
+            assets::UiAssetsPlugin,
+            theme::ThemePlugin,
+            theme::flat::FlatThemePlugin::default(),
+            render::mesh::UiMeshPlugin,
+            shader::ShaderFrameworkPlugin,
+            render::mesh::UiMeshMaterialPlugin::<ColorMaterial>::default(),
+            animation::AnimationPlugin,
+        ))
+        .add_plugins((
+            widgets::slider::UiSliderPlugin,
+            widgets::scroll::UiScrollPlugin,
+            widgets::inputbox::UiInputBoxPlugin,
+            UiMeshMaterialPlugin::<SvgMagerial>::default(),
+        ))
+        .register_type::<UiCheckBox>()
+        .register_type::<UiSlider>()
+        .register_type::<UiButton>()
+        .register_type::<UiSvg>()
+        .init_asset::<SvgMagerial>()
+        .register_type::<input::MousePosition>()
+        .init_resource::<input::MousePosition>()
+        .register_type::<input::UiFocusState>()
+        .init_resource::<input::UiFocusState>()
+        .add_event::<input::UiFocusEvent>()
+        .register_type::<input::UiFocusEvent>()
+        .add_systems(
+            PreUpdate,
+            (
+                input::update_mouse_position
+                    .run_if(on_event::<CursorMoved>())
+                    .in_set(InputSystems),
+                update_ui_input.in_set(InputSystems),
+                widgets::button::process_ui_button_event.in_set(WidgetInputSystems),
+                widgets::checkbox::process_ui_checkbox_event.in_set(WidgetInputSystems),
+                widgets::inputbox::process_ui_inputbox_event.in_set(WidgetInputSystems),
+            ),
+        )
+        .add_systems(
+            PostUpdate,
+            (widgets::svg::uisvg_update_system.in_set(UpdateWidgets),),
+        )
+        .configure_sets(
+            PostUpdate,
+            (UpdateWidgets, UpdatePopup, UpdateTheme, ApplyAnimation)
+                .before(UiSystem::Layout)
+                .chain(),
+        )
+        .add_plugins((
+            RoundedUiRectMaterial::plugin(),
+            UiCircleMaterial::plugin(),
+            RoundedUiImageMaterial::plugin(),
+            RoundedBlockMaterial::plugin(),
+            RoundedBorderBlockMaterial::plugin(),
+            HollowBlockMaterial::plugin(),
+            ButtonMaterial::plugin(),
+            RoundedRainbowBlockMaterial::plugin(),
+            Fake3dButton::plugin(),
+            CheckboxMaterial::plugin(),
+            RoundedInnerShadowBlockMaterial::plugin(),
+            ArcMaterial::plugin(),
+            AssetAnimationPlugin::<CheckboxMaterial>::default(),
+        ));
     }
 }
 

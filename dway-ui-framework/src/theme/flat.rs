@@ -1,4 +1,4 @@
-use super::{insert_material_tween, ShaderTheme, ShaderThemePlugin, StyleFlags, ThemeDispatch};
+use super::{insert_material_tween, StyleFlags, ThemeDispatch};
 use crate::animation::AnimationEaseMethod;
 use crate::shader::effect::{Arc, Border};
 use crate::shader::fill::Fill;
