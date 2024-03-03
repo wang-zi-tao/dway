@@ -9,6 +9,6 @@ pub use syn::{
     parse::ParseStream,
     punctuated::Punctuated,
     spanned::Spanned,
-    token::{And, Brace, Bracket, Lt, Paren},
+    token::{self, And, Brace, Bracket, Lt, Paren},
     *,
 };

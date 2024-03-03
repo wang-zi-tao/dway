@@ -1,12 +1,3 @@
-use std::{
-    any::{type_name, TypeId},
-    collections::BTreeSet,
-    hash::Hash,
-    marker::PhantomData,
-    mem::size_of,
-    path::PathBuf,
-};
-use dway_ui_derive::Interpolation;
 use crate::prelude::*;
 use bevy::render::{render_asset::RenderAsset, render_resource::encase::private::Metadata};
 use bevy::{
@@ -24,9 +15,18 @@ use bevy::{
         texture::FallbackImage,
     },
 };
+use dway_ui_derive::Interpolation;
 use encase::{
     internal::{AlignmentValue, BufferMut, SizeValue, Writer},
     DynamicUniformBuffer,
+};
+use std::{
+    any::{type_name, TypeId},
+    collections::BTreeSet,
+    hash::Hash,
+    marker::PhantomData,
+    mem::size_of,
+    path::PathBuf,
 };
 
 use self::{effect::Effect, shape::Shape, transform::Transform};
@@ -79,6 +79,10 @@ impl ShaderBuilder {
     }
     pub fn add_import(&mut self, import: &str) {
         self.imports.insert(import.to_string());
+    }
+    pub fn import_from_builtin(&mut self, import: &str) {
+        self.imports
+            .insert(format!("dway_ui_framework::shader::framework::{import}"));
     }
     pub fn add_var(&mut self, name: &str, value: Expr) -> (Ident, Stat) {
         let name = if let Some(prefix) = self.prefixes.last() {
@@ -133,7 +137,9 @@ impl ShaderBuilder {
             .binding
             .iter()
             .enumerate()
-            .map(|(i, (attr, name, ty) )| format!("@group(1) @binding({}) {attr} var {name}: {ty};", i+1))
+            .map(|(i, (attr, name, ty))| {
+                format!("@group(1) @binding({}) {attr} var {name}: {ty};", i + 1)
+            })
             .collect::<Vec<_>>()
             .join(&"\n");
         let vertex_fields = self
@@ -485,8 +491,8 @@ pub mod effect {
     impl Effect for Shadow {
         fn to_wgsl<S: Shape>(shape_ns: &str, builder: &mut ShaderBuilder, var: &ShaderVariables) {
             let ShaderVariables { pos, size } = var;
-            builder.add_import("dway_ui_framework::shader::framework::sigmoid");
-            builder.add_import("dway_ui_framework::shader::framework::mix_alpha");
+            builder.import_from_builtin("sigmoid");
+            builder.import_from_builtin("mix_alpha");
             let uniform_color = builder.get_uniform("color", "", "vec4<f32>");
             let uniform_offset = builder.get_uniform("offset", "", "vec2<f32>");
             let uniform_margin = builder.get_uniform("margin", "", "vec2<f32>");
@@ -581,9 +587,9 @@ pub mod effect {
         fn to_wgsl<S: Shape>(shape_ns: &str, builder: &mut ShaderBuilder, var: &ShaderVariables) {
             let ShaderVariables { pos, size } = var;
             let color_expr = builder.in_new_namespace("filler", |builder| F::to_wgsl(builder, var));
-            builder.add_import("dway_ui_framework::shader::framework::sigmoid");
-            builder.add_import("dway_ui_framework::shader::framework::mix_alpha");
-            builder.add_import("dway_ui_framework::shader::framework::mix_color");
+            builder.import_from_builtin("sigmoid");
+            builder.import_from_builtin("mix_alpha");
+            builder.import_from_builtin("mix_color");
             let uniform_color = builder.get_uniform("color", "", "vec4<f32>");
             let uniform_offset = builder.get_uniform("offset", "", "vec2<f32>");
             let uniform_radius = builder.get_uniform("radius", "", "f32");
@@ -672,8 +678,8 @@ pub mod effect {
         fn to_wgsl<S: Shape>(_shape_ns: &str, builder: &mut ShaderBuilder, var: &ShaderVariables) {
             let color_expr = builder.in_new_namespace("filler", |builder| F::to_wgsl(builder, var));
             let uniform_width = builder.get_uniform("width", "", "f32");
-            builder.add_import("dway_ui_framework::shader::framework::mix_color");
-            builder.add_import("dway_ui_framework::shader::framework::mix_alpha");
+            builder.import_from_builtin("mix_color");
+            builder.import_from_builtin("mix_alpha");
             let code = format!(
                 "
                 {{
@@ -724,7 +730,7 @@ pub mod effect {
             let ShaderVariables { pos, size } = var;
             let uniform_angle = builder.get_uniform("angle", "", "vec2<f32>");
             let uniform_width = builder.get_uniform("width", "", "f32");
-            builder.add_import("dway_ui_framework::shader::framework::arc_sdf");
+            builder.import_from_builtin("arc_sdf");
             format!("arc_sdf({pos}, {uniform_angle}, {uniform_width}, 0.5*min({size}.x,{size}.y))")
         }
 
@@ -732,7 +738,7 @@ pub mod effect {
             let ShaderVariables { pos, size } = var;
             let uniform_angle = builder.get_uniform("angle", "", "vec2<f32>");
             let uniform_width = builder.get_uniform("width", "", "f32");
-            builder.add_import("dway_ui_framework::shader::framework::arc_sdf_gradient");
+            builder.import_from_builtin("arc_sdf_gradient");
             format!("arc_sdf_gradient({pos}, {uniform_angle}, {uniform_width}, 0.5*min({size}.x,{size}.y))")
         }
     }
@@ -755,8 +761,8 @@ pub mod effect {
     impl<T: Fill> Effect for T {
         fn to_wgsl<S: Shape>(_shape_ns: &str, builder: &mut ShaderBuilder, var: &ShaderVariables) {
             let expr_color = T::to_wgsl(builder, var);
-            builder.add_import("dway_ui_framework::shader::framework::mix_color");
-            builder.add_import("dway_ui_framework::shader::framework::mix_alpha");
+            builder.import_from_builtin("mix_color");
+            builder.import_from_builtin("mix_alpha");
             let code = format!(
                 "
                 if shape_d<0.5 {{
@@ -919,7 +925,7 @@ pub mod fill {
     impl Fill for ColorWheel {
         fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
             let ShaderVariables { pos, .. } = var;
-            builder.add_import("dway_ui_framework::shader::framework::color_wheel");
+            builder.import_from_builtin("color_wheel");
             format!("color_wheel({pos})")
         }
     }
@@ -966,7 +972,15 @@ pub mod fill {
         pub size_uv: Vec2,
         pub image: Handle<Image>,
     }
-
+    impl From<Handle<Image>> for FillImage {
+        fn from(value: Handle<Image>) -> Self {
+            Self {
+                min_uv: Vec2::ZERO,
+                size_uv: Vec2::ONE,
+                image: value,
+            }
+        }
+    }
     impl FillImage {
         pub fn new(min_uv: Vec2, size_uv: Vec2, image: Handle<Image>) -> Self {
             Self {
@@ -1042,7 +1056,7 @@ pub mod shape {
     impl Shape for Circle {
         fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
             let ShaderVariables { pos, size } = var;
-            builder.add_import("dway_ui_framework::shader::framework::circle_sdf");
+            builder.import_from_builtin("circle_sdf");
             format!("circle_sdf({pos}, 0.5 * min({size}.x, {size}.y))")
         }
 
@@ -1050,7 +1064,7 @@ pub mod shape {
 
         fn to_gradient_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
             let ShaderVariables { pos, size } = var;
-            builder.add_import("dway_ui_framework::shader::framework::circle_sdf_gradient");
+            builder.import_from_builtin("circle_sdf_gradient");
             format!("circle_sdf_gradient({pos}, 0.5 * min({size}.x, {size}.y))")
         }
     }
@@ -1076,13 +1090,13 @@ pub mod shape {
     impl Shape for Rect {
         fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
             let ShaderVariables { pos, size } = var;
-            builder.add_import("dway_ui_framework::shader::framework::rect_sdf");
+            builder.import_from_builtin("rect_sdf");
             format!("rect_sdf({pos}, {size})")
         }
 
         fn to_gradient_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
             let ShaderVariables { pos, size } = var;
-            builder.add_import("dway_ui_framework::shader::framework::rect_sdf_gradient");
+            builder.import_from_builtin("rect_sdf_gradient");
             format!("rect_sdf_gradient({pos}, {size})")
         }
 
@@ -1120,7 +1134,7 @@ pub mod shape {
         fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
             let ShaderVariables { pos, size } = var;
             let uniform_radius = builder.get_uniform("radius", "", "f32");
-            builder.add_import("dway_ui_framework::shader::framework::rounded_rect_sdf");
+            builder.import_from_builtin("rounded_rect_sdf");
             format!("rounded_rect_sdf({pos}, {size}, {uniform_radius})")
         }
 
@@ -1131,7 +1145,7 @@ pub mod shape {
         fn to_gradient_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
             let ShaderVariables { pos, size } = var;
             let uniform_radius = builder.get_uniform("radius", "", "f32");
-            builder.add_import("dway_ui_framework::shader::framework::rounded_rect_sdf_gradient");
+            builder.import_from_builtin("rounded_rect_sdf_gradient");
             format!("rounded_rect_sdf_gradient({pos}, {size}, {uniform_radius})")
         }
     }
@@ -1162,13 +1176,13 @@ pub mod shape {
 
         fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
             let ShaderVariables { pos, size } = var;
-            builder.add_import("dway_ui_framework::shader::framework::rounded_rect_sdf");
+            builder.import_from_builtin("rounded_rect_sdf");
             format!("rounded_rect_sdf({pos}, {size}, 0.5 * min({size}.x, {size}.y))")
         }
 
         fn to_gradient_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
             let ShaderVariables { pos, size } = var;
-            builder.add_import("dway_ui_framework::shader::framework::rounded_rect_sdf_gradient");
+            builder.import_from_builtin("rounded_rect_sdf_gradient");
             format!("rounded_rect_sdf_gradient({pos}, {size}, 0.5 * min({size}.x, {size}.y))")
         }
     }
@@ -1243,7 +1257,7 @@ pub mod transform {
     impl Transform for Rotation {
         fn transform(builder: &mut ShaderBuilder, var: &ShaderVariables) -> ShaderVariables {
             let ShaderVariables { pos, .. } = var;
-            builder.add_import("dway_ui_framework::shader::framework::sdf_rotation");
+            builder.import_from_builtin("sdf_rotation");
             let uniform_rotation = builder.get_uniform("rotation", "", "f32");
             ShaderVariables {
                 pos: format!("sdf_rotation({pos}, {uniform_rotation})"),
@@ -1539,7 +1553,10 @@ impl<T: Material> ShaderAsset<T> {
         format!("dway_ui_framework/render/gen/{}/render.wgsl", Self::id())
     }
     pub fn path() -> String {
-        format!("embedded://dway_ui_framework/render/gen/{}/render.wgsl", Self::id())
+        format!(
+            "embedded://dway_ui_framework/render/gen/{}/render.wgsl",
+            Self::id()
+        )
     }
 
     pub fn plugin() -> ShaderPlugin<T> {
@@ -1649,7 +1666,7 @@ pub struct ShaderPlugin<T: Material>(PhantomData<T>);
 
 impl<T: Material> ShaderPlugin<T> {
     pub fn add_inoto(self, app: &mut App) {
-        if !app.is_plugin_added::<Self>(){
+        if !app.is_plugin_added::<Self>() {
             app.add_plugins(self);
         }
     }
@@ -1701,22 +1718,32 @@ pub mod test {
             render_resource::{
                 Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
             },
+            view::screenshot::ScreenshotManager,
             RenderPlugin,
         },
         sprite::SpritePlugin,
         ui::UiPlugin,
+        window::{PresentMode, PrimaryWindow},
         winit::WinitPlugin,
     };
     use bevy_image_export::{
         ImageExportBundle, ImageExportPlugin, ImageExportSettings, ImageExportSource,
     };
     use failure::format_err;
+    use image::{DynamicImage, GenericImageView, Pixel};
     use lazy_static::lazy_static;
     use pretty_assertions::{assert_eq, assert_ne};
     use regex::Regex;
-    use std::borrow::Cow;
+    use std::{
+        borrow::Cow,
+        path::Path,
+        sync::{atomic::AtomicBool, Arc},
+    };
 
-    use crate::tests::compare_image;
+    use crate::{
+        tests::{assert_image_eq, compare_image, run_test_plugins, UnitTestPlugin},
+        UiFrameworkPlugin,
+    };
 
     use self::{
         effect::{Border, Shadow},
@@ -1750,48 +1777,25 @@ pub mod test {
         let path = ShaderAsset::<R>::path();
         let _asset_path = ShaderRef::Path(path.clone().into());
         let wgsl = ShaderAsset::<R>::to_wgsl();
-        assert_eq!(path, except_path);
         assert_eq!(simplify_wgsl(&wgsl), simplify_wgsl(except_wgsl))
     }
 
     #[test]
     fn generate_shader_shape() {
-        test_render_type::<ShapeRender<RoundedRect, FillColor>>("embedded://dway_ui/render/gen/TypeId { t= 278058722727597187056032458654139997086 }/render.wgsl",
-        "
-#import bevy_render::view::View
-#import dway_ui_framework::framework::boxSDF
-#import dway_ui_framework::framework::mix_color 
-@group(0) @binding(0) var<uniform> view: View;
-@group(1) @binding(0) var<uniform> rect: Settings;
-struct Settings {
-    shape_size: vec2<f32>,
-    shape_radius: f32,
-    effect_color: vec4<f32>,
-}
-struct VertexOutput {
-    @builtin(position) position: vec4<f32>,
-    @location(0) uv: vec2<f32>,
-    @location(1) border_widths: vec4<f32>,
-};
-@vertex
-fn vertex( @location(0) vertex_position: vec3<f32>, @location(1) vertex_uv: vec2<f32>, @location(2) border_widths: vec4<f32>, ) -> VertexOutput {
-    var out: VertexOutput;
-    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
-    out.uv = vertex_uv;
-    out.border_widths = border_widths;
-    return out;
-}
-@fragment
-fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    let d = boxSDF(in.position, rect.shape_size, rect.shape_radius);
-    if d<0.5 {
-        out = mix_alpha(out, mix_color(rect.effect_color, d));
-        if out.a > 255.0/256.0 {
-            return out;
-        }
-    }
-}
-");
+        test_render_type::<ShapeRender<RoundedRect, FillColor>>("embedded://dway_ui_framework/render/gen/TypeId { t= 188717855749609276234625418564726538671 }/render.wgsl",
+        r###"
+#import bevy_render::view::View 
+#import dway_ui_framework::shader::framework::sdf_visualition 
+#import "embedded://bevy_ui_framework/shaders/framework.wgsl"::mix_alpha 
+#import "embedded://bevy_ui_framework/shaders/framework.wgsl"::mix_color 
+#import "embedded://bevy_ui_framework/shaders/framework.wgsl"::rounded_rect_sdf 
+@group(0) @binding(0) var<uniform> view: View; 
+@group(1) @binding(0) var<uniform> uniforms: Settings; 
+struct Settings { @location(0) shape_radius: f32, @location(1) effect_color: vec4<f32>, } 
+struct VertexOutput { @location(0) uv: vec2<f32>, @location(1) border_widths: vec4<f32>, @location(2) @interpolate(flat) size: vec2<f32>, @builtin(position) position: vec4<f32>, }; 
+@vertex fn vertex( @location(0) vertex_position: vec3<f32>, @location(1) vertex_uv: vec2<f32>, @location(2) size: vec2<f32>, @location(3) border_widths: vec4<f32>, ) -> VertexOutput { var out: VertexOutput; out.position = view.view_proj * vec4<f32>(vertex_position, 1.0); out.border_widths = border_widths; var rect_position = (vertex_uv - 0.5) * size; var rect_size = size; var extend_left = 0.0; var extend_right = 0.0; var extend_top = 0.0; var extend_bottom = 0.0; out.uv = vertex_uv; out.size = size; return out; } 
+@fragment fn fragment(in: VertexOutput) -> @location(0) vec4<f32> { var out = vec4(1.0, 1.0, 1.0, 0.0); let rect_position = (in.uv - 0.5) * in.size; let rect_size = in.size; { let shape_pos = rect_position; let shape_size = rect_size; let shape_d = rounded_rect_sdf(shape_pos, shape_size, uniforms.shape_radius); if shape_d<0.5 { out = mix_alpha(out, mix_color(uniforms.effect_color, shape_d)); if out.a > 255.0/256.0 { return out; } } } return out; }
+"###);
     }
 
     #[test]
@@ -1812,172 +1816,87 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
         )>("", "");
     }
 
-    fn test_shader<R: Material>(
-        test_asset_relative_path: &str,
+    fn shader_unit_test<R: Material + Send + Sync + 'static>(
+        dir: &Path,
+        name: &str,
         size: Vec2,
         shader: R,
-    ) -> anyhow::Result<()> {
-        let export_plugin = ImageExportPlugin::default();
-        let export_threads = export_plugin.threads.clone();
-
-        let mut app = App::default();
-        app.add_plugins(
-            DefaultPlugins
-                .build()
-                .disable::<WinitPlugin>()
-                .add(ScheduleRunnerPlugin::default())
-                // .set(WinitPlugin {
-                //     run_on_any_thread: true,
-                // })
-                .add(ShaderPlugin::<R>::default())
-                .add(export_plugin),
-        )
-        .insert_resource(ClearColor(Color::WHITE));
-
-        let temp_dir = tempdir::TempDir::new("dway_ui_framework_unit_test")?;
-        // let temp_dir_path = temp_dir.path().to_string_lossy().to_string();
-        let temp_dir_path = temp_dir.into_path();
-        std::fs::create_dir_all(&temp_dir_path)?;
-        info!("template folder: {temp_dir_path:?}");
-        let temp_dir_path_clone = temp_dir_path.clone();
-
-        app.add_systems(
-            Startup,
-            move |mut commands: Commands,
-                  mut images: ResMut<Assets<Image>>,
-                  mut export_sources: ResMut<Assets<ImageExportSource>>,
-                  mut ui_material: ResMut<Assets<ShaderAsset<R>>>| {
-                let output_texture_handle = {
-                    let size = Extent3d {
-                        width: (size.x * 1.5) as u32,
-                        height: (size.y * 1.5) as u32,
-                        ..default()
-                    };
-                    let mut export_texture = Image {
-                        texture_descriptor: TextureDescriptor {
-                            label: None,
-                            size,
-                            dimension: TextureDimension::D2,
-                            format: TextureFormat::Rgba8UnormSrgb,
-                            mip_level_count: 1,
-                            sample_count: 1,
-                            usage: TextureUsages::COPY_DST
-                                | TextureUsages::COPY_SRC
-                                | TextureUsages::RENDER_ATTACHMENT,
-                            view_formats: &[],
-                        },
-                        ..default()
-                    };
-                    export_texture.resize(size);
-                    images.add(export_texture)
-                };
-
-                let camera = commands
-                    .spawn(Camera2dBundle {
-                        camera: Camera {
-                            target: RenderTarget::Image(output_texture_handle.clone()),
-                            ..default()
-                        },
-                        ..default()
-                    })
-                    .id();
-
-                let handle = ui_material.add(shader.clone());
-                commands
-                    .spawn((
-                        NodeBundle {
-                            style: Style {
-                                width: Val::Percent(100.),
-                                height: Val::Percent(100.),
-                                align_items: AlignItems::Center,
-                                justify_content: JustifyContent::Center,
-                                flex_direction: FlexDirection::Column,
+    ) -> UnitTestPlugin {
+        let mut test_output_dir = dir.to_owned();
+        test_output_dir.push(name);
+        std::fs::create_dir_all(&test_output_dir).unwrap();
+        UnitTestPlugin {
+            name: name.to_owned(),
+            image_path: format!("test/comparison_image/shader/{name}.png").into(),
+            image_size: size,
+            plugin: Box::new(move |_, app| {
+                app.add_plugins(ShaderPlugin::<R>::default());
+            }),
+            setup: Box::new(move |args| {
+                let camera_entity = args.camera_entity;
+                let shader = shader.clone();
+                Box::new(IntoSystem::into_system(
+                    move |mut commands: Commands,
+                          mut ui_material: ResMut<Assets<ShaderAsset<R>>>| {
+                        let handle = ui_material.add(shader.clone());
+                        commands.spawn((
+                            MaterialNodeBundle {
+                                style: Style {
+                                    width: Val::Px(256.),
+                                    height: Val::Px(256.),
+                                    align_items: AlignItems::Center,
+                                    justify_content: JustifyContent::Center,
+                                    flex_direction: FlexDirection::Column,
+                                    align_self: AlignSelf::Center,
+                                    justify_self: JustifySelf::Center,
+                                    ..default()
+                                },
+                                material: handle,
                                 ..default()
                             },
-                            ..default()
-                        },
-                        TargetCamera(camera),
-                    ))
-                    .with_children(|c| {
-                        c.spawn(MaterialNodeBundle {
-                            style: Style {
-                                width: Val::Px(size.x),
-                                height: Val::Px(size.y),
-                                margin: UiRect::all(Val::Px(8.0)),
-                                ..default()
-                            },
-                            material: handle,
-                            ..default()
-                        });
-                    });
-
-                commands.spawn(ImageExportBundle {
-                    source: export_sources.add(output_texture_handle),
-                    settings: ImageExportSettings {
-                        output_dir: temp_dir_path_clone.clone().to_string_lossy().to_string(),
-                        extension: "png".into(),
+                            TargetCamera(camera_entity),
+                        ));
                     },
-                });
-            },
-        );
-
-        app.add_systems(
-            Update,
-            |frame: Res<FrameCount>, mut exit_event: EventWriter<AppExit>| {
-                if frame.0 > 2 {
-                    exit_event.send(AppExit);
-                }
-            },
-        );
-        app.run();
-        export_threads.finish();
-
-        let file = temp_dir_path
-            .read_dir()?
-            .next()
-            .ok_or_else(|| anyhow!("Export image not found"))??;
-        match compare_image(
-            &file.path(),
-            &PathBuf::from(test_asset_relative_path),
-            &temp_dir_path,
-        ) {
-            Ok(Some(diff)) => {
-                return Err(anyhow::anyhow!("image is different. diff image: {diff:?}"));
-            }
-            Ok(None) => {
-                std::fs::remove_dir_all(temp_dir_path)?;
-            }
-            Err(e) => {
-                return Err(e);
-            }
+                ))
+            }),
+            output_dir: test_output_dir,
         }
-        Ok(())
     }
 
     #[test]
     fn test_shaders() {
-        let results = [
-            test_shader(
-                "test/comparison_image/shader/circle_gradient_border_shadow.png",
-                Vec2::splat(256.0),
-                Circle::new().with_effect((
-                    Border::new(Color::WHITE, 2.0),
-                    Gradient::new(
-                        Color::WHITE * 0.5,
-                        Color::BLUE.rgba_to_vec4() - Color::RED.rgba_to_vec4(),
-                        Vec2::ONE.normalize() / 256.0,
-                    ),
-                    Shadow::new(color!("#888888"), Vec2::ONE * 1.0, Vec2::ONE * 1.0, 2.0),
-                )),
-            ),
-            //     test_shader(
-            //     "test/comparison_image/shader/rect_fill.png1",
-            //     Vec2::new(128.0, 64.0),
-            //     ShapeRender::new(Rect::new(), FillColor::new(Color::BLUE)),
-            // ),
-        ];
-        for r in results {
-            r.unwrap();
-        }
+        let test_suite_name = "dway_ui_framework_unit_test";
+        let temp_dir = tempdir::TempDir::new(test_suite_name).unwrap();
+        let temp_dir_path = temp_dir.into_path();
+        std::fs::create_dir_all(&temp_dir_path).unwrap();
+        info!("template folder: {temp_dir_path:?}");
+
+        run_test_plugins(
+            test_suite_name,
+            vec![
+                shader_unit_test(
+                    &temp_dir_path,
+                    "circle_gradient_border_shadow",
+                    Vec2::splat(384.0),
+                    Circle::new().with_effect((
+                        Border::new(Color::WHITE, 2.0),
+                        Gradient::new(
+                            Color::WHITE * 0.5,
+                            Color::BLUE.rgba_to_vec4() - Color::RED.rgba_to_vec4(),
+                            Vec2::ONE.normalize() / 256.0,
+                        ),
+                        Shadow::new(color!("#888888"), Vec2::ONE * 1.0, Vec2::ONE * 1.0, 2.0),
+                    )),
+                ),
+                shader_unit_test(
+                    &temp_dir_path,
+                    "rect_fill",
+                    Vec2::splat(384.0),
+                    Rect::new().with_effect(FillColor::new(Color::BLUE)),
+                ),
+            ],
+        );
+
+        std::fs::remove_dir_all(temp_dir_path).unwrap();
     }
 }

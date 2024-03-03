@@ -3,7 +3,7 @@ use proc_macro2::Ident;
 use quote::{quote, quote_spanned};
 use syn::{
     spanned::Spanned,
-    token::{Bracket, Paren},
+    token::{self, Bracket, Paren},
     ExprRange, Token,
 };
 
@@ -11,11 +11,11 @@ use crate::{edge::EdgeQuery, filter::Filter, node::NodeQuery, query::QueryBuilde
 
 #[derive(Parse)]
 pub enum PathDirection {
-    #[peek(Token![=>],name = "=>")]
+    #[peek(token::FatArrow,name = "=>")]
     LeftToRight(Token![=>]),
-    #[peek(Token![<=],name = "<=")]
+    #[peek(token::Le,name = "<=")]
     RightToLeft(Token![<=]),
-    #[peek(Token![=],name = "=")]
+    #[peek(token::Eq,name = "=")]
     Both(Token![=]),
 }
 

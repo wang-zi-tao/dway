@@ -6,7 +6,7 @@ use super::{DomArgKey, DomDecorator};
 
 #[derive(Parse)]
 pub enum Connect {
-    #[peek(Token![-], name = "-")]
+    #[peek(token::Minus, name = "-")]
     To {
         #[prefix(Token![-])]
         #[bracket]
@@ -19,7 +19,7 @@ pub enum Connect {
         #[inside(_wrap2)]
         expr: Expr,
     },
-    #[peek(Token![<-], name = "<-")]
+    #[peek(token::LArrow, name = "<-")]
     From {
         #[prefix(Token![<-])]
         #[bracket]

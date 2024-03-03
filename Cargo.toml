@@ -44,7 +44,7 @@ tracing = { version = "*", features = [] }
 tracing-appender = "*"
 tracing-subscriber = "*"
 
-derive_builder = "0.13.0"
+derive_builder = "0.20.0"
 smart-default = "0.7.1"
 structstruck = "0.4.1"
 getset = "0.1.2"
@@ -68,5 +68,3 @@ ash = { version = "*", features = [] }
 
 [patch.crates-io]
 bevy_svg = {path="../bevy_svg/"}
-bevy_prototype_lyon = {path="../bevy_prototype_lyon/"}
-bevy_image_export = {path="../bevy_image_export/"}

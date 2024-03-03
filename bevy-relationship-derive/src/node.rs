@@ -188,9 +188,7 @@ impl syn::parse::Parse for NodeQuery {
     }
 }
 
-#[derive(Parse)]
 pub enum Node {
-    #[peek(Token![<], name="<")]
     WithFilter {
         _lt: Token!(<),
         ty: NodeQuery,
@@ -198,6 +196,23 @@ pub enum Node {
         filter: Type,
         _gt: Token!(>),
     },
-    #[peek_with({|_|true},name="NodeQuery")]
-    WithoutFilter { ty: NodeQuery },
+    WithoutFilter {
+        ty: NodeQuery,
+    },
+}
+
+impl syn::parse::Parse for Node {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        if input.peek(Token![<]) {
+            Ok(Self::WithFilter {
+                _lt: input.parse()?,
+                ty: input.parse()?,
+                _comma: input.parse()?,
+                filter: input.parse()?,
+                _gt: input.parse()?,
+            })
+        } else {
+            Ok(Self::WithoutFilter { ty: input.parse()? })
+        }
+    }
 }

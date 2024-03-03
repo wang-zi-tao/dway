@@ -24,7 +24,6 @@ use dway_client_core::screen::Screen;
 use dway_server::geometry::GlobalGeometry;
 use dway_tty::{drm::surface::DrmSurface, seat::SeatState};
 use dway_ui_framework::widgets::svg::UiSvgBundle;
-use font_kit::{family_name::FamilyName, properties::Properties, source::SystemSource};
 use widgets::clock::ClockBundle;
 
 pub struct DWayUiPlugin;
@@ -61,24 +60,6 @@ impl Plugin for DWayUiPlugin {
         app.add_systems(PreUpdate, init_screen_ui);
         app.add_systems(Startup, setup);
     }
-}
-
-pub fn default_system_font() -> Option<String> {
-    let source = SystemSource::new();
-    let default_fonts = &[
-        FamilyName::Title("arial".to_string()),
-        FamilyName::SansSerif,
-        FamilyName::Monospace,
-        FamilyName::Fantasy,
-    ];
-    let font = source
-        .select_best_match(
-            default_fonts,
-            Properties::new().style(font_kit::properties::Style::Normal),
-        )
-        .ok()?;
-    let loaded = font.load().ok()?;
-    Some(loaded.full_name())
 }
 
 fn setup(
