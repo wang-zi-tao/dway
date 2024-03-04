@@ -8,6 +8,7 @@ pub mod scroll;
 pub mod slider;
 pub mod svg;
 pub mod text;
+pub mod shape;
 
 #[derive(Component, Default)]
 pub struct Callback(pub Option<SystemId>);
@@ -38,7 +39,7 @@ pub mod bundles {
         };
         (@material2d $name:ident {$($tt:tt)*}) => {
             #[derive(Bundle, SmartDefault)]
-            pub struct $name<M: Material2d> {
+            pub struct $name<M: Material2d = ColorMaterial> {
                 pub node: Node,
                 pub material: Handle<M>,
                 pub style: Style,

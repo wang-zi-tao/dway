@@ -107,7 +107,9 @@ where
     T::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.init_asset::<T>();
+        if !app.world.contains_resource::<Assets<T>>(){
+            app.init_asset::<T>();
+        }
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<TransparentUi, DrawUiMesh<T>>()

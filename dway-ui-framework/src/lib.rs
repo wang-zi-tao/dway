@@ -19,6 +19,7 @@ use crate::{
     },
 };
 use bevy::{sprite::Material2dPlugin, ui::UiSystem};
+use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_svg::SvgPlugin;
 pub use dway_ui_derive::*;
 
@@ -29,7 +30,11 @@ impl Plugin for UiFrameworkPlugin {
         if !app.is_plugin_added::<SvgPlugin>() {
             app.add_plugins(SvgPlugin);
         }
-        app.add_plugins((
+        if !app.is_plugin_added::<ShapePlugin>() {
+            app.add_plugins(ShapePlugin);
+        }
+        app
+            .add_plugins((
             assets::UiAssetsPlugin,
             theme::ThemePlugin,
             theme::flat::FlatThemePlugin::default(),
@@ -69,7 +74,12 @@ impl Plugin for UiFrameworkPlugin {
         )
         .add_systems(
             PostUpdate,
-            (widgets::svg::uisvg_update_system.in_set(UpdateWidgets),),
+            (
+                widgets::svg::uisvg_update_system.in_set(UpdateWidgets),
+                widgets::shape::after_process_shape
+                    .in_set(ProcessMesh)
+                    .after(bevy_prototype_lyon::plugin::BuildShapes),
+            ),
         )
         .configure_sets(
             PostUpdate,
@@ -103,6 +113,7 @@ pub enum UiFrameworkSystems {
     UpdatePopup,
     UpdateTheme,
     ApplyAnimation,
+    ProcessMesh,
 }
 
 #[cfg(test)]

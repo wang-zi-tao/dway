@@ -8,6 +8,13 @@ use bevy::diagnostic::LogDiagnosticsPlugin;
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use bevy::render::render_resource::*;
+use bevy_prototype_lyon::draw::Fill;
+use bevy_prototype_lyon::draw::Stroke;
+use bevy_prototype_lyon::entity::Path;
+use bevy_prototype_lyon::entity::ShapeBundle;
+use bevy_prototype_lyon::geometry::GeometryBuilder;
+use bevy_prototype_lyon::plugin::ShapePlugin;
+use bevy_prototype_lyon::shapes;
 use dway_ui::animation::AssetAnimationPlugin;
 use dway_ui::render::mesh::UiMeshBundle;
 use dway_ui::render::mesh::UiMeshHandle;
@@ -18,6 +25,7 @@ use dway_ui::widgets::button::UiButtonBundle;
 use dway_ui::widgets::inputbox::UiInputBox;
 use dway_ui::widgets::inputbox::UiInputBoxBundle;
 use dway_ui::widgets::scroll::UiScrollBundle;
+use dway_ui::widgets::shape::UiShapeBundle;
 use dway_ui::widgets::slider::UiSliderBundle;
 use dway_ui::widgets::svg::UiSvg;
 use dway_ui::widgets::svg::UiSvgBundle;
@@ -248,6 +256,15 @@ Gallary=>
             style: style!("w-64 h-64"),
             ..default()
         })/>
+    </MiniNodeBundle>
+    <MiniNodeBundle Style=(cell_style())
+        @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
+        <UiShapeBundle Fill=(Fill::color(Color::CYAN)) Stroke=( Stroke::new(Color::BLACK, 10.0) ) 
+        Path=(GeometryBuilder::build_as(&shapes::RegularPolygon {
+            sides: 6,
+            feature: shapes::RegularPolygonFeature::Radius(64.0),
+            ..shapes::RegularPolygon::default()
+        }))  @style="w-120 h-120 m-8"/>
     </MiniNodeBundle>
     <MiniNodeBundle Style=(cell_style())
         @material(RoundedInnerShadowBlockMaterial=>rounded_inner_shadow_block(Color::WHITE, 8.0, &theme)) >
