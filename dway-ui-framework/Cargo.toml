@@ -37,6 +37,7 @@ undo = "0.51.0"
 interpolation = "0.3.0"
 type-equals = "0.1.0"
 downcast-rs = {workspace=true}
+bevy-inspector-egui = "0.23"
 
 [dev-dependencies]
 regex = {workspace=true}

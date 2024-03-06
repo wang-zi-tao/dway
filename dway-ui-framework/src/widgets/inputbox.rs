@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, ops::Range};
+use std::{cmp::Ordering, default, ops::Range};
 
 use bevy::{
     input::{
@@ -16,16 +16,19 @@ use bevy::{
 };
 use bevy_relationship::reexport::SmallVec;
 
-use crate::prelude::*;
+use crate::{
+    prelude::*,
+    theme::{ThemeComponent, WidgetKind},
+};
 
 use super::text::UiTextBundle;
 
 structstruck::strike! {
+    #[strikethrough[derive(Debug, Clone, Reflect)]]
     pub struct UiInputboxEvent{
         pub receiver: Entity,
         pub widget: Entity,
         pub kind:
-        #[derive(Clone, Copy, PartialEq, Eq)]
         enum UiInputboxEventKind {
             Enter,
             Changed,
@@ -76,12 +79,14 @@ impl UiInputCommand {
 }
 
 structstruck::strike! {
-    #[derive(Debug, Component, SmartDefault)]
+    #[derive(Component, SmartDefault)]
+    #[strikethrough[derive(Debug, Clone, Reflect)]]
     pub struct UiInputBox{
         pub placeholder: String,
+        #[reflect(ignore)]
         pub callback: CallbackSlots<UiInputboxEvent>,
         pub kind:
-            #[derive(Debug, Clone, Default)]
+            #[derive(Default)]
             enum UiInputBoxKind{
                 #[default]
                 Normal,
@@ -157,15 +162,17 @@ pub fn move_cursor(position: Vec2, inputbox: &UiInputBox, inputbox_state: &mut U
 
 pub fn process_ui_inputbox_event(
     mut keyboard_event: EventReader<KeyboardInput>,
-    mut mouse_input: EventReader<MouseButtonInput>,
     mut query: Query<(
         Entity,
         Ref<Node>,
+        Ref<Interaction>,
+        &UiInputBoxWidget,
         &UiInputBox,
         &mut UiInputBoxState,
         &mut UiInput,
         &RelativeCursorPosition,
     )>,
+    mut text_node_query: Query<Ref<Node>>,
     theme: Res<Theme>,
     mut queue: Local<HashSet<Entity>>,
     mut textures: ResMut<Assets<Image>>,
@@ -183,9 +190,22 @@ pub fn process_ui_inputbox_event(
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.0);
 
-    let mouse_events = mouse_input.read().collect::<SmallVec<[_; 4]>>();
     let key_events = keyboard_event.read().collect::<SmallVec<[_; 4]>>();
-    for (entity, node, inputbox, mut inputbox_state, focus_state, relative_pos) in &mut query {
+    for (
+        entity,
+        root_node,
+        interaction,
+        inputbox_widget,
+        inputbox,
+        mut inputbox_state,
+        focus_state,
+        relative_pos,
+    ) in &mut query
+    {
+        let Ok(node) = text_node_query.get(inputbox_widget.node_text_entity) else {
+            continue;
+        };
+
         let mut run_callbacks = |event: UiInputboxEventKind| {
             for (receiver, callback) in &inputbox.callback {
                 commands.run_system_with_input(
@@ -193,7 +213,7 @@ pub fn process_ui_inputbox_event(
                     UiInputboxEvent {
                         receiver: *receiver,
                         widget: entity,
-                        kind: event,
+                        kind: event.clone(),
                     },
                 );
             }
@@ -388,17 +408,14 @@ pub fn process_ui_inputbox_event(
                 }
             }
         }
-    }
-    for mouse_event in &mouse_events {
-        if mouse_event.state.is_pressed() {
-            for (entity, node, inputbox, mut inputbox_state, focus_state, relative_pos) in
-                &mut query
-            {
+
+        if *interaction == Interaction::Pressed {
+            if interaction.is_changed() {
+                mouse_focus_event.send(UiFocusEvent::FocusEnterRequest(entity));
+            }
+            if relative_pos.mouse_over() {
                 if let Some(normalized) = relative_pos.normalized {
-                    if relative_pos.mouse_over() {
-                        mouse_focus_event.send(UiFocusEvent::FocusEnterRequest(entity));
-                        move_cursor(normalized * node.size(), &inputbox, &mut inputbox_state);
-                    }
+                    move_cursor(normalized * node.size(), &inputbox, &mut inputbox_state);
                 }
             }
         }
@@ -407,24 +424,31 @@ pub fn process_ui_inputbox_event(
 
 dway_widget! {
 UiInputBox=>
+@plugin{app.register_type::<UiInputBox>();}
+@state_reflect()
 @global(theme: Theme)
 @use_state(pub data: String)
 @use_state(pub cursor_char_index: usize)
 @use_state(pub show_cursor: bool = true)
 @use_state(pub cursor_position: Vec2)
-@use_state(pub undo: undo::history::History<UiInputCommand>)
+@use_state(#[reflect(ignore)] pub undo: undo::history::History<UiInputCommand>)
 @use_state(pub test_layout: TextLayoutInfo)
 @bundle{{
     pub ui_focus: UiInput,
     pub relative_cursor_position: RelativeCursorPosition,
     pub interaction: Interaction,
+    pub theme: ThemeComponent = ThemeComponent::widget(WidgetKind::Inputbox),
 }}
+@world_query(focus_policy: &mut FocusPolicy)
 @before{{
+    if !widget.inited {
+        *focus_policy = FocusPolicy::Block;
+    }
     if !widget.inited && !prop.readonly{
         state.set_cursor_position(Vec2::ZERO);
     }
 }}
-<UiTextBundle @id="text" Text=(Text{
+<UiTextBundle @id="text" @style="full" Text=(Text{
     sections: {
         if state.data().is_empty() {
             vec![TextSection{
@@ -448,14 +472,15 @@ UiInputBox=>
     },
     justify: JustifyText::Left,
     linebreak_behavior: BreakLineOn::AnyCharacter,
-}) />
-<MiniNodeBundle @style="absolute full" @if(*state.show_cursor())>
-    <MiniNodeBundle @id="cursor" Style=(Style{
-        left: Val::Px(state.cursor_position().x),
-        top: Val::Px(state.cursor_position().y),
-        height: Val::Px(prop.text_size),
-        ..style!("w-2")
-    })
-    @material(RoundedUiRectMaterial=>rounded_rect(theme.color("inputbox:cursor"), 4.0)) />
-</MiniNodeBundle>
+}) >
+    <MiniNodeBundle @style="absolute full" @if(*state.show_cursor())>
+        <MiniNodeBundle @id="cursor" Style=(Style{
+            left: Val::Px(state.cursor_position().x),
+            top: Val::Px(state.cursor_position().y),
+            height: Val::Px(prop.text_size),
+            ..style!("w-2")
+        })
+        @material(RoundedUiRectMaterial=>rounded_rect(theme.color("inputbox:cursor"), 4.0)) />
+    </MiniNodeBundle>
+</>
 }

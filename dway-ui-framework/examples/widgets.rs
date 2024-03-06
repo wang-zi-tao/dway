@@ -21,6 +21,7 @@ fn main() {
         .add_plugins((dway_ui_framework::UiFrameworkPlugin,))
         .add_systems(Startup, setup)
         .insert_resource(ClearColor(Color::WHITE * 0.8))
+        .add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new())
         .run();
 }
 
@@ -51,38 +52,35 @@ fn setup(mut commands: Commands, theme: Res<Theme>) {
                 },
                 ..default()
             })
-            .with_children(|parent| {
-                parent
-                    .spawn(UiButtonBundle {
-                        style: style!("w-64 h-32 m-8 align-items:center justify-content:center"),
-                        ..Default::default()
-                    })
-                    .with_children(|c| {
-                        c.spawn(UiTextBundle::new("button", 24, &theme));
-                    });
-                parent.spawn(UiCheckboxBundle {
+            .with_children(|c| {
+                c.spawn(UiButtonBundle {
+                    style: style!("w-64 h-32 m-8 align-items:center justify-content:center"),
+                    ..Default::default()
+                })
+                .with_children(|c| {
+                    c.spawn(UiTextBundle::new("button", 24, &theme));
+                });
+                c.spawn(UiCheckboxBundle {
                     style: style!("w-64 h-32 m-8"),
                     ..Default::default()
                 });
-                parent.spawn(UiSliderBundle {
+                c.spawn(UiSliderBundle {
                     style: style!("w-128 h-32 m-8"),
                     ..Default::default()
                 });
+                c.spawn((UiInputBoxBundle {
+                    style: style!("w-128 h-32"),
+                    ..Default::default()
+                },));
             });
             c.spawn(UiHollowBlockBundle {
                 style: style!("w-256 h-256 p-8 m-8"),
                 ..Default::default()
             })
             .with_children(|c| {
-                c.spawn(UiHollowBlockBundle {
+                c.spawn(UiInputBoxBundle {
                     style: style!("full m-8"),
                     ..Default::default()
-                })
-                .with_children(|c| {
-                    c.spawn(UiInputBoxBundle {
-                        style: style!("full m-8"),
-                        ..Default::default()
-                    });
                 });
             });
             c.spawn(UiSunkenBlockBundle {

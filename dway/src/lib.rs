@@ -183,17 +183,17 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     ));
 
     app.add_systems(Startup, setup);
-    app.add_systems(
-        PreUpdate,
-        (
-            spawn_app::spawn
-                .run_if(on_event::<WaylandDisplayCreated>())
-                .in_set(DWayServerSet::CreateGlobal),
-            spawn_app::spawn_x11
-                .run_if(on_event::<DWayXWaylandReady>())
-                .in_set(DWayServerSet::UpdateXWayland),
-        ),
-    );
+    // app.add_systems(
+    //     PreUpdate,
+    //     (
+    //         spawn_app::spawn
+    //             .run_if(on_event::<WaylandDisplayCreated>())
+    //             .in_set(DWayServerSet::CreateGlobal),
+    //         spawn_app::spawn_x11
+    //             .run_if(on_event::<DWayXWaylandReady>())
+    //             .in_set(DWayServerSet::UpdateXWayland),
+    //     ),
+    // );
     app.add_systems(Update, (wm_mouse_action, wm_keys, update));
     app.add_systems(Last, last);
 

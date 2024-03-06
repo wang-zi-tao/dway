@@ -1,6 +1,5 @@
 use anyhow::Result;
 use bevy::{
-    app::RunFixedUpdateLoop,
     ecs::schedule::ScheduleLabel,
     prelude::*,
 };
@@ -33,7 +32,6 @@ pub fn dump_schedules_system_graph(app: &mut App) -> Result<()> {
     dump_schedule(app, "First", First)?;
     dump_schedule(app, "PreUpdate", PreUpdate)?;
     dump_schedule(app, "StateTransition", StateTransition)?;
-    dump_schedule(app, "RunFixedUpdateLoop", RunFixedUpdateLoop)?;
     dump_schedule(app, "Update", Update)?;
     dump_schedule(app, "PostUpdate", PostUpdate)?;
     dump_schedule(app, "Last", Last)?;

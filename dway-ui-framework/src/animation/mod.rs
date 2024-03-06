@@ -69,6 +69,13 @@ pub enum AnimationEaseMethod {
     Step(f32),
     Lambda(Arc<dyn Fn(f32) -> f32 + Send + Sync + 'static>),
 }
+
+impl Default for AnimationEaseMethod {
+    fn default() -> Self {
+        Self::EaseFunction(EaseFunction::CubicIn)
+    }
+}
+
 impl AnimationEaseMethod {
     pub fn calc(&self, value: f32) -> f32 {
         match self {
@@ -99,7 +106,7 @@ impl std::fmt::Debug for AnimationEaseMethod {
 
 structstruck::strike! {
     #[derive(Component)]
-    #[strikethrough[derive(Debug, Clone)]]
+    #[strikethrough[derive(Debug, Clone, Reflect)]]
     pub struct Animation {
         pub state:
         #[derive(PartialEq, Eq)]
@@ -108,11 +115,13 @@ structstruck::strike! {
             Pause,
             Finished,
         },
+        #[reflect(ignore)]
         pub ease: AnimationEaseMethod,
         pub clock: struct AnimationClock {
             duration: Duration,
             total_duration: Duration,
         },
+        #[reflect(ignore)]
         pub callbacks: SmallVec<[SystemId<(Entity,f32)>; 2]>,
     }
 }

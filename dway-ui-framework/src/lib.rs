@@ -50,9 +50,12 @@ impl Plugin for UiFrameworkPlugin {
             UiMeshMaterialPlugin::<SvgMagerial>::default(),
         ))
         .register_type::<UiCheckBox>()
+        .register_type::<UiCheckBoxState>()
         .register_type::<UiSlider>()
         .register_type::<UiButton>()
         .register_type::<UiSvg>()
+        .register_type::<input::UiInput>()
+        .register_type::<animation::Animation>()
         .init_asset::<SvgMagerial>()
         .register_type::<input::MousePosition>()
         .init_resource::<input::MousePosition>()

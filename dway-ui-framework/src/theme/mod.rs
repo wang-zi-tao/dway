@@ -209,7 +209,7 @@ impl Plugin for ThemePlugin {
                 ("checkbox:handle".to_string(), color!("#6791C9")),
                 ("inputbox:cursor".to_string(), color!("#6791C9")),
                 ("inputbox:placeholder".to_string(), color!("#C8CED9")),
-                ("inputbox:text".to_string(), color!("#ffffff")),
+                ("inputbox:text".to_string(), color!("#10171e")),
                 ("panel".to_string(), Color::WHITE.with_a(0.5)),
                 ("panel:hover".to_string(), color!("#ffffff")),
                 ("panel:clicked".to_string(), color!("#D8DEE9")),
@@ -307,6 +307,9 @@ impl ThemeComponent {
             old_style_flags: style_flags,
             widget_kind,
         }
+    }
+    pub fn widget(kind: WidgetKind)->Self{
+        Self::new(StyleFlags::default(), kind)
     }
 }
 

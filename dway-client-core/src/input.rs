@@ -207,7 +207,6 @@ pub fn on_input_event(
                                 window_pointer.mouse_pos = relative_pos.as_ivec2();
                             }
                             cursor_on_window.0 = Some((*surface_entity, relative_pos.as_ivec2()));
-                            dbg!(relative_pos);
                             if let Some(grab) = &window_pointer.grab {
                                 match &**grab {
                                     SurfaceGrabKind::Move { .. } => {

@@ -305,7 +305,7 @@ impl XWaylandDisplay {
             &x11_socket.as_raw_fd().to_string(),
         ]);
         for stream in &streams {
-            command.args(["-listenfd", &stream.as_raw_fd().to_string()]);
+            // command.args(["-listenfd", &stream.as_raw_fd().to_string()]);
         }
         command.env("WAYLAND_SOCKET", wayland_socket.as_raw_fd().to_string());
 
@@ -324,6 +324,7 @@ impl XWaylandDisplay {
             });
         }
 
+        dbg!(&command);
         let child = command.spawn()?;
         Ok(child)
     }

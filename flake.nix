@@ -26,7 +26,7 @@
           nativeBuildInputs = with pkgs; [
             (fenix.fromToolchainFile {
               file = ./rust-toolchain.toml;
-              sha256 = "sha256-zH8KrhJmuqda+uid2V8sp/O5Wh8O61vPOxVy3bypEm0=";
+              sha256 = "sha256-AhaXmpuEQKbeHbG5tB/UamfItWiidsEWfKQfbKTKH1Y=";
             })
             tracy
             cargo-flamegraph
@@ -38,7 +38,7 @@
             libudev-zero
             meson
             pixman
-            xwayland
+            (enableDebugging xwayland)
             xorg.libX11
             xorg.xcbutilimage
             xorg.xcbutilwm

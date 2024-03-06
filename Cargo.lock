@@ -584,25 +584,26 @@ dependencies = [
 
 [[package]]
 name = "bevy-inspector-egui"
-version = "0.21.0"
+version = "0.23.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d65b98d6fca1209c36c4d403c377f303aad22d940281fe1a9e431217516f0622"
+checksum = "972b5890423104b81901102fd8c53d56df56a3c9b1bad5e818122119b6b6b66c"
 dependencies = [
  "bevy-inspector-egui-derive",
- "bevy_app 0.12.1",
- "bevy_asset 0.12.1",
- "bevy_core 0.12.1",
- "bevy_core_pipeline 0.12.1",
- "bevy_ecs 0.12.1",
+ "bevy_app 0.13.0",
+ "bevy_asset 0.13.0",
+ "bevy_core 0.13.0",
+ "bevy_core_pipeline 0.13.0",
+ "bevy_ecs 0.13.0",
  "bevy_egui",
- "bevy_hierarchy 0.12.1",
- "bevy_log 0.12.1",
- "bevy_math 0.12.1",
- "bevy_pbr 0.12.1",
- "bevy_reflect 0.12.1",
- "bevy_render 0.12.1",
- "bevy_utils 0.12.1",
- "bevy_window 0.12.1",
+ "bevy_hierarchy 0.13.0",
+ "bevy_log 0.13.0",
+ "bevy_math 0.13.0",
+ "bevy_pbr",
+ "bevy_reflect 0.13.0",
+ "bevy_render 0.13.0",
+ "bevy_time 0.13.0",
+ "bevy_utils 0.13.0",
+ "bevy_window 0.13.0",
  "egui",
  "image 0.24.9",
  "once_cell",
@@ -612,9 +613,9 @@ dependencies = [
 
 [[package]]
 name = "bevy-inspector-egui-derive"
-version = "0.21.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec800b7cf98151b5dbff80f0eb6dffcb4bcfceef6e457888b395ead4eb7e75ba"
+checksum = "b3c488161a04a123e10273e16d4533945943fcfcf345f066242790e8977aee2d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1035,14 +1036,15 @@ dependencies = [
 
 [[package]]
 name = "bevy_egui"
-version = "0.23.0"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85450af551b7e1cb766f710763b60a12a82ffd6323945a8f776c6334c59ccdc1"
+checksum = "b84bfb8d4104a1467910cf2090bc6a6d394ebde39c0dbc02397b45aa9ef88e80"
 dependencies = [
  "arboard",
- "bevy 0.12.1",
+ "bevy 0.13.0",
  "egui",
  "thread_local",
+ "web-sys",
  "webbrowser",
 ]
 
@@ -1115,7 +1117,7 @@ dependencies = [
  "bevy_gizmos_macros",
  "bevy_log 0.13.0",
  "bevy_math 0.13.0",
- "bevy_pbr 0.13.0",
+ "bevy_pbr",
  "bevy_reflect 0.13.0",
  "bevy_render 0.13.0",
  "bevy_sprite 0.13.0",
@@ -1151,7 +1153,7 @@ dependencies = [
  "bevy_hierarchy 0.13.0",
  "bevy_log 0.13.0",
  "bevy_math 0.13.0",
- "bevy_pbr 0.13.0",
+ "bevy_pbr",
  "bevy_reflect 0.13.0",
  "bevy_render 0.13.0",
  "bevy_scene 0.13.0",
@@ -1294,7 +1296,7 @@ dependencies = [
  "bevy_input 0.13.0",
  "bevy_log 0.13.0",
  "bevy_math 0.13.0",
- "bevy_pbr 0.13.0",
+ "bevy_pbr",
  "bevy_ptr 0.13.0",
  "bevy_reflect 0.13.0",
  "bevy_render 0.13.0",
@@ -1411,43 +1413,17 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_debugdump"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4db8601f41ea570b7d32f3177292a608196c59bdf3298001a9e202d5e7439438"
+checksum = "d39eb6372d6af22b209d68c10e3b742938b450117281387c94ce3f9f51902b76"
 dependencies = [
- "bevy_app 0.12.1",
- "bevy_ecs 0.12.1",
- "bevy_render 0.12.1",
- "bevy_utils 0.12.1",
+ "bevy_app 0.13.0",
+ "bevy_ecs 0.13.0",
+ "bevy_render 0.13.0",
+ "bevy_utils 0.13.0",
  "once_cell",
  "petgraph",
  "pretty-type-name",
-]
-
-[[package]]
-name = "bevy_pbr"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "520bfd2a898c74f84ea52cfb8eb061f37373ad15e623489d5f75d27ebd6138fe"
-dependencies = [
- "bevy_app 0.12.1",
- "bevy_asset 0.12.1",
- "bevy_core_pipeline 0.12.1",
- "bevy_derive 0.12.1",
- "bevy_ecs 0.12.1",
- "bevy_math 0.12.1",
- "bevy_reflect 0.12.1",
- "bevy_render 0.12.1",
- "bevy_transform 0.12.1",
- "bevy_utils 0.12.1",
- "bevy_window 0.12.1",
- "bitflags 2.4.2",
- "bytemuck",
- "fixedbitset",
- "naga_oil 0.10.1",
- "radsort",
- "smallvec",
- "thread_local",
 ]
 
 [[package]]
@@ -3359,6 +3335,7 @@ dependencies = [
  "ansi-str",
  "anyhow",
  "bevy 0.13.0",
+ "bevy-inspector-egui",
  "bevy-relationship",
  "bevy_ecss",
  "bevy_image_export",
@@ -3415,18 +3392,18 @@ dependencies = [
 
 [[package]]
 name = "ecolor"
-version = "0.23.0"
+version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cfdf4e52dbbb615cfd30cf5a5265335c217b5fd8d669593cea74a517d9c605af"
+checksum = "03cfe80b1890e1a8cdbffc6044d6872e814aaf6011835a2a5e2db0e5c5c4ef4e"
 dependencies = [
  "bytemuck",
 ]
 
 [[package]]
 name = "egui"
-version = "0.23.0"
+version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8bd69fed5fcf4fbb8225b24e80ea6193b61e17a625db105ef0c4d71dde6eb8b7"
+checksum = "180f595432a5b615fc6b74afef3955249b86cfea72607b40740a4cd60d5297d0"
 dependencies = [
  "ahash 0.8.10",
  "epaint",
@@ -3441,9 +3418,9 @@ checksum = "11157ac094ffbdde99aa67b23417ebdd801842852b500e395a45a9c0aac03e4a"
 
 [[package]]
 name = "emath"
-version = "0.23.0"
+version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ef2b29de53074e575c18b694167ccbe6e5191f7b25fe65175a0d905a32eeec0"
+checksum = "6916301ecf80448f786cdf3eb51d9dbdd831538732229d49119e2d4312eaaf09"
 dependencies = [
  "bytemuck",
 ]
@@ -3591,9 +3568,9 @@ dependencies = [
 
 [[package]]
 name = "epaint"
-version = "0.23.0"
+version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58067b840d009143934d91d8dcb8ded054d8301d7c11a517ace0a99bb1e1595e"
+checksum = "77b9fdf617dd7f58b0c8e6e9e4a1281f730cde0831d40547da446b2bb76a47af"
 dependencies = [
  "ab_glyph",
  "ahash 0.8.10",

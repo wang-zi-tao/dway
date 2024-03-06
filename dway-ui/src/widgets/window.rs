@@ -1,6 +1,10 @@
-use bevy::utils::{HashMap, HashSet};
 use crate::prelude::*;
-use dway_client_core::{navigation::windowstack::{WindowIndex, WindowStack}, input::SurfaceUiNode, UiAttachData};
+use bevy::utils::{HashMap, HashSet};
+use dway_client_core::{
+    input::SurfaceUiNode,
+    navigation::windowstack::{WindowIndex, WindowStack},
+    UiAttachData,
+};
 use dway_server::{
     geometry::GlobalGeometry,
     util::rect::IRect,
@@ -8,9 +12,7 @@ use dway_server::{
     xdg::{toplevel::DWayToplevel, DWayWindow, PopupList},
 };
 
-use crate::{
-    util::irect_to_style,
-};
+use crate::util::irect_to_style;
 
 use super::popupwindow::{PopupUI, PopupUIBundle, PopupUISystems};
 
@@ -179,7 +181,7 @@ WindowUI=>
         @handle(RoundedUiImageMaterial=>rounded_ui_image(
             14.0,
             ( state.bbox_rect().min-state.rect().min ).as_vec2(),
-            state.bbox_rect().size().as_vec2(),
+            state.bbox_rect().size().as_vec2() / state.rect().size().as_vec2(),
             state.image().clone())) />
         <NodeBundle @id="bar"
             ZIndex=(ZIndex::Local(2))

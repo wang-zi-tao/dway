@@ -29,7 +29,7 @@ type CheckboxMaterial = (
 type SliderMaterial = ShapeRender<RoundedBar, (FillColor, Shadow)>;
 type SliderHightlightBarMaterial = ShapeRender<RoundedBar, FillColor>;
 type SliderHandlerMaterial = ShapeRender<Circle, (Border, FillColor, Shadow)>;
-type InputboxMaterial = ShapeRender<RoundedRect, (InnerShadow, FillColor)>;
+type InputboxMaterial = ShapeRender<RoundedRect, (Border, FillColor)>;
 type ScrollBarMaterial = ShapeRender<RoundedRect, FillColor>;
 
 #[derive(SmartDefault, Clone)]
@@ -193,6 +193,10 @@ impl FlatTheme {
                     self.fill_color(),
                     self.shadow(),
                 ))));
+
+        self.inputbox_material = world.resource_mut::<Assets<_>>().add(ShaderAsset::new(
+            RoundedRect::new(0.5 * self.cornor).with_effect((self.border(), self.fill_color())),
+        ));
     }
 
     fn invisible_shadow(&self) -> Shadow {

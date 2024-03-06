@@ -42,8 +42,9 @@ structstruck::strike! {
     }
 }
 
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, Reflect)]
 pub struct UiInput {
+    #[reflect(ignore)]
     pub callbacks: SmallVec<[(Entity, SystemId<UiInputEvent>); 2]>,
     pub mouse_focused: bool,
     pub input_focused: bool,

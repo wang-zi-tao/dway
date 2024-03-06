@@ -3,6 +3,8 @@ use super::{DomArgKey, DomDecorator};
 
 #[derive(Parse)]
 pub struct UseState {
+    #[call(Attribute::parse_outer)]
+    attrs: Vec<Attribute>,
     vis: Visibility,
     name: Ident,
     _col: Token![:],
@@ -26,6 +28,7 @@ impl DomDecorator for UseState {
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let Self {
             vis,
+            attrs,
             name,
             ty,
             init,
@@ -37,7 +40,7 @@ impl DomDecorator for UseState {
             .unwrap_or_else(|| quote!(Default::default()));
         context.tree_context.state_builder.add_field_with_initer(
             name,
-            quote! {#vis #name: #ty},
+            quote! {#(#attrs)* #vis #name: #ty},
             quote! {#init},
         );
     }

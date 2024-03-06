@@ -11,6 +11,7 @@ use bevy_prototype_lyon::{
     path::PathBuilder,
     shapes,
 };
+use bevy_svg::prelude::{FillOptions, StrokeOptions};
 use chrono::Timelike;
 use dway_ui_framework::{
     render::mesh::{UiMeshBundle, UiMeshHandle, UiMeshMaterialPlugin, UiMeshPlugin},
@@ -51,7 +52,18 @@ fn setup(
 
     commands.spawn((
         Clock,
-        Stroke::new(Color::BLACK, 10.0),
+        Fill{
+            options: FillOptions::default(),
+            color: Color::YELLOW,
+        },
+        Stroke {
+            options: StrokeOptions::default()
+                .with_line_join(bevy_svg::prelude::LineJoin::Round)
+                .with_end_cap(bevy_svg::prelude::LineCap::Round)
+                .with_start_cap(bevy_svg::prelude::LineCap::Round)
+                .with_line_width(8.0),
+            color: Color::BLACK,
+        },
         UiShapeBundle {
             style: Style {
                 align_self: AlignSelf::Center,
@@ -67,6 +79,7 @@ fn setup(
 fn update(mut query: Query<&mut Path, With<Clock>>, time: Res<Time>) {
     for mut path in &mut query {
         let time = chrono::offset::Local::now();
+        let h = time.hour12().1 as f32;
         let m = time.minute() as f32;
         let s = time.second() as f32 + time.timestamp_subsec_millis() as f32 / 1000.0;
 
@@ -74,9 +87,18 @@ fn update(mut query: Query<&mut Path, With<Clock>>, time: Res<Time>) {
 
         let mut builder = PathBuilder::new();
 
+        builder.move_to(Vec2::Y * 160.0);
+        builder.arc(Vec2::ZERO, Vec2::splat(160.0), 2. * PI, 1.0);
+        for i in 0..12 {
+            builder.move_to(polar2rectangular(i as f32 * 2. * PI / 12., 144.0));
+            builder.line_to(polar2rectangular(i as f32 * 2. * PI / 12., 128.0));
+        }
+        builder.move_to(polar2rectangular(h * 2. * PI / 60.0, 64.0));
+        builder.line_to(Vec2::ZERO);
         builder.move_to(polar2rectangular(m * 2. * PI / 60.0, 96.0));
         builder.line_to(Vec2::ZERO);
-        builder.line_to(polar2rectangular(s * 2. * PI / 60.0, 128.0));
+        builder.move_to(polar2rectangular(s * 2. * PI / 60.0, 128.0));
+        builder.line_to(Vec2::ZERO);
 
         *path = builder.build();
     }

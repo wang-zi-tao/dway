@@ -16,11 +16,11 @@ pub use smart_default::SmartDefault;
 pub use crate::{animation::{Animation, AssetAnimationPlugin, AssetTweenAddonBundle, Interpolation, Tween}, input::*, theme::{Theme, ThemeAppExt}, widgets::{
         bundles::*,
         button::{
-            ButtonColor, UiButton, UiButtonAddonBundle, UiButtonBundle, UiButtonEvent,
+            UiButton, UiButtonAddonBundle, UiButtonBundle, UiButtonEvent,
             UiButtonEventKind,
         },
         checkbox::{
-            RoundedCheckBoxAddonBundleWithoutState, UiCheckBox, UiCheckBoxEvent, UiCheckBoxState,
+            UiCheckBox, UiCheckBoxEvent, UiCheckBoxState,
         },
         scroll::UiScrollBundle,
         shader::*,

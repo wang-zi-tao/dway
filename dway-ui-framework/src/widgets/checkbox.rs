@@ -1,4 +1,3 @@
-use super::button::ButtonColor;
 use crate::{make_bundle, prelude::*, theme::{StyleFlags, ThemeComponent, WidgetKind}};
 use bevy_relationship::reexport::SmallVec;
 use smart_default::SmartDefault;
@@ -160,64 +159,17 @@ pub fn process_ui_checkbox_event(
     }
 }
 
-// pub fn checkbox_color_callback<T>(
-//     In(event): In<UiCheckBoxEvent>,
-//     style_query: Query<&ButtonColor>,
-//     mut commands: Commands,
-// ) where
-//     T: Asset,
-//     ColorMaterialColorLens: Lens<T>,
-// {
-//     let Ok(style) = style_query.get(event.checkbox) else {
-//         return;
-//     };
-//     let get_style = |state: &Interaction| match state {
-//         Interaction::Pressed => &style.clicked,
-//         Interaction::Hovered => &style.hover,
-//         Interaction::None => {
-//             if event.value {
-//                 &style.clicked
-//             } else {
-//                 &style.normal
-//             }
-//         }
-//     };
-//     let tween = Tween::<T>::new(
-//         style.animation_method,
-//         style.animation_duration,
-//         ColorMaterialColorLens {
-//             start: get_style(&event.prev_state).clone(),
-//             end: get_style(&event.state).clone(),
-//         },
-//     );
-//     commands
-//         .entity(event.checkbox)
-//         // .insert(AssetAnimator::new(tween))
-//         ;
-// }
-
 #[derive(Bundle, SmartDefault)]
 pub struct CheckBoxAddonBundle<M: UiMaterial> {
     pub checkbox: UiCheckBox,
     pub state: UiCheckBoxState,
     pub interaction: Interaction,
-    pub color: ButtonColor,
     pub material: Handle<M>,
     #[default(FocusPolicy::Block)]
     pub focus_policy: FocusPolicy,
 
     #[default(ThemeComponent::new(StyleFlags::default(), WidgetKind::Checkbox))]
     pub theme: ThemeComponent,
-}
-
-#[derive(Bundle, SmartDefault)]
-pub struct RoundedCheckBoxAddonBundleWithoutState<M: UiMaterial> {
-    pub checkbox: UiCheckBox,
-    pub interaction: Interaction,
-    pub color: ButtonColor,
-    pub material: Handle<M>,
-    #[default(FocusPolicy::Block)]
-    pub focus_policy: FocusPolicy,
 }
 
 make_bundle! {

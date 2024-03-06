@@ -67,10 +67,6 @@ impl PanelButtonBundle {
         callback: &[(Entity, SystemId<UiButtonEvent>)],
     ) -> Self {
         let mut callbacks = callback.to_vec();
-        // callbacks.push((
-        //     entity,
-        //     theme.system(ButtonColor::callback_system::<RoundedUiRectMaterial>),
-        // ));
         Self {
             style: Style {
                 margin: UiRect::axes(Val::Px(4.0), Val::Auto),

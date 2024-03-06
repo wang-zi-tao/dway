@@ -15,6 +15,7 @@ use bevy_prototype_lyon::entity::ShapeBundle;
 use bevy_prototype_lyon::geometry::GeometryBuilder;
 use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_prototype_lyon::shapes;
+use bevy_svg::prelude::StrokeOptions;
 use dway_ui::animation::AssetAnimationPlugin;
 use dway_ui::render::mesh::UiMeshBundle;
 use dway_ui::render::mesh::UiMeshHandle;
@@ -259,10 +260,23 @@ Gallary=>
     </MiniNodeBundle>
     <MiniNodeBundle Style=(cell_style())
         @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
-        <UiShapeBundle Fill=(Fill::color(Color::CYAN)) Stroke=( Stroke::new(Color::BLACK, 10.0) ) 
+        <UiShapeBundle Fill=(Fill::color(Color::BLUE)) Stroke=( Stroke::new(Color::BLACK, 8.0) ) 
+        UiMeshTransform=(Transform::default().with_translation(Vec3::new(-64.0,-64.0,0.0)).with_scale(Vec3::splat(1.0/8.0)).into())
+        Path=(GeometryBuilder::build_as(&shapes::SvgPathShape {
+            svg_doc_size_in_px: Vec2::splat(0.0),
+            svg_path_string: "M280-240q-100 0-170-70T40-480q0-100 70-170t170-70h400q100 0 170 70t70 170q0 100-70 170t-170 70H280Zm0-80h400q66 0 113-47t47-113q0-66-47-113t-113-47H280q-66 0-113 47t-47 113q0 66 47 113t113 47Zm400-40q50 0 85-35t35-85q0-50-35-85t-85-35q-50 0-85 35t-35 85q0 50 35 85t85 35ZM480-480Z".to_string()
+        }))  @style="w-120 h-120 m-8"/>
+    </MiniNodeBundle>
+    <MiniNodeBundle Style=(cell_style())
+        @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
+        <UiShapeBundle Fill=(Fill::color(Color::YELLOW)) 
+        Stroke=(Stroke{
+            color: Color::BLACK,
+            options: StrokeOptions::default().with_line_join(bevy_svg::prelude::LineJoin::Round).with_line_width(16.0)
+        }) 
         Path=(GeometryBuilder::build_as(&shapes::RegularPolygon {
-            sides: 6,
-            feature: shapes::RegularPolygonFeature::Radius(64.0),
+            sides: 8,
+            feature: shapes::RegularPolygonFeature::Radius(48.0),
             ..shapes::RegularPolygon::default()
         }))  @style="w-120 h-120 m-8"/>
     </MiniNodeBundle>
