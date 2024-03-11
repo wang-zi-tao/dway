@@ -9,9 +9,7 @@ use dway_server::apps::{
 use crate::{
     panels::PanelButtonBundle,
     prelude::*,
-    widgets::{icon::UiIcon, popup::{
-        delay_destroy, delay_destroy_up, PopupEvent, PopupEventKind, UiPopup, UiPopupAddonBundle,
-    }},
+    widgets::icon::UiIcon,
 };
 
 #[derive(Component, Default)]
@@ -113,7 +111,7 @@ pub fn open_popup(In(event): In<UiButtonEvent>, theme: Res<Theme>, mut commands:
                     ..default()
                 },
             ))
-            .insert(UiPopupAddonBundle::from(UiPopup::new(Some(
+            .insert(UiPopupExt::from(UiPopup::new(Some(
                 theme.system(delay_destroy_launcher),
             ))))
             .set_parent(event.button);

@@ -3,7 +3,7 @@ use bevy_relationship::reexport::SmallVec;
 // use bevy_tweening::{AssetAnimator, EaseMethod};
 use smart_default::SmartDefault;
 
-use crate::{prelude::*, theme::{StyleFlags, ThemeComponent, WidgetKind}};
+use crate::{make_bundle, prelude::*, theme::{StyleFlags, ThemeComponent, WidgetKind}};
 
 #[derive(Event, Debug, Clone, PartialEq, Eq)]
 pub enum UiButtonEventKind {
@@ -36,7 +36,13 @@ impl UiButton {
             state: Interaction::None,
         }
     }
-    pub fn from_slice(callbacks: &[(Entity, SystemId<UiButtonEvent>)]) -> Self {
+    pub fn with_callback(receiver: Entity, system: SystemId<UiButtonEvent>) -> Self {
+        Self {
+            callback: SmallVec::from_slice(&[(receiver, system)]),
+            state: Interaction::None,
+        }
+    }
+    pub fn with_callbacks(callbacks: &[(Entity, SystemId<UiButtonEvent>)]) -> Self {
         Self {
             callback: SmallVec::from_slice(callbacks),
             state: Interaction::None,
@@ -101,26 +107,20 @@ pub fn process_ui_button_event(
     }
 }
 
-#[derive(Bundle, SmartDefault)]
-pub struct UiButtonAddonBundle {
-    pub button: UiButton,
-    pub interaction: Interaction,
-    #[default(FocusPolicy::Block)]
-    pub focus_policy: FocusPolicy,
-    #[default(ThemeComponent::new(StyleFlags::default(), WidgetKind::Button))]
-    pub theme: ThemeComponent,
-}
-
-impl From<UiButton> for UiButtonAddonBundle {
-    fn from(value: UiButton) -> Self {
-        Self {
-            button: value,
-            ..default()
-        }
+make_bundle!{
+    @from button: UiButton,
+    @addon UiButtonExt,
+    UiButtonBundle {
+        pub button: UiButton,
+        pub interaction: Interaction,
+        #[default(ThemeComponent::new(StyleFlags::default(), WidgetKind::Button))]
+        pub theme: ThemeComponent,
+        #[default(FocusPolicy::Block)]
+        pub focus_policy: FocusPolicy,
     }
 }
 
-impl UiButtonAddonBundle {
+impl UiButtonExt {
     pub fn new(receiver: Entity, callback: SystemId<UiButtonEvent>) -> Self {
         Self {
             button: UiButton::new(receiver, callback),
@@ -129,45 +129,9 @@ impl UiButtonAddonBundle {
     }
     pub fn from_slice(callbacks: &[(Entity, SystemId<UiButtonEvent>)]) -> Self {
         Self {
-            button: UiButton::from_slice(callbacks),
+            button: UiButton::with_callbacks(callbacks),
             ..default()
         }
     }
 }
 
-#[derive(Bundle, SmartDefault)]
-pub struct UiButtonBundle {
-    pub button: UiButton,
-    pub interaction: Interaction,
-    #[default(ThemeComponent::new(StyleFlags::default(), WidgetKind::Button))]
-    pub theme: ThemeComponent,
-
-    pub node: Node,
-    pub style: Style,
-    #[default(FocusPolicy::Block)]
-    pub focus_policy: FocusPolicy,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    pub visibility: Visibility,
-    pub inherited_visibility: InheritedVisibility,
-    pub view_visibility: ViewVisibility,
-    pub z_index: ZIndex,
-}
-
-impl From<UiButton> for UiButtonBundle {
-    fn from(button: UiButton) -> Self {
-        Self {
-            button,
-            ..default()
-        }
-    }
-}
-
-#[derive(Bundle, SmartDefault)]
-pub struct ButtonAddonBundle<M: UiMaterial> {
-    pub button: UiButton,
-    pub interaction: Interaction,
-    pub material: Handle<M>,
-    #[default(FocusPolicy::Block)]
-    pub focus_policy: FocusPolicy,
-}

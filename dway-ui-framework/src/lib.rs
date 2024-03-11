@@ -10,12 +10,12 @@ pub mod theme;
 pub mod widgets;
 use crate::{
     prelude::*,
-    render::mesh::{UiMeshMaterialPlugin, UiMeshPlugin},
+    render::mesh::{UiMeshHandle, UiMeshMaterialPlugin, UiMeshPlugin, UiMeshTransform},
     widgets::{
         button::UiButton,
         checkbox::UiCheckBox,
         slider::UiSlider,
-        svg::{uisvg_update_system, SvgMagerial, UiSvg},
+        svg::{uisvg_update_system, SvgLayout, SvgMagerial, UiSvg},
     },
 };
 use bevy::{sprite::Material2dPlugin, ui::UiSystem};
@@ -33,8 +33,7 @@ impl Plugin for UiFrameworkPlugin {
         if !app.is_plugin_added::<ShapePlugin>() {
             app.add_plugins(ShapePlugin);
         }
-        app
-            .add_plugins((
+        app.add_plugins((
             assets::UiAssetsPlugin,
             theme::ThemePlugin,
             theme::flat::FlatThemePlugin::default(),
@@ -54,6 +53,10 @@ impl Plugin for UiFrameworkPlugin {
         .register_type::<UiSlider>()
         .register_type::<UiButton>()
         .register_type::<UiSvg>()
+        .register_type::<UiPopup>()
+        .register_type::<UiMeshHandle>()
+        .register_type::<UiMeshTransform>()
+        .register_type::<SvgLayout>()
         .register_type::<input::UiInput>()
         .register_type::<animation::Animation>()
         .init_asset::<SvgMagerial>()
@@ -63,6 +66,8 @@ impl Plugin for UiFrameworkPlugin {
         .init_resource::<input::UiFocusState>()
         .add_event::<input::UiFocusEvent>()
         .register_type::<input::UiFocusEvent>()
+        .register_system(delay_destroy)
+        .register_system(delay_destroy_up)
         .add_systems(
             PreUpdate,
             (
@@ -82,6 +87,7 @@ impl Plugin for UiFrameworkPlugin {
                 widgets::shape::after_process_shape
                     .in_set(ProcessMesh)
                     .after(bevy_prototype_lyon::plugin::BuildShapes),
+                widgets::popup::update_popup.in_set(UpdatePopup),
             ),
         )
         .configure_sets(

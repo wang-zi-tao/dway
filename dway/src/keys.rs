@@ -16,7 +16,7 @@ use dway_server::{
     macros::EntityCommandsExt,
     prelude::WindowAction,
 };
-use dway_ui::{prelude::spawn, widgets::popup::UiPopupAddonBundle};
+use dway_ui::{prelude::spawn};
 
 pub fn wm_keys(
     input: Res<ButtonInput<KeyCode>>,

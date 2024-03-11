@@ -14,7 +14,7 @@ use crate::{
     panels::{PanelButtonBundle, WindowTitleBundle},
     prelude::*,
     widgets::{
-        applist::AppListUIBundle, logger::LoggerUIBundle, popup::UiPopupAddonBundle, screen::{ScreenWindows, ScreenWindowsBundle}, workspacelist::WorkspaceListUIBundle
+        applist::AppListUIBundle, logger::LoggerUIBundle, screen::{ScreenWindows, ScreenWindowsBundle}, workspacelist::WorkspaceListUIBundle
     },
 };
 use bevy::{render::camera::RenderTarget, ui::FocusPolicy, window::WindowRef};
@@ -45,7 +45,6 @@ impl Plugin for DWayUiPlugin {
             widgets::window::WindowUIPlugin,
             widgets::popupwindow::PopupUIPlugin,
             widgets::applist::AppListUIPlugin,
-            widgets::popup::PopupUiPlugin,
             widgets::screen::ScreenWindowsPlugin,
             widgets::workspacelist::WorkspaceListUIPlugin,
             widgets::logger::LoggerUIPlugin,

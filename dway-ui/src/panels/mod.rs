@@ -1,9 +1,8 @@
 use dway_client_core::navigation::windowstack::{WindowIndex, WindowStack};
 use dway_server::xdg::toplevel::DWayToplevel;
+use dway_ui_framework::theme::{ThemeComponent, WidgetKind};
 
-use crate::{
-    prelude::*,
-};
+use crate::prelude::*;
 
 #[derive(Component, Debug, Default)]
 pub struct WindowTitle;
@@ -36,8 +35,8 @@ pub struct PanelButtonBundle {
     pub view_visibility: ViewVisibility,
     pub z_index: ZIndex,
 
-    pub button: UiButtonAddonBundle,
-    // pub material: Handle<RoundedUiRectMaterial>,
+    pub button: UiButtonExt,
+    pub material: Handle<RoundedUiRectMaterial>,
 }
 
 impl PanelButtonBundle {
@@ -51,12 +50,12 @@ impl PanelButtonBundle {
                 margin: UiRect::axes(Val::Px(4.0), Val::Auto),
                 ..Default::default()
             },
-            button: UiButtonAddonBundle {
+            button: UiButtonExt {
                 button: UiButton::default(),
+                theme: ThemeComponent::widget(WidgetKind::None),
                 ..Default::default()
             },
-                // material: rect_material_set
-                //     .add(rounded_rect(theme.color("panel"), 8.0)),
+            material: rect_material_set.add(rounded_rect(theme.color("panel"), 8.0)),
             ..Default::default()
         }
     }
@@ -72,12 +71,12 @@ impl PanelButtonBundle {
                 margin: UiRect::axes(Val::Px(4.0), Val::Auto),
                 ..Default::default()
             },
-            button: UiButtonAddonBundle {
-                button: UiButton::default(),
+            button: UiButtonExt {
+                button: UiButton::with_callbacks(callback),
+                theme: ThemeComponent::widget(WidgetKind::None),
                 ..Default::default()
             },
-                // material: rect_material_set
-                //     .add(rounded_rect(theme.color("panel"), 8.0)),
+            material: rect_material_set.add(rounded_rect(theme.color("panel"), 8.0)),
             ..Default::default()
         }
     }

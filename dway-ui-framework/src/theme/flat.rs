@@ -257,6 +257,7 @@ impl ThemeDispatch for FlatTheme {
         let hover = flag.contains(StyleFlags::HOVERED);
         let clicked = flag.contains(StyleFlags::CLICKED);
         match &theme.widget_kind {
+            super::WidgetKind::None => {}
             super::WidgetKind::Block => {
                 if flag.contains(StyleFlags::HIGHLIGHT) {
                     self.apply_material_animation(

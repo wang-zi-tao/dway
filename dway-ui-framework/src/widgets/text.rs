@@ -3,43 +3,20 @@ use bevy::{
     ui::{widget::TextFlags, ContentSize},
 };
 
-use crate::prelude::*;
+use crate::{make_bundle, prelude::*};
 
-#[derive(Bundle, Default)]
-pub struct UiTextBundle {
-    pub node: MiniNodeBundle,
-    pub addon: UiTextAddonBundle,
-}
-impl From<Text> for UiTextBundle{
-    fn from(value: Text) -> Self {
-        Self{
-            node:Default::default(),
-            addon:UiTextAddonBundle{
-                text: value,
-                ..Default::default()
-            }
-        }
+make_bundle! {
+    @from text: Text,
+    @addon UiTextExt,
+    UiTextBundle {
+        pub text: Text,
+        pub text_layout_info: TextLayoutInfo,
+        pub text_flags: TextFlags,
+        pub calculated_size: ContentSize,
     }
 }
 
-impl UiTextBundle {
-    pub fn new(string: &str, size: usize, theme: &Theme) -> Self {
-        Self {
-            node: default(),
-            addon: UiTextAddonBundle::new(string, size, theme),
-        }
-    }
-}
-
-#[derive(Bundle, Default)]
-pub struct UiTextAddonBundle {
-    pub text: Text,
-    pub text_layout_info: TextLayoutInfo,
-    pub text_flags: TextFlags,
-    pub calculated_size: ContentSize,
-}
-
-impl UiTextAddonBundle {
+impl UiTextExt {
     pub fn new(string: &str, size: usize, theme: &Theme) -> Self {
         Self {
             text: Text::from_section(
@@ -51,6 +28,24 @@ impl UiTextAddonBundle {
                 },
             ),
             ..default()
+        }
+    }
+}
+
+impl UiTextBundle {
+    pub fn new(string: &str, size: usize, theme: &Theme) -> Self {
+        let UiTextExt {
+            text,
+            text_layout_info,
+            text_flags,
+            calculated_size,
+        } = UiTextExt::new(string, size, theme);
+        Self {
+            text,
+            text_flags,
+            text_layout_info,
+            calculated_size,
+            ..Default::default()
         }
     }
 }

@@ -1,9 +1,8 @@
 use crate::prelude::MiniNodeBundle;
-use crate::widgets::popup::{delay_destroy, UiPopup, UiPopupAddonBundle};
 use crate::{prelude::*};
 use dway_client_core::controller::volume::VolumeController;
 use dway_ui_derive::dway_widget;
-use dway_ui_framework::widgets::checkbox::UiCheckboxBundle;
+use dway_ui_framework::widgets::checkbox::UiCheckBoxBundle;
 
 #[derive(Component, Default)]
 pub struct VolumeControl;
@@ -47,7 +46,7 @@ VolumeControl=>
 })
 @global(asset_server: AssetServer)
 @global(mut rect_material_set: Assets<RoundedUiRectMaterial>)
-<UiCheckboxBundle UiCheckBox=(UiCheckBox::new(vec![(this_entity,on_mute_event)]))
+<UiCheckBoxBundle UiCheckBox=(UiCheckBox::new(vec![(this_entity,on_mute_event)]))
     @style="p-4 align-self:center" @id="mute_checkbox"
     UiCheckBoxState=(UiCheckBoxState::new(*state.mute()))
 >
@@ -57,7 +56,7 @@ VolumeControl=>
         } else {
             asset_server.load("embedded://dway_ui/icons/volume_on.svg")
         } )) />
-</UiCheckboxBundle>
+</UiCheckBoxBundle>
 <UiSliderBundle @id="slider" @style="m-8 h-32 w-256 align-self:center"
     UiSlider=(UiSlider{ callback:Some((this_entity,on_slider_event)), ..default() })
     UiSliderState=(UiSliderState{value: *state.volume(),..default()})/>
@@ -79,7 +78,7 @@ pub fn open_popup(
                     ..default()
                 },
             ))
-            .insert(UiPopupAddonBundle::from(UiPopup::new(Some(
+            .insert(UiPopupExt::from(UiPopup::new(Some(
                 theme.system(delay_destroy),
             ))))
             .set_parent(event.button);

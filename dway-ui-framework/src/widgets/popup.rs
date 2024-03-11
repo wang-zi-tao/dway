@@ -1,34 +1,6 @@
-use bevy::{ecs::system::SystemId, ui::FocusPolicy};
+use crate::{make_bundle, prelude::*};
+use bevy::{ecs::system::SystemId, ui::{FocusPolicy, RelativeCursorPosition}};
 use derive_builder::Builder;
-use dway_ui_framework::widgets::button;
-
-use crate::{
-    prelude::*,
-};
-
-#[derive(Debug, Clone, Copy, Reflect, Default, PartialEq, Eq)]
-pub enum PopupState {
-    #[default]
-    Open,
-    Closed,
-}
-
-#[derive(Debug, Clone, Copy, Reflect, Default, PartialEq, Eq)]
-pub enum PopupClosePolicy {
-    #[default]
-    MouseButton,
-    MouseLeave,
-    None,
-}
-
-#[derive(Default, Clone, Copy, Reflect, Debug)]
-pub enum PopupPosition {
-    Up,
-    #[default]
-    Down,
-    Left,
-    Right,
-}
 
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq)]
 pub enum PopupEventKind {
@@ -41,18 +13,42 @@ pub struct PopupEvent {
     pub kind: PopupEventKind,
 }
 
-#[derive(Component, Reflect, Default, Clone, Debug, Builder)]
-pub struct UiPopup {
-    pub close_policy: PopupClosePolicy,
-    #[reflect(ignore)]
-    pub callback: Option<SystemId<PopupEvent>>,
-    pub state: PopupState,
-    pub position: PopupPosition,
-    pub moveable: bool,
-    pub hovered: bool,
-    pub auto_destroy: bool,
-    pub anchor: Option<Entity>,
+structstruck::strike!{
+    #[derive(Component, Reflect, Default, Clone, Debug, Builder)]
+    pub struct UiPopup {
+        pub close_policy:
+            #[derive(Debug, Clone, Copy, Reflect, Default, PartialEq, Eq)]
+            pub enum PopupClosePolicy {
+                #[default]
+                MouseButton,
+                MouseLeave,
+                None,
+            },
+        #[reflect(ignore)]
+        pub callback: Option<SystemId<PopupEvent>>,
+        pub state: 
+            #[derive(Debug, Clone, Copy, Reflect, Default, PartialEq, Eq)]
+            pub enum PopupState {
+                #[default]
+                Open,
+                Closed,
+            },
+        pub position: 
+            #[derive(Default, Clone, Copy, Reflect, Debug)]
+            pub enum PopupPosition {
+                Up,
+                #[default]
+                Down,
+                Left,
+                Right,
+            },
+        pub moveable: bool,
+        pub hovered: bool,
+        pub auto_destroy: bool,
+        pub anchor: Option<Entity>,
+    }
 }
+
 impl UiPopup {
     pub fn new(callback: Option<SystemId<PopupEvent, ()>>) -> Self {
         UiPopup {
@@ -69,15 +65,14 @@ impl UiPopup {
     }
 }
 
-pub fn auto_close_popup(
-    mut popup_query: Query<(Entity, &mut UiPopup, &Node, &GlobalTransform)>,
+pub fn update_popup(
+    mut popup_query: Query<(Entity, &mut UiPopup, &Node, &GlobalTransform, &RelativeCursorPosition)>,
     mouse: Res<ButtonInput<MouseButton>>,
-    mouse_position: Res<'_, MousePosition>,
     mut commands: Commands,
 ) {
     let mouse_down =
         || mouse.any_just_pressed([MouseButton::Left, MouseButton::Middle, MouseButton::Right]);
-    popup_query.for_each_mut(|(entity, mut popup, node, transform)| {
+    popup_query.for_each_mut(|(entity, mut popup, node, transform, relative_cursor)| {
         let run_close_callback = |popup: &UiPopup, commands: &mut Commands| {
             if let Some(callback) = popup.callback {
                 commands.run_system_with_input(
@@ -90,7 +85,7 @@ pub fn auto_close_popup(
             }
         };
         let slider_rect = Rect::from_center_size(transform.translation().xy(), node.size());
-        let mouse_inside = slider_rect.contains(mouse_position.position.unwrap_or_default());
+        let mouse_inside = relative_cursor.mouse_over();
         match popup.close_policy {
             PopupClosePolicy::MouseLeave => {
                 if !mouse_inside {
@@ -116,46 +111,15 @@ pub fn auto_close_popup(
     });
 }
 
-#[derive(Bundle, SmartDefault)]
-pub struct UiPopupAddonBundle {
-    pub popup: UiPopup,
-
-    pub button: UiButton,
-    pub interaction: Interaction,
-    #[default(FocusPolicy::Block)]
-    pub focus_policy: FocusPolicy,
-}
-impl From<UiPopup> for UiPopupAddonBundle {
-    fn from(value: UiPopup) -> Self {
-        Self {
-            popup: value,
-            ..Default::default()
-        }
+make_bundle!{
+    @from popup: UiPopup,
+    @addon UiPopupExt,
+    UiPopupBundle {
+        pub popup: UiPopup,
+        pub relative_cursor: RelativeCursorPosition,
+        #[default(FocusPolicy::Block)]
+        pub focus_policy: FocusPolicy,
     }
-}
-
-#[derive(Bundle, SmartDefault)]
-pub struct UiPopupBundle {
-    pub popup: UiPopup,
-
-    pub button: UiButton,
-    pub interaction: Interaction,
-
-    pub node: Node,
-    pub style: Style,
-    #[default(FocusPolicy::Block)]
-    pub focus_policy: FocusPolicy,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    pub visibility: Visibility,
-    pub inherited_visibility: InheritedVisibility,
-    pub view_visibility: ViewVisibility,
-    pub z_index: ZIndex,
-}
-
-#[derive(Clone, Copy, Hash, Debug, PartialEq, Eq, SystemSet)]
-pub enum PopupUiSystems {
-    Close,
 }
 
 pub fn delay_destroy(In(event): In<PopupEvent>, mut commands: Commands) {
@@ -173,20 +137,5 @@ pub fn delay_destroy_up(In(event): In<PopupEvent>, mut commands: Commands) {
         // commands.entity(event.entity).insert(despawn_animation(
         //     animation!(Tween 0.5 secs:BackOut->TransformPositionLens(Vec3::NEG_Y=>Vec3::Y)),
         // ));
-    }
-}
-
-pub struct PopupUiPlugin;
-impl Plugin for PopupUiPlugin {
-    fn build(&self, app: &mut App) {
-        app.register_type::<UiPopup>()
-            .register_system(delay_destroy)
-            .register_system(delay_destroy_up)
-            .add_systems(
-                Update,
-                auto_close_popup
-                    .in_set(PopupUiSystems::Close)
-                    .after(button::process_ui_button_event),
-            );
     }
 }

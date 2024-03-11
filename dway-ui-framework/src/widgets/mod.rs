@@ -9,6 +9,7 @@ pub mod slider;
 pub mod svg;
 pub mod text;
 pub mod shape;
+pub mod popup;
 
 #[derive(Component, Default)]
 pub struct Callback(pub Option<SystemId>);
@@ -34,6 +35,31 @@ pub mod bundles {
                 pub inherited_visibility: InheritedVisibility,
                 pub view_visibility: ViewVisibility,
                 pub z_index: ZIndex,
+                $($tt)*
+            }
+        };
+        (@from $field:ident:$component:ident -> $bundle:ident) => {
+            impl From<$component> for $bundle {
+                fn from($field: $component) -> Self {
+                    Self {
+                        $field,
+                        ..default()
+                    }
+                }
+            }
+        };
+        (@from $field:ident:$component:ident, @addon $addon_name:ident, $bundle:ident {$($tt:tt)*}) => {
+            make_bundle!(@addon $addon_name, $bundle {$($tt)*});
+            make_bundle!(@from $field:$component->$addon_name);
+            make_bundle!(@from $field:$component->$bundle);
+        };
+        (@addon $addon_name:ident, $name:ident {$($tt:tt)*}) => {
+            make_bundle!{
+                $name {$($tt)*}
+            }
+
+            #[derive(Bundle, SmartDefault)]
+            pub struct $addon_name {
                 $($tt)*
             }
         };

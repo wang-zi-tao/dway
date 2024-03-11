@@ -1,10 +1,7 @@
 pub mod flat;
 
 use std::{
-    any::{type_name, Any, TypeId},
-    hash::Hash,
-    marker::PhantomData,
-    sync::{Arc, Weak},
+    any::{type_name, Any, TypeId}, default, hash::Hash, marker::PhantomData, sync::{Arc, Weak}
 };
 
 use bevy::{
@@ -261,8 +258,10 @@ impl ThemeAppExt for App {
 
 pub trait WidgetLabel: Sync + Send + DynHash + DynEq {}
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub enum WidgetKind {
+    #[default]
+    None,
     Block,
     Button,
     Checkbox,

@@ -54,14 +54,14 @@ pub struct UiCheckBoxEvent {
 }
 
 #[derive(Bundle, SmartDefault)]
-pub struct UiCheckBoxAddonBundleWithoutState {
+pub struct UiCheckBoxExtWithoutState {
     pub checkbox: UiCheckBox,
     pub interaction: Interaction,
     #[default(FocusPolicy::Block)]
     pub focus_policy: FocusPolicy,
 }
 
-impl From<UiCheckBox> for UiCheckBoxAddonBundleWithoutState {
+impl From<UiCheckBox> for UiCheckBoxExtWithoutState {
     fn from(value: UiCheckBox) -> Self {
         Self {
             checkbox: value,
@@ -70,21 +70,17 @@ impl From<UiCheckBox> for UiCheckBoxAddonBundleWithoutState {
     }
 }
 
-#[derive(Bundle, SmartDefault)]
-pub struct UiCheckBoxAddonBundle {
-    pub checkbox: UiCheckBox,
-    pub state: UiCheckBoxState,
-    pub interaction: Interaction,
-    #[default(FocusPolicy::Block)]
-    pub focus_policy: FocusPolicy,
-}
-
-impl From<UiCheckBox> for UiCheckBoxAddonBundle {
-    fn from(value: UiCheckBox) -> Self {
-        Self {
-            checkbox: value,
-            ..default()
-        }
+make_bundle!{
+    @from checkbox: UiCheckBox,
+    @addon UiCheckBoxExt,
+    UiCheckBoxBundle {
+        pub checkbox: UiCheckBox,
+        pub state: UiCheckBoxState,
+        pub interaction: Interaction,
+        #[default(FocusPolicy::Block)]
+        pub focus_policy: FocusPolicy,
+        #[default(ThemeComponent::new(StyleFlags::default(), WidgetKind::Checkbox))]
+        pub theme: ThemeComponent,
     }
 }
 
@@ -170,17 +166,4 @@ pub struct CheckBoxAddonBundle<M: UiMaterial> {
 
     #[default(ThemeComponent::new(StyleFlags::default(), WidgetKind::Checkbox))]
     pub theme: ThemeComponent,
-}
-
-make_bundle! {
-    UiCheckboxBundle{
-        pub checkbox: UiCheckBox,
-        pub state: UiCheckBoxState,
-        pub interaction: Interaction,
-        #[default(FocusPolicy::Block)]
-        pub focus_policy: FocusPolicy,
-
-        #[default(ThemeComponent::new(StyleFlags::default(), WidgetKind::Checkbox))]
-        pub theme: ThemeComponent,
-    }
 }

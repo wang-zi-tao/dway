@@ -10,7 +10,6 @@ use dway_server::{
 use crate::{
     prelude::*,
     widgets::{
-        popup::{PopupUiSystems, UiPopupAddonBundle},
         window::create_raw_window_material,
     },
 };
@@ -55,7 +54,7 @@ fn focus_window(
 }}
 @plugin{
     app.register_type::<AppWindowPreviewPopup>();
-    app.configure_sets(Update, AppWindowPreviewPopupSystems::Render.before(PopupUiSystems::Close));
+    app.configure_sets(Update, AppWindowPreviewPopupSystems::Render.before(UiFrameworkSystems::UpdatePopup));
 }
 @arg(asset_server: Res<AssetServer>)
 @use_state(windows: Vec<Entity>)
@@ -79,7 +78,7 @@ fn focus_window(
             @use_state(title:String) @use_state(geo:GlobalGeometry) @use_state(image:Handle<Image>) @use_state(image_rect:IRect) >
             <NodeBundle @style="flex-row">
                 <UiButtonBundle @id="close" @style="m-2 w-20 h-20"
-                UiButtonAddonBundle=(UiButton::new(node!(window_preview), close_window).into())>
+                UiButtonExt=(UiButton::new(node!(window_preview), close_window).into())>
                     <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg"))) />
                 </UiButtonBundle>
                 <TextBundle @style="items-center justify-center m-auto"
@@ -94,7 +93,7 @@ fn focus_window(
                 />
             </NodeBundle>
             <UiButtonBundle
-            UiButtonAddonBundle=(UiButton::new(node!(window_preview), focus_window).into())>
+            UiButtonExt=(UiButton::new(node!(window_preview), focus_window).into())>
                 <MiniNodeBundle
                 @handle(RoundedUiImageMaterial=>create_raw_window_material(*state.image_rect(),state.image().clone(),&state.geo))
                 Style=({ let size = state.geo().size().as_vec2() * PREVIEW_HIGHT / state.geo().height() as f32;

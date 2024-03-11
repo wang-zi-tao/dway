@@ -23,5 +23,7 @@ impl Plugin for DWayAssetsPlugin {
         embedded_asset!(app, "assets", "fonts/SmileySans-Oblique.ttf.woff2");
         embedded_asset!(app, "assets", "fonts/FiraSans-Bold.ttf");
         embedded_asset!(app, "assets", "fonts/FiraMono-Medium.ttf");
+
+        let mut theme = app.world.resource_mut::<Theme>();
     }
 }

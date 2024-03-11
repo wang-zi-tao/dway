@@ -13,18 +13,20 @@ pub use measure_time::{debug_time, error_time, info_time, print_time, trace_time
 
 pub use smart_default::SmartDefault;
 
-pub use crate::{animation::{Animation, AssetAnimationPlugin, AssetTweenAddonBundle, Interpolation, Tween}, input::*, theme::{Theme, ThemeAppExt}, widgets::{
+pub use crate::{
+    animation::{Animation, AssetAnimationPlugin, AssetTweenExt, Interpolation, Tween},
+    input::*,
+    theme::{Theme, ThemeAppExt},
+    widgets::{
         bundles::*,
-        button::{
-            UiButton, UiButtonAddonBundle, UiButtonBundle, UiButtonEvent,
-            UiButtonEventKind,
-        },
-        checkbox::{
-            UiCheckBox, UiCheckBoxEvent, UiCheckBoxState,
-        },
+        button::{UiButton, UiButtonExt, UiButtonBundle, UiButtonEvent, UiButtonEventKind},
+        checkbox::{UiCheckBox, UiCheckBoxEvent, UiCheckBoxState},
         scroll::UiScrollBundle,
         shader::*,
         slider::{UiSlider, UiSliderBundle, UiSliderEvent, UiSliderState},
         svg::{UiSvg, UiSvgBundle},
-        text::{ UiTextBundle },
-    }, UiFrameworkSystems};
+        text::UiTextBundle,
+        popup::*,
+    },
+    UiFrameworkSystems,
+};

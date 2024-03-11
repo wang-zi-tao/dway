@@ -128,7 +128,7 @@ pub fn uisvg_update_system(
     }
 }
 
-#[derive(Clone, Component, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Component, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Reflect)]
 pub enum SvgAlign{
     None,
     Begin,
@@ -137,7 +137,7 @@ pub enum SvgAlign{
     End,
 }
 
-#[derive(Clone, Component, Debug, SmartDefault)]
+#[derive(Clone, Component, Debug, SmartDefault, Reflect)]
 pub struct SvgLayout{
     pub horizontal_align: SvgAlign,
     pub vertical: SvgAlign,

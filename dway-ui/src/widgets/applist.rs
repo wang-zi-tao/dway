@@ -1,10 +1,8 @@
 use super::icon::UiIcon;
-use super::popup::{delay_destroy, UiPopup};
 use crate::prelude::*;
 use crate::{
     popups::app_window_preview::{AppWindowPreviewPopup, AppWindowPreviewPopupBundle},
     prelude::*,
-    widgets::popup::UiPopupAddonBundle,
 };
 use dway_client_core::desktop::FocusedWindow;
 use dway_server::apps::{icon::LinuxIcon, DesktopEntry, WindowList};
@@ -35,7 +33,7 @@ fn open_popup(
             style: style!("absolute bottom-110% align-self:center"),
             ..default()
         })
-        .insert(UiPopupAddonBundle::from( UiPopup{
+        .insert(UiPopupExt::from( UiPopup{
             callback: Some(theme.system(delay_destroy)),
             ..default()
         }))
@@ -57,7 +55,7 @@ fn open_popup(
             <MiniNodeBundle @style="w-48 h-48 m-4 flex-col" @id="app_rect"
                 @handle(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.4), 10.0)) >
                 <UiButtonBundle @id="button" @style="absolute full flex-col"
-                    UiButtonAddonBundle=(UiButton::new(node!(app_root), open_popup).into()) >
+                    UiButtonExt=(UiButton::new(node!(app_root), open_popup).into()) >
                     <ImageBundle @style="w-full h-full" UiIcon=(state.icon().clone().into()) @id="app_icon" />
                     <NodeBundle @id="focus_mark" Style=(Style{
                             width:Val::Percent(((*state.count() as f32)/4.0).min(1.0)*80.0),

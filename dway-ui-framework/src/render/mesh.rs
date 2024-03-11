@@ -38,7 +38,7 @@ use std::{hash::Hash, marker::PhantomData};
 #[reflect(Component)]
 pub struct UiMeshHandle(Handle<Mesh>);
 
-#[derive(Component, Deref, DerefMut, Debug, Clone)]
+#[derive(Component, Deref, DerefMut, Debug, Clone, Reflect)]
 pub struct UiMeshTransform(Transform);
 impl Default for UiMeshTransform {
     fn default() -> Self {

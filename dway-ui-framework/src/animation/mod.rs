@@ -254,12 +254,12 @@ impl<T: Interpolation + Asset> Plugin for AssetAnimationPlugin<T> {
 }
 
 #[derive(Bundle)]
-pub struct AssetTweenAddonBundle<T: Interpolation + Asset> {
+pub struct AssetTweenExt<T: Interpolation + Asset> {
     animation: Animation,
     tween: Tween<T>,
 }
 
-impl<T: Interpolation + Asset> AssetTweenAddonBundle<T> {
+impl<T: Interpolation + Asset> AssetTweenExt<T> {
     pub fn new(mut animation: Animation, tween: Tween<T>, theme: &Theme) -> Self {
         animation
             .callbacks
