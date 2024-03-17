@@ -6,6 +6,7 @@ use dway_server::{
     apps::WindowList, geometry::GlobalGeometry, util::rect::IRect, wl::surface::WlSurface,
     xdg::toplevel::DWayToplevel,
 };
+use dway_ui_framework::widgets::button::UiRawButtonBundle;
 
 use crate::{
     prelude::*,
@@ -77,10 +78,10 @@ fn focus_window(
         <MiniNodeBundle @style="flex-col m-4" @id="window_preview"
             @use_state(title:String) @use_state(geo:GlobalGeometry) @use_state(image:Handle<Image>) @use_state(image_rect:IRect) >
             <NodeBundle @style="flex-row">
-                <UiButtonBundle @id="close" @style="m-2 w-20 h-20"
-                UiButtonExt=(UiButton::new(node!(window_preview), close_window).into())>
+                <UiRawButtonBundle @id="close" @style="m-2 w-20 h-20"
+                UiButton=(UiButton::new(node!(window_preview), close_window))>
                     <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg"))) />
-                </UiButtonBundle>
+                </UiRawButtonBundle>
                 <TextBundle @style="items-center justify-center m-auto"
                     Text=(Text::from_section(
                         state.title(),
@@ -92,13 +93,13 @@ fn focus_window(
                     ).with_justify(JustifyText::Center))
                 />
             </NodeBundle>
-            <UiButtonBundle
-            UiButtonExt=(UiButton::new(node!(window_preview), focus_window).into())>
-                <MiniNodeBundle
+            <UiRawButtonBundle
+            UiButton=(UiButton::new(node!(window_preview), focus_window))>
+                <MaterialNodeBundle::<RoundedUiImageMaterial>
                 @handle(RoundedUiImageMaterial=>create_raw_window_material(*state.image_rect(),state.image().clone(),&state.geo))
                 Style=({ let size = state.geo().size().as_vec2() * PREVIEW_HIGHT / state.geo().height() as f32;
                         Style{ width:Val::Px(size.x), height:Val::Px(size.y), ..default() } }) />
-            </UiButtonBundle>
+            </UiRawButtonBundle>
         </MiniNodeBundle>
 </MiniNodeBundle>
 }

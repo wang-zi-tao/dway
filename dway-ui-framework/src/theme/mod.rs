@@ -127,11 +127,10 @@ impl Theme {
             Default::default()
         }
     }
-    pub fn system<T, M>(&self, system: T) -> SystemId<T::In, T::Out>
+    pub fn system<F, I, M>(&self, system: F) -> SystemId<I, ()>
     where
-        T: SystemParamFunction<M, Out = ()>,
-        T::In: 'static,
-        T::Out: 'static,
+        F: IntoSystem<I, (), M> + 'static,
+        I: 'static
     {
         let Some(callback) = self.callbacks.get(&system.type_id()) else {
             panic!(
@@ -141,7 +140,7 @@ note: add code
 use dway_ui::theme::ThemeAppExt;
 app.register_system({system});
 ``` to the plugin to register the system",
-                system = type_name::<T>()
+                system = type_name::<F>()
             );
         };
         *callback.as_ref().downcast_ref().unwrap()
@@ -274,18 +273,16 @@ impl Plugin for ThemePlugin {
 }
 
 pub trait ThemeAppExt {
-    fn register_system<F, M: 'static>(&mut self, system: F) -> &mut App
+    fn register_system<F, I, M>(&mut self, system: F) -> &mut App
     where
-        F: SystemParamFunction<M, Out = ()> + 'static,
-        F::In: 'static,
-        F::Out: 'static;
+        F: IntoSystem<I, (), M> + 'static,
+        I: 'static;
 }
 impl ThemeAppExt for App {
-    fn register_system<F, M: 'static>(&mut self, system: F) -> &mut App
+    fn register_system<F, I, M>(&mut self, system: F) -> &mut App
     where
-        F: SystemParamFunction<M, Out = ()> + 'static,
-        F::In: 'static,
-        F::Out: 'static,
+        F: IntoSystem<I, (), M> + 'static,
+        I: 'static
     {
         let type_id = system.type_id();
         let system_id = self.world.register_system(system);

@@ -1,7 +1,10 @@
 use crate::prelude::MiniNodeBundle;
-use crate::{prelude::*};
+use crate::prelude::*;
 use dway_client_core::controller::volume::VolumeController;
 use dway_ui_derive::dway_widget;
+use dway_ui_framework::animation::interpolation::EaseFunction;
+use dway_ui_framework::animation::ui::{popup_open_close_up, popup_open_drop_down};
+use dway_ui_framework::animation::AnimationEaseMethod;
 use dway_ui_framework::widgets::checkbox::UiCheckBoxBundle;
 
 #[derive(Component, Default)]
@@ -30,7 +33,7 @@ VolumeControl=>
         }
     }
 }
-@plugin{ app.register_system(open_popup); }
+@plugin{ app.register_system(open_popup).register_system(delay_destroy); }
 @use_state(volume:f32)
 @use_state(mute:bool)
 @global(theme: Theme)
@@ -62,6 +65,15 @@ VolumeControl=>
     UiSliderState=(UiSliderState{value: *state.volume(),..default()})/>
 }
 
+pub fn delay_destroy(In(event): In<PopupEvent>, mut commands: Commands, theme: Res<Theme>) {
+    if PopupEventKind::Closed == event.kind {
+        commands.entity(event.entity).insert(
+            Animation::new(Duration::from_secs_f32(0.4), EaseFunction::CubicOut)
+                .with_callback(theme.system(popup_open_close_up)),
+        );
+    }
+}
+
 pub fn open_popup(
     In(event): In<UiButtonEvent>,
     theme: Res<Theme>,
@@ -71,7 +83,8 @@ pub fn open_popup(
     if event.kind == UiButtonEventKind::Released {
         commands
             .spawn((
-                // animation!(0.5 secs:BackOut->TransformScaleLens(Vec3::splat(0.5)=>Vec3::ONE)),
+                Animation::new(Duration::from_secs_f32(0.5), EaseFunction::CubicIn)
+                    .with_callback(theme.system(popup_open_drop_down)),
                 rect_material_set.add(rounded_rect(theme.color("panel-popup"), 16.0)),
                 VolumeControlBundle {
                     style: style!("absolute top-120% align-self:end p-8"),

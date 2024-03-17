@@ -1,3 +1,5 @@
+pub mod ui;
+
 use crate::{prelude::*, theme::ThemeAppExt};
 use bevy::ecs::system::Command;
 use bevy_relationship::reexport::SmallVec;
@@ -25,7 +27,11 @@ make_interpolation!(Vec3);
 make_interpolation!(Vec4);
 impl Interpolation for Color {
     fn interpolation(&self, other: &Self, v: f32) -> Self {
-        Color::rgba_from_array(Interpolation::interpolation(&self.rgba_to_vec4(),&other.rgba_to_vec4(),v))
+        Color::rgba_from_array(Interpolation::interpolation(
+            &self.rgba_to_vec4(),
+            &other.rgba_to_vec4(),
+            v,
+        ))
     }
 }
 
@@ -70,6 +76,12 @@ pub enum AnimationEaseMethod {
     Lambda(Arc<dyn Fn(f32) -> f32 + Send + Sync + 'static>),
 }
 
+impl From<EaseFunction> for AnimationEaseMethod {
+    fn from(value: EaseFunction) -> Self {
+        AnimationEaseMethod::EaseFunction(value)
+    }
+}
+
 impl Default for AnimationEaseMethod {
     fn default() -> Self {
         Self::EaseFunction(EaseFunction::CubicIn)
@@ -87,12 +99,6 @@ impl AnimationEaseMethod {
     }
 }
 
-impl From<EaseFunction> for AnimationEaseMethod {
-    fn from(value: EaseFunction) -> Self {
-        Self::EaseFunction(value)
-    }
-}
-
 impl std::fmt::Debug for AnimationEaseMethod {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -102,6 +108,15 @@ impl std::fmt::Debug for AnimationEaseMethod {
             AnimationEaseMethod::Step(c) => f.debug_tuple("Step").field(&c).finish(),
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct AnimationEvent {
+    pub entity: Entity,
+    pub value: f32,
+    pub old_value: f32,
+    pub just_start: bool,
+    pub just_finish: bool,
 }
 
 structstruck::strike! {
@@ -122,7 +137,7 @@ structstruck::strike! {
             total_duration: Duration,
         },
         #[reflect(ignore)]
-        pub callbacks: SmallVec<[SystemId<(Entity,f32)>; 2]>,
+        pub callbacks: SmallVec<[SystemId<AnimationEvent>; 2]>,
     }
 }
 impl Animation {
@@ -136,6 +151,10 @@ impl Animation {
             },
             callbacks: Default::default(),
         }
+    }
+    pub fn with_callback(mut self, callback: SystemId<AnimationEvent>) -> Self {
+        self.callbacks.push(callback);
+        self
     }
     pub fn pause(&mut self) {
         if self.state != AnimationState::Play {
@@ -188,11 +207,29 @@ pub fn update_animation_system(
             continue;
         }
         let duration = animation.clock.duration + time.delta();
-        let ease = animation
+        let mut ease_old = animation.ease.calc(
+            animation.clock.duration.as_secs_f32() / animation.clock.total_duration.as_secs_f32(),
+        );
+        let mut ease = animation
             .ease
             .calc(duration.as_secs_f32() / animation.clock.total_duration.as_secs_f32());
+        if animation.clock.duration == Duration::ZERO {
+            ease_old = 0.0;
+        }
+        if duration > animation.clock.total_duration {
+            ease = 1.0;
+        }
         for callback in &animation.callbacks {
-            commands.run_system_with_input(*callback, (entity, ease));
+            commands.run_system_with_input(
+                *callback,
+                AnimationEvent {
+                    entity,
+                    value: ease,
+                    old_value: ease_old,
+                    just_start: animation.clock.duration == Duration::ZERO,
+                    just_finish: duration > animation.clock.total_duration,
+                },
+            );
         }
         if duration > animation.clock.total_duration {
             animation.state = AnimationState::Finished;
@@ -218,21 +255,21 @@ impl<I: Interpolation + Asset> Tween<I> {
 }
 
 pub fn apply_tween_asset<I: Interpolation + Asset>(
-    In((entity, v)): In<(Entity, f32)>,
+    In(AnimationEvent { entity, value, .. }): In<AnimationEvent>,
     mut assets: ResMut<Assets<I>>,
     mut query: Query<(&mut Handle<I>, &Tween<I>)>,
 ) {
     let Ok((mut handle, tween)) = query.get_mut(entity) else {
         return;
     };
-    if v <= 0.0 {
+    if value <= 0.0 {
         *handle = tween.begin.clone();
-    } else if v >= 1.0 {
+    } else if value >= 1.0 {
         *handle = tween.end.clone();
     } else if let (Some(begin_asset), Some(end_asset)) =
         (assets.get(&tween.begin), assets.get(&tween.end))
     {
-        let new_asset = Interpolation::interpolation(begin_asset, end_asset, v);
+        let new_asset = Interpolation::interpolation(begin_asset, end_asset, value);
         if &*handle == &tween.begin || &*handle == &tween.end {
             *handle = assets.add(new_asset);
         } else {
@@ -273,7 +310,11 @@ impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            update_animation_system.in_set(UiFrameworkSystems::ApplyAnimation),
-        );
+            (update_animation_system, apply_deferred)
+                .chain()
+                .in_set(UiFrameworkSystems::ApplyAnimation),
+        )
+        .register_system(ui::popup_open_drop_down)
+        .register_system(ui::popup_open_close_up);
     }
 }

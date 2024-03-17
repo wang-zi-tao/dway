@@ -1,6 +1,7 @@
 use crate::{make_bundle, prelude::*};
 use bevy::{ecs::system::SystemId, ui::{FocusPolicy, RelativeCursorPosition}};
 use derive_builder::Builder;
+use interpolation::EaseFunction;
 
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq)]
 pub enum PopupEventKind {
@@ -125,9 +126,7 @@ make_bundle!{
 pub fn delay_destroy(In(event): In<PopupEvent>, mut commands: Commands) {
     if PopupEventKind::Closed == event.kind {
         commands.entity(event.entity).despawn_recursive(); // TODO: temp code
-        // commands.entity(event.entity).insert(despawn_animation(
-        //     animation!(Tween 0.5 secs:BackIn->TransformScaleLens(Vec3::ONE=>Vec3::splat(0.5))),
-        // ));
+        // commands.entity(event.entity).insert(Animation::new(Duration::from_secs_f32(0.4), EaseFunction::BackOut).with_callback(theme.system(AnimationSystem::default())));
     }
 }
 
