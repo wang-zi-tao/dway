@@ -9,7 +9,7 @@ use dway_server::apps::{
 use crate::{
     panels::PanelButtonBundle,
     prelude::*,
-    widgets::icon::UiIcon,
+    widgets::icon::{UiIcon, UiIconBundle},
 };
 
 #[derive(Component, Default)]
@@ -72,7 +72,7 @@ LauncherUI=>
                         @use_state(pub name: String)
                         @use_state(pub icon: Handle<LinuxIcon>)
                     >
-                        <ImageBundle @style="w-24 h-24 align-self:center" UiIcon=(state.icon().clone().into()) @id="app_icon" />
+                        <UiIconBundle @style="w-24 h-24 align-self:center" UiIcon=(state.icon().clone().into()) @id="app_icon" />
                         <(UiTextBundle::new(&state.name(),24,&theme)) @id="app_name" @style="p-4 align-self:center"/>
                     </PanelButtonBundle>
                 </MiniNodeBundle>

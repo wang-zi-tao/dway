@@ -1,6 +1,6 @@
 use dway_client_core::navigation::windowstack::{WindowIndex, WindowStack};
 use dway_server::xdg::toplevel::DWayToplevel;
-use dway_ui_framework::theme::{ThemeComponent, WidgetKind};
+use dway_ui_framework::{make_bundle, theme::{ThemeComponent, WidgetKind}};
 
 use crate::prelude::*;
 
@@ -24,19 +24,11 @@ WindowTitle=>
 </MiniNodeBundle>
 }
 
-#[derive(Bundle, Default)]
-pub struct PanelButtonBundle {
-    pub node: Node,
-    pub style: Style,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    pub visibility: Visibility,
-    pub inherited_visibility: InheritedVisibility,
-    pub view_visibility: ViewVisibility,
-    pub z_index: ZIndex,
-
-    pub button: UiButtonExt,
-    pub material: Handle<RoundedUiRectMaterial>,
+make_bundle!{
+    PanelButtonBundle {
+        pub button: UiButtonExt,
+        pub material: Handle<RoundedUiRectMaterial>,
+    }
 }
 
 impl PanelButtonBundle {

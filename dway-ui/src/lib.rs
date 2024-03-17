@@ -144,6 +144,7 @@ ScreenUI=>
             <(PanelButtonBundle::with_callback(prop.screen,&theme,&mut rect_material_set, &[
                 (prop.screen,theme.system(popups::volume_control::open_popup))
             ])) @style="flex-col">
+                // <MiniNodeBundle @style="h-24 w-24" />
                 <(UiSvgBundle::new(theme.icon("volume_on", &asset_server))) @style="w-24 h-24" @id="volume"/>
             </PanelButtonBundle>
             <(PanelButtonBundle::new(prop.screen,&theme,&mut rect_material_set))>

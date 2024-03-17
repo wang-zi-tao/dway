@@ -47,6 +47,8 @@ make_bundle! {
         pub svg: UiSvg,
         pub layout: SvgLayout,
         pub mesh_transform: UiMeshTransform,
+
+        pub focus_policy: FocusPolicy,
     }
 }
 

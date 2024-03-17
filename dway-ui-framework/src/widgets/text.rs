@@ -13,6 +13,8 @@ make_bundle! {
         pub text_layout_info: TextLayoutInfo,
         pub text_flags: TextFlags,
         pub calculated_size: ContentSize,
+
+        pub focus_policy: FocusPolicy,
     }
 }
 
@@ -39,12 +41,14 @@ impl UiTextBundle {
             text_layout_info,
             text_flags,
             calculated_size,
+            focus_policy,
         } = UiTextExt::new(string, size, theme);
         Self {
             text,
             text_flags,
             text_layout_info,
             calculated_size,
+            focus_policy,
             ..Default::default()
         }
     }
