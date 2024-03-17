@@ -26,7 +26,10 @@ use dway_client_core::{
     layout::{LayoutRect, LayoutStyle},
     workspace::{Workspace, WorkspaceBundle, WorkspaceSet},
 };
-use dway_server::{apps::icon::LinuxIconSourcePlugin, schedule::DWayServerSet, state::WaylandDisplayCreated, x11::DWayXWaylandReady};
+use dway_server::{
+    apps::icon::LinuxIconSourcePlugin, schedule::DWayServerSet, state::WaylandDisplayCreated,
+    x11::DWayXWaylandReady,
+};
 use dway_tty::{DWayTTYPlugin, DWayTTYSettings};
 use dway_util::logger::DWayLogPlugin;
 use keys::*;
@@ -183,32 +186,34 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     ));
 
     app.add_systems(Startup, setup);
-    // app.add_systems(
-    //     PreUpdate,
-    //     (
-    //         spawn_app::spawn
-    //             .run_if(on_event::<WaylandDisplayCreated>())
-    //             .in_set(DWayServerSet::CreateGlobal),
-    //         spawn_app::spawn_x11
-    //             .run_if(on_event::<DWayXWaylandReady>())
-    //             .in_set(DWayServerSet::UpdateXWayland),
-    //     ),
-    // );
+    #[cfg(feature = "debug")]
+    {
+        app.add_systems(
+            PreUpdate,
+            (
+                spawn_app::spawn
+                    .run_if(on_event::<WaylandDisplayCreated>())
+                    .in_set(DWayServerSet::CreateGlobal),
+                spawn_app::spawn_x11
+                    .run_if(on_event::<DWayXWaylandReady>())
+                    .in_set(DWayServerSet::UpdateXWayland),
+            ),
+        );
+    }
     app.add_systems(Update, (wm_mouse_action, wm_keys, update));
     app.add_systems(Last, last);
 
     #[cfg(feature = "single_thread")]
     {
-        app
-            .edit_schedule(PreUpdate, |schedule| {
-                schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
-            })
-            .edit_schedule(Update, |schedule| {
-                schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
-            })
-            .edit_schedule(PostUpdate, |schedule| {
-                schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
-            });
+        app.edit_schedule(PreUpdate, |schedule| {
+            schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+        })
+        .edit_schedule(Update, |schedule| {
+            schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+        })
+        .edit_schedule(PostUpdate, |schedule| {
+            schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+        });
     }
     #[cfg(feature = "debug")]
     if opts.debug_schedule {

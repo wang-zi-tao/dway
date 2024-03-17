@@ -1,4 +1,4 @@
-use super::icon::UiIcon;
+use super::icon::{UiIcon, UiIconBundle};
 use crate::prelude::*;
 use crate::{
     popups::app_window_preview::{AppWindowPreviewPopup, AppWindowPreviewPopupBundle},
@@ -6,6 +6,8 @@ use crate::{
 };
 use dway_client_core::desktop::FocusedWindow;
 use dway_server::apps::{icon::LinuxIcon, DesktopEntry, WindowList};
+use dway_ui_framework::theme::ThemeComponent;
+use dway_ui_framework::widgets::button::UiRawButtonExt;
 
 #[derive(Component, Reflect)]
 pub struct AppEntryUI(pub Entity);
@@ -54,15 +56,15 @@ fn open_popup(
         <MiniNodeBundle @if(*state.count()>0)  >
             <MiniNodeBundle @style="w-48 h-48 m-4 flex-col" @id="app_rect"
                 @handle(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.4), 10.0)) >
-                <UiButtonBundle @id="button" @style="absolute full flex-col"
-                    UiButtonExt=(UiButton::new(node!(app_root), open_popup).into()) >
-                    <ImageBundle @style="w-full h-full" UiIcon=(state.icon().clone().into()) @id="app_icon" />
+                <MiniNodeBundle @id="button" @style="absolute full flex-col"
+                    UiRawButtonExt=(UiButton::new(node!(app_root), open_popup).into()) >
+                    <UiIconBundle @id="app_icon" @style="w-full h-full" UiIcon=(state.icon().clone().into()) @id="app_icon" />
                     <NodeBundle @id="focus_mark" Style=(Style{
                             width:Val::Percent(((*state.count() as f32)/4.0).min(1.0)*80.0),
                         ..style!("absolute bottom-0 h-2 align-center")})
                         BackgroundColor=((if *state.is_focused() {Color::BLUE} else {Color::WHITE} ).into())
                     />
-                </UiButtonBundle>
+                </MiniNodeBundle>
                 <MiniNodeBundle @id="popup" @style="absolute full flex-col" />
             </>
         </MiniNodeBundle>

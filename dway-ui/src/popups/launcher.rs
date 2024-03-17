@@ -38,13 +38,13 @@ LauncherUI=>
 }
 @global(theme:Theme)
 @global(entries: DesktopEntriesSet)
+@global(asset_server: AssetServer)
 @plugin{{
     app.register_system(open_popup);
     app.register_system(delay_destroy_launcher);
 }}
 @arg(mut svg_assets: ResMut<Assets<Svg>>)
 @arg(mut mesh_assets: ResMut<Assets<Mesh>>)
-@arg(mut assets_server: ResMut<AssetServer>)
 <MiniNodeBundle
 @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup"), 16.0))
 @style="flex-col p-4">
@@ -62,7 +62,7 @@ LauncherUI=>
                         entry=>{
                             state.set_name(entry.name().unwrap_or_default().to_string());
                             if let Some(mut icon_url) = entry.icon_url(32) {
-                                state.set_icon(assets_server.load(&icon_url));
+                                state.set_icon(asset_server.load(&icon_url));
                             }
                         }
                     ])>
@@ -83,19 +83,19 @@ LauncherUI=>
         @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup")*0.9, 16.0))
     >
         <( PanelButtonBundle::new(this_entity,&theme,&mut assets_rounded_ui_rect_material) ) @style="w-32 h-32" @id="user_icon">
-            <(UiSvgBundle::new(theme.icon("user"))) @style="w-32 h-32"/>
+            <(UiSvgBundle::new(theme.icon("user", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
         <( PanelButtonBundle::new(this_entity,&theme,&mut assets_rounded_ui_rect_material) ) @style="w-32 h-32" @id="lock_button">
-            <(UiSvgBundle::new(theme.icon("lock"))) @style="w-32 h-32"/>
+            <(UiSvgBundle::new(theme.icon("lock", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
         <( PanelButtonBundle::new(this_entity,&theme,&mut assets_rounded_ui_rect_material) ) @style="w-32 h-32" @id="logout_button">
-            <(UiSvgBundle::new(theme.icon("logout"))) @style="w-32 h-32"/>
+            <(UiSvgBundle::new(theme.icon("logout", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
         <( PanelButtonBundle::new(this_entity,&theme,&mut assets_rounded_ui_rect_material) ) @style="w-32 h-32" @id="reboot_button">
-            <(UiSvgBundle::new(theme.icon("restart"))) @style="w-32 h-32"/>
+            <(UiSvgBundle::new(theme.icon("restart", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
         <( PanelButtonBundle::new(this_entity,&theme,&mut assets_rounded_ui_rect_material) ) @style="w-32 h-32" @id="poweroff_button">
-            <(UiSvgBundle::new(theme.icon("power"))) @style="w-32 h-32"/>
+            <(UiSvgBundle::new(theme.icon("power", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
     </MiniNodeBundle>
 </MiniNodeBundle>

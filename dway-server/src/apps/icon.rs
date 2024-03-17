@@ -105,17 +105,11 @@ impl AssetLoader for LinuxIconLoader {
                 .ok_or(LinuxIconError::NotFound)?;
             let file = raw_icon.file_for_size(settings.icon.width.max(settings.icon.height));
             let path = file.path().to_owned();
+
             debug!(
                 "loading icon: {:?} {}x{}",
                 &path, settings.icon.width, settings.icon.height
             );
-
-            #[cfg(debug_assertions)]
-            {
-                return Err(LinuxIconError::Io(io::Error::other(anyhow!(
-                    "program may panic when loading icon in debug mode. skip loading icon."
-                ))));
-            }
 
             let icon = if path.extension().map(|e| e == "svg").unwrap_or(false) {
                 LinuxIconKind::Svg(load_context.load(path))

@@ -6,12 +6,7 @@ use dway_ui_framework::{
         bundles::{
             UiBlockBundle, UiHighlightBlockBundle, UiHollowBlockBundle, UiNodeBundle,
             UiSunkenBlockBundle,
-        },
-        button::UiButtonBundle,
-        checkbox::UiCheckboxBundle,
-        inputbox::UiInputBoxBundle,
-        slider::UiSliderBundle,
-        text::UiTextBundle,
+        }, button::UiButtonBundle, checkbox::UiCheckBoxBundle, inputbox::UiInputBoxBundle, slider::UiSliderBundle, text::UiTextBundle
     },
 };
 
@@ -60,7 +55,7 @@ fn setup(mut commands: Commands, theme: Res<Theme>) {
                 .with_children(|c| {
                     c.spawn(UiTextBundle::new("button", 24, &theme));
                 });
-                c.spawn(UiCheckboxBundle {
+                c.spawn(UiCheckBoxBundle {
                     style: style!("w-64 h-32 m-8"),
                     ..Default::default()
                 });

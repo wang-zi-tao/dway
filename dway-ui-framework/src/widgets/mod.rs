@@ -4,17 +4,19 @@ pub mod button;
 pub mod canvas;
 pub mod checkbox;
 pub mod inputbox;
+pub mod popup;
 pub mod scroll;
+pub mod shape;
 pub mod slider;
 pub mod svg;
 pub mod text;
-pub mod shape;
-pub mod popup;
 
 #[derive(Component, Default)]
 pub struct Callback(pub Option<SystemId>);
 
 pub mod bundles {
+    use bevy::ui::{widget::UiImageSize, ContentSize};
+
     use crate::{
         prelude::*,
         theme::{StyleFlags, ThemeComponent, WidgetKind},
@@ -95,6 +97,16 @@ pub mod bundles {
         };
     }
 
+    make_bundle!(
+        @from image: UiImage,
+        @addon UiImageExt,
+        UiImageBundle {
+            pub image: UiImage,
+            pub image_size: UiImageSize,
+            pub focus_policy: FocusPolicy,
+            pub calculated_size: ContentSize,
+        }
+    );
     make_bundle!(UiNodeBundle {
         pub focus_policy: FocusPolicy,
     });

@@ -324,7 +324,6 @@ impl XWaylandDisplay {
             });
         }
 
-        dbg!(&command);
         let child = command.spawn()?;
         Ok(child)
     }

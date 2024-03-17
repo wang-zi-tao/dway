@@ -14,7 +14,11 @@ use crate::{
     panels::{PanelButtonBundle, WindowTitleBundle},
     prelude::*,
     widgets::{
-        applist::AppListUIBundle, logger::LoggerUIBundle, screen::{ScreenWindows, ScreenWindowsBundle}, workspacelist::WorkspaceListUIBundle
+        applist::AppListUIBundle,
+        icon::{UiIcon, UiIconBundle},
+        logger::LoggerUIBundle,
+        screen::{ScreenWindows, ScreenWindowsBundle},
+        workspacelist::WorkspaceListUIBundle,
     },
 };
 use bevy::{render::camera::RenderTarget, ui::FocusPolicy, window::WindowRef};
@@ -23,7 +27,7 @@ pub use bitflags::bitflags as __bitflags;
 use dway_client_core::screen::Screen;
 use dway_server::geometry::GlobalGeometry;
 use dway_tty::{drm::surface::DrmSurface, seat::SeatState};
-use dway_ui_framework::widgets::svg::UiSvgBundle;
+use dway_ui_framework::widgets::svg::{UiSvgBundle, UiSvgExt};
 use widgets::clock::ClockBundle;
 
 pub struct DWayUiPlugin;
@@ -32,7 +36,7 @@ impl Plugin for DWayUiPlugin {
         if !app.is_plugin_added::<SvgPlugin>() {
             app.add_plugins(SvgPlugin);
         }
-        #[cfg(feature="css")]
+        #[cfg(feature = "css")]
         {
             app.add_plugins(bevy_ecss::EcssPlugin::with_hot_reload());
         }
@@ -41,6 +45,7 @@ impl Plugin for DWayUiPlugin {
             assets::DWayAssetsPlugin,
         ));
         app.add_plugins((
+            widgets::icon::UiIconPlugin,
             widgets::clock::ClockUiPlugin,
             widgets::window::WindowUIPlugin,
             widgets::popupwindow::PopupUIPlugin,
@@ -128,7 +133,7 @@ ScreenUI=>
             <(PanelButtonBundle::with_callback(prop.screen,&theme,&mut rect_material_set, &[
                 (prop.screen,theme.system(popups::launcher::open_popup))
             ])) @style="flex-col">
-                <(UiSvgBundle::new(theme.icon("dashboard"))) @style="w-24 h-24" @id="dashboard"/>
+                <(UiSvgBundle::new(theme.icon("dashboard", &asset_server))) @style="w-24 h-24" @id="dashboard"/>
             </PanelButtonBundle>
             <WindowTitleBundle/>
         </MiniNodeBundle>
@@ -139,10 +144,10 @@ ScreenUI=>
             <(PanelButtonBundle::with_callback(prop.screen,&theme,&mut rect_material_set, &[
                 (prop.screen,theme.system(popups::volume_control::open_popup))
             ])) @style="flex-col">
-                <(UiSvgBundle::new(theme.icon("volume_on"))) @style="w-24 h-24" @id="volume"/>
+                <(UiSvgBundle::new(theme.icon("volume_on", &asset_server))) @style="w-24 h-24" @id="volume"/>
             </PanelButtonBundle>
             <(PanelButtonBundle::new(prop.screen,&theme,&mut rect_material_set))>
-                <(UiSvgBundle::new(theme.icon("settings"))) @style="w-24 h-24" @id="settings"/>
+                <(UiSvgBundle::new(theme.icon("settings", &asset_server))) @style="w-24 h-24" @id="settings"/>
             </PanelButtonBundle>
         </MiniNodeBundle>
         <MiniNodeBundle @style="absolute w-full h-full justify-center items-center" @id="center">
@@ -159,7 +164,7 @@ ScreenUI=>
             Handle<_>=(rect_material_set.add(rounded_rect(Color::WHITE.with_a(0.5), 16.0)))>
             <AppListUIBundle/>
             <(PanelButtonBundle::new(prop.screen,&theme,&mut rect_material_set))>
-                <(UiSvgBundle::new(theme.icon("apps"))) @style="w-48 h-48" @id="apps"/>
+                <(UiSvgBundle::new(theme.icon("apps", &asset_server))) @style="w-48 h-48" @id="apps"/>
             </PanelButtonBundle>
         </MiniNodeBundle>
     </NodeBundle>

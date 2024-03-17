@@ -1,8 +1,8 @@
 use crate::{make_bundle, prelude::*, render::mesh::{UiMeshHandle, UiMeshTransform}};
-use bevy::{render::render_resource::{AsBindGroup, ShaderRef}, sprite::Material2d};
+use bevy::{render::render_resource::{AsBindGroup, ShaderRef}, sprite::Material2d, utils::HashSet};
 use bevy_svg::prelude::{Origin, Svg};
 
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Default, Reflect, PartialEq, Eq, Hash)]
 pub struct UiSvg {
     handle: Handle<Svg>,
 }
@@ -39,6 +39,8 @@ impl Material2d for SvgMagerial {
 }
 
 make_bundle! {
+    @from svg: UiSvg,
+    @addon UiSvgExt,
     UiSvgBundle{
         pub mesh: UiMeshHandle,
         pub material: Handle<SvgMagerial>,
@@ -59,6 +61,7 @@ impl UiSvgBundle {
 
 pub fn uisvg_update_system(
     mut query: Query<(
+        Entity,
         Ref<Node>,
         Ref<UiSvg>,
         &mut UiMeshHandle,
@@ -68,16 +71,18 @@ pub fn uisvg_update_system(
         )>,
     assets: Res<Assets<Svg>>,
     mut materials: ResMut<Assets<SvgMagerial>>,
+    mut padding_entity: Local<HashSet<Entity>>,
 ) {
-    for (node, svg, mut mesh, mut material, layout, mut transform) in &mut query {
+    for (entity, node, svg, mut mesh, mut material, layout, mut transform) in &mut query {
         let not_init = mesh.id() == Handle::<Mesh>::default().id();
-        if not_init || svg.is_changed() {
+        let padding = padding_entity.is_empty() && padding_entity.remove(&entity);
+        if not_init || padding || svg.is_changed() {
             if let Some(asset) = assets.get(&svg.handle) {
                 *mesh = asset.mesh.clone().into();
                 *material = materials.add( SvgMagerial{ inner:asset.clone() } );
             }
         }
-        if not_init || layout.is_changed() || node.is_changed(){
+        if not_init || padding || layout.is_changed() || node.is_changed(){
             if let Some(asset) = assets.get(&svg.handle) {
                 let node_size = node.size();
                 let mut size = Vec2::new( asset.view_box.w as f32, asset.view_box.h as f32 );
@@ -123,6 +128,8 @@ pub fn uisvg_update_system(
                         transform.translation.y = pos.y - node_size.y * 0.5;
                     }
                 }
+            }else {
+                padding_entity.insert(entity);
             }
         }
     }

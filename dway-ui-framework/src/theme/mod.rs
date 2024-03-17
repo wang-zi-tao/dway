@@ -1,11 +1,17 @@
 pub mod flat;
 
 use std::{
-    any::{type_name, Any, TypeId}, default, hash::Hash, marker::PhantomData, sync::{Arc, Weak}
+    any::{type_name, Any, TypeId},
+    default,
+    hash::Hash,
+    marker::PhantomData,
+    path::PathBuf,
+    sync::{Arc, Weak},
 };
 
 use bevy::{
     app::DynEq,
+    asset::AssetLoader,
     ecs::system::{Command, EntityCommand, SystemId},
     render::render_resource::AsBindGroup,
     utils::{label::DynHash, HashMap, HashSet},
@@ -48,14 +54,31 @@ pub mod iconname {
 }
 use classname::*;
 
+#[derive(Debug, Clone)]
+pub enum ThemeIcon {
+    Path(Arc<str>),
+    InDirectory(Arc<str>),
+    Handle(Handle<Svg>),
+}
+impl ThemeIcon {
+    pub fn get_svg(&self, name: &str, asset_server: &AssetServer) -> Handle<Svg> {
+        match self {
+            ThemeIcon::Path(p) => asset_server.load(p.to_string()),
+            ThemeIcon::InDirectory(p) => asset_server.load(format!("{}/{}.svg", p, name)),
+            ThemeIcon::Handle(h) => h.clone(),
+        }
+    }
+}
+
 #[derive(Resource, Reflect)]
 pub struct Theme {
     pub default_font: Handle<Font>,
     pub color_map: HashMap<String, Color>,
     pub style_map: HashMap<String, Style>,
-    pub icons: HashMap<String, Handle<Svg>>,
     #[reflect(ignore)]
     pub callbacks: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
+    #[reflect(ignore)]
+    pub icons: HashMap<Box<str>, ThemeIcon>,
 
     #[reflect(ignore)]
     pub material_shadow: Shadow,
@@ -92,8 +115,17 @@ impl Theme {
     pub fn color(&self, color: &str) -> Color {
         self.color_map.get(color).cloned().unwrap_or(Color::NONE)
     }
-    pub fn icon(&self, icon: &str) -> Handle<Svg> {
-        self.icons.get(icon).cloned().unwrap_or_default()
+    pub fn icon(&self, name: &str, asset_server: &AssetServer) -> Handle<Svg> {
+        if let Some(icon) = self
+            .icons
+            .get(name)
+            .map(|icon| icon.get_svg(name, asset_server))
+        {
+            icon
+        } else {
+            warn!(icon_name = %name,"icon not found in theme");
+            Default::default()
+        }
     }
     pub fn system<T, M>(&self, system: T) -> SystemId<T::In, T::Out>
     where
@@ -146,6 +178,13 @@ app.register_system({system});
             style_flags: flag,
             old_style_flags: flag,
             widget_kind,
+        }
+    }
+
+    pub fn register_icons_in_dictory(&mut self, dir: &str, icons: &[&str]) {
+        let icon_info = ThemeIcon::InDirectory(Arc::from(dir));
+        for icon in icons {
+            self.icons.insert(Box::from(*icon), icon_info.clone());
         }
     }
 }
@@ -296,10 +335,7 @@ pub struct ThemeComponent {
 }
 
 impl ThemeComponent {
-    pub fn new(
-        style_flags: StyleFlags,
-        widget_kind: WidgetKind,
-    ) -> Self {
+    pub fn new(style_flags: StyleFlags, widget_kind: WidgetKind) -> Self {
         Self {
             theme: None,
             style_flags,
@@ -307,8 +343,11 @@ impl ThemeComponent {
             widget_kind,
         }
     }
-    pub fn widget(kind: WidgetKind)->Self{
+    pub fn widget(kind: WidgetKind) -> Self {
         Self::new(StyleFlags::default(), kind)
+    }
+    pub fn none() -> Self {
+        Self::new(StyleFlags::empty(), WidgetKind::None)
     }
 }
 
