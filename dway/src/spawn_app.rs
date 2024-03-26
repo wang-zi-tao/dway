@@ -13,7 +13,7 @@ pub fn spawn(
     for WaylandDisplayCreated(dway_entity, _) in events.read() {
         if let Ok(compositor) = query.get(*dway_entity) {
             for _i in 0..1 {
-                let mut command = process::Command::new("alacritty");
+                let command = process::Command::new("alacritty");
                 compositor.spawn_process(command);
             }
 

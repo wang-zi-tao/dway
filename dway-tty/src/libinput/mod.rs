@@ -6,7 +6,6 @@ use std::{
     os::fd::{AsFd, AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd},
     sync::{Arc, Mutex},
 };
-use wgpu::core::identity::Input;
 
 use anyhow::Result;
 use bevy::{

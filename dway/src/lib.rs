@@ -10,30 +10,24 @@ use bevy::{
     audio::AudioPlugin,
     diagnostic::{
         EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
-        SystemInformationDiagnosticsPlugin,
     },
-    gizmos::GizmoPlugin,
     gltf::GltfPlugin,
     log::{Level, LogPlugin},
-    pbr::PbrPlugin,
     prelude::*,
     render::{
-        settings::{Backends, PowerPreference, RenderCreation, WgpuSettings},
+        settings::{Backends, RenderCreation, WgpuSettings},
         RenderPlugin,
     },
     scene::ScenePlugin,
-    time::TimePlugin,
     winit::WinitPlugin,
 };
-use bevy_framepace::debug::DiagnosticsPlugin;
 use clap::Parser;
 use dway_client_core::{
     layout::{LayoutRect, LayoutStyle},
     workspace::{Workspace, WorkspaceBundle, WorkspaceSet},
 };
 use dway_server::{
-    apps::icon::LinuxIconSourcePlugin, schedule::DWayServerSet, state::WaylandDisplayCreated,
-    x11::DWayXWaylandReady,
+    apps::icon::LinuxIconSourcePlugin,
 };
 use dway_tty::{DWayTTYPlugin, DWayTTYSettings};
 use dway_ui_framework::diagnostics::UiDiagnosticsPlugin;

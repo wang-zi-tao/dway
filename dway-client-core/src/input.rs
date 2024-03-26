@@ -1,11 +1,10 @@
-use std::ops::Mul;
 
 use super::desktop::{CursorOnOutput, FocusedWindow};
-use crate::{desktop::CursorOnWindow, navigation::windowstack::WindowStack, DWayClientSystem};
+use crate::{desktop::CursorOnWindow, DWayClientSystem};
 use bevy::{
     input::{
         keyboard::KeyboardInput,
-        mouse::{MouseButtonInput, MouseMotion, MouseWheel},
+        mouse::{MouseButtonInput, MouseWheel},
         ButtonState,
     },
     math::DVec2,
@@ -21,13 +20,12 @@ use dway_server::{
         seat::{SeatHasPointer, WlSeat},
     },
     input::{keyboard::WlKeyboard, pointer::WlPointer},
-    macros::WindowAction,
     schedule::DWayServerSet,
     wl::surface::ClientHasSurface,
-    wl::{region::WlRegion, surface::WlSurface},
+    wl::{surface::WlSurface},
     xdg::{popup::XdgPopup, toplevel::XdgToplevel, DWayWindow},
 };
-use dway_server::{input::grab::ResizeEdges, util::rect::IRect};
+use dway_server::{input::grab::ResizeEdges};
 
 #[derive(Default)]
 pub struct DWayInputPlugin {
@@ -177,11 +175,11 @@ pub fn on_input_event(
     };
     for event in cursor_moved_events
         .read()
-        .map(|w| MouseEvent::Move(&w))
-        .chain(button_events.read().map(|w| MouseEvent::Button(w)))
-        .chain(wheel_events.read().map(|w| MouseEvent::Wheel(w)))
+        .map(MouseEvent::Move)
+        .chain(button_events.read().map(MouseEvent::Button))
+        .chain(wheel_events.read().map(MouseEvent::Wheel))
     {
-        ui_query.for_each_mut(|(interaction, mut content, mut style)| {
+        ui_query.for_each_mut(|(interaction, content, mut style)| {
             if *interaction == Interaction::None {
                 return;
             }
@@ -223,7 +221,7 @@ pub fn on_input_event(
                                         //     ),
                                         // ));
                                     }
-                                    SurfaceGrabKind::Resizing { edges, geo, .. } => {
+                                    SurfaceGrabKind::Resizing { edges,  .. } => {
                                         let mut geo = window_geometry.geometry;
                                         if edges.contains(ResizeEdges::LEFT) {
                                             geo.min.x += relative_pos.x as i32;
@@ -284,7 +282,7 @@ pub fn on_input_event(
                             output_focus.window_entity = Some(*surface_entity);
                         }
                     }
-                    return ControlFlow::Continue;
+                    ControlFlow::Continue
                 },
             );
         });

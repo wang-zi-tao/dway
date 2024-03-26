@@ -11,7 +11,6 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Result};
 use bevy::prelude::*;
-use crossbeam::epoch::Pointable;
 use drm::{
     control::{
         atomic::AtomicModeReq,
@@ -21,9 +20,8 @@ use drm::{
     },
     Device as drm_device, VblankWaitFlags,
 };
-use drm_ffi::{drm_vblank_seq_type::_DRM_VBLANK_HIGH_CRTC_MASK, _DRM_VBLANK_HIGH_CRTC_SHIFT};
 use drm_fourcc::DrmFormat;
-use measure_time::{debug_time, info_time, print_time, trace_time};
+use measure_time::{debug_time};
 use tracing::{span, Level};
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 

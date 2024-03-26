@@ -5,8 +5,6 @@ use bevy::{
 };
 use dway_util::keys::*;
 use input::{event::tablet_pad::KeyState, Device};
-use smol_str::SmolStr;
-use tracing::warn;
 
 #[allow(non_upper_case_globals)]
 pub fn convert_keycode(
@@ -26,7 +24,7 @@ pub fn convert_keycode(
         )
     }
 
-    let (mut keycode, mut logicalkey) = match code {
+    let (keycode, mut logicalkey) = match code {
         KEY_RESERVED => undefined_key(code),
         KEY_ESC => (KeyCode::Escape, Key::Escape),
         KEY_1 => (KeyCode::Digit1, Key::Character("1".into())),

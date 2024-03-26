@@ -62,7 +62,7 @@ pub fn ansi_to_sections(
     font: &Handle<Font>,
 ) -> Vec<TextSection> {
     let mut section_list = vec![];
-    for block in ansi_str::get_blocks(&ansi) {
+    for block in ansi_str::get_blocks(ansi) {
         let color = match block.style().foreground() {
             Some(c) => match c {
                 ansi_str::Color::Black => theme.color("black"),

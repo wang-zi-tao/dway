@@ -11,15 +11,15 @@ pub mod widgets;
 pub mod diagnostics;
 use crate::{
     prelude::*,
-    render::mesh::{UiMeshHandle, UiMeshMaterialPlugin, UiMeshPlugin, UiMeshTransform},
+    render::mesh::{UiMeshHandle, UiMeshMaterialPlugin, UiMeshTransform},
     widgets::{
         button::UiButton,
         checkbox::UiCheckBox,
         slider::UiSlider,
-        svg::{uisvg_update_system, SvgLayout, SvgMagerial, UiSvg},
+        svg::{SvgLayout, SvgMagerial, UiSvg},
     },
 };
-use bevy::{sprite::Material2dPlugin, ui::UiSystem};
+use bevy::{ui::UiSystem};
 use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_svg::SvgPlugin;
 pub use dway_ui_derive::*;
@@ -129,23 +129,23 @@ pub enum UiFrameworkSystems {
 #[cfg(test)]
 pub mod tests {
     use std::{
-        collections::{HashMap, HashSet},
+        collections::{HashMap},
         path::{Path, PathBuf},
-        sync::{mpsc, Arc, Mutex},
+        sync::{Arc, Mutex},
     };
 
-    use anyhow::bail;
+    
     use bevy::{
-        app::{AppExit, ScheduleRunnerPlugin},
+        app::{AppExit},
         core::FrameCount,
         ecs::system::BoxedSystem,
         render::{camera::RenderTarget, view::screenshot::ScreenshotManager},
         window::{PresentMode, WindowRef},
         winit::WinitPlugin,
     };
-    use image::{open, DynamicImage, GenericImageView, Rgba};
+    use image::{DynamicImage, GenericImageView};
 
-    use self::shader::Material;
+    
 
     use super::*;
 
@@ -196,7 +196,7 @@ pub mod tests {
                 return Ok(None);
             }
         }
-        let diff_image = image_diff::diff(&dest_image, &src_image)?;
+        let diff_image = image_diff::diff(dest_image, src_image)?;
         let mut tmp = tmp.to_owned();
         tmp.push("diff.png");
         diff_image.save(&tmp)?;
@@ -275,7 +275,7 @@ pub mod tests {
                 if frame.0 > 32 && matches!(state.lock().unwrap().get(&name).unwrap(), UnitTestState::Padding){
                     if let Err(e) =
                         snapshot_manager.take_screenshot(window_entity, move |image| {
-                                let dest: &Path = &PathBuf::from(image_path);
+                                let dest: &Path = &image_path;
                                 let tmp: &Path = &output_path;
                                 let src_image = image::DynamicImage::ImageRgba8(
                                     image::RgbaImage::from_raw(image.width(), image.height(), image.data.clone()).unwrap(),

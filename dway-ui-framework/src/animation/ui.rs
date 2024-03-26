@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-use super::{AnimationEvent, AnimationState};
+use super::{AnimationEvent};
 
 #[derive(Component, Debug, Clone)]
 pub struct BackupStyle(pub Style);

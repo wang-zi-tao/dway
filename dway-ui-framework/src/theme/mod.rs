@@ -2,11 +2,8 @@ pub mod flat;
 
 use std::{
     any::{type_name, Any, TypeId},
-    default,
     hash::Hash,
-    marker::PhantomData,
-    path::PathBuf,
-    sync::{Arc, Weak},
+    sync::{Arc},
 };
 
 use bevy::{
@@ -24,12 +21,7 @@ use crate::{
     shader::{
         effect::{InnerShadow, Shadow},
         fill::Fill,
-        Material, ShaderAsset, ShaderPlugin,
-    },
-    widgets::{
-        button::{UiButton, UiButtonEvent},
-        checkbox::{UiCheckBox, UiCheckBoxEvent},
-        inputbox::{UiInputBox, UiInputboxEvent},
+        Material, ShaderAsset,
     },
 };
 

@@ -1,12 +1,12 @@
 use crate::prelude::*;
-use bevy::render::{render_asset::RenderAsset, render_resource::encase::private::Metadata};
+use bevy::render::{render_resource::encase::private::Metadata};
 use bevy::{
-    asset::{embedded_asset, io::embedded::EmbeddedAssetRegistry, load_internal_asset},
+    asset::{io::embedded::EmbeddedAssetRegistry, load_internal_asset},
     render::{
         render_asset::RenderAssets,
         render_resource::{
             encase::{internal::WriteInto, UniformBuffer},
-            AsBindGroup, AsBindGroupError, BindGroupEntry, BindGroupLayout, BindGroupLayoutEntry,
+            AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry,
             BindingType, BufferBindingType, BufferInitDescriptor, BufferUsages,
             OwnedBindingResource, RenderPipelineDescriptor, SamplerBindingType, ShaderRef,
             ShaderStages, ShaderType, TextureSampleType, TextureViewDimension, UnpreparedBindGroup,
@@ -18,14 +18,11 @@ use bevy::{
 use dway_ui_derive::Interpolation;
 use encase::{
     internal::{AlignmentValue, BufferMut, SizeValue, Writer},
-    DynamicUniformBuffer,
 };
 use std::{
     any::{type_name, TypeId},
     collections::BTreeSet,
-    hash::Hash,
     marker::PhantomData,
-    mem::size_of,
     path::PathBuf,
 };
 
@@ -59,7 +56,7 @@ impl ShaderBuilder {
             self.prefixes.last().map(|s| &**s).unwrap_or(""),
             name
         );
-        if self.uniforms.iter().find(|(_, k, _)| k == &name).is_none() {
+        if !self.uniforms.iter().any(|(_, k, _)| k == &name) {
             self.uniforms
                 .push((attr.to_string(), name.clone(), ty.to_string()));
         }
@@ -71,7 +68,7 @@ impl ShaderBuilder {
             self.prefixes.last().map(|s| &**s).unwrap_or(""),
             name
         );
-        if self.binding.iter().find(|(_, k, _)| k == &name).is_none() {
+        if !self.binding.iter().any(|(_, k, _)| k == &name) {
             self.binding
                 .push((attr.to_string(), name.clone(), ty.to_string()));
         }
@@ -125,14 +122,14 @@ impl ShaderBuilder {
             .iter()
             .map(|u| format!("#import {u}"))
             .collect::<Vec<_>>()
-            .join(&"\n");
+            .join("\n");
         let uniforms = self
             .uniforms
             .iter()
             .enumerate()
             .map(|(i, (a, k, t))| format!("@location({i}) {a} {k}: {t},"))
             .collect::<Vec<_>>()
-            .join(&"\n");
+            .join("\n");
         let bindings = self
             .binding
             .iter()
@@ -141,13 +138,13 @@ impl ShaderBuilder {
                 format!("@group(1) @binding({}) {attr} var {name}: {ty};", i + 1)
             })
             .collect::<Vec<_>>()
-            .join(&"\n");
+            .join("\n");
         let vertex_fields = self
             .vertex_fields
             .iter()
             .map(|(p, k, t)| format!("{p} {k}: {t},"))
             .collect::<Vec<_>>()
-            .join(&"\n");
+            .join("\n");
         format!(
             "
 #import bevy_render::view::View
@@ -266,7 +263,7 @@ impl<'l> BindGroupBuilder<'l> {
         let image = self
             .images
             .get(image)
-            .ok_or_else(|| AsBindGroupError::RetryNextUpdate)?;
+            .ok_or(AsBindGroupError::RetryNextUpdate)?;
         self.output.push((
             self.binding_number(),
             OwnedBindingResource::TextureView(image.texture_view.clone()),
@@ -453,10 +450,9 @@ impl_interpolation_for_tuple!(0:E0,1:E1,);
 impl_interpolation_for_tuple!(0:E0,);
 
 pub mod effect {
-    use bevy::render::render_resource::encase::internal::WriteInto;
+    
     use encase::{
         internal::{BufferMut, Writer},
-        ShaderType,
     };
 
     use super::{
@@ -595,7 +591,7 @@ pub mod effect {
             let uniform_radius = builder.get_uniform("radius", "", "f32");
             let (pos_var, pos_stat) =
                 builder.add_var("shadow_pos", format!("{pos} - {uniform_offset}"));
-            let (size_var, size_stat) = builder.add_var("shadow_size", format!("{size}"));
+            let (size_var, size_stat) = builder.add_var("shadow_size", size.to_string());
             let shadow_d_expr = builder.in_namespace(shape_ns, |builder| {
                 S::to_wgsl(
                     builder,
@@ -948,8 +944,8 @@ pub mod fill {
     }
     impl Fill for FillColor {
         fn to_wgsl(builder: &mut ShaderBuilder, _pos: &ShaderVariables) -> Expr {
-            let uniform_color = builder.get_uniform("color", "", "vec4<f32>");
-            uniform_color
+            
+            builder.get_uniform("color", "", "vec4<f32>")
         }
     }
     impl BuildBindGroup for FillColor {
@@ -1201,7 +1197,7 @@ pub mod shape {
 pub mod transform {
     use crate::prelude::*;
 
-    use super::{BuildBindGroup, Expr, Material, ShaderBuilder, ShaderVariables, Transformed};
+    use super::{BuildBindGroup, Material, ShaderBuilder, ShaderVariables, Transformed};
     pub trait Transform: BuildBindGroup {
         fn transform(builder: &mut ShaderBuilder, var: &ShaderVariables) -> ShaderVariables;
 
@@ -1385,7 +1381,7 @@ impl<S: Shape, E: Effect> Material for ShapeRender<S, E> {
             size: format!("{ns}_size"),
         };
         builder.fragment_inner.push_str(
-            &"
+            "
         {
         ",
         );
@@ -1410,7 +1406,7 @@ impl<S: Shape, E: Effect> Material for ShapeRender<S, E> {
             E::to_wgsl::<S>(&ns, builder, &shape_vars)
         });
         builder.fragment_inner.push_str(
-            &"
+            "
         }
         ",
         );
@@ -1540,8 +1536,8 @@ impl<T: Material> ShaderAsset<T> {
     pub fn to_wgsl() -> String {
         let mut builder = ShaderBuilder::default();
         let vars = ShaderVariables {
-            pos: format!("rect_position"),
-            size: format!("rect_size"),
+            pos: "rect_position".to_string(),
+            size: "rect_size".to_string(),
         };
         T::to_wgsl(&mut builder, &vars);
         builder.build()
@@ -1608,7 +1604,7 @@ impl<T: Material> ShaderType for ShaderAsset<T> {
         let mut layout = UniformLayout::default();
         self.render.update_layout(&mut layout);
         let size = layout.alignment.round_up_size(SizeValue::from(
-            (layout.size as u64)
+            layout.size
                 .try_into()
                 .unwrap_or(1.try_into().unwrap()),
         ));
@@ -1707,49 +1703,32 @@ impl Plugin for ShaderFrameworkPlugin {
 
 #[cfg(test)]
 pub mod test {
-    use anyhow::anyhow;
+    
     use bevy::{
-        app::{AppExit, PluginsState, ScheduleRunnerPlugin},
-        core::FrameCount,
-        core_pipeline::CorePipelinePlugin,
-        input::{InputPlugin, InputSystem},
         render::{
-            camera::RenderTarget,
-            render_resource::{
-                Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-            },
-            view::screenshot::ScreenshotManager,
             RenderPlugin,
         },
-        sprite::SpritePlugin,
         ui::UiPlugin,
-        window::{PresentMode, PrimaryWindow},
-        winit::WinitPlugin,
     };
-    use bevy_image_export::{
-        ImageExportBundle, ImageExportPlugin, ImageExportSettings, ImageExportSource,
-    };
-    use failure::format_err;
-    use image::{DynamicImage, GenericImageView, Pixel};
+    
+    
+    
     use lazy_static::lazy_static;
-    use pretty_assertions::{assert_eq, assert_ne};
+    use pretty_assertions::{assert_eq};
     use regex::Regex;
     use std::{
-        borrow::Cow,
         path::Path,
-        sync::{atomic::AtomicBool, Arc},
     };
 
     use crate::{
-        tests::{assert_image_eq, compare_image, run_test_plugins, UnitTestPlugin},
-        UiFrameworkPlugin,
+        tests::{run_test_plugins, UnitTestPlugin},
     };
 
     use self::{
         effect::{Border, Shadow},
         fill::{FillColor, FillImage, Gradient},
         shape::{Circle, Rect, RoundedRect},
-        transform::{Transform, Translation},
+        transform::{Translation},
     };
 
     use super::*;
@@ -1758,9 +1737,9 @@ pub mod test {
         static ref RE: Regex = Regex::new(r"  +").unwrap();
     }
 
-    fn simplify_wgsl<'l>(input: &'l str) -> String {
+    fn simplify_wgsl(input: &str) -> String {
         let input = input.replace(|c: char| c.is_whitespace(), " ");
-        RE.replace_all(&*input, " ").to_string()
+        RE.replace_all(&input, " ").to_string()
     }
 
     fn test_render_type<R: Material>(except_path: &str, except_wgsl: &str) {

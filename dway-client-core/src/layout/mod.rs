@@ -2,7 +2,7 @@ pub mod equalsize;
 pub mod lsp;
 pub mod tile;
 
-use crate::{prelude::*, DWayClientSystem};
+use crate::{prelude::*};
 use dway_server::{
     geometry::Geometry,
     util::rect::IRect,

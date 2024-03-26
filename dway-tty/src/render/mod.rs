@@ -10,7 +10,7 @@ use bevy::{
         texture::{DefaultImageSampler, GpuImage},
         Extract, Render, RenderApp, RenderSet,
     },
-    utils::HashMap, core::FrameCount,
+    utils::HashMap,
 };
 use drm::control::framebuffer;
 use drm_fourcc::DrmFormat;

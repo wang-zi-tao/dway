@@ -24,13 +24,11 @@ use drm::{
     Device,
 };
 use drm_ffi::drm_format_modifier_blob;
-use drm_ffi::DRM_MODE_FB_MODIFIERS;
 use drm_fourcc::DrmFormat;
 use drm_fourcc::DrmFourcc;
 use drm_fourcc::DrmModifier;
 
 use gbm::BufferObject;
-use nix::errno::Errno;
 use nix::libc;
 use smallvec::SmallVec;
 use std::borrow::Cow;

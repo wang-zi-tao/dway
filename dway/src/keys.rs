@@ -7,8 +7,8 @@ use bevy::{
 };
 use dway_client_core::{
     desktop::{CursorOnOutput, CursorOnWindow, FocusedWindow},
-    navigation::windowstack::{WindowIndex, WindowStack},
-    workspace::{ScreenAttachWorkspace, WindowOnWorkspace, Workspace, WorkspaceSet},
+    navigation::windowstack::{WindowStack},
+    workspace::{ScreenAttachWorkspace, WindowOnWorkspace, WorkspaceSet},
 };
 use dway_server::{
     apps::launchapp::{RunCommandRequest, RunCommandRequestBuilder},
@@ -16,7 +16,6 @@ use dway_server::{
     macros::EntityCommandsExt,
     prelude::WindowAction,
 };
-use dway_ui::{prelude::spawn};
 
 pub fn wm_keys(
     input: Res<ButtonInput<KeyCode>>,
@@ -142,7 +141,7 @@ pub fn wm_mouse_action(
     }
     for motion in mouse_motion.read() {
         if let Some(delta) = mouse_drag_delta.as_mut() {
-            *delta = *delta + motion.delta;
+            *delta += motion.delta;
         }
     }
     if !mouse_down {

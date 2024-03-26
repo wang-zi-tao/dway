@@ -18,7 +18,7 @@ use std::{
 };
 use tracing::{error, trace};
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
-use wgpu_hal::{api::Vulkan, vulkan::Texture, Adapter, MemoryFlags, TextureUses};
+use wgpu_hal::{api::Vulkan, vulkan::Texture, MemoryFlags, TextureUses};
 
 pub const MEM_PLANE_ASCPECT: [ImageAspectFlags; 4] = [
     ImageAspectFlags::MEMORY_PLANE_0_EXT,

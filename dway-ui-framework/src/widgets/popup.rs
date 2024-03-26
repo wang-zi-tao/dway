@@ -1,7 +1,6 @@
 use crate::{make_bundle, prelude::*};
 use bevy::{ecs::system::SystemId, ui::{FocusPolicy, RelativeCursorPosition}};
 use derive_builder::Builder;
-use interpolation::EaseFunction;
 
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq)]
 pub enum PopupEventKind {

@@ -98,7 +98,7 @@ pub fn process_ui_checkbox_event(
                 commands.run_system_with_input(
                     *callback,
                     UiCheckBoxEvent {
-                        kind: kind.clone(),
+                        kind,
                         receiver: *receiver,
                         checkbox: entity,
                         value: state.value,

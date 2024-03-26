@@ -1,6 +1,6 @@
 use crate::{make_bundle, prelude::*, render::mesh::{UiMeshHandle, UiMeshTransform}};
 use bevy::{render::render_resource::{AsBindGroup, ShaderRef}, sprite::Material2d, utils::HashSet};
-use bevy_svg::prelude::{Origin, Svg};
+use bevy_svg::prelude::{Svg};
 
 #[derive(Component, Default, Reflect, PartialEq, Eq, Hash)]
 pub struct UiSvg {

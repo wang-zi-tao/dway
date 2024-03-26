@@ -2,26 +2,19 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use bevy::asset::io::embedded::EmbeddedAssetRegistry;
-use bevy::asset::load_internal_asset;
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::diagnostic::LogDiagnosticsPlugin;
 use bevy::prelude::*;
-use bevy::reflect::TypePath;
-use bevy::render::render_resource::*;
 use bevy_prototype_lyon::draw::Fill;
 use bevy_prototype_lyon::draw::Stroke;
 use bevy_prototype_lyon::entity::Path;
-use bevy_prototype_lyon::entity::ShapeBundle;
 use bevy_prototype_lyon::geometry::GeometryBuilder;
-use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_prototype_lyon::shapes;
 use bevy_svg::prelude::StrokeOptions;
 use dway_ui::animation::AssetAnimationPlugin;
 use dway_ui::render::mesh::UiMeshBundle;
 use dway_ui::render::mesh::UiMeshHandle;
 use dway_ui::render::mesh::UiMeshTransform;
-use dway_ui::shader::ShaderPlugin;
-use dway_ui::widgets::button::UiButtonExt;
 use dway_ui::widgets::button::UiButtonBundle;
 use dway_ui::widgets::inputbox::UiInputBox;
 use dway_ui::widgets::inputbox::UiInputBoxBundle;
@@ -30,12 +23,10 @@ use dway_ui::widgets::shape::UiShapeBundle;
 use dway_ui::widgets::slider::UiSliderBundle;
 use dway_ui::widgets::svg::UiSvg;
 use dway_ui::widgets::svg::UiSvgBundle;
-use dway_ui::widgets::text::UiTextExt;
 use dway_ui::widgets::text::UiTextBundle;
 use dway_ui_derive::color;
 use dway_ui_derive::dway_widget;
 use dway_ui_framework::prelude::*;
-use interpolation::EaseFunction;
 
 const SVG_HANDLE: Handle<Shader> = Handle::weak_from_u128(15628284168829255748903736059973599232);
 
@@ -179,7 +170,7 @@ Gallary=>
                     "button",
                     TextStyle {
                         font: theme.default_font(),
-                        font_size: 24 as f32,
+                        font_size: 24_f32,
                         color: Color::WHITE,
                     },
             ) ))/>
@@ -192,7 +183,7 @@ Gallary=>
                     "button",
                     TextStyle {
                         font: theme.default_font(),
-                        font_size: 24 as f32,
+                        font_size: 24_f32,
                         color: Color::BLUE,
                     },
             ) ))/>

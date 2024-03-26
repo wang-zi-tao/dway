@@ -1,18 +1,16 @@
-use std::{cmp::Ordering, default, ops::Range};
+use std::{cmp::Ordering};
 
 use bevy::{
     input::{
         keyboard::{Key, KeyboardInput},
-        mouse::MouseButtonInput,
-        ButtonState,
     },
     text::{
-        scale_value, BreakLineOn, FontAtlasSets, Text2dBounds, TextLayoutInfo, TextPipeline,
+        scale_value, BreakLineOn, FontAtlasSets, TextLayoutInfo, TextPipeline,
         TextSettings, YAxisOrientation,
     },
     ui::RelativeCursorPosition,
     utils::HashSet,
-    window::{PrimaryWindow, WindowScaleFactorChanged},
+    window::{PrimaryWindow},
 };
 use bevy_relationship::reexport::SmallVec;
 
@@ -59,7 +57,7 @@ impl UiInputCommand {
     pub fn apply(&self, input_box_state: &mut UiInputBoxState) {
         match self {
             UiInputCommand::Insert(p, d) => {
-                input_box_state.data_mut().insert_str(*p, &d);
+                input_box_state.data_mut().insert_str(*p, d);
             }
             UiInputCommand::Delete(p, d) => {
                 let split_off = input_box_state.data_mut().split_off(*p);
@@ -172,7 +170,7 @@ pub fn process_ui_inputbox_event(
         &mut UiInput,
         &RelativeCursorPosition,
     )>,
-    mut text_node_query: Query<Ref<Node>>,
+    text_node_query: Query<Ref<Node>>,
     theme: Res<Theme>,
     mut queue: Local<HashSet<Entity>>,
     mut textures: ResMut<Assets<Image>>,
@@ -313,14 +311,14 @@ pub fn process_ui_inputbox_event(
                     Key::ArrowUp => {
                         move_cursor(
                             *inputbox_state.cursor_position() - inputbox.text_size * Vec2::Y,
-                            &inputbox,
+                            inputbox,
                             &mut inputbox_state,
                         );
                     }
                     Key::ArrowDown => {
                         move_cursor(
                             *inputbox_state.cursor_position() + inputbox.text_size * Vec2::Y,
-                            &inputbox,
+                            inputbox,
                             &mut inputbox_state,
                         );
                     }
@@ -415,7 +413,7 @@ pub fn process_ui_inputbox_event(
             }
             if relative_pos.mouse_over() {
                 if let Some(normalized) = relative_pos.normalized {
-                    move_cursor(normalized * node.size(), &inputbox, &mut inputbox_state);
+                    move_cursor(normalized * node.size(), inputbox, &mut inputbox_state);
                 }
             }
         }

@@ -1,9 +1,9 @@
 use crate::{
     make_bundle,
     prelude::*,
-    render::mesh::{UiMesh, UiMeshBundle, UiMeshHandle, UiMeshTransform},
+    render::mesh::{UiMeshHandle, UiMeshTransform},
 };
-use bevy::sprite::{Material2d, Mesh2dHandle};
+use bevy::sprite::{Mesh2dHandle};
 pub use bevy_prototype_lyon::{draw::*, entity::{Path, ShapeBundle}, geometry::GeometryBuilder, path::PathBuilder};
 
 pub fn after_process_shape(

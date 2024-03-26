@@ -1,11 +1,10 @@
 use super::{insert_material_tween, StyleFlags, ThemeDispatch};
 use crate::animation::AnimationEaseMethod;
-use crate::shader::effect::{Arc, Border};
+use crate::shader::effect::{Border};
 use crate::shader::fill::Fill;
 use crate::shader::shape::{RoundedBar, Shape};
 use crate::shader::transform::Margins;
 use crate::shader::{ShaderAsset, ShaderPlugin, Transformed};
-use crate::widgets::shader::*;
 use crate::{
     prelude::*,
     shader::{
@@ -15,7 +14,6 @@ use crate::{
         ShapeRender,
     },
 };
-use interpolation::EaseFunction;
 
 type BlockMaterial = ShapeRender<RoundedRect, (FillColor, Shadow)>;
 type HollowBlockMaterial = ShapeRender<RoundedRect, Border>;
@@ -244,7 +242,7 @@ impl FlatTheme {
         commands: &mut Commands,
         material: Handle<M>,
     ) {
-        let duration = self.animation_duration.clone();
+        let duration = self.animation_duration;
         let ease = self.animation_ease.clone();
         commands.add(move |world: &mut World| {
             insert_material_tween(world, entity, material, duration, ease)
@@ -302,26 +300,24 @@ impl ThemeDispatch for FlatTheme {
                             self.hightlight_button_material.clone(),
                         );
                     }
+                } else if hover {
+                    self.apply_material_animation(
+                        entity,
+                        commands,
+                        self.button_material_hover.clone(),
+                    );
+                } else if clicked {
+                    self.apply_material_animation(
+                        entity,
+                        commands,
+                        self.button_material_clicked.clone(),
+                    );
                 } else {
-                    if hover {
-                        self.apply_material_animation(
-                            entity,
-                            commands,
-                            self.button_material_hover.clone(),
-                        );
-                    } else if clicked {
-                        self.apply_material_animation(
-                            entity,
-                            commands,
-                            self.button_material_clicked.clone(),
-                        );
-                    } else {
-                        self.apply_material_animation(
-                            entity,
-                            commands,
-                            self.button_material.clone(),
-                        );
-                    }
+                    self.apply_material_animation(
+                        entity,
+                        commands,
+                        self.button_material.clone(),
+                    );
                 }
             }
             super::WidgetKind::Checkbox => match (flag.contains(StyleFlags::DOWNED), hover) {

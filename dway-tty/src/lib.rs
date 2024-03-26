@@ -13,7 +13,7 @@ use bevy::{
 };
 use drm::DrmPlugin;
 use dway_util::eventloop::{EventLoop, EventLoopControl, EventLoopPlugin, EventLoopPluginMode};
-use measure_time::{debug_time, print_time};
+use measure_time::{debug_time};
 use render::TtyRenderPlugin;
 use smart_default::SmartDefault;
 
@@ -86,7 +86,7 @@ fn runner(mut app: App) {
             }
 
             if redraw_events_reader
-                .read(&app.world.resource())
+                .read(app.world.resource())
                 .last()
                 .is_some()
             {

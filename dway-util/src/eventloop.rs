@@ -1,20 +1,18 @@
 use bevy::prelude::*;
 use calloop::{
     channel::{Channel, Sender},
-    signals::Signal,
 };
 pub use calloop::{generic::Generic, EventSource, Interest, Mode, PostAction, Readiness};
 use log::info;
 use nix::{
     libc::{epoll_create, epoll_event, epoll_wait},
-    poll::{PollFd, PollFlags},
 };
 use smart_default::SmartDefault;
 use std::{
     any::{type_name, TypeId},
     os::fd::AsRawFd,
     sync::mpsc,
-    time::{Duration, Instant},
+    time::{Duration},
 };
 
 pub struct Poll {}

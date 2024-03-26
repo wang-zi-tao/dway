@@ -1,26 +1,21 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    reflect::TypePath,
-    sprite::Mesh2dHandle,
 };
 use bevy_prototype_lyon::{
     draw::{Fill, Stroke},
-    entity::{Path, ShapeBundle},
-    geometry::GeometryBuilder,
+    entity::{Path},
     path::PathBuilder,
-    shapes,
 };
 use bevy_svg::prelude::{FillOptions, StrokeOptions};
 use chrono::Timelike;
 use dway_ui_framework::{
-    render::mesh::{UiMeshBundle, UiMeshHandle, UiMeshMaterialPlugin, UiMeshPlugin},
     widgets::shape::UiShapeBundle,
     UiFrameworkPlugin,
 };
 use std::{
     f32::consts::PI,
-    time::{Duration, SystemTime},
+    time::{Duration},
 };
 
 fn main() {
@@ -45,8 +40,8 @@ pub struct Clock;
 
 fn setup(
     mut commands: Commands,
-    mut mesh2d_materials: ResMut<Assets<ColorMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mesh2d_materials: ResMut<Assets<ColorMaterial>>,
+    meshes: ResMut<Assets<Mesh>>,
 ) {
     commands.spawn(Camera2dBundle::default());
 

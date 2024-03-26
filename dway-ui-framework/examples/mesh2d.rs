@@ -3,7 +3,6 @@ use std::time::Duration;
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::diagnostic::LogDiagnosticsPlugin;
 use bevy::prelude::*;
-use bevy::reflect::TypePath;
 use bevy::sprite::Mesh2dHandle;
 use dway_ui_framework::render::mesh::UiMeshBundle;
 use dway_ui_framework::render::mesh::UiMeshHandle;
