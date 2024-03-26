@@ -40,18 +40,18 @@ fn setup(
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Row,
-                width: Val::Px(256.0),
-                height: Val::Px(256.0),
+                width: Val::Px(300.0),
+                height: Val::Px(300.0),
                 left: Val::Px(64.0),
                 top: Val::Px(64.0),
                 ..default()
             },
-            background_color: Color::GRAY.into(),
+            background_color: (Color::WHITE *0.8).into(),
             ..default()
         })
         .with_children(|commands| {
             commands.spawn(UiMeshBundle {
-                mesh: UiMeshHandle::from(meshes.add(RegularPolygon::new(64.0, 6))),
+                mesh: UiMeshHandle::from(meshes.add(RegularPolygon::new(128.0, 6))),
                 material: mesh2d_materials.add(Color::BLUE),
                 style: Style {
                     align_items: AlignItems::Center,

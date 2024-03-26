@@ -58,8 +58,8 @@ syn_derive = "0.1.8"
 derive-syn-parse = "0.1.5"
 
 
-bevy = { version = "0.13" }
-bevy_svg = { version="0.12", default-features = false, features = ["2d"] }
+bevy = { version = "0.13.1" }
+bevy_svg = { version="0.13", default-features = false, features = ["2d"] }
 wgpu={version="*",features=["angle"]}
 wgpu-hal={version="*",features=["gles"]}
 glow = {version="*"}
@@ -67,4 +67,5 @@ khronos-egl = { version="*",features= ["dynamic","static"] }
 ash = { version = "*", features = [] }
 
 [patch.crates-io]
-bevy_svg = {path="../bevy_svg/"}
+bevy_svg = {git="https://github.com/arnfaldur/bevy_svg",rev="53a53e5"}
+bevy = {git="https://github.com/wang-zi-tao/bevy",rev="7ad3822ffeb2c960269060a59f56fd4aecbe75ca"}
