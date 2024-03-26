@@ -90,13 +90,13 @@ pub fn extract_drm_surfaces(
     mut state: ResMut<TtyRenderState>,
     mut commands: Commands,
 ) {
-    drm_query.for_each(|(entity, drm_device, gbm_device)| {
+    drm_query.iter().for_each(|(entity, drm_device, gbm_device)| {
         let render_entity = commands
             .spawn((drm_device.clone(), gbm_device.clone()))
             .id();
         state.entity_map.insert(entity, render_entity);
     });
-    surface_query.for_each(|(surface, conn, parent)| {
+    surface_query.iter().for_each(|(surface, conn, parent)| {
         let mut entity_command = commands.spawn((surface.clone(), conn.clone()));
         if let Some(parent_entity) = state.entity_map.get(&parent.get()) {
             entity_command.set_parent(*parent_entity);
@@ -210,7 +210,7 @@ pub fn commit_drm_surface(
     drm_query: Query<&DrmDevice>,
     render_device: Res<RenderDevice>,
 ) {
-    surface_query.for_each(|(surface, parent)| {
+    surface_query.iter().for_each(|(surface, parent)| {
         let Ok(drm) = drm_query.get(parent.get()) else {
             return;
         };

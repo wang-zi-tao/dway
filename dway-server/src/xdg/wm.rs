@@ -31,6 +31,9 @@ impl wayland_server::Dispatch<xdg_wm_base::XdgWmBase, bevy::prelude::Entity, DWa
         _dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, DWay>,
     ) {
+        if state.get_entity(*data).is_none() {
+            return;
+        }
         match request {
             xdg_wm_base::Request::Destroy => todo!(),
             xdg_wm_base::Request::CreatePositioner { id } => {

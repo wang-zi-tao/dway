@@ -180,7 +180,7 @@ pub fn receive_events(
                         let motion = DVec2::new(m.dx(), m.dy()).as_vec2();
                         motion_events.send(MouseMotion { delta: motion });
                         debug!("mouse motion: {}", motion);
-                        windows.for_each_mut(|(entity, mut window)| {
+                        windows.iter_mut().for_each(|(entity, mut window)| {
                             // TODO 改善边界
                             let pos =
                                 pointer_state.position + motion;

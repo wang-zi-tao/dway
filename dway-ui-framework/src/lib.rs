@@ -8,6 +8,7 @@ pub mod render;
 pub mod shader;
 pub mod theme;
 pub mod widgets;
+pub mod diagnostics;
 use crate::{
     prelude::*,
     render::mesh::{UiMeshHandle, UiMeshMaterialPlugin, UiMeshPlugin, UiMeshTransform},

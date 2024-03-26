@@ -16,7 +16,7 @@ fn main() {
         .add_plugins((dway_ui_framework::UiFrameworkPlugin,))
         .add_systems(Startup, setup)
         .insert_resource(ClearColor(Color::WHITE * 0.8))
-        .add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new())
+        .insert_resource(Msaa::Sample4)
         .run();
 }
 

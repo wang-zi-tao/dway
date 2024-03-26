@@ -758,7 +758,7 @@ pub fn recevie_drm_events(
     surface_query: Query<&DrmSurface>,
     mut events_writer: EventWriter<DrmEvent>,
 ) {
-    drm_query.for_each(|(entity, drm, children)| {
+    drm_query.iter().for_each(|(entity, drm, children)| {
         let events = match drm.fd.receive_events() {
             Ok(o) => o,
             Err(e) => {

@@ -11,7 +11,7 @@ pub fn clean_temporary_entity(
     mut temporary_entity_query: Query<(Entity, &mut TemporaryEntity), Without<TemporaryTree>>,
     mut commands: Commands,
 ) {
-    temporary_tree_query.for_each_mut(|(entity, mut tmp)| {
+    for (entity, mut tmp) in temporary_tree_query.iter_mut() {
         if !tmp.is_added() {
             if tmp.0 == 0 {
                 commands.entity(entity).despawn_recursive();
@@ -19,8 +19,8 @@ pub fn clean_temporary_entity(
                 tmp.0 -= 1;
             }
         }
-    });
-    temporary_entity_query.for_each_mut(|(entity, mut tmp)| {
+    }
+    for (entity, mut tmp) in temporary_entity_query.iter_mut() {
         if !tmp.is_added() {
             if tmp.0 == 0 {
                 commands.entity(entity).despawn();
@@ -28,5 +28,5 @@ pub fn clean_temporary_entity(
                 tmp.0 -= 1;
             }
         }
-    });
+    }
 }

@@ -1,6 +1,6 @@
 [dependencies]
 anyhow = {workspace=true}
-# bevy_framepace = "0.14"
+bevy_framepace = "0.15"
 bevy_mod_debugdump = { version="0.10.0",optional=true }
 bevy_prototype_lyon = "0.10.0"
 chrono = {workspace=true}
@@ -17,7 +17,7 @@ dhat = {version="0.3.2", optional=true}
 # dexterous_developer = {  workspace = true, optional=true }
 
 [dependencies.bevy]
-features = ["jpeg", "wayland", "serialize", "default_font", "subpixel_glyph_atlas", "file_watcher", "embedded_watcher"]
+features = ["jpeg", "wayland", "serialize", "default_font", "subpixel_glyph_atlas", "embedded_watcher"]
 workspace = true
 
 [dependencies.bevy-inspector-egui]
@@ -40,6 +40,9 @@ path = "../dway-tty/"
 [dependencies.dway-ui]
 path = "../dway-ui/"
 
+[dependencies.dway-ui-framework]
+path = "../dway-ui-framework/"
+
 [dependencies.dway-util]
 path = "../dway-util/"
 
@@ -55,9 +58,12 @@ workspace = true
 default = [
     "dway_log",
     # "hot_reload",
-    "debug",
+    # "debug",
 ]
-debug = ["dep:bevy-inspector-egui", "dep:bevy_mod_debugdump"]
+debug = [
+    "dep:bevy-inspector-egui",
+    "dep:bevy_mod_debugdump"
+]
 dway_log = []
 # hot_reload = ["dep:dexterous_developer", "dep:serde", "dway-ui/hot_reload" , "bevy/dynamic_linking", "bevy/embedded_watcher"]
 eventloop = []
@@ -95,5 +101,4 @@ debug-assertions = false
 debug-assertions = false
 
 [profile.release]
-debug = 1
-lto = "thin"
+lto = "fat"

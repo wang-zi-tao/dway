@@ -1,9 +1,21 @@
 use crate::prelude::*;
 use bevy::{
     app::{App, Plugin},
-    core_pipeline::tonemapping::{DebandDither, Tonemapping},
+    core_pipeline::{
+        core_2d::graph::Node2d,
+        msaa_writeback::MsaaWritebackNode,
+        tonemapping::{DebandDither, Tonemapping},
+    },
     ecs::{
-        entity::EntityHashMap, prelude::{Entity, EventReader}, query::{ROQueryItem, With}, schedule::IntoSystemConfigs, system::lifetimeless::{Read, SRes}, system::*, world::{FromWorld, World}
+        entity::EntityHashMap,
+        prelude::{Entity, EventReader},
+        query::{ROQueryItem, With},
+        schedule::IntoSystemConfigs,
+        system::{
+            lifetimeless::{Read, SRes},
+            *,
+        },
+        world::{FromWorld, World},
     },
     render::{
         batching::{
@@ -13,6 +25,7 @@ use bevy::{
         globals::{GlobalsBuffer, GlobalsUniform},
         mesh::{GpuBufferInfo, MeshVertexBufferLayout},
         render_asset::{prepare_assets, RenderAssets},
+        render_graph::RenderGraphApp,
         render_phase::{AddRenderCommand, *},
         render_resource::{binding_types::uniform_buffer, *},
         renderer::{RenderDevice, RenderQueue},
@@ -29,10 +42,24 @@ use bevy::{
         MESH2D_SHADER_HANDLE,
     },
     transform::prelude::GlobalTransform,
-    ui::{TransparentUi, UiStack},
+    ui::{
+        graph::{NodeUi, SubGraphUi},
+        TransparentUi, UiStack,
+    },
     utils::{FloatOrd, HashMap, HashSet},
 };
 use std::{hash::Hash, marker::PhantomData};
+
+use self::graph::NodeUiExt;
+
+pub mod graph {
+    use bevy::render::render_graph::RenderLabel;
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+    pub enum NodeUiExt {
+        MsaaWriteback,
+    }
+}
 
 #[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq, Deref, DerefMut)]
 #[reflect(Component)]
@@ -45,13 +72,13 @@ impl Default for UiMeshTransform {
         Self(Transform::default().with_scale(Vec3::new(1.0, -1.0, 1.0)))
     }
 }
-impl From<Transform> for UiMeshTransform{
-    fn from(transform: Transform) -> Self{
+impl From<Transform> for UiMeshTransform {
+    fn from(transform: Transform) -> Self {
         Self(transform)
     }
 }
-impl UiMeshTransform{
-    pub fn new(transform: Transform) -> Self{
+impl UiMeshTransform {
+    pub fn new(transform: Transform) -> Self {
         Self(transform)
     }
 }
@@ -81,7 +108,15 @@ impl Plugin for UiMeshPlugin {
                         prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
                         prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                     ),
-                );
+                )
+                .add_render_graph_node::<MsaaWritebackNode>(SubGraphUi, NodeUiExt::MsaaWriteback)
+                .add_render_graph_edge(
+                    SubGraphUi,
+                    Node2d::EndMainPassPostProcessing,
+                    NodeUiExt::MsaaWriteback,
+                )
+                .add_render_graph_edge(SubGraphUi, Node2d::MainPass, NodeUiExt::MsaaWriteback)
+                .add_render_graph_edge(SubGraphUi, NodeUiExt::MsaaWriteback, NodeUi::UiPass);
         }
     }
 
@@ -107,7 +142,7 @@ where
     T::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        if !app.world.contains_resource::<Assets<T>>(){
+        if !app.world.contains_resource::<Assets<T>>() {
             app.init_asset::<T>();
         }
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -224,8 +259,14 @@ pub fn extract_ui_mesh_node(
     let mut entities = Vec::with_capacity(*previous_len);
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((entity, view_visibility, mesh_transform, transform, handle, no_automatic_batching)) =
-            query.get(*entity)
+        if let Ok((
+            entity,
+            view_visibility,
+            mesh_transform,
+            transform,
+            handle,
+            no_automatic_batching,
+        )) = query.get(*entity)
         {
             if !view_visibility.get() {
                 continue;
@@ -271,7 +312,7 @@ impl FromWorld for UiMesh2dPipeline {
         let (render_device, render_queue, default_sampler) = system_state.get_mut(world);
         let render_device = render_device.into_inner();
         let view_layout = render_device.create_bind_group_layout(
-            "mesh2d_view_layout",
+            "ui_mesh2d_view_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::VERTEX_FRAGMENT,
                 (
@@ -283,7 +324,7 @@ impl FromWorld for UiMesh2dPipeline {
         );
 
         let mesh_layout = render_device.create_bind_group_layout(
-            "mesh2d_layout",
+            "ui_mesh2d_layout",
             &BindGroupLayoutEntries::single(
                 ShaderStages::VERTEX_FRAGMENT,
                 GpuArrayBuffer::<Mesh2dUniform>::binding_layout(render_device),
@@ -407,6 +448,10 @@ impl SpecializedMeshPipeline for UiMesh2dPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
 
+        if key.msaa_samples() > 1 {
+            shader_defs.push("MULTISAMPLED".into());
+        }
+
         if key.contains(Mesh2dPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
 
@@ -497,7 +542,7 @@ impl SpecializedMeshPipeline for UiMesh2dPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("transparent_mesh2d_pipeline".into()),
+            label: Some("ui_transparent_mesh2d_pipeline".into()),
         })
     }
 }
@@ -547,7 +592,6 @@ where
             self.mesh2d_pipeline.mesh_layout.clone(),
             self.material2d_layout.clone(),
         ];
-        descriptor.multisample.count = 1;
 
         M::specialize(&mut descriptor, layout, key)?;
         Ok(descriptor)
@@ -592,7 +636,7 @@ pub fn prepare_mesh2d_bind_group(
     if let Some(binding) = mesh2d_uniforms.binding() {
         commands.insert_resource(UiMesh2dBindGroup {
             value: render_device.create_bind_group(
-                "mesh2d_bind_group",
+                "ui_mesh2d_bind_group",
                 &mesh2d_pipeline.mesh_layout,
                 &BindGroupEntries::single(binding),
             ),
@@ -619,7 +663,7 @@ pub fn prepare_mesh2d_view_bind_groups(
     ) {
         for entity in &views {
             let view_bind_group = render_device.create_bind_group(
-                "mesh2d_view_bind_group",
+                "ui_mesh2d_view_bind_group",
                 &mesh2d_pipeline.view_layout,
                 &BindGroupEntries::sequential((view_binding.clone(), globals.clone())),
             );

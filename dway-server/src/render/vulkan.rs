@@ -12,10 +12,10 @@ use crate::{
     },
     zwp::dmabufparam::DmaBuffer,
 };
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use ash::{
     extensions::{ext::PhysicalDeviceDrm, khr::ExternalMemoryFd},
-    vk::{self, *},
+    vk::{self, Handle, *},
 };
 use bevy::{
     prelude::IVec2,
@@ -90,59 +90,70 @@ pub const SUPPORTED_FORMATS: [DrmFourcc; 4] = [
 
 pub fn drm_info(render_device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError> {
     unsafe {
-        render_device.as_hal::<Vulkan, _, _>(|hal_device| {
-            let hal_device = hal_device.ok_or_else(|| BackendIsNotVulkan)?;
+        render_device
+            .as_hal::<Vulkan, _, _>(|hal_device| {
+                let hal_device = hal_device.ok_or_else(|| BackendIsNotVulkan)?;
 
-            let instance = hal_device.shared_instance().raw_instance();
-            let raw_phy = hal_device.raw_physical_device();
+                let instance = hal_device.shared_instance().raw_instance();
+                let raw_phy = hal_device.raw_physical_device();
 
-            let mut formats = Vec::new();
-            for fourcc in SUPPORTED_FORMATS {
-                let vk_format = convert_drm_format(fourcc)?.0;
+                let mut formats = Vec::new();
+                for fourcc in SUPPORTED_FORMATS {
+                    let vk_format = convert_drm_format(fourcc)?.0;
 
-                let mut list = vk::DrmFormatModifierPropertiesListEXT::default();
-                let mut format_properties2 = vk::FormatProperties2::builder().push_next(&mut list);
-                instance.get_physical_device_format_properties2(
-                    raw_phy,
-                    vk_format,
-                    &mut format_properties2,
-                );
-                let count = list.drm_format_modifier_count;
-                let mut modifiers_list = vec![Default::default(); count as usize];
-                let mut modifier_list_prop = vk::DrmFormatModifierPropertiesListEXT::builder()
-                    .drm_format_modifier_properties(&mut modifiers_list)
-                    .build();
+                    let mut list = vk::DrmFormatModifierPropertiesListEXT::default();
+                    let mut format_properties2 =
+                        vk::FormatProperties2::builder().push_next(&mut list);
+                    instance.get_physical_device_format_properties2(
+                        raw_phy,
+                        vk_format,
+                        &mut format_properties2,
+                    );
+                    let count = list.drm_format_modifier_count;
+                    let mut modifiers_list = vec![Default::default(); count as usize];
+                    let mut modifier_list_prop = vk::DrmFormatModifierPropertiesListEXT::builder()
+                        .drm_format_modifier_properties(&mut modifiers_list)
+                        .build();
 
-                let mut format_properties2 =
-                    vk::FormatProperties2::builder().push_next(&mut modifier_list_prop);
-                instance.get_physical_device_format_properties2(
-                    raw_phy,
-                    vk_format,
-                    &mut format_properties2,
-                );
+                    let mut format_properties2 =
+                        vk::FormatProperties2::builder().push_next(&mut modifier_list_prop);
+                    instance.get_physical_device_format_properties2(
+                        raw_phy,
+                        vk_format,
+                        &mut format_properties2,
+                    );
 
-                if modifiers_list.is_empty() {
-                    warn!(format=?fourcc, "no available modifier of format");
+                    let mut format_properties2 =
+                        vk::FormatProperties2::builder().push_next(&mut modifier_list_prop);
+                    instance.get_physical_device_format_properties2(
+                        raw_phy,
+                        vk_format,
+                        &mut format_properties2,
+                    );
+
+                    if modifiers_list.is_empty() {
+                        warn!(format=?fourcc, "no available modifier of format");
+                    }
+                    formats.extend(modifiers_list.into_iter().map(|d| DrmFormat {
+                        code: fourcc,
+                        modifier: DrmModifier::from(d.drm_format_modifier),
+                    }));
                 }
-                formats.extend(modifiers_list.into_iter().map(|d| DrmFormat {
-                    code: fourcc,
-                    modifier: DrmModifier::from(d.drm_format_modifier),
-                }));
-            }
 
-            let drm_prop =
-                PhysicalDeviceDrm::get_properties(instance, hal_device.raw_physical_device());
-            let drm_node = DrmNode::from_device_id(makedev(
-                drm_prop.render_major as _,
-                drm_prop.render_minor as _,
-            ))?;
+                let drm_prop =
+                    PhysicalDeviceDrm::get_properties(instance, hal_device.raw_physical_device());
+                let drm_node = DrmNode::from_device_id(makedev(
+                    drm_prop.render_major as _,
+                    drm_prop.render_minor as _,
+                ))?;
 
-            Ok(DrmInfo {
-                texture_formats: formats.clone(),
-                render_formats: formats.clone(),
-                drm_node,
+                Ok(DrmInfo {
+                    texture_formats: formats.clone(),
+                    render_formats: formats.clone(),
+                    drm_node,
+                })
             })
-        }).ok_or(DWayRenderError::BackendIsIsInvalid)?
+            .ok_or(DWayRenderError::BackendIsIsInvalid)?
     }
 }
 
@@ -150,6 +161,7 @@ pub fn create_dma_image(
     hal_device: &wgpu_hal::vulkan::Device,
     buffer: &DmaBuffer,
 ) -> Result<ImportedImage> {
+    let entry = hal_device.shared_instance().entry();
     let instance = hal_device.shared_instance().raw_instance();
     let device = hal_device.raw_device();
     let physical = hal_device.raw_physical_device();
@@ -195,11 +207,14 @@ pub fn create_dma_image(
             .push_next(&mut dmabuf_info)
             .push_next(&mut drm_info)
             .build();
-        let image = device.create_image(&create_image_info, None)?;
+        let image = device
+            .create_image(&create_image_info, None)
+            .map_err(|e| anyhow!("error while create_image: {e}"))?;
 
         let mut plane_infos = Vec::with_capacity(planes.len());
         let mut bind_infos = Vec::with_capacity(planes.len());
         let mut memorys = SmallVec::<[_; 4]>::new();
+        let phy_mem_prop = instance.get_physical_device_memory_properties(physical);
         for (i, plane) in planes.iter().enumerate() {
             let memory_requirement = {
                 let mut requirement_info = ash::vk::ImageMemoryRequirementsInfo2::builder()
@@ -220,24 +235,12 @@ pub fn create_dma_image(
             };
             let phy_mem_prop = instance.get_physical_device_memory_properties(physical);
 
-            let fd_mem_type = if instance
-                .get_device_proc_addr(
-                    device.handle(),
-                    CStr::from_bytes_with_nul(b"vkGetMemoryFdPropertiesKHR\0")
-                        .unwrap()
-                        .as_ptr(),
-                )
-                .is_some()
-            {
-                ExternalMemoryFd::new(instance, device)
-                    .get_memory_fd_properties(
-                        ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
-                        plane.fd.as_fd().as_raw_fd(),
-                    )?
-                    .memory_type_bits
-            } else {
-                !0
-            };
+            let fd_mem_type = ExternalMemoryFd::new(instance, device)
+                .get_memory_fd_properties(
+                    ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
+                    plane.fd.as_fd().as_raw_fd(),
+                )?
+                .memory_type_bits;
 
             let mut fd_info = ash::vk::ImportMemoryFdInfoKHR::builder()
                 .fd(plane.fd.as_fd().as_raw_fd())
@@ -261,7 +264,9 @@ pub fn create_dma_image(
                 )
                 .push_next(&mut fd_info)
                 .build();
-            let memory = device.allocate_memory(&alloc_info, None)?;
+            let memory = device
+                .allocate_memory(&alloc_info, None)
+                .map_err(|e| anyhow!("error while allocate_memory: {e}"))?;
 
             let mut bind_info = BindImageMemoryInfo::builder()
                 .image(image)
@@ -282,7 +287,9 @@ pub fn create_dma_image(
             bind_infos.push(bind_info);
             memorys.push(memory);
         }
-        device.bind_image_memory2(&bind_infos)?;
+        device
+            .bind_image_memory2(&bind_infos)
+            .map_err(|e| anyhow!("error while bind_image_memory2: {e}"))?;
 
         let fence = device.create_fence(&FenceCreateInfo::builder().build(), None)?;
         // buffer.render_image = RenderImage::Vulkan(Image { image, fence });
@@ -503,17 +510,19 @@ pub fn prepare_wl_surface(
                     image_assets.insert(surface.image.clone(), o.get().1.clone());
                 }
                 Entry::Vacant(v) => {
-                    let (size, format, image) = device.as_hal::<Vulkan, _, _>(|hal_device| {
-                        let hal_device = hal_device.ok_or_else(|| BackendIsNotVulkan)?;
-                        let size = dma_buffer.size;
-                        let format = convert_drm_format(
-                            DrmFourcc::try_from(dma_buffer.format)
-                                .map_err(|e| Unknown(anyhow!("{e}")))?,
-                        )?
-                        .1;
-                        let image = create_dma_image(hal_device, dma_buffer)?;
-                        Result::<_, DWayRenderError>::Ok((size, format, image))
-                    }).ok_or(DWayRenderError::BackendIsIsInvalid)??;
+                    let (size, format, image) = device
+                        .as_hal::<Vulkan, _, _>(|hal_device| {
+                            let hal_device = hal_device.ok_or_else(|| BackendIsNotVulkan)?;
+                            let size = dma_buffer.size;
+                            let format = convert_drm_format(
+                                DrmFourcc::try_from(dma_buffer.format)
+                                    .map_err(|e| Unknown(anyhow!("{e}")))?,
+                            )?
+                            .1;
+                            let image = create_dma_image(hal_device, dma_buffer)?;
+                            Result::<_, DWayRenderError>::Ok((size, format, image))
+                        })
+                        .ok_or(DWayRenderError::BackendIsIsInvalid)??;
                     let hal_texture = image_to_hal_texture(size, format, image.image);
                     let gpu_image = hal_texture_to_gpuimage(device, size, format, hal_texture);
                     image_assets.insert(surface.image.clone(), gpu_image.clone());

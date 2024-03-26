@@ -21,7 +21,7 @@ use bevy::{
     render::{
         render_asset::RenderAssets,
         render_graph::Node,
-        renderer::{RenderDevice, RenderQueue},
+        renderer::{RenderAdapter, RenderDevice, RenderQueue},
         texture::GpuImage,
         Extract,
     },
@@ -58,22 +58,28 @@ pub enum ImportStateKind {
     Vulkan(VulkanState),
 }
 impl ImportStateKind {
-    pub fn new(device: &wgpu::Device) -> Result<Self, DWayRenderError> {
+    pub fn new(device: &wgpu::Device, adapter: &wgpu::Adapter) -> Result<Self, DWayRenderError> {
         unsafe {
-            if let Some(o) = device.as_hal::<wgpu_hal::api::Vulkan, _, _>(|hal_device| {
-                hal_device.map(|_| Self::Vulkan(VulkanState::default()))
-            }).flatten() {
+            if let Some(o) = device
+                .as_hal::<wgpu_hal::api::Vulkan, _, _>(|hal_device| {
+                    hal_device.map(|_| Self::Vulkan(VulkanState::default()))
+                })
+                .flatten()
+            {
                 return Ok(o);
             };
-            if let Some(o) = device.as_hal::<wgpu_hal::api::Gles, _, _>(|hal_device| {
-                hal_device.map(|hal_device| {
-                    let egl_context = hal_device.context();
-                    let gl: &glow::Context = &egl_context.lock();
-                    let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> =
-                        egl_context.egl_instance().unwrap();
-                    Ok(Self::Egl(EglState::new(gl, egl)?))
+            if let Some(o) = device
+                .as_hal::<wgpu_hal::api::Gles, _, _>(|hal_device| {
+                    hal_device.map(|hal_device| {
+                        let egl_context = hal_device.context();
+                        let gl: &glow::Context = &egl_context.lock();
+                        let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> =
+                            egl_context.egl_instance().unwrap();
+                        Ok(Self::Egl(EglState::new(gl, egl)?))
+                    })
                 })
-            }).flatten() {
+                .flatten()
+            {
                 return o;
             };
             Err(DWayRenderError::UnknownBackend)
@@ -142,12 +148,13 @@ pub fn extract_surface(
 pub fn prepare_surfaces(
     surface_query: Query<(&WlSurface, Option<&WlShmBuffer>, Option<&DmaBuffer>)>,
     render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
     import_state: ResMut<ImportState>,
     mut images: ResMut<RenderAssets<Image>>,
 ) {
     let mut state_guard = import_state.inner.lock().unwrap();
     if state_guard.is_none() {
-        match ImportStateKind::new(render_device.wgpu_device()) {
+        match ImportStateKind::new(render_device.wgpu_device(), &render_adapter) {
             Ok(o) => *state_guard = Some(o),
             Err(e) => {
                 error!("failed to prepare wayland surface: {e}");

@@ -11,10 +11,8 @@ use std::{
 
 use bevy::{
     app::DynEq,
-    asset::AssetLoader,
-    ecs::system::{Command, EntityCommand, SystemId},
-    render::render_resource::AsBindGroup,
-    utils::{label::DynHash, HashMap, HashSet},
+    ecs::system::{Command, SystemId},
+    utils::{label::DynHash, HashMap},
 };
 use bevy_svg::prelude::Svg;
 use bitflags::bitflags;

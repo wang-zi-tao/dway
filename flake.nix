@@ -26,7 +26,7 @@
           nativeBuildInputs = with pkgs; [
             (fenix.fromToolchainFile {
               file = ./rust-toolchain.toml;
-              sha256 = "sha256-kfnhNT9AcZARVovq9+6aay+4rOV3G7ZRdmMQdbd9+Pg=";
+              sha256 = "sha256-1v11D19X2KU+ARrP8CYDip35C9E+hmJRYffZXAntY9g=";
             })
             tracy
             cargo-flamegraph
@@ -65,7 +65,6 @@
             xorg.libxcb.dev
             dbus.dev
             libdrm.dev
-            vulkan-loader.dev
             xorg.xcbutilrenderutil.dev
             xorg.xcbutilerrors.dev
             libpng.dev
@@ -82,7 +81,7 @@
             mesa
             udev
             alsaLib
-            vulkan-loader
+            # (enableDebugging vulkan-loader )
             xorg.libXcursor
             xorg.libXrandr
             xorg.libXi # To use x11 feature
@@ -116,6 +115,9 @@
           ];
           # LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs + "";
           AMD_VULKAN_ICD = "RADV";
+          # AMD_VULKAN_ICD = "AMDVLK";
+          AMDVLK_ENABLE_DEVELOPING_EXT="all";
+          # VK_LOADER_DEBUG="all";
           # G_MESSAGES_DEBUG="all";
           shellHook = ''
             export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath buildInputs}"

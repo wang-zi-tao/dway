@@ -17,10 +17,15 @@ use bevy::{
     log::{Level, LogPlugin},
     pbr::PbrPlugin,
     prelude::*,
+    render::{
+        settings::{Backends, PowerPreference, RenderCreation, WgpuSettings},
+        RenderPlugin,
+    },
     scene::ScenePlugin,
     time::TimePlugin,
     winit::WinitPlugin,
 };
+use bevy_framepace::debug::DiagnosticsPlugin;
 use clap::Parser;
 use dway_client_core::{
     layout::{LayoutRect, LayoutStyle},
@@ -31,12 +36,13 @@ use dway_server::{
     x11::DWayXWaylandReady,
 };
 use dway_tty::{DWayTTYPlugin, DWayTTYSettings};
+use dway_ui_framework::diagnostics::UiDiagnosticsPlugin;
 use dway_util::logger::DWayLogPlugin;
 use keys::*;
 use opttions::DWayOption;
 use std::time::Duration;
 
-const LOG_LEVEL: Level = Level::TRACE;
+const LOG_LEVEL: Level = Level::INFO;
 const LOG: &str = "\
 bevy_ecs=info,\
 bevy_render=debug,\
@@ -44,18 +50,11 @@ bevy_ui=trace,\
 dway=debug,\
 polling=info,\
 bevy_relationship=debug,\
-dway_server=trace,\
-dway_server::input=debug,\
-dway_server::render=debug,\
-dway_server::state=debug,\
-dway_server::wl::buffer=debug,\
-dway_server::wl::compositor=debug,\
-dway_server::wl::surface=debug,\
-dway_server::xdg::popup=debug,\
-dway_server::xdg=debug,\
+dway_server=info,\
+dway_client_core=info,\
 nega::front=info,\
 naga=warn,\
-wgpu=trace,\
+wgpu=info,\
 wgpu-hal=info,\
 dexterous_developer_internal=info,\
 bevy_ecss=info,\
@@ -97,21 +96,13 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     let opts = DWayOption::parse();
     app.insert_resource(opts.clone());
     app.insert_resource(ClearColor(Color::NONE));
+    app.insert_resource(Msaa::Sample4);
 
     #[cfg(feature = "single_thread")]
     {
         default_plugins = default_plugins.set(TaskPoolPlugin {
             task_pool_options: TaskPoolOptions {
                 max_total_threads: 1,
-                ..Default::default()
-            },
-        });
-    }
-    #[cfg(not(feature = "single_thread"))]
-    {
-        default_plugins = default_plugins.set(TaskPoolPlugin {
-            task_pool_options: TaskPoolOptions {
-                max_total_threads: 8,
                 ..Default::default()
             },
         });
@@ -126,6 +117,14 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     }
 
     default_plugins = default_plugins
+        .set(RenderPlugin {
+            render_creation: RenderCreation::Automatic(WgpuSettings {
+                backends: Some(Backends::VULKAN | Backends::GL),
+                priority: bevy::render::settings::WgpuSettingsPriority::Functionality,
+                ..Default::default()
+            }),
+            ..Default::default()
+        })
         .add_before::<AssetPlugin, _>(LinuxIconSourcePlugin)
         .disable::<GltfPlugin>()
         .disable::<ScenePlugin>()
@@ -133,7 +132,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         .disable::<AudioPlugin>()
         .disable::<GilrsPlugin>();
 
-    app.insert_resource(Time::<Virtual>::from_max_delta(Duration::from_secs(5)))
+    app.insert_resource(Time::<Virtual>::from_max_delta(Duration::from_secs(1)))
         .add_plugins(default_plugins);
 
     if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
@@ -156,11 +155,6 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             });
         }
         app.add_plugins(WinitPlugin::default());
-        // app.add_plugins(bevy_framepace::FramepacePlugin);
-        // app.insert_resource(
-        //     bevy_framepace::FramepaceSettings::default()
-        //         .with_limiter(Limiter::from_framerate(60.0)),
-        // );
         #[cfg(feature = "eventloop")]
         {
             app.add_plugins(dway_util::eventloop::EventLoopPlugin::default());
@@ -173,10 +167,12 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
 
     app.add_plugins((
         FrameTimeDiagnosticsPlugin,
+        EntityCountDiagnosticsPlugin,
         LogDiagnosticsPlugin {
-            wait_duration: Duration::from_secs(256),
+            wait_duration: Duration::from_secs(1),
             ..Default::default()
         },
+        UiDiagnosticsPlugin,
     ));
 
     app.add_plugins((
@@ -205,6 +201,9 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
 
     #[cfg(feature = "single_thread")]
     {
+        app.edit_schedule(First, |schedule| {
+            schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+        });
         app.edit_schedule(PreUpdate, |schedule| {
             schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
         })
@@ -212,6 +211,9 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
         })
         .edit_schedule(PostUpdate, |schedule| {
+            schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+        });
+        app.edit_schedule(Last, |schedule| {
             schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
         });
     }
