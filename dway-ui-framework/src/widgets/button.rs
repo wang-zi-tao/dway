@@ -1,9 +1,11 @@
-use bevy::{ecs::system::SystemId, ui::FocusPolicy};
 use bevy_relationship::reexport::SmallVec;
 // use bevy_tweening::{AssetAnimator, EaseMethod};
+use crate::{
+    make_bundle,
+    prelude::*,
+    theme::{StyleFlags, ThemeComponent, WidgetKind},
+};
 use smart_default::SmartDefault;
-
-use crate::{make_bundle, prelude::*, theme::{StyleFlags, ThemeComponent, WidgetKind}};
 
 #[derive(Event, Debug, Clone, PartialEq, Eq)]
 pub enum UiButtonEventKind {
@@ -54,7 +56,15 @@ impl UiButton {
 }
 
 pub fn process_ui_button_event(
-    mut ui_query: Query<(Entity, &mut UiButton, &Interaction, Option<&mut ThemeComponent>), Changed<Interaction>>,
+    mut ui_query: Query<
+        (
+            Entity,
+            &mut UiButton,
+            &Interaction,
+            Option<&mut ThemeComponent>,
+        ),
+        Changed<Interaction>,
+    >,
     mut commands: Commands,
 ) {
     use UiButtonEventKind::*;
@@ -101,13 +111,17 @@ pub fn process_ui_button_event(
         button.state = *button_state;
 
         if let Some(mut theme) = theme {
-            theme.style_flags.set(StyleFlags::HOVERED, button.state == Interaction::Hovered);
-            theme.style_flags.set(StyleFlags::CLICKED, button.state == Interaction::Pressed);
+            theme
+                .style_flags
+                .set(StyleFlags::HOVERED, button.state == Interaction::Hovered);
+            theme
+                .style_flags
+                .set(StyleFlags::CLICKED, button.state == Interaction::Pressed);
         }
     }
 }
 
-make_bundle!{
+make_bundle! {
     @from button: UiButton,
     @addon UiRawButtonExt,
     UiRawButtonBundle {
@@ -119,7 +133,7 @@ make_bundle!{
         pub focus_policy: FocusPolicy,
     }
 }
-make_bundle!{
+make_bundle! {
     @from button: UiButton,
     @addon UiButtonExt,
     UiButtonBundle {
@@ -146,4 +160,3 @@ impl UiButtonExt {
         }
     }
 }
-

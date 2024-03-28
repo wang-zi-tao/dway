@@ -1,6 +1,4 @@
 use uuid::Uuid;
-use wayland_protocols::xdg::activation::v1::server::xdg_activation_token_v1;
-
 use crate::prelude::*;
 
 #[derive(Component, Reflect, Debug)]

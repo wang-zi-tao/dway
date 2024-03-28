@@ -1,5 +1,5 @@
 use super::Slot;
-use crate::{layout::WorkspaceHasSlot, prelude::*, workspace, DWayClientSystem};
+use crate::{layout::WorkspaceHasSlot, prelude::*, workspace};
 use dway_server::{
     geometry::{Geometry, GlobalGeometry},
     util::rect::IRect,
@@ -119,7 +119,7 @@ pub fn update_tile_layout(
     window_query: Query<Entity, (With<DWayWindow>, With<DWayToplevel>)>,
     mut commands: Commands,
 ) {
-    workspace.for_each(|(entity, geometry, global_geometry, windows, layout)| {
+    for (entity, geometry, global_geometry, windows, layout) in workspace.iter() {
         commands.add(DespawnAllConnectedEntityCommand::<WorkspaceHasSlot>::new(
             entity,
         ));
@@ -143,7 +143,7 @@ pub fn update_tile_layout(
                 .id();
             commands.add(ConnectCommand::<WorkspaceHasSlot>::new(entity, slot_entity));
         }
-    });
+    }
 }
 
 pub struct TileLayoutPlugin;

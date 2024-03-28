@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use bevy::utils::{HashMap, HashSet};
 use dway_client_core::{
     input::SurfaceUiNode,
     navigation::windowstack::{WindowIndex, WindowStack},
@@ -46,20 +45,6 @@ pub fn create_window_material(surface: &WlSurface, geo: &GlobalGeometry) -> Roun
         bbox_rect.size().as_vec2(),
         surface.image.clone(),
     )
-}
-
-pub fn window_mouse_event(
-    ui_query: Query<(&Node, &GlobalGeometry, &Interaction, &SurfaceUiNode)>,
-    window_query: Query<(&WlSurface, &GlobalGeometry)>,
-) {
-    ui_query.for_each(|(node, global, interaction, content)| {
-        if *interaction != Interaction::Hovered {
-            return;
-        }
-        let Ok((surface, global)) = window_query.get(content.surface_entity) else {
-            return;
-        };
-    });
 }
 
 #[derive(Component, Reflect, Debug)]

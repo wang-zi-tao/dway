@@ -1,6 +1,5 @@
 use crate::prelude::*;
 use bevy::{
-    app::{App, Plugin},
     core_pipeline::{
         core_2d::graph::Node2d,
         msaa_writeback::MsaaWritebackNode,
@@ -8,40 +7,26 @@ use bevy::{
     },
     ecs::{
         entity::EntityHashMap,
-        prelude::{Entity, EventReader},
-        query::{ROQueryItem, With},
-        schedule::IntoSystemConfigs,
+        query::ROQueryItem,
         system::{
             lifetimeless::{Read, SRes},
             *,
         },
-        world::{FromWorld, World},
     },
     render::{
         batching::{
             batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
             NoAutomaticBatching,
-        },
-        globals::{GlobalsBuffer, GlobalsUniform},
-        mesh::{GpuBufferInfo, MeshVertexBufferLayout},
-        render_asset::{prepare_assets, RenderAssets},
-        render_graph::RenderGraphApp,
-        render_phase::{AddRenderCommand, *},
-        render_resource::{binding_types::uniform_buffer, *},
-        renderer::{RenderDevice, RenderQueue},
-        texture::{
-            BevyDefault, DefaultImageSampler, FallbackImage, GpuImage, Image, ImageSampler,
+        }, globals::{GlobalsBuffer, GlobalsUniform}, mesh::{GpuBufferInfo, MeshVertexBufferLayout}, render_asset::{prepare_assets, RenderAssets}, render_graph::RenderGraphApp, render_phase::{AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass}, render_resource::{binding_types::uniform_buffer, *}, renderer::{RenderDevice, RenderQueue}, texture::{
+            BevyDefault, DefaultImageSampler, FallbackImage, GpuImage, ImageSampler,
             TextureFormatPixelInfo,
-        },
-        view::*,
-        Extract, ExtractSchedule, RenderApp, RenderSet,
+        }, view::*, Extract, RenderApp, RenderSet
     },
     sprite::{
         tonemapping_pipeline_key, Material2d, Material2dBindGroupId, Material2dKey,
         Mesh2dPipelineKey, Mesh2dTransforms, Mesh2dUniform, MeshFlags, PreparedMaterial2d,
         MESH2D_SHADER_HANDLE,
     },
-    transform::prelude::GlobalTransform,
     ui::{
         graph::{NodeUi, SubGraphUi},
         TransparentUi, UiStack,

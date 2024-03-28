@@ -3,8 +3,7 @@ use proc_macro2::Ident;
 use quote::{quote, quote_spanned};
 use syn::{
     spanned::Spanned,
-    token::{self, Bracket, Paren},
-    ExprRange, Token,
+    token::{self, Bracket, Paren}, Token,
 };
 
 use crate::{edge::EdgeQuery, filter::Filter, node::NodeQuery, query::QueryBuilder};
@@ -113,7 +112,7 @@ impl PathQuery {
         nodes: &[PathNodeQuery],
         edges: &[(PathEdgeQuery, EdgeDirection)],
     ) {
-        if nodes.len() > 0 && edges.len() > 0 {
+        if !nodes.is_empty() && !edges.is_empty() {
             self.build_foreach_inner(builder, mutable, &nodes[1..], &edges[1..]);
 
             let node = nodes.last().unwrap();

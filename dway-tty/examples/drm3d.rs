@@ -12,7 +12,7 @@ use bevy::{
     log::LogPlugin,
     prelude::*,
     render::camera::RenderTarget,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::Mesh2dHandle,
     winit::WinitPlugin,
 };
 use dway_tty::{drm::surface::DrmSurface, DWayTTYPlugin};
@@ -68,7 +68,6 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
     surface_query: Query<&DrmSurface>,
     mut animations: ResMut<Assets<AnimationClip>>,
 ) {
@@ -77,46 +76,20 @@ fn setup(
     if std::env::var("DISPLAY").is_ok() || std::env::var("WAYLAND_DISPLAY").is_ok() {
         commands.spawn(Camera2dBundle::default());
     }
-    surface_query.for_each(|surface| {
+    for surface in surface_query.iter() {
         let image_handle = surface.image();
-        commands.spawn((
-            // Camera2d {
-            //     clear_color: ClearColorConfig::Custom(Color::WHITE),
-            // },
-            Camera3dBundle {
-                transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-                camera: Camera {
-                    target: RenderTarget::Image(image_handle),
-                    ..default()
-                },
-                tonemapping: Tonemapping::None,
+        commands.spawn((Camera3dBundle {
+            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            camera: Camera {
+                target: RenderTarget::Image(image_handle),
                 ..default()
             },
-            // Camera2dBundle {
-            //     camera: Camera {
-            //         target: RenderTarget::Image(image_handle),
-            //         ..default()
-            //     },
-            //     tonemapping: Tonemapping::None,
-            //     ..default()
-            // },
-        ));
+            tonemapping: Tonemapping::None,
+            ..default()
+        },));
         info!("setup camera");
-    });
+    }
 
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::Cube::new(400.0)).into(),
-        material: materials.add(ColorMaterial::from(Color::LIME_GREEN)),
-        transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
-        ..default()
-    });
-
-    commands.spawn((PbrBundle {
-        mesh: meshes.add(shape::Cube::default()),
-        material: standard_materials.add(Color::ORANGE),
-        transform: Transform::from_xyz(0.0, -30.0, 0.0),
-        ..default()
-    },));
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             intensity: 9000.,
@@ -223,7 +196,7 @@ fn setup(
     commands
         .spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::try_from(shape::Icosphere::default()).unwrap()),
+                mesh: meshes.add(Mesh::from(Sphere::default())),
                 material: standard_materials.add(Color::rgb(0.8, 0.7, 0.6)),
                 ..default()
             },
@@ -243,7 +216,9 @@ fn setup(
                 p.spawn((
                     PbrBundle {
                         transform: Transform::from_xyz(1.5, 0.0, 0.0),
-                        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+                        mesh: meshes.add(Mesh::from(Cuboid {
+                            half_size: Vec3::splat(0.5),
+                        })),
                         material: standard_materials.add(Color::rgb(0.3, 0.9, 0.3)),
                         ..default()
                     },

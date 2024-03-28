@@ -2,7 +2,7 @@ use crate::{input::time, prelude::*, util::serial::next_serial, wl::surface::WlS
 use bevy::input::keyboard::{KeyboardInput, NativeKeyCode};
 use dway_util::keys::*;
 use std::{fs::File, io::Write, os::fd::AsFd, path::PathBuf};
-use xkbcommon::xkb::{self, KEY_XF86Cut, KEY_space};
+use xkbcommon::xkb::{self};
 
 fn get_key_code(key: &KeyCode) -> u32 {
     // TODO: check all unwupported key
@@ -272,7 +272,7 @@ impl XkbState {
 
     pub fn key(&mut self, input: &KeyboardInput) {
         self.state.update_key(
-            get_key_code(&input.key_code) as u32 + 8,
+            get_key_code(&input.key_code) + 8,
             match input.state {
                 bevy::input::ButtonState::Pressed => xkb::KeyDirection::Down,
                 bevy::input::ButtonState::Released => xkb::KeyDirection::Up,

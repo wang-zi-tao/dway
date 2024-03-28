@@ -12,13 +12,12 @@ use crate::{
     },
     zwp::dmabufparam::DmaBuffer,
 };
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, bail, Result};
 use ash::{
     extensions::{ext::PhysicalDeviceDrm, khr::ExternalMemoryFd},
-    vk::{self, Handle, *},
+    vk::{self, *},
 };
 use bevy::{
-    prelude::IVec2,
     render::{render_asset::RenderAssets, texture::GpuImage},
     utils::{Entry, HashMap},
 };
@@ -26,11 +25,9 @@ use bevy_relationship::reexport::SmallVec;
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use nix::libc::makedev;
 use std::{
-    ffi::CStr,
     os::fd::{AsFd, AsRawFd},
     sync::{Arc, RwLock},
 };
-use wayland_server::protocol::{wl_buffer, wl_shm};
 use wgpu::{
     Extent3d, FilterMode, ImageCopyTexture, SamplerDescriptor, TextureAspect, TextureDimension,
 };
@@ -161,7 +158,6 @@ pub fn create_dma_image(
     hal_device: &wgpu_hal::vulkan::Device,
     buffer: &DmaBuffer,
 ) -> Result<ImportedImage> {
-    let entry = hal_device.shared_instance().entry();
     let instance = hal_device.shared_instance().raw_instance();
     let device = hal_device.raw_device();
     let physical = hal_device.raw_physical_device();
@@ -214,7 +210,6 @@ pub fn create_dma_image(
         let mut plane_infos = Vec::with_capacity(planes.len());
         let mut bind_infos = Vec::with_capacity(planes.len());
         let mut memorys = SmallVec::<[_; 4]>::new();
-        let phy_mem_prop = instance.get_physical_device_memory_properties(physical);
         for (i, plane) in planes.iter().enumerate() {
             let memory_requirement = {
                 let mut requirement_info = ash::vk::ImageMemoryRequirementsInfo2::builder()

@@ -1,5 +1,5 @@
 use crate::{make_bundle, prelude::*};
-use bevy::{ecs::system::SystemId, ui::{FocusPolicy, RelativeCursorPosition}};
+use bevy::ui::RelativeCursorPosition;
 use derive_builder::Builder;
 
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq)]
@@ -13,7 +13,7 @@ pub struct PopupEvent {
     pub kind: PopupEventKind,
 }
 
-structstruck::strike!{
+structstruck::strike! {
     #[derive(Component, Reflect, Default, Clone, Debug, Builder)]
     pub struct UiPopup {
         pub close_policy:
@@ -26,14 +26,14 @@ structstruck::strike!{
             },
         #[reflect(ignore)]
         pub callback: Option<SystemId<PopupEvent>>,
-        pub state: 
+        pub state:
             #[derive(Debug, Clone, Copy, Reflect, Default, PartialEq, Eq)]
             pub enum PopupState {
                 #[default]
                 Open,
                 Closed,
             },
-        pub position: 
+        pub position:
             #[derive(Default, Clone, Copy, Reflect, Debug)]
             pub enum PopupPosition {
                 Up,
@@ -66,13 +66,13 @@ impl UiPopup {
 }
 
 pub fn update_popup(
-    mut popup_query: Query<(Entity, &mut UiPopup, &Node, &GlobalTransform, &RelativeCursorPosition)>,
+    mut popup_query: Query<(Entity, &mut UiPopup, &RelativeCursorPosition)>,
     mouse: Res<ButtonInput<MouseButton>>,
     mut commands: Commands,
 ) {
     let mouse_down =
         || mouse.any_just_pressed([MouseButton::Left, MouseButton::Middle, MouseButton::Right]);
-    popup_query.for_each_mut(|(entity, mut popup, node, transform, relative_cursor)| {
+    for (entity, mut popup, relative_cursor) in popup_query.iter_mut() {
         let run_close_callback = |popup: &UiPopup, commands: &mut Commands| {
             if let Some(callback) = popup.callback {
                 commands.run_system_with_input(
@@ -84,7 +84,6 @@ pub fn update_popup(
                 );
             }
         };
-        let slider_rect = Rect::from_center_size(transform.translation().xy(), node.size());
         let mouse_inside = relative_cursor.mouse_over();
         match popup.close_policy {
             PopupClosePolicy::MouseLeave => {
@@ -108,10 +107,10 @@ pub fn update_popup(
         if popup.state == PopupState::Closed && popup.auto_destroy {
             commands.entity(entity).despawn_recursive();
         };
-    });
+    }
 }
 
-make_bundle!{
+make_bundle! {
     @from popup: UiPopup,
     @addon UiPopupExt,
     UiPopupBundle {
@@ -125,15 +124,15 @@ make_bundle!{
 pub fn delay_destroy(In(event): In<PopupEvent>, mut commands: Commands) {
     if PopupEventKind::Closed == event.kind {
         commands.entity(event.entity).despawn_recursive(); // TODO: temp code
-        // commands.entity(event.entity).insert(Animation::new(Duration::from_secs_f32(0.4), EaseFunction::BackOut).with_callback(theme.system(AnimationSystem::default())));
+                                                           // commands.entity(event.entity).insert(Animation::new(Duration::from_secs_f32(0.4), EaseFunction::BackOut).with_callback(theme.system(AnimationSystem::default())));
     }
 }
 
 pub fn delay_destroy_up(In(event): In<PopupEvent>, mut commands: Commands) {
     if PopupEventKind::Closed == event.kind {
         commands.entity(event.entity).despawn_recursive(); // TODO: temp code
-        // commands.entity(event.entity).insert(despawn_animation(
-        //     animation!(Tween 0.5 secs:BackOut->TransformPositionLens(Vec3::NEG_Y=>Vec3::Y)),
-        // ));
+                                                           // commands.entity(event.entity).insert(despawn_animation(
+                                                           //     animation!(Tween 0.5 secs:BackOut->TransformPositionLens(Vec3::NEG_Y=>Vec3::Y)),
+                                                           // ));
     }
 }

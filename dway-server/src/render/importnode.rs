@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Mutex};
 use super::{
     gles::EglState,
     util::DWayRenderError,
-    vulkan::{self, drm_info, VulkanState},
+    vulkan::{self, VulkanState},
 };
 use crate::{
     prelude::*,
@@ -16,12 +16,12 @@ use crate::{
     zwp::dmabufparam::DmaBuffer,
 };
 use bevy::{
-    core::{FrameCount, NonSendMarker},
+    core::FrameCount,
     ecs::system::SystemState,
     render::{
         render_asset::RenderAssets,
         render_graph::Node,
-        renderer::{RenderAdapter, RenderDevice, RenderQueue},
+        renderer::{RenderDevice, RenderQueue},
         texture::GpuImage,
         Extract,
     },
@@ -58,7 +58,7 @@ pub enum ImportStateKind {
     Vulkan(VulkanState),
 }
 impl ImportStateKind {
-    pub fn new(device: &wgpu::Device, adapter: &wgpu::Adapter) -> Result<Self, DWayRenderError> {
+    pub fn new(device: &wgpu::Device) -> Result<Self, DWayRenderError> {
         unsafe {
             if let Some(o) = device
                 .as_hal::<wgpu_hal::api::Vulkan, _, _>(|hal_device| {
@@ -148,13 +148,12 @@ pub fn extract_surface(
 pub fn prepare_surfaces(
     surface_query: Query<(&WlSurface, Option<&WlShmBuffer>, Option<&DmaBuffer>)>,
     render_device: Res<RenderDevice>,
-    render_adapter: Res<RenderAdapter>,
     import_state: ResMut<ImportState>,
     mut images: ResMut<RenderAssets<Image>>,
 ) {
     let mut state_guard = import_state.inner.lock().unwrap();
     if state_guard.is_none() {
-        match ImportStateKind::new(render_device.wgpu_device(), &render_adapter) {
+        match ImportStateKind::new(render_device.wgpu_device()) {
             Ok(o) => *state_guard = Some(o),
             Err(e) => {
                 error!("failed to prepare wayland surface: {e}");
@@ -164,22 +163,24 @@ pub fn prepare_surfaces(
     let Some(state_guard) = state_guard.as_mut() else {
         return;
     };
-    surface_query.for_each(|(surface, _shm_buffer, dma_buffer)| {
-        match state_guard {
-            ImportStateKind::Egl(_) => {}
-            ImportStateKind::Vulkan(vulkan) => {
-                if let Err(e) = vulkan::prepare_wl_surface(
-                    vulkan,
-                    render_device.wgpu_device(),
-                    surface,
-                    dma_buffer,
-                    &mut images,
-                ) {
-                    error!("failed to prepare wayland surface: {e}");
-                };
-            }
-        };
-    });
+    surface_query
+        .iter()
+        .for_each(|(surface, _shm_buffer, dma_buffer)| {
+            match state_guard {
+                ImportStateKind::Egl(_) => {}
+                ImportStateKind::Vulkan(vulkan) => {
+                    if let Err(e) = vulkan::prepare_wl_surface(
+                        vulkan,
+                        render_device.wgpu_device(),
+                        surface,
+                        dma_buffer,
+                        &mut images,
+                    ) {
+                        error!("failed to prepare wayland surface: {e}");
+                    };
+                }
+            };
+        });
 }
 
 pub struct ImportSurfacePassNode {
@@ -219,7 +220,7 @@ impl Node for ImportSurfacePassNode {
     ) -> Result<(), bevy::render::render_graph::NodeRunError> {
         let mut guard = self.state.lock().unwrap();
         let (render_device, render_queue, textures, import_state, surface_query) = guard.get(world);
-        surface_query.for_each(|(entity, surface, buffer, dma_buffer, egl_buffer)| {
+        for (entity, surface, buffer, dma_buffer, egl_buffer) in surface_query.iter() {
             let texture: &GpuImage = textures.get(&surface.image).unwrap();
             let mut state = import_state.inner.lock().unwrap();
             let result = match &mut *state {
@@ -235,7 +236,7 @@ impl Node for ImportSurfacePassNode {
                 Some(ImportStateKind::Vulkan(_)) => {
                     super::vulkan::import_wl_surface(buffer, &texture.texture, &render_queue)
                 }
-                None => return,
+                None => continue,
             };
 
             if let Err(e) = result {
@@ -251,7 +252,7 @@ impl Node for ImportSurfacePassNode {
                     "import buffer",
                 );
             };
-        });
+        }
 
         Ok(())
     }

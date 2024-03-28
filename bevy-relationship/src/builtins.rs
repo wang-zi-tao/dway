@@ -1,4 +1,4 @@
-use std::iter::Cloned;
+use std::{iter::Cloned, ops::Deref};
 
 use bevy::prelude::{Children, Entity, Parent, Plugin};
 
@@ -12,8 +12,8 @@ impl Relationship for EntityHasChildren {
 impl Connectable for Children {
     type Iterator<'l> = Cloned<std::slice::Iter<'l, Entity>>;
 
-    fn iter<'l>(&'l self) -> Self::Iterator<'l> {
-        (&**self).iter().cloned()
+    fn iter(&self) -> Self::Iterator<'_> {
+        Deref::deref(self).iter().cloned()
     }
 }
 impl Peer for Children {
@@ -34,7 +34,7 @@ impl Iterator for ParentIter {
 impl Connectable for Parent {
     type Iterator<'l> = ParentIter;
 
-    fn iter<'l>(&'l self) -> Self::Iterator<'l> {
+    fn iter(&self) -> Self::Iterator<'_> {
         ParentIter(self.get())
     }
 }

@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, quote_spanned};
-use syn::{spanned::Spanned, *};
+use syn::*;
 
 pub fn generate_change_detect(structure: &ItemStruct) -> anyhow::Result<TokenStream2> {
     let &ItemStruct {

@@ -1,6 +1,5 @@
 use crate::{prelude::*, state::add_global_dispatch};
-
-use bevy_relationship::{relationship, AppExt};
+use bevy_relationship::relationship;
 use wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 
 pub mod manager;

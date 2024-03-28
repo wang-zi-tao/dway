@@ -2,7 +2,7 @@ use crate::{prelude::*, util::rect::IRect};
 use rstar::{PointDistance, RTree, RTreeObject, SelectionFunction, AABB};
 
 #[derive(Resource)]
-struct RegionDelegate(pub GlobalId);
+struct RegionDelegate;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
 pub enum RegionOperator {

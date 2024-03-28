@@ -104,7 +104,7 @@ impl ParseCodeResult {
                     (!self.use_prop.is_empty())
                         .then_some(quote!(__dway_prop_changed)),
                 );
-            BoolExpr::RuntimeValue(quote!((#(#exprs)||*)))
+            BoolExpr::RuntimeValue(quote!(#(#exprs)||*))
         }
     }
     pub fn is_changed(&self) -> Option<TokenStream> {

@@ -3,10 +3,7 @@ pub mod widget_context;
 
 use crate::{
     dom::Dom,
-    domarg::{
-        control::{self, Id},
-        DomArgKey,
-    },
+    domarg::{control, DomArgKey},
 };
 use convert_case::Casing;
 use quote::format_ident;

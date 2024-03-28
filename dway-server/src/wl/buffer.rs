@@ -1,20 +1,17 @@
-use std::{
-    num::NonZeroUsize,
-    os::fd::{AsRawFd, OwnedFd},
-    ptr::NonNull,
-    sync::{Arc, RwLock},
-};
-
-use drm_fourcc::DrmModifier;
-use khronos_egl::EGLDisplay;
-use nix::sys::mman;
-use wayland_server::{Resource, WEnum};
-
 use crate::{
     prelude::*,
     state::{add_global_dispatch, EntityFactory},
 };
-
+use drm_fourcc::DrmModifier;
+use khronos_egl::EGLDisplay;
+use nix::sys::mman;
+use std::{
+    num::NonZeroUsize,
+    os::fd::OwnedFd,
+    ptr::NonNull,
+    sync::{Arc, RwLock},
+};
+use wayland_server::Resource;
 use super::surface::AttachedBy;
 
 #[derive(Component, Reflect, Debug, Clone)]

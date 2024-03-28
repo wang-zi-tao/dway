@@ -1,8 +1,6 @@
 use bevy::asset::io::embedded::EmbeddedAssetRegistry;
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
-use dway_ui::widgets::svg::UiSvg;
-use dway_ui::widgets::svg::UiSvgBundle;
 use dway_ui_framework::prelude::*;
 use std::path::PathBuf;
 

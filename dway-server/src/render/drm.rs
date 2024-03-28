@@ -1,7 +1,7 @@
 use super::util::DWayRenderError::*;
 use super::util::*;
 use crate::{prelude::*, util::file::create_sealed_file};
-use bevy::{render::renderer::RenderDevice, utils::tracing};
+use bevy::render::renderer::RenderDevice;
 use drm_fourcc::DrmFormat;
 use nix::libc::{self, dev_t};
 use std::{

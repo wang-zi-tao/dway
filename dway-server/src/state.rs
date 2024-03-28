@@ -2,7 +2,6 @@ use std::{
     any::{type_name, TypeId},
     borrow::Cow,
     ffi::OsString,
-    io::BufRead,
     marker::PhantomData,
     os::{fd::AsRawFd, unix::net::UnixStream},
     path::Path,
@@ -10,31 +9,24 @@ use std::{
     sync::Arc,
 };
 
+use crate::{
+    client::{Client, ClientData, ClientEvents},
+    prelude::*,
+};
 use anyhow::anyhow;
 use bevy::{
     ecs::{
         query::{QueryData, QueryEntityError, WorldQuery},
         system::Command,
     },
-    prelude::DespawnRecursiveExt,
     tasks::IoTaskPool,
-    utils::{tracing, HashMap},
+    utils::HashMap,
 };
-use bevy_relationship::{
-    reexport::SmallVec, ConnectCommand, ConnectableMut, DisconnectAllCommand, DisconnectCommand,
-    Relationship, ReserveRelationship, ReverseRelationship,
-};
+use bevy_relationship::reexport::SmallVec;
 use dway_util::eventloop::{EventLoop, Generic, Interest, Mode};
 use futures::{io::BufReader, AsyncBufReadExt, FutureExt, StreamExt};
-use nix::sys::signal::Signal;
 use wayland_backend::server::{ClientId, ObjectId};
 use wayland_server::{DataInit, ListeningSocket, New};
-
-use crate::{
-    client::{Client, ClientData, ClientEvents},
-    prelude::*,
-    schedule::DWayServerSet,
-};
 
 #[derive(Component, Default)]
 pub struct WlResourceIndex {
@@ -705,9 +697,9 @@ pub fn dispatch_events(world: &mut World) {
 }
 
 pub fn flush_display(mut display_query: Query<&mut DWayServer>) {
-    display_query.for_each_mut(|mut display| {
+    for mut display in display_query.iter_mut() {
         let _ = display.display.flush_clients();
-    })
+    }
 }
 
 pub fn client_name(id: &ClientId) -> String {

@@ -1,34 +1,25 @@
-use std::path::PathBuf;
-use std::time::Duration;
-
-use bevy::asset::io::embedded::EmbeddedAssetRegistry;
-use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
-use bevy::diagnostic::LogDiagnosticsPlugin;
-use bevy::prelude::*;
-use bevy_prototype_lyon::draw::Fill;
-use bevy_prototype_lyon::draw::Stroke;
-use bevy_prototype_lyon::entity::Path;
-use bevy_prototype_lyon::geometry::GeometryBuilder;
-use bevy_prototype_lyon::shapes;
+use bevy::{
+    asset::io::embedded::EmbeddedAssetRegistry,
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    prelude::*,
+};
+use bevy_prototype_lyon::{
+    draw::{Fill, Stroke},
+    entity::Path,
+    geometry::GeometryBuilder,
+    shapes,
+};
 use bevy_svg::prelude::StrokeOptions;
-use dway_ui::animation::AssetAnimationPlugin;
-use dway_ui::render::mesh::UiMeshBundle;
-use dway_ui::render::mesh::UiMeshHandle;
-use dway_ui::render::mesh::UiMeshTransform;
-use dway_ui::widgets::button::UiButtonBundle;
-use dway_ui::widgets::inputbox::UiInputBox;
-use dway_ui::widgets::inputbox::UiInputBoxBundle;
-use dway_ui::widgets::scroll::UiScrollBundle;
-use dway_ui::widgets::shape::UiShapeBundle;
-use dway_ui::widgets::slider::UiSliderBundle;
-use dway_ui::widgets::svg::UiSvg;
-use dway_ui::widgets::svg::UiSvgBundle;
-use dway_ui::widgets::text::UiTextBundle;
-use dway_ui_derive::color;
+use dway_ui::{
+    render::mesh::{UiMeshBundle, UiMeshHandle, UiMeshTransform},
+    widgets::{
+        inputbox::{UiInputBox, UiInputBoxBundle},
+        shape::UiShapeBundle,
+    },
+};
 use dway_ui_derive::dway_widget;
 use dway_ui_framework::prelude::*;
-
-const SVG_HANDLE: Handle<Shader> = Handle::weak_from_u128(15628284168829255748903736059973599232);
+use std::path::PathBuf;
 
 fn main() {
     let mut app = App::new();
@@ -251,7 +242,7 @@ Gallary=>
     </MiniNodeBundle>
     <MiniNodeBundle Style=(cell_style())
         @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
-        <UiShapeBundle Fill=(Fill::color(Color::BLUE)) Stroke=( Stroke::new(Color::BLACK, 8.0) ) 
+        <UiShapeBundle Fill=(Fill::color(Color::BLUE)) Stroke=( Stroke::new(Color::BLACK, 8.0) )
         UiMeshTransform=(Transform::default().with_translation(Vec3::new(-64.0,-64.0,0.0)).with_scale(Vec3::splat(1.0/8.0)).into())
         Path=(GeometryBuilder::build_as(&shapes::SvgPathShape {
             svg_doc_size_in_px: Vec2::splat(0.0),
@@ -260,11 +251,11 @@ Gallary=>
     </MiniNodeBundle>
     <MiniNodeBundle Style=(cell_style())
         @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
-        <UiShapeBundle Fill=(Fill::color(Color::YELLOW)) 
+        <UiShapeBundle Fill=(Fill::color(Color::YELLOW))
         Stroke=(Stroke{
             color: Color::BLACK,
             options: StrokeOptions::default().with_line_join(bevy_svg::prelude::LineJoin::Round).with_line_width(16.0)
-        }) 
+        })
         Path=(GeometryBuilder::build_as(&shapes::RegularPolygon {
             sides: 8,
             feature: shapes::RegularPolygonFeature::Radius(48.0),

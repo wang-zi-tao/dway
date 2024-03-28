@@ -5,10 +5,10 @@ use dway_util::eventloop::EventLoop;
 pub mod screen;
 pub mod util;
 pub mod window;
+
 use crate::{
     client::{Client, ClientEvents},
     prelude::*,
-    schedule::DWayServerSet,
     state::{on_create_display_event, WaylandDisplayCreated},
 };
 

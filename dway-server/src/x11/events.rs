@@ -1,5 +1,4 @@
-use anyhow::{anyhow, Result};
-use bevy::prelude::DespawnRecursiveExt;
+use anyhow::anyhow;
 use scopeguard::defer;
 use thiserror::Error;
 use x11rb::{
@@ -446,7 +445,7 @@ pub fn flush_xwayland(
     xwayland_query: Query<(Entity, &XWaylandDisplayWrapper)>,
     mut commands: Commands,
 ) {
-    xwayland_query.for_each(|(entity, x)| {
+    for (entity, x) in xwayland_query.iter() {
         let guard = x.lock().unwrap();
         let Some(connection) = guard.connection.upgrade() else {
             commands.entity(entity).despawn_recursive();
@@ -455,5 +454,5 @@ pub fn flush_xwayland(
         if let Err(e) = connection.0.flush() {
             error!(entity=?entity,"failed to flush xwayland connection: {e}");
         };
-    });
+    }
 }

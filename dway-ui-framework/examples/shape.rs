@@ -4,19 +4,13 @@ use bevy::{
 };
 use bevy_prototype_lyon::{
     draw::{Fill, Stroke},
-    entity::{Path},
+    entity::Path,
     path::PathBuilder,
 };
 use bevy_svg::prelude::{FillOptions, StrokeOptions};
 use chrono::Timelike;
-use dway_ui_framework::{
-    widgets::shape::UiShapeBundle,
-    UiFrameworkPlugin,
-};
-use std::{
-    f32::consts::PI,
-    time::{Duration},
-};
+use dway_ui_framework::{widgets::shape::UiShapeBundle, UiFrameworkPlugin};
+use std::{f32::consts::PI, time::Duration};
 
 fn main() {
     App::new()
@@ -38,16 +32,12 @@ fn main() {
 #[derive(Component)]
 pub struct Clock;
 
-fn setup(
-    mut commands: Commands,
-    mesh2d_materials: ResMut<Assets<ColorMaterial>>,
-    meshes: ResMut<Assets<Mesh>>,
-) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 
     commands.spawn((
         Clock,
-        Fill{
+        Fill {
             options: FillOptions::default(),
             color: Color::YELLOW,
         },
@@ -71,7 +61,7 @@ fn setup(
         },
     ));
 }
-fn update(mut query: Query<&mut Path, With<Clock>>, time: Res<Time>) {
+fn update(mut query: Query<&mut Path, With<Clock>>) {
     for mut path in &mut query {
         let time = chrono::offset::Local::now();
         let h = time.hour12().1 as f32;

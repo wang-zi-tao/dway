@@ -1,6 +1,6 @@
 use crate::{parser::ParseCodeResult, prelude::*};
 
-use super::{DomArg, DomArgKey, DomDecorator};
+use super::{DomArgKey, DomDecorator};
 
 #[derive(Parse)]
 pub struct Id {

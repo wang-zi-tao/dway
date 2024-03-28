@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use bevy::ecs::system::SystemId;
 pub mod button;
 pub mod canvas;
 pub mod checkbox;
@@ -22,7 +21,6 @@ pub mod bundles {
         theme::{StyleFlags, ThemeComponent, WidgetKind},
     };
 
-    use super::button::UiButton;
     #[macro_export]
     macro_rules! make_bundle {
         ($name:ident {$($tt:tt)*}) => {

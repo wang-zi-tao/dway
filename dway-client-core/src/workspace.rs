@@ -37,13 +37,13 @@ pub fn attach_window_to_workspace(
     workspace_query: Query<(Entity, &GlobalGeometry), (With<Workspace>, Without<Hidden>)>,
     mut commands: Commands,
 ) {
-    new_window.for_each(|(window, window_geo)| {
+    for (window, window_geo) in new_window.iter() {
         for (workspace, workspace_geo) in workspace_query.iter() {
             if workspace_geo.intersection(window_geo.geometry).size() != IVec2::default() {
                 commands.add(ConnectCommand::<WindowOnWorkspace>::new(window, workspace));
             }
         }
-    });
+    }
 }
 
 pub fn attach_workspace_to_screen(
@@ -54,7 +54,7 @@ pub fn attach_workspace_to_screen(
     >,
     mut commands: Commands,
 ) {
-    screen_query.for_each(|(screen_entity, screen_geo)| {
+    for (screen_entity, screen_geo) in screen_query.iter() {
         for (workspace_entity, mut workspace_geo, screens) in workspace_query.iter_mut() {
             if screens.map(|s| s.len() == 0).unwrap_or(true) {
                 commands.add(ConnectCommand::<ScreenAttachWorkspace>::new(
@@ -79,7 +79,7 @@ pub fn attach_workspace_to_screen(
             screen_entity,
             workspace_entity,
         ));
-    });
+    }
 }
 
 pub struct WorkspacePlugin;

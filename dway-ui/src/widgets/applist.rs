@@ -2,11 +2,9 @@ use super::icon::{UiIcon, UiIconBundle};
 use crate::prelude::*;
 use crate::{
     popups::app_window_preview::{AppWindowPreviewPopup, AppWindowPreviewPopupBundle},
-    prelude::*,
 };
 use dway_client_core::desktop::FocusedWindow;
 use dway_server::apps::{icon::LinuxIcon, DesktopEntry, WindowList};
-use dway_ui_framework::theme::ThemeComponent;
 use dway_ui_framework::widgets::button::UiRawButtonExt;
 
 #[derive(Component, Reflect)]

@@ -1,7 +1,5 @@
 pub mod ui;
-
-use crate::{prelude::*, theme::ThemeAppExt};
-use bevy::ecs::system::Command;
+use crate::prelude::*;
 use bevy_relationship::reexport::SmallVec;
 pub use interpolation;
 use interpolation::{Ease, EaseFunction};

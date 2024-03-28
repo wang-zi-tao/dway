@@ -1,8 +1,6 @@
 use bevy::utils::HashMap;
 use smart_default::SmartDefault;
 
-use crate::prelude::*;
-
 structstruck::strike! {
     #[derive(Clone, Debug)]
     pub enum DWayScript{

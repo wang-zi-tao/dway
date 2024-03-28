@@ -2,10 +2,8 @@ use std::{
     collections::VecDeque,
     sync::{Arc, Mutex},
 };
-
 use wayland_backend::server::{ClientId, DisconnectReason};
-
-use crate::{prelude::*, schedule::DWayServerSet};
+use crate::prelude::*;
 
 #[derive(Debug, Clone)]
 pub enum ClientEvent {

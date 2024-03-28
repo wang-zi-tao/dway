@@ -2,7 +2,7 @@ pub mod equalsize;
 pub mod lsp;
 pub mod tile;
 
-use crate::{prelude::*};
+use crate::prelude::*;
 use dway_server::{
     geometry::Geometry,
     util::rect::IRect,
@@ -95,7 +95,7 @@ pub fn attach_window_to_slot(
     mut commands: Commands,
     mut window_actions: EventWriter<WindowAction>,
 ) {
-    workspace_query.for_each(|(slots, windows, layout_style)| {
+    for (slots, windows, layout_style) in workspace_query.iter() {
         windows
             .iter()
             .zip(slots.iter().cycle().take(windows.len()))
@@ -115,7 +115,7 @@ pub fn attach_window_to_slot(
                     }
                 }
             });
-    });
+    }
 }
 
 pub struct LayoutPlugin;

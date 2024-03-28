@@ -1,11 +1,11 @@
-use crate::{filter::Filter, path::EdgeDirection, query::QueryBuilder};
+use crate::{path::EdgeDirection, query::QueryBuilder};
 use quote::{quote, quote_spanned};
 use syn::{
     bracketed,
     punctuated::Punctuated,
     spanned::Spanned,
-    token::{Bracket, Paren},
-    Expr, ExprClosure, ExprRange, Ident, Path, Token,
+    token::{Bracket},
+    Expr, ExprClosure, Ident, Path, Token,
 };
 
 pub enum EdgeQuery {

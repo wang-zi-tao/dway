@@ -1,4 +1,4 @@
-use dway_client_core::navigation::windowstack::{WindowIndex, WindowStack};
+use dway_client_core::navigation::windowstack::{WindowStack};
 use dway_server::xdg::toplevel::DWayToplevel;
 use dway_ui_framework::{make_bundle, theme::{ThemeComponent, WidgetKind}};
 
@@ -33,7 +33,6 @@ make_bundle!{
 
 impl PanelButtonBundle {
     pub fn new(
-        entity: Entity,
         theme: &Theme,
         rect_material_set: &mut Assets<RoundedUiRectMaterial>,
     ) -> Self {
@@ -52,12 +51,10 @@ impl PanelButtonBundle {
         }
     }
     pub fn with_callback(
-        entity: Entity,
         theme: &Theme,
         rect_material_set: &mut Assets<RoundedUiRectMaterial>,
         callback: &[(Entity, SystemId<UiButtonEvent>)],
     ) -> Self {
-        let mut callbacks = callback.to_vec();
         Self {
             style: Style {
                 margin: UiRect::axes(Val::Px(4.0), Val::Auto),

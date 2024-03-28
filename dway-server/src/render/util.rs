@@ -9,7 +9,6 @@ use ash::vk;
 use drm_fourcc::DrmFourcc;
 use glow::HasContext;
 use khronos_egl::{Attrib, Boolean, Int};
-use scopeguard::defer;
 use thiserror::Error;
 use wgpu_hal::{api::Gles, gles::AdapterContext};
 

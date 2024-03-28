@@ -1,10 +1,8 @@
+use crate::domarg::DomArg;
 use derive_syn_parse::Parse;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
-use std::collections::BTreeMap;
 use syn::{parse::ParseStream, spanned::Spanned, token::Paren, *};
-
-use crate::domarg::{DomArg, DomArgKey};
 
 pub struct DomChildren {
     pub list: Vec<Dom>,

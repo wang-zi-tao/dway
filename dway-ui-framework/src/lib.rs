@@ -2,24 +2,20 @@
 
 pub mod animation;
 pub mod assets;
+pub mod diagnostics;
 pub mod input;
 pub mod prelude;
 pub mod render;
 pub mod shader;
 pub mod theme;
 pub mod widgets;
-pub mod diagnostics;
+
 use crate::{
     prelude::*,
     render::mesh::{UiMeshHandle, UiMeshMaterialPlugin, UiMeshTransform},
-    widgets::{
-        button::UiButton,
-        checkbox::UiCheckBox,
-        slider::UiSlider,
-        svg::{SvgLayout, SvgMagerial, UiSvg},
-    },
+    widgets::svg::{SvgLayout, SvgMagerial},
 };
-use bevy::{ui::UiSystem};
+use bevy::ui::UiSystem;
 use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_svg::SvgPlugin;
 pub use dway_ui_derive::*;
@@ -129,14 +125,13 @@ pub enum UiFrameworkSystems {
 #[cfg(test)]
 pub mod tests {
     use std::{
-        collections::{HashMap},
+        collections::HashMap,
         path::{Path, PathBuf},
         sync::{Arc, Mutex},
     };
 
-    
     use bevy::{
-        app::{AppExit},
+        app::AppExit,
         core::FrameCount,
         ecs::system::BoxedSystem,
         render::{camera::RenderTarget, view::screenshot::ScreenshotManager},
@@ -145,13 +140,7 @@ pub mod tests {
     };
     use image::{DynamicImage, GenericImageView};
 
-    
-
     use super::*;
-
-    fn render(app: &mut App) -> DynamicImage {
-        todo!()
-    }
 
     pub fn assert_image_eq(image: &Image, dest: &Path, tmp: &Path) {
         let src_image = image::DynamicImage::ImageRgba8(
@@ -311,10 +300,6 @@ pub mod tests {
         }
     }
 
-    pub struct UnitTestError {
-        name: String,
-        error: anyhow::Error,
-    }
     pub enum UnitTestState {
         Padding,
         Ok,

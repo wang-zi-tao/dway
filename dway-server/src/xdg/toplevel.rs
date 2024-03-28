@@ -1,20 +1,15 @@
-
-use bevy::ecs::query::QueryData;
-
+use super::{DWayWindow, XdgSurface};
 use crate::{
     geometry::Geometry,
     input::{
         grab::{ResizeEdges, SurfaceGrabKind, WlSurfacePointerState},
-        pointer::WlPointer,
         seat::WlSeat,
     },
     prelude::*,
     resource::ResourceWrapper,
-    schedule::DWayServerSet,
     wl::surface::ClientHasSurface,
 };
-
-use super::{DWayWindow, XdgSurface};
+use bevy::ecs::query::QueryData;
 
 #[derive(Component)]
 pub struct PinedWindow;
@@ -135,7 +130,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
             }
             xdg_toplevel::Request::Resize {
                 seat,
-                serial,
+                serial: _,
                 edges,
             } => {
                 if state.entity(*data).contains::<PinedWindow>() {
@@ -251,7 +246,7 @@ pub fn process_window_action_event(
     for e in events.read() {
         match e {
             WindowAction::Close(e) => {
-                if let Ok(mut toplevel) = window_query.get_mut(*e) {
+                if let Ok(toplevel) = window_query.get_mut(*e) {
                     toplevel.xdg_obj.raw.close();
                     toplevel.surface.configure();
                 }

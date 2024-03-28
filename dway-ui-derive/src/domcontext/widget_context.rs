@@ -516,6 +516,7 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
     let this_query = world_query.values().map(|(_, ty)| ty);
     let this_query_var = world_query.values().map(|(pat, _)| pat);
     let system = quote! {
+        #[allow(unused_braces)]
         #[allow(non_snake_case)]
         pub fn #system_name(
             mut this_query: Query<(

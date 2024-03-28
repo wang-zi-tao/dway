@@ -101,7 +101,7 @@ impl AssetLoader for LinuxIconLoader {
             let name = &settings.icon.name;
             let raw_icon = self
                 .icon_loader
-                .load_icon(&format!("{}.svg", name))
+                .load_icon(format!("{}.svg", name))
                 .ok_or(LinuxIconError::NotFound)?;
             let file = raw_icon.file_for_size(settings.icon.width.max(settings.icon.height));
             let path = file.path().to_owned();
@@ -165,8 +165,7 @@ impl AssetReader for LinuxIconReader {
         >,
     > {
         Box::pin(async move {
-            let reader: Box<Reader> = Box::new(DataReader::default());
-            Ok(reader)
+            Ok(Box::<DataReader>::default() as Box<Reader>)
         })
     }
 

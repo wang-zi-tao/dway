@@ -1,28 +1,15 @@
 pub mod icon;
 pub mod launchapp;
 
-use std::{any::type_name, borrow::Cow, collections::HashMap, path::PathBuf};
-
-use bevy::{
-    asset::{
-        io::{AssetSource, AssetSourceId},
-        saver::AssetSaver,
-    },
-    tasks::{block_on, IoTaskPool, Task},
-};
-
-use bevy_svg::prelude::Svg;
-use futures_lite::future::poll_once;
-use gettextrs::{dgettext, setlocale, LocaleCategory};
-
-use crate::{
-    apps::icon::LinuxIcon, prelude::*, schedule::DWayServerSet, xdg::toplevel::DWayToplevel,
-};
-
 use self::{
-    icon::{LinuxIconLoader, LinuxIconReader},
+    icon::LinuxIconLoader,
     launchapp::{launch_app_system, run_command_system, LaunchAppRequest, RunCommandRequest},
 };
+use crate::{apps::icon::LinuxIcon, prelude::*, xdg::toplevel::DWayToplevel};
+use bevy::tasks::{block_on, IoTaskPool, Task};
+use futures_lite::future::poll_once;
+use gettextrs::{dgettext, setlocale, LocaleCategory};
+use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 
 #[derive(Resource, Default, Reflect)]
 pub struct DesktopEntriesSet {
@@ -196,7 +183,6 @@ pub fn on_scan_task_finish(
     root_query: Query<Entity, With<AppEntryRoot>>,
     mut entries: ResMut<DesktopEntriesSet>,
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
 ) {
     let Some(task) = &mut entries.scan_task else {
         return;
@@ -227,7 +213,7 @@ pub fn attach_to_app(
     register: Res<DesktopEntriesSet>,
     mut commands: Commands,
 ) {
-    toplevel_query.for_each(|(entity, toplevel)| {
+    for (entity, toplevel) in toplevel_query.iter() {
         if let Some(app_id) = &toplevel.app_id {
             if let Some(entry_entity) = register.by_id.get(app_id) {
                 commands
@@ -235,7 +221,7 @@ pub fn attach_to_app(
                     .connect_to::<ToplevelConnectAppEntry>(*entry_entity);
             }
         }
-    })
+    }
 }
 
 pub struct DesktopEntriesPlugin;

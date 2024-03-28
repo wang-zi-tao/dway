@@ -1,4 +1,4 @@
-use crate::{filter::Filter, query::QueryBuilder};
+use crate::{query::QueryBuilder};
 use derive_syn_parse::Parse;
 use proc_macro2::Ident;
 use proc_macro2::TokenStream;

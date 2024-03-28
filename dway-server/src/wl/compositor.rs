@@ -1,10 +1,9 @@
-use bevy_relationship::{relationship, AppExt};
-
 use crate::{
     prelude::*,
     state::{add_global_dispatch, EntityFactory},
     wl::surface::{ClientHasSurface, WlSubsurface, WlSurface, WlSurfaceBundle},
 };
+use bevy_relationship::relationship;
 
 #[derive(Component)]
 pub struct WlCompositor {

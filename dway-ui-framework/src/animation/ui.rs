@@ -1,6 +1,5 @@
+use super::AnimationEvent;
 use crate::prelude::*;
-
-use super::{AnimationEvent};
 
 #[derive(Component, Debug, Clone)]
 pub struct BackupStyle(pub Style);
@@ -19,45 +18,6 @@ pub fn with_backup_style<R>(
         entity.remove::<BackupStyle>();
     }
     r
-}
-
-fn move_rect(style: &mut Style, offset: Vec2, size: Vec2) {
-    match &mut style.top {
-        Val::Px(ref mut v) => {
-            *v += offset.y;
-        }
-        Val::Percent(ref mut v) => {
-            *v += 100.0 * offset.y / size.y;
-        }
-        _ => {}
-    }
-    match &mut style.bottom {
-        Val::Px(ref mut v) => {
-            *v -= offset.y;
-        }
-        Val::Percent(ref mut v) => {
-            *v -= 100.0 * offset.y / size.y;
-        }
-        _ => {}
-    }
-    match &mut style.left {
-        Val::Px(ref mut v) => {
-            *v += offset.x;
-        }
-        Val::Percent(ref mut v) => {
-            *v += 100.0 * offset.x / size.x;
-        }
-        _ => {}
-    }
-    match &mut style.right {
-        Val::Px(ref mut v) => {
-            *v -= offset.x;
-        }
-        Val::Percent(ref mut v) => {
-            *v -= 100.0 * offset.x / size.x;
-        }
-        _ => {}
-    }
 }
 
 fn move_val_by_percent(dest: &mut Val, src: &Val, offset: f32, size: f32) {

@@ -1,15 +1,13 @@
-use bevy::utils::HashSet;
-use dway_client_core::{input::SurfaceUiNode, navigation::windowstack::WindowStack};
+use dway_client_core::{input::SurfaceUiNode};
 use dway_server::{
     geometry::GlobalGeometry,
     util::rect::IRect,
     wl::surface::WlSurface,
-    xdg::{popup::XdgPopup, toplevel::DWayToplevel, DWayWindow, PopupList},
+    xdg::{DWayWindow, PopupList},
 };
 
 use crate::{prelude::*, util::irect_to_style};
 
-use super::window::{WINDEOW_BASE_ZINDEX, WINDEOW_MAX_STEP};
 
 #[derive(Component, Reflect, Debug)]
 pub struct PopupUI {

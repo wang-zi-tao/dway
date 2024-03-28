@@ -15,19 +15,16 @@ use crate::{
     prelude::*,
     widgets::{
         applist::AppListUIBundle,
-        icon::{UiIcon, UiIconBundle},
-        logger::LoggerUIBundle,
         screen::{ScreenWindows, ScreenWindowsBundle},
         workspacelist::WorkspaceListUIBundle,
     },
 };
-use bevy::{render::camera::RenderTarget, ui::FocusPolicy, window::WindowRef};
+use bevy::{render::camera::RenderTarget, window::WindowRef};
 use bevy_svg::SvgPlugin;
 pub use bitflags::bitflags as __bitflags;
 use dway_client_core::screen::Screen;
 use dway_server::geometry::GlobalGeometry;
 use dway_tty::{drm::surface::DrmSurface, seat::SeatState};
-use dway_ui_framework::widgets::svg::{UiSvgBundle, UiSvgExt};
 use widgets::clock::ClockBundle;
 
 pub struct DWayUiPlugin;
@@ -75,7 +72,7 @@ fn setup(
         let camera = Camera2dBundle::default();
         commands.spawn(camera);
     } else {
-        surfaces.for_each(|(entity, surface)| {
+        for (entity, surface) in surfaces.iter() {
             let image_handle = surface.image();
             commands.spawn((Camera2dBundle {
                 camera: Camera {
@@ -91,7 +88,7 @@ fn setup(
                 },
                 ..default()
             },));
-        });
+        }
     }
 }
 
@@ -130,7 +127,7 @@ ScreenUI=>
         ..Default::default()
     }) Name=(Name::new("panel")) @id="panel">
         <MiniNodeBundle @style="absolute flex-row m-4 left-4" @id="left">
-            <(PanelButtonBundle::with_callback(prop.screen,&theme,&mut rect_material_set, &[
+            <(PanelButtonBundle::with_callback(&theme,&mut rect_material_set, &[
                 (prop.screen,theme.system(popups::launcher::open_popup))
             ])) @style="flex-col">
                 <(UiSvgBundle::new(theme.icon("dashboard", &asset_server))) @style="w-24 h-24" @id="dashboard"/>
@@ -138,16 +135,16 @@ ScreenUI=>
             <WindowTitleBundle/>
         </MiniNodeBundle>
         <MiniNodeBundle @style="absolute flex-row m-4 right-4" @id="right">
-            <(PanelButtonBundle::new(prop.screen,&theme,&mut rect_material_set))>
+            <(PanelButtonBundle::new(&theme,&mut rect_material_set))>
                 <ClockBundle/>
             </PanelButtonBundle>
-            <(PanelButtonBundle::with_callback(prop.screen,&theme,&mut rect_material_set, &[
+            <(PanelButtonBundle::with_callback(&theme,&mut rect_material_set, &[
                 (prop.screen,theme.system(popups::volume_control::open_popup))
             ])) @style="flex-col">
                 // <MiniNodeBundle @style="h-24 w-24" />
                 <(UiSvgBundle::new(theme.icon("volume_on", &asset_server))) @style="w-24 h-24" @id="volume"/>
             </PanelButtonBundle>
-            <(PanelButtonBundle::new(prop.screen,&theme,&mut rect_material_set))>
+            <(PanelButtonBundle::new(&theme,&mut rect_material_set))>
                 <(UiSvgBundle::new(theme.icon("settings", &asset_server))) @style="w-24 h-24" @id="settings"/>
             </PanelButtonBundle>
         </MiniNodeBundle>
@@ -164,7 +161,7 @@ ScreenUI=>
         <MiniNodeBundle
             Handle<_>=(rect_material_set.add(rounded_rect(Color::WHITE.with_a(0.5), 16.0)))>
             <AppListUIBundle/>
-            <(PanelButtonBundle::new(prop.screen,&theme,&mut rect_material_set))>
+            <(PanelButtonBundle::new(&theme,&mut rect_material_set))>
                 <(UiSvgBundle::new(theme.icon("apps", &asset_server))) @style="w-48 h-48" @id="apps"/>
             </PanelButtonBundle>
         </MiniNodeBundle>
@@ -174,7 +171,7 @@ ScreenUI=>
 }
 
 fn init_screen_ui(screen_query: Query<Entity, Added<Screen>>, mut commands: Commands) {
-    screen_query.for_each(|entity| {
+    for entity in screen_query.iter() {
         commands.spawn(ScreenUIBundle::from(ScreenUI { screen: entity }));
-    });
+    }
 }

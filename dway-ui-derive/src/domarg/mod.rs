@@ -6,12 +6,10 @@ pub mod relation;
 pub mod state;
 pub mod ui;
 
-use crate::prelude::*;
 use proc_macro2::{Span, TokenStream};
 use quote::quote_spanned;
 use std::{
     any::{type_name, Any, TypeId},
-    collections::BTreeMap,
 };
 use syn::{ext::IdentExt, parse::ParseStream, spanned::Spanned, token::Brace, *};
 
@@ -71,7 +69,7 @@ pub trait DomDecorator: Any {
         &self,
         inner: TokenStream,
         _context: &mut DomContext,
-        need_update: bool,
+        _need_update: bool,
     ) -> TokenStream {
         inner
     }

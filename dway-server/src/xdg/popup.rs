@@ -65,7 +65,7 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
                 state.despawn(*data);
                 state.send_event(Destroy::<DWayWindow>::new(*data));
             }
-            xdg_popup::Request::Grab { seat, serial } => {
+            xdg_popup::Request::Grab { seat, serial: _ } => {
                 let seat_entity = DWay::get_entity(&seat);
                 let Some(_pointer_list) =
                     state.world_mut().get::<PointerList>(seat_entity).cloned()
@@ -75,7 +75,8 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
                 let Some(parent_entity) = state.get::<Parent>(*data).map(|p| p.get()) else {
                     return;
                 };
-                let parent_is_popup = state.entity(parent_entity).contains::<XdgPopup>();
+                let _parent_is_popup = state.entity(parent_entity).contains::<XdgPopup>();
+                // TODO
             }
             xdg_popup::Request::Reposition {
                 positioner,

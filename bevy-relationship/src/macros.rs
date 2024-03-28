@@ -18,7 +18,7 @@ macro_rules! relationship {
         impl $crate::Connectable for $name {
             type Iterator<'l> = <$inner as $crate::Connectable>::Iterator<'l>;
 
-            fn iter<'l>(&'l self) -> Self::Iterator<'l> {
+            fn iter(&self) -> Self::Iterator<'_> {
                 self.0.iter()
             }
         }
@@ -33,7 +33,7 @@ macro_rules! relationship {
                 self.0.disconnect(target)
             }
 
-            fn drain<'l>(&'l mut self) -> Self::Drain<'l> {
+            fn drain(&mut self) -> Self::Drain<'_> {
                 self.0.drain()
             }
 

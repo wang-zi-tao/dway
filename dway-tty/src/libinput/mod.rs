@@ -219,14 +219,6 @@ pub fn receive_events(
                             window: default_window_entity,
                         });
                     }
-                    PointerEvent::Axis(m) => {
-                        axis_events.send(MouseWheel {
-                            unit: bevy::input::mouse::MouseScrollUnit::Pixel,
-                            x: m.axis_value(Axis::Horizontal) as f32,
-                            y: m.axis_value(Axis::Vertical) as f32,
-                            window: default_window_entity,
-                        });
-                    }
                     PointerEvent::ScrollWheel(m) => {
                         axis_events.send(MouseWheel {
                             unit: bevy::input::mouse::MouseScrollUnit::Pixel,

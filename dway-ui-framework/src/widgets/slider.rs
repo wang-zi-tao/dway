@@ -28,7 +28,6 @@ pub struct UiSliderEvent {
 dway_widget! {
 UiSlider=>
 @plugin{app.register_type::<UiSlider>();}
-@global(theme:Theme)
 @state_reflect()
 @use_state(pub value: f32)
 @bundle({

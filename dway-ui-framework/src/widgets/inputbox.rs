@@ -1,16 +1,14 @@
-use std::{cmp::Ordering};
+use std::cmp::Ordering;
 
 use bevy::{
-    input::{
-        keyboard::{Key, KeyboardInput},
-    },
+    input::keyboard::{Key, KeyboardInput},
     text::{
-        scale_value, BreakLineOn, FontAtlasSets, TextLayoutInfo, TextPipeline,
-        TextSettings, YAxisOrientation,
+        scale_value, BreakLineOn, FontAtlasSets, TextLayoutInfo, TextPipeline, TextSettings,
+        YAxisOrientation,
     },
     ui::RelativeCursorPosition,
     utils::HashSet,
-    window::{PrimaryWindow},
+    window::PrimaryWindow,
 };
 use bevy_relationship::reexport::SmallVec;
 
@@ -18,8 +16,6 @@ use crate::{
     prelude::*,
     theme::{ThemeComponent, WidgetKind},
 };
-
-use super::text::UiTextBundle;
 
 structstruck::strike! {
     #[strikethrough[derive(Debug, Clone, Reflect)]]
@@ -162,7 +158,6 @@ pub fn process_ui_inputbox_event(
     mut keyboard_event: EventReader<KeyboardInput>,
     mut query: Query<(
         Entity,
-        Ref<Node>,
         Ref<Interaction>,
         &UiInputBoxWidget,
         &UiInputBox,
@@ -191,7 +186,6 @@ pub fn process_ui_inputbox_event(
     let key_events = keyboard_event.read().collect::<SmallVec<[_; 4]>>();
     for (
         entity,
-        root_node,
         interaction,
         inputbox_widget,
         inputbox,

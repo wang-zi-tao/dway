@@ -1,9 +1,6 @@
 use std::sync::Arc;
-
 use bevy::utils::HashSet;
-use dway_util::try_or;
 use encoding::{types::DecoderTrap, Encoding};
-
 use scopeguard::defer;
 use x11rb::{
     connection::Connection,
@@ -12,24 +9,13 @@ use x11rb::{
     rust_connection::{ConnectionError, RustConnection},
     wrapper::ConnectionExt as RustConnectionExt,
 };
-
 use crate::{
-    geometry::{Geometry, GlobalGeometry},
-    input::{
-        grab::{SurfaceGrabKind, WlSurfacePointerState},
-        seat::WlSeat,
-    },
-    prelude::*,
-    util::rect::IRect,
-    wl::surface::{ClientHasSurface, WlSurface},
-    xdg::{
+    geometry::{Geometry, GlobalGeometry}, input::grab::{SurfaceGrabKind, WlSurfacePointerState}, prelude::*, util::rect::IRect, wl::surface::{ClientHasSurface, WlSurface}, xdg::{
         toplevel::{DWayToplevel, PinedWindow},
         DWayWindow,
-    },
+    }
 };
-
 use super::{atoms::Atoms, screen::XScreen, XDisplayRef, XWaylandDisplay, XWaylandDisplayWrapper};
-use bevy_relationship::ConnectCommand;
 
 #[derive(Component, Reflect)]
 pub struct MappedXWindow;
@@ -420,51 +406,51 @@ pub fn x11_window_attach_wl_surface(
     mut event_writter: EventWriter<Insert<DWayWindow>>,
     mut commands: Commands,
 ) {
-    xwindow_query.for_each(
-        |(xwindow_entity, xwindow, display_ref, geometry, global_geometry, attached)| {
-            if attached.map(|r| r.get().is_some()).unwrap_or_default() {
+    for (xwindow_entity, xwindow, display_ref, geometry, global_geometry, attached) in
+        xwindow_query.iter()
+    {
+        if attached.map(|r| r.get().is_some()).unwrap_or_default() {
+            return;
+        }
+        if let Some(wid) = xwindow.surface_id {
+            let Some((xdisplay_wrapper, wl_entity)) =
+                display_ref.get().and_then(|e| xdisplay_query.get(e).ok())
+            else {
                 return;
+            };
+            let Ok(dway) = wl_query.get(wl_entity.get()) else {
+                return;
+            };
+            let xdisplay = xdisplay_wrapper.lock().unwrap();
+            let Ok(wl_surface) = xdisplay
+                .client
+                .clone()
+                .object_from_protocol_id::<wl_surface::WlSurface>(&dway.display.handle(), wid)
+            else {
+                return;
+            };
+            let wl_surface_entity = DWay::get_entity(&wl_surface);
+            commands.add(ConnectCommand::<XWindowAttachSurface>::new(
+                xwindow_entity,
+                wl_surface_entity,
+            ));
+            let mut entity_mut = commands.entity(wl_surface_entity);
+            entity_mut.insert((
+                geometry.clone(),
+                global_geometry.clone(),
+                DWayWindow::default(),
+            ));
+            if xwindow.is_toplevel {
+                entity_mut.insert(DWayToplevel::default());
             }
-            if let Some(wid) = xwindow.surface_id {
-                let Some((xdisplay_wrapper, wl_entity)) =
-                    display_ref.get().and_then(|e| xdisplay_query.get(e).ok())
-                else {
-                    return;
-                };
-                let Ok(dway) = wl_query.get(wl_entity.get()) else {
-                    return;
-                };
-                let xdisplay = xdisplay_wrapper.lock().unwrap();
-                let Ok(wl_surface) = xdisplay
-                    .client
-                    .clone()
-                    .object_from_protocol_id::<wl_surface::WlSurface>(&dway.display.handle(), wid)
-                else {
-                    return;
-                };
-                let wl_surface_entity = DWay::get_entity(&wl_surface);
-                commands.add(ConnectCommand::<XWindowAttachSurface>::new(
-                    xwindow_entity,
-                    wl_surface_entity,
-                ));
-                let mut entity_mut = commands.entity(wl_surface_entity);
-                entity_mut.insert((
-                    geometry.clone(),
-                    global_geometry.clone(),
-                    DWayWindow::default(),
-                ));
-                if xwindow.is_toplevel {
-                    entity_mut.insert(DWayToplevel::default());
-                }
-                event_writter.send(Insert::new(wl_surface_entity));
-                commands.entity(xwindow_entity).insert(MappedXWindow);
-                debug!(
-                    "xwindow {:?} attach wl_surface {:?}",
-                    xwindow_entity, wl_surface_entity
-                );
-            }
-        },
-    );
+            event_writter.send(Insert::new(wl_surface_entity));
+            commands.entity(xwindow_entity).insert(MappedXWindow);
+            debug!(
+                "xwindow {:?} attach wl_surface {:?}",
+                xwindow_entity, wl_surface_entity
+            );
+        }
+    }
 }
 
 graph_query!(

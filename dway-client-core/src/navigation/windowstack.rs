@@ -1,4 +1,4 @@
-use crate::{desktop::FocusedWindow, prelude::*, DWayClientSystem};
+use crate::{desktop::FocusedWindow, prelude::*};
 use dway_server::xdg::DWayWindow;
 use std::collections::LinkedList;
 
@@ -52,7 +52,7 @@ impl WindowStack {
         for _ in 0..i {
             c.move_next();
         }
-        return c.current().cloned();
+        c.current().cloned()
     }
 }
 

@@ -1,7 +1,6 @@
 use bevy::{input::keyboard::KeyboardInput, ui::RelativeCursorPosition};
 use bevy_relationship::reexport::SmallVec;
-
-use crate::{prelude::*, theme::ThemeComponent};
+use crate::prelude::*;
 
 pub type Callback<E> = (Entity, SystemId<E>);
 pub type CallbackSlot<E> = Option<(Entity, SystemId<E>)>;
@@ -76,7 +75,6 @@ pub fn update_ui_input(
         Entity,
         &mut UiInput,
         Ref<Interaction>,
-        Option<&mut ThemeComponent>,
         Option<Ref<RelativeCursorPosition>>,
     )>,
     mut commands: Commands,
@@ -96,7 +94,7 @@ pub fn update_ui_input(
             );
         }
     };
-    for (entity, ui_focus, interaction, theme_component, relative_cursor_position) in &mut query {
+    for (entity, ui_focus, interaction, relative_cursor_position) in &mut query {
         if !interaction.is_changed()
             && !ui_focus.is_changed()
             && relative_cursor_position

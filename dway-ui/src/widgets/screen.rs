@@ -1,6 +1,6 @@
 use dway_client_core::workspace::{ScreenWorkspaceList, WindowList, Workspace};
 use dway_server::geometry::GlobalGeometry;
-use crate::{prelude::*, util::irect_to_style};
+use crate::{prelude::*};
 use super::window::{WindowUI, WindowUIBundle};
 use dway_server::util::rect::IRect;
 

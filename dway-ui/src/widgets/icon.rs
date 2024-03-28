@@ -1,11 +1,7 @@
 use crate::prelude::*;
 use bevy::utils::HashSet;
 use dway_server::apps::icon::{LinuxIcon, LinuxIconKind};
-use dway_ui_framework::{
-    make_bundle,
-    render::mesh::{UiMesh, UiMeshHandle},
-    widgets::svg::UiSvgExt,
-};
+use dway_ui_framework::{make_bundle, render::mesh::UiMeshHandle, widgets::svg::UiSvgExt};
 
 #[derive(Component, Reflect, Debug, Default)]
 pub struct UiIcon {
@@ -38,34 +34,32 @@ pub fn uiicon_render(
     icons: Res<Assets<LinuxIcon>>,
     mut padding_entity: Local<HashSet<Entity>>,
 ) {
-    uiicon_query.for_each_mut(
-        |(e, icon, mut image, mut svg, mut mesh)| {
-            if !icon.is_changed() && padding_entity.is_empty() && !padding_entity.remove(&e){
-                return
+    for (e, icon, mut image, mut svg, mut mesh) in uiicon_query.iter_mut() {
+        if !icon.is_changed() && padding_entity.is_empty() && !padding_entity.remove(&e) {
+            continue;
+        };
+        if let Some(linux_icon) = icons.get(icon.handle.id()) {
+            match &linux_icon.handle {
+                LinuxIconKind::Image(h) => {
+                    if &image.texture != h {
+                        image.texture = h.clone();
+                        svg.set_if_neq(Default::default());
+                        mesh.set_if_neq(Default::default());
+                    }
+                }
+                LinuxIconKind::Svg(h) => {
+                    if &**svg != h {
+                        *svg = h.clone().into();
+                        if image.texture != Handle::<Image>::default() {
+                            image.texture = Default::default();
+                        }
+                    }
+                }
             };
-            if let Some(linux_icon) = icons.get(icon.handle.id()) {
-                match &linux_icon.handle {
-                    LinuxIconKind::Image(h) => {
-                        if &image.texture != h {
-                            image.texture = h.clone();
-                            svg.set_if_neq(Default::default());
-                            mesh.set_if_neq(Default::default());
-                        }
-                    }
-                    LinuxIconKind::Svg(h) => {
-                        if &**svg != h {
-                            *svg = h.clone().into();
-                            if image.texture != Handle::<Image>::default() {
-                                image.texture = Default::default();
-                            }
-                        }
-                    }
-                };
-            } else {
-                padding_entity.insert(e);
-            }
-        },
-    );
+        } else {
+            padding_entity.insert(e);
+        }
+    }
 }
 
 pub struct UiIconPlugin;

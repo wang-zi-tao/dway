@@ -3,9 +3,9 @@ use derive_syn_parse::Parse;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
-use syn::{punctuated::Punctuated, spanned::Spanned, Token, Type};
+use syn::{punctuated::Punctuated, spanned::Spanned, Token};
 
-use crate::{edge::EdgeQuery, filter::Filter, node::NodeQuery, path::PathDecl, PathQuery};
+use crate::{filter::Filter, PathQuery};
 
 structstruck::strike! {
     pub struct ReturnStat{
@@ -75,11 +75,11 @@ pub fn convert_type_name(ty: &TokenStream) -> String {
     let name = ty.to_token_stream().to_string();
     let name = name.replace('_', "__");
     let name = name.replace(
-        |char| {
+        |char: char| {
             !(char == '_'
-                || ('0'..='9').contains(&char)
-                || ('A'..='Z').contains(&char)
-                || ('a'..='z').contains(&char))
+                || char.is_ascii_digit()
+                || char.is_ascii_uppercase()
+                || char.is_ascii_lowercase())
         },
         "__",
     );

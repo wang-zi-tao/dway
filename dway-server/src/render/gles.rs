@@ -24,24 +24,16 @@ use std::{
     ptr::null_mut,
 };
 
-use bevy::{
-    prelude::{info, Vec2},
-    render::texture::GpuImage,
-    utils::tracing,
-};
+use bevy::{prelude::info, render::texture::GpuImage};
 use glow::{HasContext, NativeRenderbuffer, NativeTexture, PixelPackData};
 
+use super::importnode::DWayDisplayHandles;
 use khronos_egl::{
     Attrib, Boolean, EGLClientBuffer, EGLContext, EGLDisplay, EGLImage, Enum, Int, NONE,
 };
 use wgpu::{FilterMode, SamplerDescriptor, Texture, TextureAspect};
 use wgpu_hal::Api;
 use wgpu_hal::{api::Gles, MemoryFlags, TextureUses};
-
-use super::{
-    importnode::DWayDisplayHandles,
-    util::{get_egl_display, DWayRenderError},
-};
 
 use DWayRenderError::*;
 
@@ -521,27 +513,31 @@ pub unsafe fn create_gpu_image(
     size: IVec2,
 ) -> Result<GpuImage> {
     let texture_format = wgpu::TextureFormat::Rgba8Unorm;
-    let hal_texture: <Gles as Api>::Texture = device.as_hal::<Gles, _, _>(|hal_device| {
-        Result::<_, anyhow::Error>::Ok(hal_device.ok_or_else(|| FailedToGetHal)?.texture_from_raw(
-            raw_image,
-            &wgpu_hal::TextureDescriptor {
-                label: None,
-                size: wgpu::Extent3d {
-                    width: size.x as u32,
-                    height: size.y as u32,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: texture_format,
-                memory_flags: MemoryFlags::empty(),
-                usage: TextureUses::COPY_DST,
-                view_formats: vec![texture_format],
-            },
-            None,
-        ))
-    }).ok_or(BackendIsIsInvalid)??;
+    let hal_texture: <Gles as Api>::Texture = device
+        .as_hal::<Gles, _, _>(|hal_device| {
+            Result::<_, anyhow::Error>::Ok(
+                hal_device.ok_or_else(|| FailedToGetHal)?.texture_from_raw(
+                    raw_image,
+                    &wgpu_hal::TextureDescriptor {
+                        label: None,
+                        size: wgpu::Extent3d {
+                            width: size.x as u32,
+                            height: size.y as u32,
+                            depth_or_array_layers: 1,
+                        },
+                        mip_level_count: 1,
+                        sample_count: 1,
+                        dimension: wgpu::TextureDimension::D2,
+                        format: texture_format,
+                        memory_flags: MemoryFlags::empty(),
+                        usage: TextureUses::COPY_DST,
+                        view_formats: vec![texture_format],
+                    },
+                    None,
+                ),
+            )
+        })
+        .ok_or(BackendIsIsInvalid)??;
     let wgpu_texture = device.create_texture_from_hal::<Gles>(
         hal_texture,
         &wgpu::TextureDescriptor {
@@ -623,14 +619,16 @@ pub fn import_wl_surface(
     egl_state: &mut EglState,
 ) -> Result<(), DWayRenderError> {
     unsafe {
-        let display: khronos_egl::Display = device.as_hal::<Gles, _, _>(|hal_device| {
-            hal_device
-                .ok_or_else(|| BackendIsNotEGL)?
-                .context()
-                .raw_display()
-                .cloned()
-                .ok_or_else(|| DisplayNotAvailable)
-        }).ok_or(BackendIsIsInvalid)??;
+        let display: khronos_egl::Display = device
+            .as_hal::<Gles, _, _>(|hal_device| {
+                hal_device
+                    .ok_or_else(|| BackendIsNotEGL)?
+                    .context()
+                    .raw_display()
+                    .cloned()
+                    .ok_or_else(|| DisplayNotAvailable)
+            })
+            .ok_or(BackendIsIsInvalid)??;
         let mut texture_id = None;
         texture.as_hal::<Gles, _>(|texture| {
             let texture = texture.unwrap();
@@ -645,24 +643,26 @@ pub fn import_wl_surface(
         let Some(texture_id) = texture_id else {
             return Err(FailedToGetHal);
         };
-        device.as_hal::<Gles, _, _>(|hal_device| {
-            let hal_device = hal_device.ok_or_else(|| BackendIsNotEGL)?;
-            let egl_context = hal_device.context();
-            let gl: &glow::Context = &egl_context.lock();
-            let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> =
-                egl_context.egl_instance().ok_or_else(|| {
-                    gl.disable(glow::DEBUG_OUTPUT);
-                    BackendIsNotEGL
-                })?;
-            if let Some(egl_buffer) = egl_buffer {
-                import_egl(&egl_buffer.raw, egl, gl, display, egl_state, texture_id)?;
-            } else if let Some(dma_buffer) = dma_buffer {
-                import_dma(gl, dma_buffer, display.as_ptr(), egl_state, texture_id)?;
-            } else if let Some(shm_buffer) = shm_buffer {
-                import_shm(surface, shm_buffer, gl, texture_id)?;
-            }
-            Result::<(), DWayRenderError>::Ok(())
-        }).ok_or(BackendIsIsInvalid)??;
+        device
+            .as_hal::<Gles, _, _>(|hal_device| {
+                let hal_device = hal_device.ok_or_else(|| BackendIsNotEGL)?;
+                let egl_context = hal_device.context();
+                let gl: &glow::Context = &egl_context.lock();
+                let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> =
+                    egl_context.egl_instance().ok_or_else(|| {
+                        gl.disable(glow::DEBUG_OUTPUT);
+                        BackendIsNotEGL
+                    })?;
+                if let Some(egl_buffer) = egl_buffer {
+                    import_egl(&egl_buffer.raw, egl, gl, display, egl_state, texture_id)?;
+                } else if let Some(dma_buffer) = dma_buffer {
+                    import_dma(gl, dma_buffer, display.as_ptr(), egl_state, texture_id)?;
+                } else if let Some(shm_buffer) = shm_buffer {
+                    import_shm(surface, shm_buffer, gl, texture_id)?;
+                }
+                Result::<(), DWayRenderError>::Ok(())
+            })
+            .ok_or(BackendIsIsInvalid)??;
         Ok(())
     }
 }

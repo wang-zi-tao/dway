@@ -129,7 +129,6 @@ impl SurfaceInner {
 pub struct DrmSurface {
     pub(crate) inner: Arc<Mutex<SurfaceInner>>,
     pub(crate) image: Handle<Image>,
-    pub(crate) drm_node: DrmDeviceFd,
 }
 
 impl DrmSurface {
@@ -191,7 +190,6 @@ impl DrmSurface {
                 connector: connector.info().handle(),
             })),
             image,
-            drm_node: drm.fd.clone(),
         })
     }
 

@@ -1,4 +1,3 @@
-
 use super::desktop::{CursorOnOutput, FocusedWindow};
 use crate::{desktop::CursorOnWindow, DWayClientSystem};
 use bevy::{
@@ -11,6 +10,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_relationship::{graph_query, ControlFlow};
+use dway_server::input::grab::ResizeEdges;
 use dway_server::{
     geometry::{Geometry, GlobalGeometry},
     input::seat::SeatHasKeyboard,
@@ -22,10 +22,9 @@ use dway_server::{
     input::{keyboard::WlKeyboard, pointer::WlPointer},
     schedule::DWayServerSet,
     wl::surface::ClientHasSurface,
-    wl::{surface::WlSurface},
+    wl::surface::WlSurface,
     xdg::{popup::XdgPopup, toplevel::XdgToplevel, DWayWindow},
 };
-use dway_server::{input::grab::ResizeEdges};
 
 #[derive(Default)]
 pub struct DWayInputPlugin {
@@ -179,7 +178,7 @@ pub fn on_input_event(
         .chain(button_events.read().map(MouseEvent::Button))
         .chain(wheel_events.read().map(MouseEvent::Wheel))
     {
-        ui_query.for_each_mut(|(interaction, content, mut style)| {
+        for (interaction, content, mut style) in ui_query.iter_mut() {
             if *interaction == Interaction::None {
                 return;
             }
@@ -221,7 +220,7 @@ pub fn on_input_event(
                                         //     ),
                                         // ));
                                     }
-                                    SurfaceGrabKind::Resizing { edges,  .. } => {
+                                    SurfaceGrabKind::Resizing { edges, .. } => {
                                         let mut geo = window_geometry.geometry;
                                         if edges.contains(ResizeEdges::LEFT) {
                                             geo.min.x += relative_pos.x as i32;
@@ -285,6 +284,6 @@ pub fn on_input_event(
                     ControlFlow::Continue
                 },
             );
-        });
+        }
     }
 }

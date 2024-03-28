@@ -16,7 +16,7 @@ pub fn create_sealed_file(name: &CStr, data: &[u8]) -> Result<(File, usize)> {
         MemFdCreateFlag::MFD_CLOEXEC | MemFdCreateFlag::MFD_ALLOW_SEALING,
     )?;
 
-    let mut file = unsafe { File::from(fd) };
+    let mut file = File::from(fd);
     file.write_all(data)?;
     file.flush()?;
     file.seek(std::io::SeekFrom::Start(0))?;

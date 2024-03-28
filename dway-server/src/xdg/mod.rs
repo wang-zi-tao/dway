@@ -12,6 +12,7 @@ use self::{
 };
 use crate::{
     geometry::{Geometry, GlobalGeometry},
+    input::grab::WlSurfacePointerState,
     prelude::*,
     resource::ResourceWrapper,
     state::{add_global_dispatch, EntityFactory},
@@ -21,9 +22,9 @@ use crate::{
         popup::{XdgPopup, XdgPopupBundle},
         positioner::XdgPositioner,
         toplevel::{DWayToplevel, XdgToplevel},
-    }, input::grab::WlSurfacePointerState, 
+    },
 };
-use bevy_relationship::{relationship, AppExt};
+use bevy_relationship::relationship;
 
 #[derive(Component, Default, Clone, Reflect)]
 pub struct DWayWindow {}

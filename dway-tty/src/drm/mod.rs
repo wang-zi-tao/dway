@@ -14,7 +14,6 @@ use bevy::render::RenderApp;
 use bevy::utils::HashMap;
 use double_map::DHashMap;
 use drm::control::FbCmd2Flags;
-use drm::Driver;
 use drm::{
     control::{
         atomic::AtomicModeReq, connector, crtc, framebuffer, plane, property, AtomicCommitFlags,
@@ -394,9 +393,7 @@ impl DrmDeviceState {
 pub struct DrmDeviceInner {
     pub(crate) privileged: bool,
     connectors: HashMap<connector::Handle, (Option<Entity>, connector::Info)>,
-    pub(crate) enabled: bool,
     pub(crate) states: DrmDeviceState,
-    pub(crate) driver: Driver,
 
     pub(crate) has_universal_planes: bool,
     pub(crate) connector_crtc_map: DHashMap<connector::Handle, crtc::Handle, ()>,
@@ -482,10 +479,8 @@ impl DrmDevice {
                 has_universal_planes,
                 privileged,
                 connectors: Default::default(),
-                enabled: true,
                 states,
                 connector_crtc_map: Default::default(),
-                driver,
             })),
         })
     }
@@ -514,10 +509,6 @@ impl DrmDevice {
     }
 
     pub fn create_framebuffer(&self, buffer: &BufferObject<()>) -> Result<framebuffer::Handle> {
-        let modifier = match buffer.modifier()? {
-            DrmModifier::Invalid => None,
-            x => Some(x),
-        };
         let plane_count = buffer.plane_count()?;
         let handle = self.add_planar_framebuffer(buffer, FbCmd2Flags::MODIFIERS);
         let handle = handle.or_else(|_| {

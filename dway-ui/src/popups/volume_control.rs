@@ -1,10 +1,8 @@
-use crate::prelude::MiniNodeBundle;
 use crate::prelude::*;
 use dway_client_core::controller::volume::VolumeController;
 use dway_ui_derive::dway_widget;
 use dway_ui_framework::animation::interpolation::EaseFunction;
 use dway_ui_framework::animation::ui::{popup_open_close_up, popup_open_drop_down};
-use dway_ui_framework::animation::AnimationEaseMethod;
 use dway_ui_framework::widgets::checkbox::UiCheckBoxBundle;
 
 #[derive(Component, Default)]
@@ -36,7 +34,6 @@ VolumeControl=>
 @plugin{ app.register_system(open_popup).register_system(delay_destroy); }
 @use_state(volume:f32)
 @use_state(mute:bool)
-@global(theme: Theme)
 @arg(volume_control: NonSend<VolumeController> => {
     let volume = volume_control.volume();
     if *state.volume() != volume {
@@ -48,7 +45,6 @@ VolumeControl=>
     }
 })
 @global(asset_server: AssetServer)
-@global(mut rect_material_set: Assets<RoundedUiRectMaterial>)
 <UiCheckBoxBundle UiCheckBox=(UiCheckBox::new(vec![(this_entity,on_mute_event)]))
     @style="p-4 align-self:center" @id="mute_checkbox"
     UiCheckBoxState=(UiCheckBoxState::new(*state.mute()))

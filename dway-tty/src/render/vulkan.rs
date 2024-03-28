@@ -323,7 +323,7 @@ pub fn commit_drm(
 
                 surface.commit(conn, drm, |buffer| {
                     if let RenderImage::Vulkan(image) = &mut buffer.render_image {
-                        device.wait_for_fences(&[image.fence], true, 128000);
+                        let _ = device.wait_for_fences(&[image.fence], true, 128000);
                         match device.get_fence_status(image.fence) {
                             Ok(o) => {
                                 trace!(fence=?image.fence,"fence state: {o}");

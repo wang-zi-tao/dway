@@ -1,5 +1,4 @@
 use bevy::{
-    math::IRect,
     prelude::*,
     render::{
         camera::{CameraProjection, RenderTarget, ScalingMode},
@@ -149,7 +148,7 @@ pub fn prepare_render_command(
     mut render_area: ResMut<UiCanvasRenderArea>,
     mut commands: Commands,
 ) {
-    canvas_query.for_each_mut(|(entity, mut canvas, mut ui_image, node)| {
+    for (entity, mut canvas, mut ui_image, node) in canvas_query.iter_mut() {
         let _span = info_span!("prepare_canvas", ?entity).entered();
         let node_size = node.size();
         if canvas.size != node_size || canvas.refresh || canvas.image.is_weak() {
@@ -244,7 +243,7 @@ pub fn prepare_render_command(
         if &ui_image.texture != &canvas.image {
             ui_image.texture = canvas.image.clone();
         }
-    });
+    }
 }
 
 #[derive(Clone, Copy, Hash, Debug, PartialEq, Eq, SystemSet)]
@@ -263,7 +262,7 @@ pub fn cleanup_render_command(
     camera_query: Query<(Entity, &CanvasCamera)>,
     mut commands: Commands,
 ) {
-    render_stub_query.for_each_mut(|(e, mut rendercommand, mut image)| {
+    for (e, mut rendercommand, mut image) in render_stub_query.iter_mut() {
         image.set_changed();
         if !rendercommand.continue_rending {
             commands.entity(rendercommand.camera).despawn();
@@ -271,10 +270,10 @@ pub fn cleanup_render_command(
         } else {
             rendercommand.continue_rending = false;
         }
-    });
-    camera_query.for_each(|(entity, camera)| {
+    }
+    for (entity, camera) in camera_query.iter() {
         if !render_stub_query.contains(camera.canvas) {
             commands.entity(entity).despawn_recursive();
         }
-    });
+    }
 }

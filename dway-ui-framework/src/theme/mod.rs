@@ -379,7 +379,7 @@ pub struct AnimationConfig {
     pub ease: AnimationEaseMethod,
 }
 
-fn insert_material_command<M: Material>(entity: Entity, material: M) -> impl Command {
+pub fn insert_material_command<M: Material>(entity: Entity, material: M) -> impl Command {
     move |world: &mut World| {
         let mut assets = world.resource_mut::<Assets<ShaderAsset<M>>>();
         let handle = assets.add(ShaderAsset::new(material));

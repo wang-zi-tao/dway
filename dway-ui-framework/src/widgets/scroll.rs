@@ -1,6 +1,4 @@
 use bevy::input::mouse::MouseWheel;
-
-use super::MousePosition;
 use crate::prelude::*;
 
 #[derive(Component, SmartDefault, Reflect, Debug)]

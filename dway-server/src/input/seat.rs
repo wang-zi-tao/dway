@@ -9,7 +9,7 @@ use crate::{
     state::{add_global_dispatch, EntityFactory},
     wl::{cursor::PointerHasSurface, surface::WlSurface},
 };
-use bevy_relationship::{relationship, AppExt};
+use bevy_relationship::relationship;
 use wayland_server::protocol::wl_seat::Capability;
 
 #[derive(Component, Reflect)]

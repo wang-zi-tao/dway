@@ -1,12 +1,11 @@
 use bevy::core::FrameCount;
-use bevy_relationship::{relationship, AppExt, Connectable};
+use bevy_relationship::relationship;
 use wayland_server::backend::smallvec::SmallVec;
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 
 use crate::{
     geometry::Geometry,
     prelude::*,
-    schedule::DWayServerSet,
     util::rect::IRect,
     wl::buffer::{UninitedWlBuffer, WlShmBuffer},
     xdg::popup::XdgPopup,
@@ -439,15 +438,15 @@ impl wayland_server::Dispatch<wl_callback::WlCallback, ()> for DWay {
 }
 
 pub fn cleanup_buffer(buffer_query: Query<(&WlShmBuffer, &AttachedBy)>) {
-    buffer_query.for_each(|(buffer, attached_by)| {
+    for (buffer, attached_by) in buffer_query.iter() {
         if attached_by.iter().next().is_some() {
             buffer.raw.release();
         }
-    });
+    }
 }
 
 pub fn cleanup_surface(mut surface_query: Query<&mut WlSurface>, time: Res<Time>) {
-    surface_query.iter_mut().for_each(|mut surface| {
+    for mut surface in surface_query.iter_mut() {
         if !surface.commited.callbacks.is_empty() {
             for callback in surface.commited.callbacks.drain(..) {
                 debug!("{} done", WlResource::id(&callback));
@@ -460,7 +459,7 @@ pub fn cleanup_surface(mut surface_query: Query<&mut WlSurface>, time: Res<Time>
         if surface.just_commit {
             surface.just_commit = false;
         }
-    });
+    }
 }
 
 pub struct WlSurfacePlugin;

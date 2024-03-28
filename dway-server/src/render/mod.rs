@@ -4,14 +4,13 @@ pub mod importnode;
 pub mod util;
 pub mod vulkan;
 
+use crate::prelude::*;
 use bevy::{
-    core_pipeline::core_2d::graph::{Node2d, Core2d},
+    core_pipeline::core_2d::graph::{Core2d, Node2d},
     render::{
         render_asset::prepare_assets, render_graph::RenderGraphApp, Render, RenderApp, RenderSet,
     },
 };
-
-use crate::{prelude::*, schedule::DWayServerSet};
 
 use self::{drm::DrmNodeState, importnode::ImportSurfacePassNode};
 

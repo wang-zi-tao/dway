@@ -15,8 +15,6 @@ lru = { workspace = true }
 rand = { workspace = true }
 thiserror = {workspace=true}
 anyhow = {workspace=true}
-renderdoc = {version = "0.10.1", optional = true}
-raw-window-handle = "0.5.0"
 khronos-egl = {workspace=true}
 send_wrapper = "0.6.0"
 nix = {workspace=true}
@@ -47,3 +45,6 @@ xcursor = {version = "0.3"}
 drm-ffi = "0.7"
 input = "0.9"
 smol_str = {workspace=true}
+
+[dev-dependencies]
+bevy = {workspace=true, features=["bevy_pbr","animation"]}

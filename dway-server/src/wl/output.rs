@@ -1,15 +1,12 @@
-use bevy::utils::HashSet;
-use bevy_relationship::{
-    graph_query, relationship, AppExt, ConnectCommand, Connectable, DisconnectCommand,
-};
-use wayland_server::protocol::wl_output::Mode;
-
 use crate::{
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
     state::add_global_dispatch,
     util::rect::IRect,
 };
+use bevy::utils::HashSet;
+use bevy_relationship::{graph_query, relationship};
+use wayland_server::protocol::wl_output::Mode;
 
 use super::surface::{ClientHasSurface, WlSurface};
 

@@ -1,19 +1,7 @@
 use std::time::Duration;
-
-use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
-use bevy::diagnostic::LogDiagnosticsPlugin;
-use bevy::prelude::*;
+use bevy::{diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin}, prelude::*};
 use dway_ui_derive::color;
-use dway_ui_framework::shader::effect::Border;
-use dway_ui_framework::shader::effect::Shadow;
-use dway_ui_framework::shader::fill::FillColor;
-use dway_ui_framework::shader::fill::Gradient;
-use dway_ui_framework::shader::shape::Circle;
-use dway_ui_framework::shader::shape::Shape;
-use dway_ui_framework::shader::shape::*;
-use dway_ui_framework::shader::transform::Margins;
-use dway_ui_framework::shader::Transformed;
-use dway_ui_framework::shader::{ShaderAsset, ShaderPlugin, ShapeRender};
+use dway_ui_framework::shader::{effect::{Border, Shadow}, fill::{FillColor, Gradient}, shape::{Circle, *}, transform::Margins, ShaderAsset, ShaderPlugin, ShapeRender, Transformed};
 
 fn main() {
     App::new()

@@ -1,24 +1,22 @@
 use crate::prelude::*;
-use bevy::render::{render_resource::encase::private::Metadata};
+use bevy::render::render_resource::encase::private::Metadata;
 use bevy::{
     asset::{io::embedded::EmbeddedAssetRegistry, load_internal_asset},
     render::{
         render_asset::RenderAssets,
         render_resource::{
             encase::{internal::WriteInto, UniformBuffer},
-            AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry,
-            BindingType, BufferBindingType, BufferInitDescriptor, BufferUsages,
-            OwnedBindingResource, RenderPipelineDescriptor, SamplerBindingType, ShaderRef,
-            ShaderStages, ShaderType, TextureSampleType, TextureViewDimension, UnpreparedBindGroup,
+            AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindingType,
+            BufferBindingType, BufferInitDescriptor, BufferUsages, OwnedBindingResource,
+            RenderPipelineDescriptor, SamplerBindingType, ShaderRef, ShaderStages, ShaderType,
+            TextureSampleType, TextureViewDimension, UnpreparedBindGroup,
         },
         renderer::RenderDevice,
         texture::FallbackImage,
     },
 };
 use dway_ui_derive::Interpolation;
-use encase::{
-    internal::{AlignmentValue, BufferMut, SizeValue, Writer},
-};
+use encase::internal::{AlignmentValue, BufferMut, SizeValue, Writer};
 use std::{
     any::{type_name, TypeId},
     collections::BTreeSet,
@@ -383,7 +381,7 @@ impl Default for UniformLayout {
 }
 
 pub trait BuildBindGroup: Clone + Send + Sync + 'static {
-    fn bind_group_layout_entries(builder: &mut BindGroupLayoutBuilder) {}
+    fn bind_group_layout_entries(_builder: &mut BindGroupLayoutBuilder) {}
     fn unprepared_bind_group(
         &self,
         _builder: &mut BindGroupBuilder,
@@ -450,10 +448,9 @@ impl_interpolation_for_tuple!(0:E0,1:E1,);
 impl_interpolation_for_tuple!(0:E0,);
 
 pub mod effect {
-    
-    use encase::{
-        internal::{BufferMut, Writer},
-    };
+
+    use bevy::render::render_resource::AsBindGroupError;
+    use encase::internal::{BufferMut, Writer};
 
     use super::{
         fill::{Fill, FillColor},
@@ -537,8 +534,8 @@ pub mod effect {
 
         fn unprepared_bind_group(
             &self,
-            builder: &mut super::BindGroupBuilder,
-        ) -> Result<(), bevy::render::render_resource::AsBindGroupError> {
+            _builder: &mut super::BindGroupBuilder,
+        ) -> Result<(), AsBindGroupError> {
             Ok(())
         }
 
@@ -628,8 +625,8 @@ pub mod effect {
 
         fn unprepared_bind_group(
             &self,
-            builder: &mut super::BindGroupBuilder,
-        ) -> Result<(), bevy::render::render_resource::AsBindGroupError> {
+            _builder: &mut super::BindGroupBuilder,
+        ) -> Result<(), AsBindGroupError> {
             Ok(())
         }
 
@@ -720,7 +717,7 @@ pub mod effect {
         }
     }
     impl Shape for Arc {
-        fn register_uniforms(builder: &mut ShaderBuilder) {}
+        fn register_uniforms(_builder: &mut ShaderBuilder) {}
 
         fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
             let ShaderVariables { pos, size } = var;
@@ -944,7 +941,6 @@ pub mod fill {
     }
     impl Fill for FillColor {
         fn to_wgsl(builder: &mut ShaderBuilder, _pos: &ShaderVariables) -> Expr {
-            
             builder.get_uniform("color", "", "vec4<f32>")
         }
     }
@@ -1056,7 +1052,7 @@ pub mod shape {
             format!("circle_sdf({pos}, 0.5 * min({size}.x, {size}.y))")
         }
 
-        fn register_uniforms(builder: &mut ShaderBuilder) {}
+        fn register_uniforms(_builder: &mut ShaderBuilder) {}
 
         fn to_gradient_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
             let ShaderVariables { pos, size } = var;
@@ -1065,12 +1061,12 @@ pub mod shape {
         }
     }
     impl BuildBindGroup for Circle {
-        fn update_layout(&self, layout: &mut super::UniformLayout) {}
+        fn update_layout(&self, _layout: &mut super::UniformLayout) {}
 
         fn write_uniform<B: encase::internal::BufferMut>(
             &self,
-            layout: &mut super::UniformLayout,
-            writer: &mut encase::internal::Writer<B>,
+            _layout: &mut super::UniformLayout,
+            _writer: &mut encase::internal::Writer<B>,
         ) {
         }
     }
@@ -1187,8 +1183,8 @@ pub mod shape {
 
         fn write_uniform<B: encase::internal::BufferMut>(
             &self,
-            layout: &mut super::UniformLayout,
-            writer: &mut encase::internal::Writer<B>,
+            _layout: &mut super::UniformLayout,
+            _writer: &mut encase::internal::Writer<B>,
         ) {
         }
     }
@@ -1604,9 +1600,7 @@ impl<T: Material> ShaderType for ShaderAsset<T> {
         let mut layout = UniformLayout::default();
         self.render.update_layout(&mut layout);
         let size = layout.alignment.round_up_size(SizeValue::from(
-            layout.size
-                .try_into()
-                .unwrap_or(1.try_into().unwrap()),
+            layout.size.try_into().unwrap_or(1.try_into().unwrap()),
         ));
         size.0
     }
@@ -1703,32 +1697,21 @@ impl Plugin for ShaderFrameworkPlugin {
 
 #[cfg(test)]
 pub mod test {
-    
-    use bevy::{
-        render::{
-            RenderPlugin,
-        },
-        ui::UiPlugin,
-    };
-    
-    
-    
-    use lazy_static::lazy_static;
-    use pretty_assertions::{assert_eq};
-    use regex::Regex;
-    use std::{
-        path::Path,
-    };
 
-    use crate::{
-        tests::{run_test_plugins, UnitTestPlugin},
-    };
+    use bevy::{render::RenderPlugin, ui::UiPlugin};
+
+    use lazy_static::lazy_static;
+    use pretty_assertions::assert_eq;
+    use regex::Regex;
+    use std::path::Path;
+
+    use crate::tests::{run_test_plugins, UnitTestPlugin};
 
     use self::{
         effect::{Border, Shadow},
         fill::{FillColor, FillImage, Gradient},
         shape::{Circle, Rect, RoundedRect},
-        transform::{Translation},
+        transform::Translation,
     };
 
     use super::*;
@@ -1742,7 +1725,7 @@ pub mod test {
         RE.replace_all(&input, " ").to_string()
     }
 
-    fn test_render_type<R: Material>(except_path: &str, except_wgsl: &str) {
+    fn test_render_type<R: Material>(except_wgsl: &str) {
         let mut app = App::default();
         app.add_plugins(
             MinimalPlugins
@@ -1761,8 +1744,8 @@ pub mod test {
 
     #[test]
     fn generate_shader_shape() {
-        test_render_type::<ShapeRender<RoundedRect, FillColor>>("embedded://dway_ui_framework/render/gen/TypeId { t= 188717855749609276234625418564726538671 }/render.wgsl",
-        r###"
+        test_render_type::<ShapeRender<RoundedRect, FillColor>>(
+            r###"
 #import bevy_render::view::View 
 #import dway_ui_framework::shader::framework::sdf_visualition 
 #import "embedded://bevy_ui_framework/shaders/framework.wgsl"::mix_alpha 
@@ -1774,17 +1757,18 @@ struct Settings { @location(0) shape_radius: f32, @location(1) effect_color: vec
 struct VertexOutput { @location(0) uv: vec2<f32>, @location(1) border_widths: vec4<f32>, @location(2) @interpolate(flat) size: vec2<f32>, @builtin(position) position: vec4<f32>, }; 
 @vertex fn vertex( @location(0) vertex_position: vec3<f32>, @location(1) vertex_uv: vec2<f32>, @location(2) size: vec2<f32>, @location(3) border_widths: vec4<f32>, ) -> VertexOutput { var out: VertexOutput; out.position = view.view_proj * vec4<f32>(vertex_position, 1.0); out.border_widths = border_widths; var rect_position = (vertex_uv - 0.5) * size; var rect_size = size; var extend_left = 0.0; var extend_right = 0.0; var extend_top = 0.0; var extend_bottom = 0.0; out.uv = vertex_uv; out.size = size; return out; } 
 @fragment fn fragment(in: VertexOutput) -> @location(0) vec4<f32> { var out = vec4(1.0, 1.0, 1.0, 0.0); let rect_position = (in.uv - 0.5) * in.size; let rect_size = in.size; { let shape_pos = rect_position; let shape_size = rect_size; let shape_d = rounded_rect_sdf(shape_pos, shape_size, uniforms.shape_radius); if shape_d<0.5 { out = mix_alpha(out, mix_color(uniforms.effect_color, shape_d)); if out.a > 255.0/256.0 { return out; } } } return out; }
-"###);
+"###,
+        );
     }
 
     #[test]
     fn generate_shader_multi_effect() {
-        test_render_type::<ShapeRender<RoundedRect, (Border, FillImage)>>("", "");
+        test_render_type::<ShapeRender<RoundedRect, (Border, FillImage)>>("");
     }
 
     #[test]
     fn generate_shader_all_effect() {
-        test_render_type::<ShapeRender<RoundedRect, (Border, FillColor, Shadow, Shadow)>>("", "");
+        test_render_type::<ShapeRender<RoundedRect, (Border, FillColor, Shadow, Shadow)>>("");
     }
 
     #[test]
@@ -1792,7 +1776,7 @@ struct VertexOutput { @location(0) uv: vec2<f32>, @location(1) border_widths: ve
         test_render_type::<(
             ShapeRender<RoundedRect, (Border, FillColor, Shadow)>,
             Transformed<ShapeRender<Circle, (FillColor, Shadow)>, Translation>,
-        )>("", "");
+        )>("");
     }
 
     fn shader_unit_test<R: Material + Send + Sync + 'static>(

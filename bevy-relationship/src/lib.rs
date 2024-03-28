@@ -16,20 +16,13 @@ use std::{iter::Cloned, marker::PhantomData};
 
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Debug)]
+#[derive(Default)]
 pub struct RelationshipToOneEntity {
     pub peer: Option<Entity>,
     #[reflect(ignore)]
     pub sender: ConnectionEventSender,
 }
 
-impl Default for RelationshipToOneEntity {
-    fn default() -> Self {
-        Self {
-            peer: Default::default(),
-            sender: Default::default(),
-        }
-    }
-}
 
 impl RelationshipToOneEntity {
     pub fn get(&self) -> Option<Entity> {
@@ -79,20 +72,13 @@ impl ConnectableMut for RelationshipToOneEntity {
 }
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Debug)]
+#[derive(Default)]
 pub struct RelationshipToManyEntity {
     pub peers: SmallVec<[Entity; 4]>,
     #[reflect(ignore)]
     pub sender: ConnectionEventSender,
 }
 
-impl Default for RelationshipToManyEntity {
-    fn default() -> Self {
-        Self {
-            peers: Default::default(),
-            sender: Default::default(),
-        }
-    }
-}
 
 impl std::ops::Deref for RelationshipToManyEntity {
     type Target = SmallVec<[Entity; 4]>;
@@ -147,17 +133,17 @@ impl<T: Relationship> Relationship for ReserveRelationship<T> {
 }
 pub trait Connectable: Component {
     type Iterator<'l>: Iterator<Item = Entity>;
-    fn iter<'l>(&'l self) -> Self::Iterator<'l>;
+    fn iter(&self) -> Self::Iterator<'_>;
 
     fn contains(&self, entity: Entity) -> bool {
-        self.iter().find(|e| *e == entity).is_some()
+        self.iter().any(|e| e == entity)
     }
 }
 pub trait ConnectableMut: Connectable {
     type Drain<'l>: Iterator<Item = Entity>;
     fn connect(&mut self, target: Entity) -> Option<Entity>;
     fn disconnect(&mut self, target: Entity) -> bool;
-    fn drain<'l>(&'l mut self) -> Self::Drain<'l>;
+    fn drain(&mut self) -> Self::Drain<'_>;
 
     fn get_sender_mut(&mut self) -> &mut ConnectionEventSender;
 }

@@ -14,9 +14,6 @@ pub fn convert_keycode(
     lock_state: &mut KeyLockState,
     device: &mut Device,
 ) -> (KeyCode, Key) {
-    fn char_key(s: &str) -> Key {
-        Key::Character(s.into())
-    };
     fn undefined_key(code: u32) -> (KeyCode, Key) {
         (
             KeyCode::Unidentified(NativeKeyCode::Xkb(code)),
@@ -298,15 +295,15 @@ pub fn convert_keycode(
 
     if state == KeyState::Pressed {
         match keycode {
-            Numlock => {
+            KeyCode::NumLock => {
                 lock_state.number_lock = !lock_state.number_lock;
                 device.led_update(lock_state.led());
             }
-            Scroll => {
+            KeyCode::ScrollLock => {
                 lock_state.scoll_lock = !lock_state.scoll_lock;
                 device.led_update(lock_state.led());
             }
-            Capital => {
+            KeyCode::CapsLock => {
                 lock_state.caps_lock = !lock_state.caps_lock;
                 device.led_update(lock_state.led());
             }
