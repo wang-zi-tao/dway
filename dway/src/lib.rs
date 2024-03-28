@@ -1,25 +1,17 @@
 #![feature(stmt_expr_attributes)]
-#[cfg(feature = "debug")]
+#[cfg(feature = "dump_system_graph")]
 pub mod debug;
 pub mod keys;
 pub mod opttions;
 pub mod spawn_app;
 
 use bevy::{
-    app::PluginGroupBuilder,
-    audio::AudioPlugin,
-    diagnostic::{
+    app::PluginGroupBuilder, audio::AudioPlugin, diagnostic::{
         EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
-    },
-    gltf::GltfPlugin,
-    log::{Level, LogPlugin},
-    prelude::*,
-    render::{
+    }, log::{Level, LogPlugin}, prelude::*, render::{
         settings::{Backends, RenderCreation, WgpuSettings},
         RenderPlugin,
-    },
-    scene::ScenePlugin,
-    winit::WinitPlugin,
+    }, winit::WinitPlugin
 };
 use clap::Parser;
 use dway_client_core::{
@@ -96,7 +88,11 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     {
         default_plugins = default_plugins.set(TaskPoolPlugin {
             task_pool_options: TaskPoolOptions {
-                max_total_threads: 1,
+                compute: bevy::core::TaskPoolThreadAssignmentPolicy {
+                    min_threads: 1,
+                    max_threads: 1,
+                    percent: 1.0,
+                },
                 ..Default::default()
             },
         });
@@ -120,11 +116,8 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             ..Default::default()
         })
         .add_before::<AssetPlugin, _>(LinuxIconSourcePlugin)
-        .disable::<GltfPlugin>()
-        .disable::<ScenePlugin>()
         .disable::<WinitPlugin>()
-        .disable::<AudioPlugin>()
-        .disable::<GilrsPlugin>();
+        .disable::<AudioPlugin>();
 
     app.insert_resource(Time::<Virtual>::from_max_delta(Duration::from_secs(1)))
         .add_plugins(default_plugins);
@@ -153,7 +146,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         {
             app.add_plugins(dway_util::eventloop::EventLoopPlugin::default());
         }
-        #[cfg(feature = "debug")]
+        #[cfg(feature = "inspector")]
         {
             app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
         }
@@ -182,11 +175,11 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             PreUpdate,
             (
                 spawn_app::spawn
-                    .run_if(on_event::<WaylandDisplayCreated>())
-                    .in_set(DWayServerSet::CreateGlobal),
+                    .run_if(on_event::<dway_server::state::WaylandDisplayCreated>())
+                    .in_set(dway_server::macros::DWayServerSet::CreateGlobal),
                 spawn_app::spawn_x11
-                    .run_if(on_event::<DWayXWaylandReady>())
-                    .in_set(DWayServerSet::UpdateXWayland),
+                    .run_if(on_event::<dway_server::x11::DWayXWaylandReady>())
+                    .in_set(dway_server::macros::DWayServerSet::UpdateXWayland),
             ),
         );
     }
@@ -211,7 +204,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
         });
     }
-    #[cfg(feature = "debug")]
+    #[cfg(feature = "dump_system_graph")]
     if opts.debug_schedule {
         debug::print_resources(&mut app.world);
         if let Err(e) = debug::dump_schedules_system_graph(app) {

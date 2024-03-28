@@ -15,6 +15,7 @@ use std::time::Duration;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugins(dway_ui_framework::UiFrameworkPlugin)
         .add_plugins(ShaderPlugin::<CheckboxStyle>::default())
         .add_plugins((
             FrameTimeDiagnosticsPlugin,

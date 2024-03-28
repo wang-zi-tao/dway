@@ -21,7 +21,7 @@ use drm::{
     Device as drm_device, VblankWaitFlags,
 };
 use drm_fourcc::DrmFormat;
-use measure_time::{debug_time};
+use measure_time::debug_time;
 use tracing::{span, Level};
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 

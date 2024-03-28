@@ -6,7 +6,12 @@ use dway_ui_framework::{
         bundles::{
             UiBlockBundle, UiHighlightBlockBundle, UiHollowBlockBundle, UiNodeBundle,
             UiSunkenBlockBundle,
-        }, button::UiButtonBundle, checkbox::UiCheckBoxBundle, inputbox::UiInputBoxBundle, slider::UiSliderBundle, text::UiTextBundle
+        },
+        button::UiButtonBundle,
+        checkbox::UiCheckBoxBundle,
+        inputbox::UiInputBoxBundle,
+        slider::UiSliderBundle,
+        text::UiTextBundle,
     },
 };
 

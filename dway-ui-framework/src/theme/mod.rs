@@ -3,12 +3,12 @@ pub mod flat;
 use std::{
     any::{type_name, Any, TypeId},
     hash::Hash,
-    sync::{Arc},
+    sync::Arc,
 };
 
 use bevy::{
     app::DynEq,
-    ecs::system::{Command, SystemId},
+    ecs::system::Command,
     utils::{label::DynHash, HashMap},
 };
 use bevy_svg::prelude::Svg;
@@ -120,7 +120,7 @@ impl Theme {
     pub fn system<F, I, M>(&self, system: F) -> SystemId<I, ()>
     where
         F: IntoSystem<I, (), M> + 'static,
-        I: 'static
+        I: 'static,
     {
         let Some(callback) = self.callbacks.get(&system.type_id()) else {
             panic!(
@@ -272,7 +272,7 @@ impl ThemeAppExt for App {
     fn register_system<F, I, M>(&mut self, system: F) -> &mut App
     where
         F: IntoSystem<I, (), M> + 'static,
-        I: 'static
+        I: 'static,
     {
         let type_id = system.type_id();
         let system_id = self.world.register_system(system);

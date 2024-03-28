@@ -58,13 +58,45 @@ syn_derive = "0.1.8"
 derive-syn-parse = "0.1.5"
 
 
-bevy = { version = "0.13.1" }
-bevy_svg = { version="0.13", default-features = false, features = ["2d"] }
+bevy_svg = { version="*", default-features = false, features = ["2d"] }
 wgpu={version="*",features=["angle"]}
 wgpu-hal={version="*",features=["gles"]}
 glow = {version="*"}
 khronos-egl = { version="*",features= ["dynamic","static"] }
 ash = { version = "*", features = [] }
+
+[workspace.dependencies.bevy]
+version = "0.13.1"
+default-features = false
+features = [
+  # "animation",
+  "bevy_asset",
+  "bevy_audio",
+  # "bevy_gilrs",
+  # "bevy_scene",
+  "bevy_winit",
+  "bevy_core_pipeline",
+  # "bevy_pbr",
+  # "bevy_gltf",
+  "bevy_render",
+  # "bevy_sprite",
+  "bevy_text",
+  "bevy_ui",
+  "multi-threaded",
+  "png",
+  "hdr",
+  # "vorbis",
+  "x11",
+  # "bevy_gizmos",
+  "android_shared_stdcxx",
+  # "tonemapping_luts",
+  "default_font",
+  "webgl2",
+  "bevy_debug_stepping",
+
+  "async-io",
+  "wayland",
+]
 
 [patch.crates-io]
 bevy_svg = {git="https://github.com/arnfaldur/bevy_svg",rev="53a53e5"}

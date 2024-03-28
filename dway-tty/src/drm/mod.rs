@@ -11,7 +11,6 @@ use anyhow::Result;
 use bevy::prelude::*;
 use bevy::render::Render;
 use bevy::render::RenderApp;
-use bevy::utils::tracing;
 use bevy::utils::HashMap;
 use double_map::DHashMap;
 use drm::control::FbCmd2Flags;

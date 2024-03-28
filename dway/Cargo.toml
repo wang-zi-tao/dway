@@ -60,10 +60,9 @@ default = [
     # "hot_reload",
     # "debug",
 ]
-debug = [
-    "dep:bevy-inspector-egui",
-    "dep:bevy_mod_debugdump"
-]
+inspector = [ "dep:bevy-inspector-egui"]
+dump_system_graph = ["dep:bevy_mod_debugdump"]
+debug = []
 dway_log = []
 # hot_reload = ["dep:dexterous_developer", "dep:serde", "dway-ui/hot_reload" , "bevy/dynamic_linking", "bevy/embedded_watcher"]
 eventloop = []
