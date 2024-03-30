@@ -90,7 +90,7 @@ impl Plugin for UiFrameworkPlugin {
         .configure_sets(
             PreUpdate,
             (
-                InputSystems.before(bevy::input::InputSystem),
+                InputSystems.after(bevy::ui::UiSystem::Focus),
                 WidgetInputSystems,
             )
                 .chain(),
