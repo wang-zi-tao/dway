@@ -88,6 +88,14 @@ impl Plugin for UiFrameworkPlugin {
             ),
         )
         .configure_sets(
+            PreUpdate,
+            (
+                InputSystems.before(bevy::input::InputSystem),
+                WidgetInputSystems,
+            )
+                .chain(),
+        )
+        .configure_sets(
             PostUpdate,
             (UpdateWidgets, UpdatePopup, UpdateTheme, ApplyAnimation)
                 .before(UiSystem::Layout)

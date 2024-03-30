@@ -1,4 +1,5 @@
 pub mod ui;
+
 use crate::prelude::*;
 use bevy_relationship::reexport::SmallVec;
 pub use interpolation;
@@ -313,6 +314,7 @@ impl Plugin for AnimationPlugin {
                 .in_set(UiFrameworkSystems::ApplyAnimation),
         )
         .register_system(ui::popup_open_drop_down)
-        .register_system(ui::popup_open_close_up);
+        .register_system(ui::popup_open_close_up)
+        .register_system(ui::despawn_recursive_on_animation_finish);
     }
 }

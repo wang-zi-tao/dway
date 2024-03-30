@@ -8,9 +8,7 @@ pub mod ui;
 
 use proc_macro2::{Span, TokenStream};
 use quote::quote_spanned;
-use std::{
-    any::{type_name, Any, TypeId},
-};
+use std::any::{type_name, Any, TypeId};
 use syn::{ext::IdentExt, parse::ParseStream, spanned::Spanned, token::Brace, *};
 
 use self::{control::Id, data::InsertComponent, ui::Style};
@@ -39,11 +37,8 @@ pub enum DomArgKey {
 }
 
 pub trait DomDecorator: Any {
-    fn key(&self) -> DomArgKey{
-        DomArgKey::Other(
-            TypeId::of::<Self>(),
-            type_name::<Self>().to_string(),
-        )
+    fn key(&self) -> DomArgKey {
+        DomArgKey::Other(TypeId::of::<Self>(), type_name::<Self>().to_string())
     }
     fn need_node_entity_field(&self) -> bool {
         false
@@ -124,22 +119,37 @@ impl DomArg {
 impl syn::parse::Parse for DomArg {
     fn parse(input: ParseStream) -> Result<Self> {
         if !input.peek(Token![@]) {
-            let content;
-            let component = input.parse()?;
-            let _: Token![=] = input.parse()?;
-            if input.peek(Brace) {
-                let _wrap = braced!(content in input);
-            } else if input.peek(token::Bracket) {
-                let _wrap = bracketed!(content in input);
+            if input.peek2(Token![=]) {
+                let content;
+                let component = input.parse()?;
+                let _: Token![=] = input.parse()?;
+                if input.peek(Brace) {
+                    let _wrap = braced!(content in input);
+                } else if input.peek(token::Bracket) {
+                    let _wrap = bracketed!(content in input);
+                } else {
+                    let _wrap = parenthesized!(content in input);
+                }
+                let expr = content.parse()?;
+                Ok(Self {
+                    span: content.span(),
+                    inner: Box::new(InsertComponent {
+                        component: Some(component),
+                        expr,
+                    }),
+                    tag: None,
+                })
             } else {
-                let _wrap = parenthesized!(content in input);
+                let expr: Expr = input.parse()?;
+                Ok(Self {
+                    span: expr.span(),
+                    inner: Box::new(InsertComponent {
+                        component: None,
+                        expr,
+                    }),
+                    tag: None,
+                })
             }
-            let expr = content.parse()?;
-            Ok(Self {
-                span: content.span(),
-                inner: Box::new(InsertComponent { component, expr }),
-                tag: None,
-            })
         } else {
             let _: Token![@] = input.parse()?;
             let instruction: Ident = Ident::parse_any(input)?;

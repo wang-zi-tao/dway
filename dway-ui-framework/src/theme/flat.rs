@@ -1,6 +1,6 @@
 use super::{insert_material_tween, StyleFlags, ThemeDispatch};
 use crate::animation::AnimationEaseMethod;
-use crate::shader::effect::{Border};
+use crate::shader::effect::Border;
 use crate::shader::fill::Fill;
 use crate::shader::shape::{RoundedBar, Shape};
 use crate::shader::transform::Margins;
@@ -132,6 +132,31 @@ impl FlatTheme {
                     FillColor::new(self.fill_color * 0.95),
                     self.invisible_shadow(),
                 ))));
+        }
+
+        {
+            let mut hightlight_button_material = world.resource_mut::<Assets<_>>();
+            self.hightlight_button_material_hover = hightlight_button_material.add(
+                ShaderAsset::new(self.rounded_rect().with_effect((
+                    self.border(),
+                    self.main_color.into(),
+                    self.shadow(),
+                ))),
+            );
+            self.hightlight_button_material = hightlight_button_material.add(
+                ShaderAsset::new(self.rounded_rect().with_effect((
+                    self.border(),
+                    self.main_color.into(),
+                    self.shadow(),
+                ))),
+            );
+            self.hightlight_button_material_clicked = hightlight_button_material.add(
+                ShaderAsset::new(self.rounded_rect().with_effect((
+                    self.border(),
+                    self.main_color.into(),
+                    self.invisible_shadow(),
+                ))),
+            );
         }
 
         {
@@ -313,11 +338,7 @@ impl ThemeDispatch for FlatTheme {
                         self.button_material_clicked.clone(),
                     );
                 } else {
-                    self.apply_material_animation(
-                        entity,
-                        commands,
-                        self.button_material.clone(),
-                    );
+                    self.apply_material_animation(entity, commands, self.button_material.clone());
                 }
             }
             super::WidgetKind::Checkbox => match (flag.contains(StyleFlags::DOWNED), hover) {

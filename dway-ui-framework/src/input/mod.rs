@@ -1,6 +1,6 @@
-use bevy::{input::keyboard::KeyboardInput, ui::RelativeCursorPosition};
+use crate::{make_bundle, prelude::*};
+use bevy::{input::{keyboard::KeyboardInput, mouse::MouseButtonInput}, ui::RelativeCursorPosition};
 use bevy_relationship::reexport::SmallVec;
-use crate::prelude::*;
 
 pub type Callback<E> = (Entity, SystemId<E>);
 pub type CallbackSlot<E> = Option<(Entity, SystemId<E>)>;
@@ -23,21 +23,20 @@ pub fn update_mouse_position(
 }
 
 structstruck::strike! {
+    #[strikethrough[derive(Debug, Clone, Reflect)]]
     pub struct UiInputEvent{
         pub receiver: Entity,
         pub node: Entity,
-        pub event:
-        #[derive(Clone)]
-        pub enum UiInputEventKind{
-            MouseEnter,
-            MouseLeave,
-            MousePress,
-            MouseRelease,
-            KeybordEnter,
-            KeyboardLeave,
-            MouseMove(Vec2),
-            KeyboardInput(KeyboardInput),
-        }
+        pub event: pub enum UiInputEventKind{
+                MouseEnter,
+                MouseLeave,
+                MousePress(MouseButton),
+                MouseRelease(MouseButton),
+                KeybordEnter,
+                KeyboardLeave,
+                MouseMove(Vec2),
+                KeyboardInput(KeyboardInput),
+            }
     }
 }
 
@@ -55,6 +54,11 @@ pub struct UiInput {
 impl UiInput {
     pub fn can_receive_keyboard_input(&self) -> bool {
         self.input_focused || self.input_grabed
+    }
+
+    pub fn with_callback(mut self, receiver: Entity, systemid: SystemId<UiInputEvent>) -> Self {
+        self.callbacks.push((receiver, systemid));
+        self
     }
 }
 
@@ -79,6 +83,7 @@ pub fn update_ui_input(
     )>,
     mut commands: Commands,
     mut keyboard_event: EventReader<KeyboardInput>,
+    mouse_button_state: Res<ButtonInput<MouseButton>>,
     mut ui_focus_event: EventReader<UiFocusEvent>,
     mut ui_focus_state: ResMut<UiFocusState>,
 ) {
@@ -94,7 +99,7 @@ pub fn update_ui_input(
             );
         }
     };
-    for (entity, ui_focus, interaction, relative_cursor_position) in &mut query {
+    for (entity, mut ui_focus, interaction, relative_cursor_position) in &mut query {
         if !interaction.is_changed()
             && !ui_focus.is_changed()
             && relative_cursor_position
@@ -117,30 +122,28 @@ pub fn update_ui_input(
             }
         }
         match (ui_focus.mouse_state, &*interaction) {
-            (Interaction::Pressed, Interaction::Hovered) => {
-                call(MouseRelease);
-            }
-            (Interaction::Pressed, Interaction::None) => {
-                call(MouseRelease);
+            (Interaction::Hovered|Interaction::None, Interaction::None) => {
                 call(MouseLeave);
             }
-            (Interaction::Hovered, Interaction::Pressed) => {
-                call(MousePress);
-            }
-            (Interaction::Hovered, Interaction::None) => {
-                call(MouseLeave);
-            }
-            (Interaction::None, Interaction::Pressed) => {
+            (Interaction::None, Interaction::Hovered|Interaction::Pressed) => {
                 call(MouseEnter);
-                call(MousePress);
             }
-            (Interaction::None, Interaction::Hovered) => {
-                call(MousePress);
-            }
-            (Interaction::None, Interaction::None)
-            | (Interaction::Hovered, Interaction::Hovered)
-            | (Interaction::Pressed, Interaction::Pressed) => {}
+            _ => {}
         };
+        match (ui_focus.mouse_state, &*interaction) {
+            (Interaction::Pressed, Interaction::None | Interaction::Hovered) => {
+                for button in mouse_button_state.get_just_released(){
+                    call(MouseRelease(*button));
+                }
+            }
+            (Interaction::Hovered |Interaction::None, Interaction::Pressed) => {
+                for button in mouse_button_state.get_just_pressed(){
+                    call(MousePress(*button));
+                }
+            }
+            _=>{}
+        };
+        ui_focus.mouse_state = *interaction;
     }
     for key in keyboard_event.read() {
         for (entity, ui_focus, ..) in &mut query {
@@ -178,5 +181,17 @@ pub fn update_ui_input(
                 ui_focus_state.input_focus = Some(*e);
             }
         }
+    }
+}
+
+make_bundle! {
+    @from input: UiInput,
+    @addon UiInputExt,
+    UiInputBundle {
+        pub input: UiInput,
+        pub interaction: Interaction,
+        #[default(FocusPolicy::Block)]
+        pub focus_policy: FocusPolicy,
+        pub relative_cursor_position: RelativeCursorPosition,
     }
 }

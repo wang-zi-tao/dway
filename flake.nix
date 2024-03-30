@@ -26,7 +26,7 @@
           nativeBuildInputs = with pkgs; [
             (fenix.fromToolchainFile {
               file = ./rust-toolchain.toml;
-              sha256 = "sha256-lI+VFFbRie8hMZHqzFXq69ebobNZ8Q/53czHXzzZINk=";
+              sha256 = "sha256-sH6tcgUqft0TlybCuF4LirxmePW09mZDgu/SFP1bxGE=";
             })
             tracy
             cargo-flamegraph

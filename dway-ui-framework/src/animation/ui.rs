@@ -1,4 +1,6 @@
-use super::AnimationEvent;
+use interpolation::EaseFunction;
+
+use super::{AnimationEaseMethod, AnimationEvent};
 use crate::prelude::*;
 
 #[derive(Component, Debug, Clone)]
@@ -71,5 +73,35 @@ pub fn popup_open_close_up(
     });
     if event.just_finish {
         world.entity_mut(entity).despawn_recursive();
+    }
+}
+
+pub fn despawn_recursive_on_animation_finish(In(event):In<AnimationEvent>, mut commands:Commands){
+    if event.just_finish{
+        commands.entity(event.entity).despawn_recursive();
+    }
+}
+
+pub trait UiAnimationConfig {
+    fn appear_time() -> Duration {
+        Duration::from_secs_f32(0.5)
+    }
+    fn appear_ease() -> AnimationEaseMethod {EaseFunction::QuarticIn.into()}
+    fn appear_animation(theme: &Theme) -> SystemId<AnimationEvent>;
+    fn disappear_time() -> Duration {
+        Duration::from_secs_f32(0.5)
+    }
+    fn disappear_ease() -> AnimationEaseMethod{EaseFunction::QuarticOut.into()}
+    fn disappear_animation(theme: &Theme) -> SystemId<AnimationEvent>;
+}
+
+pub struct UiAnimationDropdownConfig;
+impl UiAnimationConfig for UiAnimationDropdownConfig {
+    fn appear_animation(theme: &Theme) -> SystemId<AnimationEvent> {
+        theme.system(popup_open_drop_down)
+    }
+
+    fn disappear_animation(theme: &Theme) -> SystemId<AnimationEvent> {
+        theme.system(popup_open_close_up)
     }
 }

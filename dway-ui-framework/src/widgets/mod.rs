@@ -9,6 +9,8 @@ pub mod shape;
 pub mod slider;
 pub mod svg;
 pub mod text;
+pub mod rightclick_popup;
+pub mod tips;
 
 #[derive(Component, Default)]
 pub struct Callback(pub Option<SystemId>);

@@ -5,6 +5,25 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote, quote_spanned};
 use syn::LitStr;
 
+fn parse_expr(s: &str) -> TokenStream {
+    if s.starts_with('{') {
+        let value = match syn::parse_str::<TokenStream>(s) {
+            Ok(value) => value,
+            Err(e) => {
+                let message = format!("invalid value ({s:?}): {e}");
+                return quote!(compile_error!(#message));
+            }
+        };
+        quote!(#value)
+    } else {
+        let Ok(value) = s.parse::<f32>() else {
+            let message = format!("invalid value: {s:?}");
+            return quote!(compile_error!(#message));
+        };
+        quote!(#value)
+    }
+}
+
 fn parse_val(prefix: &str, style: &str) -> TokenStream {
     let style = &style.replace(prefix, "");
     if style == "fill" {
@@ -13,16 +32,10 @@ fn parse_val(prefix: &str, style: &str) -> TokenStream {
         quote!(Val::Auto)
     } else if style.contains('%') {
         let style = &style.replace('%', "");
-        let Ok(value) = style.parse::<f32>() else {
-            let message = format!("invalid value: {style:?}");
-            return quote!(compile_error!(#message));
-        };
+        let value = parse_expr(style);
         quote!(Val::Percent(#value))
     } else {
-        let Ok(value) = style.parse::<f32>() else {
-            let message = format!("invalid value: {style:?}");
-            return quote!(compile_error!(#message));
-        };
+        let value = parse_expr(style);
         quote!(Val::Px(#value))
     }
 }
@@ -71,8 +84,8 @@ pub fn generate(input: &LitStr) -> TokenStream {
     let mut fields = vec![];
     for component in input.value().split(' ') {
         let component = component.trim();
-        if component.is_empty(){
-            continue
+        if component.is_empty() {
+            continue;
         }
         let tokens = match component {
             "w-full" => quote!(width:Val::Percent(100.0)),

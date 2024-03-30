@@ -2,13 +2,8 @@ use std::cmp::Ordering;
 
 use bevy::{
     input::keyboard::{Key, KeyboardInput},
-    text::{
-        scale_value, BreakLineOn, FontAtlasSets, TextLayoutInfo, TextPipeline, TextSettings,
-        YAxisOrientation,
-    },
+    text::{BreakLineOn, TextLayoutInfo},
     ui::RelativeCursorPosition,
-    utils::HashSet,
-    window::PrimaryWindow,
 };
 use bevy_relationship::reexport::SmallVec;
 
@@ -102,10 +97,15 @@ impl UiInputBox {
     }
 }
 
-pub fn move_cursor(position: Vec2, inputbox: &UiInputBox, inputbox_state: &mut UiInputBoxState) {
+pub fn move_cursor(
+    position: Vec2,
+    inputbox: &UiInputBox,
+    text_layout: &TextLayoutInfo,
+    inputbox_state: &mut UiInputBoxState,
+) {
     let line_start = position.y - position.y % inputbox.text_size;
     let line_end = line_start + inputbox.text_size;
-    let glyphs = &inputbox_state.test_layout().glyphs;
+    let glyphs = &text_layout.glyphs;
     if let Some((index, glyph)) = glyphs
         .binary_search_by(|glyph| {
             if glyph.position.y > line_end {
@@ -165,24 +165,10 @@ pub fn process_ui_inputbox_event(
         &mut UiInput,
         &RelativeCursorPosition,
     )>,
-    text_node_query: Query<Ref<Node>>,
-    theme: Res<Theme>,
-    mut queue: Local<HashSet<Entity>>,
-    mut textures: ResMut<Assets<Image>>,
-    fonts: Res<Assets<Font>>,
-    text_settings: Res<TextSettings>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    mut font_atlas_sets: ResMut<FontAtlasSets>,
-    mut text_pipeline: ResMut<TextPipeline>,
+    text_node_query: Query<(Ref<Node>, Ref<TextLayoutInfo>)>,
     mut mouse_focus_event: EventWriter<UiFocusEvent>,
     mut commands: Commands,
 ) {
-    let scale_factor = windows
-        .get_single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.0);
-
     let key_events = keyboard_event.read().collect::<SmallVec<[_; 4]>>();
     for (
         entity,
@@ -194,7 +180,7 @@ pub fn process_ui_inputbox_event(
         relative_pos,
     ) in &mut query
     {
-        let Ok(node) = text_node_query.get(inputbox_widget.node_text_entity) else {
+        let Ok((node, text_layout)) = text_node_query.get(inputbox_widget.node_text_entity) else {
             continue;
         };
 
@@ -306,6 +292,7 @@ pub fn process_ui_inputbox_event(
                         move_cursor(
                             *inputbox_state.cursor_position() - inputbox.text_size * Vec2::Y,
                             inputbox,
+                            &text_layout,
                             &mut inputbox_state,
                         );
                     }
@@ -313,6 +300,7 @@ pub fn process_ui_inputbox_event(
                         move_cursor(
                             *inputbox_state.cursor_position() + inputbox.text_size * Vec2::Y,
                             inputbox,
+                            &text_layout,
                             &mut inputbox_state,
                         );
                     }
@@ -321,65 +309,9 @@ pub fn process_ui_inputbox_event(
             }
         }
 
-        if inputbox_state.cursor_char_index_is_changed()
-            || inputbox_state.data_is_changed()
-            || node.is_changed()
-            || queue.remove(&entity)
-        {
-            let text = {
-                let value = inputbox_state.data();
-                let style = TextStyle {
-                    font: inputbox
-                        .font
-                        .clone()
-                        .unwrap_or_else(|| theme.default_font()),
-                    font_size: inputbox.text_size,
-                    color: theme.color("inputbox:text"),
-                };
-                Text {
-                    sections: vec![TextSection::new(value, style)],
-                    justify: JustifyText::Left,
-                    linebreak_behavior: BreakLineOn::AnyCharacter,
-                    ..default()
-                }
-            };
-            let text_bounds = Vec2::new(
-                if text.linebreak_behavior == BreakLineOn::NoWrap {
-                    f32::INFINITY
-                } else {
-                    scale_value(node.size().x, scale_factor)
-                },
-                scale_value(node.size().y, scale_factor),
-            );
-            match text_pipeline.queue_text(
-                &fonts,
-                &text.sections,
-                scale_factor,
-                text.justify,
-                text.linebreak_behavior,
-                text_bounds,
-                &mut font_atlas_sets,
-                &mut texture_atlases,
-                &mut textures,
-                text_settings.as_ref(),
-                YAxisOrientation::TopToBottom,
-            ) {
-                Ok(text_layout) => {
-                    inputbox_state.set_test_layout(text_layout);
-                }
-                Err(TextError::NoSuchFont) => {
-                    queue.insert(entity);
-                }
-                Err(e @ TextError::FailedToAddGlyph(_)) => {
-                    panic!("Fatal error when processing text: {e}.");
-                }
-            };
-        }
-
-        if inputbox_state.test_layout_is_changed() || inputbox_state.cursor_char_index_is_changed()
-        {
+        if text_layout.is_changed() || inputbox_state.cursor_char_index_is_changed() {
             let byte_index = *inputbox_state.cursor_char_index();
-            let glyphs = &inputbox_state.test_layout().glyphs;
+            let glyphs = &text_layout.glyphs;
             if let Ok(glyph_index) = glyphs
                 .as_slice()
                 .binary_search_by_key(&byte_index, |glyph| glyph.byte_index)
@@ -407,7 +339,12 @@ pub fn process_ui_inputbox_event(
             }
             if relative_pos.mouse_over() {
                 if let Some(normalized) = relative_pos.normalized {
-                    move_cursor(normalized * node.size(), inputbox, &mut inputbox_state);
+                    move_cursor(
+                        normalized * node.size(),
+                        inputbox,
+                        &text_layout,
+                        &mut inputbox_state,
+                    );
                 }
             }
         }
@@ -424,7 +361,6 @@ UiInputBox=>
 @use_state(pub show_cursor: bool = true)
 @use_state(pub cursor_position: Vec2)
 @use_state(#[reflect(ignore)] pub undo: undo::history::History<UiInputCommand>)
-@use_state(pub test_layout: TextLayoutInfo)
 @bundle{{
     pub ui_focus: UiInput,
     pub relative_cursor_position: RelativeCursorPosition,

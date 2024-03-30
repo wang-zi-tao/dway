@@ -5,7 +5,7 @@ use crate::{parser::ParseCodeResult, prelude::*};
 use super::{DomArgKey, DomDecorator};
 
 pub struct InsertComponent {
-    pub component: Type,
+    pub component: Option<Type>,
     pub expr: Expr,
 }
 impl DomDecorator for InsertComponent {
@@ -20,20 +20,25 @@ impl DomDecorator for InsertComponent {
     }
     fn get_component(&self) -> Option<TokenStream> {
         let Self { component, expr } = self;
-        Some(quote! {
-            {let value: #component = #expr;value}
-        })
+        if let Some(component) = component {
+            Some(quote! {
+                {let value: #component = #expr;value}
+            })
+        } else {
+            Some(quote! {
+                {#expr}
+            })
+        }
     }
     fn generate_update(&self, context: &mut WidgetNodeContext) -> Option<TokenStream> {
-        let Self {
-            expr, component, ..
-        } = self;
+        let Self { expr, .. } = self;
         let entity = &context.entity_var;
         let dependencies = ParseCodeResult::from_expr(expr);
+        let component = self.get_component();
         dependencies.is_changed().map(|check_changed| {
             quote! {
                 if #check_changed {
-                    commands.entity(#entity).insert({let value: #component = #expr;value});
+                    commands.entity(#entity).insert(#component);
                 }
             }
         })

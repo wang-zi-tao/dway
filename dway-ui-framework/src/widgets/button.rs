@@ -145,6 +145,18 @@ make_bundle! {
         pub focus_policy: FocusPolicy,
     }
 }
+make_bundle! {
+    @from button: UiButton,
+    @addon UiHightlightButtonExt,
+    UiHightlightButtonBundle {
+        pub button: UiButton,
+        pub interaction: Interaction,
+        #[default(ThemeComponent::new(StyleFlags::HIGHLIGHT, WidgetKind::Button))]
+        pub theme: ThemeComponent,
+        #[default(FocusPolicy::Block)]
+        pub focus_policy: FocusPolicy,
+    }
+}
 
 impl UiButtonExt {
     pub fn new(receiver: Entity, callback: SystemId<UiButtonEvent>) -> Self {

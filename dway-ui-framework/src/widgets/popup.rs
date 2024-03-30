@@ -1,6 +1,14 @@
-use crate::{make_bundle, prelude::*};
+use crate::{
+    animation::ui::{
+        despawn_recursive_on_animation_finish, popup_open_close_up, popup_open_drop_down,
+        UiAnimationConfig,
+    },
+    make_bundle,
+    prelude::*,
+};
 use bevy::ui::RelativeCursorPosition;
 use derive_builder::Builder;
+use interpolation::EaseFunction;
 
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq)]
 pub enum PopupEventKind {
@@ -56,6 +64,10 @@ impl UiPopup {
             ..default()
         }
     }
+    pub fn with_callback(mut self, callback: SystemId<PopupEvent, ()>) -> Self {
+        self.callback = Some(callback);
+        self
+    }
     pub fn new_auto_destroy(callback: Option<SystemId<PopupEvent, ()>>) -> Self {
         UiPopup {
             callback,
@@ -73,24 +85,27 @@ pub fn update_popup(
     let mouse_down =
         || mouse.any_just_pressed([MouseButton::Left, MouseButton::Middle, MouseButton::Right]);
     for (entity, mut popup, relative_cursor) in popup_query.iter_mut() {
-        let run_close_callback = |popup: &UiPopup, commands: &mut Commands| {
+        let run_close_callback = |popup: &UiPopup, commands: &mut Commands, kind: PopupEventKind| {
             if let Some(callback) = popup.callback {
                 commands.run_system_with_input(
                     callback,
                     PopupEvent {
                         entity,
-                        kind: PopupEventKind::Closed,
+                        kind,
                     },
                 );
             }
         };
         let mouse_inside = relative_cursor.mouse_over();
+        if popup.is_added() && popup.state == PopupState::Open{
+            run_close_callback(&popup, &mut commands, PopupEventKind::Opened);
+        }
         match popup.close_policy {
             PopupClosePolicy::MouseLeave => {
                 if !mouse_inside {
                     if !popup.hovered {
                         popup.state = PopupState::Closed;
-                        run_close_callback(&popup, &mut commands);
+                        run_close_callback(&popup, &mut commands, PopupEventKind::Closed);
                     }
                 } else {
                     popup.hovered = true;
@@ -99,7 +114,7 @@ pub fn update_popup(
             PopupClosePolicy::MouseButton => {
                 if !mouse_inside && mouse_down() {
                     popup.state = PopupState::Closed;
-                    run_close_callback(&popup, &mut commands);
+                    run_close_callback(&popup, &mut commands, PopupEventKind::Closed);
                 }
             }
             PopupClosePolicy::None => {}
@@ -118,6 +133,27 @@ make_bundle! {
         pub relative_cursor: RelativeCursorPosition,
         #[default(FocusPolicy::Block)]
         pub focus_policy: FocusPolicy,
+    }
+}
+
+pub fn popup_animation_system<C: UiAnimationConfig>(
+    In(event): In<PopupEvent>,
+    theme: Res<Theme>,
+    mut commands: Commands,
+) {
+    match event.kind {
+        PopupEventKind::Opened => {
+            commands.entity(event.entity).insert(
+                Animation::new(C::appear_time(), C::appear_ease())
+                    .with_callback(C::appear_animation(&theme)),
+            );
+        }
+        PopupEventKind::Closed => {
+            commands.entity(event.entity).insert(
+                Animation::new(C::disappear_time(), C::disappear_ease())
+                    .with_callback(C::disappear_animation(&theme)),
+            );
+        }
     }
 }
 

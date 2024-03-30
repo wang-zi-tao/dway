@@ -1,4 +1,4 @@
-use bevy::input::mouse::MouseWheel;
+use bevy::{input::mouse::MouseWheel, ui::RelativeCursorPosition};
 use crate::prelude::*;
 
 #[derive(Component, SmartDefault, Reflect, Debug)]
@@ -26,9 +26,14 @@ UiScroll=>
         wheel_move = Vec2::new(wheel_move.y, wheel_move.x);
     }
 }
-@global(mouse_position:MousePosition)
+@bundle({
+    pub interaction: Interaction,
+    pub focus_policy: FocusPolicy = FocusPolicy::Block,
+    pub cursor_positon: RelativeCursorPosition, // TODO 优化
+})
 @world_query(node: &Node)
 @world_query(transform: &GlobalTransform)
+@world_query(mouse_position: Ref<RelativeCursorPosition>)
 @use_state(pub content: Entity = Entity::PLACEHOLDER)
 @before{
     if !widget.inited{
@@ -44,7 +49,7 @@ UiScroll=>
     loop {
         let scroll_rect = Rect::from_center_size(transform.translation().xy(), node.size());
         let Ok((content_node,mut content_style)) = style_query.get_mut(*state.content()) else {break};
-        let inside = scroll_rect.contains(mouse_position.position.unwrap_or_default());
+        let inside = mouse_position.mouse_over();
         if !content_node.is_changed() && wheel_move == Vec2::ZERO && !inside {break};
         let diff_size = content_node.size() - scroll_rect.size();
         let offset = if diff_size.x<0.0 && prop.horizontal || diff_size.y<0.0 && prop.vertical || !inside {

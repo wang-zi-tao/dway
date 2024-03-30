@@ -63,6 +63,8 @@ impl ThemeIcon {
 #[derive(Resource, Reflect)]
 pub struct Theme {
     pub default_font: Handle<Font>,
+    pub default_text_size: f32,
+    pub default_text_color: Color,
     pub color_map: HashMap<String, Color>,
     pub style_map: HashMap<String, Style>,
     #[reflect(ignore)]
@@ -82,6 +84,8 @@ impl Default for Theme {
     fn default() -> Self {
         Self {
             default_font: Default::default(),
+            default_text_size: 9.0,
+            default_text_color: Color::BLACK,
             color_map: Default::default(),
             style_map: Default::default(),
             icons: Default::default(),
@@ -147,6 +151,14 @@ app.register_system({system});
             self.material_inner_shadow.1,
             self.material_inner_shadow.2,
         )
+    }
+
+    pub fn default_text_style(&self) -> TextStyle {
+        TextStyle {
+            font: self.default_font(),
+            font_size: self.default_text_size,
+            color: self.default_text_color,
+        }
     }
 
     pub fn text_style(&self, size: f32, class_name: &str) -> TextStyle {
