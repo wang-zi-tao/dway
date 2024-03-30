@@ -15,7 +15,7 @@ pub fn create_screen(
 ) {
     for (entity, window, screen) in screen_query.iter() {
         let WindowPosition::At(window_position) = window.position else {
-            return;
+            continue;
         };
         let rect = IRect::new(
             window_position.x,

@@ -81,7 +81,7 @@
             mesa
             udev
             alsaLib
-            (enableDebugging vulkan-loader )
+            # (enableDebugging vulkan-loader )
             xorg.libXcursor
             xorg.libXrandr
             xorg.libXi # To use x11 feature

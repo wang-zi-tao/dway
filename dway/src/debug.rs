@@ -1,11 +1,10 @@
 use anyhow::Result;
-use bevy::{
-    ecs::schedule::ScheduleLabel,
-    prelude::*,
-};
+use bevy::{ecs::schedule::ScheduleLabel, prelude::*};
+#[cfg(feature = "dump_system_graph")]
 use bevy_mod_debugdump::schedule_graph;
 use std::path::{Path, PathBuf};
 
+#[cfg(feature = "dump_system_graph")]
 pub fn dump_schedule(app: &mut App, name: &str, schedule_label: impl ScheduleLabel) -> Result<()> {
     let dot = bevy_mod_debugdump::schedule_graph_dot(
         app,
@@ -19,6 +18,7 @@ pub fn dump_schedule(app: &mut App, name: &str, schedule_label: impl ScheduleLab
     Ok(())
 }
 
+#[cfg(feature = "dump_system_graph")]
 pub fn dump_schedules_system_graph(app: &mut App) -> Result<()> {
     info!("dumping system graph at .output/schedule");
     if !Path::new(".output/schedule").exists() {
@@ -57,4 +57,13 @@ pub fn print_resources(world: &mut World) {
             info.is_send_and_sync(),
         );
     });
+}
+
+pub fn print_debug_info(query: Query<(Entity, &Node, &Interaction)>, mut commands: Commands) {
+    for (entity, node, interaction) in &query {
+        if *interaction == Interaction::Pressed {
+            debug!(?node,?interaction,"mouse press on {entity:?}");
+            commands.entity(entity).log_components();
+        }
+    }
 }

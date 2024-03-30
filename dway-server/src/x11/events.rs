@@ -449,7 +449,7 @@ pub fn flush_xwayland(
         let guard = x.lock().unwrap();
         let Some(connection) = guard.connection.upgrade() else {
             commands.entity(entity).despawn_recursive();
-            return;
+            continue;
         };
         if let Err(e) = connection.0.flush() {
             error!(entity=?entity,"failed to flush xwayland connection: {e}");

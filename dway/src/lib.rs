@@ -1,5 +1,4 @@
 #![feature(stmt_expr_attributes)]
-#[cfg(feature = "dump_system_graph")]
 pub mod debug;
 pub mod keys;
 pub mod opttions;
@@ -156,7 +155,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         FrameTimeDiagnosticsPlugin,
         EntityCountDiagnosticsPlugin,
         LogDiagnosticsPlugin {
-            wait_duration: Duration::from_secs(1),
+            wait_duration: Duration::from_secs(256),
             ..Default::default()
         },
         UiDiagnosticsPlugin,
@@ -210,6 +209,10 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         if let Err(e) = debug::dump_schedules_system_graph(app) {
             error!("failed to dump system graph: {e}");
         }
+    }
+    #[cfg(feature = "debug")]
+    {
+        app.add_systems(PreUpdate, debug::print_debug_info.after(bevy::ui::UiSystem::Focus).before(dway_client_core::input::on_input_event));
     }
 
     app.run();

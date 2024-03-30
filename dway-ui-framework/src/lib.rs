@@ -71,7 +71,7 @@ impl Plugin for UiFrameworkPlugin {
                 input::update_mouse_position
                     .run_if(on_event::<CursorMoved>())
                     .in_set(InputSystems),
-                update_ui_input.in_set(InputSystems),
+                update_ui_input.in_set(InputSystems).after(UiSystem::Focus),
                 widgets::button::process_ui_button_event.in_set(WidgetInputSystems),
                 widgets::checkbox::process_ui_checkbox_event.in_set(WidgetInputSystems),
                 widgets::inputbox::process_ui_inputbox_event.in_set(WidgetInputSystems),

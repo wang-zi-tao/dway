@@ -14,6 +14,7 @@ pretty_env_logger = {workspace=true}
 rand = {workspace=true}
 uuid = {workspace=true}
 dhat = {version="0.3.2", optional=true}
+bevy_egui = "0.26.0"
 # dexterous_developer = {  workspace = true, optional=true }
 
 [dependencies.bevy]
@@ -22,7 +23,8 @@ workspace = true
 
 [dependencies.bevy-inspector-egui]
 optional = true
-version = "0.23"
+version = "0.23.4"
+features = ["highlight_changes"]
 
 [dependencies.clap]
 features = ["derive"]
@@ -58,11 +60,11 @@ workspace = true
 default = [
     "dway_log",
     # "hot_reload",
-    # "debug",
+    "debug",
 ]
 inspector = [ "dep:bevy-inspector-egui"]
 dump_system_graph = ["dep:bevy_mod_debugdump"]
-debug = []
+debug = ["inspector" ,"dump_system_graph"]
 dway_log = []
 # hot_reload = ["dep:dexterous_developer", "dep:serde", "dway-ui/hot_reload" , "bevy/dynamic_linking", "bevy/embedded_watcher"]
 eventloop = []

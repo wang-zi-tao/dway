@@ -16,6 +16,7 @@ use crate::dom::*;
 use derive_syn_parse::Parse;
 use domcontext::widget_context::WidgetDeclare;
 
+use prelude::convert_type_name;
 use proc_macro::TokenStream;
 
 use quote::{format_ident, quote, quote_spanned};
@@ -76,6 +77,13 @@ pub fn style(input: TokenStream) -> TokenStream {
     let lit = parse_macro_input!(input as LitStr);
     let style = style::generate(&lit);
     TokenStream::from(quote_spanned!(lit.span()=> #style))
+}
+
+#[proc_macro]
+pub fn assets(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as Type);
+    let ident = format_ident!("assets_{}", convert_type_name(&input), span = input.span());
+    TokenStream::from(quote_spanned!(input.span()=> #ident))
 }
 
 #[proc_macro]

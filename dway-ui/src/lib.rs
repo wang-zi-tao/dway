@@ -101,7 +101,6 @@ dway_widget! {
 ScreenUI=>
 @global(theme: Theme)
 @global(asset_server: AssetServer)
-@global(mut rect_material_set: Assets<RoundedUiRectMaterial>)
 @bundle{{
     name:Name = Name::from("ScreenUI"),
 }}
@@ -122,12 +121,12 @@ ScreenUI=>
     <ScreenWindowsBundle @style="absolute full" Name=(Name::new("windows")) @id="windows"
         ScreenWindows=(ScreenWindows{screen:prop.screen}) />
     <(MaterialNodeBundle { style: style!("absolute top-4 left-4 right-4 h-32"),
-        material: rect_material_set.add(rounded_rect(Color::WHITE.with_a(0.5),8.0)),
+        material: assets!(RoundedUiRectMaterial).add(rounded_rect(Color::WHITE.with_a(0.5),8.0)),
         z_index: ZIndex::Global(1024),
         ..Default::default()
     }) Name=(Name::new("panel")) @id="panel">
         <MiniNodeBundle @style="absolute flex-row m-4 left-4" @id="left">
-            <(PanelButtonBundle::with_callback(&theme,&mut rect_material_set, &[
+            <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
                 (prop.screen,theme.system(popups::launcher::open_popup))
             ])) @style="flex-col">
                 <(UiSvgBundle::new(theme.icon("dashboard", &asset_server))) @style="w-24 h-24" @id="dashboard"/>
@@ -135,16 +134,16 @@ ScreenUI=>
             <WindowTitleBundle/>
         </MiniNodeBundle>
         <MiniNodeBundle @style="absolute flex-row m-4 right-4" @id="right">
-            <(PanelButtonBundle::new(&theme,&mut rect_material_set))>
+            <(PanelButtonBundle::new(&theme,&mut assets!(RoundedUiRectMaterial)))>
                 <ClockBundle/>
             </PanelButtonBundle>
-            <(PanelButtonBundle::with_callback(&theme,&mut rect_material_set, &[
+            <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
                 (prop.screen,theme.system(popups::volume_control::open_popup))
             ])) @style="flex-col">
                 // <MiniNodeBundle @style="h-24 w-24" />
                 <(UiSvgBundle::new(theme.icon("volume_on", &asset_server))) @style="w-24 h-24" @id="volume"/>
             </PanelButtonBundle>
-            <(PanelButtonBundle::new(&theme,&mut rect_material_set))>
+            <(PanelButtonBundle::new(&theme,&mut assets!(RoundedUiRectMaterial)))>
                 <(UiSvgBundle::new(theme.icon("settings", &asset_server))) @style="w-24 h-24" @id="settings"/>
             </PanelButtonBundle>
         </MiniNodeBundle>
@@ -158,10 +157,9 @@ ScreenUI=>
         focus_policy: FocusPolicy::Pass, z_index: ZIndex::Global(1024),..default()})
         // Class=(Class::new("dock"))
         Name=(Name::new("dock")) @id="dock" >
-        <MiniNodeBundle
-            Handle<_>=(rect_material_set.add(rounded_rect(Color::WHITE.with_a(0.5), 16.0)))>
+        <MiniNodeBundle @material(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.5), 16.0))>
             <AppListUIBundle/>
-            <(PanelButtonBundle::new(&theme,&mut rect_material_set))>
+            <(PanelButtonBundle::new(&theme,&mut assets!(RoundedUiRectMaterial)))>
                 <(UiSvgBundle::new(theme.icon("apps", &asset_server))) @style="w-48 h-48" @id="apps"/>
             </PanelButtonBundle>
         </MiniNodeBundle>

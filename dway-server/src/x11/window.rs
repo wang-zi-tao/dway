@@ -410,16 +410,16 @@ pub fn x11_window_attach_wl_surface(
         xwindow_query.iter()
     {
         if attached.map(|r| r.get().is_some()).unwrap_or_default() {
-            return;
+            continue;
         }
         if let Some(wid) = xwindow.surface_id {
             let Some((xdisplay_wrapper, wl_entity)) =
                 display_ref.get().and_then(|e| xdisplay_query.get(e).ok())
             else {
-                return;
+                continue;
             };
             let Ok(dway) = wl_query.get(wl_entity.get()) else {
-                return;
+                continue;
             };
             let xdisplay = xdisplay_wrapper.lock().unwrap();
             let Ok(wl_surface) = xdisplay
@@ -427,7 +427,7 @@ pub fn x11_window_attach_wl_surface(
                 .clone()
                 .object_from_protocol_id::<wl_surface::WlSurface>(&dway.display.handle(), wid)
             else {
-                return;
+                continue;
             };
             let wl_surface_entity = DWay::get_entity(&wl_surface);
             commands.add(ConnectCommand::<XWindowAttachSurface>::new(

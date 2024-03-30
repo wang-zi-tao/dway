@@ -1,4 +1,4 @@
-use bevy::ecs::schedule::ScheduleLabel;
+use bevy::{ecs::schedule::ScheduleLabel, ui::UiSystem};
 
 use crate::prelude::*;
 
@@ -84,7 +84,7 @@ impl Plugin for DWayServerSchedulePlugin {
         );
         app.configure_sets(
             PreUpdate,
-            (Input, GrabInput, InputFlush)
+            (Input.after(UiSystem::Focus), GrabInput, InputFlush)
                 .chain()
                 .before(Create)
                 .before(EndPreUpdate),

@@ -180,10 +180,11 @@ pub fn on_input_event(
     {
         for (interaction, content, mut style) in ui_query.iter_mut() {
             if *interaction == Interaction::None {
-                return;
+                continue;
             }
             let Ok((content_node, content_geo)) = window_root_ui_query.get(content.widget) else {
-                return;
+                error!("cannot get window widget");
+                continue;
             };
             let content_rect =
                 Rect::from_center_size(content_geo.translation().xy(), content_node.size());

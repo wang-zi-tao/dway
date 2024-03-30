@@ -62,7 +62,7 @@ pub fn attach_workspace_to_screen(
                     workspace_entity,
                 ));
                 workspace_geo.geometry = screen_geo.geometry;
-                return;
+                continue;
             }
         }
         let geo = Geometry {
