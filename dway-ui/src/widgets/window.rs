@@ -10,6 +10,7 @@ use dway_server::{
     wl::surface::WlSurface,
     xdg::{toplevel::DWayToplevel, DWayWindow, PopupList},
 };
+use dway_ui_framework::widgets::button::UiRawButtonExt;
 
 use crate::util::irect_to_style;
 
@@ -154,21 +155,21 @@ WindowUI=>
             state.image().clone())) />
         <NodeBundle @id="bar" ZIndex=(ZIndex::Local(2))
             @style="absolute left-0 right-0 top-{-DECORATION_HEIGHT} height-{DECORATION_HEIGHT}" >
-            <UiButtonBundle @id="close" @style="m-2 w-20 h-20"
-                UiButtonExt=(UiButton::new(this_entity, on_close_button_event).into())
+            <MiniNodeBundle @id="close" @style="m-2 w-20 h-20"
+                UiRawButtonExt=(UiButton::new(this_entity, on_close_button_event).into())
                 @handle(UiCircleMaterial=>circle_material(Color::WHITE*0.3)) >
-                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg"))) />
-            </UiButtonBundle>
-            <UiButtonBundle @id="max" @style="m-2 w-20 h-20"
-                UiButtonExt=(UiButton::new(this_entity, on_max_button_event).into())
+                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg"))) @style="full" />
+            </MiniNodeBundle>
+            <MiniNodeBundle @id="max" @style="m-2 w-20 h-20"
+                UiRawButtonExt=(UiButton::new(this_entity, on_max_button_event).into())
                 @handle(UiCircleMaterial=>circle_material(Color::WHITE*0.3)) >
-                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/maximize.svg"))) />
-            </UiButtonBundle>
-            <UiButtonBundle @id="min" @style="m-2 w-20 h-20"
-                UiButtonExt=(UiButton::new(this_entity, on_min_button_event).into())
+                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/maximize.svg"))) @style="full" />
+            </MiniNodeBundle>
+            <MiniNodeBundle @id="min" @style="m-2 w-20 h-20"
+                UiRawButtonExt=(UiButton::new(this_entity, on_min_button_event).into())
                 @handle(UiCircleMaterial=>circle_material(Color::WHITE*0.3)) >
-                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/minimize.svg"))) />
-            </UiButtonBundle>
+                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/minimize.svg"))) @style="full" />
+            </MiniNodeBundle>
             <TextBundle @style="items-center justify-center m-auto"
                 Text=(Text::from_section(
                     state.title(),
