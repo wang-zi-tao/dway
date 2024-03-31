@@ -61,6 +61,12 @@ impl DomDecorator for Handle {
             },
         );
     }
+    fn need_node_entity_field(&self) -> bool {
+        let component_state = ParseCodeResult::from_expr(&self.expr);
+        !component_state.use_state.is_empty()
+            || !component_state.set_state.is_empty()
+            || !component_state.use_prop.is_empty()
+    }
     fn get_component(&self) -> Option<TokenStream> {
         let Self { expr, .. } = self;
         let ident = format_ident!(
