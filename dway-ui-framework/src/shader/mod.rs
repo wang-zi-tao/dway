@@ -985,11 +985,11 @@ pub mod fill {
     impl Fill for FillImage {
         fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
             let ShaderVariables { pos, size } = var;
-            let uniform_offset = builder.get_uniform("offset", "", "vec2<f32>");
+            let uniform_offset = builder.get_uniform("offset_uv", "", "vec2<f32>");
             let uniform_scaling = builder.get_uniform("scaling", "", "vec2<f32>");
             let var_image_texture = builder.get_binding("image_texture", "", "texture_2d<f32>");
             let var_image_sampler = builder.get_binding("image_sampler", "", "sampler");
-            format!("textureSample({var_image_texture}, {var_image_sampler}, ({pos} + 0.5 * {size} - {uniform_offset})/({uniform_scaling}*{size}))")
+            format!("textureSample({var_image_texture}, {var_image_sampler}, ({pos} + 0.5 * {size} - {uniform_offset}*{size})/({uniform_scaling}*{size}))")
         }
     }
     impl BuildBindGroup for FillImage {

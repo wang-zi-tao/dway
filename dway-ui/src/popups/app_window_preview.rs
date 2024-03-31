@@ -5,7 +5,7 @@ use dway_server::{
     apps::WindowList, geometry::GlobalGeometry, util::rect::IRect, wl::surface::WlSurface,
     xdg::toplevel::DWayToplevel,
 };
-use dway_ui_framework::widgets::button::UiRawButtonBundle;
+use dway_ui_framework::{theme::ThemeComponent, widgets::button::{UiRawButtonBundle, UiRawButtonExt}};
 
 use crate::{
     prelude::*,
@@ -56,6 +56,7 @@ fn focus_window(
     app.register_type::<AppWindowPreviewPopup>();
     app.configure_sets(Update, AppWindowPreviewPopupSystems::Render.before(UiFrameworkSystems::UpdatePopup));
 }
+@global(theme: Theme)
 @arg(asset_server: Res<AssetServer>)
 @use_state(windows: Vec<Entity>)
 @component(window_list<-Query<Ref<WindowList>>[prop.app]->{ state.set_windows(window_list.iter().collect()); })
@@ -75,29 +76,29 @@ fn focus_window(
         }
     ]) >
         <MiniNodeBundle @style="flex-col m-4" @id="window_preview"
-            @use_state(title:String) @use_state(geo:GlobalGeometry) @use_state(image:Handle<Image>) @use_state(image_rect:IRect) >
+            @use_state(title:String) @use_state(geo:GlobalGeometry) @use_state(image:Handle<Image>) @use_state(image_rect:IRect)
+            @use_state(image_size:Vec2 <= state.geo().size().as_vec2() * PREVIEW_HIGHT / state.geo().height() as f32)
+        >
             <NodeBundle @style="flex-row">
-                <UiRawButtonBundle @id="close" @style="m-2 w-20 h-20"
-                UiButton=(UiButton::new(node!(window_preview), close_window))>
-                    <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg"))) />
-                </UiRawButtonBundle>
+                <MiniNodeBundle @id="close" @style="m-2 w-20 h-20"
+                    UiRawButtonExt=(UiButton::new(node!(window_preview), close_window).into()) >
+                    <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg")))  @style="full"/>
+                </MiniNodeBundle>
                 <TextBundle @style="items-center justify-center m-auto"
                     Text=(Text::from_section(
                         state.title(),
                         TextStyle {
                             font_size: 16.0,
                             color: Color::WHITE,
-                            font: asset_server.load("embedded://dway_ui/fonts/SmileySans-Oblique.ttf"),
+                            font: theme.default_font(),
                         },
                     ).with_justify(JustifyText::Center))
                 />
             </NodeBundle>
-            <UiRawButtonBundle
-            UiButton=(UiButton::new(node!(window_preview), focus_window))>
+            <UiRawButtonBundle UiButton=(UiButton::new(node!(window_preview), focus_window))>
                 <MaterialNodeBundle::<RoundedUiImageMaterial>
-                @handle(RoundedUiImageMaterial=>create_raw_window_material(*state.image_rect(),state.image().clone(),&state.geo))
-                Style=({ let size = state.geo().size().as_vec2() * PREVIEW_HIGHT / state.geo().height() as f32;
-                        Style{ width:Val::Px(size.x), height:Val::Px(size.y), ..default() } }) />
+                @handle(RoundedUiImageMaterial=>create_raw_window_material(*state.image_rect(),state.image().clone(),&state.geo, *state.image_size()))
+                @style="w-{state.image_size().x} h-{state.image_size().y}" />
             </UiRawButtonBundle>
         </MiniNodeBundle>
 </MiniNodeBundle>

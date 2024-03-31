@@ -60,10 +60,10 @@ pub fn print_resources(world: &mut World) {
 }
 
 pub fn print_debug_info(query: Query<(Entity, &Node, &Interaction)>, mut commands: Commands) {
-    for (entity, node, interaction) in &query {
-        if *interaction == Interaction::Pressed {
-            debug!(?node,?interaction,"mouse press on {entity:?}");
-            commands.entity(entity).log_components();
-        }
-    }
+    // for (entity, node, interaction) in &query {
+    //     if *interaction == Interaction::Pressed {
+    //         debug!(?node,?interaction,"mouse press on {entity:?}");
+    //         commands.entity(entity).log_components();
+    //     }
+    // }
 }

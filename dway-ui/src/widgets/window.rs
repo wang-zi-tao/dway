@@ -25,25 +25,14 @@ pub fn create_raw_window_material(
     image_rect: IRect,
     image: Handle<Image>,
     geo: &GlobalGeometry,
+    size: Vec2,
 ) -> RoundedUiImageMaterial {
     let rect = geo.geometry;
-    let bbox_rect = image_rect.offset(rect.pos());
     rounded_ui_image(
         16.0,
-        (bbox_rect.min - rect.min).as_vec2(),
-        bbox_rect.size().as_vec2(),
+        image_rect.pos().as_vec2() / rect.size().as_vec2(),
+        image_rect.size().as_vec2() / rect.size().as_vec2(),
         image,
-    )
-}
-
-pub fn create_window_material(surface: &WlSurface, geo: &GlobalGeometry) -> RoundedUiImageMaterial {
-    let rect = geo.geometry;
-    let bbox_rect = surface.image_rect().offset(rect.pos());
-    rounded_ui_image(
-        16.0,
-        (bbox_rect.min - rect.min).as_vec2(),
-        bbox_rect.size().as_vec2(),
-        surface.image.clone(),
     )
 }
 
@@ -119,6 +108,7 @@ WindowUI=>
 @use_state(pub image:Handle<Image>)
 @use_state(pub z_index:i32)
 @use_state(pub popup_list:Vec<Entity>)
+@global(theme: Theme)
 @query(window_query:(rect,surface, toplevel, index, popups)<-Query<(Ref<GlobalGeometry>, Ref<WlSurface>, Ref<DWayToplevel>, Ref<WindowIndex>, Option<Ref<PopupList>>), With<DWayWindow>>[prop.window_entity]->{
     let init = !widget.inited;
     if init || rect.is_changed(){
@@ -165,19 +155,11 @@ WindowUI=>
         <MaterialNodeBundle::<RoundedUiImageMaterial> @id="surface" @style="absolute full"
         @handle(RoundedUiImageMaterial=>rounded_ui_image(
             14.0,
-            ( state.bbox_rect().min-state.rect().min ).as_vec2(),
+            ( state.bbox_rect().min-state.rect().min ).as_vec2() / state.rect().size().as_vec2(),
             state.bbox_rect().size().as_vec2() / state.rect().size().as_vec2(),
             state.image().clone())) />
-        <NodeBundle @id="bar"
-            ZIndex=(ZIndex::Local(2))
-            Style=(Style{
-                position_type: PositionType::Absolute,
-                left:Val::Px(0.),
-                right:Val::Px(0.),
-                top:Val::Px(- DECORATION_HEIGHT),
-                height: Val::Px(DECORATION_HEIGHT),
-                ..Style::default() })
-        >
+        <NodeBundle @id="bar" ZIndex=(ZIndex::Local(2))
+            @style="absolute left-0 right-0 top-{-DECORATION_HEIGHT} height-{DECORATION_HEIGHT}" >
             <UiButtonBundle @id="close" @style="m-2 w-20 h-20"
                 UiButtonExt=(UiButton::new(this_entity, on_close_button_event).into())
                 @handle(UiCircleMaterial=>circle_material(Color::WHITE*0.3)) >
@@ -199,7 +181,7 @@ WindowUI=>
                     TextStyle {
                         font_size: DECORATION_HEIGHT - 2.0,
                         color: Color::WHITE,
-                        font: asset_server.load("embedded://dway_ui/fonts/SmileySans-Oblique.ttf"),
+                        font: theme.default_font(),
                     },
                 ).with_justify(JustifyText::Center))
             />

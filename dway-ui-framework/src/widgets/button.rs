@@ -127,8 +127,6 @@ make_bundle! {
     UiRawButtonBundle {
         pub button: UiButton,
         pub interaction: Interaction,
-        #[default(ThemeComponent::none())]
-        pub theme: ThemeComponent,
         #[default(FocusPolicy::Block)]
         pub focus_policy: FocusPolicy,
     }
