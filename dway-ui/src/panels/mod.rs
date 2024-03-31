@@ -11,9 +11,13 @@ dway_widget! {
 WindowTitle=>
 @global(stack: WindowStack -> { state.set_window_entity(stack.focused().unwrap_or(Entity::PLACEHOLDER)); })
 @use_state(pub window_entity:Entity=Entity::PLACEHOLDER)
-@query(window_query:(toplevel)<-Query<Ref<DWayToplevel>>[*state.window_entity()]->{
-    if !widget.inited || toplevel.is_changed(){
-        state.set_title(toplevel.title.clone().unwrap_or_default());
+@try_query(window_query:toplevel<-Query<Ref<DWayToplevel>>[*state.window_entity()]->{
+    if let Ok(toplevel) = toplevel{
+        if !widget.inited || toplevel.is_changed() || state.window_entity_is_changed(){
+            state.set_title(toplevel.title.clone().unwrap_or_default());
+        }
+    } else {
+        state.title_mut().clear();
     }
 })
 @use_state(pub title: String)

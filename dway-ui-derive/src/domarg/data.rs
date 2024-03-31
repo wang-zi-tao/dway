@@ -349,6 +349,64 @@ impl DomDecorator for Query {
 }
 
 #[derive(Parse)]
+pub struct TryQuery {
+    mutable: Option<Token![mut]>,
+    query_name: Ident,
+    _split: Token![:],
+    result: Ident,
+    _split1: Token![<-],
+    ty: Type,
+    #[bracket]
+    _wrap: Bracket,
+    #[inside(_wrap)]
+    entity: Expr,
+    _after_change: Token![->],
+    block: Block,
+}
+
+impl DomDecorator for TryQuery {
+    fn key(&self) -> DomArgKey {
+        DomArgKey::QueryComponent(self.query_name.to_string())
+    }
+    fn update_context(&self, context: &mut WidgetNodeContext) {
+        let Self {
+            query_name,
+            ty,
+            mutable,
+            ..
+        } = self;
+        let arg_name = format_ident!("query_{}", query_name, span = query_name.span());
+        context
+            .tree_context
+            .system_querys
+            .insert(arg_name.to_string(), quote!(#mutable #arg_name: #ty));
+    }
+    fn wrap_update(&self, inner: TokenStream, _context: &mut WidgetNodeContext) -> TokenStream {
+        let Self {
+            query_name,
+            mutable,
+            entity,
+            block,
+            result,
+            ..
+        } = self;
+        let arg_name = format_ident!("query_{}", query_name, span = query_name.span());
+        let query = if mutable.is_none() {
+            quote!(#arg_name.get(#entity))
+        } else {
+            quote!(#arg_name.get_mut(#entity))
+        };
+        quote! {
+            {
+                let #result = #query;
+                #block
+            }
+            #inner
+        }
+    }
+}
+
+#[derive(Parse)]
 pub struct WorldQuery {
     name: Ident,
     #[prefix(Token![:])]
