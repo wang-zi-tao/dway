@@ -548,6 +548,7 @@ pub fn process_window_action_events(
                                 return ControlFlow::<()>::default();
                             }
                             surface_pointer_state.grab = Some(Box::new(SurfaceGrabKind::Move {
+                                mouse_pos: surface_pointer_state.mouse_pos,
                                 seat: *seat_entity,
                                 serial: None,
                             }));

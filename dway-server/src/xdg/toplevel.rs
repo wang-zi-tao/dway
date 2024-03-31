@@ -1,6 +1,6 @@
 use super::{DWayWindow, XdgSurface};
 use crate::{
-    geometry::Geometry,
+    geometry::{set_geometry, Geometry, GlobalGeometry},
     input::{
         grab::{ResizeEdges, SurfaceGrabKind, WlSurfacePointerState},
         seat::WlSeat,
@@ -123,6 +123,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 }
                 if let Some(mut pointer_state) = state.get_mut::<WlSurfacePointerState>(*data) {
                     pointer_state.grab = Some(Box::new(SurfaceGrabKind::Move {
+                        mouse_pos: pointer_state.mouse_pos,
                         seat: DWay::get_entity(&seat),
                         serial: Some(serial),
                     }));
@@ -234,6 +235,7 @@ pub struct ToplevelWorldQuery {
     data: &'static mut DWayToplevel,
     surface: &'static XdgSurface,
     geo: &'static mut Geometry,
+    global_geo: &'static mut GlobalGeometry,
     pinned: Option<&'static PinedWindow>,
     pointer_state: &'static mut WlSurfacePointerState,
 }
@@ -283,8 +285,7 @@ pub fn process_window_action_event(
             WindowAction::UnMinimize(_) => {}
             WindowAction::SetRect(e, rect) => {
                 if let Ok(mut toplevel) = window_query.get_mut(*e) {
-                    toplevel.geo.geometry = *rect;
-                    // toplevel.geo.set_pos(rect.pos());
+                    set_geometry(&mut toplevel.geo, &mut toplevel.global_geo, *rect);
                     toplevel.data.size = Some(rect.size());
                     toplevel.xdg_obj.configure(&mut toplevel.data);
                     toplevel.surface.configure();
@@ -297,6 +298,7 @@ pub fn process_window_action_event(
                     }
                     graph.for_each_pointer_mut_from(*e, |_, (seat_entity, _)| {
                         toplevel.pointer_state.grab = Some(Box::new(SurfaceGrabKind::Move {
+                            mouse_pos: toplevel.pointer_state.mouse_pos,
                             seat: *seat_entity,
                             serial: None,
                         }));

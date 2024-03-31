@@ -144,13 +144,7 @@ WindowUI=>
         />
         <MaterialNodeBundle::<RoundedUiRectMaterial> @id="outter"
             ZIndex=(ZIndex::Local(0))
-            Style=(Style{
-                position_type: PositionType::Absolute,
-                left:Val::Px(-DECORATION_MARGIN),
-                right:Val::Px(-DECORATION_MARGIN),
-                bottom:Val::Px(-DECORATION_MARGIN),
-                top:Val::Px(-DECORATION_HEIGHT),
-                ..Style::default() })
+            @style="absolute left-{-DECORATION_MARGIN} right-{-DECORATION_MARGIN} bottom-{-DECORATION_MARGIN} top-{-DECORATION_HEIGHT}"
             @handle(RoundedUiRectMaterial=>rounded_rect(Color::WHITE*0.2, 16.0)) />
         <MaterialNodeBundle::<RoundedUiImageMaterial> @id="surface" @style="absolute full"
         @handle(RoundedUiImageMaterial=>rounded_ui_image(

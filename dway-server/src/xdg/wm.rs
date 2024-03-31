@@ -50,7 +50,7 @@ impl wayland_server::Dispatch<xdg_wm_base::XdgWmBase, bevy::prelude::Entity, DWa
                     *entity,
                     (id, data_init, |o| XdgSurfaceBundle {
                         resource: XdgSurface::new(o),
-                        geometry: Geometry::default(),
+                        geometry: Geometry::new(crate::util::rect::IRect::from_pos_size(IVec2::new(256,128), IVec2::ZERO)),
                         global_geometry: GlobalGeometry::default(),
                         seat_state: Default::default(),
                     }),

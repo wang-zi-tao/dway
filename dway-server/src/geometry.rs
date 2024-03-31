@@ -145,3 +145,10 @@ impl Plugin for GeometryPlugin {
         app.register_type::<WlGeometry>();
     }
 }
+
+pub fn set_geometry(geo: &mut Geometry, global_geo: &mut GlobalGeometry, rect: IRect){
+    let global_pos = global_geo.pos();
+    global_geo.set_pos(global_pos + rect.pos() - geo.pos());
+    global_geo.set_size(rect.size());
+    geo.geometry = rect;
+}

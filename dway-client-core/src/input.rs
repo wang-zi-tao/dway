@@ -150,7 +150,7 @@ enum MouseEvent<'l> {
 }
 
 graph_query!(InputGraph=>[
-    surface=< (Entity, &'static WlSurface,&'static mut WlSurfacePointerState, &'static Geometry),With<DWayWindow>>,
+    surface=< (Entity, &'static WlSurface,&'static mut WlSurfacePointerState, &'static mut Geometry, &'static GlobalGeometry),With<DWayWindow>>,
     client=&'static mut WlSeat,
     pointer=&'static mut WlPointer,
 ]=>{
@@ -190,7 +190,13 @@ pub fn on_input_event(
                 Rect::from_center_size(content_geo.translation().xy(), content_node.size());
             graph.for_each_pointer_mut_from::<()>(
                 content.surface_entity,
-                |(surface_entity, surface, window_pointer, window_geometry),
+                |(
+                    surface_entity,
+                    surface,
+                    window_pointer,
+                    window_geometry,
+                    window_global_geometry,
+                ),
                  ref mut seat,
                  pointer| {
                     let relative_pos =
@@ -207,16 +213,15 @@ pub fn on_input_event(
                             cursor_on_window.0 = Some((*surface_entity, relative_pos.as_ivec2()));
                             if let Some(grab) = &window_pointer.grab {
                                 match &**grab {
-                                    SurfaceGrabKind::Move { .. } => {
+                                    SurfaceGrabKind::Move { mouse_pos, .. } => {
                                         window_action.send(WindowAction::SetRect(
                                             *surface_entity,
                                             IRect::from_pos_size(
-                                                window_geometry.pos()
-                                                    + (0.5
-                                                        * (relative_pos.as_ivec2()
-                                                            - window_pointer.mouse_pos)
-                                                            .as_vec2())
-                                                    .as_ivec2(),
+                                                e.position.as_ivec2()
+                                                    - *mouse_pos
+                                                    - surface.image_rect().pos()
+                                                    - (window_geometry.pos()
+                                                        - window_global_geometry.pos()),
                                                 window_geometry.size(),
                                             ),
                                         ));

@@ -127,6 +127,7 @@ pub fn process_x11_event(
                             }
                             8 => {
                                 window_pointer.grab = Some(Box::new(SurfaceGrabKind::Move {
+                                    mouse_pos: window_pointer.mouse_pos,
                                     seat: display_entity,
                                     serial: Some(0),
                                 }));

@@ -17,6 +17,7 @@ pub enum SurfaceGrabKind {
     Move {
         seat: Entity,
         serial: Option<u32>,
+        mouse_pos: IVec2,
     },
     Resizing {
         seat: Entity,
