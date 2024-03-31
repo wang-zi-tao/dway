@@ -10,7 +10,6 @@ use bevy::{
     prelude::*,
 };
 use bevy_relationship::{graph_query, ControlFlow};
-use dway_server::input::grab::ResizeEdges;
 use dway_server::{
     geometry::{Geometry, GlobalGeometry},
     input::seat::SeatHasKeyboard,
@@ -25,6 +24,7 @@ use dway_server::{
     wl::surface::WlSurface,
     xdg::{popup::XdgPopup, toplevel::XdgToplevel, DWayWindow},
 };
+use dway_server::{input::grab::ResizeEdges, macros::WindowAction, util::rect::IRect};
 
 #[derive(Default)]
 pub struct DWayInputPlugin {
@@ -167,7 +167,7 @@ pub fn on_input_event(
     mut cursor_moved_events: EventReader<CursorMoved>,
     mut button_events: EventReader<MouseButtonInput>,
     mut wheel_events: EventReader<MouseWheel>,
-    // mut window_action: EventWriter<WindowAction>,
+    mut window_action: EventWriter<WindowAction>,
 ) {
     let Some((_output, pos)) = &cursor.0 else {
         return;
@@ -208,18 +208,18 @@ pub fn on_input_event(
                             if let Some(grab) = &window_pointer.grab {
                                 match &**grab {
                                     SurfaceGrabKind::Move { .. } => {
-                                        // window_action.send(WindowAction::SetRect(
-                                        //     *surface_entity,
-                                        //     IRect::from_pos_size(
-                                        //         window_geometry.pos()
-                                        //             + (relative_pos.as_ivec2()
-                                        //                 - window_pointer.mouse_pos)
-                                        //                 .as_vec2()
-                                        //                 .mul(0.5)
-                                        //                 .as_ivec2(),
-                                        //         window_geometry.size(),
-                                        //     ),
-                                        // ));
+                                        window_action.send(WindowAction::SetRect(
+                                            *surface_entity,
+                                            IRect::from_pos_size(
+                                                window_geometry.pos()
+                                                    + (0.5
+                                                        * (relative_pos.as_ivec2()
+                                                            - window_pointer.mouse_pos)
+                                                            .as_vec2())
+                                                    .as_ivec2(),
+                                                window_geometry.size(),
+                                            ),
+                                        ));
                                     }
                                     SurfaceGrabKind::Resizing { edges, .. } => {
                                         let mut geo = window_geometry.geometry;
