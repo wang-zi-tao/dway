@@ -51,6 +51,12 @@ use crate::udev::UDevMonitor;
 
 use self::connectors::Connector;
 
+pub struct GpuManager{
+    pub udev: UDevMonitor,
+    pub primary_gpu: Entity,
+    pub gpus: HashMap<libc::dev_t, Entity>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DrmNodeType {
     Primary,
@@ -586,7 +592,6 @@ pub fn setup(
     for gpu_path in all_gpus(&seat).unwrap() {
         if let Err(e) = add_device(gpu_path, &mut udev, &mut seat, &mut commands, &mut images) {
             error!("failed to add drm device: {e}");
-            info!("backtrace: {}", e.backtrace());
         }
     }
 }
@@ -634,9 +639,9 @@ pub fn add_device(
 ) -> Result<Entity> {
     let _span = span!(Level::ERROR,"init drm device",path=%gpu_path.to_string_lossy()).entered();
 
-    let drm = seat
-        .open_device(&gpu_path)
-        .and_then(|fd| DrmDevice::new(fd, gpu_path.clone()))?;
+    debug!("open drm device");
+    let drm_fd = seat .open_device(&gpu_path)?;
+    let drm = DrmDevice::new(drm_fd, gpu_path.clone())?;
     let gbm = GbmDevice::new(drm.fd.clone())?;
 
     let connectors = drm.connectors()?;
@@ -800,5 +805,33 @@ impl Plugin for DrmPlugin {
                 recevie_drm_events.in_set(DWayTTYSet::DrmEventSystem),
             )
             .add_event::<DrmEvent>();
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use bevy::prelude::*;
+    use dway_util::eventloop::{EventLoopPlugin, EventLoopPluginMode};
+
+    use crate::{schedule::DWayTtySchedulePlugin, seat::SeatPlugin, test::test_suite_plugins, udev::UDevPlugin};
+
+    use super::DrmPlugin;
+
+    #[test]
+    pub fn test_drm_plugin() {
+        let mut app = App::new();
+        app.add_plugins(test_suite_plugins());
+        app.add_plugins((
+            DWayTtySchedulePlugin,
+            EventLoopPlugin {
+                mode: EventLoopPluginMode::ManualMode,
+            },
+            SeatPlugin,
+            UDevPlugin {
+                sub_system: "drm".into(),
+            },
+            DrmPlugin,
+        ));
+        app.run();
     }
 }

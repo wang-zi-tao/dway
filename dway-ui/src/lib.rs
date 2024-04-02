@@ -66,29 +66,10 @@ impl Plugin for DWayUiPlugin {
 fn setup(
     mut commands: Commands,
     seat: Option<NonSend<SeatState>>,
-    surfaces: Query<(Entity, &DrmSurface)>,
 ) {
     if seat.is_none() {
         let camera = Camera2dBundle::default();
         commands.spawn(camera);
-    } else {
-        for (entity, surface) in surfaces.iter() {
-            let image_handle = surface.image();
-            commands.spawn((Camera2dBundle {
-                camera: Camera {
-                    target: RenderTarget::Image(image_handle),
-                    ..default()
-                },
-                ..default()
-            },));
-            commands.spawn((Camera2dBundle {
-                camera: Camera {
-                    target: RenderTarget::Window(WindowRef::Entity(entity)),
-                    ..default()
-                },
-                ..default()
-            },));
-        }
     }
 }
 
@@ -168,8 +149,29 @@ ScreenUI=>
 </NodeBundle>
 }
 
-fn init_screen_ui(screen_query: Query<Entity, Added<Screen>>, mut commands: Commands) {
-    for entity in screen_query.iter() {
-        commands.spawn(ScreenUIBundle::from(ScreenUI { screen: entity }));
+fn init_screen_ui(
+    screen_query: Query<(Entity, Option<&DrmSurface>), Added<Screen>>,
+    mut commands: Commands,
+) {
+    for (entity, drm_surface) in screen_query.iter() {
+        let target = if let Some(drm_surface) = drm_surface {
+            let image_handle = drm_surface.image();
+            RenderTarget::Image(image_handle)
+        } else {
+            RenderTarget::Window(WindowRef::Entity(entity))
+        };
+        let camera = commands
+            .spawn(Camera2dBundle {
+                camera: Camera {
+                    target,
+                    ..default()
+                },
+                ..Default::default()
+            })
+            .id();
+        commands.spawn((
+            TargetCamera(camera),
+            ScreenUIBundle::from(ScreenUI { screen: entity }),
+        ));
     }
 }

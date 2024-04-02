@@ -19,8 +19,8 @@ pub enum DWayTTYRemderSet {
     DrmCommitSystem,
 }
 
-pub struct DWayUdevSchedulePlugin;
-impl Plugin for DWayUdevSchedulePlugin {
+pub struct DWayTtySchedulePlugin;
+impl Plugin for DWayTtySchedulePlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets(
             First,

@@ -13,8 +13,9 @@ use bevy::{
 };
 use drm::DrmPlugin;
 use dway_util::eventloop::{EventLoop, EventLoopControl, EventLoopPlugin, EventLoopPluginMode};
-use measure_time::{debug_time};
+use measure_time::debug_time;
 use render::TtyRenderPlugin;
+use schedule::DWayTtySchedulePlugin;
 use smart_default::SmartDefault;
 
 pub mod drm;
@@ -40,6 +41,7 @@ pub struct DWayTTYPlugin {}
 impl Plugin for DWayTTYPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
+            DWayTtySchedulePlugin,
             EventLoopPlugin {
                 mode: EventLoopPluginMode::ManualMode,
             },
@@ -100,25 +102,46 @@ fn runner(mut app: App) {
 
 #[cfg(test)]
 mod test {
-    use std::fs::OpenOptions;
 
-    use bevy::{log::LogPlugin, prelude::*};
+    use bevy::{
+        app::{AppExit, ScheduleRunnerPlugin},
+        core::FrameCount,
+        log::LogPlugin,
+        prelude::*,
+        winit::WinitPlugin,
+    };
+    use dway_util::
+        logger::DWayLogPlugin
+    ;
+    use tracing::Level;
 
     use crate::DWayTTYPlugin;
 
     #[test]
     pub fn test_launch() {
-        let log_file = OpenOptions::new()
-            .truncate(true)
-            .write(true)
-            .create(true)
-            .open("../output/tty.log")
-            .unwrap();
-        let (non_blocking, _guard) = tracing_appender::non_blocking(log_file);
-        tracing_subscriber::fmt().with_writer(non_blocking).init();
-
         let mut app = App::new();
-        app.add_plugins((LogPlugin::default(), DWayTTYPlugin::default()));
-        app.update();
+        app.add_plugins(test_suite_plugins())
+            .add_plugins(DWayTTYPlugin::default());
+        app.add_systems(
+            Last,
+            |frame: Res<FrameCount>, mut exit: EventWriter<AppExit>| {
+                if frame.0 > 2 {
+                    exit.send_default();
+                }
+            },
+        );
+        app.run();
+    }
+
+    pub fn test_suite_plugins() -> bevy::app::PluginGroupBuilder {
+        DefaultPlugins
+            .build()
+            .disable::<LogPlugin>()
+            .disable::<WinitPlugin>()
+            .add(ScheduleRunnerPlugin::run_once())
+            .add(DWayLogPlugin {
+                filter: Default::default(),
+                level: Level::TRACE,
+            })
     }
 }

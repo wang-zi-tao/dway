@@ -1,4 +1,12 @@
-use bevy::{app::Update, ecs::system::NonSendMut, log::Level, prelude::Plugin};
+use backtrace::Backtrace;
+use bevy::{
+    app::Update,
+    ecs::system::NonSendMut,
+    log::{error, warn, Level},
+    prelude::Plugin,
+};
+use nix::sys::signal;
+use nix::sys::signal::Signal;
 use smallvec::SmallVec;
 use std::{collections::VecDeque, sync::mpsc};
 use tracing_subscriber::{fmt::MakeWriter, prelude::__tracing_subscriber_SubscriberExt, EnvFilter};
@@ -39,7 +47,7 @@ impl Default for DWayLogPlugin {
 
 pub fn revceive_log_system(mut cache: NonSendMut<LoggerCache>) {
     if let Some(rx) = cache.rx.as_ref() {
-        let log_list = rx.try_iter().collect::<SmallVec<[ _;16 ]>>();
+        let log_list = rx.try_iter().collect::<SmallVec<[_; 16]>>();
         if !log_list.is_empty() {
             let LoggerCache { limit, lines, .. } = &mut *cache;
             for log in log_list {
@@ -59,9 +67,7 @@ struct LoggerWritter {
 
 impl std::io::Write for LoggerWritter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let _ = self.tx.send(LogLine {
-            data: buf.to_vec(),
-        });
+        let _ = self.tx.send(LogLine { data: buf.to_vec() });
         Ok(buf.len())
     }
 
@@ -99,9 +105,82 @@ impl Plugin for DWayLogPlugin {
             )
             .with(tracing_subscriber::fmt::Layer::new().with_writer(std::io::stderr))
             .with(tracing_subscriber::fmt::Layer::new().with_writer(log_file))
-            .with(tracing_subscriber::fmt::Layer::new().with_writer(LoggerWritter { tx }));
+            .with(tracing_subscriber::fmt::Layer::new().with_writer(LoggerWritter { tx }))
+            .with(tracing_journald::Layer::new().unwrap());
 
         let _ = bevy::utils::tracing::subscriber::set_global_default(subscriber);
-        // log_panics::init()
+        install_panic_hook();
+        install_signal_handler();
     }
+}
+
+pub fn install_panic_hook() {
+    std::panic::set_hook(Box::new(move |info| {
+        let thread = std::thread::current();
+        let thread = thread.name().unwrap_or("<unnamed>");
+
+        let msg = match info.payload().downcast_ref::<&'static str>() {
+            Some(s) => *s,
+            None => match info.payload().downcast_ref::<String>() {
+                Some(s) => &**s,
+                None => "Box<Any>",
+            },
+        };
+
+        let backtrace = Backtrace::default();
+        match info.location() {
+            Some(location) => {
+                error!(
+                    target: "panic", "thread '{}' panicked at '{}': {}:{}{:?}",
+                    thread,
+                    msg,
+                    location.file(),
+                    location.line(),
+                    backtrace
+                );
+            }
+            None => error!(
+                target: "panic",
+                "thread '{}' panicked at '{}'{:?}",
+                thread,
+                msg,
+                backtrace
+            ),
+        }
+    }));
+}
+
+extern "C" fn handle_sig(s: i32) {
+    std::env::set_var("RUST_BACKTRACE", "1");
+    panic!(
+        "signal {} {:?}",
+        Signal::try_from(s)
+            .map(|s| s.to_string())
+            .unwrap_or_else(|_| s.to_string()),
+        backtrace::Backtrace::new()
+    );
+}
+
+fn register_signal(signal: Signal) {
+    unsafe {
+        if let Err(err) = signal::sigaction(
+            signal,
+            &signal::SigAction::new(
+                signal::SigHandler::Handler(handle_sig),
+                signal::SaFlags::SA_NODEFER,
+                signal::SigSet::all(),
+            ),
+        ) {
+            warn!(
+                "failed to registry signal handle for signal {:?}: {err}",
+                signal
+            );
+        };
+    };
+}
+
+pub fn install_signal_handler() {
+    register_signal(signal::SIGKILL);
+    register_signal(signal::SIGABRT);
+    register_signal(signal::SIGSEGV);
 }

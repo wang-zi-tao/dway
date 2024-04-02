@@ -26,7 +26,7 @@
           nativeBuildInputs = with pkgs; [
             (fenix.fromToolchainFile {
               file = ./rust-toolchain.toml;
-              sha256 = "sha256-sH6tcgUqft0TlybCuF4LirxmePW09mZDgu/SFP1bxGE=";
+              sha256 = "sha256-W3R0W4PjkGA5Anp28lTqbsQzh/GqESV+5AenT3JvvJk=";
             })
             tracy
             cargo-flamegraph
@@ -81,7 +81,7 @@
             mesa
             udev
             alsaLib
-            # (enableDebugging vulkan-loader )
+            vulkan-loader
             xorg.libXcursor
             xorg.libXrandr
             xorg.libXi # To use x11 feature

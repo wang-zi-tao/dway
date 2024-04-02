@@ -97,10 +97,12 @@ impl Plugin for UDevPlugin {
 mod tests {
     use super::UDevPlugin;
     use bevy::{log::LogPlugin, prelude::App};
+    use dway_util::eventloop::{EventLoop, EventLoopPlugin};
 
     #[test]
     pub fn test_udev_plugin() {
         App::new()
+            .insert_non_send_resource(EventLoop::new())
             .add_plugins((
                 LogPlugin::default(),
                 UDevPlugin {

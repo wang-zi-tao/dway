@@ -25,8 +25,7 @@ use bevy_relationship::reexport::SmallVec;
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use nix::libc::makedev;
 use std::{
-    os::fd::{AsFd, AsRawFd},
-    sync::{Arc, RwLock},
+    ffi::CStr, os::fd::{AsFd, AsRawFd}, sync::{Arc, RwLock}
 };
 use wgpu::{
     Extent3d, FilterMode, ImageCopyTexture, SamplerDescriptor, TextureAspect, TextureDimension,
@@ -230,12 +229,24 @@ pub fn create_dma_image(
             };
             let phy_mem_prop = instance.get_physical_device_memory_properties(physical);
 
-            let fd_mem_type = ExternalMemoryFd::new(instance, device)
-                .get_memory_fd_properties(
-                    ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
-                    plane.fd.as_fd().as_raw_fd(),
-                )?
-                .memory_type_bits;
+            let fd_mem_type = if instance
+                .get_device_proc_addr(
+                    device.handle(),
+                    CStr::from_bytes_with_nul(b"vkGetMemoryFdPropertiesKHR\0")
+                        .unwrap()
+                        .as_ptr(),
+                )
+                .is_some()
+            {
+                ExternalMemoryFd::new(instance, device)
+                    .get_memory_fd_properties(
+                        ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
+                        plane.fd.as_fd().as_raw_fd(),
+                    )?
+                    .memory_type_bits
+            } else {
+                !0
+            };
 
             let mut fd_info = ash::vk::ImportMemoryFdInfoKHR::builder()
                 .fd(plane.fd.as_fd().as_raw_fd())

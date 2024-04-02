@@ -11,13 +11,15 @@ use bevy::{
     },
     log::LogPlugin,
     prelude::*,
-    render::camera::RenderTarget,
+    render::{camera::RenderTarget, settings::{RenderCreation, WgpuSettings}, RenderPlugin},
     sprite::Mesh2dHandle,
     winit::WinitPlugin,
 };
 use dway_tty::{drm::surface::DrmSurface, DWayTTYPlugin};
 
+use dway_util::logger::DWayLogPlugin;
 use tracing::Level;
+use wgpu::Backends;
 
 const THREAD_POOL_CONFIG: TaskPoolThreadAssignmentPolicy = TaskPoolThreadAssignmentPolicy {
     min_threads: 1,
@@ -26,22 +28,12 @@ const THREAD_POOL_CONFIG: TaskPoolThreadAssignmentPolicy = TaskPoolThreadAssignm
 };
 
 pub fn main() {
-    set_signal_handler();
     let mut app = App::new();
     app.add_plugins({
         let mut plugins = DefaultPlugins
-            .set(TaskPoolPlugin {
-                task_pool_options: TaskPoolOptions {
-                    min_total_threads: 1,
-                    max_total_threads: 1,
-                    io: THREAD_POOL_CONFIG,
-                    async_compute: THREAD_POOL_CONFIG,
-                    compute: THREAD_POOL_CONFIG,
-                },
-            })
             .set(LogPlugin {
-                level: Level::INFO,
-                filter: "info,dway=debug,dway_server::wl::surface=debug,bevy_ecs=info,wgpu=info,wgpu_hal::gles=info,naga=info,naga::front=info,bevy_render=debug,bevy_ui=trace,dway_server::input::pointer=info,kayak_ui=info,naga=info,dway-udev=trace".to_string(),
+                level: Level::TRACE,
+                filter: "dway=debug,dway_server::wl::surface=debug,bevy_ecs=info,naga=info,naga::front=info,bevy_render=debug,bevy_ui=trace,dway_server::input::pointer=info,kayak_ui=info,naga=info,dway-tty=trace".to_string(),
                 ..Default::default()
             });
             if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
@@ -74,7 +66,7 @@ fn setup(
     info!("setup world");
 
     if std::env::var("DISPLAY").is_ok() || std::env::var("WAYLAND_DISPLAY").is_ok() {
-        commands.spawn(Camera2dBundle::default());
+        commands.spawn(Camera3dBundle::default());
     }
     for surface in surface_query.iter() {
         let image_handle = surface.image();
@@ -266,34 +258,3 @@ pub fn input_event_system(
     }
 }
 
-pub fn set_signal_handler() {
-    use nix::sys::signal;
-    extern "C" fn handle_sigsegv(_: i32) {
-        std::env::set_var("RUST_BACKTRACE", "1");
-        panic!("signal::SIGSEGV\n {}", anyhow!("").backtrace());
-    }
-    extern "C" fn handle_sig(s: i32) {
-        std::env::set_var("RUST_BACKTRACE", "1");
-        panic!("signal {} {}", s, anyhow!("").backtrace());
-    }
-    unsafe {
-        signal::sigaction(
-            signal::SIGILL,
-            &signal::SigAction::new(
-                signal::SigHandler::Handler(handle_sig),
-                signal::SaFlags::SA_NODEFER,
-                signal::SigSet::all(),
-            ),
-        )
-        .unwrap();
-        signal::sigaction(
-            signal::SIGSEGV,
-            &signal::SigAction::new(
-                signal::SigHandler::Handler(handle_sigsegv),
-                signal::SaFlags::SA_NODEFER,
-                signal::SigSet::empty(),
-            ),
-        )
-        .unwrap();
-    }
-}

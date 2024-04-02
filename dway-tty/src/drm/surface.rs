@@ -490,3 +490,63 @@ pub fn print_drm_info(drm: &DrmDeviceFd) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod test {
+    use bevy::{
+        app::ScheduleRunnerPlugin, ecs::system::RunSystemOnce, log::LogPlugin, prelude::*,
+        winit::WinitPlugin,
+    };
+    use drm_fourcc::DrmFormat;
+    use dway_util::{
+        eventloop::{EventLoopPlugin, EventLoopPluginMode},
+        logger::DWayLogPlugin,
+    };
+    use gbm::Format;
+    use tracing::Level;
+
+    use crate::{
+        drm::{DrmDevice, DrmPlugin},
+        gbm::{buffer::GbmBuffer, GbmDevice},
+        schedule::DWayTtySchedulePlugin,
+        seat::SeatPlugin,
+        test::test_suite_plugins,
+        udev::UDevPlugin,
+    };
+
+    use super::DrmSurface;
+
+    #[test]
+    pub fn test_create_drm_surface() {
+        let mut app = App::new();
+        app.add_plugins(test_suite_plugins());
+        app.add_plugins((
+            DWayTtySchedulePlugin,
+            EventLoopPlugin {
+                mode: EventLoopPluginMode::ManualMode,
+            },
+            SeatPlugin,
+            UDevPlugin {
+                sub_system: "drm".into(),
+            },
+            DrmPlugin,
+        ));
+        app.add_systems(
+            PostUpdate,
+            |device_query: Query<(&DrmDevice, &GbmDevice)>,
+             surface_query: Query<(&DrmSurface, &Parent)>| {
+                for (surface, parent) in surface_query.iter() {
+                    let (drm, gbm) = device_query.get(parent.get()).unwrap();
+                    let surface_guard = surface.inner.lock().unwrap();
+                    let formats = [DrmFormat {
+                        code: drm_fourcc::DrmFourcc::Rgba8888,
+                        modifier: gbm::Modifier::Linear,
+                    }];
+                    gbm.create_buffer(drm, surface_guard.size(), &formats, &formats)
+                        .unwrap();
+                }
+            },
+        );
+        app.run();
+    }
+}

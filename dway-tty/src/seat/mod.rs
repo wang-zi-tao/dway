@@ -45,15 +45,20 @@ impl SeatState {
     pub fn new() -> Result<Self> {
         let queue = Arc::new(ArrayQueue::<SeatEvent>::new(1));
         let tx = queue.clone();
-        let mut seat = Seat::open(move |_seat, event| {
+        let mut seat = Seat::open(move |seat, event| {
+            debug!("seat event: {event:?}");
             tx.force_push(event);
         })?;
+
+        seat.dispatch(0).unwrap();
+        let active = matches!(queue.pop(), Some(SeatEvent::Enable));
+
         let name = seat.name();
         info!("new seat: {name:?}");
         Ok(Self {
             name: name.to_string(),
             seat: Arc::new(Mutex::new(seat)),
-            enable: false,
+            enable: active,
             devices: Default::default(),
             queue,
         })

@@ -65,49 +65,51 @@ pub fn convert_format(fourcc: DrmFourcc) -> Result<Format> {
 
 pub fn get_formats(render_device: &wgpu::Device) -> Option<Result<Vec<DrmFormat>>> {
     unsafe {
-        render_device.as_hal::<Vulkan, _, _>(|hal_device| {
-            hal_device.map(|hal_device| {
-                let instance = hal_device.shared_instance().raw_instance();
-                let raw_phy = hal_device.raw_physical_device();
+        render_device
+            .as_hal::<Vulkan, _, _>(|hal_device| {
+                hal_device.map(|hal_device| {
+                    let instance = hal_device.shared_instance().raw_instance();
+                    let raw_phy = hal_device.raw_physical_device();
 
-                let mut formats = Vec::new();
+                    let mut formats = Vec::new();
 
-                for fourcc in SUPPORTED_FORMATS {
-                    let vk_format = convert_format(fourcc)?;
+                    for fourcc in SUPPORTED_FORMATS {
+                        let vk_format = convert_format(fourcc)?;
 
-                    let mut list = vk::DrmFormatModifierPropertiesListEXT::default();
-                    let mut format_properties2 =
-                        vk::FormatProperties2::builder().push_next(&mut list);
-                    instance.get_physical_device_format_properties2(
-                        raw_phy,
-                        vk_format,
-                        &mut format_properties2,
-                    );
-                    let count = list.drm_format_modifier_count;
-                    let mut data = vec![Default::default(); count as usize];
+                        let mut list = vk::DrmFormatModifierPropertiesListEXT::default();
+                        let mut format_properties2 =
+                            vk::FormatProperties2::builder().push_next(&mut list);
+                        instance.get_physical_device_format_properties2(
+                            raw_phy,
+                            vk_format,
+                            &mut format_properties2,
+                        );
+                        let count = list.drm_format_modifier_count;
+                        let mut data = vec![Default::default(); count as usize];
 
-                    let mut list = vk::DrmFormatModifierPropertiesListEXT {
-                        p_drm_format_modifier_properties: data.as_mut_ptr(),
-                        drm_format_modifier_count: count,
-                        ..Default::default()
-                    };
-                    let mut format_properties2 =
-                        vk::FormatProperties2::builder().push_next(&mut list);
-                    instance.get_physical_device_format_properties2(
-                        raw_phy,
-                        vk_format,
-                        &mut format_properties2,
-                    );
+                        let mut list = vk::DrmFormatModifierPropertiesListEXT {
+                            p_drm_format_modifier_properties: data.as_mut_ptr(),
+                            drm_format_modifier_count: count,
+                            ..Default::default()
+                        };
+                        let mut format_properties2 =
+                            vk::FormatProperties2::builder().push_next(&mut list);
+                        instance.get_physical_device_format_properties2(
+                            raw_phy,
+                            vk_format,
+                            &mut format_properties2,
+                        );
 
-                    formats.extend(data.into_iter().map(|d| DrmFormat {
-                        code: fourcc,
-                        modifier: DrmModifier::from(d.drm_format_modifier),
-                    }));
-                }
+                        formats.extend(data.into_iter().map(|d| DrmFormat {
+                            code: fourcc,
+                            modifier: DrmModifier::from(d.drm_format_modifier),
+                        }));
+                    }
 
-                Ok(formats)
+                    Ok(formats)
+                })
             })
-        }).flatten()
+            .flatten()
     }
 }
 
@@ -116,16 +118,18 @@ pub fn reset_framebuffer(
     buffer: &mut GbmBuffer,
 ) -> Option<Result<()>> {
     unsafe {
-        render_device.as_hal::<Vulkan, _, _>(|hal_device| {
-            hal_device.map(|hal_device: &wgpu_hal::vulkan::Device| {
-                let device = hal_device.raw_device();
-                if let RenderImage::Vulkan(image) = &mut buffer.render_image {
-                    trace!(fence=?image.fence,"reset fence");
-                    device.reset_fences(&[image.fence])?;
-                }
-                Ok(())
+        render_device
+            .as_hal::<Vulkan, _, _>(|hal_device| {
+                hal_device.map(|hal_device: &wgpu_hal::vulkan::Device| {
+                    let device = hal_device.raw_device();
+                    if let RenderImage::Vulkan(image) = &mut buffer.render_image {
+                        trace!(fence=?image.fence,"reset fence");
+                        device.reset_fences(&[image.fence])?;
+                    }
+                    Ok(())
+                })
             })
-        }).flatten()
+            .flatten()
     }
 }
 
@@ -136,6 +140,10 @@ pub fn create_framebuffer_texture(
     let instance = hal_device.shared_instance().raw_instance();
     let device = hal_device.raw_device();
     let physical = hal_device.raw_physical_device();
+    unsafe {
+        let props = instance.get_physical_device_properties(physical);
+        dbg!(props);
+    }
 
     unsafe {
         let plane_layouts: Vec<_> = buffer
@@ -205,7 +213,6 @@ pub fn create_framebuffer_texture(
             };
             let phy_mem_prop = instance.get_physical_device_memory_properties(physical);
 
-
             let fd_mem_type = if instance
                 .get_device_proc_addr(
                     device.handle(),
@@ -224,6 +231,7 @@ pub fn create_framebuffer_texture(
             } else {
                 !0
             };
+            dbg!(memory_requirement, fd_mem_type, phy_mem_prop.memory_types);
 
             let mut fd_info = ash::vk::ImportMemoryFdInfoKHR::builder()
                 .fd(plane.fd.as_fd().as_raw_fd())
@@ -247,7 +255,7 @@ pub fn create_framebuffer_texture(
                 )
                 .push_next(&mut fd_info)
                 .build();
-            let memory = device.allocate_memory(&alloc_info, None)?;
+            let memory = device.allocate_memory(&alloc_info, None).unwrap();
             memorys.push(memory);
 
             let mut bind_info = BindImageMemoryInfo::builder()
@@ -309,36 +317,38 @@ pub fn commit_drm(
     drm: &DrmDevice,
 ) -> Option<Result<()>> {
     unsafe {
-        render_device.as_hal::<Vulkan, _, _>(|hal_device| {
-            hal_device.map(|hal_device| {
-                let guard = surface.inner.lock().unwrap();
-                let conn = guard.connector;
-                let device = hal_device.raw_device();
-                if let Some(buffer) = &guard.pedding {
-                    if let RenderImage::Vulkan(image) = &buffer.render_image {
-                        device.queue_submit(hal_device.raw_queue(), &[], image.fence)?;
-                    }
-                }
-                drop(guard);
-
-                surface.commit(conn, drm, |buffer| {
-                    if let RenderImage::Vulkan(image) = &mut buffer.render_image {
-                        let _ = device.wait_for_fences(&[image.fence], true, 128000);
-                        match device.get_fence_status(image.fence) {
-                            Ok(o) => {
-                                trace!(fence=?image.fence,"fence state: {o}");
-                                o
-                            }
-                            Err(e) => {
-                                error!("failed to get fence state: {e}");
-                                false
-                            }
+        render_device
+            .as_hal::<Vulkan, _, _>(|hal_device| {
+                hal_device.map(|hal_device| {
+                    let guard = surface.inner.lock().unwrap();
+                    let conn = guard.connector;
+                    let device = hal_device.raw_device();
+                    if let Some(buffer) = &guard.pedding {
+                        if let RenderImage::Vulkan(image) = &buffer.render_image {
+                            device.queue_submit(hal_device.raw_queue(), &[], image.fence)?;
                         }
-                    } else {
-                        false
                     }
+                    drop(guard);
+
+                    surface.commit(conn, drm, |buffer| {
+                        if let RenderImage::Vulkan(image) = &mut buffer.render_image {
+                            let _ = device.wait_for_fences(&[image.fence], true, 128000);
+                            match device.get_fence_status(image.fence) {
+                                Ok(o) => {
+                                    trace!(fence=?image.fence,"fence state: {o}");
+                                    o
+                                }
+                                Err(e) => {
+                                    error!("failed to get fence state: {e}");
+                                    false
+                                }
+                            }
+                        } else {
+                            false
+                        }
+                    })
                 })
             })
-        }).flatten()
+            .flatten()
     }
 }
