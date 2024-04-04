@@ -1,6 +1,9 @@
+use std::ops::Deref;
+
 use crate::{make_bundle, prelude::*};
-use bevy::{input::{keyboard::KeyboardInput, mouse::MouseButtonInput}, ui::RelativeCursorPosition};
+use bevy::{input::keyboard::KeyboardInput, ui::RelativeCursorPosition};
 use bevy_relationship::reexport::SmallVec;
+use bevy_trait_query::{queryable, ReadTraits};
 
 pub type Callback<E> = (Entity, SystemId<E>);
 pub type CallbackSlot<E> = Option<(Entity, SystemId<E>)>;
@@ -38,6 +41,11 @@ structstruck::strike! {
                 KeyboardInput(KeyboardInput),
             }
     }
+}
+
+#[queryable]
+pub trait UiInputDispatch {
+    fn on_event(&self, event: UiInputEvent, commands: &mut Commands);
 }
 
 #[derive(Component, Debug, Default, Reflect)]
@@ -78,6 +86,7 @@ pub fn update_ui_input(
     mut query: Query<(
         Entity,
         &mut UiInput,
+        &dyn UiInputDispatch,
         Ref<Interaction>,
         Option<Ref<RelativeCursorPosition>>,
     )>,
@@ -87,19 +96,30 @@ pub fn update_ui_input(
     mut ui_focus_event: EventReader<UiFocusEvent>,
     mut ui_focus_state: ResMut<UiFocusState>,
 ) {
-    let mut run_callback = |kind: UiInputEventKind, entity: Entity, ui_focus: &UiInput| {
-        for (receiver, callback) in &ui_focus.callbacks {
-            commands.run_system_with_input(
-                *callback,
-                UiInputEvent {
-                    receiver: *receiver,
-                    node: entity,
-                    event: kind.clone(),
-                },
-            );
-        }
-    };
-    for (entity, mut ui_focus, interaction, relative_cursor_position) in &mut query {
+    let mut run_callback =
+        |kind: UiInputEventKind,
+         entity: Entity,
+         ui_focus: &UiInput,
+         dispatch: &ReadTraits<'_, dyn UiInputDispatch>| {
+            let event = UiInputEvent {
+                receiver: entity,
+                node: entity,
+                event: kind.clone(),
+            };
+            for (receiver, callback) in &ui_focus.callbacks {
+                commands.run_system_with_input(
+                    *callback,
+                    UiInputEvent {
+                        receiver: *receiver,
+                        ..event.clone()
+                    },
+                );
+            }
+            for component in dispatch {
+                component.on_event(event.clone(), &mut commands);
+            }
+        };
+    for (entity, mut ui_focus, dispatch, interaction, relative_cursor_position) in &mut query {
         if !interaction.is_changed()
             && !ui_focus.is_changed()
             && relative_cursor_position
@@ -112,7 +132,7 @@ pub fn update_ui_input(
 
         use UiInputEventKind::*;
         let mut call = |kind: UiInputEventKind| {
-            run_callback(kind, entity, &ui_focus);
+            run_callback(kind, entity, &ui_focus, &dispatch);
         };
         if let Some(relative_cursor_position) = relative_cursor_position.as_ref() {
             if relative_cursor_position.is_changed() {
@@ -122,36 +142,37 @@ pub fn update_ui_input(
             }
         }
         match (ui_focus.mouse_state, &*interaction) {
-            (Interaction::Hovered|Interaction::None, Interaction::None) => {
+            (Interaction::Hovered | Interaction::None, Interaction::None) => {
                 call(MouseLeave);
             }
-            (Interaction::None, Interaction::Hovered|Interaction::Pressed) => {
+            (Interaction::None, Interaction::Hovered | Interaction::Pressed) => {
                 call(MouseEnter);
             }
             _ => {}
         };
         match (ui_focus.mouse_state, &*interaction) {
             (Interaction::Pressed, Interaction::None | Interaction::Hovered) => {
-                for button in mouse_button_state.get_just_released(){
+                for button in mouse_button_state.get_just_released() {
                     call(MouseRelease(*button));
                 }
             }
-            (Interaction::Hovered |Interaction::None, Interaction::Pressed) => {
-                for button in mouse_button_state.get_just_pressed(){
+            (Interaction::Hovered | Interaction::None, Interaction::Pressed) => {
+                for button in mouse_button_state.get_just_pressed() {
                     call(MousePress(*button));
                 }
             }
-            _=>{}
+            _ => {}
         };
         ui_focus.mouse_state = *interaction;
     }
     for key in keyboard_event.read() {
-        for (entity, ui_focus, ..) in &mut query {
+        for (entity, ui_focus, dispatch, ..) in &mut query {
             if ui_focus.input_focused || ui_focus.input_grabed {
                 run_callback(
                     UiInputEventKind::KeyboardInput(key.clone()),
                     entity,
                     &ui_focus,
+                    &dispatch,
                 );
             }
         }
@@ -160,23 +181,23 @@ pub fn update_ui_input(
     for event in ui_focus_event.read() {
         match event {
             UiFocusEvent::FocusLeaveRequest(e) => {
-                if let Ok((_, mut ui_focus, ..)) = query.get_mut(*e) {
+                if let Ok((_, mut ui_focus, dispatch, ..)) = query.get_mut(*e) {
                     ui_focus.input_focused = false;
-                    run_callback(UiInputEventKind::KeyboardLeave, *e, &ui_focus);
+                    run_callback(UiInputEventKind::KeyboardLeave, *e, &ui_focus, &dispatch);
                 }
                 ui_focus_state.input_focus = None;
             }
             UiFocusEvent::FocusEnterRequest(e) => {
-                if let Some((_, mut ui_focus, ..)) = ui_focus_state
+                if let Some((_, mut ui_focus, dispatch, ..)) = ui_focus_state
                     .input_focus
                     .and_then(|old_node| query.get_mut(old_node).ok())
                 {
                     ui_focus.input_focused = false;
-                    run_callback(UiInputEventKind::KeyboardLeave, *e, &ui_focus);
+                    run_callback(UiInputEventKind::KeyboardLeave, *e, &ui_focus, &dispatch);
                 }
-                if let Ok((_, mut ui_focus, ..)) = query.get_mut(*e) {
+                if let Ok((_, mut ui_focus, dispatch, ..)) = query.get_mut(*e) {
                     ui_focus.input_focused = true;
-                    run_callback(UiInputEventKind::KeybordEnter, *e, &ui_focus);
+                    run_callback(UiInputEventKind::KeybordEnter, *e, &ui_focus, &dispatch);
                 }
                 ui_focus_state.input_focus = Some(*e);
             }

@@ -57,7 +57,7 @@ proc-macro2 = "1.0"
 syn_derive = "0.1.8"
 derive-syn-parse = "0.1.5"
 
-
+bevy-trait-query = {version="0.5.1", features=[]}
 bevy_svg = { version="*", default-features = false, features = ["2d"] }
 wgpu={version="*",features=["angle"]}
 wgpu-hal={version="*",features=["gles"]}
