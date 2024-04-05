@@ -119,7 +119,7 @@ pub fn drm_info(render_device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError
                         &mut format_properties2,
                     );
 
-                    modifiers_list.clear();
+                    modifiers_list.clear(); // TODO : 改进解决方法
                     if modifiers_list.is_empty() {
                         warn!(format=?fourcc, "no available modifier of format");
                         formats.push(DrmFormat {
@@ -175,7 +175,7 @@ pub fn create_dma_image(
             })
             .collect();
 
-        error!("dma image format: {:?} modifier: {:?}",  format, planes[0].modifier());
+        debug!("dma image format: {:?} modifier: {:?}",  format, planes[0].modifier());
         let mut drm_info = ash::vk::ImageDrmFormatModifierExplicitCreateInfoEXT::builder()
             .drm_format_modifier(planes[0].modifier().into())
             .plane_layouts(&plane_layouts)
