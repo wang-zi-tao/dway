@@ -108,21 +108,26 @@ pub fn extract_surface(
     state.removed_image.clear();
     state.removed_image.clear();
     for surface in surface_query.iter() {
-        if !(surface.just_commit
-            || surface.commit_time + 2 >= frame_count.0 && surface.commit_count <= 2)
-        {
+        if !surface.just_commit {
             continue;
         }
         let Some(buffer_entity) = surface.commited.buffer else {
-            trace!("surface {:?} has no attachment", surface.raw.id());
+            debug!("surface {:?} has no attachment", surface.raw.id());
             continue;
         };
+        let _span = debug_span!("extract surface",buffer=?buffer_entity).entered();
 
         if let Ok(buffer) = shm_buffer_query.get(buffer_entity) {
+            if !(surface.commit_time + 2 >= frame_count.0 && surface.commit_count <= 2) {
+                continue;
+            }
+            debug!("use shared memory buffer");
             commands.spawn((surface.clone(), buffer.clone()));
         } else if let Ok(dma_buffer) = dma_buffer_query.get(buffer_entity) {
+            debug!("use dma buffer");
             commands.spawn((surface.clone(), dma_buffer.clone()));
         } else if let Ok(egl_buffer) = egl_buffer_query.get(buffer_entity) {
+            debug!("use egl buffer");
             commands.spawn((surface.clone(), egl_buffer.clone()));
         } else {
             error!(entity=?buffer_entity,"buffer not found");

@@ -119,16 +119,13 @@ pub fn drm_info(render_device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError
                         &mut format_properties2,
                     );
 
-                    let mut format_properties2 =
-                        vk::FormatProperties2::builder().push_next(&mut modifier_list_prop);
-                    instance.get_physical_device_format_properties2(
-                        raw_phy,
-                        vk_format,
-                        &mut format_properties2,
-                    );
-
+                    modifiers_list.clear();
                     if modifiers_list.is_empty() {
                         warn!(format=?fourcc, "no available modifier of format");
+                        formats.push(DrmFormat {
+                            code: fourcc,
+                            modifier: DrmModifier::Linear,
+                        });
                     }
                     formats.extend(modifiers_list.into_iter().map(|d| DrmFormat {
                         code: fourcc,
@@ -160,6 +157,9 @@ pub fn create_dma_image(
     let instance = hal_device.shared_instance().raw_instance();
     let device = hal_device.raw_device();
     let physical = hal_device.raw_physical_device();
+
+    let format = DrmFourcc::try_from(buffer.format)?;
+
     unsafe {
         let planes = &buffer.planes.lock().unwrap().list;
         if planes.is_empty() {
@@ -175,6 +175,7 @@ pub fn create_dma_image(
             })
             .collect();
 
+        error!("dma image format: {:?} modifier: {:?}",  format, planes[0].modifier());
         let mut drm_info = ash::vk::ImageDrmFormatModifierExplicitCreateInfoEXT::builder()
             .drm_format_modifier(planes[0].modifier().into())
             .plane_layouts(&plane_layouts)
@@ -194,7 +195,7 @@ pub fn create_dma_image(
             .tiling(ImageTiling::DRM_FORMAT_MODIFIER_EXT)
             .mip_levels(1)
             .array_layers(1)
-            .format(convert_drm_format(DrmFourcc::try_from(buffer.format)?)?.0)
+            .format(convert_drm_format(format)?.0)
             .samples(SampleCountFlags::TYPE_1)
             .initial_layout(ImageLayout::PREINITIALIZED)
             .usage(ImageUsageFlags::COLOR_ATTACHMENT)
