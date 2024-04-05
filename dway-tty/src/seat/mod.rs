@@ -46,7 +46,7 @@ impl SeatState {
         let queue = Arc::new(ArrayQueue::<SeatEvent>::new(1));
         let tx = queue.clone();
         let mut seat = Seat::open(move |seat, event| {
-            debug!("seat event: {event:?}");
+            debug!(seat = seat.name(), "seat event: {event:?}");
             tx.force_push(event);
         })?;
 

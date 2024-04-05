@@ -58,7 +58,11 @@ impl GbmDevice {
                         size.x as u32,
                         size.y as u32,
                         *fourcc,
-                        modifiers.iter().cloned(),
+                        [
+                            DrmModifier::Linear, // TODO 临时解决
+                        ]
+                        .iter()
+                        .cloned(),
                         BufferObjectFlags::RENDERING | BufferObjectFlags::SCANOUT,
                     )
                     .map_err(

@@ -115,7 +115,7 @@ impl KeyLockState {
 
 #[tracing::instrument(skip_all)]
 pub fn receive_events(
-    mut windows: Query<(Entity, &mut Window), With<DrmSurface>>,
+    mut windows: Query<(Entity, &mut Window)>,
     mut libinput: NonSendMut<LibinputDevice>,
     mut motion_events: EventWriter<MouseMotion>,
     mut move_events: EventWriter<CursorMoved>,
@@ -233,6 +233,7 @@ pub fn receive_events(
                 };
             }
             input::Event::Touch(e) => {
+                warn!("torch device is not supported");
                 match e {
                     TouchEvent::Down(_) => {}
                     TouchEvent::Up(_) => {}

@@ -1,3 +1,4 @@
+pub mod camera;
 pub mod connectors;
 pub mod planes;
 pub mod surface;
@@ -11,6 +12,8 @@ use anyhow::Result;
 use bevy::prelude::*;
 use bevy::render::Render;
 use bevy::render::RenderApp;
+use bevy::ui::ui_focus_system;
+use bevy::ui::UiSystem;
 use bevy::utils::HashMap;
 use double_map::DHashMap;
 use drm::control::FbCmd2Flags;
@@ -49,9 +52,10 @@ use crate::seat::SeatState;
 use crate::udev::UDevEvent;
 use crate::udev::UDevMonitor;
 
+use self::camera::DrmCamera;
 use self::connectors::Connector;
 
-pub struct GpuManager{
+pub struct GpuManager {
     pub udev: UDevMonitor,
     pub primary_gpu: Entity,
     pub gpus: HashMap<libc::dev_t, Entity>,
@@ -640,7 +644,7 @@ pub fn add_device(
     let _span = span!(Level::ERROR,"init drm device",path=%gpu_path.to_string_lossy()).entered();
 
     debug!("open drm device");
-    let drm_fd = seat .open_device(&gpu_path)?;
+    let drm_fd = seat.open_device(&gpu_path)?;
     let drm = DrmDevice::new(drm_fd, gpu_path.clone())?;
     let gbm = GbmDevice::new(drm.fd.clone())?;
 
@@ -798,7 +802,16 @@ pub struct DrmPlugin;
 impl Plugin for DrmPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PreStartup, setup)
-            .add_systems(First, on_udev_event.in_set(DWayTTYSet::UdevSystem));
+            .add_systems(First, on_udev_event.in_set(DWayTTYSet::UdevSystem))
+            .add_systems(
+                PreUpdate,
+                (
+                    camera::before_ui_focus.before(ui_focus_system),
+                    camera::after_ui_focus.after(ui_focus_system),
+                )
+                    .in_set(UiSystem::Focus),
+            )
+            .register_type::<DrmCamera>();
         app.sub_app_mut(RenderApp)
             .add_systems(
                 Render,
@@ -813,7 +826,10 @@ mod test {
     use bevy::prelude::*;
     use dway_util::eventloop::{EventLoopPlugin, EventLoopPluginMode};
 
-    use crate::{schedule::DWayTtySchedulePlugin, seat::SeatPlugin, test::test_suite_plugins, udev::UDevPlugin};
+    use crate::{
+        schedule::DWayTtySchedulePlugin, seat::SeatPlugin, test::test_suite_plugins,
+        udev::UDevPlugin,
+    };
 
     use super::DrmPlugin;
 

@@ -140,10 +140,6 @@ pub fn create_framebuffer_texture(
     let instance = hal_device.shared_instance().raw_instance();
     let device = hal_device.raw_device();
     let physical = hal_device.raw_physical_device();
-    unsafe {
-        let props = instance.get_physical_device_properties(physical);
-        dbg!(props);
-    }
 
     unsafe {
         let plane_layouts: Vec<_> = buffer
@@ -157,12 +153,14 @@ pub fn create_framebuffer_texture(
             })
             .collect();
 
+        let format = convert_format(buffer.format)?;
+
         let mut drm_info = ash::vk::ImageDrmFormatModifierExplicitCreateInfoEXT::builder()
             .drm_format_modifier(buffer.modifier.into())
             .plane_layouts(&plane_layouts)
             .build();
         let mut dmabuf_info = ash::vk::ExternalMemoryImageCreateInfoKHR::builder()
-            // .handle_types(ExternalMemoryHandleTypeFlags::OPAQUE_FD)
+            .handle_types(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT)
             .build();
         let create_image_info = ash::vk::ImageCreateInfo::builder()
             .sharing_mode(SharingMode::EXCLUSIVE)
@@ -174,12 +172,12 @@ pub fn create_framebuffer_texture(
             })
             .mip_levels(1)
             .array_layers(1)
-            .format(convert_format(buffer.format)?)
+            .format(format)
             .samples(SampleCountFlags::TYPE_1)
             .initial_layout(ImageLayout::PREINITIALIZED)
             .usage(ImageUsageFlags::COLOR_ATTACHMENT)
             .flags({
-                let mut flags = ImageCreateFlags::DISJOINT | ImageCreateFlags::DISJOINT_KHR;
+                let mut flags = ImageCreateFlags::default();
                 if buffer.planes.len() > 1 {
                     flags |= ImageCreateFlags::DISJOINT;
                 };
@@ -231,11 +229,14 @@ pub fn create_framebuffer_texture(
             } else {
                 !0
             };
-            dbg!(memory_requirement, fd_mem_type, phy_mem_prop.memory_types);
 
             let mut fd_info = ash::vk::ImportMemoryFdInfoKHR::builder()
                 .fd(plane.fd.as_fd().as_raw_fd())
                 .handle_type(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT)
+                .build();
+
+            let mut dedicated_info = ash::vk::MemoryDedicatedAllocateInfo::builder()
+                .image(image)
                 .build();
 
             let alloc_info = ash::vk::MemoryAllocateInfo::builder()
@@ -254,6 +255,7 @@ pub fn create_framebuffer_texture(
                         .ok_or_else(|| anyhow!("no valid memory type index"))?,
                 )
                 .push_next(&mut fd_info)
+                .push_next(&mut dedicated_info)
                 .build();
             let memory = device.allocate_memory(&alloc_info, None).unwrap();
             memorys.push(memory);
@@ -332,7 +334,9 @@ pub fn commit_drm(
 
                     surface.commit(conn, drm, |buffer| {
                         if let RenderImage::Vulkan(image) = &mut buffer.render_image {
-                            let _ = device.wait_for_fences(&[image.fence], true, 128000);
+                            if let Err(e) = device.wait_for_fences(&[image.fence], true, 128000) {
+                                error!("{e}");
+                            };
                             match device.get_fence_status(image.fence) {
                                 Ok(o) => {
                                     trace!(fence=?image.fence,"fence state: {o}");

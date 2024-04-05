@@ -24,7 +24,10 @@ use bevy_svg::SvgPlugin;
 pub use bitflags::bitflags as __bitflags;
 use dway_client_core::screen::Screen;
 use dway_server::geometry::GlobalGeometry;
-use dway_tty::{drm::surface::DrmSurface, seat::SeatState};
+use dway_tty::{
+    drm::{camera::DrmCamera, surface::DrmSurface},
+    seat::SeatState,
+};
 use widgets::clock::ClockBundle;
 
 pub struct DWayUiPlugin;
@@ -58,19 +61,12 @@ impl Plugin for DWayUiPlugin {
             popups::launcher::LauncherUIPlugin,
             popups::volume_control::VolumeControlPlugin,
         ));
-        app.add_systems(PreUpdate, init_screen_ui);
+        app.add_systems(PreUpdate, init_screen_ui.after(DWayClientSystem::CreateComponent));
         app.add_systems(Startup, setup);
     }
 }
 
-fn setup(
-    mut commands: Commands,
-    seat: Option<NonSend<SeatState>>,
-) {
-    if seat.is_none() {
-        let camera = Camera2dBundle::default();
-        commands.spawn(camera);
-    }
+fn setup(mut commands: Commands) {
 }
 
 #[derive(Component, SmartDefault)]
@@ -152,6 +148,7 @@ ScreenUI=>
 fn init_screen_ui(
     screen_query: Query<(Entity, Option<&DrmSurface>), Added<Screen>>,
     mut commands: Commands,
+    mut camera_count: Local<usize>,
 ) {
     for (entity, drm_surface) in screen_query.iter() {
         let target = if let Some(drm_surface) = drm_surface {
@@ -160,18 +157,26 @@ fn init_screen_ui(
         } else {
             RenderTarget::Window(WindowRef::Entity(entity))
         };
-        let camera = commands
-            .spawn(Camera2dBundle {
-                camera: Camera {
-                    target,
-                    ..default()
-                },
-                ..Default::default()
-            })
-            .id();
+        let mut camera_cmd = commands.spawn(Camera2dBundle {
+            camera: Camera {
+                target,
+                ..default()
+            },
+            ..Default::default()
+        });
+        let camera = camera_cmd.id();
+        if *camera_count == 0 {
+            // camera_cmd.insert(IsDefaultUiCamera);
+        }
+        if let Some(drm_surface) = drm_surface {
+            camera_cmd.insert(DrmCamera::new(entity, drm_surface));
+        }
+        info!("init camera");
+
         commands.spawn((
             TargetCamera(camera),
             ScreenUIBundle::from(ScreenUI { screen: entity }),
         ));
+        *camera_count += 1;
     }
 }

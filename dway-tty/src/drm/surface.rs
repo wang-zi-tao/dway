@@ -3,14 +3,16 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use super::{connectors::Connector, planes::PlaneConfig, DrmDevice, DrmDeviceFd, PropMap};
+use super::{
+    camera::DrmCamera, connectors::Connector, planes::PlaneConfig, DrmDevice, DrmDeviceFd, PropMap,
+};
 use crate::{
     drm::{planes::Planes, DrmDeviceState},
     failure::DWayTTYError::*,
     gbm::{buffer::GbmBuffer, GbmDevice},
 };
 use anyhow::{anyhow, bail, Result};
-use bevy::prelude::*;
+use bevy::{prelude::*, render::camera::RenderTarget};
 use drm::{
     control::{
         atomic::AtomicModeReq,

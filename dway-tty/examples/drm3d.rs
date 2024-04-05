@@ -11,7 +11,11 @@ use bevy::{
     },
     log::LogPlugin,
     prelude::*,
-    render::{camera::RenderTarget, settings::{RenderCreation, WgpuSettings}, RenderPlugin},
+    render::{
+        camera::RenderTarget,
+        settings::{RenderCreation, WgpuSettings},
+        RenderPlugin,
+    },
     sprite::Mesh2dHandle,
     winit::WinitPlugin,
 };
@@ -31,6 +35,13 @@ pub fn main() {
     let mut app = App::new();
     app.add_plugins({
         let mut plugins = DefaultPlugins
+            .set(RenderPlugin {
+                render_creation: RenderCreation::Automatic(WgpuSettings {
+                    backends: Some(Backends::VULKAN | Backends::GL),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })
             .set(LogPlugin {
                 level: Level::TRACE,
                 filter: "dway=debug,dway_server::wl::surface=debug,bevy_ecs=info,naga=info,naga::front=info,bevy_render=debug,bevy_ui=trace,dway_server::input::pointer=info,kayak_ui=info,naga=info,dway-tty=trace".to_string(),
@@ -49,7 +60,7 @@ pub fn main() {
         .add_systems(Update,input_event_system);
     app.finish();
     app.cleanup();
-    for i in 0..8192 {
+    for i in 0..1024 {
         info!("frame {i}");
         app.update();
         std::thread::sleep(Duration::from_secs_f64(1.0 / 144.0));
@@ -66,7 +77,12 @@ fn setup(
     info!("setup world");
 
     if std::env::var("DISPLAY").is_ok() || std::env::var("WAYLAND_DISPLAY").is_ok() {
-        commands.spawn(Camera3dBundle::default());
+        commands.spawn((Camera3dBundle {
+            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            tonemapping: Tonemapping::None,
+            ..default()
+        },));
+        info!("setup camera");
     }
     for surface in surface_query.iter() {
         let image_handle = surface.image();
@@ -84,12 +100,11 @@ fn setup(
 
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 9000.,
-            range: 100.,
+            intensity: 36000.,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(8., 16., 8.),
+        transform: Transform::from_xyz(0.0, 1.5, 0.0),
         ..default()
     });
 
@@ -257,4 +272,3 @@ pub fn input_event_system(
         dbg!(event);
     }
 }
-
