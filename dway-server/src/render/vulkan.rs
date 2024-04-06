@@ -77,10 +77,10 @@ pub fn convert_drm_format(
     })
 }
 
-pub const SUPPORTED_FORMATS: [DrmFourcc; 4] = [
-    DrmFourcc::Argb8888,
+pub const SUPPORTED_FORMATS: [DrmFourcc; 2] = [
+    // DrmFourcc::Argb8888, // TODO fixup
     DrmFourcc::Xrgb8888,
-    DrmFourcc::Abgr8888,
+    // DrmFourcc::Abgr8888, // TODO fixup
     DrmFourcc::Xbgr8888,
 ];
 

@@ -108,7 +108,9 @@ pub fn extract_surface(
     state.removed_image.clear();
     state.removed_image.clear();
     for surface in surface_query.iter() {
-        if !surface.just_commit {
+        if !(surface.just_commit
+            || surface.commit_time + 2 >= frame_count.0 && surface.commit_count <= 2)
+        {
             continue;
         }
         let Some(buffer_entity) = surface.commited.buffer else {
@@ -118,9 +120,6 @@ pub fn extract_surface(
         let _span = debug_span!("extract surface",buffer=?buffer_entity).entered();
 
         if let Ok(buffer) = shm_buffer_query.get(buffer_entity) {
-            if !(surface.commit_time + 2 >= frame_count.0 && surface.commit_count <= 2) {
-                continue;
-            }
             debug!("use shared memory buffer");
             commands.spawn((surface.clone(), buffer.clone()));
         } else if let Ok(dma_buffer) = dma_buffer_query.get(buffer_entity) {

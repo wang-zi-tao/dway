@@ -5,21 +5,23 @@ pub mod opttions;
 pub mod spawn_app;
 
 use bevy::{
-    app::PluginGroupBuilder, audio::AudioPlugin, diagnostic::{
-        EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
-    }, log::{Level, LogPlugin}, prelude::*, render::{
+    app::PluginGroupBuilder,
+    audio::AudioPlugin,
+    diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    log::{Level, LogPlugin},
+    prelude::*,
+    render::{
         settings::{Backends, RenderCreation, WgpuSettings},
         RenderPlugin,
-    }, winit::WinitPlugin
+    },
+    winit::WinitPlugin,
 };
 use clap::Parser;
 use dway_client_core::{
     layout::{LayoutRect, LayoutStyle},
     workspace::{Workspace, WorkspaceBundle, WorkspaceSet},
 };
-use dway_server::{
-    apps::icon::LinuxIconSourcePlugin,
-};
+use dway_server::apps::icon::LinuxIconSourcePlugin;
 use dway_tty::{DWayTTYPlugin, DWayTTYSettings};
 use dway_ui_framework::diagnostics::UiDiagnosticsPlugin;
 use dway_util::logger::DWayLogPlugin;
@@ -36,7 +38,9 @@ dway=debug,\
 polling=info,\
 bevy_relationship=debug,\
 dway_server=info,\
+dway_server::render::importnode=info,\
 dway_client_core=info,\
+dway-tty=trace,\
 nega::front=info,\
 naga=warn,\
 wgpu=info,\
@@ -108,7 +112,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     default_plugins = default_plugins
         .set(RenderPlugin {
             render_creation: RenderCreation::Automatic(WgpuSettings {
-                backends: Some(Backends::VULKAN | Backends::GL),
+                backends: Some(Backends::VULKAN),
                 priority: bevy::render::settings::WgpuSettingsPriority::Functionality,
                 ..Default::default()
             }),
@@ -151,13 +155,24 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         }
     }
 
+    #[cfg(feature = "debug")]
+    {
+        app.add_plugins(LogDiagnosticsPlugin {
+            wait_duration: Duration::from_secs(8),
+            ..Default::default()
+        });
+    }
+    #[cfg(not(feature = "debug"))]
+    {
+        app.add_plugins(LogDiagnosticsPlugin {
+            wait_duration: Duration::from_secs(256),
+            ..Default::default()
+        });
+    }
+
     app.add_plugins((
         FrameTimeDiagnosticsPlugin,
         EntityCountDiagnosticsPlugin,
-        LogDiagnosticsPlugin {
-            wait_duration: Duration::from_secs(256),
-            ..Default::default()
-        },
         UiDiagnosticsPlugin,
     ));
 
@@ -212,7 +227,12 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     }
     #[cfg(feature = "debug")]
     {
-        app.add_systems(PreUpdate, debug::print_debug_info.after(bevy::ui::UiSystem::Focus).before(dway_client_core::input::on_input_event));
+        app.add_systems(
+            PreUpdate,
+            debug::print_debug_info
+                .after(bevy::ui::UiSystem::Focus)
+                .before(dway_client_core::input::on_input_event),
+        );
     }
 
     app.run();

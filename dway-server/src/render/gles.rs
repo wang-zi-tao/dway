@@ -237,7 +237,6 @@ pub unsafe fn import_dma(
 ) -> Result<()> {
     let mut out: Vec<c_int> = Vec::with_capacity(50);
     let planes = dma_buffer.planes.lock().unwrap();
-    debug!("dma image format: {:?} modifier: {:?}",  DrmFourcc::try_from(dma_buffer.format)?, planes.list[0].modifier());
 
     out.extend([
         khronos_egl::WIDTH,
@@ -290,7 +289,6 @@ pub unsafe fn import_dma(
             names[i][2] as i32,
             stride as i32,
         ]);
-
         if planes.list[0].modifier() != DrmModifier::Invalid
             && planes.list[0].modifier() != DrmModifier::Linear
         {

@@ -38,6 +38,7 @@ interpolation = "0.3.0"
 type-equals = "0.1.0"
 downcast-rs = {workspace=true}
 # bevy-inspector-egui = "0.23"
+bevy-trait-query = {workspace=true}
 
 [dev-dependencies]
 regex = {workspace=true}

@@ -26,7 +26,7 @@
           nativeBuildInputs = with pkgs; [
             (fenix.fromToolchainFile {
               file = ./rust-toolchain.toml;
-              sha256 = "sha256-W3R0W4PjkGA5Anp28lTqbsQzh/GqESV+5AenT3JvvJk=";
+              sha256 = "sha256-qILHXh/e1Em3Mh486lxNrm13JGh3mtXb7coFagUqMIY=";
             })
             tracy
             cargo-flamegraph
@@ -100,7 +100,7 @@
             remarkable-toolchain
             xorg.libX11
             (cairo)
-            (gnome.gedit)
+            (enableDebugging (gnome.gnome-calculator.override(attr: {gtk4=enableDebugging gtk4;})))
             graphene
             xorg.libxcb
             libsForQt5.qt5.qtbase

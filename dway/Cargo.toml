@@ -2,7 +2,7 @@
 anyhow = {workspace=true}
 bevy_framepace = "0.15"
 bevy_mod_debugdump = { version="0.10.0",optional=true }
-bevy_prototype_lyon = "0.10.0"
+bevy_prototype_lyon = "0.11.0"
 chrono = {workspace=true}
 crossbeam-channel = {workspace=true}
 failure = {workspace=true}
@@ -102,4 +102,4 @@ debug-assertions = false
 debug-assertions = false
 
 [profile.release]
-lto = "fat"
+lto = "thin"

@@ -128,31 +128,22 @@ pub fn install_panic_hook() {
         };
 
         let backtrace = Backtrace::default();
-        match info.location() {
-            Some(location) => {
-                error!(
-                    target: "panic", "thread '{}' panicked at '{}': {}:{}{:?}",
-                    thread,
-                    msg,
-                    location.file(),
-                    location.line(),
-                    backtrace
-                );
-            }
-            None => error!(
-                target: "panic",
-                "thread '{}' panicked at '{}'{:?}",
-                thread,
-                msg,
-                backtrace
-            ),
-        }
+        let localtion_string = info
+            .location()
+            .map(|l| format!(": {}:{}", l.file(), l.line()));
+        error!(
+            target: "panic", "thread '{}' panicked at '{}'{}{:?}",
+            thread,
+            msg,
+            localtion_string.as_deref().unwrap_or(""),
+            backtrace
+        );
     }));
 }
 
 extern "C" fn handle_sig(s: i32) {
     std::env::set_var("RUST_BACKTRACE", "1");
-    panic!(
+    error!(
         "signal {} {:?}",
         Signal::try_from(s)
             .map(|s| s.to_string())
@@ -167,8 +158,8 @@ fn register_signal(signal: Signal) {
             signal,
             &signal::SigAction::new(
                 signal::SigHandler::Handler(handle_sig),
-                signal::SaFlags::SA_NODEFER,
-                signal::SigSet::all(),
+                signal::SaFlags::empty(),
+                signal::SigSet::empty(),
             ),
         ) {
             warn!(
