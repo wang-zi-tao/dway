@@ -9,7 +9,7 @@ pub fn open_right_click_popup<C: RgithClickPopupConfig>(
     In(event): In<UiInputEvent>,
     mut commands: Commands,
 ) {
-    match event.event {
+    match event.kind {
         UiInputEventKind::MouseRelease(MouseButton::Right) => {
             commands.entity(event.node).with_children(|c| {
                 c.spawn(UiPopupBundle::from(UiPopup::new_auto_destroy(None))).with_children(|mut c|{

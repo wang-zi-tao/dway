@@ -140,7 +140,7 @@ pub fn open_menu(
     mut commands: Commands,
     node_query:Query<( &RelativeCursorPosition,&Node )>
 ) {
-    match event.event {
+    match event.kind {
         UiInputEventKind::MouseRelease(MouseButton::Left) => {
             let Ok(( relative_pos,node )) = node_query.get(event.node) else {return};
             let Some(normalized) = relative_pos.normalized else {return};

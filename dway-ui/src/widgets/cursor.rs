@@ -16,7 +16,10 @@ pub struct Cursor {
 
 impl Cursor {
     pub fn new(default_cursor: Handle<Image>, default_size: Vec2) -> Self {
-        Self { default_cursor, default_size }
+        Self {
+            default_cursor,
+            default_size,
+        }
     }
 }
 

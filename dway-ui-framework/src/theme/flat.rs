@@ -24,7 +24,7 @@ type CheckboxMaterial = (
     Transformed<ShapeRender<Circle, FillColor>, Margins>,
     ShapeRender<RoundedBar, (FillColor, Shadow)>,
 );
-type SliderMaterial = ShapeRender<RoundedBar, (FillColor, Shadow)>;
+type SliderMaterial = ShapeRender<RoundedBar, (InnerShadow<FillColor>, FillColor)>;
 type SliderHightlightBarMaterial = ShapeRender<RoundedBar, FillColor>;
 type SliderHandlerMaterial = ShapeRender<Circle, (Border, FillColor, Shadow)>;
 type InputboxMaterial = ShapeRender<RoundedRect, (Border, FillColor)>;
@@ -40,6 +40,8 @@ pub struct FlatTheme {
     pub fill_color: Color,
     #[default(color!("#eeeeee"))]
     pub fill_color2: Color,
+    #[default(color!("#dddddd"))]
+    pub fill_color3: Color,
     #[default(16.0)]
     pub block_cornor: f32,
     #[default(8.0)]
@@ -58,7 +60,7 @@ pub struct FlatTheme {
     pub inner_shadow_radius: f32,
     #[default(2.0)]
     pub shadow_radius: f32,
-    #[default(Duration::from_secs_f32(0.333))]
+    #[default(Duration::from_secs_f32(0.2))]
     pub animation_duration: Duration,
     // #[default(AnimationEaseMethod::EaseFunction(EaseFunction::QuadraticIn))]
     #[default(AnimationEaseMethod::Linear)]
@@ -143,13 +145,13 @@ impl FlatTheme {
                     self.shadow(),
                 ))),
             );
-            self.hightlight_button_material = hightlight_button_material.add(
-                ShaderAsset::new(self.rounded_rect().with_effect((
+            self.hightlight_button_material = hightlight_button_material.add(ShaderAsset::new(
+                self.rounded_rect().with_effect((
                     self.border(),
                     self.main_color.into(),
                     self.shadow(),
-                ))),
-            );
+                )),
+            ));
             self.hightlight_button_material_clicked = hightlight_button_material.add(
                 ShaderAsset::new(self.rounded_rect().with_effect((
                     self.border(),
@@ -194,9 +196,13 @@ impl FlatTheme {
             )));
         }
 
-        self.slider_material = world.resource_mut::<Assets<_>>().add(ShaderAsset::new(
-            RoundedBar::new().with_effect((FillColor::new(self.fill_color2), self.shadow())),
-        ));
+        self.slider_material =
+            world
+                .resource_mut::<Assets<_>>()
+                .add(ShaderAsset::new(RoundedBar::new().with_effect((
+                    self.inner_shadow(FillColor::new(self.fill_color2)),
+                    FillColor::new(self.fill_color2),
+                ))));
         self.slider_hightlight_bar_material = world.resource_mut::<Assets<_>>().add(
             ShaderAsset::new(RoundedBar::new().with_effect(FillColor::new(self.main_color))),
         );
@@ -218,15 +224,25 @@ impl FlatTheme {
                 ))));
 
         self.inputbox_material = world.resource_mut::<Assets<_>>().add(ShaderAsset::new(
+            RoundedRect::new(0.5 * self.cornor)
+                .with_effect((self.inactive_border(), self.fill_color())),
+        ));
+        self.inputbox_material_focused = world.resource_mut::<Assets<_>>().add(ShaderAsset::new(
             RoundedRect::new(0.5 * self.cornor).with_effect((self.border(), self.fill_color())),
         ));
     }
 
-    fn invisible_shadow(&self) -> Shadow {
-        Shadow::new(Color::NONE, Vec2::ZERO, Vec2::ZERO, 0.0)
+    fn inactive_border(&self) -> Border<FillColor> {
+        Border::new(self.fill_color3, self.border_width * 0.5)
+    }
+    fn invisible_border(&self) -> Border<FillColor> {
+        Border::new(self.fill_color, 0.0)
     }
     fn border(&self) -> Border<FillColor> {
         Border::new(self.main_color, self.border_width)
+    }
+    fn invisible_shadow(&self) -> Shadow {
+        Shadow::new(Color::NONE, Vec2::ZERO, Vec2::ZERO, 0.0)
     }
     fn shadow(&self) -> Shadow {
         Shadow::new(

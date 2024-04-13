@@ -348,6 +348,9 @@ impl ThemeComponent {
     pub fn none() -> Self {
         Self::new(StyleFlags::empty(), WidgetKind::None)
     }
+    pub fn set_flag(&mut self, flag: StyleFlags, value: bool){
+        self.style_flags.set(flag, value);
+    }
 }
 
 pub trait ThemeDispatch: Downcast + Sync + Send + 'static {
