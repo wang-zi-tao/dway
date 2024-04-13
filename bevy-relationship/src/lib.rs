@@ -5,6 +5,7 @@ mod graph;
 mod macros;
 pub mod reexport;
 mod register;
+mod changed;
 
 #[allow(unused_imports)]
 pub use crate::{app::*, builtins::*, commands::*, graph::*, macros::*, register::*};

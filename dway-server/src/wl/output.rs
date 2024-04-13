@@ -4,7 +4,7 @@ use crate::{
     state::add_global_dispatch,
     util::rect::IRect,
 };
-use bevy::utils::HashSet;
+use bevy::{ecs::entity::EntityHashSet, utils::HashSet};
 use bevy_relationship::{graph_query, relationship};
 use wayland_server::protocol::wl_output::Mode;
 
@@ -115,7 +115,6 @@ impl Plugin for WlOutputPlugin {
             PreUpdate,
             surface_enter_output.in_set(DWayServerSet::UpdateJoin),
         );
-        app.register_type::<HashSet<Entity>>();
         app.register_type::<WlOutput>();
         app.register_relation::<ClientHasOutput>();
         app.register_relation::<SurfaceInOutput>();

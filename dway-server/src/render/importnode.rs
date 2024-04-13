@@ -17,7 +17,7 @@ use crate::{
 };
 use bevy::{
     core::FrameCount,
-    ecs::system::SystemState,
+    ecs::{entity::EntityHashMap, system::SystemState},
     render::{
         render_asset::RenderAssets,
         render_graph::Node,
@@ -89,7 +89,7 @@ impl ImportStateKind {
 
 #[derive(Resource, Default)]
 pub struct DWayDisplayHandles {
-    pub map: HashMap<Entity, DisplayHandle>,
+    pub map: EntityHashMap<DisplayHandle>,
 }
 
 pub fn extract_surface(

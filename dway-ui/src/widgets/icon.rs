@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use bevy::utils::HashSet;
+use bevy::{ecs::entity::EntityHashSet, utils::HashSet};
 use dway_server::apps::icon::{LinuxIcon, LinuxIconKind};
 use dway_ui_framework::{make_bundle, render::mesh::UiMeshHandle, widgets::svg::UiSvgExt};
 
@@ -32,7 +32,7 @@ pub fn uiicon_render(
         &mut UiMeshHandle,
     )>,
     icons: Res<Assets<LinuxIcon>>,
-    mut padding_entity: Local<HashSet<Entity>>,
+    mut padding_entity: Local<EntityHashSet>,
 ) {
     for (e, icon, mut image, mut svg, mut mesh) in uiicon_query.iter_mut() {
         if !icon.is_changed() && padding_entity.is_empty() && !padding_entity.remove(&e) {

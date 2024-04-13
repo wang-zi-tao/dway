@@ -14,9 +14,7 @@ use crate::{
     panels::{PanelButtonBundle, WindowTitleBundle},
     prelude::*,
     widgets::{
-        applist::AppListUIBundle,
-        screen::{ScreenWindows, ScreenWindowsBundle},
-        workspacelist::WorkspaceListUIBundle,
+        applist::AppListUIBundle, cursor::{Cursor, CursorBundle}, screen::{ScreenWindows, ScreenWindowsBundle}, workspacelist::WorkspaceListUIBundle
     },
 };
 use bevy::{render::camera::RenderTarget, window::WindowRef};
@@ -53,6 +51,7 @@ impl Plugin for DWayUiPlugin {
             widgets::screen::ScreenWindowsPlugin,
             widgets::workspacelist::WorkspaceListUIPlugin,
             widgets::logger::LoggerUIPlugin,
+            widgets::cursor::CursorPlugin,
             ScreenUIPlugin,
         ));
         app.add_plugins((
@@ -141,6 +140,7 @@ ScreenUI=>
             </PanelButtonBundle>
         </MiniNodeBundle>
     </NodeBundle>
+    <CursorBundle Cursor=(Cursor::new(asset_server.load("embedded://dway_ui/cursors/cursor-default.png"),Vec2::splat(32.0)))/>
     // <LoggerUIBundle @style="bottom-64 left-32 w-80% absolute"/>
 </NodeBundle>
 }

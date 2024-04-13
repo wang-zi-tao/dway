@@ -392,8 +392,8 @@ impl DomDecorator for ForQuery {
         );
         context.tree_context.widget_builder.add_field_with_initer(
             &dom_entity_list_field,
-            quote!(pub #dom_entity_list_field: bevy::utils::HashMap<Entity,Entity>),
-            quote!(bevy::utils::HashMap::new()),
+            quote!(pub #dom_entity_list_field: bevy::ecs::entity::EntityHashMap<Entity>),
+            quote!(bevy::ecs::entity::EntityHashMap::default()),
         );
     }
     fn update_sub_widget_context(&self, context: &mut WidgetNodeContext) {
@@ -489,7 +489,7 @@ impl DomDecorator for ForQuery {
                 widget.#dom_entity_list_field.clear();
             }
             if #just_inited || #changed {
-                let mut #child_entity_map_var = bevy::utils::HashMap::<Entity,Entity>::new();
+                let mut #child_entity_map_var = bevy::ecs::entity::EntityHashMap::<Entity>::default();
                 for (#data_entity_var,#item_var) in #arg_name.#method(#expr) {
                     let #child_ident: Entity = widget.#dom_entity_list_field.remove(&#data_entity_var).unwrap_or(Entity::PLACEHOLDER);
                     let #just_inited = #child_ident == Entity::PLACEHOLDER;

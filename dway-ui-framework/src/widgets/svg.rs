@@ -1,5 +1,5 @@
 use crate::{make_bundle, prelude::*, render::mesh::{UiMeshHandle, UiMeshTransform}};
-use bevy::{render::render_resource::{AsBindGroup, ShaderRef}, sprite::Material2d, utils::HashSet};
+use bevy::{ecs::entity::EntityHashSet, render::render_resource::{AsBindGroup, ShaderRef}, sprite::Material2d, utils::HashSet};
 use bevy_svg::prelude::{Svg};
 
 #[derive(Component, Default, Reflect, PartialEq, Eq, Hash)]
@@ -73,7 +73,7 @@ pub fn uisvg_update_system(
         )>,
     assets: Res<Assets<Svg>>,
     mut materials: ResMut<Assets<SvgMagerial>>,
-    mut padding_entity: Local<HashSet<Entity>>,
+    mut padding_entity: Local<EntityHashSet>,
 ) {
     for (entity, node, svg, mut mesh, mut material, layout, mut transform) in &mut query {
         let not_init = mesh.id() == Handle::<Mesh>::default().id();

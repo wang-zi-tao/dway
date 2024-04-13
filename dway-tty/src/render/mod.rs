@@ -3,14 +3,12 @@ pub mod vulkan;
 
 use anyhow::{anyhow, Result};
 use bevy::{
-    prelude::*,
-    render::{
+    ecs::entity::EntityHashMap, prelude::*, render::{
         render_asset::RenderAssets,
         renderer::RenderDevice,
         texture::{DefaultImageSampler, GpuImage},
         Extract, Render, RenderApp, RenderSet,
-    },
-    utils::HashMap,
+    }, utils::HashMap
 };
 use drm::control::framebuffer;
 use drm_fourcc::DrmFormat;
@@ -36,7 +34,7 @@ use self::gles::GlesRenderCache;
 #[derive(Resource, Default)]
 pub struct TtyRenderState {
     pub buffers: HashMap<framebuffer::Handle, GpuImage>,
-    pub entity_map: HashMap<Entity, Entity>,
+    pub entity_map: EntityHashMap<Entity>,
     pub formats: Option<Vec<DrmFormat>>,
     pub cache: RenderCache,
 }

@@ -24,7 +24,7 @@ use std::{
     ptr::null_mut,
 };
 
-use bevy::{prelude::info, render::texture::GpuImage};
+use bevy::{ecs::entity::EntityHashMap, prelude::info, render::texture::GpuImage};
 use glow::{HasContext, NativeRenderbuffer, NativeTexture, PixelPackData};
 
 use super::importnode::DWayDisplayHandles;
@@ -52,12 +52,12 @@ pub struct EglState {
     pub egl_unbind_wayland_display_wl:
         unsafe extern "system" fn(EGLDisplay, *mut c_void) -> Boolean,
     pub extensions: HashSet<String>,
-    pub wayland_map: HashMap<Entity, WeakHandle>,
+    pub wayland_map: EntityHashMap<WeakHandle>,
 }
 impl EglState {
     pub fn bind_wayland(
         &mut self,
-        wayland_map: &HashMap<Entity, DisplayHandle>,
+        wayland_map: &EntityHashMap<DisplayHandle>,
         egl_display: khronos_egl::Display,
     ) {
         for (entity, handle) in wayland_map {
