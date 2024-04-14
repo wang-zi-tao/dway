@@ -1,13 +1,12 @@
 use crate::{
     geometry::{Geometry, GlobalGeometry},
-    input::seat::PointerList,
     prelude::*,
     resource::ResourceWrapper,
     util::rect::IRect,
     xdg::{positioner::XdgPositioner, DWayWindow},
 };
 
-use super::positioner::Positioner;
+use super::{positioner::Positioner, SurfaceHasPopup};
 
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
@@ -17,6 +16,7 @@ pub struct XdgPopup {
     pub send_configure: bool,
     pub positioner: Positioner,
     pub level: isize,
+    pub grab: bool,
 }
 
 impl XdgPopup {
@@ -26,7 +26,12 @@ impl XdgPopup {
             send_configure: false,
             positioner,
             level,
+            grab: false,
         }
+    }
+
+    pub fn grab(&self) -> bool {
+        self.grab
     }
 }
 impl ResourceWrapper for XdgPopup {
@@ -61,22 +66,11 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
         let _enter = span.enter();
         debug!("request {:?}", &request);
         match request {
-            xdg_popup::Request::Destroy => {
-                state.despawn(*data);
-                state.send_event(Destroy::<DWayWindow>::new(*data));
-            }
-            xdg_popup::Request::Grab { seat, serial: _ } => {
-                let seat_entity = DWay::get_entity(&seat);
-                let Some(_pointer_list) =
-                    state.world_mut().get::<PointerList>(seat_entity).cloned()
-                else {
-                    return;
-                };
-                let Some(parent_entity) = state.get::<Parent>(*data).map(|p| p.get()) else {
-                    return;
-                };
-                let _parent_is_popup = state.entity(parent_entity).contains::<XdgPopup>();
-                // TODO
+            xdg_popup::Request::Destroy => {}
+            xdg_popup::Request::Grab { seat: _, serial: _ } => {
+                if let Some(mut popup) = state.get_mut::<XdgPopup>(*data) {
+                    popup.grab = true;
+                }
             }
             xdg_popup::Request::Reposition {
                 positioner,
@@ -104,8 +98,9 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
         resource: &xdg_popup::XdgPopup,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data, resource);
+        state.despawn_object_component::<(XdgPopup, DWayWindow)>(*data, resource);
         state.send_event(Destroy::<DWayWindow>::new(*data));
+        state.disconnect_all_rev::<SurfaceHasPopup>(*data);
     }
 }
 

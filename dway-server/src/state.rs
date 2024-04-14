@@ -449,7 +449,7 @@ impl DWay {
         resource: New<T>,
         data_init: &mut DataInit<'_, Self>,
         f: F,
-    ) -> Entity
+    ) -> Option<Entity>
     where
         DWay: wayland_server::Dispatch<T, Entity>,
         C: bevy::prelude::Component,
@@ -460,7 +460,7 @@ impl DWay {
             entity,
             (resource, data_init, f).check_component_not_exists::<C>(),
         )
-        .id()
+        .map(|e| e.id())
     }
     pub fn spawn_child_object<T, C, F>(
         &mut self,
@@ -506,6 +506,7 @@ impl DWay {
     }
     pub fn despawn_tree(&mut self, entity: Entity) {
         if let Some(entity_mut) = self.get_entity_mut(entity) {
+            trace!(?entity,"despawn recursive");
             entity_mut.despawn_recursive();
         }
     }
@@ -524,6 +525,7 @@ impl DWay {
             }
         }
         if let Some(e) = self.world_mut().get_entity_mut(entity) {
+            trace!(?entity,"despawn entity");
             EntityWorldMut::despawn(e)
         }
     }
@@ -743,7 +745,11 @@ pub fn set_signal_handler() {
 }
 
 impl DWay {
-    pub fn insert<T>(&mut self, entity: Entity, f: impl EntityFactory<T>) -> EntityWorldMut {
+    pub fn insert<T>(
+        &mut self,
+        entity: Entity,
+        f: impl EntityFactory<T>,
+    ) -> Option<EntityWorldMut> {
         let world = self.world_mut();
         f.insert(world, entity)
     }
@@ -756,7 +762,7 @@ pub trait EntityFactory<T> {
     fn spawn(self, world: &mut World) -> EntityWorldMut<'_>
     where
         Self: Sized;
-    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_>;
+    fn insert(self, world: &mut World, entity: Entity) -> Option<EntityWorldMut<'_>>;
 
     fn with_parent(self, parent: Entity) -> WithParent<Self, T>
     where
@@ -811,10 +817,14 @@ impl<T: Bundle> EntityFactory<(T,)> for T {
         world.spawn(self)
     }
 
-    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_> {
-        let mut entity_mut = world.entity_mut(entity);
+    fn insert(
+        self,
+        world: &mut World,
+        entity: Entity,
+    ) -> Option<bevy::prelude::EntityWorldMut<'_>> {
+        let mut entity_mut = world.get_entity_mut(entity)?;
         entity_mut.insert(self);
-        entity_mut
+        Some(entity_mut)
     }
 }
 impl<T: FnOnce() -> B, B: Bundle> EntityFactory<()> for T {
@@ -822,10 +832,14 @@ impl<T: FnOnce() -> B, B: Bundle> EntityFactory<()> for T {
         world.spawn(self())
     }
 
-    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_> {
-        let mut entity_mut = world.entity_mut(entity);
+    fn insert(
+        self,
+        world: &mut World,
+        entity: Entity,
+    ) -> Option<bevy::prelude::EntityWorldMut<'_>> {
+        let mut entity_mut = world.get_entity_mut(entity)?;
         entity_mut.insert(self());
-        entity_mut
+        Some(entity_mut)
     }
 }
 impl<T: FnOnce(&mut World) -> B, B: Bundle> EntityFactory<(&mut World,)> for T {
@@ -834,11 +848,15 @@ impl<T: FnOnce(&mut World) -> B, B: Bundle> EntityFactory<(&mut World,)> for T {
         world.spawn(bundle)
     }
 
-    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_> {
+    fn insert(
+        self,
+        world: &mut World,
+        entity: Entity,
+    ) -> Option<bevy::prelude::EntityWorldMut<'_>> {
         let bundle = self(world);
-        let mut entity_mut = world.entity_mut(entity);
+        let mut entity_mut = world.get_entity_mut(entity)?;
         entity_mut.insert(bundle);
-        entity_mut
+        Some(entity_mut)
     }
 }
 impl<'l, 'd, T, F, B> EntityFactory<(T,)> for (New<T>, &'l mut DataInit<'d, DWay>, F)
@@ -848,13 +866,17 @@ where
     T: WlResource + 'static,
     DWay: wayland_server::Dispatch<T, Entity>,
 {
-    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_> {
+    fn insert(
+        self,
+        world: &mut World,
+        entity: Entity,
+    ) -> Option<bevy::prelude::EntityWorldMut<'_>> {
         let (resource, data_init, f) = self;
-        let mut entity_mut = world.entity_mut(entity);
-        let object = data_init.init(resource, entity_mut.id());
+        let object = data_init.init(resource, entity);
+        let mut entity_mut = world.get_entity_mut(entity)?;
         debug!(entity=?entity_mut.id(),object=%wayland_server::Resource::id(&object),"new wayland object");
         entity_mut.insert(f(object));
-        entity_mut
+        Some(entity_mut)
     }
 
     fn spawn(self, world: &mut World) -> EntityWorldMut<'_>
@@ -876,14 +898,18 @@ where
     T: WlResource + 'static,
     DWay: wayland_server::Dispatch<T, Entity>,
 {
-    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_> {
+    fn insert(
+        self,
+        world: &mut World,
+        entity: Entity,
+    ) -> Option<bevy::prelude::EntityWorldMut<'_>> {
         let (resource, data_init, f) = self;
         let object = data_init.init(resource, entity);
         debug!(entity=?entity,object=%wayland_server::Resource::id(&object),"new wayland object");
         let bundle: B = f(object, world);
-        let mut entity_mut = world.entity_mut(entity);
+        let mut entity_mut = world.get_entity_mut(entity)?;
         entity_mut.insert(bundle);
-        entity_mut
+        Some(entity_mut)
     }
 
     fn spawn(self, world: &mut World) -> EntityWorldMut<'_>
@@ -910,10 +936,14 @@ impl<F, T> EntityFactory<T> for WithParent<F, T>
 where
     F: EntityFactory<T>,
 {
-    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_> {
-        let mut entity = self.inner.insert(world, entity);
+    fn insert(
+        self,
+        world: &mut World,
+        entity: Entity,
+    ) -> Option<bevy::prelude::EntityWorldMut<'_>> {
+        let mut entity = self.inner.insert(world, entity)?;
         entity.set_parent(self.parent);
-        entity
+        Some(entity)
     }
 
     fn spawn(self, world: &mut World) -> EntityWorldMut
@@ -934,7 +964,11 @@ where
     F: EntityFactory<T>,
     C: Component,
 {
-    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_> {
+    fn insert(
+        self,
+        world: &mut World,
+        entity: Entity,
+    ) -> Option<bevy::prelude::EntityWorldMut<'_>> {
         assert!(
             !world.entity_mut(entity).contains::<C>(),
             "component {} already exist in entity {entity:?}",
@@ -963,9 +997,13 @@ where
     R::From: ConnectableMut + Default,
     R::To: ConnectableMut + Default,
 {
-    fn insert(self, world: &mut World, entity: Entity) -> EntityWorldMut<'_> {
+    fn insert(
+        self,
+        world: &mut World,
+        entity: Entity,
+    ) -> Option<bevy::prelude::EntityWorldMut<'_>> {
         let target = self.target;
-        let entity_mut = self.inner.insert(world, entity);
+        let entity_mut = self.inner.insert(world, entity)?;
         let entity = entity_mut.id();
         let command = ConnectCommand::<R>::new(entity, target);
         trace!(
@@ -975,7 +1013,7 @@ where
             target
         );
         command.apply(world);
-        world.entity_mut(entity)
+        world.get_entity_mut(entity)
     }
 
     fn spawn(self, world: &mut World) -> EntityWorldMut

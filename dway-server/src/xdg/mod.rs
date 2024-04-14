@@ -84,9 +84,7 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
         let _enter = span.enter();
         debug!("request {:?}", &request);
         match request {
-            xdg_surface::Request::Destroy => {
-                state.despawn(*data);
-            }
+            xdg_surface::Request::Destroy => { }
             xdg_surface::Request::GetToplevel { id } => {
                 state.insert(
                     *data,
@@ -193,7 +191,7 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
         resource: &xdg_surface::XdgSurface,
         data: &bevy::prelude::Entity,
     ) {
-        state.despawn_object(*data, resource);
+        state.despawn_object_component::<XdgSurface>(*data, resource);
     }
 }
 impl

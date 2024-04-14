@@ -90,12 +90,15 @@ impl wayland_server::Dispatch<wl_subcompositor::WlSubcompositor, bevy::prelude::
                 surface,
                 parent,
             } => {
-                let entity = state
+                let Some(entity) = state
                     .insert(
                         DWay::get_entity(&parent),
                         (id, data_init, WlSubsurface::new).with_parent(DWay::get_entity(&surface)),
                     )
-                    .id();
+                    .map(|e| e.id())
+                else {
+                    return;
+                };
                 state.connect::<HasSubsurface>(DWay::get_entity(&parent), entity);
             }
             _ => todo!(),

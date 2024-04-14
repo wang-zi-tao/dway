@@ -55,7 +55,7 @@ impl Dispatch<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, Entity> for DWay {
                 state.connect::<DmaBufferHasFeedback>(entity, *data);
             }
             zwp_linux_dmabuf_v1::Request::GetSurfaceFeedback { id, surface } => {
-                let entity = state
+                let Some(entity) = state
                     .insert(
                         DWay::get_entity(&surface),
                         (id, data_init, |o, world: &mut World| {
@@ -63,7 +63,10 @@ impl Dispatch<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, Entity> for DWay {
                             DmabufFeedback::new(o)
                         }),
                     )
-                    .id();
+                    .map(|e| e.id())
+                else {
+                    return;
+                };
                 state.connect::<DmaBufferAttachSurface>(entity, *data);
             }
             _ => todo!(),

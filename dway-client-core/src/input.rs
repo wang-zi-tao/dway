@@ -141,6 +141,11 @@ impl SurfaceUiNode {
             grab: false,
         }
     }
+
+    pub fn with_grab(mut self, grab: bool) -> Self {
+        self.grab = grab;
+        self
+    }
 }
 
 enum MouseEvent<'l> {
@@ -150,7 +155,7 @@ enum MouseEvent<'l> {
 }
 
 graph_query!(InputGraph=>[
-    surface=< (Entity, &'static WlSurface,&'static mut WlSurfacePointerState, &'static mut Geometry, &'static GlobalGeometry),With<DWayWindow>>,
+    surface=< (Entity, &'static WlSurface,&'static mut WlSurfacePointerState, &'static mut Geometry, &'static GlobalGeometry, Option<&'static XdgPopup>),With<DWayWindow>>,
     client=&'static mut WlSeat,
     pointer=&'static mut WlPointer,
 ]=>{
@@ -196,6 +201,7 @@ pub fn on_input_event(
                     window_pointer,
                     window_geometry,
                     window_global_geometry,
+                    popup,
                 ),
                  ref mut seat,
                  pointer| {
@@ -253,6 +259,9 @@ pub fn on_input_event(
                         MouseEvent::Button(e) => {
                             if window_pointer.enabled() {
                                 pointer.button(seat, e, surface, relative_pos.as_dvec2());
+                                if let Some(popup) = popup {
+                                    popup.raw.popup_done();
+                                }
                             }
                             window_pointer.is_clicked = content_rect.contains(pos.as_vec2())
                                 && e.state == ButtonState::Pressed;
