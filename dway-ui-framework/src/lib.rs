@@ -42,6 +42,7 @@ impl Plugin for UiFrameworkPlugin {
         .add_plugins((
             widgets::slider::UiSliderPlugin,
             widgets::scroll::UiScrollPlugin,
+            widgets::combobox::UiComboBoxPlugin,
             widgets::inputbox::UiInputBoxPlugin,
             UiMeshMaterialPlugin::<SvgMagerial>::default(),
         ))

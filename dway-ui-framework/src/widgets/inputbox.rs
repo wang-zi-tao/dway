@@ -371,6 +371,7 @@ UiInputBox=>
 @plugin{
     app.register_type::<UiInputBox>();
     app.register_component_as::<dyn UiInputDispatch, UiInputBox>();
+    app.register_system(on_input_event);
 }
 @state_reflect()
 @global(theme: Theme)

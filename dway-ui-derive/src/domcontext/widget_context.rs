@@ -76,7 +76,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
             );
             (
                 quote!(widget.#field),
-                Some(quote!(widget.#field = #entity_var)),
+                Some(quote!(widget.#field = #entity_var;)),
             )
         } else {
             (quote!(Entity::PLACEHOLDER), None)

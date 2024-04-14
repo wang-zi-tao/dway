@@ -87,9 +87,9 @@ pub fn open_popup(
                     ..default()
                 },
             ))
-            .insert(UiPopupExt::from(UiPopup::new(Some(
-                theme.system(delay_destroy),
-            ))))
+            .insert(UiPopupExt::from(
+                UiPopup::default().with_callback(event.receiver, theme.system(delay_destroy)),
+            ))
             .set_parent(event.button);
     }
 }

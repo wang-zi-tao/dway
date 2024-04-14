@@ -19,6 +19,7 @@ type BlockMaterial = ShapeRender<RoundedRect, (FillColor, Shadow)>;
 type HollowBlockMaterial = ShapeRender<RoundedRect, Border>;
 type SunkenBlockMaterial = ShapeRender<RoundedRect, InnerShadow<FillColor>>;
 type HightlightButtonMaterial = ShapeRender<RoundedRect, (Border, FillColor, Shadow)>;
+type ListItemMaterial = ShapeRender<RoundedRect, FillColor>;
 type ButtonMaterial = ShapeRender<RoundedRect, (InnerShadow<FillColor>, FillColor, Shadow)>;
 type CheckboxMaterial = (
     Transformed<ShapeRender<Circle, FillColor>, Margins>,
@@ -67,7 +68,9 @@ pub struct FlatTheme {
     pub animation_ease: AnimationEaseMethod,
 
     pub block_material: Handle<ShaderAsset<BlockMaterial>>,
+    pub popup_block_material: Handle<ShaderAsset<BlockMaterial>>,
     pub hollow_block_material: Handle<ShaderAsset<HollowBlockMaterial>>,
+    pub hightlight_hollow_block_material: Handle<ShaderAsset<HollowBlockMaterial>>,
     pub sunken_block_material: Handle<ShaderAsset<SunkenBlockMaterial>>,
     pub hightlight_block_material: Handle<ShaderAsset<HollowBlockMaterial>>,
     pub button_material: Handle<ShaderAsset<ButtonMaterial>>,
@@ -76,6 +79,9 @@ pub struct FlatTheme {
     pub hightlight_button_material: Handle<ShaderAsset<HightlightButtonMaterial>>,
     pub hightlight_button_material_hover: Handle<ShaderAsset<HightlightButtonMaterial>>,
     pub hightlight_button_material_clicked: Handle<ShaderAsset<HightlightButtonMaterial>>,
+    pub list_item_hightlight: Handle<ShaderAsset<ListItemMaterial>>,
+    pub list_item_hover: Handle<ShaderAsset<ListItemMaterial>>,
+    pub list_item: Handle<ShaderAsset<ListItemMaterial>>,
     pub checkbox_material: Handle<ShaderAsset<CheckboxMaterial>>,
     pub checkbox_material_down: Handle<ShaderAsset<CheckboxMaterial>>,
     pub checkbox_material_hover: Handle<ShaderAsset<CheckboxMaterial>>,
@@ -97,16 +103,32 @@ impl FlatTheme {
                 self.block_rounded_rect()
                     .with_effect((self.fill_color(), self.shadow())),
             ));
+            self.popup_block_material = world.resource_mut::<Assets<_>>().add(ShaderAsset::new(
+                self.popup_block_rounded_rect().with_effect((self.fill_color(), {
+                    Shadow::new(
+                        self.shadow_color,
+                        self.shadow_offset * 0.0,
+                        self.shadow_margin * 1.0,
+                        self.shadow_radius * 1.0,
+                    )
+                })),
+            ));
             self.hollow_block_material = world
                 .resource_mut::<Assets<_>>()
                 .add(ShaderAsset::new(self.block_rounded_rect().with_effect(
                     Border::new(self.shadow_color, self.border_width),
                 )));
+            self.hightlight_hollow_block_material =
+                world
+                    .resource_mut::<Assets<_>>()
+                    .add(ShaderAsset::new(self.block_rounded_rect().with_effect(
+                        Border::new(self.main_color, self.border_width),
+                    )));
             self.sunken_block_material = world.resource_mut::<Assets<_>>().add(ShaderAsset::new(
                 self.block_rounded_rect()
                     .with_effect(self.inner_shadow(self.fill_color())),
             ));
-            self.hightlight_block_material =
+            self.hightlight_hollow_block_material =
                 world
                     .resource_mut::<Assets<_>>()
                     .add(ShaderAsset::new(self.block_rounded_rect().with_effect(
@@ -159,6 +181,18 @@ impl FlatTheme {
                     self.invisible_shadow(),
                 ))),
             );
+        }
+        {
+            let mut list_item_materials = world.resource_mut::<Assets<_>>();
+            self.list_item_hightlight = list_item_materials.add(ShaderAsset::new(
+                self.rounded_rect().with_effect(self.main_color.into()),
+            ));
+            self.list_item_hover = list_item_materials.add(ShaderAsset::new(
+                self.rounded_rect().with_effect(self.fill_color3.into()),
+            ));
+            self.list_item = list_item_materials.add(ShaderAsset::new(
+                self.rounded_rect().with_effect(self.fill_color2.into()),
+            ));
         }
 
         {
@@ -252,6 +286,9 @@ impl FlatTheme {
             self.shadow_radius,
         )
     }
+    fn popup_block_rounded_rect(&self) -> RoundedRect {
+        RoundedRect::new(self.block_cornor)
+    }
     fn block_rounded_rect(&self) -> RoundedRect {
         RoundedRect::new(self.block_cornor)
     }
@@ -302,7 +339,7 @@ impl ThemeDispatch for FlatTheme {
                     self.apply_material_animation(
                         entity,
                         commands,
-                        self.hightlight_block_material.clone(),
+                        self.hightlight_hollow_block_material.clone(),
                     );
                 } else if flag.contains(StyleFlags::HOLLOW) {
                     self.apply_material_animation(
@@ -420,6 +457,38 @@ impl ThemeDispatch for FlatTheme {
                 );
             }
             super::WidgetKind::Other(_) => {}
+            super::WidgetKind::ComboBox(super::ComboBoxNodeKind::Root) => {
+                if clicked {
+                    self.apply_material_animation(
+                        entity,
+                        commands,
+                        self.hightlight_hollow_block_material.clone(),
+                    );
+                } else {
+                    self.apply_material_animation(
+                        entity,
+                        commands,
+                        self.hollow_block_material.clone(),
+                    );
+                }
+            }
+            super::WidgetKind::ComboBox(super::ComboBoxNodeKind::Popup) => {
+                self.apply_material_animation(entity, commands, self.popup_block_material.clone());
+            }
+            super::WidgetKind::ComboBox(super::ComboBoxNodeKind::Item) => {
+                if flag.contains(StyleFlags::HIGHLIGHT) {
+                    self.apply_material_animation(
+                        entity,
+                        commands,
+                        self.list_item_hightlight.clone(),
+                    );
+                } else if hover || clicked {
+                    self.apply_material_animation(entity, commands, self.list_item_hover.clone());
+                } else {
+                    self.apply_material_animation(entity, commands, self.list_item.clone());
+                }
+            }
+            super::WidgetKind::ComboBox(_) => {}
         }
     }
 }
@@ -435,6 +504,7 @@ impl Plugin for FlatThemePlugin {
             ShaderPlugin::<HollowBlockMaterial>::default(),
             ShaderPlugin::<SunkenBlockMaterial>::default(),
             ShaderPlugin::<HightlightButtonMaterial>::default(),
+            ShaderPlugin::<ListItemMaterial>::default(),
             ShaderPlugin::<ButtonMaterial>::default(),
             ShaderPlugin::<CheckboxMaterial>::default(),
             ShaderPlugin::<SliderMaterial>::default(),
@@ -448,6 +518,7 @@ impl Plugin for FlatThemePlugin {
             AssetAnimationPlugin::<ShaderAsset<HollowBlockMaterial>>::default(),
             AssetAnimationPlugin::<ShaderAsset<SunkenBlockMaterial>>::default(),
             AssetAnimationPlugin::<ShaderAsset<HightlightButtonMaterial>>::default(),
+            AssetAnimationPlugin::<ShaderAsset<ListItemMaterial>>::default(),
             AssetAnimationPlugin::<ShaderAsset<ButtonMaterial>>::default(),
             AssetAnimationPlugin::<ShaderAsset<CheckboxMaterial>>::default(),
             AssetAnimationPlugin::<ShaderAsset<SliderMaterial>>::default(),

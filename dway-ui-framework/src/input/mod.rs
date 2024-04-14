@@ -93,7 +93,7 @@ pub struct UiFocusState {
 pub struct UiInputQuery {
     entity: Entity,
     ui_focus: &'static mut UiInput,
-    dispatch: Option< &'static dyn UiInputDispatch >,
+    dispatch: Option<&'static dyn UiInputDispatch>,
     interaction: Ref<'static, Interaction>,
     relative_cursor_position: Option<Ref<'static, RelativeCursorPosition>>,
     theme: Option<&'static mut ThemeComponent>,
@@ -146,11 +146,14 @@ pub fn update_ui_input(
             run_callback(kind, entity, &ui_focus, &dispatch);
         };
 
-        if ui_focus.grab_mouse_when_focused && ui_focus.input_focused && *interaction==Interaction::None{
-            for button in mouse_button_state.get_just_pressed(){
+        if ui_focus.grab_mouse_when_focused
+            && ui_focus.input_focused
+            && *interaction == Interaction::None
+        {
+            for button in mouse_button_state.get_just_pressed() {
                 call(MousePress(*button));
             }
-            for button in mouse_button_state.get_just_released(){
+            for button in mouse_button_state.get_just_released() {
                 call(MouseRelease(*button));
             }
         }

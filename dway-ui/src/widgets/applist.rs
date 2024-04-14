@@ -1,8 +1,6 @@
 use super::icon::{UiIcon, UiIconBundle};
+use crate::popups::app_window_preview::{AppWindowPreviewPopup, AppWindowPreviewPopupBundle};
 use crate::prelude::*;
-use crate::{
-    popups::app_window_preview::{AppWindowPreviewPopup, AppWindowPreviewPopupBundle},
-};
 use dway_client_core::desktop::FocusedWindow;
 use dway_server::apps::{icon::LinuxIcon, DesktopEntry, WindowList};
 use dway_ui_framework::widgets::button::UiRawButtonExt;
@@ -33,10 +31,7 @@ fn open_popup(
             style: style!("absolute bottom-110% align-self:center"),
             ..default()
         })
-        .insert(UiPopupExt::from( UiPopup{
-            callback: Some(theme.system(delay_destroy)),
-            ..default()
-        }))
+        .insert(UiPopupExt::from( UiPopup::default().with_callback(event.receiver, theme.system(delay_destroy))))
         .set_parent(widget.node_popup_entity);
     }
 }}

@@ -11,6 +11,11 @@ pub mod svg;
 pub mod text;
 pub mod rightclick_popup;
 pub mod tips;
+pub mod combobox;
+
+pub trait WidgetTemplate<Input>{
+    fn spawn(input: &Input, commands: &mut Commands);
+}
 
 #[derive(Component, Default)]
 pub struct Callback(pub Option<SystemId>);

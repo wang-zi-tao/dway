@@ -18,11 +18,12 @@ pub enum PopupEventKind {
 #[derive(Debug)]
 pub struct PopupEvent {
     pub entity: Entity,
+    pub receiver: Entity,
     pub kind: PopupEventKind,
 }
 
 structstruck::strike! {
-    #[derive(Component, Reflect, Default, Clone, Debug, Builder)]
+    #[derive(Component, Reflect, SmartDefault, Clone, Debug, Builder)]
     pub struct UiPopup {
         pub close_policy:
             #[derive(Debug, Clone, Copy, Reflect, Default, PartialEq, Eq)]
@@ -33,7 +34,7 @@ structstruck::strike! {
                 None,
             },
         #[reflect(ignore)]
-        pub callback: Option<SystemId<PopupEvent>>,
+        pub callbacks: CallbackSlots<PopupEvent>,
         pub state:
             #[derive(Debug, Clone, Copy, Reflect, Default, PartialEq, Eq)]
             pub enum PopupState {
@@ -52,28 +53,21 @@ structstruck::strike! {
             },
         pub moveable: bool,
         pub hovered: bool,
+        #[default(true)]
+        pub(crate) mouse_state_init: bool,
         pub auto_destroy: bool,
         pub anchor: Option<Entity>,
     }
 }
 
 impl UiPopup {
-    pub fn new(callback: Option<SystemId<PopupEvent, ()>>) -> Self {
-        UiPopup {
-            callback,
-            ..default()
-        }
-    }
-    pub fn with_callback(mut self, callback: SystemId<PopupEvent, ()>) -> Self {
-        self.callback = Some(callback);
+    pub fn with_callback(mut self, receiver: Entity, callback: SystemId<PopupEvent, ()>) -> Self {
+        self.callbacks.push((receiver, callback));
         self
     }
-    pub fn new_auto_destroy(callback: Option<SystemId<PopupEvent, ()>>) -> Self {
-        UiPopup {
-            callback,
-            auto_destroy: true,
-            ..default()
-        }
+    pub fn with_auto_destroy(mut self) -> Self {
+        self.auto_destroy = true;
+        self
     }
 }
 
@@ -85,19 +79,21 @@ pub fn update_popup(
     let mouse_down =
         || mouse.any_just_pressed([MouseButton::Left, MouseButton::Middle, MouseButton::Right]);
     for (entity, mut popup, relative_cursor) in popup_query.iter_mut() {
-        let run_close_callback = |popup: &UiPopup, commands: &mut Commands, kind: PopupEventKind| {
-            if let Some(callback) = popup.callback {
-                commands.run_system_with_input(
-                    callback,
-                    PopupEvent {
-                        entity,
-                        kind,
-                    },
-                );
-            }
-        };
+        let run_close_callback =
+            |popup: &UiPopup, commands: &mut Commands, kind: PopupEventKind| {
+                for (receiver, callback) in &popup.callbacks {
+                    commands.run_system_with_input(
+                        *callback,
+                        PopupEvent {
+                            entity,
+                            kind,
+                            receiver: *receiver,
+                        },
+                    );
+                }
+            };
         let mouse_inside = relative_cursor.mouse_over();
-        if popup.is_added() && popup.state == PopupState::Open{
+        if popup.is_added() && popup.state == PopupState::Open {
             run_close_callback(&popup, &mut commands, PopupEventKind::Opened);
         }
         match popup.close_policy {
@@ -112,9 +108,15 @@ pub fn update_popup(
                 }
             }
             PopupClosePolicy::MouseButton => {
-                if !mouse_inside && mouse_down() {
-                    popup.state = PopupState::Closed;
-                    run_close_callback(&popup, &mut commands, PopupEventKind::Closed);
+                if mouse_down() {
+                    if !mouse_inside && !popup.mouse_state_init{
+                        popup.state = PopupState::Closed;
+                        run_close_callback(&popup, &mut commands, PopupEventKind::Closed);
+                    }
+                } else {
+                    if popup.mouse_state_init {
+                        popup.mouse_state_init = false;
+                    }
                 }
             }
             PopupClosePolicy::None => {}

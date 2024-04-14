@@ -188,30 +188,18 @@ pub fn prepare_surfaces(
 }
 
 pub struct ImportSurfacePassNode {
-    state: Mutex<
-        SystemState<(
-            Res<'static, RenderDevice>,
-            Res<'static, RenderQueue>,
-            Res<'static, RenderAssets<Image>>,
-            Res<'static, ImportState>,
-            Query<
-                'static,
-                'static,
-                (
-                    Entity,
-                    &'static WlSurface,
-                    Option<&'static WlShmBuffer>,
-                    Option<&'static DmaBuffer>,
-                    Option<&'static UninitedWlBuffer>,
-                ),
-            >,
-        )>,
-    >,
+    surface_query: QueryState<(
+        Entity,
+        &'static WlSurface,
+        Option<&'static WlShmBuffer>,
+        Option<&'static DmaBuffer>,
+        Option<&'static UninitedWlBuffer>,
+    )>,
 }
 impl FromWorld for ImportSurfacePassNode {
     fn from_world(world: &mut World) -> Self {
         Self {
-            state: Mutex::new(SystemState::new(world)),
+            surface_query: QueryState::new(world),
         }
     }
 }
@@ -222,9 +210,13 @@ impl Node for ImportSurfacePassNode {
         _render_context: &mut bevy::render::renderer::RenderContext,
         world: &bevy::prelude::World,
     ) -> Result<(), bevy::render::render_graph::NodeRunError> {
-        let mut guard = self.state.lock().unwrap();
-        let (render_device, render_queue, textures, import_state, surface_query) = guard.get(world);
-        for (entity, surface, buffer, dma_buffer, egl_buffer) in surface_query.iter() {
+        let render_device = world.resource::<RenderDevice>();
+        let render_queue = world.resource::<RenderQueue>();
+        let textures = world.resource::<RenderAssets<Image>>();
+        let import_state = world.resource::<ImportState>();
+        for (entity, surface, buffer, dma_buffer, egl_buffer) in
+            self.surface_query.iter_manual(world)
+        {
             let texture: &GpuImage = textures.get(&surface.image).unwrap();
             let mut state = import_state.inner.lock().unwrap();
             let result = match &mut *state {
@@ -262,7 +254,7 @@ impl Node for ImportSurfacePassNode {
     }
 
     fn update(&mut self, world: &mut bevy::prelude::World) {
-        self.state.lock().unwrap().update_archetypes(world);
+        self.surface_query.update_archetypes(world);
     }
 }
 

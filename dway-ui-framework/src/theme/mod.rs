@@ -6,6 +6,7 @@ use std::{
     sync::Arc,
 };
 
+use derive_more::From;
 use bevy::{
     app::DynEq,
     ecs::system::Command,
@@ -294,20 +295,31 @@ impl ThemeAppExt for App {
     }
 }
 
-pub trait WidgetLabel: Sync + Send + DynHash + DynEq {}
+pub trait WidgetLabel: Sync + Send + DynHash + DynEq + std::fmt::Debug {}
 
-#[derive(Clone, Default)]
-pub enum WidgetKind {
-    #[default]
-    None,
-    Block,
-    Button,
-    Checkbox,
-    Inputbox,
-    Slider,
-    SliderHandle,
-    SliderHightlightBar,
-    Other(Arc<dyn WidgetLabel>),
+structstruck::strike!{
+    #[derive(Default, From)]
+    #[strikethrough[derive(Debug, Clone)]]
+    pub enum WidgetKind {
+        #[default]
+        None,
+        Block,
+        Button,
+        Checkbox,
+        Inputbox,
+        #[from]
+        ComboBox(
+        pub enum ComboBoxNodeKind{
+            Root,
+            Handle,
+            Popup,
+            Item,
+        }),
+        Slider,
+        SliderHandle,
+        SliderHightlightBar,
+        Other(Arc<dyn WidgetLabel>),
+    }
 }
 
 bitflags! {
@@ -350,6 +362,14 @@ impl ThemeComponent {
     }
     pub fn set_flag(&mut self, flag: StyleFlags, value: bool){
         self.style_flags.set(flag, value);
+    }
+    pub fn with_flag(mut self, flag: StyleFlags) -> Self {
+        self.style_flags = self.style_flags.union(flag);
+        self
+    }
+    pub fn with_flag_value(mut self, flag: StyleFlags, value: bool) -> Self {
+        self.style_flags.set(flag, value);
+        self
     }
 }
 

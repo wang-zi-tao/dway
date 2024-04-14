@@ -95,6 +95,8 @@ pub struct DomPatList {
 pub struct For {
     #[call(Pat::parse_multi)]
     pat: Pat,
+    #[prefix(Token![:])]
+    ty: Type,
     #[prefix(Token![in])]
     expr: Expr,
     #[prefix(Token![=>])]
@@ -149,6 +151,7 @@ impl DomDecorator for For {
         context: &mut WidgetNodeContext,
     ) -> TokenStream {
         let expr = &self.expr;
+        let ty = &self.ty;
         let just_inited = &context.just_inited;
         let entity_var = &context.entity_var;
         let dom_entity_list_field =
@@ -169,7 +172,7 @@ impl DomDecorator for For {
                 #child_ident,
                 #just_inited,
                 commands:&mut Commands,
-                #item_var,
+                #item_var: Option<#ty>,
                 #[allow(non_snake_case)]
                 #[allow(unused_variables)]
                 #backup_state: &#state_name,
@@ -193,7 +196,7 @@ impl DomDecorator for For {
                 }
                 widget.#dom_entity_list_field = #child_list_var;
             } else {
-                for #child_ident in widget.#dom_entity_list_field.iter() {
+                for &#child_ident in widget.#dom_entity_list_field.iter() {
                     #lambda_var(#child_ident,#just_inited,commands,None,&state,&widget);
                 }
             }
@@ -529,5 +532,17 @@ impl DomDecorator for Command{
             #inner
             commands.entity(#entity).add(#command);
         }
+    }
+    fn generate_update(&self, context: &mut WidgetNodeContext) -> Option<TokenStream> {
+        let Self { command, .. } = self;
+        let entity = &context.entity_var;
+        let dependencies = ParseCodeResult::from_expr(command);
+        dependencies.is_changed().map(|check_changed| {
+            quote! {
+                if #check_changed {
+                    commands.entity(#entity).add(#command);
+                }
+            }
+        })
     }
 }

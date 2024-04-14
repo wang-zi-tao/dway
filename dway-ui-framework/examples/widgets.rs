@@ -1,4 +1,4 @@
-use std::thread::spawn;
+use std::{sync::Arc, thread::spawn};
 
 use bevy::{prelude::*, ui::RelativeCursorPosition};
 use dway_ui_derive::{dway_widget, spawn, style};
@@ -15,6 +15,7 @@ use dway_ui_framework::{
             UiButton, UiButtonBundle, UiButtonEvent, UiButtonEventKind, UiHightlightButtonBundle,
         },
         checkbox::UiCheckBoxBundle,
+        combobox::{StringItem, UiComboBox, UiComboBoxBundle},
         inputbox::UiInputBoxBundle,
         popup::{popup_animation_system, UiPopup, UiPopupExt},
         rightclick_popup::RgithClickPopupConfig,
@@ -26,7 +27,10 @@ use dway_ui_framework::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins((dway_ui_framework::UiFrameworkPlugin,))
+        .add_plugins((
+            dway_ui_framework::UiFrameworkPlugin,
+            bevy_inspector_egui::quick::WorldInspectorPlugin::new(),
+        ))
         .add_systems(Startup, setup)
         .add_plugins(CounterPlugin)
         .insert_resource(ClearColor(Color::WHITE * 0.8))
@@ -41,82 +45,51 @@ fn setup(mut commands: Commands, theme: Res<Theme>) {
     // Camera so we can see UI
     commands.spawn(Camera2dBundle::default());
 
-    commands
-        .spawn(UiNodeBundle {
-            style: Style {
+    spawn!{&mut commands=>
+        <UiBlockBundle Name=(Name::new("widgets"))
+            Style=(Style {
                 align_self: AlignSelf::Center,
                 justify_self: JustifySelf::Center,
+                flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                ..style!("p-8")
-            },
-            ..default()
-        })
-        .with_children(|c| {
-            c.spawn(( UiBlockBundle {
-                style: Style {
-                    align_self: AlignSelf::Center,
-                    justify_self: JustifySelf::Center,
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..style!("w-256 h-512 p-8 m-8")
-                },
-                ..default()
-            }, ))
-            .with_children(|c| {
-                c.spawn(UiButtonBundle {
-                    style: style!("w-64 h-32 m-8 align-items:center justify-content:center"),
-                    ..Default::default()
-                })
-                .with_children(|c| {
-                    c.spawn(UiTextBundle::new("button", 24, &theme));
-                });
-                c.spawn(UiCheckBoxBundle {
-                    style: style!("w-64 h-32 m-8"),
-                    ..Default::default()
-                });
-                c.spawn(UiSliderBundle {
-                    style: style!("w-128 h-32 m-8"),
-                    ..Default::default()
-                });
-                c.spawn((UiInputBoxBundle {
-                    style: style!("w-128 h-32 p-4"),
-                    ..Default::default()
-                },));
-                c.spawn(CounterBundle::default());
-                spawn!{c=>
-                    <MiniNodeBundle @style="flex-col" >
-                        <UiButtonBundle  @style="flex-col p-4 m-4 justify-content:center"
-                            UiButton=( UiButton::with_callback( Entity::PLACEHOLDER, theme.system(button_open_poppup),) )>
-                            <(UiTextBundle::new("open popup", 32, &theme))/>
-                        </UiButtonBundle>
-                        <UiHollowBlockBundle  @style="flex-col p-4 m-4 justify-content:center"
-                            UiInputExt=( UiInput::default().with_callback( Entity::PLACEHOLDER, theme.system(open_menu),).into() )>
-                            <(UiTextBundle::new("open menu", 32, &theme))/>
-                        </UiHollowBlockBundle>
-                    </MiniNodeBundle>
-                };
-            });
-            c.spawn(UiHollowBlockBundle {
-                style: style!("w-256 h-256 p-8 m-8"),
-                ..Default::default()
-            })
-            .with_children(|c| {
-                c.spawn(UiInputBoxBundle {
-                    style: style!("full m-8"),
-                    ..Default::default()
-                });
-            });
-            c.spawn(UiSunkenBlockBundle {
-                style: style!("w-256 h-256 p-8 m-8"),
-                ..Default::default()
-            });
-            c.spawn(UiHighlightBlockBundle {
-                style: style!("w-256 h-256 p-8 m-8"),
-                ..Default::default()
-            });
-        });
+                ..style!("w-256 h-512 p-8 m-8 flex-col")
+            })>
+            <UiButtonBundle @style="flex-col w-64 h-32 m-8 align-items:center justify-content:center">
+                <( UiTextBundle::new("button", 24, &theme) )/>
+            </UiButtonBundle>
+            <UiCheckBoxBundle @style="w-64 h-32 p-4"/>
+            <UiSliderBundle @style="w-128 h-32 p-4"/>
+            <UiInputBoxBundle @style="w-128 h-32 p-4"/>
+            <CounterBundle/>
+            <UiButtonBundle  @style="flex-col p-4 m-4 justify-content:center"
+                UiButton=( UiButton::with_callback( Entity::PLACEHOLDER, theme.system(button_open_poppup),) )>
+                <(UiTextBundle::new("open popup", 32, &theme))/>
+            </UiButtonBundle>
+            <UiHollowBlockBundle  @style="flex-col p-4 m-4 justify-content:center"
+                UiInputExt=( UiInput::default().with_callback( Entity::PLACEHOLDER, theme.system(open_menu),).into() )>
+                <(UiTextBundle::new("open menu", 32, &theme))/>
+            </UiHollowBlockBundle>
+            <UiComboBoxBundle Name=(Name::new("combobox")) @style="w-128 h-32" UiComboBox=(UiComboBox {
+                default_index: None,
+                items: vec![
+                    Arc::new(StringItem::new("item1".to_string())),
+                    Arc::new(StringItem::new("item22".to_string())),
+                    Arc::new(StringItem::new("item333".to_string())),
+                ],
+            })/>
+            <(UiTextBundle::new("text", 32, &theme))/>
+        </UiBlockBundle>
+    }
+    spawn!{&mut commands=>
+        <MiniNodeBundle>
+            <UiHollowBlockBundle @style="w-256 h-256 p-8 m-8">
+                <UiInputBoxBundle @style="full m-8" />
+            </UiHollowBlockBundle>
+            <UiSunkenBlockBundle @style="w-256 h-256 p-8 m-8"/>
+            <UiHighlightBlockBundle @style="w-256 h-256 p-8 m-8"/>
+        </MiniNodeBundle>
+    }
 }
 
 pub fn button_open_poppup(In(event): In<UiButtonEvent>, mut commands: Commands, theme: Res<Theme>) {
@@ -124,9 +97,7 @@ pub fn button_open_poppup(In(event): In<UiButtonEvent>, mut commands: Commands, 
         commands.entity(event.button).with_children(|c| {
             spawn! {c=>
                 <UiBlockBundle ZIndex=(ZIndex::Global(1024)) @style="w-200 h-200 top-120% absolute align-self:center"
-                    UiPopupExt=( UiPopupExt::from(UiPopup::new(Some(
-                        theme.system(popup_animation_system::<UiAnimationDropdownConfig>),
-                    ))) )>
+                    UiPopupExt=( UiPopupExt::from(UiPopup::default().with_callback(event.receiver, theme.system(popup_animation_system::<UiAnimationDropdownConfig>),)) )>
                     <(UiTextBundle::new("popup inner", 32, &theme))/>
                 </UiBlockBundle>
             }
@@ -138,17 +109,21 @@ pub fn open_menu(
     In(event): In<UiInputEvent>,
     theme: Res<Theme>,
     mut commands: Commands,
-    node_query:Query<( &RelativeCursorPosition,&Node )>
+    node_query: Query<(&RelativeCursorPosition, &Node)>,
 ) {
     match event.kind {
         UiInputEventKind::MouseRelease(MouseButton::Left) => {
-            let Ok(( relative_pos,node )) = node_query.get(event.node) else {return};
-            let Some(normalized) = relative_pos.normalized else {return};
+            let Ok((relative_pos, node)) = node_query.get(event.node) else {
+                return;
+            };
+            let Some(normalized) = relative_pos.normalized else {
+                return;
+            };
             let delta = normalized * node.size();
-            commands.entity(event.node).with_children(|c|{
+            commands.entity(event.node).with_children(|c| {
                 spawn! {c=>
                     <UiBlockBundle @style="absolute flex-col p-8 left-{delta.x} top-{delta.y}"
-                        UiPopupExt=(UiPopup::new_auto_destroy(None).into())>
+                        UiPopupExt=(UiPopup::default().with_auto_destroy().into())>
                         <UiButtonBundle @style="m-4 p-4">
                             <(UiTextBundle::new("item 1", 24, &theme))/>
                         </UiButtonBundle>

@@ -104,9 +104,10 @@ pub fn open_popup(In(event): In<UiButtonEvent>, theme: Res<Theme>, mut commands:
                     ..default()
                 },
             ))
-            .insert(UiPopupExt::from(UiPopup::new(Some(
+            .insert(UiPopupExt::from(UiPopup::default().with_callback(
+                event.receiver,
                 theme.system(delay_destroy_launcher),
-            ))))
+            )))
             .set_parent(event.button);
     }
 }
