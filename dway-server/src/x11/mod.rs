@@ -3,6 +3,7 @@ pub mod events;
 pub use display::*;
 use dway_util::eventloop::EventLoop;
 pub mod screen;
+pub mod systems;
 pub mod util;
 pub mod window;
 
@@ -15,11 +16,7 @@ use crate::{
 relationship!(XDisplayHasWindow=>XWindowList-<XDisplayRef);
 
 use self::{
-    events::dispatch_x11_events,
-    window::{
-        process_window_action_events, x11_window_attach_wl_surface, MappedXWindow, XWindow,
-        XWindowAttachSurface,
-    },
+    events::dispatch_x11_events, systems::{process_window_action_events, x11_window_attach_wl_surface}, window::{MappedXWindow, XWindow, XWindowAttachSurface}
 };
 
 #[derive(Bundle)]

@@ -1,7 +1,13 @@
-use std::sync::Arc;
+use super::{atoms::Atoms, XWaylandDisplay};
+use crate::{
+    geometry::{Geometry, GlobalGeometry},
+    prelude::*,
+    util::rect::IRect,
+};
 use bevy::utils::HashSet;
 use encoding::{types::DecoderTrap, Encoding};
 use scopeguard::defer;
+use std::sync::Arc;
 use x11rb::{
     connection::Connection,
     properties::{WmClass, WmHints, WmSizeHints},
@@ -9,13 +15,10 @@ use x11rb::{
     rust_connection::{ConnectionError, RustConnection},
     wrapper::ConnectionExt as RustConnectionExt,
 };
-use crate::{
-    geometry::{Geometry, GlobalGeometry}, input::grab::{SurfaceGrabKind, WlSurfacePointerState}, prelude::*, util::rect::IRect, wl::surface::{ClientHasSurface, WlSurface}, xdg::{
-        toplevel::{DWayToplevel, PinedWindow},
-        DWayWindow,
-    }
-};
-use super::{atoms::Atoms, screen::XScreen, XDisplayRef, XWaylandDisplay, XWaylandDisplayWrapper};
+
+const MWM_HINTS_FLAGS_FIELD: usize = 0;
+const MWM_HINTS_DECORATIONS_FIELD: usize = 2;
+const MWM_HINTS_DECORATIONS: u32 = 1 << 1;
 
 #[derive(Component, Reflect)]
 pub struct MappedXWindow;
@@ -382,206 +385,11 @@ impl XWindow {
         conn.flush()?;
         Ok(())
     }
-}
 
-pub fn x11_window_attach_wl_surface(
-    xwindow_query: Query<
-        (
-            Entity,
-            &XWindow,
-            &XDisplayRef,
-            &Geometry,
-            &GlobalGeometry,
-            Option<&XWindowSurfaceRef>,
-        ),
-        (
-            Without<WlSurface>,
-            Without<XScreen>,
-            With<MappedXWindow>,
-            Without<XWaylandDisplayWrapper>,
-        ),
-    >,
-    xdisplay_query: Query<(&XWaylandDisplayWrapper, &Parent)>,
-    wl_query: Query<&DWayServer>,
-    mut event_writter: EventWriter<Insert<DWayWindow>>,
-    mut commands: Commands,
-) {
-    for (xwindow_entity, xwindow, display_ref, geometry, global_geometry, attached) in
-        xwindow_query.iter()
-    {
-        if attached.map(|r| r.get().is_some()).unwrap_or_default() {
-            continue;
+    pub fn is_decorated(&self) -> bool {
+        if (self.motif_hints[MWM_HINTS_FLAGS_FIELD] & MWM_HINTS_DECORATIONS) != 0 {
+            return self.motif_hints[MWM_HINTS_DECORATIONS_FIELD] == 0;
         }
-        if let Some(wid) = xwindow.surface_id {
-            let Some((xdisplay_wrapper, wl_entity)) =
-                display_ref.get().and_then(|e| xdisplay_query.get(e).ok())
-            else {
-                continue;
-            };
-            let Ok(dway) = wl_query.get(wl_entity.get()) else {
-                continue;
-            };
-            let xdisplay = xdisplay_wrapper.lock().unwrap();
-            let Ok(wl_surface) = xdisplay
-                .client
-                .clone()
-                .object_from_protocol_id::<wl_surface::WlSurface>(&dway.display.handle(), wid)
-            else {
-                continue;
-            };
-            let wl_surface_entity = DWay::get_entity(&wl_surface);
-            commands.add(ConnectCommand::<XWindowAttachSurface>::new(
-                xwindow_entity,
-                wl_surface_entity,
-            ));
-            let mut entity_mut = commands.entity(wl_surface_entity);
-            entity_mut.insert((
-                geometry.clone(),
-                global_geometry.clone(),
-                DWayWindow::default(),
-            ));
-            if xwindow.is_toplevel {
-                entity_mut.insert(DWayToplevel::default());
-            }
-            event_writter.send(Insert::new(wl_surface_entity));
-            commands.entity(xwindow_entity).insert(MappedXWindow);
-            debug!(
-                "xwindow {:?} attach wl_surface {:?}",
-                xwindow_entity, wl_surface_entity
-            );
-        }
-    }
-}
-
-graph_query!(
-XWindowGraph=>[
-    surface=<(&'static Geometry, &'static mut WlSurfacePointerState, Option<&'static PinedWindow> ),With<DWayToplevel>>,
-    xwindow=&'static mut XWindow,
-    client=Entity,
-]=>{
-    path=surface-[XWindowAttachSurface]->xwindow,
-    seat_path=surface-[ClientHasSurface]->client,
-});
-
-pub fn process_window_action_events(
-    mut events: EventReader<WindowAction>,
-    mut query_graph: XWindowGraph,
-) {
-    for event in events.read() {
-        match (|| {
-            match event {
-                WindowAction::Close(e) => {
-                    query_graph
-                        .for_each_path_mut_from(*e, |_, window| ControlFlow::Return(window.close()))
-                        .transpose()?;
-                }
-                WindowAction::Maximize(e) => {
-                    query_graph
-                        .for_each_path_mut_from(*e, |_, window| {
-                            let atom_hor = window.atoms()._NET_WM_STATE_MAXIMIZED_HORZ;
-                            let atom_ver = window.atoms()._NET_WM_STATE_MAXIMIZED_VERT;
-                            ControlFlow::Return(
-                                window
-                                    .change_net_state(atom_hor, true)
-                                    .and(window.change_net_state(atom_ver, true)),
-                            )
-                        })
-                        .transpose()?;
-                }
-                WindowAction::UnMaximize(e) => {
-                    query_graph
-                        .for_each_path_mut_from(*e, |_, window| {
-                            let atom_hor = window.atoms()._NET_WM_STATE_MAXIMIZED_HORZ;
-                            let atom_ver = window.atoms()._NET_WM_STATE_MAXIMIZED_VERT;
-                            ControlFlow::Return(
-                                window
-                                    .change_net_state(atom_hor, false)
-                                    .and(window.change_net_state(atom_ver, false)),
-                            )
-                        })
-                        .transpose()?;
-                }
-                WindowAction::Fullscreen(e) => {
-                    query_graph
-                        .for_each_path_mut_from(*e, |_, window| {
-                            let atom = window.atoms()._NET_WM_STATE_FULLSCREEN;
-                            ControlFlow::Return(window.change_net_state(atom, true))
-                        })
-                        .transpose()?;
-                }
-                WindowAction::UnFullscreen(e) => {
-                    query_graph
-                        .for_each_path_mut_from(*e, |_, window| {
-                            let atom = window.atoms()._NET_WM_STATE_FULLSCREEN;
-                            ControlFlow::Return(window.change_net_state(atom, false))
-                        })
-                        .transpose()?;
-                }
-                WindowAction::Minimize(e) => {
-                    query_graph
-                        .for_each_path_mut_from(*e, |_, window| {
-                            let atom = window.atoms()._NET_WM_STATE_HIDDEN;
-                            ControlFlow::Return(window.change_net_state(atom, true))
-                        })
-                        .transpose()?;
-                }
-                WindowAction::UnMinimize(e) => {
-                    query_graph
-                        .for_each_path_mut_from(*e, |_, window| {
-                            let atom = window.atoms()._NET_WM_STATE_HIDDEN;
-                            ControlFlow::Return(window.change_net_state(atom, false))
-                        })
-                        .transpose()?;
-                }
-                WindowAction::SetRect(e, rect) => {
-                    query_graph
-                        .for_each_path_mut_from(*e, |_, window| {
-                            ControlFlow::Return(window.set_rect(*rect))
-                        })
-                        .transpose()?;
-                }
-                WindowAction::RequestMove(e) => {
-                    query_graph.for_each_seat_path_mut_from(
-                        *e,
-                        |(_geo, surface_pointer_state, pinned), seat_entity| {
-                            if pinned.is_some() {
-                                return ControlFlow::<()>::default();
-                            }
-                            surface_pointer_state.grab = Some(Box::new(SurfaceGrabKind::Move {
-                                mouse_pos: surface_pointer_state.mouse_pos,
-                                seat: *seat_entity,
-                                serial: None,
-                            }));
-                            ControlFlow::<()>::default()
-                        },
-                    );
-                }
-                WindowAction::RequestResize(e, edges) => {
-                    query_graph.for_each_seat_path_mut_from(
-                        *e,
-                        |(geo, surface_pointer_state, pinned), seat_entity| {
-                            if pinned.is_some() {
-                                return ControlFlow::<()>::default();
-                            }
-                            surface_pointer_state.grab =
-                                Some(Box::new(SurfaceGrabKind::Resizing {
-                                    seat: *seat_entity,
-                                    serial: None,
-                                    edges: *edges,
-                                    geo: geo.geometry,
-                                }));
-                            ControlFlow::<()>::default()
-                        },
-                    );
-                }
-            }
-            Result::<_>::Ok(())
-        })() {
-            Ok(o) => o,
-            Err(e) => {
-                error!("{}: {e}", "failed to apply window action");
-                continue;
-            }
-        }
+        false
     }
 }

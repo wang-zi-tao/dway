@@ -39,6 +39,7 @@ polling=info,\
 bevy_relationship=debug,\
 dway_server=info,\
 dway_server::render::importnode=info,\
+dway_server::zxdg::decoration=trace,\
 dway_client_core=info,\
 dway-tty=trace,\
 nega::front=info,\

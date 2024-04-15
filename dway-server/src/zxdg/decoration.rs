@@ -1,4 +1,6 @@
-use crate::{prelude::*, state::add_global_dispatch, util::unwrap_wl_enum};
+use crate::{
+    prelude::*, state::add_global_dispatch, util::unwrap_wl_enum, xdg::toplevel::DWayToplevel,
+};
 
 #[derive(Component)]
 pub struct Decoration {
@@ -35,10 +37,18 @@ impl wayland_server::Dispatch<zxdg_toplevel_decoration_v1::ZxdgToplevelDecoratio
                 if let Some(mut this) = state.get_mut::<Decoration>(*data) {
                     this.mode = unwrap_wl_enum(mode);
                 };
+                if let Some(mut toplevel) = state.get_mut::<DWayToplevel>(*data) {
+                    toplevel.decorated = unwrap_wl_enum(mode)
+                        .map(|x| x == zxdg_toplevel_decoration_v1::Mode::ServerSide)
+                        .unwrap_or(true);
+                }
             }
             zxdg_toplevel_decoration_v1::Request::UnsetMode => {
                 if let Some(mut this) = state.get_mut::<Decoration>(*data) {
                     this.mode = None;
+                    if let Some(mut toplevel) = state.get_mut::<DWayToplevel>(*data) {
+                        toplevel.decorated = true;
+                    }
                 };
             }
             _ => todo!(),

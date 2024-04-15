@@ -26,7 +26,7 @@ pub fn create_raw_window_material(
     image_rect: IRect,
     image: Handle<Image>,
     geo: &GlobalGeometry,
-    size: Vec2,
+    _size: Vec2,
 ) -> RoundedUiImageMaterial {
     let rect = geo.geometry;
     rounded_ui_image(
@@ -40,17 +40,11 @@ pub fn create_raw_window_material(
 #[derive(Component, Reflect, Debug)]
 pub struct WindowUI {
     pub window_entity: Entity,
-    pub workspace_entity: Entity,
-    pub screen_entity: Entity,
-    pub workspace_rect: IRect,
 }
 impl Default for WindowUI {
     fn default() -> Self {
         Self {
             window_entity: Entity::PLACEHOLDER,
-            workspace_entity: Entity::PLACEHOLDER,
-            screen_entity: Entity::PLACEHOLDER,
-            workspace_rect: default(),
         }
     }
 }
@@ -62,6 +56,7 @@ dway_widget! {
 WindowUI=>
 @plugin{
     app.register_type::<WindowUI>();
+    app.register_type::<WindowUIState>();
     app.add_systems(Update, apply_deferred.after(WindowUISystems::Render).before(PopupUISystems::Render));
 }
 @callback{ [UiButtonEvent]
@@ -102,14 +97,15 @@ WindowUI=>
 }
 @arg(asset_server: Res<AssetServer>)
 @arg(window_stack: Res<WindowStack>)
-@state_component(#[derive(Debug)])
+@state_component(#[derive(Reflect)])
 @use_state(pub rect:IRect)
 @use_state(pub bbox_rect:IRect)
-@use_state(pub title:String)
+@use_state(pub title:Option<String>)
+@use_state(pub decorated:bool)
 @use_state(pub image:Handle<Image>)
-@use_state(pub z_index:i32)
 @use_state(pub popup_list:Vec<Entity>)
 @global(theme: Theme)
+@world_query(z_index: &mut ZIndex)
 @query(window_query:(rect,surface, toplevel, index, popups)<-Query<(Ref<GlobalGeometry>, Ref<WlSurface>, Ref<DWayToplevel>, Ref<WindowIndex>, Option<Ref<PopupList>>), With<DWayWindow>>[prop.window_entity]->{
     let init = !widget.inited;
     if init || rect.is_changed(){
@@ -118,10 +114,18 @@ WindowUI=>
     if init || rect.is_changed() || surface.is_changed() {
         *state.bbox_rect_mut() = surface.image_rect().offset(rect.pos());
     }
-    if init || toplevel.is_changed(){ *state.title_mut() = toplevel.title.clone().unwrap_or_default(); }
+    if init || toplevel.is_changed(){
+        if state.title() != &toplevel.title {
+            *state.title_mut() = toplevel.title.clone(); 
+        }
+        if state.decorated() != &toplevel.decorated {
+            *state.decorated_mut() = toplevel.decorated; 
+        }
+    }
     if init || surface.is_changed(){ *state.image_mut() = surface.image.clone(); }
     if init || index.is_changed() {
-        state.set_z_index(WINDEOW_BASE_ZINDEX + WINDEOW_MAX_STEP * (window_stack.list.len() - index.global) as i32);
+        let z = WINDEOW_BASE_ZINDEX + WINDEOW_MAX_STEP * (window_stack.list.len() - index.global) as i32;
+        *z_index = ZIndex::Global(z);
     }
     if let Some(popups) = popups{
         if init || popups.is_changed() {
@@ -129,65 +133,65 @@ WindowUI=>
         }
     }
 })
-<NodeBundle @style="absolute full" >
-    <MiniNodeBundle @id="content" Style=(irect_to_style(*state.rect()))
-    ZIndex=(ZIndex::Global(*state.z_index())) FocusPolicy=(FocusPolicy::Block)
-    // Animator<_>=(Animator::new(Tween::new(
-    //     EaseFunction::BackOut,
-    //     Duration::from_secs_f32(0.5),
-    //     TransformScaleLens { start: Vec3::splat(0.8), end: Vec3::ONE, },
-    // )))
-    >
-        <MiniNodeBundle @style="full absolute" @id="mouse_area"
-            SurfaceUiNode=(SurfaceUiNode::new(prop.window_entity,widget.node_content_entity))
-            @connect(-[UiAttachData]->(prop.window_entity))
-            Interaction=(default()) FocusPolicy=(FocusPolicy::Pass)
+<MiniNodeBundle @id="content"
+    Style=(irect_to_style(*state.rect()))
+    ZIndex=(ZIndex::Local(4))
+    FocusPolicy=(FocusPolicy::Block)
+>
+    <MiniNodeBundle @style="full absolute" @id="mouse_area"
+        SurfaceUiNode=(SurfaceUiNode::new(prop.window_entity,widget.node_content_entity))
+        @connect(-[UiAttachData]->(prop.window_entity))
+        Interaction=(default()) FocusPolicy=(FocusPolicy::Pass)
+    />
+</MiniNodeBundle>
+<UiImageBundle Style=(irect_to_style(*state.bbox_rect())) @if(!*state.decorated()) >
+    <ImageBundle @id="image" @style="full" UiImage=(state.image().clone().into()) />
+</UiImageBundle>
+<NodeBundle Style=(irect_to_style(*state.rect())) @if(*state.decorated())>
+    <MaterialNodeBundle::<RoundedUiRectMaterial>
+        ZIndex=(ZIndex::Local(0))
+        @style="absolute left-{-DECORATION_MARGIN} right-{-DECORATION_MARGIN} bottom-{-DECORATION_MARGIN} top-{-DECORATION_HEIGHT}"
+        @handle(RoundedUiRectMaterial=>rounded_rect(Color::WHITE*0.2, 16.0)) />
+    <MaterialNodeBundle::<RoundedUiImageMaterial> @id="surface" @style="absolute full"
+    @handle(RoundedUiImageMaterial=>rounded_ui_image(
+        14.0,
+        ( state.bbox_rect().min-state.rect().min ).as_vec2() / state.rect().size().as_vec2(),
+        state.bbox_rect().size().as_vec2() / state.rect().size().as_vec2(),
+        state.image().clone())) />
+    <NodeBundle ZIndex=(ZIndex::Local(2))
+        @style="absolute left-0 right-0 top-{-DECORATION_HEIGHT} height-{DECORATION_HEIGHT}" >
+        <MiniNodeBundle @id="close" @style="m-2 w-20 h-20"
+            UiRawButtonExt=(UiButton::new(this_entity, on_close_button_event).into())
+            @handle(UiCircleMaterial=>circle_material(Color::WHITE*0.3)) >
+            <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg"))) @style="full" />
+        </MiniNodeBundle>
+        <MiniNodeBundle @id="max" @style="m-2 w-20 h-20"
+            UiRawButtonExt=(UiButton::new(this_entity, on_max_button_event).into())
+            @handle(UiCircleMaterial=>circle_material(Color::WHITE*0.3)) >
+            <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/maximize.svg"))) @style="full" />
+        </MiniNodeBundle>
+        <MiniNodeBundle @id="min" @style="m-2 w-20 h-20"
+            UiRawButtonExt=(UiButton::new(this_entity, on_min_button_event).into())
+            @handle(UiCircleMaterial=>circle_material(Color::WHITE*0.3)) >
+            <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/minimize.svg"))) @style="full" />
+        </MiniNodeBundle>
+        <TextBundle @id="title" @style="items-center justify-center m-auto"
+            Text=(Text::from_section(
+                state.title().as_deref().unwrap_or_default(),
+                TextStyle {
+                    font_size: DECORATION_HEIGHT - 2.0,
+                    color: Color::WHITE,
+                    font: theme.default_font(),
+                },
+            ).with_justify(JustifyText::Center))
         />
-        <MaterialNodeBundle::<RoundedUiRectMaterial> @id="outter"
-            ZIndex=(ZIndex::Local(0))
-            @style="absolute left-{-DECORATION_MARGIN} right-{-DECORATION_MARGIN} bottom-{-DECORATION_MARGIN} top-{-DECORATION_HEIGHT}"
-            @handle(RoundedUiRectMaterial=>rounded_rect(Color::WHITE*0.2, 16.0)) />
-        <MaterialNodeBundle::<RoundedUiImageMaterial> @id="surface" @style="absolute full"
-        @handle(RoundedUiImageMaterial=>rounded_ui_image(
-            14.0,
-            ( state.bbox_rect().min-state.rect().min ).as_vec2() / state.rect().size().as_vec2(),
-            state.bbox_rect().size().as_vec2() / state.rect().size().as_vec2(),
-            state.image().clone())) />
-        <NodeBundle @id="bar" ZIndex=(ZIndex::Local(2))
-            @style="absolute left-0 right-0 top-{-DECORATION_HEIGHT} height-{DECORATION_HEIGHT}" >
-            <MiniNodeBundle @id="close" @style="m-2 w-20 h-20"
-                UiRawButtonExt=(UiButton::new(this_entity, on_close_button_event).into())
-                @handle(UiCircleMaterial=>circle_material(Color::WHITE*0.3)) >
-                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg"))) @style="full" />
-            </MiniNodeBundle>
-            <MiniNodeBundle @id="max" @style="m-2 w-20 h-20"
-                UiRawButtonExt=(UiButton::new(this_entity, on_max_button_event).into())
-                @handle(UiCircleMaterial=>circle_material(Color::WHITE*0.3)) >
-                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/maximize.svg"))) @style="full" />
-            </MiniNodeBundle>
-            <MiniNodeBundle @id="min" @style="m-2 w-20 h-20"
-                UiRawButtonExt=(UiButton::new(this_entity, on_min_button_event).into())
-                @handle(UiCircleMaterial=>circle_material(Color::WHITE*0.3)) >
-                <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/minimize.svg"))) @style="full" />
-            </MiniNodeBundle>
-            <TextBundle @style="items-center justify-center m-auto"
-                Text=(Text::from_section(
-                    state.title(),
-                    TextStyle {
-                        font_size: DECORATION_HEIGHT - 2.0,
-                        color: Color::WHITE,
-                        font: theme.default_font(),
-                    },
-                ).with_justify(JustifyText::Center))
-            />
-        </NodeBundle>
-    </>
-    <MiniNodeBundle @style="absolute full"
-        @for_query(_ in Query<Ref<WlSurface>>::iter_many(state.popup_list().iter())=>[ ])>
-        <PopupUIBundle ZIndex=(ZIndex::Global(WINDEOW_POPUP_BASE_ZINDEX))
-            PopupUI=(PopupUI{window_entity:widget.data_entity})/>
-    </MiniNodeBundle>
+    </NodeBundle>
 </NodeBundle>
+<MiniNodeBundle @style="absolute full"
+    @for_query(_ in Query<Ref<WlSurface>>::iter_many(state.popup_list().iter())=>[ ])>
+    <PopupUIBundle ZIndex=(ZIndex::Global(WINDEOW_POPUP_BASE_ZINDEX))
+        PopupUI=(PopupUI{window_entity:widget.data_entity})/>
+</MiniNodeBundle>
 }
 
 #[derive(Component)]

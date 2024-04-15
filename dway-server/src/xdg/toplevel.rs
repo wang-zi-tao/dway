@@ -10,11 +10,12 @@ use crate::{
     wl::surface::ClientHasSurface,
 };
 use bevy::ecs::query::QueryData;
+use smart_default::SmartDefault;
 
 #[derive(Component)]
 pub struct PinedWindow;
 
-#[derive(Component, Reflect, Debug, Clone, Default)]
+#[derive(Component, Reflect, Debug, Clone, SmartDefault)]
 #[reflect(Debug)]
 pub struct DWayToplevel {
     pub title: Option<String>,
@@ -22,6 +23,7 @@ pub struct DWayToplevel {
     pub max: bool,
     pub fullscreen: bool,
     pub min: bool,
+    pub decorated: bool,
     pub min_size: Option<IVec2>,
     pub max_size: Option<IVec2>,
     pub size: Option<IVec2>,

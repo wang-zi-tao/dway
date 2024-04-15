@@ -63,6 +63,7 @@ ron = "0.8.1"
 derive_builder = {workspace=true}
 structstruck = {workspace=true}
 x11rb = { version="*", default-features=false, features = ["composite"] }
+smart-default = {workspace=true}
 
 [profile.dev]
 opt-level = 1

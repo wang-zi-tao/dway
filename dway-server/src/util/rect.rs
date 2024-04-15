@@ -27,7 +27,7 @@ impl IRect {
     }
     pub fn empty(&self) -> bool {
         let size = self.size();
-        size.x > 0 && size.y > 0
+        size.x <= 0 && size.y <= 0
     }
     pub fn intersection(&self, other: IRect) -> Self {
         let intersection = Self {

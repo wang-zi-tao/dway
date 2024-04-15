@@ -259,8 +259,10 @@ pub fn on_input_event(
                         MouseEvent::Button(e) => {
                             if window_pointer.enabled() {
                                 pointer.button(seat, e, surface, relative_pos.as_dvec2());
-                                if let Some(popup) = popup {
-                                    popup.raw.popup_done();
+                                if !content_rect.contains(pos.as_vec2()) {
+                                    if let Some(popup) = popup {
+                                        popup.raw.popup_done();
+                                    }
                                 }
                             }
                             window_pointer.is_clicked = content_rect.contains(pos.as_vec2())
