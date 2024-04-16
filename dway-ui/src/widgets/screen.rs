@@ -24,7 +24,9 @@ ScreenWindows=>
 @state_component(#[derive(Reflect,serde::Serialize,serde::Deserialize)])
 @use_state(pub window_list: Vec<Entity>)
 @component(window_list<-Query<Ref<ScreenWindowList>>[prop.screen]->{
-    state.set_window_list(window_list.iter().collect()); 
+    if window_list.is_changed() {
+        state.set_window_list(window_list.iter().collect()); 
+    }
 })
 <MiniNodeBundle @id="Windows" @style="full absolute"
     @map(*window_entity:Entity <= window_entity in state.window_list().iter().cloned() => {

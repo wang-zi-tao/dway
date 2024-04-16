@@ -84,7 +84,7 @@ pub fn generate_change_detect(structure: &ItemStruct) -> anyhow::Result<TokenStr
             #vis fn marks_all(&mut self) {
                 self.__dway_changed_flags = #all as #integer_type;
             }
-            #vis fn is_inner_changed(&mut self) -> bool {
+            #vis fn is_inner_changed(&self) -> bool {
                 self.__dway_changed_flags != 0
             }
             #vis fn clear_marks(&mut self) -> bool {

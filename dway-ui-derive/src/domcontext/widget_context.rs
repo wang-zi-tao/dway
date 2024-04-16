@@ -252,18 +252,42 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
             });
 
             let spawn_children = quote! {
-                let mut #lambda_var = |mut #ident, widget: &mut #sub_widget_type, state:&mut #sub_widget_state_type| {
+                let mut #lambda_var = |mut #ident, mut widget: Mut<#sub_widget_type>, mut state: Mut<#sub_widget_state_type>| {
                     #spawn_children
                     #ident
                 };
                 let #ident = if let Ok((mut widget,mut state)) = #sub_widget_query.get_mut(#ident) {
-                    let #ident = #lambda_var(#ident, &mut widget, &mut state);
-                    state.clear_marks();
+                    let #ident = #lambda_var(#ident, widget.reborrow(), state.reborrow());
+                    if state.is_inner_changed(){
+                        state.clear_marks();
+                    }
                     #ident
                 }else{
                     let mut state = #sub_widget_state_type::default();
                     let mut widget = #sub_widget_type::default();
-                    let #ident = #lambda_var(#ident, &mut widget, &mut state);
+                    let __dway_ui_last_run = bevy::ecs::component::Tick::new(0);
+                    let __dway_ui_this_run = bevy::ecs::component::Tick::new(0);
+                    let mut __dway_ui_state_added = bevy::ecs::component::Tick::new(0);
+                    let mut __dway_ui_state_changed = bevy::ecs::component::Tick::new(0);
+                    let mut __dway_ui_widget_added = bevy::ecs::component::Tick::new(0);
+                    let mut __dway_ui_widget_changed = bevy::ecs::component::Tick::new(0);
+                    let #ident = #lambda_var(
+                        #ident,
+                        bevy::prelude::Mut::new(
+                            &mut widget,
+                            &mut __dway_ui_widget_added,
+                            &mut __dway_ui_widget_changed,
+                            __dway_ui_last_run,
+                            __dway_ui_this_run
+                        ),
+                        bevy::prelude::Mut::new(
+                            &mut state,
+                            &mut __dway_ui_state_added,
+                            &mut __dway_ui_state_changed,
+                            __dway_ui_last_run,
+                            __dway_ui_this_run
+                        ),
+                    );
                     state.clear_marks();
                     commands.entity(#ident).insert((state,widget));
                     #ident
@@ -544,7 +568,9 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
                 if #parent_just_inited {
                     widget.inited = true;
                 }
-                state.clear_marks();
+                if state.is_inner_changed(){
+                    state.clear_marks();
+                }
             }
         }
     };

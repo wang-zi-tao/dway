@@ -11,3 +11,4 @@ flamegraph.svg
 .*
 !.gitignore
 dhat-heap.json
+rustc-*

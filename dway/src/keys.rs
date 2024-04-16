@@ -7,15 +7,25 @@ use bevy::{
 };
 use dway_client_core::{
     desktop::{CursorOnOutput, CursorOnWindow, FocusedWindow},
-    navigation::windowstack::{WindowStack},
+    navigation::windowstack::WindowStack,
     workspace::{ScreenAttachWorkspace, WindowOnWorkspace, WorkspaceSet},
 };
 use dway_server::{
     apps::launchapp::{RunCommandRequest, RunCommandRequestBuilder},
     input::grab::ResizeEdges,
-    macros::EntityCommandsExt,
+    macros::{graph_query, EntityCommandsExt},
     prelude::WindowAction,
 };
+
+graph_query! {
+WindowGraph=>[
+    workspace_root=<Entity, With<WorkspaceSet>>,
+    screen=Entity,
+    workspace=Entity,
+    window=Entity,
+]=>{
+
+}}
 
 pub fn wm_keys(
     input: Res<ButtonInput<KeyCode>>,
@@ -35,21 +45,22 @@ pub fn wm_keys(
     let ctrl = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
     let alt = input.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
 
-    if alt | meta {
-        if input.just_pressed(KeyCode::Enter) {
+    {
+        if meta && input.just_pressed(KeyCode::Enter) {
             run_command_event.send(
                 RunCommandRequestBuilder::default()
                     .command("alacritty".to_string())
                     .build()
                     .unwrap(),
             );
-        } else if shift && input.just_pressed(KeyCode::KeyQ) {
+        } else if meta && input.just_pressed(KeyCode::Space) {
+        } else if meta && shift && input.just_pressed(KeyCode::KeyQ) {
             exit.send(AppExit);
-        } else if input.just_pressed(KeyCode::KeyQ) || input.just_pressed(KeyCode::F4) {
+        } else if meta && input.just_pressed(KeyCode::KeyQ) || input.just_pressed(KeyCode::F4) {
             if let Some((window, _)) = &window_under_cursor.0 {
                 window_action.send(WindowAction::Close(*window));
             }
-        } else if input.just_pressed(KeyCode::Tab) {
+        } else if meta && input.just_pressed(KeyCode::Tab) {
             *tab_counter += 1;
             if let Some(window) = &window_stack.at(*tab_counter) {
                 focus_window.window_entity = Some(*window);

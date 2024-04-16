@@ -2,7 +2,7 @@
 name = "dway-ui"
 version = "0.1.0"
 edition = "2021"
-crate-type = ["dylib", "rlib"]
+# crate-type = ["dylib", "rlib"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
