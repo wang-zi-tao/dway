@@ -6,14 +6,14 @@ use bevy::{
 use crate::{apply_disconnection, ConnectableMut, ConnectionEventReceiver, Relationship};
 
 pub trait AppExt {
-    fn register_relation<R>(&mut self)
+    fn register_relation<R>(&mut self) -> &mut Self
     where
         R: Relationship + 'static,
         R::From: GetTypeRegistration + ConnectableMut,
         R::To: GetTypeRegistration + ConnectableMut;
 }
 impl AppExt for App {
-    fn register_relation<R>(&mut self)
+    fn register_relation<R>(&mut self) -> &mut Self
     where
         R: Relationship + 'static,
         R::From: GetTypeRegistration + ConnectableMut,
@@ -25,5 +25,6 @@ impl AppExt for App {
             self.init_non_send_resource::<ConnectionEventReceiver>();
             self.add_systems(Last, apply_disconnection);
         }
+        self
     }
 }

@@ -1,15 +1,17 @@
 mod base;
-mod filter;
-mod node;
-mod edge;
+mod builder;
 mod create;
 mod insert;
-mod path;
+mod model;
+mod syntax;
 mod update;
-mod query;
 
 use lazy_static::lazy_static;
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    cell::RefCell,
+    collections::{BTreeMap, HashMap},
+    rc::Rc,
+};
 
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, TokenStream as TokenStream2};
@@ -23,6 +25,8 @@ use syn::{
     token::{Brace, Bracket},
     Token, Type,
 };
+
+use crate::{builder::QuerySetBuilder, syntax::query::GraphQuerySet};
 
 #[derive(syn_derive::Parse)]
 enum NodeQueryKind {
@@ -356,4 +360,10 @@ pub fn graph_query(input: TokenStream) -> TokenStream {
         }
     };
     output.into()
+}
+
+#[proc_macro]
+pub fn graph_query2(input: TokenStream) -> TokenStream {
+    let graph_query = parse_macro_input!(input as GraphQuerySet);
+    graph_query.build().into()
 }

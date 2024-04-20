@@ -1,7 +1,8 @@
-use crate::{query::QueryBuilder};
+use convert_case::Casing;
 use derive_syn_parse::Parse;
 use proc_macro2::Ident;
 use proc_macro2::TokenStream;
+use quote::format_ident;
 use quote::quote;
 use quote::quote_spanned;
 use syn::{
@@ -12,34 +13,45 @@ use syn::{
     Token, Type,
 };
 
+use crate::builder::QueryBuilder;
+
 #[derive(Parse)]
 pub struct NodeQueryField {
     pub name: Ident,
-    pub col: Token![:],
+    pub _col: Token![:],
     pub ty: NodeQuery,
 }
 
+mod kw {
+    use syn::custom_keyword;
+
+    custom_keyword!(Ref);
+    custom_keyword!(Has);
+    custom_keyword!(Entity);
+    custom_keyword!(Option);
+}
+
 pub enum NodeQuery {
-    Entity(Ident),
+    Entity(kw::Entity),
     Reference {
         reference: Token![&],
         mutable: Option<Token![mut]>,
         ty: Type,
     },
     Option {
-        option: Ident,
+        kw: kw::Option,
         start: Token![<],
         query: Box<NodeQuery>,
         end: Token![>],
     },
     Ref {
-        name: Ident,
+        kw: kw::Ref,
         start: Token![<],
         query: Box<NodeQuery>,
         end: Token![>],
     },
-    Mut {
-        name: Ident,
+    Has {
+        kw: kw::Has,
         start: Token![<],
         query: Box<NodeQuery>,
         end: Token![>],
@@ -58,6 +70,15 @@ pub enum NodeQuery {
 }
 
 impl NodeQuery {
+    pub fn to_item_type(&self, builder: &mut QueryBuilder, name: &Ident) -> TokenStream {
+        let query_data_type = self.to_type(builder, name);
+        if builder.mutable {
+            quote!(&mut bevy::ecs::query::QueryItem<#query_data_type>)
+        } else {
+            quote!(&bevy::ecs::query::ROQueryItem<#query_data_type>)
+        }
+    }
+
     pub fn to_type(&self, builder: &mut QueryBuilder, name: &Ident) -> TokenStream {
         match self {
             NodeQuery::Entity(ident) => quote!(#ident),
@@ -67,31 +88,31 @@ impl NodeQuery {
                 ty,
             } => quote_spanned!(ty.span()=> #reference 'static #mutable #ty),
             NodeQuery::Option {
-                option,
+                kw,
                 start,
                 query,
                 end,
             } => {
                 let query_type = query.to_type(builder, name);
-                quote_spanned!(name.span()=> #option #start #query_type #end)
+                quote_spanned!(name.span()=> #kw #start #query_type #end)
             }
             NodeQuery::Ref {
-                name,
+                kw,
                 start,
                 query,
                 end,
             } => {
                 let query_type = query.to_type(builder, name);
-                quote_spanned!(name.span()=> #name #start #query_type #end)
+                quote_spanned!(name.span()=> #kw #start 'static, #query_type #end)
             }
-            NodeQuery::Mut {
-                name,
+            NodeQuery::Has {
+                kw,
                 start,
                 query,
                 end,
             } => {
                 let query_type = query.to_type(builder, name);
-                quote_spanned!(name.span()=> #name #start #query_type #end)
+                quote_spanned!(name.span()=> #kw #start #query_type #end)
             }
             NodeQuery::Other { ty } => {
                 quote_spanned!(name.span()=> #ty)
@@ -101,15 +122,19 @@ impl NodeQuery {
                 quote_spanned!(paren.span=> (#(#elements_type),*))
             }
             NodeQuery::Structure { brace, fields } => {
-                let structure_name = builder.alloc_name(&name.to_string(), brace.span.span());
+                let structure_name = format_ident!(
+                    "{}Query",
+                    &name.to_string().to_case(convert_case::Case::Pascal),
+                    span = brace.span.span(),
+                );
                 let structure_fields = fields.iter().map(|f| {
                     let name = &f.name;
                     let ty = f.ty.to_type(builder, name);
                     quote!(#name: #ty)
                 });
                 let structure = quote! {
-                    #[derive(WorldQuery)]
-                    #[world_query(derive(Debug))]
+                    #[derive(bevy::ecs::query::QueryData)]
+                    #[query_data(mutable)]
                     struct #structure_name {
                         #(#structure_fields),*
                     }
@@ -120,16 +145,38 @@ impl NodeQuery {
         }
     }
 
-    pub fn build(&self, builder: &mut QueryBuilder, name: &Ident) {
+    pub fn build(&self, builder: &mut QueryBuilder, name: &Ident, query_filter: Option<&Type>) {
+        let mutable = builder.mutable;
         let span = name.span();
         let inner = std::mem::replace(&mut builder.code, quote!());
         let ty = self.to_type(builder, name);
-        let query = builder.add_query(&quote_spanned!(span=> (Entity,#ty)));
-        builder.code = quote_spanned! {span=>
-            if let Some((entity,#name)) = self.#query.get(entity) {
-                #inner
+        let query = builder.add_query(&quote_spanned!(span=> (Entity,#ty)), query_filter);
+        let mut_flag = mutable.then_some(quote_spanned!(span=>mut));
+        builder.code = if builder.node_stack.len() == 1 && !builder.has_begin_node {
+            let iter_method = if mutable {
+                quote!(iter_mut)
+            } else {
+                quote!(iter)
+            };
+            quote_spanned! {span=>
+                #[allow(unused_variables)]
+                for (entity,#mut_flag #name) in self.#query.#iter_method() {
+                    #inner
+                }
             }
-        }
+        } else {
+            let get_method = if mutable {
+                quote!(get_mut)
+            } else {
+                quote!(get)
+            };
+            quote_spanned! {span=>
+                #[allow(unused_variables)]
+                if let Ok((entity,#mut_flag #name)) = self.#query.#get_method(entity) {
+                    #inner
+                }
+            }
+        };
     }
 }
 
@@ -138,8 +185,7 @@ impl syn::parse::Parse for NodeQuery {
         if input.peek(Token![&]) {
             let reference: Token![&] = input.parse()?;
             let mutable = if input.peek(Token![mut]) {
-                let mutable: Token![mut] = input.parse()?;
-                Some(mutable)
+                Some(input.parse()?)
             } else {
                 None
             };
@@ -160,59 +206,31 @@ impl syn::parse::Parse for NodeQuery {
                 brace: braced!(content in input),
                 fields: content.parse_terminated(NodeQueryField::parse, Token![,])?,
             })
-        } else {
-            let ident: Ident = input.parse()?;
-            match &*ident.to_string() {
-                "Entity" => Ok(Self::Entity(ident)),
-                "Option" => Ok(Self::Option {
-                    option: ident,
-                    start: input.parse()?,
-                    query: input.parse()?,
-                    end: input.parse()?,
-                }),
-                "Ref" => Ok(Self::Ref {
-                    name: ident,
-                    start: input.parse()?,
-                    query: input.parse()?,
-                    end: input.parse()?,
-                }),
-                "Mut" => Ok(Self::Mut {
-                    name: ident,
-                    start: input.parse()?,
-                    query: input.parse()?,
-                    end: input.parse()?,
-                }),
-                _ => Ok(Self::Other { ty: input.parse()? }),
-            }
-        }
-    }
-}
-
-pub enum Node {
-    WithFilter {
-        _lt: Token!(<),
-        ty: NodeQuery,
-        _comma: Token!(,),
-        filter: Type,
-        _gt: Token!(>),
-    },
-    WithoutFilter {
-        ty: NodeQuery,
-    },
-}
-
-impl syn::parse::Parse for Node {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        if input.peek(Token![<]) {
-            Ok(Self::WithFilter {
-                _lt: input.parse()?,
-                ty: input.parse()?,
-                _comma: input.parse()?,
-                filter: input.parse()?,
-                _gt: input.parse()?,
+        } else if input.peek(kw::Entity) {
+            Ok(Self::Entity(input.parse()?))
+        } else if input.peek(kw::Option) {
+            Ok(Self::Option {
+                kw: input.parse()?,
+                start: input.parse()?,
+                query: input.parse()?,
+                end: input.parse()?,
+            })
+        } else if input.peek(kw::Ref) {
+            Ok(Self::Ref {
+                kw: input.parse()?,
+                start: input.parse()?,
+                query: input.parse()?,
+                end: input.parse()?,
+            })
+        } else if input.peek(kw::Has) {
+            Ok(Self::Has {
+                kw: input.parse()?,
+                start: input.parse()?,
+                query: input.parse()?,
+                end: input.parse()?,
             })
         } else {
-            Ok(Self::WithoutFilter { ty: input.parse()? })
+            Ok(Self::Other { ty: input.parse()? })
         }
     }
 }
