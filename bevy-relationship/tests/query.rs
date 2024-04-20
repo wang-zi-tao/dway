@@ -12,10 +12,14 @@ pub struct C1(pub usize);
 #[derive(Component)]
 pub struct C2(pub usize);
 
+#[derive(Component)]
+pub struct C3(pub usize);
+
 relationship!(R0=>F0--T0);
 relationship!(R1=>F1>-T1);
 relationship!(R2=>F2-<T2);
 relationship!(R3=>F3>-<T3);
+relationship!(R4=>F4>-<T4);
 
 fn test_suit(system: BoxedSystem) {
     let mut app = App::new();
@@ -25,8 +29,9 @@ fn test_suit(system: BoxedSystem) {
         .register_relation::<R1>()
         .register_relation::<R2>()
         .register_relation::<R3>()
+        .register_relation::<R4>()
         .add_systems(Startup, move |mut command: Commands| {
-            let e0 = command.spawn(C0(0)).id();
+            let e0 = command.spawn((C0(0), C3(0))).id();
             let e1 = command.spawn(C1(1)).id();
             let e2 = command.spawn(C2(2)).id();
             let e3 = command.spawn((C0(3), C1(3))).id();
@@ -45,6 +50,7 @@ fn test_suit(system: BoxedSystem) {
             command.entity(e0).connect_to::<R0>(e1);
             command.entity(e0).connect_to::<R1>(e2);
             command.entity(e0).connect_to::<R2>(e3);
+            command.entity(e0).connect_to::<R2>(e3);
             command.entity(e0).connect_to::<R2>(e5);
             command.entity(e0).connect_to::<R2>(e7);
             command.entity(e0).connect_to::<R3>(e4);
@@ -55,6 +61,13 @@ fn test_suit(system: BoxedSystem) {
             command.entity(e4).connect_to::<R3>(e7);
             command.entity(e5).connect_to::<R3>(e7);
             command.entity(e6).connect_to::<R3>(e7);
+            command.entity(e0).connect_to::<R4>(e1);
+            command.entity(e0).connect_to::<R4>(e2);
+            command.entity(e1).connect_to::<R4>(e2);
+            command.entity(e2).connect_to::<R4>(e3);
+            command.entity(e2).connect_to::<R4>(e5);
+            command.entity(e3).connect_to::<R4>(e4);
+            command.entity(e4).connect_to::<R4>(e5);
             command.entity(e1).add_child(e2);
             command.entity(e1).add_child(e3);
             command.entity(e1).add_child(e4);
@@ -501,6 +514,26 @@ fn test_query_from_node() {
                 ops,
                 HashSet::from_iter([(1, 5), (4, 8), (1, 8), (6, 8), (7, 8)])
             );
+        },
+    )));
+}
+
+#[test]
+fn test_query_edge_deep() {
+    graph_query2! {
+        QueryNode=>path=match (node0:Entity)-[R4 * 1..2]->(node1:Entity)
+    }
+    test_suit(Box::new(IntoSystem::into_system(
+        move |graph: QueryNode, query: Query<Entity, With<C3>>| {
+            let mut ops = HashSet::new();
+            for entity in &query {
+                let r = graph.foreach_path_from(entity, |n0, n1| {
+                    ops.insert((n0.index(), n1.index()));
+                    ControlFlow::<()>::Continue
+                });
+                assert!(r.is_none());
+            }
+            assert_eq!(ops, HashSet::from_iter([(1, 6), (1, 4)]));
         },
     )));
 }

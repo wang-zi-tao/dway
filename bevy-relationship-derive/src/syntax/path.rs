@@ -1,10 +1,10 @@
 use derive_syn_parse::Parse;
 use proc_macro2::Ident;
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, quote_spanned};
 use syn::{
     spanned::Spanned,
     token::{Bracket, Paren},
-    Token, Type,
+    ExprRange, Token, Type,
 };
 
 use crate::builder::{NodeInfo, QueryBuilder};
@@ -26,11 +26,6 @@ pub enum EdgeDirection {
 pub struct PathEdgeQuery {
     #[bracket]
     pub _wrap: Bracket,
-    // #[inside(paren)]
-    // pub multi: Option<Token![*]>,
-    // #[inside(paren)]
-    // #[parse_if(multi.is_some())]
-    // pub range: Option<ExprRange>,
     #[inside(_wrap)]
     pub edge: EdgeQuery,
     #[inside(_wrap)]
@@ -38,23 +33,60 @@ pub struct PathEdgeQuery {
     #[inside(_wrap)]
     #[parse_if(where_.is_some())]
     pub filter: Option<Filter>,
+    #[inside(_wrap)]
+    pub multi: Option<Token![*]>,
+    #[inside(_wrap)]
+    #[parse_if(multi.is_some())]
+    pub range: Option<ExprRange>,
 }
 
 impl PathEdgeQuery {
     pub fn build(&self, builder: &mut QueryBuilder, direction: &EdgeDirection) {
-        self.edge.build(builder, direction);
-        if let Some(filter) = &self.filter {
-            let name = format_ident!(
-                "edge{}",
-                builder.node_stack.len(),
-                span = self.where_.span()
-            );
-            filter.build(
-                builder,
-                &name,
-                quote!(entity),
-                quote!(bevy::ecs::entity::Entity),
-            );
+        if let Some(range) = &self.range {
+            let span = self.multi.span();
+            let inner = std::mem::replace(&mut builder.code, quote!());
+            let iterator = self.edge.get_iterator(builder, direction);
+            let code = quote_spanned!{span=>
+                let __bevy_relationship_range: std::ops::Range<usize> = #range; 
+                let mut __bevy_relationship_entity_set: bevy::ecs::entity::EntityHashMap<usize> = Default::default(); 
+                let mut __bevy_relationship_entity_stack: Vec<(bevy::ecs::entity::Entity, usize)> = vec![(entity, 0)]; 
+                __bevy_relationship_entity_set.insert(entity, 0);
+
+                while let Some((entity, level)) = __bevy_relationship_entity_stack.pop() {
+                    if level < __bevy_relationship_range.end {
+                        for peer_entity in #iterator {
+                            let peer_level = __bevy_relationship_entity_set.entry(peer_entity).or_insert(usize::MAX);
+                            if level + 1 < __bevy_relationship_range.end && level + 1 < *peer_level {
+                                __bevy_relationship_entity_stack.push((peer_entity, level + 1));
+                            }
+                            *peer_level = (*peer_level).min(level + 1);
+                        }
+                    }
+                }
+
+                for entity in __bevy_relationship_entity_set
+                    .into_iter()
+                    .filter(|e|e.1 > __bevy_relationship_range.start)
+                    .map(|e|e.0) {
+                    #inner
+                }
+            };
+            builder.code = code;
+        } else {
+            self.edge.build(builder, direction);
+            if let Some(filter) = &self.filter {
+                let name = format_ident!(
+                    "edge{}",
+                    builder.node_stack.len(),
+                    span = self.where_.span()
+                );
+                filter.build(
+                    builder,
+                    &name,
+                    quote!(entity),
+                    quote!(bevy::ecs::entity::Entity),
+                );
+            }
         }
     }
 }
