@@ -159,6 +159,6 @@ Counter=>
         Text=(Text::from_section(state.count().to_string(), TextStyle{ font_size: 32.0, ..theme.default_text_style() }))/>
     <UiHightlightButtonBundle @style="p-4 w-32 h-32 align-items:center justify-content:center" UiButton=(UiButton::new(this_entity, inc)) >
         <UiTextBundle Text=(Text::from_section("+", TextStyle{ font_size: 32.0, color: Color::WHITE, font:theme.default_font() }))/>
-    </>
-</>
+    </UiHightlightButtonBundle>
+</UiHollowBlockBundle>
 }

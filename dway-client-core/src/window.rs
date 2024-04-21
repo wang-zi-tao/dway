@@ -94,7 +94,7 @@ impl Plugin for DWayWindowPlugin {
         app.register_type::<WindowClientInfo>().add_systems(
             PreUpdate,
             (
-                on_window_created.in_set(DWayClientSystem::CreateComponent),
+                on_window_created.run_if(on_event::<Insert<DWayWindow>>()).in_set(DWayClientSystem::CreateComponent),
                 update_window.in_set(DWayClientSystem::UpdateWindow),
             ),
         );

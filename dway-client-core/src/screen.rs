@@ -98,10 +98,7 @@ pub fn update_screen(
 
 graph_query2! {
 ScreenGraph=>
-    window_to_screen=match
-        (window:(&DWayWindow,&GlobalGeometry))
-        -[WindowOnWorkspace]->(w:(&Workspace))
-        <-[ScreenAttachWorkspace]-(s:(&Screen,&GlobalGeometry));
+    window_to_screen=match (window:(&DWayWindow,&GlobalGeometry)) -[WindowOnWorkspace]->(w:(&Workspace)) <-[ScreenAttachWorkspace]-(s:(&Screen,&GlobalGeometry));
 }
 
 pub fn update_screen_system() {}

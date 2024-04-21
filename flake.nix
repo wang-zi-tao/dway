@@ -26,7 +26,7 @@
           nativeBuildInputs = with pkgs; [
             (fenix.fromToolchainFile {
               file = ./rust-toolchain.toml;
-              sha256 = "sha256-o+ymjPUfTAzCiFp6qdcPpjus293CYYNvW+mP9TIPaT0=";
+              sha256 = "sha256-Vj1+nblgslFM1e90H0jNiMwJmUMJSwQQdMFlXn0++gs=";
             })
 
             mdbook
