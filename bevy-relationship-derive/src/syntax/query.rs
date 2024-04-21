@@ -1,10 +1,10 @@
+use super::path::PathQuery;
+use crate::builder::{QueryBuilder, QuerySetBuilder};
 use derive_syn_parse::Parse;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 use std::{cell::RefCell, rc::Rc};
 use syn::{punctuated::Punctuated, Token};
-use crate::builder::{QueryBuilder, QuerySetBuilder};
-use super::path::PathQuery;
 
 #[derive(Parse)]
 pub struct GraphQuery {
@@ -40,17 +40,21 @@ impl GraphQuery {
         let lifetimes = query_builder.lifetimes.iter().rev();
         let params = query_builder.params.iter().rev();
         let generic_params = query_builder.generic_parameters.iter().rev();
-        let begin_node = if has_begin_node {
-            Some(quote! {entity: bevy::ecs::entity::Entity,})
-        } else {
-            None
-        };
+        let begin_node = has_begin_node.then(|| {
+            quote_spanned! {span=>
+                entity: bevy::ecs::entity::Entity,
+            }
+        });
+        let begin_node_iter = has_begin_node.then(|| {
+            quote_spanned! {span=>
+                let __bevy_relationship_entitys = [entity];
+            }
+        });
         let function = quote_spanned! {span=>
+            #[inline(always)]
             pub fn #func<#(#lifetimes,)* #(#generic_params,)* ReturnType>(&#mutable_token self, #begin_node #(#params,)* #callback_arg) -> Option<ReturnType> {
-                loop {
-                    #inner
-                    break
-                }
+                #begin_node_iter
+                #inner
                 None
             }
         };

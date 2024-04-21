@@ -1,5 +1,5 @@
 use derive_syn_parse::Parse;
-use proc_macro2::Ident;
+use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 use syn::{
     spanned::Spanned,
@@ -64,29 +64,28 @@ impl PathEdgeQuery {
                     }
                 }
 
-                for entity in __bevy_relationship_entity_set
+                let __bevy_relationship_entitys = __bevy_relationship_entity_set
                     .into_iter()
-                    .filter(|e|e.1 > __bevy_relationship_range.start)
-                    .map(|e|e.0) {
-                    #inner
-                }
+                    .filter(|e|e.1 >= __bevy_relationship_range.start)
+                    .map(|e|e.0);
+                #inner
             };
             builder.code = code;
         } else {
-            self.edge.build(builder, direction);
             if let Some(filter) = &self.filter {
                 let name = format_ident!(
                     "edge{}",
                     builder.node_stack.len(),
                     span = self.where_.span()
                 );
-                filter.build(
+                filter.build_modify_iter(
                     builder,
                     &name,
                     quote!(entity),
                     quote!(bevy::ecs::entity::Entity),
                 );
             }
+            self.edge.build(builder, direction);
         }
     }
 }
@@ -146,8 +145,23 @@ impl PathQuery {
                 quote!(&#name)
             },
             callback_type: ty,
+            extract_querys: vec![],
         });
     }
+    pub fn build_foreach_changed(&self, builder: &mut QueryBuilder) {
+        let entitys: Vec<TokenStream> = vec![];
+        let querys: Vec<TokenStream> = vec![];
+        let mut_flags: Vec<TokenStream> = vec![];
+        let get_methods: Vec<TokenStream> = vec![];
+        let args: Vec<TokenStream> = vec![];
+        let code = quote!{
+            let __bevy_relationship__lambda = |this: &Self,#(#entitys: bevy::ecs::entity::Entity),*| {
+                #(let Ok(#args) = #querys.get_methods(#entitys);)*
+                callback(#(&args));
+            }
+        };
+    }
+
     pub fn build_foreach(&self, builder: &mut QueryBuilder) {
         let node0 = &self.nodes[0];
         Self::push_node(node0, builder);

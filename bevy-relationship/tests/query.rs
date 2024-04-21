@@ -31,46 +31,46 @@ fn test_suit(system: BoxedSystem) {
         .register_relation::<R3>()
         .register_relation::<R4>()
         .add_systems(Startup, move |mut command: Commands| {
-            let e0 = command.spawn((C0(0), C3(0))).id();
-            let e1 = command.spawn(C1(1)).id();
-            let e2 = command.spawn(C2(2)).id();
-            let e3 = command.spawn((C0(3), C1(3))).id();
-            let e4 = command.spawn((C1(4), C2(4))).id();
-            let e5 = command.spawn((C2(5), C0(5))).id();
-            let e6 = command.spawn((C2(6), C0(6))).id();
-            let e7 = command.spawn((C0(7), C1(7), C2(7))).id();
-            assert_eq!(e0.index(), 1);
-            assert_eq!(e1.index(), 2);
-            assert_eq!(e2.index(), 3);
-            assert_eq!(e3.index(), 4);
-            assert_eq!(e4.index(), 5);
-            assert_eq!(e5.index(), 6);
-            assert_eq!(e6.index(), 7);
-            assert_eq!(e7.index(), 8);
-            command.entity(e0).connect_to::<R0>(e1);
-            command.entity(e0).connect_to::<R1>(e2);
-            command.entity(e0).connect_to::<R2>(e3);
-            command.entity(e0).connect_to::<R2>(e3);
-            command.entity(e0).connect_to::<R2>(e5);
-            command.entity(e0).connect_to::<R2>(e7);
-            command.entity(e0).connect_to::<R3>(e4);
-            command.entity(e0).connect_to::<R3>(e7);
-            command.entity(e1).connect_to::<R3>(e7);
-            command.entity(e2).connect_to::<R3>(e7);
-            command.entity(e3).connect_to::<R3>(e7);
-            command.entity(e4).connect_to::<R3>(e7);
-            command.entity(e5).connect_to::<R3>(e7);
-            command.entity(e6).connect_to::<R3>(e7);
-            command.entity(e0).connect_to::<R4>(e1);
-            command.entity(e0).connect_to::<R4>(e2);
+            let e1 = command.spawn((C0(0), C3(0))).id();
+            let e2 = command.spawn(C1(1)).id();
+            let e3 = command.spawn(C2(2)).id();
+            let e4 = command.spawn((C0(3), C1(3))).id();
+            let e5 = command.spawn((C1(4), C2(4))).id();
+            let e6 = command.spawn((C2(5), C0(5))).id();
+            let e7 = command.spawn((C2(6), C0(6))).id();
+            let e8 = command.spawn((C0(7), C1(7), C2(7))).id();
+            assert_eq!(e1.index(), 1);
+            assert_eq!(e2.index(), 2);
+            assert_eq!(e3.index(), 3);
+            assert_eq!(e4.index(), 4);
+            assert_eq!(e5.index(), 5);
+            assert_eq!(e6.index(), 6);
+            assert_eq!(e7.index(), 7);
+            assert_eq!(e8.index(), 8);
+            command.entity(e1).connect_to::<R0>(e2);
+            command.entity(e1).connect_to::<R1>(e3);
+            command.entity(e1).connect_to::<R2>(e4);
+            command.entity(e1).connect_to::<R2>(e4);
+            command.entity(e1).connect_to::<R2>(e6);
+            command.entity(e1).connect_to::<R2>(e8);
+            command.entity(e1).connect_to::<R3>(e5);
+            command.entity(e1).connect_to::<R3>(e8);
+            command.entity(e2).connect_to::<R3>(e8);
+            command.entity(e3).connect_to::<R3>(e8);
+            command.entity(e4).connect_to::<R3>(e8);
+            command.entity(e5).connect_to::<R3>(e8);
+            command.entity(e6).connect_to::<R3>(e8);
+            command.entity(e7).connect_to::<R3>(e8);
             command.entity(e1).connect_to::<R4>(e2);
+            command.entity(e1).connect_to::<R4>(e3);
             command.entity(e2).connect_to::<R4>(e3);
-            command.entity(e2).connect_to::<R4>(e5);
             command.entity(e3).connect_to::<R4>(e4);
+            command.entity(e3).connect_to::<R4>(e6);
             command.entity(e4).connect_to::<R4>(e5);
-            command.entity(e1).add_child(e2);
-            command.entity(e1).add_child(e3);
-            command.entity(e1).add_child(e4);
+            command.entity(e5).connect_to::<R4>(e6);
+            command.entity(e2).add_child(e3);
+            command.entity(e2).add_child(e4);
+            command.entity(e2).add_child(e5);
         })
         .add_systems(
             Update,
@@ -356,6 +356,24 @@ fn test_query_path2() {
 }
 
 #[test]
+fn test_query_path3() {
+    graph_query2! {
+        QueryNode=>path=match (node0:Entity)-[R3]->(node1:Entity)-[R3]->(node2:Entity)
+    }
+    test_suit(Box::new(IntoSystem::into_system(
+        move |graph: QueryNode| {
+            let mut ops = HashSet::new();
+            let r = graph.foreach_path(|n0, n1, n2| {
+                ops.insert((n0.index(), n1.index(), n2.index()));
+                ControlFlow::<()>::Continue
+            });
+            assert!(r.is_none());
+            assert_eq!(ops, HashSet::from_iter([(1, 5, 8)]));
+        },
+    )));
+}
+
+#[test]
 fn test_query_path_edge_filter() {
     graph_query2! {
         QueryNode=>path=match (node0:Entity)-[R3 where ?]->(node1:Entity)
@@ -371,7 +389,19 @@ fn test_query_path_edge_filter() {
                 },
             );
             assert!(r.is_none());
-            assert_eq!(ops, HashSet::from_iter([(5, 8), (6, 8), (4, 8), (7, 8)]));
+            assert_eq!(
+                ops,
+                HashSet::from_iter([
+                    (1, 8),
+                    (2, 8),
+                    (6, 8),
+                    (4, 8),
+                    (5, 8),
+                    (3, 8),
+                    (1, 5),
+                    (7, 8)
+                ])
+            );
         },
     )));
 }
@@ -533,7 +563,7 @@ fn test_query_edge_deep() {
                 });
                 assert!(r.is_none());
             }
-            assert_eq!(ops, HashSet::from_iter([(1, 6), (1, 4)]));
+            assert_eq!(ops, HashSet::from_iter([(1, 6), (1, 4), (1, 3), (1, 2)]));
         },
     )));
 }

@@ -150,8 +150,13 @@ impl NodeQuery {
         let span = name.span();
         let inner = std::mem::replace(&mut builder.code, quote!());
         let ty = self.to_type(builder, name);
-        let query = builder.add_query(&quote_spanned!(span=> (Entity,#ty)), query_filter);
+        let node_info = builder.node_stack.last().unwrap();
+        let (extract_query_vars, extract_query_type): (Vec<_>, Vec<_>) = node_info.extract_querys.iter().cloned().unzip();
+        let query = builder.add_query(&quote_spanned!{ span=> 
+            (Entity,#ty, #(#extract_query_type,)*) 
+        }, query_filter);
         let mut_flag = mutable.then_some(quote_spanned!(span=>mut));
+        let query_vars = quote_spanned!(span=> (entity,#mut_flag #name, #(#extract_query_vars,)*));
         builder.code = if builder.node_stack.len() == 1 && !builder.has_begin_node {
             let iter_method = if mutable {
                 quote!(iter_mut)
@@ -160,20 +165,25 @@ impl NodeQuery {
             };
             quote_spanned! {span=>
                 #[allow(unused_variables)]
-                for (entity,#mut_flag #name) in self.#query.#iter_method() {
+                for #query_vars in self.#query.#iter_method() {
                     #inner
                 }
             }
         } else {
-            let get_method = if mutable {
-                quote!(get_mut)
+            if mutable {
+                quote_spanned! {span=>
+                    let mut __bevy_relationship_iter_many = self.#query.iter_many_mut(__bevy_relationship_entitys);
+                    #[allow(unused_variables)]
+                    while let Some(#query_vars) = __bevy_relationship_iter_many.fetch_next() {
+                        #inner
+                    }
+                }
             } else {
-                quote!(get)
-            };
-            quote_spanned! {span=>
-                #[allow(unused_variables)]
-                if let Ok((entity,#mut_flag #name)) = self.#query.#get_method(entity) {
-                    #inner
+                quote_spanned! {span=>
+                    #[allow(unused_variables)]
+                    for #query_vars in self.#query.iter_many(__bevy_relationship_entitys) {
+                        #inner
+                    }
                 }
             }
         };

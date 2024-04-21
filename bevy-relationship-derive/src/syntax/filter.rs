@@ -15,14 +15,13 @@ impl Filter {
             Filter::Lambda(t) => t.span,
         }
     }
-    pub fn build(
+    pub fn get_filter_expr(
         &self,
         builder: &mut QueryBuilder,
         name: &syn::Ident,
         arg: TokenStream,
         ty: TokenStream,
-    ) {
-        let code = std::mem::replace(&mut builder.code, quote!());
+    ) -> TokenStream {
         let filter_result = match self {
             Filter::Expr(e) => quote!(#e),
             Filter::Lambda(t) => {
@@ -36,6 +35,31 @@ impl Filter {
                 }
             }
         };
+        filter_result
+    }
+    pub fn build_modify_iter(
+        &self,
+        builder: &mut QueryBuilder,
+        name: &syn::Ident,
+        arg: TokenStream,
+        ty: TokenStream,
+    ) {
+        let code = std::mem::replace(&mut builder.code, quote!());
+        let filter_result = self.get_filter_expr(builder, name, arg, ty);
+        builder.code = quote_spanned! {self.span()=>
+            let __bevy_relationship_entitys = __bevy_relationship_entitys.into_iter().filter(|&entity|#filter_result);
+            #code
+        };
+    }
+    pub fn build(
+        &self,
+        builder: &mut QueryBuilder,
+        name: &syn::Ident,
+        arg: TokenStream,
+        ty: TokenStream,
+    ) {
+        let code = std::mem::replace(&mut builder.code, quote!());
+        let filter_result = self.get_filter_expr(builder, name, arg, ty);
         let code = quote_spanned! {self.span()=>
             if #filter_result {
                 #code

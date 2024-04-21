@@ -55,6 +55,7 @@ impl QuerySetBuilder {
 
 pub struct NodeInfo {
     pub name: Ident,
+    pub extract_querys:Vec<(Ident, TokenStream)>,
     pub callback_arg: TokenStream,
     pub callback_type: TokenStream,
 }
@@ -131,6 +132,16 @@ impl QueryBuilder {
 
     pub fn add_lifetime(&mut self, tokens: TokenStream) {
         self.lifetimes.push(tokens);
+    }
+
+    pub fn add_edge_query(&mut self, ty: TokenStream) -> Ident {
+        let node = self.node_stack.last_mut().unwrap();
+        let base_name = format!("edge_{}_{}_r", node.name.to_string(), convert_type_name(&ty));
+        let span = node.name.span();
+        let query_var = self.alloc_name(&base_name, span);
+        let node = self.node_stack.last_mut().unwrap();
+        node.extract_querys.push((query_var.clone(), ty));
+        query_var
     }
 
     pub fn add_query(&self, ty: &TokenStream, filter: Option<&Type>) -> Ident {

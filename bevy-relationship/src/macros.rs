@@ -21,6 +21,10 @@ macro_rules! relationship {
             fn iter(&self) -> Self::Iterator<'_> {
                 self.0.iter()
             }
+
+            fn as_slice(&self) -> &[Entity] {
+                self.0.as_slice()
+            }
         }
         impl $crate::ConnectableMut for $name {
             type Drain<'l> = <$inner as $crate::ConnectableMut>::Drain<'l>;

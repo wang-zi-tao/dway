@@ -43,6 +43,10 @@ impl Connectable for RelationshipToOneEntity {
     fn iter(&self) -> Self::Iterator<'_> {
         self.peer.iter().cloned()
     }
+
+    fn as_slice(&self) -> &[Entity] {
+        self.peer.as_slice()
+    }
 }
 impl ConnectableMut for RelationshipToOneEntity {
     type Drain<'l> = std::option::IntoIter<Entity>;
@@ -95,6 +99,10 @@ impl Connectable for RelationshipToManyEntity {
     fn iter(&self) -> Self::Iterator<'_> {
         self.peers.iter().cloned()
     }
+
+    fn as_slice(&self) -> &[Entity] {
+        self.peers.as_slice()
+    }
 }
 impl ConnectableMut for RelationshipToManyEntity {
     type Drain<'l> = smallvec::Drain<'l, [Entity; 4]>;
@@ -136,6 +144,8 @@ impl<T: Relationship> Relationship for ReserveRelationship<T> {
 pub trait Connectable: Component {
     type Iterator<'l>: Iterator<Item = Entity>;
     fn iter(&self) -> Self::Iterator<'_>;
+
+    fn as_slice(&self) -> &[Entity];
 
     fn contains(&self, entity: Entity) -> bool {
         self.iter().any(|e| e == entity)

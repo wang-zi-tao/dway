@@ -4,44 +4,6 @@ use bevy::prelude::{Children, Entity, Parent, Plugin};
 
 use crate::{relationship, AppExt, Connectable, Peer, Relationship};
 
-pub struct EntityHasChildren;
-impl Relationship for EntityHasChildren {
-    type From = Children;
-    type To = Parent;
-}
-impl Connectable for Children {
-    type Iterator<'l> = Cloned<std::slice::Iter<'l, Entity>>;
-
-    fn iter(&self) -> Self::Iterator<'_> {
-        Deref::deref(self).iter().cloned()
-    }
-}
-impl Peer for Children {
-    type Target = Parent;
-}
-pub struct ParentIter(pub Entity);
-impl Iterator for ParentIter {
-    type Item = Entity;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.0 == Entity::PLACEHOLDER {
-            None
-        } else {
-            Some(std::mem::replace(&mut self.0, Entity::PLACEHOLDER))
-        }
-    }
-}
-impl Connectable for Parent {
-    type Iterator<'l> = ParentIter;
-
-    fn iter(&self) -> Self::Iterator<'_> {
-        ParentIter(self.get())
-    }
-}
-impl Peer for Parent {
-    type Target = Children;
-}
-
 relationship!(ReferenceTo => Reference -< ReferenceBy);
 relationship!(IntersectWith => @both -< Intersect );
 
