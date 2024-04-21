@@ -1,4 +1,4 @@
 [toolchain]
-channel =  "nightly-2024-1-20"
-components = [ "rustfmt", "rustc-dev", "flamegraph" ,"clippy-preview","cargo-expand" ]
+channel =  "nightly-2024-4-12"
+components = [ "rustfmt", "rustc-dev", "flamegraph" ,"clippy-preview","cargo-expand"]
 profile = "complete"

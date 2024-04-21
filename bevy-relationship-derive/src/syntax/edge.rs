@@ -1,6 +1,6 @@
 use convert_case::Casing;
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote, quote_spanned};
+use quote::{quote, quote_spanned};
 use syn::{
     bracketed, punctuated::Punctuated, spanned::Spanned, token::Bracket, Expr, Ident, Path, Token,
 };

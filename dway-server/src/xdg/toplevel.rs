@@ -106,6 +106,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 }
             }
             xdg_toplevel::Request::SetTitle { title } => {
+                state.entity_mut(*data).insert(Name::new(format!("{:?} {:?}", resource.id(), title)));
                 state.with_component(resource, |c: &mut DWayToplevel| c.title = Some(title));
             }
             xdg_toplevel::Request::SetAppId { app_id } => {
@@ -314,6 +315,7 @@ pub fn process_window_action_event(
                         return;
                     }
                     graph.for_each_pointer_mut_from(*e, |_, (seat_entity, _)| {
+                        debug!(entity=?e, "begin resizing {edges:?}");
                         toplevel.pointer_state.grab = Some(Box::new(SurfaceGrabKind::Resizing {
                             seat: *seat_entity,
                             serial: None,
@@ -334,6 +336,7 @@ impl Plugin for XdgToplevelPlugin {
         app.add_event::<Insert<XdgToplevel>>();
         app.add_event::<Destroy<XdgToplevel>>();
         app.register_type::<XdgToplevel>();
+        app.register_type::<DWayToplevel>();
         app.add_systems(
             Last,
             process_window_action_event.in_set(DWayServerSet::ProcessWindowAction),

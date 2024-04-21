@@ -515,7 +515,7 @@ impl DWay {
             if let Some(parent) = e.get::<Parent>() {
                 let parent = parent.get();
                 if let Some(children) = e.get::<Children>() {
-                    let children = children.iter().collect::<SmallVec<[Entity; 7]>>();
+                    let children = children.iter().cloned().collect::<SmallVec<[Entity; 7]>>();
                     let mut parent_entity = self.world_mut().get_entity_mut(parent).unwrap();
                     parent_entity.remove_children(&[entity]);
                     for child in children.iter() {

@@ -18,6 +18,7 @@ pub fn spawn(
             }
 
             for command in [
+                "tilix",
                 "gnome-system-monitor",
                 "gedit",
                 "gnome-calculator",

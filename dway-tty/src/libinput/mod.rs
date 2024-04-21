@@ -70,6 +70,8 @@ impl LibinputInterface for SeatLibinputInterface {
 
 pub struct LibinputDevice {
     pub(crate) libinput: Libinput,
+    pub mouse_speed: f32,
+    pub mouse_wheel_speed: f32,
 }
 
 impl AsRawFd for LibinputDevice {
@@ -86,7 +88,11 @@ impl LibinputDevice {
             .udev_assign_seat(&seat.name)
             .map_err(|e| anyhow!("failed to set seat for libinput: {e:?}"))?;
         info!("libinput connected");
-        Ok(Self { libinput })
+        Ok(Self {
+            libinput,
+            mouse_speed: 1.0,
+            mouse_wheel_speed: 1.0,
+        })
     }
 }
 
@@ -132,6 +138,8 @@ pub fn receive_events(
     let Some((default_window_entity, _default_window)) = windows.iter().next() else {
         return;
     };
+    let mouse_speed = libinput.mouse_speed;
+    let mouse_wheel_speed = libinput.mouse_wheel_speed;
     for event in libinput.libinput.by_ref() {
         debug!("libinput event: {event:?}");
         match event {
@@ -176,7 +184,7 @@ pub fn receive_events(
             input::Event::Pointer(e) => {
                 match e {
                     PointerEvent::Motion(m) => {
-                        let motion = DVec2::new(m.dx(), m.dy()).as_vec2();
+                        let motion = DVec2::new(m.dx(), m.dy()).as_vec2() * mouse_speed;
                         motion_events.send(MouseMotion { delta: motion });
                         debug!("mouse motion: {}", motion);
                         windows.iter_mut().for_each(|(entity, mut window)| {
@@ -220,10 +228,16 @@ pub fn receive_events(
                         });
                     }
                     PointerEvent::ScrollWheel(m) => {
+                        debug!(
+                            "PointerEvent::ScrollWheel {:?}",
+                            (&m, m.scroll_value_v120(Axis::Vertical))
+                        );
                         axis_events.send(MouseWheel {
                             unit: bevy::input::mouse::MouseScrollUnit::Pixel,
-                            x: m.scroll_value_v120(Axis::Horizontal) as f32,
-                            y: m.scroll_value_v120(Axis::Vertical) as f32,
+                            x: m.scroll_value_v120(Axis::Horizontal) as f32 / 120.0
+                                * mouse_wheel_speed,
+                            y: -m.scroll_value_v120(Axis::Vertical) as f32 / 120.0
+                                * mouse_wheel_speed,
                             window: default_window_entity,
                         });
                     }

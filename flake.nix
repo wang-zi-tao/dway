@@ -26,8 +26,13 @@
           nativeBuildInputs = with pkgs; [
             (fenix.fromToolchainFile {
               file = ./rust-toolchain.toml;
-              sha256 = "sha256-od+8SNywPVd+b9FZai3zBO/txmPmXy5TCgAp47RSUxY=";
+              sha256 = "sha256-o+ymjPUfTAzCiFp6qdcPpjus293CYYNvW+mP9TIPaT0=";
             })
+
+            mdbook
+            mdbook-plantuml
+            plantuml
+
             tracy
             cargo-flamegraph
             pkg-config

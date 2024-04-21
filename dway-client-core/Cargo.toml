@@ -10,6 +10,7 @@ dway-util = {path="../dway-util/"}
 dway-server = {path="../dway-server/"}
 bevy-relationship = {path="../bevy-relationship/"}
 
+derive_builder = {workspace=true}
 log = { workspace = true }
 crossbeam-channel = { workspace = true }
 failure = { workspace = true }

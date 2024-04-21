@@ -50,7 +50,7 @@ pub fn update_cursor_state(
                 surface_changed = true;
             }
         }
-        if prop.is_changed() || surface_changed || cursor_on_window.is_changed() {
+        if prop.is_changed() || surface_changed || focus_screen.is_changed() {
             let cursor_data = state.surface_entity().and_then(|surface| {
                 graph.for_each_pointer_from(surface, |_, _, &(surface, global_geometry)| {
                     ControlFlow::Return((

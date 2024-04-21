@@ -12,7 +12,7 @@ mod matrix;
 pub use crate::{app::*, builtins::*, commands::*, graph::*, macros::*, register::*};
 pub use app::AppExt;
 use bevy::prelude::*;
-pub use bevy_relationship_derive::graph_query;
+pub use bevy_relationship_derive::*;
 use smallvec::SmallVec;
 use std::{iter::Cloned, marker::PhantomData};
 

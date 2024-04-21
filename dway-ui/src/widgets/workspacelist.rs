@@ -1,5 +1,6 @@
-use crate::{ prelude::*, };
-use dway_client_core::workspace::{ScreenList, Workspace, ScreenAttachWorkspace};
+use crate::prelude::*;
+use dway_client_core::workspace::{ScreenAttachWorkspace, ScreenList, Workspace};
+use dway_ui_framework::widgets::button::UiRawButtonBundle;
 
 #[derive(Component, Default)]
 pub struct WorkspaceListUI;
@@ -39,14 +40,14 @@ WorkspaceListUI=>
         @use_state(pub is_focused:bool)
         @use_state(pub screen_list:Vec<Entity>)
     >
-        <(UiButtonBundle::from(UiButton::new(this_entity,on_click)))
+        <(UiRawButtonBundle::from(UiButton::new(this_entity,on_click)))
             @material(UiCircleMaterial=>circle_material(theme.color("blue")))
             Style=(Style{
                 width:Val::Px(if *state.is_focused() {12.0}else{8.0}),
                 height:Val::Px(if *state.is_focused() {12.0}else{8.0}),
                 ..default()
             }) >
-        </UiButtonBundle>
+        </UiRawButtonBundle>
     </MiniNodeBundle>
 </MiniNodeBundle>
 }

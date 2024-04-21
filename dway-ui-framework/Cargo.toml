@@ -37,7 +37,6 @@ undo = "0.51.0"
 interpolation = "0.3.0"
 type-equals = "0.1.0"
 downcast-rs = {workspace=true}
-# bevy-inspector-egui = "0.23"
 bevy-trait-query = {workspace=true}
 derive_more = "0.99.17"
 
@@ -49,7 +48,7 @@ image = "0.23"
 image-diff = "0.1"
 tempdir = "0.3.7"
 bevy_image_export = "0.10"
-bevy-inspector-egui = "0.23.4"
+bevy-inspector-egui = "0.23.0"
 
 [features]
 # hot_reload = ["dep:dexterous_developer","dway-ui-derive/hot_reload"]

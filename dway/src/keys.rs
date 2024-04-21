@@ -5,29 +5,33 @@ use bevy::{
     input::mouse::{MouseButtonInput, MouseMotion},
     prelude::*,
 };
+use bevy_relationship::{graph_query2, ControlFlow};
 use dway_client_core::{
     desktop::{CursorOnOutput, CursorOnWindow, FocusedWindow},
+    layout::tile::{TileLayoutKind, TileLayoutSet},
     navigation::windowstack::WindowStack,
-    workspace::{ScreenAttachWorkspace, WindowOnWorkspace, WorkspaceSet},
+    workspace::{
+        ScreenAttachWorkspace, ScreenWorkspaceList, WindowOnWorkspace, WorkspaceManager,
+        WorkspaceSet,
+    },
 };
 use dway_server::{
     apps::launchapp::{RunCommandRequest, RunCommandRequestBuilder},
     input::grab::ResizeEdges,
     macros::{graph_query, EntityCommandsExt},
     prelude::WindowAction,
+    xdg::toplevel::DWayToplevel,
 };
 
-graph_query! {
-WindowGraph=>[
-    workspace_root=<Entity, With<WorkspaceSet>>,
-    screen=Entity,
-    workspace=Entity,
-    window=Entity,
-]=>{
-
-}}
+graph_query2! {
+WmGraph=>
+    mut screen_workspace=match
+        (screen:Entity)-[ScreenAttachWorkspace]->
+            (workspace:(Entity,Option<(&mut TileLayoutKind, &mut TileLayoutSet)>));
+}
 
 pub fn wm_keys(
+    mut graph: WmGraph,
     input: Res<ButtonInput<KeyCode>>,
     window_under_cursor: Res<CursorOnWindow>,
     mut exit: EventWriter<AppExit>,
@@ -35,25 +39,67 @@ pub fn wm_keys(
     window_stack: Res<WindowStack>,
     focus_screen: Res<CursorOnOutput>,
     mut focus_window: ResMut<FocusedWindow>,
-    workspace_root_query: Query<&Children, With<WorkspaceSet>>,
     mut commands: Commands,
     mut tab_counter: Local<usize>,
     mut run_command_event: EventWriter<RunCommandRequest>,
+    workspace_manager: Res<WorkspaceManager>,
+    window_query: Query<&DWayToplevel>,
 ) {
     let meta = input.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
     let shift = input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
     let ctrl = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
     let alt = input.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
 
+    let meta = alt;
+    let alt = false;
+
     {
         if meta && input.just_pressed(KeyCode::Enter) {
             run_command_event.send(
                 RunCommandRequestBuilder::default()
-                    .command("alacritty".to_string())
+                    .command("tilix".to_string())
                     .build()
                     .unwrap(),
             );
-        } else if meta && input.just_pressed(KeyCode::Space) {
+        } else if input.just_pressed(KeyCode::Space) {
+            if let Some((screen, _)) = &focus_screen.0 {
+                graph.foreach_screen_workspace_mut_from(*screen, |_, (_, tile)| {
+                    if let Some((tile_kind, tile_set)) = tile {
+                        **tile_kind = tile_set.add_index(1).clone();
+                    }
+                    ControlFlow::<()>::Continue
+                });
+            }
+        } else if meta && input.just_pressed(KeyCode::F11) {
+            if let Some((window, _)) = &window_under_cursor.0 {
+                if let Ok(toplevel) = window_query.get(*window) {
+                    if toplevel.fullscreen {
+                        window_action.send(WindowAction::UnFullscreen(*window));
+                    } else {
+                        window_action.send(WindowAction::Fullscreen(*window));
+                    }
+                }
+            }
+        } else if meta && input.just_pressed(KeyCode::KeyM) {
+            if let Some((window, _)) = &window_under_cursor.0 {
+                if let Ok(toplevel) = window_query.get(*window) {
+                    if toplevel.max {
+                        window_action.send(WindowAction::UnMaximize(*window));
+                    } else {
+                        window_action.send(WindowAction::Maximize(*window));
+                    }
+                }
+            }
+        } else if meta && input.just_pressed(KeyCode::KeyH) {
+            if let Some((window, _)) = &window_under_cursor.0 {
+                if let Ok(toplevel) = window_query.get(*window) {
+                    if toplevel.min {
+                        window_action.send(WindowAction::UnMinimize(*window));
+                    } else {
+                        window_action.send(WindowAction::Minimize(*window));
+                    }
+                }
+            }
         } else if meta && shift && input.just_pressed(KeyCode::KeyQ) {
             exit.send(AppExit);
         } else if meta && input.just_pressed(KeyCode::KeyQ) || input.just_pressed(KeyCode::F4) {
@@ -80,39 +126,34 @@ pub fn wm_keys(
             ] {
                 if input.just_pressed(key) {
                     match (meta, shift, ctrl, alt) {
-                        (true, false, false, false) => {
-                            if let Ok(workspaces) = workspace_root_query.get_single() {
-                                if let (Some(workspace), Some((screen, _))) =
-                                    (workspaces.get(num), &focus_screen.0)
-                                {
-                                    commands
-                                        .entity(*screen)
-                                        .disconnect_all::<ScreenAttachWorkspace>()
-                                        .connect_to::<ScreenAttachWorkspace>(*workspace);
-                                }
+                        (true, false, false, _) => {
+                            if let (Some(workspace), Some((screen, _))) =
+                                (workspace_manager.workspaces.get(num), &focus_screen.0)
+                            {
+                                commands
+                                    .entity(*screen)
+                                    .disconnect_all::<ScreenAttachWorkspace>()
+                                    .connect_to::<ScreenAttachWorkspace>(*workspace);
                             }
                         }
-                        (true, false, true, false) => {
-                            if let Ok(workspaces) = workspace_root_query.get_single() {
-                                if let (Some(workspace), Some((screen, _))) =
-                                    (workspaces.get(num), &focus_screen.0)
-                                {
-                                    commands
-                                        .entity(*screen)
-                                        .connect_to::<ScreenAttachWorkspace>(*workspace);
-                                }
+                        (true, false, true, _) => {
+                            if let (Some(workspace), Some((screen, _))) =
+                                (workspace_manager.workspaces.get(num), &focus_screen.0)
+                            {
+                                commands
+                                    .entity(*screen)
+                                    .connect_to::<ScreenAttachWorkspace>(*workspace);
                             }
                         }
-                        (true, true, false, false) => {
-                            if let Ok(workspaces) = workspace_root_query.get_single() {
-                                if let (Some(workspace), Some(window)) =
-                                    (workspaces.get(num), &focus_window.window_entity)
-                                {
-                                    commands
-                                        .entity(*window)
-                                        .disconnect_all::<WindowOnWorkspace>()
-                                        .connect_to::<WindowOnWorkspace>(*workspace);
-                                }
+                        (true, true, false, _) => {
+                            if let (Some(workspace), Some(window)) = (
+                                workspace_manager.workspaces.get(num),
+                                &focus_window.window_entity,
+                            ) {
+                                commands
+                                    .entity(*window)
+                                    .disconnect_all::<WindowOnWorkspace>()
+                                    .connect_to::<WindowOnWorkspace>(*workspace);
                             }
                         }
                         _ => {}
@@ -146,6 +187,9 @@ pub fn wm_mouse_action(
     let mouse_down = mouse_buttons.get_pressed().next().is_some();
     let mouse_just_down = mouse_buttons.get_just_pressed().next().is_some();
     let _mouse_just_up = mouse_buttons.get_just_released().next().is_some();
+
+    let meta = alt;
+    let alt = false;
 
     if mouse_just_down {
         *mouse_drag_delta = Some(Vec2::ZERO);
@@ -184,8 +228,8 @@ pub fn wm_mouse_action(
                         if !edges.is_empty() {
                             window_action
                                 .send(WindowAction::RequestResize(focused_window_entity, edges));
+                            *mouse_drag_delta = None;
                         }
-                        *mouse_drag_delta = None;
                     }
                 }
             }

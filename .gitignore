@@ -4,6 +4,7 @@ trace-*.json
 perf.data
 perf.data.old
 flamegraph.svg
+profile.log
 *.jpg
 *.tracy
 *.rs~
@@ -12,3 +13,5 @@ flamegraph.svg
 !.gitignore
 dhat-heap.json
 rustc-*
+*\~
+book

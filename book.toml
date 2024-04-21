@@ -1,0 +1,10 @@
+[book]
+authors = ["wang-zi-tao"]
+language = "en"
+multilingual = false
+src = "docs"
+title = "DWay Document"
+
+[preprocessor.plantuml]
+plantuml-cmd="plantuml"
+use-data-uris=true

@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy_relationship::relationship;
 use dway_server::schedule::DWayServerSet;
 use log::info;
+use smart_default::SmartDefault;
 
 pub mod components;
 pub mod compositor;
@@ -34,6 +35,9 @@ pub enum DWayClientSystem {
     UpdateLayout,
     UpdateLayoutFlush,
     UpdateWindowGeometry,
+    UpdateScreen,
+    UpdateWorkspace,
+    UpdateWindow,
     UpdateUI,
     DestroyComponent,
     Destroy,
@@ -54,10 +58,26 @@ pub enum DWayClientState {
     Eixt,
 }
 
+structstruck::strike! {
+    #[derive(Resource, Clone, Reflect, SmartDefault)]
+    pub struct DWayClientSetting {
+        pub window_type: #[derive(Clone, SmartDefault, Reflect)]
+        pub enum OutputType {
+            Winit,
+            #[default]
+            Tty,
+        }
+    }
+}
+
+/// dway client plugin
+///
+///
 pub struct DWayClientPlugin;
 impl Plugin for DWayClientPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_state::<DWayClientState>();
+        app.init_resource::<DWayClientSetting>();
         use DWayClientSystem::*;
         app.configure_sets(Startup, Init);
         app.configure_sets(
@@ -83,6 +103,13 @@ impl Plugin for DWayClientPlugin {
                 .after(DWayServerSet::EndPreUpdate)
                 .after(UpdateState)
                 .after(UpdateFocus)
+                .before(UpdateUI),
+        );
+        app.configure_sets(
+            PreUpdate,
+            (UpdateScreen, UpdateWorkspace, UpdateWindow)
+                .after(DWayServerSet::EndPreUpdate)
+                .after(UpdateState)
                 .before(UpdateUI),
         );
         app.configure_sets(

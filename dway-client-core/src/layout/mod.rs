@@ -12,6 +12,8 @@ use dway_server::{
     },
 };
 
+use self::tile::{TileLayoutKind, WindowWithoutTile};
+
 #[derive(Component)]
 pub struct Slot;
 
@@ -83,19 +85,29 @@ pub fn attach_window_to_slot(
             &SlotList,
             &super::workspace::WindowList,
             Option<&LayoutStyle>,
+            Ref<TileLayoutKind>
         ),
         Or<(
             Changed<SlotList>,
             Changed<super::workspace::WindowList>,
             Changed<LayoutStyle>,
+            Changed<TileLayoutKind>,
         )>,
     >,
     slot_query: Query<&Geometry, With<Slot>>,
-    mut window_query: Query<&mut Geometry, (With<DWayWindow>, With<DWayToplevel>, Without<Slot>)>,
+    mut window_query: Query<
+        &mut Geometry,
+        (
+            With<DWayWindow>,
+            With<DWayToplevel>,
+            Without<Slot>,
+            Without<WindowWithoutTile>,
+        ),
+    >,
     mut commands: Commands,
     mut window_actions: EventWriter<WindowAction>,
 ) {
-    for (slots, windows, layout_style) in workspace_query.iter() {
+    for (slots, windows, layout_style, tile) in workspace_query.iter() {
         windows
             .iter()
             .zip(slots.iter().cycle().take(windows.len()))
@@ -115,6 +127,16 @@ pub fn attach_window_to_slot(
                     }
                 }
             });
+        if tile.is_changed(){
+            match &*tile{
+                TileLayoutKind::Float => {
+                    for window in windows.iter() {
+                        commands.entity(window).remove::<PinedWindow>();
+                    }
+                },
+                _=>{}
+            }
+        }
     }
 }
 
@@ -124,12 +146,10 @@ impl Plugin for LayoutPlugin {
         app.register_relation::<WindowInSlot>();
         app.register_relation::<WorkspaceHasSlot>();
         app.register_type::<CalculatedWindowGeometry>();
-        // app.add_systems(
-        //     PreUpdate,
-        //     (attach_window_to_slot, apply_deferred)
-        //         .chain()
-        //         .in_set(DWayClientSystem::UpdateWindowGeometry),
-        // );
+        app.add_systems(
+            PreUpdate,
+            attach_window_to_slot.in_set(DWayClientSystem::UpdateWindowGeometry),
+        );
         app.add_plugins(tile::TileLayoutPlugin);
     }
 }

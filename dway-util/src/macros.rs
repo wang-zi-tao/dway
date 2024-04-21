@@ -10,3 +10,19 @@ macro_rules! try_or {
         }
     };
 }
+
+#[macro_export]
+macro_rules! update {
+    ($to:expr , $from:expr) => {
+        if $to != $from {
+            $to = $from;
+        }
+    };
+
+    ($to:expr , $from:expr, $b:block) => {
+        if $to != $from {
+            $b
+            $to = $from;
+        }
+    };
+}

@@ -18,8 +18,12 @@ use bevy::{
 };
 use clap::Parser;
 use dway_client_core::{
-    layout::{LayoutRect, LayoutStyle},
+    layout::{
+        tile::{TileLayoutKind, TileLayoutSet, TileLayoutSetBuilder},
+        LayoutRect, LayoutStyle,
+    },
     workspace::{Workspace, WorkspaceBundle, WorkspaceSet},
+    DWayClientSetting, OutputType,
 };
 use dway_server::apps::icon::LinuxIconSourcePlugin;
 use dway_tty::{DWayTTYPlugin, DWayTTYSettings};
@@ -126,7 +130,17 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     app.insert_resource(Time::<Virtual>::from_max_delta(Duration::from_secs(1)))
         .add_plugins(default_plugins);
 
-    if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
+    let use_winit = std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err();
+    app.insert_resource(DWayClientSetting {
+        window_type: if use_winit {
+            OutputType::Winit
+        } else {
+            OutputType::Tty
+        },
+        ..Default::default()
+    });
+
+    if use_winit {
         app.insert_resource(DWayTTYSettings {
             frame_duration: Duration::from_secs_f32(1.0 / 144.0),
         });
@@ -250,6 +264,7 @@ pub fn setup(mut commands: Commands) {
                     WorkspaceBundle {
                         workspace: Workspace {
                             name: format!("workspace{i}"),
+                            hide: i!=0,
                             ..Default::default()
                         },
                         ..Default::default()
@@ -258,6 +273,18 @@ pub fn setup(mut commands: Commands) {
                         padding: LayoutRect::new(4),
                         ..Default::default()
                     },
+                    TileLayoutKind::Float,
+                    TileLayoutSetBuilder::default()
+                        .layouts(vec![
+                            TileLayoutKind::Float,
+                            TileLayoutKind::Horizontal,
+                            TileLayoutKind::Vertical,
+                            TileLayoutKind::Grid,
+                            TileLayoutKind::TileLeft { split: 0.6 },
+                            TileLayoutKind::Fullscreen,
+                        ])
+                        .build()
+                        .unwrap(),
                 ));
             }
         });

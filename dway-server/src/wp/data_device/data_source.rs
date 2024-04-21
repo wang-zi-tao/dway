@@ -47,7 +47,9 @@ impl Dispatch<wl_data_source::WlDataSource, Entity> for DWay {
                 WEnum::Value(DndAction::Copy) => {
                     warn!("TODO: Copy");
                 }
-                WEnum::Value(DndAction::Move) => todo!(),
+                WEnum::Value(DndAction::Move) => {
+                    warn!("TODO: Move");
+                },
                 WEnum::Unknown(action) => {
                     warn!("Unknown dnd_action: {:?}", action);
                 }

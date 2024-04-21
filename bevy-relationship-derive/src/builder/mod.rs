@@ -113,7 +113,7 @@ impl QueryBuilder {
             .names
             .entry(base_name.to_string())
             .or_default();
-        let name = if *count != 0 {
+        let name = if *count == 0 {
             base_name.to_string()
         } else {
             format!("{base_name}{count}")
@@ -136,7 +136,7 @@ impl QueryBuilder {
 
     pub fn add_edge_query(&mut self, ty: TokenStream) -> Ident {
         let node = self.node_stack.last_mut().unwrap();
-        let base_name = format!("edge_{}_{}_r", node.name.to_string(), convert_type_name(&ty));
+        let base_name = format!("edge_{}", node.name.to_string());
         let span = node.name.span();
         let query_var = self.alloc_name(&base_name, span);
         let node = self.node_stack.last_mut().unwrap();

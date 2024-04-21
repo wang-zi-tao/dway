@@ -84,7 +84,7 @@ fn do_update_node(
         }
     }
     if let Some(c) = children {
-        for child in c.iter() {
+        for &child in c.iter() {
             if let Ok((global, child_relative, children)) =
                 unsafe { children_query.get_unchecked(child) }
             {

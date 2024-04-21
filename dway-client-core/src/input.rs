@@ -44,45 +44,9 @@ impl Plugin for DWayInputPlugin {
                 .in_set(DWayServerSet::Input),
         );
         app.register_type::<SurfaceUiNode>();
-        if self.debug | true {
-            app.add_systems(Startup, setup_debug_cursor);
-            app.add_systems(PreUpdate, debug_follow_cursor.in_set(UpdateUI));
-        }
     }
 }
-#[derive(Component)]
-pub struct DebugCursor;
 
-// #[tracing::instrument(skip_all)]
-pub fn setup_debug_cursor(mut commands: Commands) {
-    commands.spawn((
-        DebugCursor,
-        NodeBundle {
-            background_color: Color::rgba_linear(0.5, 0.5, 0.5, 0.5).into(),
-            style: Style {
-                position_type: PositionType::Absolute,
-                left: Val::Px(0.0),
-                top: Val::Px(0.0),
-                width: Val::Px(16.0),
-                height: Val::Px(16.0),
-                ..default()
-            },
-            z_index: ZIndex::Global(512),
-            ..default()
-        },
-    ));
-}
-// #[tracing::instrument(skip_all)]
-pub fn debug_follow_cursor(
-    mut cursor_moved_events: EventReader<CursorMoved>,
-    mut cursor: Query<&mut Style, With<DebugCursor>>,
-) {
-    for event in cursor_moved_events.read() {
-        let mut cursor = cursor.single_mut();
-        cursor.left = Val::Px(event.position.x);
-        cursor.top = Val::Px(event.position.y);
-    }
-}
 graph_query!(KeyboardInputGraph=>[
     surface=(&'static WlSurface, &'static GlobalGeometry, Option<&'static XdgToplevel>, Option<&'static XdgPopup>),
     client=Entity,
@@ -250,8 +214,8 @@ pub fn on_input_event(
                                             geo.max.y = geo.min.y + relative_pos.y as i32;
                                             geo.min.y = geo.min.y;
                                         }
-                                        // window_action
-                                        //     .send(WindowAction::SetRect(*surface_entity, geo));
+                                        window_action
+                                            .send(WindowAction::SetRect(*surface_entity, geo));
                                     }
                                 }
                             }
