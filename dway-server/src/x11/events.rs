@@ -117,20 +117,21 @@ pub fn process_x11_event(
                                     7 => ResizeEdges::LEFT,
                                     _ => unreachable!(),
                                 };
-                                window_pointer.grab = Some(Box::new(SurfaceGrabKind::Resizing {
+                                window_pointer.set_grab(SurfaceGrabKind::Resizing {
                                     seat: display_entity,
                                     serial: Some(0),
                                     edges,
                                     geo,
-                                }));
+                                });
                                 debug!("xwindow start resizing");
                             }
                             8 => {
-                                window_pointer.grab = Some(Box::new(SurfaceGrabKind::Move {
-                                    mouse_pos: window_pointer.mouse_pos,
+                                let mouse_pos = window_pointer.mouse_pos;
+                                window_pointer.set_grab(SurfaceGrabKind::Move {
+                                    mouse_pos,
                                     seat: display_entity,
                                     serial: Some(0),
-                                }));
+                                });
                                 debug!("xwindow start moving");
                             }
                             _ => {} // ignore keyboard moves/resizes for now

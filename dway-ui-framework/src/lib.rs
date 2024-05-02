@@ -10,6 +10,27 @@ pub mod shader;
 pub mod theme;
 pub mod widgets;
 
+pub mod reexport {
+    pub use smart_default::SmartDefault;
+    #[cfg(feature="hot_reload")]
+    pub use dexterous_developer;
+    #[cfg(feature="hot_reload")]
+    pub use dexterous_developer::dexterous_developer_setup;
+    #[cfg(feature="hot_reload")]
+    pub use dexterous_developer::ReplacableComponent;
+    #[cfg(feature="hot_reload")]
+    pub use bevy_dexterous_developer;
+    #[cfg(feature="hot_reload")]
+    pub use bevy_dexterous_developer::ReloadableElementsSetup;
+    #[cfg(feature="hot_reload")]
+    pub use serde::Serialize;
+    #[cfg(feature="hot_reload")]
+    pub use serde::Deserialize;
+    pub mod shape {
+        pub use bevy_prototype_lyon::prelude::*;
+    }
+}
+
 use crate::{
     prelude::*,
     render::mesh::{UiMeshHandle, UiMeshMaterialPlugin, UiMeshTransform},

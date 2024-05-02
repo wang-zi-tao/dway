@@ -3,8 +3,6 @@ name = "dway-server"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 dway-util = {path="../dway-util/"}
 bevy-relationship = {path="../bevy-relationship/"}
@@ -27,8 +25,8 @@ glow = { workspace = true }
 khronos-egl = { workspace = true }
 ash = { workspace = true }
 send_wrapper = "0.6.0"
-wayland-server = { version="0.31.0",features = ["log"] }
-wayland-backend = { version="0.3.2", features = ["server_system", "log"] }
+wayland-server = { version="0.31.0",features = [] }
+wayland-backend = { version="0.3.2", features = ["server_system"] }
 wayland-protocols = { version = "0.31.0", features = ["unstable", "staging", "server", "wayland-server"]}
 inlinable_string = "0.1.15"
 nix = {workspace=true}
@@ -39,9 +37,6 @@ rstar = "0.11.0"
 async-process = "2.0.0"
 futures = {workspace=true}
 futures-lite = {workspace=true}
-# tokio = { version="1.28.0", features = [ "full" ] }
-# bytes = "1.4.0"
-# bevy-tokio-tasks = "0.11"
 tempfile = "3.6.0"
 encoding = { version = "0.2.33" }
 scopeguard = {workspace=true}
@@ -64,11 +59,11 @@ derive_builder = {workspace=true}
 structstruck = {workspace=true}
 x11rb = { version="*", default-features=false, features = ["composite"] }
 smart-default = {workspace=true}
+indexmap = {workspace=true}
 
 [profile.dev]
 opt-level = 1
 
-# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
 [profile.dev.package."*"]
 opt-level = 3
 

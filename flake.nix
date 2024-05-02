@@ -26,7 +26,7 @@
           nativeBuildInputs = with pkgs; [
             (fenix.fromToolchainFile {
               file = ./rust-toolchain.toml;
-              sha256 = "sha256-Vj1+nblgslFM1e90H0jNiMwJmUMJSwQQdMFlXn0++gs=";
+              sha256 = "sha256-wAcIWtuFBtONnGAxhUF0oxchV8SSKf1xjP8pxgdmxNQ=";
             })
 
             mdbook
@@ -37,7 +37,7 @@
             cargo-flamegraph
             pkg-config
             libcxx
-            gcc-unwrapped
+            gcc
             nx-libs
             libinput
             libudev-zero
@@ -59,7 +59,6 @@
 
             glibc
 
-            llvmPackages.bintools # To use lld linker
             egl-wayland.dev
             libglvnd.dev
             glew-egl.dev
@@ -117,6 +116,7 @@
             # (gtk3)
 
             # lldb
+            clang
           ];
           # LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs + "";
           AMD_VULKAN_ICD = "RADV";

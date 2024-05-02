@@ -12,7 +12,7 @@ bitflags! {
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Reflect)]
 pub enum SurfaceGrabKind {
     Move {
         seat: Entity,
@@ -21,6 +21,7 @@ pub enum SurfaceGrabKind {
     },
     Resizing {
         seat: Entity,
+        #[reflect(ignore)]
         edges: ResizeEdges,
         serial: Option<u32>,
         geo: IRect,
@@ -31,14 +32,21 @@ pub enum SurfaceGrabKind {
 pub struct WlSurfacePointerState {
     pub is_clicked: bool,
     pub mouse_pos: IVec2,
-    #[reflect(ignore)]
-    pub grab: Option<Box<SurfaceGrabKind>>,
+    pub grab: Option<SurfaceGrabKind>,
 }
+
 impl WlSurfacePointerState {
     pub fn is_grabed(&self) -> bool {
         self.is_clicked || self.grab.is_some()
     }
     pub fn enabled(&self) -> bool {
         self.grab.is_none()
+    }
+
+    pub fn set_grab(&mut self, grab: SurfaceGrabKind) {
+        self.grab = Some(grab);
+    }
+    pub fn clean_grab(&mut self) {
+        self.grab = None;
     }
 }

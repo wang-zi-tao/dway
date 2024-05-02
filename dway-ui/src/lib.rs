@@ -11,16 +11,16 @@ pub mod reexport {
 }
 
 use crate::{
-    panels::{PanelButtonBundle, WindowTitleBundle},
+    panels::PanelButtonBundle,
     prelude::*,
     widgets::{
-        applist::AppListUIBundle, cursor::{Cursor, CursorBundle}, screen::{ScreenWindows, ScreenWindowsBundle}, workspacelist::WorkspaceListUIBundle
+        applist::AppListUIBundle, cursor::{Cursor, CursorBundle}, screen::{ScreenWindows, ScreenWindowsBundle}, system_monitor::PanelSystemMonitorBundle, windowtitle::WindowTitleBundle, workspacelist::WorkspaceListUIBundle
     },
 };
 use bevy::{render::camera::RenderTarget, window::WindowRef};
 use bevy_svg::SvgPlugin;
 pub use bitflags::bitflags as __bitflags;
-use dway_client_core::screen::Screen;
+use dway_client_core::{controller::systemcontroller::SystemControllRequest, screen::Screen};
 use dway_server::geometry::GlobalGeometry;
 use dway_tty::{
     drm::{camera::DrmCamera, surface::DrmSurface},
@@ -52,13 +52,15 @@ impl Plugin for DWayUiPlugin {
             widgets::workspacelist::WorkspaceListUIPlugin,
             widgets::logger::LoggerUIPlugin,
             widgets::cursor::CursorPlugin,
+            widgets::windowtitle::WindowTitlePlugin,
+            widgets::system_monitor::PanelSystemMonitorPlugin,
             ScreenUIPlugin,
         ));
         app.add_plugins((
-            panels::WindowTitlePlugin,
             popups::app_window_preview::AppWindowPreviewPopupPlugin,
             popups::launcher::LauncherUIPlugin,
             popups::volume_control::VolumeControlPlugin,
+            popups::panel_settings::PanelSettingsPlugin,
         ));
         app.add_systems(PreUpdate, init_screen_ui.after(DWayClientSystem::CreateComponent));
         app.add_systems(Startup, setup);
@@ -109,17 +111,18 @@ ScreenUI=>
             </PanelButtonBundle>
             <WindowTitleBundle/>
         </MiniNodeBundle>
-        <MiniNodeBundle @style="absolute flex-row m-4 right-4" @id="right">
-            <(PanelButtonBundle::new(&theme,&mut assets!(RoundedUiRectMaterial)))>
-                <ClockBundle/>
-            </PanelButtonBundle>
+        <MiniNodeBundle @style="absolute flex-row right-4 align-items:center" @id="right">
+            <ClockBundle/>
+            <PanelSystemMonitorBundle @id="system_monitor" @style="h-full"/>
             <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
                 (prop.screen,theme.system(popups::volume_control::open_popup))
-            ])) @style="flex-col">
+            ])) @style="flex-col m-4">
                 // <MiniNodeBundle @style="h-24 w-24" />
                 <(UiSvgBundle::new(theme.icon("volume_on", &asset_server))) @style="w-24 h-24" @id="volume"/>
             </PanelButtonBundle>
-            <(PanelButtonBundle::new(&theme,&mut assets!(RoundedUiRectMaterial)))>
+            <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
+                (prop.screen,theme.system(popups::panel_settings::open_popup))
+            ])) @style="m-4">
                 <(UiSvgBundle::new(theme.icon("settings", &asset_server))) @style="w-24 h-24" @id="settings"/>
             </PanelButtonBundle>
         </MiniNodeBundle>

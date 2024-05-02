@@ -106,7 +106,11 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 }
             }
             xdg_toplevel::Request::SetTitle { title } => {
-                state.entity_mut(*data).insert(Name::new(format!("{:?} {:?}", resource.id(), title)));
+                state.entity_mut(*data).insert(Name::new(format!(
+                    "{:?} {:?}",
+                    resource.id(),
+                    title
+                )));
                 state.with_component(resource, |c: &mut DWayToplevel| c.title = Some(title));
             }
             xdg_toplevel::Request::SetAppId { app_id } => {
@@ -125,11 +129,12 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                     return;
                 }
                 if let Some(mut pointer_state) = state.get_mut::<WlSurfacePointerState>(*data) {
-                    pointer_state.grab = Some(Box::new(SurfaceGrabKind::Move {
-                        mouse_pos: pointer_state.mouse_pos,
+                    let mouse_pos = pointer_state.mouse_pos;
+                    pointer_state.set_grab(SurfaceGrabKind::Move {
+                        mouse_pos,
                         seat: DWay::get_entity(&seat),
                         serial: Some(serial),
-                    }));
+                    });
                 }
             }
             xdg_toplevel::Request::Resize {
@@ -162,12 +167,12 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 if let Some(geo) = state.get_mut::<Geometry>(*data) {
                     let geo = geo.geometry;
                     if let Some(mut pointer_state) = state.get_mut::<WlSurfacePointerState>(*data) {
-                        pointer_state.grab = Some(Box::new(SurfaceGrabKind::Resizing {
+                        pointer_state.set_grab(SurfaceGrabKind::Resizing {
                             seat: DWay::get_entity(&seat),
                             serial: None,
                             edges,
                             geo,
-                        }));
+                        });
                     }
                 }
             }
@@ -300,11 +305,12 @@ pub fn process_window_action_event(
                         return;
                     }
                     graph.for_each_pointer_mut_from(*e, |_, (seat_entity, _)| {
-                        toplevel.pointer_state.grab = Some(Box::new(SurfaceGrabKind::Move {
-                            mouse_pos: toplevel.pointer_state.mouse_pos,
+                        let mouse_pos = toplevel.pointer_state.mouse_pos;
+                        toplevel.pointer_state.set_grab(SurfaceGrabKind::Move {
+                            mouse_pos,
                             seat: *seat_entity,
                             serial: None,
-                        }));
+                        });
                         ControlFlow::<()>::default()
                     });
                 }
@@ -316,12 +322,12 @@ pub fn process_window_action_event(
                     }
                     graph.for_each_pointer_mut_from(*e, |_, (seat_entity, _)| {
                         debug!(entity=?e, "begin resizing {edges:?}");
-                        toplevel.pointer_state.grab = Some(Box::new(SurfaceGrabKind::Resizing {
+                        toplevel.pointer_state.set_grab(SurfaceGrabKind::Resizing {
                             seat: *seat_entity,
                             serial: None,
                             edges: *edges,
                             geo: toplevel.geo.geometry,
-                        }));
+                        });
                         ControlFlow::<()>::default()
                     });
                 }

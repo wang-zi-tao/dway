@@ -2,6 +2,7 @@ use bevy::{input::mouse::MouseWheel, ui::RelativeCursorPosition};
 use crate::prelude::*;
 
 #[derive(Component, SmartDefault, Reflect, Debug)]
+#[cfg_attr(feature = "hot_reload", derive(Serialize, Deserialize))]
 pub struct UiScroll {
     pub horizontal: bool,
     #[default(true)]

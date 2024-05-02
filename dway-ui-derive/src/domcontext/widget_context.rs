@@ -414,12 +414,6 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
         });
     }
 
-    context.plugin_builder.stmts.push(quote! {
-        app.add_systems(Update, #system_name
-            .run_if(|query:Query<(),With<#name>>|{!query.is_empty()})
-            .in_set(#systems_name::Render));
-    });
-
     context.resources_builder.generate_init = true;
 
     let mut before_foreach = Vec::new();
@@ -511,6 +505,53 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
                 }
             }
         }); 
+    }
+
+    #[cfg(feature="hot_reload")]
+    {
+        let state_name = &context.state_builder.name;
+        let widget_name = &context.widget_builder.name;
+        let reset_system_name = format_ident!(
+            "{}_reset",
+            name.to_string().to_case(convert_case::Case::Snake),
+            span = name.span()
+        );
+
+        context.plugin_builder.systems.push(quote! {
+            pub fn #reset_system_name(mut query:Query<(Entity,&mut #name,&mut #state_name,&mut #widget_name)>,mut commands:Commands){
+                for(entity,mut prop, mut state, mut widget) in &mut query{
+                    debug!(?entity, "reset widget ({})", stringify!(#name));
+                    prop.set_changed();
+                    *state = Default::default();
+                    *widget = Default::default();
+                    commands.entity(entity).despawn_descendants();
+                }
+            }
+        });
+
+        context.plugin_builder.other_items.push(quote!{
+            impl dway_ui_framework::reexport::ReplacableComponent for #name{
+                fn get_type_name() -> &'static str {
+                    std::any::type_name::<Self>()
+                }
+            }
+        });
+
+        context.plugin_builder.hot_reload_stmts.push(quote! {
+            app.register_replacable_component::<#name>();
+            app.reset_setup::<#name, _>(#reset_system_name);
+            app.add_systems(Update, #system_name
+                .run_if(|query:Query<(),With<#name>>|{!query.is_empty()})
+                .in_set(#systems_name::Render));
+        });
+    }
+    #[cfg(not(feature="hot_reload"))]
+    {
+        context.plugin_builder.stmts.push(quote! {
+            app.add_systems(Update, #system_name
+                .run_if(|query:Query<(),With<#name>>|{!query.is_empty()})
+                .in_set(#systems_name::Render));
+        });
     }
 
     context

@@ -3,8 +3,6 @@ name = "dway-client-core"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 dway-util = {path="../dway-util/"}
 dway-server = {path="../dway-server/"}
@@ -26,14 +24,18 @@ bitflags = "2.4.0"
 anyhow = { version="1.0", features = ["backtrace"] }
 structstruck = "0.4.1"
 smart-default = {workspace = true}
+indexmap = {workspace=true}
 
 pulsectl-rs = "0.3.2"
 libpulse-binding = "2.24.0"
 
+sysinfo = { version="0.30.11", featrues=[] }
+dbus = "0.9.7"
+system_shutdown = "4.0.1"
+
 [profile.dev]
 opt-level = 1
 
-# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
 [profile.dev.package."*"]
 opt-level = 3
 

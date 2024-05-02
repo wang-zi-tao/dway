@@ -9,6 +9,7 @@ use crate::{apps::icon::LinuxIcon, prelude::*, xdg::toplevel::DWayToplevel};
 use bevy::tasks::{block_on, IoTaskPool, Task};
 use futures_lite::future::poll_once;
 use gettextrs::{dgettext, setlocale, LocaleCategory};
+use indexmap::IndexSet;
 use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 
 #[derive(Resource, Default, Reflect)]
@@ -18,6 +19,9 @@ pub struct DesktopEntriesSet {
     pub list: Vec<Entity>,
     pub by_id: HashMap<String, Entity>,
     pub by_categories: HashMap<String, Vec<Entity>>,
+
+    #[reflect(ignore)]
+    pub used_entries: IndexSet<Entity>,
 }
 impl DesktopEntriesSet {
     pub fn register(&mut self, entry: &DesktopEntry, entity: Entity) {
@@ -179,11 +183,22 @@ pub fn start_scan_desktop_file(mut entries: ResMut<DesktopEntriesSet>) {
     }));
 }
 
-pub fn on_scan_task_finish(
+pub fn update_app_entry_set(
     root_query: Query<Entity, With<AppEntryRoot>>,
+    entry_query: Query<(Entity, &WindowList), Changed<WindowList>>,
     mut entries: ResMut<DesktopEntriesSet>,
     mut commands: Commands,
 ) {
+    for (entity, window_list) in &entry_query {
+        if window_list.len() == 0 {
+            entries.used_entries.shift_remove(&entity);
+        } else {
+            if !entries.used_entries.contains(&entity) {
+                entries.used_entries.insert(entity);
+            }
+        }
+    }
+
     let Some(task) = &mut entries.scan_task else {
         return;
     };
@@ -241,9 +256,7 @@ impl Plugin for DesktopEntriesPlugin {
         app.world.spawn((Name::new("app_entry_root"), AppEntryRoot));
         app.add_systems(
             PreUpdate,
-            on_scan_task_finish
-                .run_if(|entries: Res<DesktopEntriesSet>| entries.scan_task.is_some())
-                .in_set(DWayServerSet::UpdateAppInfo),
+            update_app_entry_set.in_set(DWayServerSet::UpdateAppInfo),
         );
         app.add_systems(
             PreUpdate,

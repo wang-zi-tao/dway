@@ -2,9 +2,6 @@
 name = "dway-ui"
 version = "0.1.0"
 edition = "2021"
-# crate-type = ["dylib", "rlib"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 dway-util = {path="../dway-util/"}
@@ -27,14 +24,14 @@ bevy_svg = {workspace = true}
 const-fnv1a-hash = "1.1.0"
 bitflags = {workspace=true}
 derive_builder = {workspace=true}
-# bevy_tweening = "0.9.0"
-# dexterous_developer = {  workspace = true, optional=true }
+dexterous_developer = {  workspace = true, optional=true }
 serde = { workspace = true }
 measure_time = {workspace = true}
 smart-default = {workspace = true}
 bevy_ecss = { version="0.6.0",optional=true }
 ansi-str = "0.8.0"
 structstruck = {workspace=true}
+indexmap = {workspace=true}
 
 [dev-dependencies]
 regex = {workspace=true}
@@ -42,13 +39,12 @@ lazy_static = {workspace=true}
 pretty_assertions = "1.4.0"
 
 [features]
-# hot_reload = ["dep:dexterous_developer","dway-ui-derive/hot_reload"]
+hot_reload = ["dep:dexterous_developer","dway-ui-derive/hot_reload"]
 css = ["dep:bevy_ecss"]
 
 [profile.dev]
 opt-level = 1
 
-# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
 [profile.dev.package."*"]
 opt-level = 3
 

@@ -1,6 +1,15 @@
-use crate::{geometry::{Geometry, GlobalGeometry}, input::grab::{SurfaceGrabKind, WlSurfacePointerState}, prelude::*, wl::surface::{ClientHasSurface, WlSurface}, xdg::{toplevel::{DWayToplevel, PinedWindow}, DWayWindow}};
 use self::{screen::XScreen, window::XWindowSurfaceRef};
 use super::*;
+use crate::{
+    geometry::{Geometry, GlobalGeometry},
+    input::grab::{SurfaceGrabKind, WlSurfacePointerState},
+    prelude::*,
+    wl::surface::{ClientHasSurface, WlSurface},
+    xdg::{
+        toplevel::{DWayToplevel, PinedWindow},
+        DWayWindow,
+    },
+};
 
 graph_query!(
 XWindowGraph=>[
@@ -96,11 +105,12 @@ pub fn process_window_action_events(
                             if pinned.is_some() {
                                 return ControlFlow::<()>::default();
                             }
-                            surface_pointer_state.grab = Some(Box::new(SurfaceGrabKind::Move {
-                                mouse_pos: surface_pointer_state.mouse_pos,
+                            let mouse_pos = surface_pointer_state.mouse_pos;
+                            surface_pointer_state.set_grab(SurfaceGrabKind::Move {
+                                mouse_pos,
                                 seat: *seat_entity,
                                 serial: None,
-                            }));
+                            });
                             ControlFlow::<()>::default()
                         },
                     );
@@ -112,13 +122,12 @@ pub fn process_window_action_events(
                             if pinned.is_some() {
                                 return ControlFlow::<()>::default();
                             }
-                            surface_pointer_state.grab =
-                                Some(Box::new(SurfaceGrabKind::Resizing {
-                                    seat: *seat_entity,
-                                    serial: None,
-                                    edges: *edges,
-                                    geo: geo.geometry,
-                                }));
+                            surface_pointer_state.set_grab(SurfaceGrabKind::Resizing {
+                                seat: *seat_entity,
+                                serial: None,
+                                edges: *edges,
+                                geo: geo.geometry,
+                            });
                             ControlFlow::<()>::default()
                         },
                     );
@@ -143,11 +152,9 @@ XWindowUpdateGraph=>[
     path=xwindow<-[XWindowAttachSurface]-surface,
 });
 
-pub fn update_xwindow(
-    mut graph: XWindowUpdateGraph
-) {
-    graph.for_each_path_mut(|xwindow, toplevel|{
-        if let Some(toplevel) = toplevel{
+pub fn update_xwindow(mut graph: XWindowUpdateGraph) {
+    graph.for_each_path_mut(|xwindow, toplevel| {
+        if let Some(toplevel) = toplevel {
             let decorated = xwindow.is_decorated();
             if decorated != toplevel.decorated {
                 toplevel.decorated = true;

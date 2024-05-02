@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use dway_client_core::workspace::{ScreenAttachWorkspace, ScreenList, Workspace};
+use dway_client_core::{desktop::CursorOnOutput, workspace::{ScreenAttachWorkspace, ScreenList, Workspace, WorkspaceManager}};
 use dway_ui_framework::widgets::button::UiRawButtonBundle;
 
 #[derive(Component, Default)]
@@ -10,14 +10,15 @@ WorkspaceListUI=>
 @callback{[UiButtonEvent]
     fn on_click(
         In(event): In<UiButtonEvent>,
-        query: Query<(&WorkspaceListUISubStateList,&WorkspaceListUISubWidgetList)>,
+        query: Query<&WorkspaceListUISubWidgetList>,
+        focus_screen: Res<CursorOnOutput>,
         mut commands: Commands,
     ) {
-        let Ok((state,widget)) = query.get(event.receiver) else {return};
+        let Ok(widget) = query.get(event.receiver) else {return};
         if event.kind == UiButtonEventKind::Released{
-            if let Some(screen) = state.screen_list.first() {
+            if let Some(screen) = focus_screen.get_screen() {
                 commands
-                    .entity(*screen)
+                    .entity(screen)
                     .disconnect_all::<ScreenAttachWorkspace>()
                     .connect_to::<ScreenAttachWorkspace>(widget.data_entity);
             }
@@ -25,28 +26,29 @@ WorkspaceListUI=>
     }
 }
 @state_reflect()
-@global(theme:Theme)
+@global(theme: Theme)
+@global(workspace_manager: WorkspaceManager)
 <MiniNodeBundle @id="List" @style="align-items:center"
-    @for_query((workspace,screen_list) in Query<(Ref<Workspace>,Ref<ScreenList>)>::iter()=>[
+    @for_query((workspace,screen_list) in Query<(Ref<Workspace>,Ref<ScreenList>)>
+        ::iter_many(workspace_manager.workspaces.iter().cloned())=>[
         workspace=>{state.set_name(workspace.name.clone());},
-        screen_list=>{
-            state.set_is_focused(screen_list.len()>0);
-            state.set_screen_list(screen_list.iter().collect());
-        }
+        screen_list=>{ state.set_is_focused(screen_list.len()>0); }
     ])>
-    <MiniNodeBundle @style="p-4"
+    <MiniNodeBundle @id="ws"
         @state_reflect()
         @use_state(pub name:String)
         @use_state(pub is_focused:bool)
         @use_state(pub screen_list:Vec<Entity>)
     >
-        <(UiRawButtonBundle::from(UiButton::new(this_entity,on_click)))
-            @material(UiCircleMaterial=>circle_material(theme.color("blue")))
-            Style=(Style{
-                width:Val::Px(if *state.is_focused() {12.0}else{8.0}),
-                height:Val::Px(if *state.is_focused() {12.0}else{8.0}),
-                ..default()
-            }) >
+        <(UiRawButtonBundle::from(UiButton::new(node!(ws),on_click))) @style="p-4">
+            <MiniNodeBundle
+                @material(UiCircleMaterial=>circle_material(theme.color("blue")))
+                Style=(Style{
+                    width:Val::Px(if *state.is_focused() {12.0}else{8.0}),
+                    height:Val::Px(if *state.is_focused() {12.0}else{8.0}),
+                    ..default()
+                }) >
+            </MiniNodeBundle>
         </UiRawButtonBundle>
     </MiniNodeBundle>
 </MiniNodeBundle>

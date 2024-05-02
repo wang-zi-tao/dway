@@ -84,6 +84,7 @@ pub struct PluginBuilder {
     pub resources: Vec<ResourceBuilder>,
     pub systems: Vec<TokenStream>,
     pub stmts: Vec<TokenStream>,
+    pub hot_reload_stmts: Vec<TokenStream>,
     pub other_items: Vec<TokenStream>,
     pub name: Ident,
 }
@@ -96,6 +97,7 @@ impl PluginBuilder {
             systems: vec![],
             stmts: vec![],
             other_items: vec![],
+            hot_reload_stmts: vec![],
             name,
         }
     }
@@ -104,6 +106,7 @@ impl PluginBuilder {
 impl ToTokens for PluginBuilder {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let Self {
+            hot_reload_stmts,
             other_items,
             components,
             resources,
@@ -111,8 +114,48 @@ impl ToTokens for PluginBuilder {
             stmts,
             name,
         } = self;
+
+        #[cfg(feature = "hot_reload")]
+        let (hot_reload_loader, hot_reload_register, plugin_stats)  = {
+            #[cfg(feature = "hot_reload")]
+            let reloadable_name = format_ident!(
+                "{}_reload",
+                name.to_string().to_case(convert_case::Case::Snake),
+                span = name.span()
+            );
+            (
+                Some( quote! {
+                    #[dway_ui_framework::reexport::dexterous_developer_setup]
+                    fn #reloadable_name(app: &mut ReloadableAppContents) {
+                        #(#hot_reload_stmts)*
+                    }
+                } ),
+                Some( quote! {
+                    use dway_ui_framework::reexport::ReloadableElementsSetup as _;
+                    app.setup_reloadable_elements::<#reloadable_name>();
+                } ),
+                quote!{
+                    #(#stmts)*
+                }
+            )
+        };
+
+        #[cfg(not( feature = "hot_reload" ))]
+        let (hot_reload_loader, hot_reload_register, plugin_stats)  = {
+            (
+                None::<TokenStream>,
+                None::<TokenStream>,
+                quote!{
+                    #(#hot_reload_stmts)*
+                    #(#stmts)*
+                }
+            )
+        };
+
         let resource_stmts = resources.iter().map(|r| r.into_plugin());
         tokens.extend(quote! {
+            #hot_reload_loader
+
             #(#components)*
             #(#resources)*
             #(#systems)*
@@ -120,8 +163,9 @@ impl ToTokens for PluginBuilder {
             pub struct #name;
             impl Plugin for #name {
                 fn build(&self, app: &mut App) {
-                    #(#stmts)*
+                    #plugin_stats
                     #(#resource_stmts)*
+                    #hot_reload_register
                 }
             }
         });

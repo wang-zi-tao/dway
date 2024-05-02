@@ -9,3 +9,5 @@ pub mod worksapce;
 pub mod screen;
 pub mod logger;
 pub mod cursor;
+pub mod windowtitle;
+pub mod system_monitor;

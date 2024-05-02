@@ -12,6 +12,8 @@ pub use dexterous_developer::{
 pub use measure_time::{debug_time, error_time, info_time, print_time, trace_time};
 
 pub use smart_default::SmartDefault;
+pub(crate) use crate as dway_ui_framework;
+pub(crate) use serde::{Serialize, Deserialize};
 
 pub use crate::{
     animation::{Animation, AssetAnimationPlugin, AssetTweenExt, Interpolation, Tween},

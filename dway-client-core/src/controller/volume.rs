@@ -98,14 +98,3 @@ pub fn update_volume_controller(mut volume_controller: NonSendMut<VolumeControll
         }
     }
 }
-
-pub struct VolumeControllerPlugin;
-impl Plugin for VolumeControllerPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_non_send_resource::<VolumeController>()
-            .add_systems(
-                First,
-                update_volume_controller.run_if(on_timer(Duration::from_secs_f32(0.1))),
-            );
-    }
-}

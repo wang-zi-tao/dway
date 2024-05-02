@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "dway",
+    "dway-launcher",
     "dway-util",
     "dway-tty",
     "dway-server",
@@ -23,13 +24,15 @@ chrono = "0.4"
 lru = "0.12"
 nix = { version="^0.27", features=["fs", "signal", "socket", "mman"] }
 serde = "1.0.158"
-# dexterous_developer = { version="0.0.12", features = ["hot_internal"] }
+dexterous_developer = { version="0.2.0", features = ["hot_internal", "cli"] }
+bevy_dexterous_developer = {version="0.2.0", features = ["hot_internal", "hot"]}
 regex = "^1.8"
 regex-macro = "0.2.0"
 bitflags = "2.3.1"
 smallvec = "*"
 scopeguard = "1.2.0"
 smol_str = "0.2"
+indexmap = "2.2.6"
 
 futures = "0.3.29"
 futures-lite = "2.0.0"

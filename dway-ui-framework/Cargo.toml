@@ -3,8 +3,6 @@ name = "dway-ui-framework"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 dway-ui-derive = {path="../dway-ui-derive/", features=[]}
 bevy-relationship = {path="../bevy-relationship"}
@@ -22,8 +20,8 @@ bevy_svg.workspace = true
 const-fnv1a-hash = "1.1.0"
 bitflags = {workspace=true}
 derive_builder = {workspace=true}
-# bevy_tweening = "0.9.0"
-# dexterous_developer = {  workspace = true, optional=true }
+dexterous_developer = {  workspace = true, optional=true }
+bevy_dexterous_developer = {  workspace = true, optional=true }
 serde = { workspace = true }
 measure_time = {workspace = true}
 smart-default = {workspace = true}
@@ -51,7 +49,7 @@ bevy_image_export = "0.10"
 bevy-inspector-egui = "0.23.0"
 
 [features]
-# hot_reload = ["dep:dexterous_developer","dway-ui-derive/hot_reload"]
+hot_reload = ["dep:dexterous_developer", "dep:bevy_dexterous_developer","dway-ui-derive/hot_reload"]
 css = ["dep:bevy_ecss"]
 
 [profile.dev]

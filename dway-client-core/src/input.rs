@@ -182,7 +182,7 @@ pub fn on_input_event(
                             }
                             cursor_on_window.0 = Some((*surface_entity, relative_pos.as_ivec2()));
                             if let Some(grab) = &window_pointer.grab {
-                                match &**grab {
+                                match grab {
                                     SurfaceGrabKind::Move { mouse_pos, .. } => {
                                         window_action.send(WindowAction::SetRect(
                                             *surface_entity,
@@ -221,14 +221,6 @@ pub fn on_input_event(
                             }
                         }
                         MouseEvent::Button(e) => {
-                            if window_pointer.enabled() {
-                                pointer.button(seat, e, surface, relative_pos.as_dvec2());
-                                if !content_rect.contains(pos.as_vec2()) {
-                                    if let Some(popup) = popup {
-                                        popup.raw.popup_done();
-                                    }
-                                }
-                            }
                             window_pointer.is_clicked = content_rect.contains(pos.as_vec2())
                                 && e.state == ButtonState::Pressed;
                             let distant = if content.grab || e.state == ButtonState::Pressed {
@@ -248,6 +240,12 @@ pub fn on_input_event(
                                 window_pointer.grab = None;
                             }
                             output_focus.window_entity = Some(*surface_entity);
+                            pointer.button(seat, e, surface, relative_pos.as_dvec2());
+                            if !content_rect.contains(pos.as_vec2()) {
+                                if let Some(popup) = popup {
+                                    popup.raw.popup_done();
+                                }
+                            }
                         }
                         MouseEvent::Wheel(e) => {
                             let acc = |x: f64| x * 20.0;

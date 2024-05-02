@@ -2,6 +2,7 @@ use bevy::utils::{HashMap, HashSet};
 use dway_util::eventloop::EventLoop;
 use nix::{errno::Errno, sys::socket};
 use std::{
+    fs,
     io::{self, Read, Write},
     os::{
         fd::{AsRawFd, FromRawFd, RawFd},
@@ -139,11 +140,8 @@ impl XWaylandDisplay {
             .name(format!("xwayland:{display_number}"))
             .spawn(move || {
                 let result: Result<()> = (|| {
-                    let (stream,_peer) = DefaultStream::from_unix_stream(x11_stream)?;
-                    let rust_connection = RustConnection::connect_to_stream(
-                        stream,
-                        0,
-                    )?;
+                    let (stream, _peer) = DefaultStream::from_unix_stream(x11_stream)?;
+                    let rust_connection = RustConnection::connect_to_stream(stream, 0)?;
                     let (atoms, wm_window) = Self::start_wm(&rust_connection)?;
                     let connection = Arc::new((rust_connection, atoms));
                     let _ = tx.send(XWaylandThreadEvent::CreateConnection(
@@ -332,7 +330,7 @@ impl XWaylandDisplay {
     fn get_number() -> Option<(u32, Vec<UnixStream>)> {
         for d in 0..255 {
             if Self::lock_display(d).is_some() {
-                if let Ok(streams) = Self::open_x11_sockets_for_display(d, true) {
+                if let Ok(Some(streams)) = Self::open_x11_sockets_for_display(d, true) {
                     return Some((d, streams));
                 };
             }
@@ -382,7 +380,11 @@ impl XWaylandDisplay {
     fn open_x11_sockets_for_display(
         display: u32,
         open_abstract_socket: bool,
-    ) -> nix::Result<Vec<UnixStream>> {
+    ) -> nix::Result<Option<Vec<UnixStream>>> {
+        let lock_path = format!("/tmp/.X{}-lock", display);
+        if fs::metadata(lock_path).is_ok() {
+            return Ok(None);
+        }
         let path = format!("/tmp/.X11-unix/X{}", display);
         let _ = ::std::fs::remove_file(&path);
         let fs_addr = socket::UnixAddr::new(path.as_bytes()).unwrap();
@@ -391,7 +393,7 @@ impl XWaylandDisplay {
             let abs_addr = socket::UnixAddr::new_abstract(path.as_bytes()).unwrap();
             sockets.push(Self::open_socket(abs_addr)?);
         }
-        Ok(sockets)
+        Ok(Some(sockets))
     }
     fn open_socket(addr: socket::UnixAddr) -> nix::Result<UnixStream> {
         let fd = socket::socket(

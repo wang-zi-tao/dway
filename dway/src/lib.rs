@@ -21,9 +21,7 @@ use dway_client_core::{
     layout::{
         tile::{TileLayoutKind, TileLayoutSet, TileLayoutSetBuilder},
         LayoutRect, LayoutStyle,
-    },
-    workspace::{Workspace, WorkspaceBundle, WorkspaceSet},
-    DWayClientSetting, OutputType,
+    }, model::apps::{AppId, AppListModel}, workspace::{Workspace, WorkspaceBundle, WorkspaceSet}, DWayClientSetting, OutputType
 };
 use dway_server::apps::icon::LinuxIconSourcePlugin;
 use dway_tty::{DWayTTYPlugin, DWayTTYSettings};
@@ -50,7 +48,7 @@ nega::front=info,\
 naga=warn,\
 wgpu=info,\
 wgpu-hal=info,\
-dexterous_developer_internal=info,\
+dexterous_developer_internal=debug,\
 bevy_ecss=info,\
 dway_tty=info,\
 ";
@@ -121,6 +119,10 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
                 priority: bevy::render::settings::WgpuSettingsPriority::Functionality,
                 ..Default::default()
             }),
+            ..Default::default()
+        })
+        .set(AssetPlugin{
+            file_path: "../dway/assets".to_string(),
             ..Default::default()
         })
         .add_before::<AssetPlugin, _>(LinuxIconSourcePlugin)
@@ -255,7 +257,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     info!("exit");
 }
 
-pub fn setup(mut commands: Commands) {
+pub fn setup(mut commands: Commands, mut app_model: ResMut<AppListModel>) {
     commands
         .spawn((WorkspaceSet, Name::from("WorkspaceSet")))
         .with_children(|c| {
@@ -288,6 +290,17 @@ pub fn setup(mut commands: Commands) {
                 ));
             }
         });
+    for app in [
+        "firefox",
+        "code",
+        "org.gnome.Nautilus",
+        "gnome-system-monitor",
+        "org.gnome.Calendar",
+        "Alacritty",
+        "org.gnome.Console",
+    ] {
+        app_model.favorite_apps.insert(AppId::from(app.to_string()));
+    }
 }
 
 pub fn update(_query: Query<&Window>) {

@@ -1,0 +1,13 @@
+[package]
+name = "dway-launcher"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dexterous_developer = {  workspace = true, default-features = false, features=["hot","cli"] }
+dexterous_developer_types = "0.2.0"
+dexterous_developer_internal = "0.2.0"
+
+[package.metadata]
+hot_reload_features = ["bevy/dynamic_linking"]
+

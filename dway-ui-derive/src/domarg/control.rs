@@ -373,6 +373,9 @@ pub struct ForQuery {
     #[call(parse_optional_expr)]
     expr: Option<Expr>,
     update: DomPatList,
+    _split2: Option<Token![=>]>,
+    #[parse_if(_split2.is_some())]
+    other_stmt: Option<Block>,
 }
 
 impl DomDecorator for ForQuery {
@@ -408,7 +411,7 @@ impl DomDecorator for ForQuery {
     }
     fn wrap_sub_widget(&self, inner: TokenStream, context: &mut WidgetNodeContext) -> TokenStream {
         let just_inited = &context.just_inited;
-        let Self { pat, update, .. } = self;
+        let Self { pat, update, other_stmt, .. } = self;
         let item_var = DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_child_item");
         let data_entity_var =
             DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_data_entity");
@@ -427,6 +430,7 @@ impl DomDecorator for ForQuery {
                 }
                 let #pat = #item_var;
                 #(#update_componets)*
+                #other_stmt
             }
             #inner
         }
