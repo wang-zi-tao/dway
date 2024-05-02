@@ -196,23 +196,23 @@ pub fn on_input_event(
                                             ),
                                         ));
                                     }
-                                    SurfaceGrabKind::Resizing { edges, .. } => {
-                                        let mut geo = window_geometry.geometry;
+                                    SurfaceGrabKind::Resizing { edges, geo, .. } => {
+                                        let mut geo = *geo;
+                                        let pos = e.position
+                                            - (window_geometry.pos()
+                                                - window_global_geometry.pos())
+                                            .as_vec2();
                                         if edges.contains(ResizeEdges::LEFT) {
-                                            geo.min.x += relative_pos.x as i32;
-                                            geo.max.x = geo.max.x;
+                                            geo.min.x = pos.x as i32;
                                         }
                                         if edges.contains(ResizeEdges::TOP) {
-                                            geo.min.y += relative_pos.y as i32;
-                                            geo.max.y = geo.max.y;
+                                            geo.min.y = pos.y as i32;
                                         }
                                         if edges.contains(ResizeEdges::RIGHT) {
-                                            geo.max.x = geo.min.x + relative_pos.x as i32;
-                                            geo.min.x = geo.min.x;
+                                            geo.max.x = pos.x as i32;
                                         }
                                         if edges.contains(ResizeEdges::BUTTOM) {
-                                            geo.max.y = geo.min.y + relative_pos.y as i32;
-                                            geo.min.y = geo.min.y;
+                                            geo.max.y = pos.y as i32;
                                         }
                                         window_action
                                             .send(WindowAction::SetRect(*surface_entity, geo));
