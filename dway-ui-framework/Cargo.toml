@@ -39,6 +39,7 @@ bevy-trait-query = {workspace=true}
 derive_more = "0.99.17"
 
 [dev-dependencies]
+bevy = { workspace = true, features = ["png", "jpeg"] }
 regex = {workspace=true}
 lazy_static = {workspace=true}
 pretty_assertions = "1.4.0"

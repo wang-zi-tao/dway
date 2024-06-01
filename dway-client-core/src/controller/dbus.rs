@@ -21,15 +21,16 @@ impl Default for DBusController {
 impl DBusController {
     pub fn method_call<A: AppendAll, R: ReadAll>(
         &self,
-        bus: &str,
+        dest: &str,
         path: &str,
+        interface: &str,
         member: &str,
         timeout: Duration,
         args: A,
     ) -> Result<R> {
         let path = self
             .connection
-            .with_path(bus, path, timeout.as_millis() as i32);
-        Ok(path.method_call(bus, member, args)?)
+            .with_path(dest, path, timeout.as_millis() as i32);
+        Ok(path.method_call(interface, member, args)?)
     }
 }

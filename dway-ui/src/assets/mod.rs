@@ -17,6 +17,7 @@ impl Plugin for DWayAssetsPlugin {
         embedded_asset!(app, "assets", "icons/user.svg");
         embedded_asset!(app, "assets", "icons/volume_off.svg");
         embedded_asset!(app, "assets", "icons/volume_on.svg");
+        embedded_asset!(app, "assets", "icons/notifications.svg");
 
         embedded_asset!(app, "assets", "cursors/cursor-default.png");
 
@@ -48,6 +49,7 @@ impl Plugin for DWayAssetsPlugin {
                 "user",
                 "volume_off",
                 "volume_on",
+                "notifications",
             ],
         );
     }

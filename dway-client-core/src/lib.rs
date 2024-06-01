@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 use bevy_relationship::relationship;
 use dway_server::schedule::DWayServerSet;
+use dway_util::tokio::TokioPlugin;
 use log::info;
 use smart_default::SmartDefault;
 
@@ -81,6 +82,9 @@ impl Plugin for DWayClientPlugin {
         app.init_resource::<DWayClientSetting>();
         use DWayClientSystem::*;
         app.configure_sets(Startup, Init);
+        if !app.is_plugin_added::<TokioPlugin>(){
+            app.add_plugins(TokioPlugin::default());
+        }
         app.configure_sets(
             PreUpdate,
             (

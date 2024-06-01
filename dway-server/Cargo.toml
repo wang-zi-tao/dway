@@ -57,7 +57,7 @@ async-fs = "2.1.0"
 ron = "0.8.1"
 derive_builder = {workspace=true}
 structstruck = {workspace=true}
-x11rb = { version="*", default-features=false, features = ["composite"] }
+x11rb = { version="0.13", default-features=false, features = ["composite"] }
 smart-default = {workspace=true}
 indexmap = {workspace=true}
 

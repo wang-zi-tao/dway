@@ -29,7 +29,7 @@ bevy_dexterous_developer = {version="0.2.0", features = ["hot_internal", "hot"]}
 regex = "^1.8"
 regex-macro = "0.2.0"
 bitflags = "2.3.1"
-smallvec = "*"
+smallvec = "1.13"
 scopeguard = "1.2.0"
 smol_str = "0.2"
 indexmap = "2.2.6"
@@ -38,15 +38,16 @@ futures = "0.3.29"
 futures-lite = "2.0.0"
 crossbeam = "0.8.2"
 crossbeam-channel = "0.5.6"
+tokio = { version="1.37.0", features=[] }
 
 log = "0.4"
 failure = "0.1"
 thiserror = "1"
 pretty_env_logger = "0.5.0"
 measure_time = "0.8.2"
-tracing = { version = "*", features = [] }
-tracing-appender = "*"
-tracing-subscriber = "*"
+tracing = { version = "0.1", features = [] }
+tracing-appender = "0.2"
+tracing-subscriber = "0.3"
 
 derive_builder = "0.20.0"
 smart-default = "0.7.1"
@@ -63,10 +64,10 @@ derive-syn-parse = "0.1.5"
 
 bevy-trait-query = {version="0.5", features=[]}
 bevy_svg = { version="*", default-features = false, features = ["2d"] }
-wgpu={version="*",features=["angle"]}
-wgpu-hal={version="*",features=["gles"]}
-glow = {version="*"}
-khronos-egl = { version="*",features= ["dynamic","static"] }
+wgpu={version="0.19",features=["angle"]}
+wgpu-hal={version="0.19",features=["gles"]}
+glow = {version="0.13"}
+khronos-egl = { version="6",features= ["dynamic","static"] }
 ash = { version = "0.37", features = [] }
 
 [workspace.dependencies.bevy]

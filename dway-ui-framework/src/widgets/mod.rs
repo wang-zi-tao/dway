@@ -2,18 +2,18 @@ use crate::prelude::*;
 pub mod button;
 pub mod canvas;
 pub mod checkbox;
+pub mod combobox;
 pub mod inputbox;
 pub mod popup;
+pub mod rightclick_popup;
 pub mod scroll;
 pub mod shape;
 pub mod slider;
 pub mod svg;
 pub mod text;
-pub mod rightclick_popup;
 pub mod tips;
-pub mod combobox;
 
-pub trait WidgetTemplate<Input>{
+pub trait WidgetTemplate<Input> {
     fn spawn(input: &Input, commands: &mut Commands);
 }
 
@@ -110,6 +110,7 @@ pub mod bundles {
             pub image_size: UiImageSize,
             pub focus_policy: FocusPolicy,
             pub calculated_size: ContentSize,
+            pub background_color: BackgroundColor,
         }
     );
     make_bundle!(UiNodeBundle {
@@ -146,6 +147,18 @@ pub mod bundles {
         pub focus_policy: FocusPolicy,
         pub interaction: Interaction,
     });
+}
+
+pub mod util {
+    use crate::prelude::*;
+
+    pub fn visibility(value: bool) -> Visibility {
+        if value {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        }
+    }
 }
 
 pub mod shader {

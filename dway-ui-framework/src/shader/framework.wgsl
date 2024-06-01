@@ -2,6 +2,44 @@
 
 const PI:f32 = 3.141592653589793;
 
+fn kawase_blur_image(texture: texture_2d<f32>, sampler_: sampler, pos: vec2<f32>, size: vec2<f32>, radius: f32) -> vec4<f32> {
+    var color = vec4(0.0);
+    color += textureSample(texture, sampler_, (pos + vec2( 1.0, 1.0) * radius) / size + vec2(0.5));
+    color += textureSample(texture, sampler_, (pos + vec2( 1.0,-1.0) * radius) / size + vec2(0.5));
+    color += textureSample(texture, sampler_, (pos + vec2(-1.0, 1.0) * radius) / size + vec2(0.5));
+    color += textureSample(texture, sampler_, (pos + vec2(-1.0,-1.0) * radius) / size + vec2(0.5));
+    return color * 0.25;
+}
+
+fn kawase_blur_image2(texture: texture_2d<f32>, sampler_: sampler, pos: vec2<f32>, size: vec2<f32>, radius: f32) -> vec4<f32> {
+    var color = vec4(0.0);
+    color += kawase_blur_image(texture, sampler_, pos + vec2( 1.0, 1.0) * radius * 3.0, size, radius);
+    color += kawase_blur_image(texture, sampler_, pos + vec2( 1.0,-1.0) * radius * 3.0, size, radius);
+    color += kawase_blur_image(texture, sampler_, pos + vec2(-1.0, 1.0) * radius * 3.0, size, radius);
+    color += kawase_blur_image(texture, sampler_, pos + vec2(-1.0,-1.0) * radius * 3.0, size, radius);
+    return color * 0.25;
+}
+
+fn gaussian_blur_image5_h(texture: texture_2d<f32>, sampler_: sampler, pos: vec2<f32>, size: vec2<f32>, radius: f32) -> vec4<f32> {
+    var color = vec4(0.0);
+    color += 1.0 / 16.0 * textureSample(texture, sampler_, (pos + vec2(-2.0, 0.0)) / size + vec2(0.5));
+    color += 1.0 / 16.0 * textureSample(texture, sampler_, (pos + vec2( 2.0, 0.0)) / size + vec2(0.5));
+    color += 4.0 / 16.0 * textureSample(texture, sampler_, (pos + vec2(-1.0, 0.0)) / size + vec2(0.5));
+    color += 4.0 / 16.0* textureSample(texture, sampler_, (pos + vec2( 1.0, 0.0)) / size + vec2(0.5));
+    color += 6.0 / 16.0* textureSample(texture, sampler_, pos / size + vec2(0.5));
+    return color;
+}
+
+fn gaussian_blur_image5(texture: texture_2d<f32>, sampler_: sampler, pos: vec2<f32>, size: vec2<f32>, radius: f32) -> vec4<f32> {
+    var color = vec4(0.0);
+    color += 1.0 / 16.0 * gaussian_blur_image5_h(texture, sampler_, (pos + vec2(0.0, -2.0)), size, radius);
+    color += 1.0 / 16.0 * gaussian_blur_image5_h(texture, sampler_, (pos + vec2(0.0, -2.0)), size, radius);
+    color += 4.0 / 16.0 * gaussian_blur_image5_h(texture, sampler_, (pos + vec2(0.0, -1.0)), size, radius);
+    color += 4.0 / 16.0* gaussian_blur_image5_h(texture, sampler_, (pos + vec2(0.0, 1.0)), size, radius);
+    color += 6.0 / 16.0* gaussian_blur_image5_h(texture, sampler_, pos, size, radius);
+    return color;
+}
+
 fn rect_sdf(pos: vec2<f32>, size: vec2<f32>) -> f32 {
    let pos2 = abs(pos) - size * 0.5;
    return length(max(pos2, vec2(0.0))) + min(max(pos2.x, pos2.y), 0.0);

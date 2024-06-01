@@ -11,3 +11,4 @@ pub mod logger;
 pub mod cursor;
 pub mod windowtitle;
 pub mod system_monitor;
+pub mod notifys;

@@ -121,13 +121,13 @@ pub fn uisvg_update_system(
                 match layout.horizontal_align{
                     SvgAlign::None=>{},
                     _=>{
-                        transform.translation.x = pos.x - node_size.x * 0.5;
+                        transform.translation.x = ( pos.x + asset.view_box.x as f32 * transform.scale.x ) - node_size.x * 0.5;
                     }
                 }
                 match layout.vertical{
                     SvgAlign::None=>{},
                     _=>{
-                        transform.translation.y = pos.y - node_size.y * 0.5;
+                        transform.translation.y = ( pos.y + asset.view_box.y as f32 * transform.scale.y ) - node_size.y * 0.5;
                     }
                 }
             }else {

@@ -59,6 +59,8 @@ impl Plugin for UiFrameworkPlugin {
             shader::ShaderFrameworkPlugin,
             render::mesh::UiMeshMaterialPlugin::<ColorMaterial>::default(),
             animation::AnimationPlugin,
+            render::blur::PostProcessingPlugin,
+            render::layer_manager::LayerManagerPlugin,
         ))
         .add_plugins((
             widgets::slider::UiSliderPlugin,
@@ -86,7 +88,6 @@ impl Plugin for UiFrameworkPlugin {
         .add_event::<input::UiFocusEvent>()
         .register_type::<input::UiFocusEvent>()
         .register_system(delay_destroy)
-        .register_system(delay_destroy_up)
         .add_systems(
             PreUpdate,
             (
@@ -147,6 +148,7 @@ pub enum UiFrameworkSystems {
     UpdateWidgets,
     UpdatePopup,
     UpdateTheme,
+    UpdateLayers,
     ApplyAnimation,
     ProcessMesh,
 }

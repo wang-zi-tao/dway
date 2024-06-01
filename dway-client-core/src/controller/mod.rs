@@ -1,5 +1,6 @@
 pub mod bluetooth;
 pub mod brightness;
+pub mod dbus;
 pub mod network;
 pub mod notify;
 pub mod player;
@@ -9,7 +10,6 @@ pub mod tray;
 pub mod userinfo;
 pub mod volume;
 pub mod weathre;
-pub mod dbus;
 
 use crate::controller::volume::VolumeController;
 pub use crate::prelude::*;
@@ -17,7 +17,13 @@ use bevy::time::common_conditions::on_timer;
 use smart_default::SmartDefault;
 use std::time::Duration;
 
-use self::{dbus::DBusController, systemcontroller::SystemControllRequest, systeminfo::SystemInfo, userinfo::UserInfo};
+use self::{
+    dbus::DBusController,
+    notify::{NotifyController, NotifyRequest},
+    systemcontroller::SystemControllRequest,
+    systeminfo::SystemInfo,
+    userinfo::UserInfo,
+};
 
 #[derive(SmartDefault)]
 pub struct ControllerPlugin {
@@ -31,7 +37,9 @@ impl Plugin for ControllerPlugin {
             .init_non_send_resource::<DBusController>()
             .init_resource::<SystemInfo>()
             .init_resource::<UserInfo>()
+            .init_resource::<NotifyController>()
             .add_event::<SystemControllRequest>()
+            .add_event::<NotifyRequest>()
             .add_systems(
                 First,
                 (
@@ -42,8 +50,11 @@ impl Plugin for ControllerPlugin {
             )
             .add_systems(
                 Last,
-                systemcontroller::receive_system_controll_request
-                    .run_if(on_event::<SystemControllRequest>()),
+                (
+                    systemcontroller::receive_system_controll_request
+                        .run_if(on_event::<SystemControllRequest>()),
+                    notify::do_receive_notify,
+                ),
             );
     }
 }

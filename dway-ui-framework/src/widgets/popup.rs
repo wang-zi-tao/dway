@@ -4,7 +4,7 @@ use crate::{
         UiAnimationConfig,
     },
     make_bundle,
-    prelude::*,
+    prelude::*, render::layer_manager::RenderToLayer,
 };
 use bevy::ui::RelativeCursorPosition;
 use derive_builder::Builder;
@@ -135,6 +135,8 @@ make_bundle! {
         pub relative_cursor: RelativeCursorPosition,
         #[default(FocusPolicy::Block)]
         pub focus_policy: FocusPolicy,
+        #[default(RenderToLayer::blur())]
+        pub render_to_layer: RenderToLayer,
     }
 }
 
@@ -163,14 +165,5 @@ pub fn delay_destroy(In(event): In<PopupEvent>, mut commands: Commands) {
     if PopupEventKind::Closed == event.kind {
         commands.entity(event.entity).despawn_recursive(); // TODO: temp code
                                                            // commands.entity(event.entity).insert(Animation::new(Duration::from_secs_f32(0.4), EaseFunction::BackOut).with_callback(theme.system(AnimationSystem::default())));
-    }
-}
-
-pub fn delay_destroy_up(In(event): In<PopupEvent>, mut commands: Commands) {
-    if PopupEventKind::Closed == event.kind {
-        commands.entity(event.entity).despawn_recursive(); // TODO: temp code
-                                                           // commands.entity(event.entity).insert(despawn_animation(
-                                                           //     animation!(Tween 0.5 secs:BackOut->TransformPositionLens(Vec3::NEG_Y=>Vec3::Y)),
-                                                           // ));
     }
 }

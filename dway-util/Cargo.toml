@@ -11,7 +11,7 @@ memory-stats = { workspace = true}
 calloop = "0.10"
 anyhow = "1.0.75"
 send_wrapper = "0.6.0"
-winit = { version = "*", default-features = false }
+winit = { version = "0.29", default-features = false }
 tracing-appender = "0.2.2"
 tracing-subscriber = { version="0.3.17",features=["env-filter"] }
 log-panics = { version = "2", features = ["with-backtrace", "backtrace"]}
@@ -22,3 +22,4 @@ nix = { version="0.27.1", features=["poll"] }
 bevy = {workspace = true}
 tracing-journald = "0.3.0"
 backtrace = "0.3"
+tokio = {workspace=true}

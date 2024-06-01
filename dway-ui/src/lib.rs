@@ -14,7 +14,7 @@ use crate::{
     panels::PanelButtonBundle,
     prelude::*,
     widgets::{
-        applist::AppListUIBundle, cursor::{Cursor, CursorBundle}, screen::{ScreenWindows, ScreenWindowsBundle}, system_monitor::PanelSystemMonitorBundle, windowtitle::WindowTitleBundle, workspacelist::WorkspaceListUIBundle
+        applist::AppListUIBundle, cursor::{Cursor, CursorBundle}, notifys::NotifyButtonBundle, screen::{ScreenWindows, ScreenWindowsBundle}, system_monitor::PanelSystemMonitorBundle, windowtitle::WindowTitleBundle, workspacelist::WorkspaceListUIBundle
     },
 };
 use bevy::{render::camera::RenderTarget, window::WindowRef};
@@ -26,6 +26,7 @@ use dway_tty::{
     drm::{camera::DrmCamera, surface::DrmSurface},
     seat::SeatState,
 };
+use dway_ui_framework::render::layer_manager::LayerManager;
 use widgets::clock::ClockBundle;
 
 pub struct DWayUiPlugin;
@@ -54,6 +55,7 @@ impl Plugin for DWayUiPlugin {
             widgets::cursor::CursorPlugin,
             widgets::windowtitle::WindowTitlePlugin,
             widgets::system_monitor::PanelSystemMonitorPlugin,
+            widgets::notifys::NotifyButtonPlugin,
             ScreenUIPlugin,
         ));
         app.add_plugins((
@@ -114,6 +116,7 @@ ScreenUI=>
         <MiniNodeBundle @style="absolute flex-row right-4 align-items:center" @id="right">
             <ClockBundle/>
             <PanelSystemMonitorBundle @id="system_monitor" @style="h-full"/>
+            <NotifyButtonBundle @id="notify"/>
             <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
                 (prop.screen,theme.system(popups::volume_control::open_popup))
             ])) @style="flex-col m-4">
@@ -167,6 +170,7 @@ fn init_screen_ui(
             },
             ..Default::default()
         });
+        camera_cmd.add(LayerManager::create);
         let camera = camera_cmd.id();
         if *camera_count == 0 {
             // camera_cmd.insert(IsDefaultUiCamera);

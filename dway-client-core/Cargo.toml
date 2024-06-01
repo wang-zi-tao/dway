@@ -25,12 +25,16 @@ anyhow = { version="1.0", features = ["backtrace"] }
 structstruck = "0.4.1"
 smart-default = {workspace = true}
 indexmap = {workspace=true}
+smol_str = {workspace=true}
+tokio = {workspace=true}
 
 pulsectl-rs = "0.3.2"
 libpulse-binding = "2.24.0"
 
 sysinfo = { version="0.30.11", featrues=[] }
 dbus = "0.9.7"
+dbus-tokio = "0.7.6"
+dbus-crossroads = "0.5.2"
 system_shutdown = "4.0.1"
 
 [profile.dev]
