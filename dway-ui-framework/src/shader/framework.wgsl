@@ -108,6 +108,30 @@ fn sdf_visualition(v: f32) -> vec4<f32> {
     return vec4(s,sigmoid(v),0.0,1.0);
 }
 
+fn visualition_2d_uv(value: vec2<f32>) -> vec4<f32> {
+    let v = value - vec2(0.5);
+    if (length(v)) < 0.05 {
+        return vec4(1.0);
+    }
+    if (abs( length(v) - 0.5 ) < 0.02) {
+        return vec4(0.0, 1.0, 0.0, 1.0);
+    }
+    if (abs( length(v) - 1.0 ) < 0.02) {
+        return vec4(0.0, 0.0, 1.0, 1.0);
+    }
+    if (abs(v.x-0.5)<=0.05 || abs(v.x+0.5)<=0.05 
+        || abs(v.y-0.5)<=0.05 || abs(v.y+0.5)<=0.05) {
+        return vec4(1.0);
+    }
+    if (abs(v.x-1.0)<=0.05 || abs(v.x+1.0)<=0.05 
+        || abs(v.y-1.0)<=0.05 || abs(v.y+1.0)<=0.05) {
+        return vec4(1.0, 0.0, 0.0, 1.0);
+    }
+    let b0 :bool = v.x % 0.2 > 0.1;
+    let b1 :bool = v.y % 0.2 > 0.1;
+    return vec4(0.5 + v.x,0.5 + v.y,0.0,select(1.0, 0.5, b0!=b1));
+}
+
 fn mix_alpha(bg: vec4<f32>, fg: vec4<f32>) -> vec4<f32> {
     return vec4(bg.rgb * (1.0-fg.a) + fg.rgb*fg.a,bg.a + fg.a - bg.a*fg.a);
 }

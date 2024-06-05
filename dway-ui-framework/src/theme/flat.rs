@@ -1,7 +1,10 @@
-use super::{insert_material_tween, StyleFlags, ThemeDispatch};
+use std::sync::Arc;
+
+use super::{insert_material_tween, StyleFlags, ThemeComponent, ThemeDispatch};
 use crate::animation::AnimationEaseMethod;
+use crate::render::layer_manager::{FillWithLayer, RenderToLayer};
 use crate::shader::effect::Border;
-use crate::shader::fill::Fill;
+use crate::shader::fill::{AddColor, Fill};
 use crate::shader::shape::{RoundedBar, Shape};
 use crate::shader::transform::Margins;
 use crate::shader::{ShaderAsset, ShaderPlugin, Transformed};
@@ -30,8 +33,12 @@ type SliderHightlightBarMaterial = ShapeRender<RoundedBar, FillColor>;
 type SliderHandlerMaterial = ShapeRender<Circle, (Border, FillColor, Shadow)>;
 type InputboxMaterial = ShapeRender<RoundedRect, (Border, FillColor)>;
 type ScrollBarMaterial = ShapeRender<RoundedRect, FillColor>;
+type BlurMaterial = ShapeRender<RoundedRect, AddColor<FillWithLayer>>;
 
-#[derive(SmartDefault, Clone)]
+#[derive(Component)]
+pub struct FlatThemeComponent;
+
+#[derive(SmartDefault, Clone, Debug)]
 pub struct FlatTheme {
     #[default(color!("#2777ff"))]
     pub main_color: Color,
@@ -61,6 +68,8 @@ pub struct FlatTheme {
     pub inner_shadow_radius: f32,
     #[default(2.0)]
     pub shadow_radius: f32,
+    #[default(0.75)]
+    pub blur_brightness: f32,
     #[default(Duration::from_secs_f32(0.2))]
     pub animation_duration: Duration,
     // #[default(AnimationEaseMethod::EaseFunction(EaseFunction::QuadraticIn))]
@@ -104,14 +113,15 @@ impl FlatTheme {
                     .with_effect((self.fill_color(), self.shadow())),
             ));
             self.popup_block_material = world.resource_mut::<Assets<_>>().add(ShaderAsset::new(
-                self.popup_block_rounded_rect().with_effect((self.fill_color(), {
-                    Shadow::new(
-                        self.shadow_color,
-                        self.shadow_offset * 0.0,
-                        self.shadow_margin * 1.0,
-                        self.shadow_radius * 1.0,
-                    )
-                })),
+                self.popup_block_rounded_rect()
+                    .with_effect((self.fill_color(), {
+                        Shadow::new(
+                            self.shadow_color,
+                            self.shadow_offset * 0.0,
+                            self.shadow_margin * 1.0,
+                            self.shadow_radius * 1.0,
+                        )
+                    })),
             ));
             self.hollow_block_material = world
                 .resource_mut::<Assets<_>>()
@@ -489,7 +499,52 @@ impl ThemeDispatch for FlatTheme {
                 }
             }
             super::WidgetKind::ComboBox(_) => {}
+            super::WidgetKind::BlurBackground => {
+                commands.add(move |world: &mut World| {
+                    world.entity_mut(entity).insert((
+                        FlatThemeComponent,
+                        RenderToLayer::blur(),
+                        Handle::<ShaderAsset<BlurMaterial>>::default(),
+                    ));
+                });
+            }
         }
+    }
+}
+
+pub fn update_ui_material(
+    mut query: Query<
+        (
+            &RenderToLayer,
+            &ThemeComponent,
+            &mut Handle<ShaderAsset<BlurMaterial>>,
+        ),
+        (With<FlatThemeComponent>, Changed<RenderToLayer>),
+    >,
+    global_theme: Res<Theme>,
+    mut material_assets: ResMut<Assets<ShaderAsset<BlurMaterial>>>,
+) {
+    for (render_to_layer, theme_component, mut shader_handle) in &mut query {
+        let Some(theme_object) = theme_component
+            .theme
+            .as_ref()
+            .or_else(|| global_theme.theme_dispatch.as_ref())
+        else {
+            continue;
+        };
+        let Some(theme) = theme_object.downcast_ref::<FlatTheme>() else {
+            continue;
+        };
+        let material = RoundedRect::new(theme.block_cornor).with_effect(AddColor::new(
+            FillWithLayer {
+                texture: render_to_layer.ui_background.clone(),
+                texture_size: render_to_layer.background_size,
+            },
+            theme
+                .fill_color
+                .with_a(1.0 - theme.blur_brightness),
+        ));
+        *shader_handle = material_assets.add(material);
     }
 }
 
@@ -512,6 +567,7 @@ impl Plugin for FlatThemePlugin {
             ShaderPlugin::<SliderHandlerMaterial>::default(),
             ShaderPlugin::<InputboxMaterial>::default(),
             ShaderPlugin::<ScrollBarMaterial>::default(),
+            ShaderPlugin::<BlurMaterial>::default(),
         ));
         app.add_plugins((
             AssetAnimationPlugin::<ShaderAsset<BlockMaterial>>::default(),
@@ -527,6 +583,10 @@ impl Plugin for FlatThemePlugin {
             AssetAnimationPlugin::<ShaderAsset<InputboxMaterial>>::default(),
             AssetAnimationPlugin::<ShaderAsset<ScrollBarMaterial>>::default(),
         ));
+        app.add_systems(
+            Last,
+            update_ui_material.in_set(UiFrameworkSystems::UpdateLayers),
+        );
         let mut flat_theme = self.theme.clone();
         flat_theme.init(&mut app.world);
         let mut theme = app.world.resource_mut::<Theme>();

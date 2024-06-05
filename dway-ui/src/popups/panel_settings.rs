@@ -36,16 +36,17 @@ PanelSettings=>
 }
 @global(theme:Theme)
 @global(asset_server: AssetServer)
+@global(mut assets_rounded_ui_rect_material: Assets<RoundedUiRectMaterial>)
 <MiniNodeBundle @style="flex-col">
     <VolumeControlBundle/>
     <MiniNodeBundle @id="bottom_bar" @style="p-4 justify-content:space-evenly"
         @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup")*0.9, 16.0))
     >
-        <( PanelButtonBundle::with_callback(&theme,&mut assets_rounded_ui_rect_material, &[(this_entity, do_logout)]) ) 
+        <( PanelButtonBundle::with_callback(&theme,&mut assets_rounded_ui_rect_material, &[(this_entity, do_logout)]) )
             @style="w-32 h-32" @id="logout_button">
             <(UiSvgBundle::new(theme.icon("logout", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
-        <( PanelButtonBundle::with_callback(&theme,&mut assets_rounded_ui_rect_material, &[(this_entity, do_reboot)]) ) 
+        <( PanelButtonBundle::with_callback(&theme,&mut assets_rounded_ui_rect_material, &[(this_entity, do_reboot)]) )
             @style="w-32 h-32" @id="reboot_button">
             <(UiSvgBundle::new(theme.icon("restart", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
@@ -66,18 +67,12 @@ pub fn delay_destroy(In(event): In<PopupEvent>, mut commands: Commands, theme: R
     }
 }
 
-pub fn open_popup(
-    In(event): In<UiButtonEvent>,
-    theme: Res<Theme>,
-    mut commands: Commands,
-    mut rect_material_set: ResMut<Assets<RoundedUiRectMaterial>>,
-) {
+pub fn open_popup(In(event): In<UiButtonEvent>, theme: Res<Theme>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         commands
             .spawn((
                 Animation::new(Duration::from_secs_f32(0.5), EaseFunction::CubicIn)
                     .with_callback(theme.system(popup_open_drop_down)),
-                rect_material_set.add(rounded_rect(theme.color("panel-popup"), 16.0)),
                 PanelSettingsBundle {
                     style: style!("absolute top-120% right-0 align-self:end p-8"),
                     ..default()

@@ -4,7 +4,7 @@ use crate::{
         UiAnimationConfig,
     },
     make_bundle,
-    prelude::*, render::layer_manager::RenderToLayer,
+    prelude::*, render::layer_manager::RenderToLayer, theme::{ThemeComponent, WidgetKind},
 };
 use bevy::ui::RelativeCursorPosition;
 use derive_builder::Builder;
@@ -135,8 +135,8 @@ make_bundle! {
         pub relative_cursor: RelativeCursorPosition,
         #[default(FocusPolicy::Block)]
         pub focus_policy: FocusPolicy,
-        #[default(RenderToLayer::blur())]
-        pub render_to_layer: RenderToLayer,
+        #[default(ThemeComponent::widget(WidgetKind::BlurBackground))]
+        pub theme: ThemeComponent,
     }
 }
 

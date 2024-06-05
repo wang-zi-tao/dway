@@ -6,6 +6,7 @@ pub mod transform;
 pub mod test;
 
 use crate::prelude::*;
+use crate::render::ui_material::UiMaterialPlugin;
 use bevy::render::render_resource::encase::private::Metadata;
 use bevy::{
     asset::{io::embedded::EmbeddedAssetRegistry, load_internal_asset},

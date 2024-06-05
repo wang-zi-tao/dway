@@ -247,3 +247,46 @@ impl<M: BlurMethod> BuildBindGroup for BlurImage<M> {
         layout.write_uniform(&self.radius, writer);
     }
 }
+
+#[derive(Clone, Default, Debug, Interpolation)]
+pub struct AddColor<F: Fill> {
+    pub inner: F,
+    pub color: Color,
+}
+
+impl<F: Fill> AddColor<F> {
+    pub fn new(inner: F, color: Color) -> Self {
+        Self { inner, color }
+    }
+}
+
+impl<F: Fill> Fill for AddColor<F> {
+    fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
+        let inner = F::to_wgsl(builder, var);
+        let uniform_color = builder.get_uniform("color", "", "vec4<f32>");
+        builder.import_from_builtin("mix_alpha");
+        format!("mix_alpha({inner}, {uniform_color})")
+    }
+}
+impl <F: Fill> BuildBindGroup for AddColor<F> {
+    fn update_layout(&self, layout: &mut super::UniformLayout) {
+        self.inner.update_layout(layout);
+        layout.update_layout(&self.color);
+    }
+
+    fn write_uniform<B: encase::internal::BufferMut>(&self, layout: &mut super::UniformLayout, writer: &mut encase::internal::Writer<B>) {
+        self.inner.write_uniform(layout, writer);
+        layout.write_uniform(&self.color, writer);
+    }
+
+    fn bind_group_layout_entries(builder: &mut super::BindGroupLayoutBuilder) {
+        F::bind_group_layout_entries(builder);
+    }
+
+    fn unprepared_bind_group(
+            &self,
+            builder: &mut super::BindGroupBuilder,
+        ) -> Result<(), AsBindGroupError> {
+        self.inner.unprepared_bind_group(builder)
+    }
+}

@@ -46,7 +46,6 @@ pretty_assertions = "1.4.0"
 image = "0.23"
 image-diff = "0.1"
 tempdir = "0.3.7"
-bevy_image_export = "0.10"
 bevy-inspector-egui = "0.23.0"
 
 [features]

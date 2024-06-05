@@ -13,19 +13,32 @@ use bevy::{
             *,
         },
     },
+    math::Affine3,
     render::{
         batching::{
             batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
             NoAutomaticBatching,
-        }, globals::{GlobalsBuffer, GlobalsUniform}, mesh::{GpuBufferInfo, MeshVertexBufferLayout}, render_asset::{prepare_assets, RenderAssets}, render_graph::RenderGraphApp, render_phase::{AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass}, render_resource::{binding_types::uniform_buffer, *}, renderer::{RenderDevice, RenderQueue}, texture::{
+        },
+        globals::{GlobalsBuffer, GlobalsUniform},
+        mesh::{GpuBufferInfo, MeshVertexBufferLayout},
+        render_asset::{prepare_assets, RenderAssets},
+        render_graph::RenderGraphApp,
+        render_phase::{
+            AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
+            RenderPhase, SetItemPipeline, TrackedRenderPass,
+        },
+        render_resource::{binding_types::uniform_buffer, *},
+        renderer::{RenderDevice, RenderQueue},
+        texture::{
             BevyDefault, DefaultImageSampler, FallbackImage, GpuImage, ImageSampler,
             TextureFormatPixelInfo,
-        }, view::*, Extract, RenderApp, RenderSet
+        },
+        view::*,
+        Extract, RenderApp, RenderSet,
     },
     sprite::{
         tonemapping_pipeline_key, Material2d, Material2dBindGroupId, Material2dKey,
-        Mesh2dPipelineKey, Mesh2dTransforms, Mesh2dUniform, MeshFlags, PreparedMaterial2d,
-        MESH2D_SHADER_HANDLE,
+        Mesh2dPipelineKey, MeshFlags, PreparedMaterial2d, MESH2D_SHADER_HANDLE,
     },
     ui::{
         graph::{NodeUi, SubGraphUi},
@@ -108,7 +121,7 @@ impl Plugin for UiMeshPlugin {
     fn finish(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             let buffer =
-                GpuArrayBuffer::<Mesh2dUniform>::new(render_app.world.resource::<RenderDevice>());
+                GpuArrayBuffer::<UiMesh2dUniform>::new(render_app.world.resource::<RenderDevice>());
             render_app
                 .insert_resource(buffer)
                 .init_resource::<UiMesh2dPipeline>();
@@ -200,6 +213,12 @@ pub fn extract_ui_mesh_material_asset<M: Material2d>(
     });
 }
 
+#[derive(Default, Clone, Reflect, ShaderType)]
+pub struct UiMeshNodeUniform {
+    pub position: Vec2,
+    pub size: Vec2,
+}
+
 #[derive(Resource, Deref, DerefMut)]
 pub struct RenderUiMeshMaterialInstances<M: Material2d>(EntityHashMap<AssetId<M>>);
 
@@ -232,11 +251,14 @@ pub fn extract_ui_mesh_node(
     query: Extract<
         Query<(
             Entity,
+            &Node,
             &ViewVisibility,
             &UiMeshTransform,
             &GlobalTransform,
             &UiMeshHandle,
+            &TargetCamera,
             Has<NoAutomaticBatching>,
+            Option<&CalculatedClip>,
         )>,
     >,
 ) {
@@ -246,11 +268,14 @@ pub fn extract_ui_mesh_node(
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((
             entity,
+            node,
             view_visibility,
             mesh_transform,
             transform,
             handle,
+            target_camera,
             no_automatic_batching,
+            clip,
         )) = query.get(*entity)
         {
             if !view_visibility.get() {
@@ -259,17 +284,22 @@ pub fn extract_ui_mesh_node(
             // FIXME: Remove this - it is just a workaround to enable rendering to work as
             // render commands require an entity to exist at the moment.
             entities.push((entity, UiMesh));
+            let rect = node.logical_rect(transform);
             render_mesh_instances.insert(
                 entity,
                 RenderUiMeshInstance {
                     transforms: Mesh2dTransforms {
                         transform: (&transform.mul_transform(**mesh_transform).affine()).into(),
                         flags: MeshFlags::empty().bits(),
+                        rect: clip
+                            .map(|clip| clip.clip)
+                            .unwrap_or(node.logical_rect(transform)),
                     },
                     mesh_asset_id: handle.0.id(),
                     material_bind_group_id: Material2dBindGroupId::default(),
                     automatic_batching: !no_automatic_batching,
                     stack_index,
+                    camera: target_camera.0,
                 },
             );
         }
@@ -282,6 +312,7 @@ pub fn extract_ui_mesh_node(
 pub struct UiMesh2dPipeline {
     pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
+    pub node_layout: BindGroupLayout,
     // This dummy white texture is to be used in place of optional textures
     pub dummy_white_gpu_image: GpuImage,
     pub per_object_buffer_batch_size: Option<u32>,
@@ -308,11 +339,19 @@ impl FromWorld for UiMesh2dPipeline {
             ),
         );
 
+        let node_layout = render_device.create_bind_group_layout(
+            "ui_mesh2d_node_layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::VERTEX_FRAGMENT,
+                GpuArrayBuffer::<UiMeshNodeUniform>::binding_layout(render_device),
+            ),
+        );
+
         let mesh_layout = render_device.create_bind_group_layout(
             "ui_mesh2d_layout",
             &BindGroupLayoutEntries::single(
                 ShaderStages::VERTEX_FRAGMENT,
-                GpuArrayBuffer::<Mesh2dUniform>::binding_layout(render_device),
+                GpuArrayBuffer::<UiMesh2dUniform>::binding_layout(render_device),
             ),
         );
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
@@ -351,8 +390,9 @@ impl FromWorld for UiMesh2dPipeline {
         UiMesh2dPipeline {
             view_layout,
             mesh_layout,
+            node_layout,
             dummy_white_gpu_image,
-            per_object_buffer_batch_size: GpuArrayBuffer::<Mesh2dUniform>::batch_size(
+            per_object_buffer_batch_size: GpuArrayBuffer::<UiMesh2dUniform>::batch_size(
                 render_device,
             ),
         }
@@ -377,10 +417,45 @@ impl UiMesh2dPipeline {
     }
 }
 
+#[derive(Component)]
+pub struct Mesh2dTransforms {
+    pub transform: Affine3,
+    pub rect: Rect,
+    pub flags: u32,
+}
+
+#[derive(ShaderType, Clone)]
+pub struct UiMesh2dUniform {
+    // Affine 4x3 matrix transposed to 3x4
+    pub transform: [Vec4; 3],
+    // 3x3 matrix packed in mat2x4 and f32 as:
+    //   [0].xyz, [1].x,
+    //   [1].yz, [2].xy
+    //   [2].z
+    pub inverse_transpose_model_a: [Vec4; 2],
+    pub inverse_transpose_model_b: f32,
+    pub flags: u32,
+    // pub rect: [Vec2; 2],
+}
+
+impl From<&Mesh2dTransforms> for UiMesh2dUniform {
+    fn from(mesh_transforms: &Mesh2dTransforms) -> Self {
+        let (inverse_transpose_model_a, inverse_transpose_model_b) =
+            mesh_transforms.transform.inverse_transpose_3x3();
+        Self {
+            transform: mesh_transforms.transform.to_transpose(),
+            inverse_transpose_model_a,
+            inverse_transpose_model_b,
+            flags: mesh_transforms.flags,
+            // rect: [mesh_transforms.rect.min, mesh_transforms.rect.max],
+        }
+    }
+}
+
 impl GetBatchData for UiMesh2dPipeline {
     type Param = SRes<RenderUiMesh2dInstances>;
     type CompareData = (Material2dBindGroupId, AssetId<Mesh>);
-    type BufferData = Mesh2dUniform;
+    type BufferData = UiMesh2dUniform;
 
     fn get_batch_data(
         mesh_instances: &SystemParamItem<Self::Param>,
@@ -616,7 +691,7 @@ pub fn prepare_mesh2d_bind_group(
     mut commands: Commands,
     mesh2d_pipeline: Res<UiMesh2dPipeline>,
     render_device: Res<RenderDevice>,
-    mesh2d_uniforms: Res<GpuArrayBuffer<Mesh2dUniform>>,
+    mesh2d_uniforms: Res<GpuArrayBuffer<UiMesh2dUniform>>,
 ) {
     if let Some(binding) = mesh2d_uniforms.binding() {
         commands.insert_resource(UiMesh2dBindGroup {
@@ -666,6 +741,7 @@ pub struct RenderUiMeshInstance {
     pub mesh_asset_id: AssetId<Mesh>,
     pub material_bind_group_id: Material2dBindGroupId,
     pub automatic_batching: bool,
+    pub camera: Entity,
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
@@ -684,7 +760,6 @@ pub fn queue_ui_meshes<M: Material2d>(
     render_material_instances: Res<RenderUiMeshMaterialInstances<M>>,
     mut views: Query<(
         &ExtractedView,
-        &VisibleEntities,
         Option<&Tonemapping>,
         Option<&DebandDither>,
         &mut RenderPhase<TransparentUi>,
@@ -696,7 +771,23 @@ pub fn queue_ui_meshes<M: Material2d>(
         return;
     }
 
-    for (view, visible_entities, tonemapping, dither, mut transparent_phase) in &mut views {
+    for (entity, mesh_instance) in render_mesh_instances.iter_mut() {
+        let Some(material_asset_id) = render_material_instances.get(entity) else {
+            continue;
+        };
+        let Some(material2d) = render_materials.get(material_asset_id) else {
+            continue;
+        };
+        let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            continue;
+        };
+
+        let Ok((view, tonemapping, dither, mut transparent_phase)) =
+            views.get_mut(mesh_instance.camera)
+        else {
+            continue;
+        };
+
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawUiMesh<M>>();
 
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
@@ -711,54 +802,38 @@ pub fn queue_ui_meshes<M: Material2d>(
                 view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
             }
         }
-        for visible_entity in &visible_entities.entities {
-            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
-                continue;
-            };
-            let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
-                continue;
-            };
-            let Some(material2d) = render_materials.get(material_asset_id) else {
-                continue;
-            };
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
-                continue;
-            };
-            let mesh_key =
-                view_key | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
 
-            let pipeline_id = pipelines.specialize(
-                &pipeline_cache,
-                &material2d_pipeline,
-                Material2dKey {
-                    mesh_key,
-                    bind_group_data: material2d.key.clone(),
-                },
-                &mesh.layout,
-            );
+        let mesh_key =
+            view_key | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
 
-            let pipeline_id = match pipeline_id {
-                Ok(id) => id,
-                Err(err) => {
-                    error!("{}", err);
-                    continue;
-                }
-            };
+        let pipeline_id = pipelines.specialize(
+            &pipeline_cache,
+            &material2d_pipeline,
+            Material2dKey {
+                mesh_key,
+                bind_group_data: material2d.key.clone(),
+            },
+            &mesh.layout,
+        );
 
-            mesh_instance.material_bind_group_id = material2d.get_bind_group_id();
+        let pipeline_id = match pipeline_id {
+            Ok(id) => id,
+            Err(err) => {
+                error!("{}", err);
+                continue;
+            }
+        };
 
-            transparent_phase.add(TransparentUi {
-                sort_key: (
-                    FloatOrd(mesh_instance.stack_index as f32),
-                    visible_entity.index(),
-                ),
-                entity: *visible_entity,
-                pipeline: pipeline_id,
-                draw_function: draw_transparent_pbr,
-                batch_range: 0..1,
-                dynamic_offset: None,
-            });
-        }
+        mesh_instance.material_bind_group_id = material2d.get_bind_group_id();
+
+        transparent_phase.add(TransparentUi {
+            sort_key: (FloatOrd(mesh_instance.stack_index as f32), entity.index()),
+            entity: *entity,
+            pipeline: pipeline_id,
+            draw_function: draw_transparent_pbr,
+            batch_range: 0..1,
+            dynamic_offset: None,
+        });
     }
 }
 
@@ -1009,8 +1084,8 @@ fn prepare_material2d<M: Material2d>(
     })
 }
 
-make_bundle!{
-    @material2d 
+make_bundle! {
+    @material2d
     UiMeshBundle {
         pub mesh: UiMeshHandle,
         pub mesh_transform: UiMeshTransform,

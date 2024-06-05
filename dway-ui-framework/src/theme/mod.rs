@@ -4,16 +4,18 @@ use std::{
     any::{type_name, Any, TypeId},
     hash::Hash,
     sync::Arc,
+    fmt::Debug,
 };
 
-use derive_more::From;
 use bevy::{
     app::DynEq,
     ecs::system::Command,
+    ui::UiSystem,
     utils::{label::DynHash, HashMap},
 };
 use bevy_svg::prelude::Svg;
 use bitflags::bitflags;
+use derive_more::From;
 use downcast_rs::{impl_downcast, Downcast};
 
 use crate::{
@@ -297,7 +299,7 @@ impl ThemeAppExt for App {
 
 pub trait WidgetLabel: Sync + Send + DynHash + DynEq + std::fmt::Debug {}
 
-structstruck::strike!{
+structstruck::strike! {
     #[derive(Default, From)]
     #[strikethrough[derive(Debug, Clone)]]
     pub enum WidgetKind {
@@ -318,6 +320,7 @@ structstruck::strike!{
         Slider,
         SliderHandle,
         SliderHightlightBar,
+        BlurBackground,
         Other(Arc<dyn WidgetLabel>),
     }
 }
@@ -337,7 +340,7 @@ bitflags! {
     }
 }
 
-#[derive(Component, Clone)]
+#[derive(Component, Debug, Clone)]
 pub struct ThemeComponent {
     pub theme: Option<Arc<dyn ThemeDispatch>>,
     pub style_flags: StyleFlags,
@@ -360,7 +363,7 @@ impl ThemeComponent {
     pub fn none() -> Self {
         Self::new(StyleFlags::empty(), WidgetKind::None)
     }
-    pub fn set_flag(&mut self, flag: StyleFlags, value: bool){
+    pub fn set_flag(&mut self, flag: StyleFlags, value: bool) {
         self.style_flags.set(flag, value);
     }
     pub fn with_flag(mut self, flag: StyleFlags) -> Self {
@@ -373,7 +376,7 @@ impl ThemeComponent {
     }
 }
 
-pub trait ThemeDispatch: Downcast + Sync + Send + 'static {
+pub trait ThemeDispatch: Downcast + Debug + Sync + Send + 'static {
     fn apply(&self, entity: Entity, theme: &ThemeComponent, commands: &mut Commands);
 }
 impl_downcast!(ThemeDispatch);

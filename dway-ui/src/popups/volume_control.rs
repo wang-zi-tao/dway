@@ -74,14 +74,12 @@ pub fn open_popup(
     In(event): In<UiButtonEvent>,
     theme: Res<Theme>,
     mut commands: Commands,
-    mut rect_material_set: ResMut<Assets<RoundedUiRectMaterial>>,
 ) {
     if event.kind == UiButtonEventKind::Released {
         commands
             .spawn((
                 Animation::new(Duration::from_secs_f32(0.5), EaseFunction::CubicIn)
                     .with_callback(theme.system(popup_open_drop_down)),
-                rect_material_set.add(rounded_rect(theme.color("panel-popup"), 16.0)),
                 VolumeControlBundle {
                     style: style!("absolute top-120% align-self:end p-8"),
                     ..default()

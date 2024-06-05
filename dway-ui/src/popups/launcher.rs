@@ -39,7 +39,6 @@ LauncherUI=>
     app.register_system(delay_destroy_launcher);
 }}
 <MiniNodeBundle
-@material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup"), 16.0))
 @style="flex-col p-4">
     <MiniNodeBundle @style="min-h-600 w-full">
         <MiniNodeBundle @id="left_bar" @style="w-34% m-4 min-h-600"
