@@ -1,8 +1,10 @@
+use super::surface::AttachedBy;
 use crate::{
     prelude::*,
     state::{add_global_dispatch, EntityFactory},
 };
 use drm_fourcc::DrmModifier;
+use dway_util::formats::ImageFormat;
 use khronos_egl::EGLDisplay;
 use nix::sys::mman;
 use std::{
@@ -12,7 +14,6 @@ use std::{
     sync::{Arc, RwLock},
 };
 use wayland_server::Resource;
-use super::surface::AttachedBy;
 
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
@@ -107,6 +108,21 @@ pub struct WlShmPoolInner {
     pub size: usize,
     pub fd: OwnedFd,
 }
+
+impl WlShmPoolInner {
+    pub unsafe fn as_slice(&self, buffer: &WlShmBuffer) -> Result<&[u8]> {
+        Ok(std::ptr::from_raw_parts::<[u8]>(
+            self.ptr
+                .as_ptr()
+                .offset(buffer.offset as isize)
+                .cast::<()>(),
+            (buffer.stride * buffer.size.y) as usize,
+        )
+        .as_ref()
+        .unwrap())
+    }
+}
+
 unsafe impl Sync for WlShmPoolInner {}
 unsafe impl Send for WlShmPoolInner {}
 impl Drop for WlShmPoolInner {

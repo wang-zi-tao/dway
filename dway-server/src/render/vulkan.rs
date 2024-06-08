@@ -23,9 +23,12 @@ use bevy::{
 };
 use bevy_relationship::reexport::SmallVec;
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
+use dway_util::formats::ImageFormat;
 use nix::libc::makedev;
 use std::{
-    ffi::CStr, os::fd::{AsFd, AsRawFd}, sync::{Arc, RwLock}
+    ffi::CStr,
+    os::fd::{AsFd, AsRawFd},
+    sync::{Arc, RwLock},
 };
 use wgpu::{
     Extent3d, FilterMode, ImageCopyTexture, SamplerDescriptor, TextureAspect, TextureDimension,
@@ -50,31 +53,9 @@ pub struct ImportedImage {
 
 #[derive(Debug, Default)]
 pub struct VulkanState {
-    pub image_map: HashMap<wl_buffer::WlBuffer, (ImportedImage, GpuImage)>,
-}
-
-pub fn convert_wl_format(
-    format: wl_shm::Format,
-) -> Result<(vk::Format, wgpu::TextureFormat), DWayRenderError> {
-    Ok(match format {
-        wl_shm::Format::Argb8888 => (Format::B8G8R8A8_SRGB, wgpu::TextureFormat::Bgra8Unorm),
-        wl_shm::Format::Xrgb8888 => (Format::B8G8R8A8_SRGB, wgpu::TextureFormat::Bgra8Unorm),
-        wl_shm::Format::Abgr8888 => (Format::R8G8B8A8_SRGB, wgpu::TextureFormat::Bgra8Unorm),
-        wl_shm::Format::Xbgr8888 => (Format::R8G8B8A8_SRGB, wgpu::TextureFormat::Bgra8Unorm),
-        f => return Err(UnsupportedFormat(f)),
-    })
-}
-
-pub fn convert_drm_format(
-    fourcc: DrmFourcc,
-) -> Result<(vk::Format, wgpu::TextureFormat), DWayRenderError> {
-    Ok(match fourcc {
-        DrmFourcc::Argb8888 => (Format::B8G8R8A8_SRGB, wgpu::TextureFormat::Bgra8Unorm),
-        DrmFourcc::Xrgb8888 => (Format::B8G8R8A8_SRGB, wgpu::TextureFormat::Bgra8Unorm),
-        DrmFourcc::Abgr8888 => (Format::R8G8B8A8_SRGB, wgpu::TextureFormat::Bgra8Unorm),
-        DrmFourcc::Xbgr8888 => (Format::R8G8B8A8_SRGB, wgpu::TextureFormat::Bgra8Unorm),
-        f => return Err(UnsupportedDrmFormat(f)),
-    })
+    pub dma_image_map: HashMap<wl_buffer::WlBuffer, (ImportedImage, GpuImage)>,
+    pub shm_image_map:
+        HashMap<wayland_server::protocol::wl_surface::WlSurface, (ImportedImage, GpuImage)>,
 }
 
 pub const SUPPORTED_FORMATS: [DrmFourcc; 2] = [
@@ -95,7 +76,7 @@ pub fn drm_info(render_device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError
 
                 let mut formats = Vec::new();
                 for fourcc in SUPPORTED_FORMATS {
-                    let vk_format = convert_drm_format(fourcc)?.0;
+                    let vk_format = ImageFormat::from_drm_fourcc(fourcc)?.vulkan_format;
 
                     let mut list = vk::DrmFormatModifierPropertiesListEXT::default();
                     let mut format_properties2 =
@@ -175,7 +156,11 @@ pub fn create_dma_image(
             })
             .collect();
 
-        debug!("dma image format: {:?} modifier: {:?}",  format, planes[0].modifier());
+        debug!(
+            "dma image format: {:?} modifier: {:?}",
+            format,
+            planes[0].modifier()
+        );
         let mut drm_info = ash::vk::ImageDrmFormatModifierExplicitCreateInfoEXT::builder()
             .drm_format_modifier(planes[0].modifier().into())
             .plane_layouts(&plane_layouts)
@@ -195,7 +180,7 @@ pub fn create_dma_image(
             .tiling(ImageTiling::DRM_FORMAT_MODIFIER_EXT)
             .mip_levels(1)
             .array_layers(1)
-            .format(convert_drm_format(format)?.0)
+            .format(ImageFormat::from_drm_fourcc(format)?.vulkan_format)
             .samples(SampleCountFlags::TYPE_1)
             .initial_layout(ImageLayout::PREINITIALIZED)
             .usage(ImageUsageFlags::COLOR_ATTACHMENT)
@@ -327,7 +312,7 @@ pub fn create_shm_image(
             })
             .mip_levels(1)
             .array_layers(1)
-            .format(convert_wl_format(buffer.format)?.0)
+            .format(ImageFormat::from_wayland_format(buffer.format)?.vulkan_format)
             .samples(SampleCountFlags::TYPE_1)
             .initial_layout(ImageLayout::UNDEFINED)
             .usage(ImageUsageFlags::COLOR_ATTACHMENT)
@@ -382,7 +367,8 @@ pub unsafe fn image_to_hal_texture(
             sample_count: 1,
             usage: TextureUses::COLOR_TARGET
                 | TextureUses::DEPTH_STENCIL_READ
-                | TextureUses::DEPTH_STENCIL_WRITE,
+                | TextureUses::DEPTH_STENCIL_WRITE
+                | TextureUses::COPY_DST,
             view_formats: vec![],
             memory_flags: MemoryFlags::empty(),
         },
@@ -411,7 +397,8 @@ pub unsafe fn hal_texture_to_gpuimage(
             format: texture_format,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT
                 | wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::STORAGE_BINDING,
+                | wgpu::TextureUsages::STORAGE_BINDING
+                | wgpu::TextureUsages::COPY_DST,
             view_formats: &[texture_format],
         },
     );
@@ -451,28 +438,21 @@ pub unsafe fn hal_texture_to_gpuimage(
 }
 
 pub unsafe fn import_shm(
+    surface: &WlSurface,
     queue: &wgpu::Queue,
     shm_buffer: &WlShmBuffer,
     texture: &wgpu::Texture,
 ) -> Result<()> {
-    span!(Level::ERROR, "import-shm", shm_buffer = %WlResource::id(&shm_buffer.raw));
+    span!(Level::ERROR, "import_shm", shm_buffer = %WlResource::id(&shm_buffer.raw));
     let buffer_guard = shm_buffer.pool.read().unwrap();
     let size = shm_buffer.size;
 
-    let data = std::ptr::from_raw_parts::<[u8]>(
-        buffer_guard
-            .ptr
-            .as_ptr()
-            .offset(shm_buffer.offset as isize)
-            .cast(),
-        (shm_buffer.stride * size.y) as usize,
-    )
-    .as_ref()
-    .unwrap();
+    let data = buffer_guard.as_slice(shm_buffer)?;
 
     let image_area = IRect::from_pos_size(IVec2::default(), size);
-    let emit_rect = |rect: IRect| {
+    let emit_rect = |rect: IRect| -> Result<()> {
         let rect = rect.intersection(image_area);
+        debug!(?rect, "write_texture");
         queue.write_texture(
             ImageCopyTexture {
                 texture,
@@ -486,7 +466,10 @@ pub unsafe fn import_shm(
             },
             data,
             wgpu::ImageDataLayout {
-                offset: 0,
+                offset: (shm_buffer.stride * rect.y()
+                    + rect.x()
+                        * ImageFormat::from_wayland_format(shm_buffer.format)?.pixel_size() as i32)
+                    as u64,
                 bytes_per_row: (shm_buffer.stride as u32).try_into().ok(),
                 rows_per_image: None,
             },
@@ -496,8 +479,17 @@ pub unsafe fn import_shm(
                 depth_or_array_layers: 1,
             },
         );
+        Ok(())
     };
-    emit_rect(image_area);
+
+    let damage = merge_damage(&surface.commited.damages);
+    if damage.is_empty() {
+        emit_rect(image_area)?;
+    } else {
+        for rect in damage {
+            emit_rect(rect)?;
+        }
+    }
 
     Ok(())
 }
@@ -506,13 +498,36 @@ pub fn prepare_wl_surface(
     state: &mut VulkanState,
     device: &wgpu::Device,
     surface: &WlSurface,
+    shm_buffer: Option<&WlShmBuffer>,
     dma_buffer: Option<&DmaBuffer>,
     image_assets: &mut RenderAssets<bevy::render::texture::Image>,
 ) -> Result<()> {
     unsafe {
-        let _damage = merge_damage(&surface.commited.damages);
-        if let Some(dma_buffer) = dma_buffer {
-            match state.image_map.entry(dma_buffer.raw.clone()) {
+        if let Some(shm_buffer) = shm_buffer {
+            match state.shm_image_map.entry(surface.raw.clone()) {
+                Entry::Occupied(o) => {
+                    image_assets.insert(surface.image.clone(), o.get().1.clone());
+                }
+                Entry::Vacant(v) => {
+                    let (size, format, image) = device
+                        .as_hal::<Vulkan, _, _>(|hal_device| {
+                            let hal_device = hal_device.ok_or_else(|| BackendIsNotVulkan)?;
+                            let size = shm_buffer.size;
+                            let format =
+                                ImageFormat::from_wayland_format(shm_buffer.format)?.wgpu_format;
+                            let image = create_shm_image(hal_device, shm_buffer)?;
+                            debug!(?size, ?format, buffer=?shm_buffer.raw.id(), "create shm image");
+                            Result::<_, DWayRenderError>::Ok((size, format, image))
+                        })
+                        .ok_or(DWayRenderError::BackendIsIsInvalid)??;
+                    let hal_texture = image_to_hal_texture(size, format, image.image);
+                    let gpu_image = hal_texture_to_gpuimage(device, size, format, hal_texture);
+                    image_assets.insert(surface.image.clone(), gpu_image.clone());
+                    v.insert((image, gpu_image));
+                }
+            };
+        } else if let Some(dma_buffer) = dma_buffer {
+            match state.dma_image_map.entry(dma_buffer.raw.clone()) {
                 Entry::Occupied(o) => {
                     image_assets.insert(surface.image.clone(), o.get().1.clone());
                 }
@@ -521,11 +536,12 @@ pub fn prepare_wl_surface(
                         .as_hal::<Vulkan, _, _>(|hal_device| {
                             let hal_device = hal_device.ok_or_else(|| BackendIsNotVulkan)?;
                             let size = dma_buffer.size;
-                            let format = convert_drm_format(
+                            let format = ImageFormat::from_drm_fourcc(
                                 DrmFourcc::try_from(dma_buffer.format)
                                     .map_err(|e| Unknown(anyhow!("{e}")))?,
                             )?
-                            .1;
+                            .wgpu_format;
+                            debug!(?size, ?format, "create dma image");
                             let image = create_dma_image(hal_device, dma_buffer)?;
                             Result::<_, DWayRenderError>::Ok((size, format, image))
                         })
@@ -542,13 +558,14 @@ pub fn prepare_wl_surface(
 }
 
 pub fn import_wl_surface(
+    surface: &WlSurface,
     shm_buffer: Option<&WlShmBuffer>,
     texture: &wgpu::Texture,
     queue: &wgpu::Queue,
 ) -> Result<(), DWayRenderError> {
     unsafe {
         if let Some(shm_buffer) = shm_buffer {
-            import_shm(queue, shm_buffer, texture)?;
+            import_shm(surface, queue, shm_buffer, texture)?;
         }
         Ok(())
     }

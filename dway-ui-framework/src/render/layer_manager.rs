@@ -27,13 +27,14 @@ use bevy::{
     },
     sprite::{Mesh2d, Mesh2dHandle},
     transform::components::Transform,
+    ui::{ui_focus_system, UiSystem},
     utils::{petgraph::algo::kosaraju_scc, HashMap, HashSet},
     window::{PrimaryWindow, WindowRef},
 };
 use bevy_prototype_lyon::entity::{Path, ShapeBundle};
 use bevy_relationship::reexport::{Entity, SmallVec};
 
-#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Debug)]
 pub enum LayerKind {
     #[default]
     Normal,
@@ -41,11 +42,12 @@ pub enum LayerKind {
     Canvas,
 }
 
-#[derive(Component, Default, Reflect)]
+#[derive(Component, SmartDefault, Reflect)]
 pub struct RenderToLayer {
     pub layer_manager: Option<Entity>,
     pub layer_camera: Option<Entity>,
     pub ui_background: Handle<Image>,
+    #[default(Vec2::ONE)]
     pub background_size: Vec2,
     pub layer_kind: LayerKind,
 }
@@ -58,7 +60,17 @@ impl RenderToLayer {
     }
 }
 
-#[derive(Component, Reflect)]
+structstruck::strike! {
+    #[derive(Component, Reflect, Debug)]
+    pub struct BackupRenderTarget ( Option<
+            #[derive(Reflect, Debug)]
+            struct BackupRenderTargetInner {
+                base: RenderTarget,
+                layer: RenderTarget,
+        }> )
+}
+
+#[derive(Component, Reflect, Debug)]
 pub struct LayerCamera {
     layer_manager: Entity,
     layer_kind: LayerKind,
@@ -82,14 +94,20 @@ pub(crate) struct BaseLayerRef {
 impl BaseLayerRef {
     fn update_camera(
         &self,
-        camera_query: &mut Query<&mut Camera>,
+        camera_query: &mut Query<(&mut Camera, &mut BackupRenderTarget)>,
         render_target: &mut Option<RenderTarget>,
+        base_render_target: &RenderTarget,
     ) {
-        let mut camera = camera_query.get_mut(self.camera).unwrap();
+        let (mut camera, mut backup) = camera_query.get_mut(self.camera).unwrap();
         if let Some(render_target) = render_target.take() {
             camera.target = render_target.clone();
+            backup.0 = None;
         } else {
             camera.target = RenderTarget::Image(self.surface.clone());
+            backup.0 = Some(BackupRenderTargetInner {
+                base: base_render_target.clone(),
+                layer: camera.target.clone(),
+            });
         }
     }
 }
@@ -107,8 +125,9 @@ pub trait Layer {
     fn update_camera(
         &self,
         enable: bool,
-        camera_query: &mut Query<&mut Camera>,
+        camera_query: &mut Query<(&mut Camera, &mut BackupRenderTarget)>,
         render_target: &mut Option<RenderTarget>,
+        base_render_target: &RenderTarget,
     );
 
     fn update_background(
@@ -157,6 +176,7 @@ impl Layer for LayerRef {
                     layer_manager: manager_entity,
                     layer_kind: LayerKind::Blur,
                 },
+                BackupRenderTarget(None),
             ))
             .set_parent(manager_entity)
             .id();
@@ -186,18 +206,25 @@ impl Layer for LayerRef {
     fn update_camera(
         &self,
         enable: bool,
-        camera_query: &mut Query<&mut Camera>,
+        camera_query: &mut Query<(&mut Camera, &mut BackupRenderTarget)>,
         render_target: &mut Option<RenderTarget>,
+        base_render_target: &RenderTarget,
     ) {
-        let mut camera = camera_query.get_mut(self.camera).unwrap();
+        let (mut camera, mut backup) = camera_query.get_mut(self.camera).unwrap();
         if enable {
             if let Some(render_target) = render_target.take() {
-                camera.target = render_target.clone();
+                backup.0 = Some(BackupRenderTargetInner {
+                    base: base_render_target.clone(),
+                    layer: render_target.clone(),
+                });
+                camera.target = render_target;
             } else {
                 camera.target = RenderTarget::Image(self.surface.clone());
+                backup.0 = None;
             }
         } else {
             camera.target = RenderTarget::Image(self.surface.clone());
+            backup.0 = None;
         }
         camera.is_active = enable;
     }
@@ -313,11 +340,12 @@ impl Layer for BlurLayer {
     fn update_camera(
         &self,
         enable: bool,
-        camera_query: &mut Query<&mut Camera>,
+        camera_query: &mut Query<(&mut Camera, &mut BackupRenderTarget)>,
         render_target: &mut Option<RenderTarget>,
+        base_render_target: &RenderTarget,
     ) {
         self.layer
-            .update_camera(enable, camera_query, render_target)
+            .update_camera(enable, camera_query, render_target, base_render_target)
     }
 
     fn update_background(
@@ -430,18 +458,21 @@ impl LayerManager {
         let canvas_layer = LayerRef::new(world, 10, &render_target, entity);
         let blur_layer = BlurLayer::new(world, 20, &render_target, entity);
 
-        world.entity_mut(entity).insert(LayerManager {
-            base_layer: BaseLayerRef {
-                surface: Default::default(),
-                camera: entity,
+        world.entity_mut(entity).insert((
+            BackupRenderTarget(None),
+            LayerManager {
+                base_layer: BaseLayerRef {
+                    surface: Default::default(),
+                    camera: entity,
+                },
+                canvas_layer,
+                blur_layer,
+                size: UVec2::ONE,
+                canvas_enable: false,
+                blur_enable: false,
+                render_target,
             },
-            canvas_layer,
-            blur_layer,
-            size: UVec2::ONE,
-            canvas_enable: false,
-            blur_enable: false,
-            render_target,
-        });
+        ));
     }
 }
 
@@ -463,20 +494,38 @@ fn update_children_target_camera(
 }
 
 pub fn update_ui_root(
-    mut query: Query<(Entity, &mut RenderToLayer, &TargetCamera, &Parent), Added<RenderToLayer>>,
+    mut query: Query<(Entity, &mut RenderToLayer, &TargetCamera)>,
     children_query: Query<&Children, With<Node>>,
     node_query: Query<Option<&TargetCamera>, With<Node>>,
-    layer_manager_query: Query<&LayerManager>,
+    layer_manager_query: Query<Ref<LayerManager>>,
+    layer_camera_query: Query<Ref<LayerCamera>>,
     mut commands: Commands,
+    mut update_next_frame: Local<EntityHashSet>,
 ) {
-    for (entity, mut render_to_layer, target_camera, parent) in &mut query {
-        let layer_manager = target_camera.0;
-        render_to_layer.layer_manager = Some(layer_manager);
-        let Ok(layer_manager) = layer_manager_query.get(layer_manager) else {
-            commands.entity(layer_manager).add(LayerManager::create);
-            continue;
+    for (entity, mut render_to_layer, target_camera) in &mut query {
+        let (layer_manager_entity, layer_manager) = {
+            let target_camera_entity = render_to_layer.layer_manager.unwrap_or(target_camera.0);
+            if let Ok(layer_manager) = layer_manager_query.get(target_camera_entity) {
+                (target_camera_entity, layer_manager)
+            } else if let Ok(layer_camera) = layer_camera_query.get(target_camera_entity) {
+                (
+                    layer_camera.layer_manager,
+                    layer_manager_query.get(layer_camera.layer_manager).unwrap(),
+                )
+            } else {
+                update_next_frame.insert(entity);
+                continue;
+            }
         };
 
+        if !update_next_frame.remove(&entity)
+            && !render_to_layer.is_changed()
+            && !layer_manager.is_changed()
+        {
+            continue;
+        }
+
+        render_to_layer.layer_manager = Some(layer_manager_entity);
         let layer_camera = layer_manager.get_camera(render_to_layer.layer_kind);
         render_to_layer.layer_camera = Some(layer_camera);
 
@@ -495,7 +544,7 @@ pub fn update_ui_root(
 
 pub fn update_layers(
     mut layer_manager_query: Query<(Entity, &mut LayerManager)>,
-    mut camera_query: Query<&mut Camera>,
+    mut camera_query: Query<(&mut Camera, &mut BackupRenderTarget)>,
     mut background_query: Query<(&mut UiImage, &mut Visibility)>,
     window_query: Query<&Window>,
     ui_root_query: Query<
@@ -543,7 +592,7 @@ pub fn update_layers(
     for (entity, mut layer_manager) in &mut layer_manager_query {
         let mut image_size_changed = false;
         {
-            let camera = camera_query.get(entity).unwrap();
+            let (camera, _) = camera_query.get(entity).unwrap();
 
             let size = match camera.target.normalize(primary_window) {
                 Some(NormalizedRenderTarget::Window(window_ref)) => window_query
@@ -599,15 +648,19 @@ pub fn update_layers(
                 layer_manager.blur_enable,
                 &mut camera_query,
                 &mut render_target,
+                &layer_manager.render_target,
             );
             layer_manager.canvas_layer.update_camera(
                 layer_manager.canvas_enable,
                 &mut camera_query,
                 &mut render_target,
+                &layer_manager.render_target,
             );
-            layer_manager
-                .base_layer
-                .update_camera(&mut camera_query, &mut render_target);
+            layer_manager.base_layer.update_camera(
+                &mut camera_query,
+                &mut render_target,
+                &layer_manager.render_target,
+            );
         }
 
         {
@@ -713,6 +766,22 @@ pub fn update_ui_material(
     }
 }
 
+pub fn before_ui_focus_system(mut query: Query<(&BackupRenderTarget, &mut Camera)>) {
+    for (backup, mut camera) in &mut query {
+        if let Some(backup) = backup.0.as_ref() {
+            camera.target = backup.base.clone();
+        }
+    }
+}
+
+pub fn after_ui_focus_system(mut query: Query<(&BackupRenderTarget, &mut Camera)>) {
+    for (backup, mut camera) in &mut query {
+        if let Some(backup) = backup.0.as_ref() {
+            camera.target = backup.layer.clone();
+        }
+    }
+}
+
 pub struct LayerManagerPlugin;
 impl Plugin for LayerManagerPlugin {
     fn build(&self, app: &mut App) {
@@ -728,8 +797,16 @@ impl Plugin for LayerManagerPlugin {
             .register_type::<RenderToLayer>()
             .add_plugins(ShaderPlugin::<FillWithLayerMaterial>::default())
             .add_systems(
+                PreUpdate,
+                (
+                    before_ui_focus_system.before(ui_focus_system),
+                    after_ui_focus_system.after(ui_focus_system),
+                )
+                    .in_set(UiSystem::Focus),
+            )
+            .add_systems(
                 Last,
-                (update_ui_root, update_layers, update_ui_material)
+                (update_layers, update_ui_root, update_ui_material)
                     .chain()
                     .in_set(UiFrameworkSystems::UpdateLayers),
             );

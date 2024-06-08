@@ -26,7 +26,7 @@ use dway_tty::{
     drm::{camera::DrmCamera, surface::DrmSurface},
     seat::SeatState,
 };
-use dway_ui_framework::render::layer_manager::LayerManager;
+use dway_ui_framework::{render::layer_manager::LayerManager, theme::{ThemeComponent, WidgetKind}};
 use widgets::clock::ClockBundle;
 
 pub struct DWayUiPlugin;
@@ -92,6 +92,7 @@ ScreenUI=>
         style.height = Val::Px(global_geo.height() as f32);
     }
 })
+@global(mut assets_rounded_ui_rect_material: Assets<RoundedUiRectMaterial>)
 <NodeBundle Name=(Name::new("screen_ui"))
     // StyleSheet=(StyleSheet::new(asset_server.load("style/style.css")))
     @style="absolute full">
@@ -100,11 +101,12 @@ ScreenUI=>
     </MiniNodeBundle>
     <ScreenWindowsBundle @style="absolute full" Name=(Name::new("windows")) @id="windows"
         ScreenWindows=(ScreenWindows{screen:prop.screen}) />
-    <(MaterialNodeBundle { style: style!("absolute top-4 left-4 right-4 h-32"),
-        material: assets!(RoundedUiRectMaterial).add(rounded_rect(Color::WHITE.with_a(0.5),8.0)),
-        z_index: ZIndex::Global(1024),
-        ..Default::default()
-    }) Name=(Name::new("panel")) @id="panel">
+    <MiniNodeBundle
+        ThemeComponent=(ThemeComponent::widget(WidgetKind::BlurBackground))
+        ZIndex=(ZIndex::Global(1024))
+        @style="absolute top-4 left-4 right-4 h-32"
+        // @material(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.5),8.0))
+        Name=(Name::new("panel")) @id="panel">
         <MiniNodeBundle @style="absolute flex-row m-4 left-4" @id="left">
             <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
                 (prop.screen,theme.system(popups::launcher::open_popup))
@@ -139,7 +141,10 @@ ScreenUI=>
         focus_policy: FocusPolicy::Pass, z_index: ZIndex::Global(1024),..default()})
         // Class=(Class::new("dock"))
         Name=(Name::new("dock")) @id="dock" >
-        <MiniNodeBundle @material(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.5), 16.0))>
+        <MiniNodeBundle 
+            ThemeComponent=(ThemeComponent::widget(WidgetKind::BlurBackground))
+            // @material(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.5), 16.0))
+            >
             <AppListUIBundle/>
             <(PanelButtonBundle::new(&theme,&mut assets!(RoundedUiRectMaterial)))>
                 <(UiSvgBundle::new(theme.icon("apps", &asset_server))) @style="w-48 h-48" @id="apps"/>

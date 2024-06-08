@@ -25,14 +25,14 @@ glow = { workspace = true }
 khronos-egl = { workspace = true }
 ash = { workspace = true }
 send_wrapper = "0.6.0"
-wayland-server = { version="0.31.0",features = [] }
-wayland-backend = { version="0.3.2", features = ["server_system"] }
-wayland-protocols = { version = "0.31.0", features = ["unstable", "staging", "server", "wayland-server"]}
+wayland-server = { workspace = true }
+wayland-backend = { workspace = true }
+wayland-protocols = { workspace = true }
 inlinable_string = "0.1.15"
 nix = {workspace=true}
 phf = { version = "0.11", features = ["macros"] }
 bitflags = { workspace = true }
-drm-fourcc = "2.2.0"
+drm-fourcc = { workspace = true }
 rstar = "0.11.0"
 async-process = "2.0.0"
 futures = {workspace=true}

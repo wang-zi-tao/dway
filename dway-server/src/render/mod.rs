@@ -32,7 +32,9 @@ impl Plugin for DWayServerRenderPlugin {
             render_app.add_systems(ExtractSchedule, importnode::extract_surface);
             render_app.add_systems(
                 Render,
-                importnode::prepare_surfaces.after(prepare_assets::<Image>),
+                importnode::prepare_surfaces
+                    .in_set(RenderSet::PrepareAssets)
+                    .after(prepare_assets::<Image>),
             );
 
             render_app

@@ -14,6 +14,7 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         fenix = inputs.fenix.packages.${system};
+        rust-toolchain = fenix.complete;
         unstable = import inputs.unstable {
           inherit system pkgs;
         };
@@ -24,10 +25,8 @@
       {
         devShell = pkgs.mkShell rec{
           nativeBuildInputs = with pkgs; [
-            (fenix.fromToolchainFile {
-              file = ./rust-toolchain.toml;
-              sha256 = "sha256-2sho/kBk2dwzdTgHyCMWcoCF4mUFnJh6l3Gnm/AtNSk=";
-            })
+            rust-toolchain.toolchain
+            rust-toolchain.rust-analyzer
 
             mdbook
             mdbook-plantuml
@@ -37,7 +36,7 @@
             cargo-flamegraph
             pkg-config
             libcxx
-            gcc
+            gcc-unwrapped
             nx-libs
             libinput
             libudev-zero

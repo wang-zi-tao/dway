@@ -50,11 +50,8 @@ pub fn wm_keys(
     let ctrl = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
     let alt = input.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
 
-    let meta = alt;
-    let alt = false;
-
-    {
-        if meta && input.just_pressed(KeyCode::Enter) {
+    if meta {
+        if input.just_pressed(KeyCode::Enter) {
             run_command_event.send(
                 RunCommandRequestBuilder::default()
                     .command("tilix".to_string())
@@ -70,7 +67,7 @@ pub fn wm_keys(
                     ControlFlow::<()>::Continue
                 });
             }
-        } else if meta && input.just_pressed(KeyCode::F11) {
+        } else if input.just_pressed(KeyCode::F11) {
             if let Some((window, _)) = &window_under_cursor.0 {
                 if let Ok(toplevel) = window_query.get(*window) {
                     if toplevel.fullscreen {
@@ -80,7 +77,7 @@ pub fn wm_keys(
                     }
                 }
             }
-        } else if meta && input.just_pressed(KeyCode::KeyM) {
+        } else if input.just_pressed(KeyCode::KeyM) {
             if let Some((window, _)) = &window_under_cursor.0 {
                 if let Ok(toplevel) = window_query.get(*window) {
                     if toplevel.max {
@@ -90,7 +87,7 @@ pub fn wm_keys(
                     }
                 }
             }
-        } else if meta && input.just_pressed(KeyCode::KeyH) {
+        } else if input.just_pressed(KeyCode::KeyH) {
             if let Some((window, _)) = &window_under_cursor.0 {
                 if let Ok(toplevel) = window_query.get(*window) {
                     if toplevel.min {
@@ -100,13 +97,13 @@ pub fn wm_keys(
                     }
                 }
             }
-        } else if meta && shift && input.just_pressed(KeyCode::KeyQ) {
+        } else if shift && input.just_pressed(KeyCode::KeyQ) {
             exit.send(AppExit);
-        } else if meta && input.just_pressed(KeyCode::KeyQ) || input.just_pressed(KeyCode::F4) {
+        } else if input.just_pressed(KeyCode::KeyQ) || input.just_pressed(KeyCode::F4) {
             if let Some((window, _)) = &window_under_cursor.0 {
                 window_action.send(WindowAction::Close(*window));
             }
-        } else if meta && input.just_pressed(KeyCode::Tab) {
+        } else if input.just_pressed(KeyCode::Tab) {
             *tab_counter += 1;
             if let Some(window) = &window_stack.at(*tab_counter) {
                 focus_window.window_entity = Some(*window);
@@ -125,8 +122,8 @@ pub fn wm_keys(
                 (KeyCode::Digit0, 9),
             ] {
                 if input.just_pressed(key) {
-                    match (meta, shift, ctrl, alt) {
-                        (true, false, false, _) => {
+                    match (shift, ctrl, alt) {
+                        (false, false, _) => {
                             if let (Some(workspace), Some((screen, _))) =
                                 (workspace_manager.workspaces.get(num), &focus_screen.0)
                             {
@@ -136,7 +133,7 @@ pub fn wm_keys(
                                     .connect_to::<ScreenAttachWorkspace>(*workspace);
                             }
                         }
-                        (true, false, true, _) => {
+                        (false, true, _) => {
                             if let (Some(workspace), Some((screen, _))) =
                                 (workspace_manager.workspaces.get(num), &focus_screen.0)
                             {
@@ -145,7 +142,7 @@ pub fn wm_keys(
                                     .connect_to::<ScreenAttachWorkspace>(*workspace);
                             }
                         }
-                        (true, true, false, _) => {
+                        (true, false, _) => {
                             if let (Some(workspace), Some(window)) = (
                                 workspace_manager.workspaces.get(num),
                                 &focus_window.window_entity,

@@ -110,9 +110,7 @@ mod test {
         prelude::*,
         winit::WinitPlugin,
     };
-    use dway_util::
-        logger::DWayLogPlugin
-    ;
+    use dway_util::logger::DWayLogPlugin;
     use tracing::Level;
 
     use crate::DWayTTYPlugin;

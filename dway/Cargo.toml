@@ -109,6 +109,7 @@ debug-assertions = false
 
 [profile.release]
 lto = "thin"
+strip = true
 
 [package.metadata]
 hot_reload_features = ["bevy/dynamic_linking", "bevy/embedded_watcher"]

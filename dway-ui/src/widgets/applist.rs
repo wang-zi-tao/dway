@@ -25,12 +25,14 @@ fn click_app(
     query: Query<(&AppListUISubStateList,&AppListUISubWidgetList)>,
     theme: Res<Theme>,
     mut commands: Commands,
-    mut launch_event: EventWriter<LaunchAppRequest>
+    mut launch_event: EventWriter<LaunchAppRequest>,
+    key_input: Res<ButtonInput<KeyCode>>,
 ){
     let Ok((state,widget)) = query.get(event.receiver)else{return;};
     if widget.node_popup_entity == Entity::PLACEHOLDER {return;}
     if event.kind == UiButtonEventKind::Released{
-        if *state.count() > 0 {
+        let ctrl = key_input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
+        if *state.count() > 0 && !ctrl {
             commands.spawn(AppWindowPreviewPopupBundle{
                 prop:AppWindowPreviewPopup{app:widget.data_entity},
                 style: style!("absolute bottom-110% align-self:center"),

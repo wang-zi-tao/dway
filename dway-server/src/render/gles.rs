@@ -12,6 +12,7 @@ use crate::{
     zwp::dmabufparam::DmaBuffer,
 };
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
+use dway_util::formats::ImageFormat;
 use image::{ImageBuffer, Rgba};
 use scopeguard::defer;
 use wayland_backend::server::WeakHandle;
@@ -372,12 +373,7 @@ pub unsafe fn import_shm(
     let stride = buffer.stride;
     let pixelsize = 4i32;
     let shm_inner = buffer.pool.read().unwrap();
-    let ptr = std::ptr::from_raw_parts::<[u8]>(
-        shm_inner.ptr.as_ptr().offset(buffer.offset as isize).cast(),
-        (width * height * 4) as usize,
-    )
-    .as_ref()
-    .unwrap();
+    let slice = shm_inner.as_slice(buffer)?;
     assert!(
         (buffer.offset + (buffer.stride * height) - buffer.stride + width * pixelsize) as usize
             <= shm_inner.size
@@ -406,13 +402,7 @@ pub unsafe fn import_shm(
 
     gl.pixel_store_i32(glow::UNPACK_ROW_LENGTH, stride / pixelsize);
 
-    let (gl_format, _shader_idx) = match buffer.format {
-        wl_shm::Format::Abgr8888 => (glow::RGBA, 0),
-        wl_shm::Format::Xbgr8888 => (glow::RGBA, 1),
-        wl_shm::Format::Argb8888 => (glow::BGRA, 0),
-        wl_shm::Format::Xrgb8888 => (glow::BGRA, 1),
-        format => return Err(UnsupportedFormat(format).into()),
-    };
+    let gl_format = ImageFormat::from_wayland_format(buffer.format)?.gles_format;
     if surface.commited.damages.is_empty() {
         trace!(surface=%WlResource::id(&surface.raw),"import {:?}", IRect::new(0, 0, width, height));
         gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, 0);
@@ -426,7 +416,7 @@ pub unsafe fn import_shm(
             height,
             gl_format,
             glow::UNSIGNED_BYTE,
-            glow::PixelUnpackData::Slice(ptr),
+            glow::PixelUnpackData::Slice(slice),
         );
         gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, 0);
         gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);
@@ -444,7 +434,7 @@ pub unsafe fn import_shm(
                 region.size().y.min(height),
                 gl_format,
                 glow::UNSIGNED_BYTE,
-                glow::PixelUnpackData::Slice(ptr),
+                glow::PixelUnpackData::Slice(slice),
             );
             gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, 0);
             gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);

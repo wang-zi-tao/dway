@@ -142,7 +142,9 @@ pub fn install_panic_hook() {
 }
 
 extern "C" fn handle_sig(s: i32) {
-    std::env::set_var("RUST_BACKTRACE", "1");
+    unsafe {
+        std::env::set_var("RUST_BACKTRACE", "1");
+    }
     error!(
         "signal {} {:?}",
         Signal::try_from(s)
@@ -171,7 +173,7 @@ fn register_signal(signal: Signal) {
 }
 
 pub fn install_signal_handler() {
-    register_signal(signal::SIGKILL);
-    register_signal(signal::SIGABRT);
-    register_signal(signal::SIGSEGV);
+    register_signal(Signal::SIGKILL);
+    register_signal(Signal::SIGABRT);
+    register_signal(Signal::SIGSEGV);
 }

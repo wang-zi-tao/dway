@@ -18,8 +18,14 @@ log-panics = { version = "2", features = ["with-backtrace", "backtrace"]}
 structstruck = "0.4.1"
 smart-default = {workspace = true}
 smallvec = "1.11.0"
-nix = { version="0.27.1", features=["poll"] }
+nix = { version="0.27.1", features=["poll", "signal"] }
 bevy = {workspace = true}
 tracing-journald = "0.3.0"
 backtrace = "0.3"
-tokio = {workspace=true}
+tokio = {workspace=true, features=["rt", "rt-multi-thread", "sync"]}
+
+wayland-server = { version="0.31.0",features = [] }
+wgpu = { workspace = true }
+ash = { workspace = true }
+glow = { workspace = true }
+drm-fourcc = { workspace = true }

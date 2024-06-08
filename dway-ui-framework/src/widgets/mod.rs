@@ -167,7 +167,7 @@ pub mod shader {
         shader::{
             effect::{Arc, Border, Fake3D, InnerShadow, Shadow},
             fill::{ColorWheel, FillColor, FillImage},
-            shape::{Circle, RoundedBar, RoundedRect, Shape},
+            shape::{Circle, Rect, RoundedBar, RoundedRect, Shape},
             transform::Margins,
             Material, ShaderAsset, ShapeRender, Transformed,
         },
@@ -225,6 +225,12 @@ pub mod shader {
         ShapeRender::new(RoundedRect::new(corner), FillColor::new(color)).into()
     }
 
+    pub type UiImageMaterial = ShaderAsset<ShapeRender<Rect, FillImage>>;
+    pub fn ui_image(image: Handle<Image>) -> UiImageMaterial {
+        Rect::new()
+            .with_effect(FillImage::from(image))
+            .into()
+    }
     pub type RoundedUiImageMaterial = ShaderAsset<ShapeRender<RoundedRect, FillImage>>;
     pub fn rounded_ui_image(
         corner: f32,

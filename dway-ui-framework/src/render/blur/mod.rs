@@ -236,7 +236,9 @@ pub fn prepare_blur_pipeline(
                 };
                 textures.push(texture);
             });
-        let input_image = gpu_images.get(blur.blur_input.id()).unwrap();
+        let Some(input_image) = gpu_images.get(blur.blur_input.id()) else {
+            continue
+        };
         commands.entity(entity).insert(BlurData {
             input: input_image.texture_view.clone(),
             textures,

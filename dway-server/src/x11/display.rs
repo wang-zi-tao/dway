@@ -5,7 +5,7 @@ use std::{
     fs,
     io::{self, Read, Write},
     os::{
-        fd::{AsRawFd, FromRawFd, RawFd},
+        fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
         unix::{net::UnixStream, process::CommandExt},
     },
     process::Child,
@@ -307,7 +307,7 @@ impl XWaylandDisplay {
         unsafe {
             let wayland_socket_fd = wayland_socket.as_raw_fd();
             let wm_socket_fd = x11_socket.as_raw_fd();
-            let socket_fds: Vec<_> = streams.iter().map(|socket| socket.as_raw_fd()).collect();
+            let socket_fds: Vec<_> = streams.into_iter().map(|socket| socket.into_raw_fd()).collect();
             command.pre_exec(move || {
                 // unset the CLOEXEC flag from the sockets we need to pass to xwayland
                 Self::unset_cloexec(wayland_socket_fd)?;

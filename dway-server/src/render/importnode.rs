@@ -1,4 +1,10 @@
-use std::{collections::HashMap, sync::Mutex};
+use std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Mutex,
+    },
+};
 
 use super::{
     gles::EglState,
@@ -50,6 +56,7 @@ pub struct ImportState {
     pub inner: Mutex<Option<ImportStateKind>>,
     pub removed_image: Vec<AssetId<Image>>,
     pub image_set: HashSet<Handle<Image>>,
+    pub finished: AtomicBool,
 }
 
 #[derive(Debug)]
@@ -155,6 +162,7 @@ pub fn prepare_surfaces(
     import_state: ResMut<ImportState>,
     mut images: ResMut<RenderAssets<Image>>,
 ) {
+    import_state.finished.store(false, Ordering::Relaxed);
     let mut state_guard = import_state.inner.lock().unwrap();
     if state_guard.is_none() {
         match ImportStateKind::new(render_device.wgpu_device()) {
@@ -167,16 +175,25 @@ pub fn prepare_surfaces(
     let Some(state_guard) = state_guard.as_mut() else {
         return;
     };
+    match state_guard{
+        ImportStateKind::Egl(state) => {},
+        ImportStateKind::Vulkan(state) => {
+            state.shm_image_map.retain(|k,_|k.is_alive());
+            state.dma_image_map.retain(|k,_|k.is_alive());
+        },
+    };
     surface_query
         .iter()
-        .for_each(|(surface, _shm_buffer, dma_buffer)| {
+        .for_each(|(surface, shm_buffer, dma_buffer)| {
             match state_guard {
                 ImportStateKind::Egl(_) => {}
                 ImportStateKind::Vulkan(vulkan) => {
+                    let _span = debug_span!("prepare wayland surface", surface = ?surface.raw.id()).entered();
                     if let Err(e) = vulkan::prepare_wl_surface(
                         vulkan,
                         render_device.wgpu_device(),
                         surface,
+                        shm_buffer,
                         dma_buffer,
                         &mut images,
                     ) {
@@ -214,6 +231,18 @@ impl Node for ImportSurfacePassNode {
         let render_queue = world.resource::<RenderQueue>();
         let textures = world.resource::<RenderAssets<Image>>();
         let import_state = world.resource::<ImportState>();
+        loop {
+            if import_state.finished.load(Ordering::Acquire) {
+                return Ok(());
+            }
+            if import_state
+                .finished
+                .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+                .is_ok()
+            {
+                break;
+            }
+        }
         for (entity, surface, buffer, dma_buffer, egl_buffer) in
             self.surface_query.iter_manual(world)
         {
@@ -230,7 +259,7 @@ impl Node for ImportSurfacePassNode {
                     gles,
                 ),
                 Some(ImportStateKind::Vulkan(_)) => {
-                    super::vulkan::import_wl_surface(buffer, &texture.texture, &render_queue)
+                    super::vulkan::import_wl_surface(surface, buffer, &texture.texture, &render_queue)
                 }
                 None => continue,
             };

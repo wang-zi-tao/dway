@@ -66,7 +66,6 @@ fn focus_window(
     //     Duration::from_secs_f32(0.5),
     //     TransformScaleLens { start: Vec3::splat(0.5), end: Vec3::ONE, },
     // )))
-    @handle(RoundedUiRectMaterial=>rounded_rect(Color::WHITE*0.2, 16.0))
     @for_query((surface,geo,toplevel) in Query<(Ref<WlSurface>,Ref<GlobalGeometry>,Ref<DWayToplevel>)>::iter_many(state.windows().iter().cloned()) =>[
         toplevel=>{state.set_title(toplevel.title.clone().unwrap_or_default());},
         geo=>{state.set_geo(geo.clone());},
@@ -89,7 +88,7 @@ fn focus_window(
                         state.title(),
                         TextStyle {
                             font_size: 16.0,
-                            color: Color::WHITE,
+                            color: theme.default_text_color,
                             font: theme.default_font(),
                         },
                     ).with_justify(JustifyText::Center))

@@ -69,6 +69,11 @@ wgpu-hal={version="0.19",features=["gles"]}
 glow = {version="0.13"}
 khronos-egl = { version="6",features= ["dynamic","static"] }
 ash = { version = "0.37", features = [] }
+drm-fourcc = "2.2.0"
+
+wayland-server = { version="0.31.0",features = [] }
+wayland-backend = { version="0.3.2", features = ["server_system"] }
+wayland-protocols = { version = "0.31.0", features = ["unstable", "staging", "server", "wayland-server"]}
 
 [workspace.dependencies.bevy]
 version = "0.13.2"
@@ -101,6 +106,7 @@ features = [
 
   "async-io",
   "wayland",
+  "dynamic_linking",
 ]
 
 [patch.crates-io]

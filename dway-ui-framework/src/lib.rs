@@ -131,6 +131,7 @@ impl Plugin for UiFrameworkPlugin {
             RoundedBorderBlockMaterial::plugin(),
             HollowBlockMaterial::plugin(),
             ButtonMaterial::plugin(),
+            UiImageMaterial::plugin(),
             RoundedRainbowBlockMaterial::plugin(),
             Fake3dButton::plugin(),
             CheckboxMaterial::plugin(),

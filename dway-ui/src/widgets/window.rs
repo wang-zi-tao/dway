@@ -116,10 +116,10 @@ WindowUI=>
     }
     if init || toplevel.is_changed(){
         if state.title() != &toplevel.title {
-            *state.title_mut() = toplevel.title.clone(); 
+            *state.title_mut() = toplevel.title.clone();
         }
         if state.decorated() != &toplevel.decorated {
-            *state.decorated_mut() = toplevel.decorated; 
+            *state.decorated_mut() = toplevel.decorated;
         }
     }
     if init || surface.is_changed(){ *state.image_mut() = surface.image.clone(); }
@@ -144,9 +144,9 @@ WindowUI=>
         Interaction=(default()) FocusPolicy=(FocusPolicy::Pass)
     />
 </MiniNodeBundle>
-<UiImageBundle Style=(irect_to_style(*state.bbox_rect())) @if(!*state.decorated()) >
+<UiNodeBundle Style=(irect_to_style(*state.bbox_rect())) @if(!*state.decorated()) >
     <ImageBundle @id="image" @style="full" UiImage=(state.image().clone().into()) />
-</UiImageBundle>
+</UiNodeBundle>
 <NodeBundle Style=(irect_to_style(*state.rect())) @if(*state.decorated())>
     <MaterialNodeBundle::<RoundedUiRectMaterial>
         ZIndex=(ZIndex::Local(0))
