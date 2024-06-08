@@ -450,8 +450,10 @@ pub unsafe fn import_shm(
     let data = buffer_guard.as_slice(shm_buffer)?;
 
     let image_area = IRect::from_pos_size(IVec2::default(), size);
+    let texture_extent = texture.size();
+    let texture_size = IVec2::new(texture_extent.width as i32, texture_extent.height as i32);
     let emit_rect = |rect: IRect| -> Result<()> {
-        let rect = rect.intersection(image_area);
+        let rect = rect.intersection(IRect::from_pos_size(IVec2::ZERO, texture_size));
         debug!(?rect, "write_texture");
         queue.write_texture(
             ImageCopyTexture {
@@ -504,28 +506,36 @@ pub fn prepare_wl_surface(
 ) -> Result<()> {
     unsafe {
         if let Some(shm_buffer) = shm_buffer {
-            match state.shm_image_map.entry(surface.raw.clone()) {
-                Entry::Occupied(o) => {
-                    image_assets.insert(surface.image.clone(), o.get().1.clone());
+            let mut create_shm_image = || {
+                let (size, format, image) = device
+                    .as_hal::<Vulkan, _, _>(|hal_device| {
+                        let hal_device = hal_device.ok_or_else(|| BackendIsNotVulkan)?;
+                        let size = shm_buffer.size;
+                        let format =
+                            ImageFormat::from_wayland_format(shm_buffer.format)?.wgpu_format;
+                        let image = create_shm_image(hal_device, shm_buffer)?;
+                        debug!(?size, ?format, buffer=?shm_buffer.raw.id(), "create shm image");
+                        Result::<_, DWayRenderError>::Ok((size, format, image))
+                    })
+                    .ok_or(DWayRenderError::BackendIsIsInvalid)??;
+                let hal_texture = image_to_hal_texture(size, format, image.image);
+                let gpu_image = hal_texture_to_gpuimage(device, size, format, hal_texture);
+                anyhow::Result::<_, anyhow::Error>::Ok((image, gpu_image))
+            };
+            let gpu_image = match state.shm_image_map.entry(surface.raw.clone()) {
+                Entry::Occupied(mut o) => {
+                    if o.get().1.size != shm_buffer.size.as_vec2() {
+                        let (image, gpu_image) = create_shm_image()?;
+                        o.insert((image, gpu_image));
+                    }
+                    o.get().1.clone()
                 }
                 Entry::Vacant(v) => {
-                    let (size, format, image) = device
-                        .as_hal::<Vulkan, _, _>(|hal_device| {
-                            let hal_device = hal_device.ok_or_else(|| BackendIsNotVulkan)?;
-                            let size = shm_buffer.size;
-                            let format =
-                                ImageFormat::from_wayland_format(shm_buffer.format)?.wgpu_format;
-                            let image = create_shm_image(hal_device, shm_buffer)?;
-                            debug!(?size, ?format, buffer=?shm_buffer.raw.id(), "create shm image");
-                            Result::<_, DWayRenderError>::Ok((size, format, image))
-                        })
-                        .ok_or(DWayRenderError::BackendIsIsInvalid)??;
-                    let hal_texture = image_to_hal_texture(size, format, image.image);
-                    let gpu_image = hal_texture_to_gpuimage(device, size, format, hal_texture);
-                    image_assets.insert(surface.image.clone(), gpu_image.clone());
-                    v.insert((image, gpu_image));
+                    let (image, gpu_image) = create_shm_image()?;
+                    v.insert((image, gpu_image)).1.clone()
                 }
             };
+            image_assets.insert(surface.image.clone(), gpu_image);
         } else if let Some(dma_buffer) = dma_buffer {
             match state.dma_image_map.entry(dma_buffer.raw.clone()) {
                 Entry::Occupied(o) => {
