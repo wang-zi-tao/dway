@@ -14,7 +14,13 @@ use crate::{
     panels::PanelButtonBundle,
     prelude::*,
     widgets::{
-        applist::AppListUIBundle, cursor::{Cursor, CursorBundle}, notifys::NotifyButtonBundle, screen::{ScreenWindows, ScreenWindowsBundle}, system_monitor::PanelSystemMonitorBundle, windowtitle::WindowTitleBundle, workspacelist::WorkspaceListUIBundle
+        applist::AppListUIBundle,
+        cursor::{Cursor, CursorBundle},
+        notifys::NotifyButtonBundle,
+        screen::{ScreenWindows, ScreenWindowsBundle},
+        system_monitor::PanelSystemMonitorBundle,
+        windowtitle::WindowTitleBundle,
+        workspacelist::WorkspaceListUIBundle,
     },
 };
 use bevy::{render::camera::RenderTarget, window::WindowRef};
@@ -26,7 +32,10 @@ use dway_tty::{
     drm::{camera::DrmCamera, surface::DrmSurface},
     seat::SeatState,
 };
-use dway_ui_framework::{render::layer_manager::LayerManager, theme::{ThemeComponent, WidgetKind}};
+use dway_ui_framework::{
+    render::layer_manager::LayerManager,
+    theme::{ThemeComponent, WidgetKind},
+};
 use widgets::clock::ClockBundle;
 
 pub struct DWayUiPlugin;
@@ -64,13 +73,15 @@ impl Plugin for DWayUiPlugin {
             popups::volume_control::VolumeControlPlugin,
             popups::panel_settings::PanelSettingsPlugin,
         ));
-        app.add_systems(PreUpdate, init_screen_ui.after(DWayClientSystem::CreateComponent));
+        app.add_systems(
+            PreUpdate,
+            init_screen_ui.after(DWayClientSystem::CreateComponent),
+        );
         app.add_systems(Startup, setup);
     }
 }
 
-fn setup(mut commands: Commands) {
-}
+fn setup(mut commands: Commands) {}
 
 #[derive(Component, SmartDefault)]
 pub struct ScreenUI {
@@ -141,7 +152,7 @@ ScreenUI=>
         focus_policy: FocusPolicy::Pass, z_index: ZIndex::Global(1024),..default()})
         // Class=(Class::new("dock"))
         Name=(Name::new("dock")) @id="dock" >
-        <MiniNodeBundle 
+        <MiniNodeBundle
             ThemeComponent=(ThemeComponent::widget(WidgetKind::BlurBackground))
             // @material(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.5), 16.0))
             >
@@ -170,12 +181,12 @@ fn init_screen_ui(
         };
         let mut camera_cmd = commands.spawn(Camera2dBundle {
             camera: Camera {
-                target,
+                target: target.clone(),
                 ..default()
             },
             ..Default::default()
         });
-        camera_cmd.add(LayerManager::create);
+        camera_cmd.add(LayerManager::with_window_target(RenderTarget::Window(WindowRef::Entity(entity))));
         let camera = camera_cmd.id();
         if *camera_count == 0 {
             // camera_cmd.insert(IsDefaultUiCamera);

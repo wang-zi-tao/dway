@@ -5,6 +5,7 @@ use dway_server::{
     util::rect::IRect,
     wl::surface::{ClientHasSurface, WlSurface},
 };
+use dway_ui_framework::theme::{ThemeComponent, WidgetKind};
 
 use crate::prelude::*;
 
@@ -81,6 +82,7 @@ Cursor=>
 @use_state(pub cursor_geo: IRect)
 @use_state(pub cursor_image: Handle<Image>)
 @state_component(#[derive(Debug)])
+@bundle{{ theme: ThemeComponent = ThemeComponent::widget(WidgetKind::BlurBackground) }}
 <ImageBundle UiImage=(state.cursor_image().clone().into()) ZIndex=(ZIndex::Global(4096))
     Style=({
         let b = state.cursor_geo();

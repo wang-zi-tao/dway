@@ -2,34 +2,23 @@ use std::borrow::Cow;
 
 use crate::prelude::*;
 use bevy::{
-    core_pipeline::{
-        core_2d::graph::{Core2d, Node2d},
-        core_3d::graph::{Core3d, Node3d},
-        fullscreen_vertex_shader::{fullscreen_shader_vertex_state, FULLSCREEN_SHADER_HANDLE},
-    },
+    core_pipeline::
+        core_2d::graph::{Core2d, Node2d}
+    ,
     ecs::query::QueryItem,
     render::{
-        extract_component::{ExtractComponent, ExtractComponentPlugin},
+        extract_component::ExtractComponent,
         mesh::GpuBufferInfo,
         render_asset::RenderAssets,
         render_graph::{RenderGraphApp, RenderLabel, ViewNode, ViewNodeRunner},
         render_resource::{
-            binding_types::{sampler, texture_2d, uniform_buffer},
-            AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
-            CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d,
-            FragmentState, MultisampleState, Operations, PipelineCache, PrimitiveState,
-            RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
-            SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType,
-            SpecializedRenderPipeline, SpecializedRenderPipelines, Texture, TextureDescriptor,
-            TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
-            TextureViewDescriptor, VertexState,
+            binding_types::{sampler, texture_2d, uniform_buffer}, AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d, FragmentState, MultisampleState, Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, VertexState
         },
         renderer::{RenderDevice, RenderQueue},
-        texture::{BevyDefault, GpuImage},
+        texture::BevyDefault,
         view::ViewTarget,
         Extract, RenderApp, RenderSet,
     },
-    utils::HashMap,
 };
 
 use super::layer_manager::{BlurMethod, BlurMethodKind, LayerManager};
@@ -65,7 +54,7 @@ struct BlurData {
     pipeline_id: CachedRenderPipelineId,
 }
 
-struct BlurPipeline {
+pub struct BlurPipeline {
     pub shader: Handle<Shader>,
     pub layout: BindGroupLayout,
 }

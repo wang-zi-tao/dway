@@ -10,29 +10,22 @@ use crate::{
 };
 use bevy::{
     asset::load_internal_asset,
-    ecs::{
-        entity::EntityHashSet,
-        query::QueryItem,
-        system::{Command, EntityCommand, Resource},
-    },
+    ecs::{entity::EntityHashSet, system::EntityCommand},
     render::{
         camera::{NormalizedRenderTarget, RenderTarget},
-        extract_component::ExtractComponent,
         mesh::{Indices, PrimitiveTopology},
-        render_asset::{RenderAssetUsages, RenderAssets},
+        render_asset::RenderAssetUsages,
         render_resource::{
             AsBindGroupError, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
             TextureUsages,
         },
     },
-    sprite::{Mesh2d, Mesh2dHandle},
     transform::components::Transform,
     ui::{ui_focus_system, UiSystem},
-    utils::{petgraph::algo::kosaraju_scc, HashMap, HashSet},
-    window::{PrimaryWindow, WindowRef},
+    utils::HashMap,
+    window::PrimaryWindow,
 };
-use bevy_prototype_lyon::entity::{Path, ShapeBundle};
-use bevy_relationship::reexport::{Entity, SmallVec};
+use bevy_relationship::reexport::Entity;
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Debug)]
 pub enum LayerKind {
@@ -62,10 +55,10 @@ impl RenderToLayer {
 
 structstruck::strike! {
     #[derive(Component, Reflect, Debug)]
-    pub struct BackupRenderTarget ( Option<
+    pub struct SetWindowTarget ( Option<
             #[derive(Reflect, Debug)]
             struct BackupRenderTargetInner {
-                base: RenderTarget,
+                window_target: RenderTarget,
                 layer: RenderTarget,
         }> )
 }
@@ -94,9 +87,9 @@ pub(crate) struct BaseLayerRef {
 impl BaseLayerRef {
     fn update_camera(
         &self,
-        camera_query: &mut Query<(&mut Camera, &mut BackupRenderTarget)>,
+        camera_query: &mut Query<(&mut Camera, &mut SetWindowTarget)>,
         render_target: &mut Option<RenderTarget>,
-        base_render_target: &RenderTarget,
+        window_target: &RenderTarget,
     ) {
         let (mut camera, mut backup) = camera_query.get_mut(self.camera).unwrap();
         if let Some(render_target) = render_target.take() {
@@ -105,7 +98,7 @@ impl BaseLayerRef {
         } else {
             camera.target = RenderTarget::Image(self.surface.clone());
             backup.0 = Some(BackupRenderTargetInner {
-                base: base_render_target.clone(),
+                window_target: window_target.clone(),
                 layer: camera.target.clone(),
             });
         }
@@ -125,9 +118,9 @@ pub trait Layer {
     fn update_camera(
         &self,
         enable: bool,
-        camera_query: &mut Query<(&mut Camera, &mut BackupRenderTarget)>,
+        camera_query: &mut Query<(&mut Camera, &mut SetWindowTarget)>,
         render_target: &mut Option<RenderTarget>,
-        base_render_target: &RenderTarget,
+        window_target: &RenderTarget,
     );
 
     fn update_background(
@@ -176,7 +169,7 @@ impl Layer for LayerRef {
                     layer_manager: manager_entity,
                     layer_kind: LayerKind::Blur,
                 },
-                BackupRenderTarget(None),
+                SetWindowTarget(None),
             ))
             .set_parent(manager_entity)
             .id();
@@ -206,15 +199,15 @@ impl Layer for LayerRef {
     fn update_camera(
         &self,
         enable: bool,
-        camera_query: &mut Query<(&mut Camera, &mut BackupRenderTarget)>,
+        camera_query: &mut Query<(&mut Camera, &mut SetWindowTarget)>,
         render_target: &mut Option<RenderTarget>,
-        base_render_target: &RenderTarget,
+        window_target: &RenderTarget,
     ) {
         let (mut camera, mut backup) = camera_query.get_mut(self.camera).unwrap();
         if enable {
             if let Some(render_target) = render_target.take() {
                 backup.0 = Some(BackupRenderTargetInner {
-                    base: base_render_target.clone(),
+                    window_target: window_target.clone(),
                     layer: render_target.clone(),
                 });
                 camera.target = render_target;
@@ -340,12 +333,12 @@ impl Layer for BlurLayer {
     fn update_camera(
         &self,
         enable: bool,
-        camera_query: &mut Query<(&mut Camera, &mut BackupRenderTarget)>,
+        camera_query: &mut Query<(&mut Camera, &mut SetWindowTarget)>,
         render_target: &mut Option<RenderTarget>,
-        base_render_target: &RenderTarget,
+        window_target: &RenderTarget,
     ) {
         self.layer
-            .update_camera(enable, camera_query, render_target, base_render_target)
+            .update_camera(enable, camera_query, render_target, window_target)
     }
 
     fn update_background(
@@ -387,6 +380,7 @@ pub struct LayerManager {
     pub(crate) size: UVec2,
     pub(crate) canvas_enable: bool,
     pub(crate) blur_enable: bool,
+    pub(crate) window_target: RenderTarget,
     pub(crate) render_target: RenderTarget,
 }
 
@@ -459,7 +453,7 @@ impl LayerManager {
         let blur_layer = BlurLayer::new(world, 20, &render_target, entity);
 
         world.entity_mut(entity).insert((
-            BackupRenderTarget(None),
+            SetWindowTarget(None),
             LayerManager {
                 base_layer: BaseLayerRef {
                     surface: Default::default(),
@@ -470,9 +464,37 @@ impl LayerManager {
                 size: UVec2::ONE,
                 canvas_enable: false,
                 blur_enable: false,
+                window_target: render_target.clone(),
                 render_target,
             },
         ));
+    }
+
+    pub fn with_window_target(window_target: RenderTarget) -> impl EntityCommand {
+        move |entity: Entity, world: &mut World| {
+            let camera = world.get::<Camera>(entity).unwrap();
+            let render_target = camera.target.clone();
+
+            let canvas_layer = LayerRef::new(world, 10, &render_target, entity);
+            let blur_layer = BlurLayer::new(world, 20, &render_target, entity);
+
+            world.entity_mut(entity).insert((
+                SetWindowTarget(None),
+                LayerManager {
+                    base_layer: BaseLayerRef {
+                        surface: Default::default(),
+                        camera: entity,
+                    },
+                    canvas_layer,
+                    blur_layer,
+                    size: UVec2::ONE,
+                    canvas_enable: false,
+                    blur_enable: false,
+                    window_target: window_target.clone(),
+                    render_target,
+                },
+            ));
+        }
     }
 }
 
@@ -544,7 +566,7 @@ pub fn update_ui_root(
 
 pub fn update_layers(
     mut layer_manager_query: Query<(Entity, &mut LayerManager)>,
-    mut camera_query: Query<(&mut Camera, &mut BackupRenderTarget)>,
+    mut camera_query: Query<(&mut Camera, &mut SetWindowTarget)>,
     mut background_query: Query<(&mut UiImage, &mut Visibility)>,
     window_query: Query<&Window>,
     ui_root_query: Query<
@@ -648,18 +670,18 @@ pub fn update_layers(
                 layer_manager.blur_enable,
                 &mut camera_query,
                 &mut render_target,
-                &layer_manager.render_target,
+                &layer_manager.window_target,
             );
             layer_manager.canvas_layer.update_camera(
                 layer_manager.canvas_enable,
                 &mut camera_query,
                 &mut render_target,
-                &layer_manager.render_target,
+                &layer_manager.window_target,
             );
             layer_manager.base_layer.update_camera(
                 &mut camera_query,
                 &mut render_target,
-                &layer_manager.render_target,
+                &layer_manager.window_target,
             );
         }
 
@@ -766,15 +788,15 @@ pub fn update_ui_material(
     }
 }
 
-pub fn before_ui_focus_system(mut query: Query<(&BackupRenderTarget, &mut Camera)>) {
+pub fn before_ui_focus_system(mut query: Query<(&SetWindowTarget, &mut Camera)>) {
     for (backup, mut camera) in &mut query {
         if let Some(backup) = backup.0.as_ref() {
-            camera.target = backup.base.clone();
+            camera.target = backup.window_target.clone();
         }
     }
 }
 
-pub fn after_ui_focus_system(mut query: Query<(&BackupRenderTarget, &mut Camera)>) {
+pub fn after_ui_focus_system(mut query: Query<(&SetWindowTarget, &mut Camera)>) {
     for (backup, mut camera) in &mut query {
         if let Some(backup) = backup.0.as_ref() {
             camera.target = backup.layer.clone();

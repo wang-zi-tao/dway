@@ -118,6 +118,9 @@ impl DWayServer {
 
     pub fn dispatch(&mut self, entity: Entity, world: &mut World) -> Result<()> {
         while let Some(stream) = self.socket.accept()? {
+            if let Some(mut event_loop) = world.get_non_send_resource_mut::<EventLoop>() {
+                event_loop.add_fd_to_read(&stream);
+            }
             let events = world.resource::<ClientEvents>().clone();
             let mut entity_mut = world.spawn_empty();
             match self
@@ -506,7 +509,7 @@ impl DWay {
     }
     pub fn despawn_tree(&mut self, entity: Entity) {
         if let Some(entity_mut) = self.get_entity_mut(entity) {
-            trace!(?entity,"despawn recursive");
+            trace!(?entity, "despawn recursive");
             entity_mut.despawn_recursive();
         }
     }
@@ -525,7 +528,7 @@ impl DWay {
             }
         }
         if let Some(e) = self.world_mut().get_entity_mut(entity) {
-            trace!(?entity,"despawn entity");
+            trace!(?entity, "despawn entity");
             EntityWorldMut::despawn(e)
         }
     }
@@ -715,11 +718,15 @@ pub fn set_signal_handler() {
         unsafe {
             let _ = signal::signal(signal::SIGSEGV, signal::SigHandler::SigDfl);
         };
-        std::env::set_var("RUST_BACKTRACE", "1");
+        unsafe {
+            std::env::set_var("RUST_BACKTRACE", "1");
+        }
         panic!("signal::SIGSEGV {}", anyhow!("").backtrace());
     }
     extern "C" fn handle_sig(s: i32) {
-        std::env::set_var("RUST_BACKTRACE", "1");
+        unsafe {
+            std::env::set_var("RUST_BACKTRACE", "1");
+        }
         panic!("signal {} {}", s, anyhow!("").backtrace());
     }
     unsafe {
