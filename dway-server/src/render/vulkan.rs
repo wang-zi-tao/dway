@@ -58,10 +58,10 @@ pub struct VulkanState {
         HashMap<wayland_server::protocol::wl_surface::WlSurface, (ImportedImage, GpuImage)>,
 }
 
-pub const SUPPORTED_FORMATS: [DrmFourcc; 2] = [
-    // DrmFourcc::Argb8888, // TODO fixup
+pub const SUPPORTED_FORMATS: [DrmFourcc; 4] = [
+    DrmFourcc::Argb8888,
     DrmFourcc::Xrgb8888,
-    // DrmFourcc::Abgr8888, // TODO fixup
+    DrmFourcc::Abgr8888,
     DrmFourcc::Xbgr8888,
 ];
 
@@ -100,7 +100,7 @@ pub fn drm_info(render_device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError
                         &mut format_properties2,
                     );
 
-                    modifiers_list.clear(); // TODO : 改进解决方法
+                    // modifiers_list.clear(); // TODO : 改进解决方法
                     if modifiers_list.is_empty() {
                         warn!(format=?fourcc, "no available modifier of format");
                         formats.push(DrmFormat {
@@ -506,7 +506,7 @@ pub fn prepare_wl_surface(
 ) -> Result<()> {
     unsafe {
         if let Some(shm_buffer) = shm_buffer {
-            let mut create_shm_image = || {
+            let create_shm_image = || {
                 let (size, format, image) = device
                     .as_hal::<Vulkan, _, _>(|hal_device| {
                         let hal_device = hal_device.ok_or_else(|| BackendIsNotVulkan)?;
