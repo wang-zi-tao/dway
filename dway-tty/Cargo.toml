@@ -43,6 +43,7 @@ xcursor = {version = "0.3"}
 drm-ffi = "0.7"
 input = "0.9"
 smol_str = {workspace=true}
+derive_more = {workspace=true}
 
 [dev-dependencies]
 bevy = {workspace=true, features=["bevy_pbr","animation"]}

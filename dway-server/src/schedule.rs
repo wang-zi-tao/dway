@@ -1,4 +1,5 @@
 use bevy::{ecs::schedule::ScheduleLabel, ui::UiSystem};
+use dway_util::eventloop::PollerSystems;
 
 use crate::prelude::*;
 
@@ -97,7 +98,11 @@ impl Plugin for DWayServerSchedulePlugin {
 
         app.configure_sets(
             bevy::prelude::Last,
-            (ProcessWindowAction, Clean, CleanFlush)
+            (
+                ProcessWindowAction,
+                Clean,
+                CleanFlush.before(PollerSystems::Flush),
+            )
                 .chain()
                 .ambiguous_with_all(),
         );

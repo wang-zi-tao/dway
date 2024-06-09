@@ -1,179 +1,328 @@
-use bevy::prelude::*;
-use calloop::{
-    channel::{Channel, Sender},
+use anyhow::Result;
+use bevy::{app::AppExit, prelude::*, utils::HashMap, window::RequestRedraw};
+use nix::sys::{
+    time::TimeSpec,
+    timer::{Expiration, TimerSetTimeFlags},
+    timerfd::{ClockId, TimerFd, TimerFlags},
 };
-pub use calloop::{generic::Generic, EventSource, Interest, Mode, PostAction, Readiness};
-use log::info;
-use nix::{
-    libc::{epoll_create, epoll_event, epoll_wait},
-};
+pub use polling::AsSource;
+use polling::{Event, Events, PollMode};
 use smart_default::SmartDefault;
 use std::{
     any::{type_name, TypeId},
-    os::fd::AsRawFd,
-    sync::mpsc,
-    time::{Duration},
+    num::NonZero,
+    os::fd::{AsFd, AsRawFd, BorrowedFd, OwnedFd, RawFd},
+    sync::{
+        mpsc::{self, channel},
+        Arc, Mutex,
+    },
+    time::{Duration, Instant},
 };
 
-pub struct Poll {}
+pub const FD_KEY_BEGIN: usize = 1024;
+pub const FD_KEY_TIMER: usize = 1;
 
-pub unsafe fn poll() {
-    // let fd = PollFd::new(fd, PollFlags::POLLIN|PollFlags::POLLERR);
-    let fd = epoll_create(16);
+pub type PollerCallback = Box<dyn Fn(&PollerResponse) -> bool + Send + Sync + 'static>;
 
-    let mut events = [epoll_event { events: 0, u64: 0 }; 16];
-    loop {
-        let nfds = epoll_wait(fd, events.as_mut_ptr(), events.len() as i32, 0);
-        for i in 0..nfds {
-            let ev = &events[i as usize];
-            let fd = ev.u64;
+structstruck::strike! {
+    pub struct Poller {
+        poller: Arc<PollerInner>,
+        tx: Option<mpsc::Sender<
+        #[derive(Debug, Default, Clone)]
+        pub struct PollerRequest{
+            pub quit: bool,
+            pub add_timer: Option<Instant>,
+        }>>,
+        rx: Option<mpsc::Receiver<
+        #[derive(Debug, Default, Clone)]
+        pub struct PollerResponse {
+            pub timeout: bool,
+            pub fd_event: bool,
+            pub timer_event: bool,
+        } >>,
+    }
+}
+
+pub struct PollerRawGuard {
+    fd: RawFd,
+    poller: Arc<PollerInner>,
+}
+
+impl std::fmt::Debug for PollerRawGuard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PollerRawGuard")
+            .field("fd", &self.fd)
+            .finish()
+    }
+}
+impl Drop for PollerRawGuard {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = self.poller.remove_raw(self.fd);
         }
     }
 }
 
-pub type Register = Box<dyn FnOnce(&mut calloop::LoopHandle<'static, ()>) + Send + Sync>;
-
-pub enum EventLoopOperate {
-    RequestUpdate,
-    FrameFinish,
-    Register(Register),
+pub struct PollerGuard<Fd: AsSource> {
+    fd: Fd,
+    poller: Arc<PollerInner>,
 }
 
-pub struct EventLoop {
-    channel: Option<Channel<Register>>,
-    // signal: Signal,
-    sender: Sender<Register>,
-    tx: Option<mpsc::Sender<()>>,
+impl<Fd: AsSource + std::fmt::Debug> std::fmt::Debug for PollerGuard<Fd> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PollerGuard").field("fd", &self.fd).finish()
+    }
 }
 
-pub enum EventLoopControl {
-    Continue,
-    ContinueImmediate,
-    ContinueWithTimeout(Duration),
-    Stop,
+impl<Fd: AsSource> std::ops::Deref for PollerGuard<Fd> {
+    type Target = Fd;
+    fn deref(&self) -> &Self::Target {
+        &self.fd
+    }
 }
 
-pub struct EventLoopRunner(Channel<Register>);
-impl EventLoopRunner {
-    pub fn start_thread(
-        self,
-        eventloop: &mut EventLoop,
-        mut callback: impl FnMut() -> EventLoopControl + Send + Sync + 'static,
-    ) {
-        let (tx, rx) = mpsc::channel();
-        eventloop.tx.replace(tx);
+impl<Fd: AsSource> std::ops::DerefMut for PollerGuard<Fd> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.fd
+    }
+}
+
+impl<Fd: AsSource> Drop for PollerGuard<Fd> {
+    fn drop(&mut self) {
+        let _ = self.poller.remove(self.fd.source());
+    }
+}
+
+impl Poller {
+    pub fn new() -> Self {
+        let poller = polling::Poller::new().unwrap();
+        let timer = TimerFd::new(ClockId::CLOCK_REALTIME, TimerFlags::TFD_CLOEXEC).unwrap();
+        unsafe {
+            poller
+                .add(&timer.as_fd(), Event::readable(FD_KEY_BEGIN))
+                .unwrap()
+        };
+        Self {
+            poller: Arc::new(PollerInner {
+                raw: poller,
+                timer,
+                fds: Default::default(),
+                timeout: Duration::from_secs(1),
+            }),
+            tx: None,
+            rx: None,
+        }
+    }
+
+    pub fn inner(&self) -> &Arc<PollerInner> {
+        &self.poller
+    }
+
+    pub fn handle(&mut self) -> Self {
+        Self {
+            poller: self.poller.clone(),
+            tx: self.tx.clone(),
+            rx: None,
+        }
+    }
+
+    pub fn take_recevier(&mut self) -> Option<mpsc::Receiver<PollerResponse>> {
+        self.rx.take()
+    }
+
+    pub fn take(&mut self) -> Self {
+        Self {
+            poller: self.poller.clone(),
+            tx: self.tx.clone(),
+            rx: self.rx.take(),
+        }
+    }
+
+    pub fn get_runner(&mut self, callback: Option<PollerCallback>) -> impl FnOnce() {
+        let (tx, thread_rx) = channel();
+        let (thread_tx, rx) = channel();
+        self.tx = Some(tx);
+        self.rx = Some(rx);
+        let poller = self.poller.clone();
+        move || poller.run(thread_rx, thread_tx, callback).unwrap()
+    }
+
+    pub fn launch(&mut self, callback: Option<PollerCallback>) {
+        let (tx, thread_rx) = channel();
+        let (thread_tx, rx) = channel();
+        self.tx = Some(tx);
+        self.rx = Some(rx);
+        let poller = self.poller.clone();
         std::thread::Builder::new()
-            .name("eventloop".to_string())
-            .spawn(move || {
-                self.run(Duration::from_secs(2), move || {
-                    while rx.try_recv().is_ok() {}
-                    let r = callback();
-                    let _ = rx.recv();
-                    r
-                });
-            })
+            .name("epoll".to_string())
+            .spawn(move || poller.run(thread_rx, thread_tx, callback).unwrap())
             .unwrap();
     }
 
-    pub fn run(self, duration: Duration, mut callback: impl FnMut() -> EventLoopControl + 'static) {
-        let mut event_loop = calloop::EventLoop::<()>::try_new().unwrap();
-        let mut handle = event_loop.handle();
-        let signal = event_loop.get_signal();
-        let _ = event_loop.handle().insert_source(self.0, move |e, _, _| {
-            match e {
-                calloop::channel::Event::Msg(r) => {
-                    r(&mut handle);
-                }
-                calloop::channel::Event::Closed => {
-                    info!("stoping eventloop");
-                    signal.stop();
-                }
-            };
-        });
-        let mut timeout = duration;
-        loop {
-            if let Err(e) = event_loop.dispatch(timeout, &mut ()){
-                error!("{e}");
-            }
-            match callback() {
-                EventLoopControl::Continue => {
-                    timeout = duration;
-                }
-                EventLoopControl::Stop => break,
-                EventLoopControl::ContinueWithTimeout(t) => {
-                    timeout = t;
-                }
-                EventLoopControl::ContinueImmediate => {
-                    timeout = Duration::default();
-                },
-            };
-        }
-        info!("eventloop stopped");
+    pub fn add<Fd: AsSource>(&mut self, fd: Fd) -> PollerGuard<Fd> {
+        self.poller.clone().add(fd)
     }
-}
 
-impl Default for EventLoop {
-    fn default() -> Self {
-        Self::new()
+    pub unsafe fn add_raw<Fd: AsRawFd>(&mut self, fd: &Fd) -> PollerRawGuard {
+        self.poller.clone().add_raw(fd)
     }
-}
 
-impl EventLoop {
-    pub fn new() -> Self {
-        let (sender, channel) = calloop::channel::channel();
-        Self {
-            sender,
-            channel: Some(channel),
-            tx: None,
+    pub fn delete(&mut self, fd: OwnedFd) {
+        self.poller.raw.delete(fd).unwrap();
+    }
+
+    pub fn send(&mut self, event: PollerRequest) {
+        if let Some(tx) = &self.tx {
+            let _ = tx.send(event);
         }
     }
+}
 
-    pub fn add<F: AsRawFd + 'static + Send + Sync>(
-        &mut self,
-        source: Generic<F, std::io::Error>,
-        mut callback: impl for<'l> FnMut(Readiness, &'l mut F) + 'static + Send + Sync,
-    ) {
-        let _ = self.sender.send(Box::new(move |handle| {
-            if let Err(e) = handle.insert_source(source, move |event, metadata, _| {
-                if event.error {
-                    return Ok(PostAction::Remove);
-                }
-                callback(event, metadata);
-                Ok(PostAction::Continue)
-            }) {
-                error!("failed to insert source: {e:?}")
-            };
-        }));
-    }
-
-    pub fn add_fd_to_read(&mut self, fd: &impl AsRawFd) {
-        self.add(
-            Generic::new(fd.as_raw_fd(), Interest::READ, Mode::Level),
-            |_, _| {},
-        );
-    }
-
-    pub fn start(&mut self, callback: impl FnMut() -> EventLoopControl + Send + Sync + 'static) {
-        let runner = self.runner();
-        runner.start_thread(self, callback);
-    }
-
-    pub fn runner(&mut self) -> EventLoopRunner {
-        let channel = self.channel.take().unwrap();
-        EventLoopRunner(channel)
+structstruck::strike! {
+    pub struct PollerInner {
+        raw: polling::Poller,
+        fds: Mutex<HashMap<usize, struct ListenFd{
+            fd: RawFd,
+        }>>,
+        timeout: Duration,
+        timer: TimerFd,
     }
 }
 
-impl Drop for EventLoop {
+impl Drop for PollerInner {
     fn drop(&mut self) {
-        info!("stop eventloop");
+        let _ = self.raw.delete(&self.timer);
     }
 }
 
-fn on_frame_finish(eventloop: NonSendMut<EventLoop>) {
-    if let Some(tx) = &eventloop.tx {
-        let _ = tx.send(());
+impl PollerInner {
+    fn fd_key(fd: RawFd) -> usize {
+        FD_KEY_BEGIN + fd.as_raw_fd() as usize
     }
+
+    unsafe fn do_add_raw(&self, fd: RawFd) {
+        debug!("add file descriptor ({fd:?}) into EPOLL");
+        let key = Self::fd_key(fd);
+        self.fds.lock().unwrap().insert(key, ListenFd { fd });
+        self.raw
+            .add_with_mode(fd, Event::readable(key), PollMode::Level)
+            .unwrap();
+    }
+
+    pub unsafe fn add_raw<Fd: AsRawFd>(self: Arc<Self>, fd: &Fd) -> PollerRawGuard {
+        let raw_fd = fd.as_raw_fd();
+        unsafe {
+            self.do_add_raw(raw_fd);
+        }
+        PollerRawGuard {
+            fd: raw_fd,
+            poller: self,
+        }
+    }
+
+    pub fn add<Fd: AsSource>(self: Arc<Self>, fd: Fd) -> PollerGuard<Fd> {
+        let raw_fd = fd.as_fd().as_raw_fd();
+        unsafe {
+            self.do_add_raw(raw_fd);
+        }
+        PollerGuard { fd, poller: self }
+    }
+
+    pub fn remove(&self, fd: impl AsSource + AsRawFd) -> Result<()> {
+        debug!("remove file descriptor ({:?}) from EPOLL", fd.as_raw_fd());
+        let key = Self::fd_key(fd.as_raw_fd());
+        self.fds.lock().unwrap().remove(&key);
+        self.raw.delete(fd)?;
+        Ok(())
+    }
+
+    pub unsafe fn remove_raw(&self, fd: RawFd) -> Result<()> {
+        debug!("remove file descriptor ({:?}) from EPOLL", fd);
+        let key = Self::fd_key(fd);
+        self.fds.lock().unwrap().remove(&key);
+        unsafe {
+            let borrow_fd = BorrowedFd::borrow_raw(fd);
+            self.raw.delete(borrow_fd)?;
+        }
+        Ok(())
+    }
+
+    fn run(
+        &self,
+        rx: mpsc::Receiver<PollerRequest>,
+        tx: mpsc::Sender<PollerResponse>,
+        callback: Option<PollerCallback>,
+    ) -> Result<()> {
+        let mut events = Events::with_capacity(NonZero::new(64).unwrap());
+        'outer: loop {
+            events.clear();
+            let wait_begin = Instant::now();
+            let wait_timeout = wait_begin + self.timeout;
+
+            self.raw.wait(&mut events, Some(self.timeout))?;
+            debug!(
+                "poller wait {:?} {:?}",
+                &events,
+                Instant::now() - wait_begin
+            );
+
+            let mut response = PollerResponse::default();
+            if Instant::now() >= wait_timeout {
+                response.timeout = true;
+            }
+
+            for event in events.iter() {
+                match event.key {
+                    FD_KEY_BEGIN => {
+                        response.timeout = true;
+                    }
+                    _ => {
+                        if let Some(listen_fd) = self.fds.lock().unwrap().get(&event.key) {
+                            debug!("poll fd {:?}", listen_fd.fd);
+                            response.fd_event = true;
+                        } else {
+                            unreachable!();
+                        }
+                    }
+                }
+            }
+
+            let finish = callback.as_ref().map(|c| c(&response)).unwrap_or_default();
+            if !finish {
+                tx.send(response)?;
+            }
+
+            let frame_begin = Instant::now();
+            let message = rx.recv()?;
+            debug!(
+                "poller recv {:?} {:?}",
+                &events,
+                Instant::now() - frame_begin
+            );
+
+            if message.quit {
+                break 'outer;
+            }
+            if let Some(time) = message.add_timer {
+                let now = Instant::now();
+                if now < time {
+                    self.timer.set(
+                        Expiration::OneShot(TimeSpec::from_duration(time - now)),
+                        TimerSetTimeFlags::empty(),
+                    )?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+fn on_frame_finish(mut poller: NonSendMut<Poller>, exit: EventReader<AppExit>) {
+    let quit = !exit.is_empty();
+    poller.send(PollerRequest {
+        quit,
+        ..Default::default()
+    });
 }
 
 structstruck::strike! {
@@ -187,29 +336,28 @@ structstruck::strike! {
     }
 }
 
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PollerSystems{
+    Flush,
+}
+
 impl Plugin for EventLoopPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.insert_non_send_resource(EventLoop::new());
+        app.insert_non_send_resource(Poller::new());
         match &self.mode {
             EventLoopPluginMode::WinitMode => {
-                debug!(
-                    "require resource: [{:X?}] {}",
-                    TypeId::of::<winit::event_loop::EventLoop<()>>(),
-                    type_name::<winit::event_loop::EventLoop<()>>(),
-                );
-
+                app.add_systems(Last, on_frame_finish.in_set(PollerSystems::Flush));
                 let winit_eventloop_proxy = app
                     .world
-                    .non_send_resource::<winit::event_loop::EventLoop<()>>()
+                    .non_send_resource::<winit::event_loop::EventLoop<RequestRedraw>>()
                     .create_proxy();
-                let mut eventloop = app.world.non_send_resource_mut::<EventLoop>();
-                eventloop.start(Box::new(move || {
-                    let _ = winit_eventloop_proxy.send_event(());
-                    EventLoopControl::Continue
-                }));
+                let mut poller = app.world.non_send_resource_mut::<Poller>();
+                poller.launch(Some(Box::new(move |_event| {
+                    let _ = winit_eventloop_proxy.send_event(RequestRedraw);
+                    true
+                })));
             }
             EventLoopPluginMode::ManualMode => {}
         }
-        app.add_systems(Last, on_frame_finish);
     }
 }

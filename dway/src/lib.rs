@@ -21,7 +21,10 @@ use dway_client_core::{
     layout::{
         tile::{TileLayoutKind, TileLayoutSet, TileLayoutSetBuilder},
         LayoutRect, LayoutStyle,
-    }, model::apps::{AppId, AppListModel}, workspace::{Workspace, WorkspaceBundle, WorkspaceSet}, DWayClientSetting, OutputType
+    },
+    model::apps::{AppId, AppListModel},
+    workspace::{Workspace, WorkspaceBundle, WorkspaceSet},
+    DWayClientSetting, OutputType,
 };
 use dway_server::apps::icon::LinuxIconSourcePlugin;
 use dway_tty::{DWayTTYPlugin, DWayTTYSettings};
@@ -43,6 +46,7 @@ dway_server=info,\
 dway_server::render::importnode=info,\
 dway_server::zxdg::decoration=trace,\
 dway_client_core=info,\
+dway_util::eventloop=info,\
 dway-tty=trace,\
 nega::front=info,\
 naga=warn,\
@@ -121,7 +125,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             }),
             ..Default::default()
         })
-        .set(AssetPlugin{
+        .set(AssetPlugin {
             file_path: "../dway/assets".to_string(),
             ..Default::default()
         })
@@ -148,24 +152,16 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         });
         app.add_plugins((DWayTTYPlugin::default(),));
     } else {
-        app.insert_resource(bevy::winit::WinitSettings::default());
-        #[cfg(feature = "eventloop")]
-        {
-            app.insert_resource(bevy::winit::WinitSettings {
-                focused_mode: bevy::winit::UpdateMode::Reactive {
-                    wait: Duration::from_secs_f32(1.0),
-                },
-                unfocused_mode: bevy::winit::UpdateMode::Reactive {
-                    wait: Duration::from_secs_f32(1.0),
-                },
-                return_from_run: true,
-            });
-        }
+        app.insert_resource(bevy::winit::WinitSettings {
+            focused_mode: bevy::winit::UpdateMode::Reactive {
+                wait: Duration::from_secs_f32(1.0),
+            },
+            unfocused_mode: bevy::winit::UpdateMode::Reactive {
+                wait: Duration::from_secs_f32(1.0),
+            },
+        });
         app.add_plugins(WinitPlugin::default());
-        #[cfg(feature = "eventloop")]
-        {
-            app.add_plugins(dway_util::eventloop::EventLoopPlugin::default());
-        }
+        app.add_plugins(dway_util::eventloop::EventLoopPlugin::default());
         #[cfg(feature = "inspector")]
         {
             app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
@@ -266,7 +262,7 @@ pub fn setup(mut commands: Commands, mut app_model: ResMut<AppListModel>) {
                     WorkspaceBundle {
                         workspace: Workspace {
                             name: format!("workspace{i}"),
-                            hide: i!=0,
+                            hide: i != 0,
                             ..Default::default()
                         },
                         ..Default::default()

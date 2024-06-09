@@ -23,7 +23,7 @@ use bevy::{
     utils::HashMap,
 };
 use bevy_relationship::reexport::SmallVec;
-use dway_util::eventloop::{EventLoop, Generic, Interest, Mode};
+use dway_util::eventloop::{Poller, PollerGuard};
 use futures::{io::BufReader, AsyncBufReadExt, FutureExt, StreamExt};
 use wayland_backend::server::{ClientId, ObjectId};
 use wayland_server::{DataInit, ListeningSocket, New};
@@ -67,9 +67,10 @@ impl DWayServerConfig {
 #[derive(Component)]
 pub struct DWayServerMark;
 
-#[derive(Component)]
+#[derive(Component, Deref)]
 pub struct DWayServer {
-    pub display: wayland_server::Display<DWay>,
+    #[deref]
+    pub display: PollerGuard<wayland_server::Display<DWay>>,
     pub display_number: Option<usize>,
     pub globals: Vec<GlobalId>,
     pub envs: HashMap<OsString, OsString>,
@@ -80,19 +81,10 @@ impl DWayServer {
     pub fn new(
         config: &DWayServerConfig,
         entity: Entity,
-        eventloop: Option<&mut EventLoop>,
+        poller: &mut Poller,
     ) -> Self {
-        let mut display = wayland_server::Display::<DWay>::new().unwrap();
-        if let Some(eventloop) = eventloop {
-            eventloop.add(
-                Generic::new(
-                    display.backend().poll_fd().as_raw_fd(),
-                    Interest::READ,
-                    Mode::Level,
-                ),
-                |_, _| {},
-            );
-        }
+        let display = wayland_server::Display::<DWay>::new().unwrap();
+        let mut display = poller.add(display);
         let socket = ListeningSocket::bind_auto("wayland", 1..33).unwrap();
         info!("create wayland server {:?}", &socket.socket_name().unwrap());
         let handle = display.handle();
@@ -118,15 +110,15 @@ impl DWayServer {
 
     pub fn dispatch(&mut self, entity: Entity, world: &mut World) -> Result<()> {
         while let Some(stream) = self.socket.accept()? {
-            if let Some(mut event_loop) = world.get_non_send_resource_mut::<EventLoop>() {
-                event_loop.add_fd_to_read(&stream);
-            }
+            let mut poller = world.non_send_resource_mut::<Poller>();
+            dbg!(&stream);
+            let guard = unsafe{ poller.add_raw(&stream) };
             let events = world.resource::<ClientEvents>().clone();
             let mut entity_mut = world.spawn_empty();
             match self
                 .display
                 .handle()
-                .insert_client(stream, Arc::new(ClientData::new(entity_mut.id(), &events)))
+                .insert_client(stream, Arc::new(ClientData::new(entity_mut.id(), &events, guard)))
             {
                 Ok(c) => {
                     entity_mut
@@ -365,13 +357,15 @@ impl DWay {
         parent: Entity,
         client_stream: UnixStream,
         display: &wayland_server::Display<DWay>,
+        poller: &mut Poller,
     ) {
         let world = self.world_mut();
         let events = world.resource::<ClientEvents>().clone();
+        let guard = unsafe{ poller.add_raw(&client_stream) };
         let mut entity_mut = world.spawn_empty();
         match display.handle().insert_client(
             client_stream,
-            Arc::new(ClientData::new(entity_mut.id(), &events)),
+            Arc::new(ClientData::new(entity_mut.id(), &events, guard)),
         ) {
             Ok(c) => {
                 entity_mut.insert((Name::new(Cow::from(client_name(&c.id()))), Client::new(&c)));
@@ -648,7 +642,6 @@ impl Plugin for DWayStatePlugin {
         );
         app.add_systems(PreUpdate, dispatch_events.in_set(DWayServerSet::Dispatch));
         app.add_systems(Last, flush_display.in_set(DWayServerSet::Clean));
-        set_signal_handler();
     }
 }
 pub fn on_create_display_event(
@@ -656,14 +649,14 @@ pub fn on_create_display_event(
     mut commands: Commands,
     mut event_sender: EventWriter<WaylandDisplayCreated>,
     config: Res<DWayServerConfig>,
-    mut event_loop: Option<NonSendMut<EventLoop>>,
+    mut poller: NonSendMut<Poller>,
 ) {
     for _event in events.read() {
         create_display(
             &mut commands,
             &config,
             &mut event_sender,
-            event_loop.as_deref_mut(),
+            &mut poller,
         );
     }
 }
@@ -672,12 +665,12 @@ pub fn create_display(
     commands: &mut Commands,
     config: &DWayServerConfig,
     event_sender: &mut EventWriter<WaylandDisplayCreated>,
-    event_loop: Option<&mut EventLoop>,
+    poller: &mut Poller,
 ) -> Entity {
     let mut entity_command = commands.spawn_empty();
     let entity = entity_command.id();
 
-    let dway = DWayServer::new(config, entity, event_loop);
+    let dway = DWayServer::new(config, entity, poller);
     let name = Name::new(Cow::Owned(format!("wayland_server@{}", dway.socket_name())));
     event_sender.send(WaylandDisplayCreated(entity, dway.display.handle()));
     entity_command.insert((name, DWayServerMark, dway));
@@ -710,45 +703,6 @@ pub fn flush_display(mut display_query: Query<&mut DWayServer>) {
 pub fn client_name(id: &ClientId) -> String {
     let name = format!("{:?}", id)[21..35].to_string();
     format!("client@{}", name)
-}
-
-pub fn set_signal_handler() {
-    use nix::sys::signal;
-    extern "C" fn handle_sigsegv(_: i32) {
-        unsafe {
-            let _ = signal::signal(signal::SIGSEGV, signal::SigHandler::SigDfl);
-        };
-        unsafe {
-            std::env::set_var("RUST_BACKTRACE", "1");
-        }
-        panic!("signal::SIGSEGV {}", anyhow!("").backtrace());
-    }
-    extern "C" fn handle_sig(s: i32) {
-        unsafe {
-            std::env::set_var("RUST_BACKTRACE", "1");
-        }
-        panic!("signal {} {}", s, anyhow!("").backtrace());
-    }
-    unsafe {
-        signal::sigaction(
-            signal::SIGILL,
-            &signal::SigAction::new(
-                signal::SigHandler::Handler(handle_sig),
-                signal::SaFlags::SA_NODEFER,
-                signal::SigSet::all(),
-            ),
-        )
-        .unwrap();
-        signal::sigaction(
-            signal::SIGSEGV,
-            &signal::SigAction::new(
-                signal::SigHandler::Handler(handle_sigsegv),
-                signal::SaFlags::SA_NODEFER,
-                signal::SigSet::empty(),
-            ),
-        )
-        .unwrap();
-    }
 }
 
 impl DWay {

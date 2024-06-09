@@ -1,7 +1,7 @@
 pub mod convert;
 
 use anyhow::anyhow;
-use dway_util::eventloop::EventLoop;
+use dway_util::eventloop::{Poller, PollerGuard};
 use std::{
     os::fd::{AsFd, AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd},
     sync::{Arc, Mutex},
@@ -68,8 +68,10 @@ impl LibinputInterface for SeatLibinputInterface {
     }
 }
 
+#[derive(Deref)]
 pub struct LibinputDevice {
-    pub(crate) libinput: Libinput,
+    #[deref]
+    pub(crate) libinput: PollerGuard<Libinput>,
     pub mouse_speed: f32,
     pub mouse_wheel_speed: f32,
 }
@@ -81,7 +83,7 @@ impl AsRawFd for LibinputDevice {
 }
 
 impl LibinputDevice {
-    pub fn new(seat: &mut SeatState) -> Result<Self> {
+    pub fn new(seat: &mut SeatState, poller: &mut Poller) -> Result<Self> {
         let interface = SeatLibinputInterface::new(seat.seat.clone());
         let mut libinput = Libinput::new_with_udev(interface);
         libinput
@@ -89,7 +91,7 @@ impl LibinputDevice {
             .map_err(|e| anyhow!("failed to set seat for libinput: {e:?}"))?;
         info!("libinput connected");
         Ok(Self {
-            libinput,
+            libinput: poller.add(libinput),
             mouse_speed: 1.0,
             mouse_wheel_speed: 1.0,
         })
@@ -269,11 +271,12 @@ pub fn receive_events(
 pub struct LibInputPlugin;
 impl Plugin for LibInputPlugin {
     fn build(&self, app: &mut App) {
-        let mut seat = app.world.non_send_resource_mut::<SeatState>();
-        let libinput = LibinputDevice::new(&mut seat).unwrap();
-        app.world
-            .non_send_resource_mut::<EventLoop>()
-            .add_fd_to_read(&libinput);
+        let libinput = {
+            let cell = app.world.cell();
+            let mut seat = cell.non_send_resource_mut::<SeatState>();
+            let mut poller = cell.non_send_resource_mut::<Poller>();
+            LibinputDevice::new(&mut seat, &mut poller).unwrap()
+        };
         app.add_systems(First, receive_events.in_set(DWayTTYSet::LibinputSystem))
             .insert_non_send_resource(libinput)
             .init_resource::<ButtonInput<KeyCode>>()

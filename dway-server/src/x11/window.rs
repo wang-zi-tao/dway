@@ -1,4 +1,4 @@
-use super::{atoms::Atoms, XWaylandDisplay};
+use super::{atoms::Atoms, UnixStreamWrapper, XWaylandDisplay};
 use crate::{
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
@@ -33,7 +33,7 @@ pub struct XWindowBundle {
 #[derive(Clone, Debug, Component, Reflect)]
 pub struct XWindow {
     #[reflect(ignore, default = "unimplemented")]
-    pub connection: Arc<(RustConnection, Atoms)>,
+    pub connection: Arc<(RustConnection<UnixStreamWrapper>, Atoms)>,
     pub window: x11rb::protocol::xproto::Window,
     pub parent_window: Option<x11rb::protocol::xproto::Window>,
     pub override_redirect: bool,
@@ -56,7 +56,7 @@ relationship!(XWindowAttachSurface=>XWindowSurfaceRef--XWindowRef);
 
 impl XWindow {
     pub fn new(
-        connection: Arc<(RustConnection, Atoms)>,
+        connection: Arc<(RustConnection<UnixStreamWrapper>, Atoms)>,
         window: x11rb::protocol::xproto::Window,
         parent_window: Option<x11rb::protocol::xproto::Window>,
         override_redirect: bool,
@@ -84,10 +84,10 @@ impl XWindow {
     pub fn atoms(&self) -> &Atoms {
         &self.connection.1
     }
-    pub fn xwayland_connection(&self) -> &RustConnection {
+    pub fn xwayland_connection(&self) -> &RustConnection<UnixStreamWrapper> {
         &self.connection.0
     }
-    fn connection(&self) -> (&RustConnection, &Atoms) {
+    fn connection(&self) -> (&RustConnection<UnixStreamWrapper>, &Atoms) {
         (self.xwayland_connection(), self.atoms())
     }
     pub fn update_property(

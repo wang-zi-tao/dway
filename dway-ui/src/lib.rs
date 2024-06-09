@@ -188,12 +188,6 @@ fn init_screen_ui(
         });
         camera_cmd.add(LayerManager::with_window_target(RenderTarget::Window(WindowRef::Entity(entity))));
         let camera = camera_cmd.id();
-        if *camera_count == 0 {
-            // camera_cmd.insert(IsDefaultUiCamera);
-        }
-        if let Some(drm_surface) = drm_surface {
-            camera_cmd.insert(DrmCamera::new(entity, drm_surface));
-        }
         info!("init camera");
 
         commands.spawn((

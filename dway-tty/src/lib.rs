@@ -12,7 +12,7 @@ use bevy::{
     window::RequestRedraw,
 };
 use drm::DrmPlugin;
-use dway_util::eventloop::{EventLoop, EventLoopControl, EventLoopPlugin, EventLoopPluginMode};
+use dway_util::eventloop::{EventLoopPlugin, EventLoopPluginMode, Poller, PollerRequest};
 use measure_time::debug_time;
 use render::TtyRenderPlugin;
 use schedule::DWayTtySchedulePlugin;
@@ -70,34 +70,35 @@ fn runner(mut app: App) {
 
     let mut redraw_events_reader = ManualEventReader::<RequestRedraw>::default();
 
-    let runner = app.world.non_send_resource_mut::<EventLoop>().runner();
-    runner.run(Duration::from_secs_f32(0.2), move || {
+    let mut poller = app.world.non_send_resource_mut::<Poller>().take();
+
+    poller.launch(None);
+
+    let rx = poller.take_recevier().unwrap();
+
+    for _event in rx.iter() {
         let start_time = Instant::now();
-        if !app.world.resource_mut::<Events<AppExit>>().is_empty() {
-            return EventLoopControl::Stop;
-        }
-        let frame = app.world.resource::<FrameCount>();
-        debug!("frame number: {}", frame.0);
-        debug_time!("frame {}", frame.0);
+
         app.update();
-        let end_time = Instant::now();
 
+        let mut poller_request = PollerRequest::default();
+        if !app.world.resource_mut::<Events<AppExit>>().is_empty() {
+            poller_request.quit = true;
+        }
         if let Some(frame) = app.world.get_resource::<DWayTTYSettings>() {
-            if end_time - start_time < frame.frame_duration {
-                std::thread::sleep(frame.frame_duration - (end_time - start_time));
-            }
-
             if redraw_events_reader
                 .read(app.world.resource())
                 .last()
                 .is_some()
             {
-                return EventLoopControl::ContinueImmediate;
+                poller_request.add_timer = Some(start_time + frame.frame_duration);
             }
-        };
-
-        EventLoopControl::Continue
-    });
+        }
+        poller.send(poller_request.clone());
+        if poller_request.quit {
+            break;
+        }
+    }
 }
 
 #[cfg(test)]

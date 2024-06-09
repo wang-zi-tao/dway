@@ -4,8 +4,10 @@ use wayland_server::backend::smallvec::SmallVec;
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 
 use crate::{
+    client::ClientData,
     geometry::Geometry,
     prelude::*,
+    state::flush_display,
     util::rect::IRect,
     wl::buffer::{UninitedWlBuffer, WlShmBuffer},
     xdg::popup::XdgPopup,
@@ -242,7 +244,7 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 let callback = data_init.init(callback, ());
                 if let Some(mut c) = state.get_mut::<WlSurface>(*data) {
                     c.pending.callbacks.push(callback);
-                } ;
+                };
             }
             wl_surface::Request::SetOpaqueRegion { region } => {
                 if let Some(mut c) = state.get_mut::<WlSurface>(*data) {
@@ -445,7 +447,7 @@ pub fn cleanup_buffer(buffer_query: Query<(&WlShmBuffer, &AttachedBy)>) {
     }
 }
 
-pub fn cleanup_surface(mut surface_query: Query<&mut WlSurface>, time: Res<Time>) {
+pub fn emit_callbacks(mut surface_query: Query<&mut WlSurface>, time: Res<Time>) {
     for mut surface in surface_query.iter_mut() {
         if !surface.commited.callbacks.is_empty() {
             for callback in surface.commited.callbacks.drain(..) {
@@ -453,6 +455,11 @@ pub fn cleanup_surface(mut surface_query: Query<&mut WlSurface>, time: Res<Time>
                 callback.done(time.elapsed().as_millis() as u32);
             }
         }
+    }
+}
+
+pub fn cleanup_surface(mut surface_query: Query<&mut WlSurface>) {
+    for mut surface in surface_query.iter_mut() {
         if !surface.commited.damages.is_empty() {
             surface.commited.damages.clear();
         }
@@ -465,6 +472,12 @@ pub fn cleanup_surface(mut surface_query: Query<&mut WlSurface>, time: Res<Time>
 pub struct WlSurfacePlugin;
 impl Plugin for WlSurfacePlugin {
     fn build(&self, app: &mut App) {
+        app.add_systems(
+            Last,
+            emit_callbacks
+                .in_set(DWayServerSet::Clean)
+                .before(flush_display),
+        );
         app.add_systems(First, cleanup_surface);
         app.add_systems(
             PreUpdate,

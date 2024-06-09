@@ -27,7 +27,7 @@ use dway_util::formats::ImageFormat;
 use nix::libc::makedev;
 use std::{
     ffi::CStr,
-    os::fd::{AsFd, AsRawFd},
+    os::fd::{AsFd, AsRawFd, IntoRawFd},
     sync::{Arc, RwLock},
 };
 use wgpu::{
@@ -235,7 +235,7 @@ pub fn create_dma_image(
             };
 
             let mut fd_info = ash::vk::ImportMemoryFdInfoKHR::builder()
-                .fd(plane.fd.as_fd().as_raw_fd())
+                .fd(plane.fd.try_clone()?.into_raw_fd())
                 .handle_type(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT)
                 .build();
 

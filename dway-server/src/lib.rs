@@ -6,7 +6,7 @@
 
 use bevy::prelude::*;
 // use bevy_tokio_tasks::TokioTasksRuntime;
-use dway_util::eventloop::EventLoop;
+use dway_util::eventloop::Poller;
 use schedule::DWayServerSet;
 use state::{create_display, DWayServerConfig, WaylandDisplayCreated};
 
@@ -71,12 +71,12 @@ pub fn init_display(
     mut commands: Commands,
     mut event_sender: EventWriter<WaylandDisplayCreated>,
     config: Res<DWayServerConfig>,
-    mut event_loop: Option<NonSendMut<EventLoop>>,
+    mut poller: NonSendMut<Poller>,
 ) {
     create_display(
         &mut commands,
         &config,
         &mut event_sender,
-        event_loop.as_deref_mut(),
+        &mut poller,
     );
 }

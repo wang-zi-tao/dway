@@ -69,7 +69,6 @@ dump_system_graph = ["dep:bevy_mod_debugdump"]
 debug = [ "inspector", "dump_system_graph"]
 dway_log = []
 hot_reload = ["dep:dexterous_developer", "dep:bevy_dexterous_developer", "dep:serde", "dway-ui/hot_reload"]
-eventloop = []
 single_thread = []
 dhat-heap = ["dep:dhat"]    # if you are doing heap profiling
 dhat-ad-hoc = ["dep:dhat"]  # if you are doing ad hoc profiling

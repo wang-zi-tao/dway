@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 log = { workspace = true}
 memory-stats = { workspace = true}
-calloop = "0.10"
 anyhow = "1.0.75"
 send_wrapper = "0.6.0"
 winit = { version = "0.29", default-features = false }
@@ -18,11 +17,12 @@ log-panics = { version = "2", features = ["with-backtrace", "backtrace"]}
 structstruck = "0.4.1"
 smart-default = {workspace = true}
 smallvec = "1.11.0"
-nix = { version="0.27.1", features=["poll", "signal"] }
+nix = { version="0.29", features=["poll", "signal", "event", "time"] }
 bevy = {workspace = true}
 tracing-journald = "0.3.0"
 backtrace = "0.3"
 tokio = {workspace=true, features=["rt", "rt-multi-thread", "sync"]}
+polling = "3.7.1"
 
 wayland-server = { version="0.31.0",features = [] }
 wgpu = { workspace = true }

@@ -14,7 +14,7 @@ use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use smallvec::SmallVec;
 use std::{
     ffi::CStr,
-    os::fd::{AsFd, AsRawFd},
+    os::fd::{AsFd, AsRawFd, IntoRawFd},
 };
 use tracing::{error, trace};
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
@@ -231,7 +231,7 @@ pub fn create_framebuffer_texture(
             };
 
             let mut fd_info = ash::vk::ImportMemoryFdInfoKHR::builder()
-                .fd(plane.fd.as_fd().as_raw_fd())
+                .fd(plane.fd.try_clone()?.into_raw_fd())
                 .handle_type(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT)
                 .build();
 

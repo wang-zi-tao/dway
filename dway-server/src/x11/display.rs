@@ -1,5 +1,5 @@
 use bevy::utils::{HashMap, HashSet};
-use dway_util::eventloop::EventLoop;
+use dway_util::eventloop::{Poller, PollerGuard, PollerInner};
 use nix::{errno::Errno, sys::socket};
 use std::{
     fs,
@@ -21,7 +21,7 @@ use x11rb::{
             CursorWrapper, EventMask, FontWrapper, PropMode, WindowClass,
         },
     },
-    rust_connection::{ConnectionError, DefaultStream, RustConnection},
+    rust_connection::{ConnectionError, DefaultStream, RustConnection, Stream},
     wrapper::ConnectionExt as RustConnectionExt,
 };
 
@@ -37,7 +37,7 @@ use super::events::XWaylandError;
 pub enum XWaylandThreadEvent {
     XWaylandEvent(x11rb::protocol::Event),
     CreateConnection(
-        Weak<(RustConnection, Atoms)>,
+        Weak<(RustConnection<UnixStreamWrapper>, Atoms)>,
         x11rb::protocol::xproto::Window,
     ),
     Disconnect(anyhow::Error),
@@ -64,10 +64,30 @@ impl XWaylandDisplayWrapper {
     }
 }
 
+#[derive(Deref, Debug)]
+pub struct UnixStreamWrapper(PollerGuard<DefaultStream>);
+impl Stream for UnixStreamWrapper {
+    fn poll(&self, mode: x11rb::rust_connection::PollMode) -> io::Result<()> {
+        Stream::poll(&*self.0, mode)
+    }
+
+    fn read(
+        &self,
+        buf: &mut [u8],
+        fd_storage: &mut Vec<x11rb::utils::RawFdContainer>,
+    ) -> io::Result<usize> {
+        Stream::read(&*self.0, buf, fd_storage)
+    }
+
+    fn write(&self, buf: &[u8], fds: &mut Vec<x11rb::utils::RawFdContainer>) -> io::Result<usize> {
+        Stream::write(&*self.0, buf, fds)
+    }
+}
+
 #[derive(Debug)]
 pub struct XWaylandDisplay {
     pub display_number: u32,
-    pub connection: Weak<(RustConnection, Atoms)>,
+    pub connection: Weak<(RustConnection<UnixStreamWrapper>, Atoms)>,
     pub channel: Arc<crossbeam_channel::Receiver<XWaylandThreadEvent>>,
     pub windows_entitys: HashMap<u32, Entity>,
     pub screen_windows: HashSet<u32>,
@@ -91,26 +111,22 @@ impl XWaylandDisplay {
         dway_entity: Entity,
         commands: &mut Commands,
         events: &ClientEvents,
-        eventloop: Option<&mut EventLoop>,
+        poller: Arc<PollerInner>,
     ) -> Result<Entity> {
         let (display_number, streams) =
             Self::get_number().ok_or_else(|| anyhow!("failed to alloc dissplay number"))?;
         let (x11_socket, x11_stream) = UnixStream::pair()?;
         let (wayland_socket, wayland_client_stream) = UnixStream::pair()?;
 
-        if let Some(eventloop) = eventloop {
-            eventloop.add_fd_to_read(&x11_socket);
-            eventloop.add_fd_to_read(&wayland_socket);
-        }
-
         let child = Self::spawn_xwayland(display_number, streams, x11_socket, wayland_socket)?;
         let (tx, rx) = crossbeam_channel::bounded(1024);
         dway_server.display_number = Some(display_number as usize);
 
         let mut entity_mut = commands.spawn((Name::new(format!("xwayland:{}", display_number)),));
+        let guard = unsafe { poller.clone().add_raw(&wayland_client_stream) };
         let client = match dway_server.display.handle().insert_client(
             wayland_client_stream,
-            Arc::new(ClientData::new(entity_mut.id(), events)),
+            Arc::new(ClientData::new(entity_mut.id(), events, guard)),
         ) {
             Ok(o) => o,
             Err(e) => {
@@ -141,6 +157,7 @@ impl XWaylandDisplay {
             .spawn(move || {
                 let result: Result<()> = (|| {
                     let (stream, _peer) = DefaultStream::from_unix_stream(x11_stream)?;
+                    let stream = UnixStreamWrapper(poller.add(stream));
                     let rust_connection = RustConnection::connect_to_stream(stream, 0)?;
                     let (atoms, wm_window) = Self::start_wm(&rust_connection)?;
                     let connection = Arc::new((rust_connection, atoms));
@@ -175,7 +192,7 @@ impl XWaylandDisplay {
 
         Ok(entity_mut.id())
     }
-    pub fn start_wm(connection: &RustConnection) -> Result<(Atoms, u32)> {
+    pub fn start_wm(connection: &RustConnection<UnixStreamWrapper>) -> Result<(Atoms, u32)> {
         let screen = connection.setup().roots[0].clone();
         let atoms = Atoms::new(connection)?.reply()?;
         let font = FontWrapper::open_font(connection, "cursor".as_bytes())?;
@@ -307,7 +324,10 @@ impl XWaylandDisplay {
         unsafe {
             let wayland_socket_fd = wayland_socket.as_raw_fd();
             let wm_socket_fd = x11_socket.as_raw_fd();
-            let socket_fds: Vec<_> = streams.into_iter().map(|socket| socket.into_raw_fd()).collect();
+            let socket_fds: Vec<_> = streams
+                .into_iter()
+                .map(|socket| socket.into_raw_fd())
+                .collect();
             command.pre_exec(move || {
                 // unset the CLOEXEC flag from the sockets we need to pass to xwayland
                 Self::unset_cloexec(wayland_socket_fd)?;

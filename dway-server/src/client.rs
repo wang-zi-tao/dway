@@ -2,6 +2,7 @@ use std::{
     collections::VecDeque,
     sync::{Arc, Mutex},
 };
+use dway_util::eventloop::PollerRawGuard;
 use wayland_backend::server::{ClientId, DisconnectReason};
 use crate::prelude::*;
 
@@ -29,13 +30,15 @@ impl Client {
 pub struct ClientData {
     pub entity: Entity,
     queue: Arc<Mutex<VecDeque<ClientEvent>>>,
+    poller_guard: PollerRawGuard,
 }
 
 impl ClientData {
-    pub fn new(entity: Entity, events: &ClientEvents) -> Self {
+    pub fn new(entity: Entity, events: &ClientEvents, poller_guard: PollerRawGuard) -> Self {
         Self {
             entity,
             queue: events.queue.clone(),
+            poller_guard,
         }
     }
 }

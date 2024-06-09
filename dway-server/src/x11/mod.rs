@@ -1,7 +1,7 @@
 mod display;
 pub mod events;
 pub use display::*;
-use dway_util::eventloop::EventLoop;
+use dway_util::eventloop::Poller;
 pub mod screen;
 pub mod systems;
 pub mod util;
@@ -29,7 +29,7 @@ pub fn launch_xwayland(
     mut display_query: Query<&mut DWayServer>,
     mut events: EventReader<WaylandDisplayCreated>,
     client_events: Res<ClientEvents>,
-    mut eventloop: Option<NonSendMut<EventLoop>>,
+    mut poller: NonSendMut<Poller>,
     mut commands: Commands,
 ) {
     for WaylandDisplayCreated(entity, _) in events.read() {
@@ -39,7 +39,7 @@ pub fn launch_xwayland(
                 *entity,
                 &mut commands,
                 &client_events,
-                eventloop.as_deref_mut(),
+                poller.inner().clone(),
             ) {
                 error!(error=%e,"failed to launch xwayland");
             };

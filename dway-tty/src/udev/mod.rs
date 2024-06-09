@@ -1,10 +1,10 @@
 use anyhow::Result;
 use bevy::{prelude::*, utils::HashMap};
-use dway_util::eventloop::EventLoop;
+use dway_util::eventloop::{AsSource, Poller, PollerGuard};
 use std::{
     collections::VecDeque,
     ffi::{OsStr, OsString},
-    os::fd::AsRawFd,
+    os::fd::{AsFd, AsRawFd, BorrowedFd},
     path::PathBuf,
 };
 use udev::{Device, MonitorBuilder, MonitorSocket};
@@ -21,26 +21,22 @@ pub enum UDevEvent {
     Removed(Device),
 }
 
+#[derive(Deref)]
 pub struct UDevMonitor {
-    pub(crate) monitor: MonitorSocket,
+    #[deref]
+    pub(crate) monitor: PollerGuard<MonitorSocket>,
     pub(crate) events: VecDeque<UDevEvent>,
     pub device_entity_map: HashMap<PathBuf, Entity>,
 }
 
-impl AsRawFd for UDevMonitor {
-    fn as_raw_fd(&self) -> std::os::fd::RawFd {
-        self.monitor.as_raw_fd()
-    }
-}
-
 impl UDevMonitor {
     #[tracing::instrument(skip_all)]
-    pub fn new(sub_system: &OsStr) -> Result<Self> {
+    pub fn new(sub_system: &OsStr, poller: &mut Poller) -> Result<Self> {
         let monitor = MonitorBuilder::new()?
             .match_subsystem(sub_system)?
             .listen()?;
         Ok(Self {
-            monitor,
+            monitor: poller.add(monitor),
             events: Default::default(),
             device_entity_map: Default::default(),
         })
@@ -84,10 +80,8 @@ pub struct UDevPlugin {
 }
 impl Plugin for UDevPlugin {
     fn build(&self, app: &mut App) {
-        let udev = UDevMonitor::new(&self.sub_system).unwrap();
-        app.world
-            .non_send_resource_mut::<EventLoop>()
-            .add_fd_to_read(&udev);
+        let mut poller = app.world.non_send_resource_mut::<Poller>();
+        let udev = UDevMonitor::new(&self.sub_system, &mut poller).unwrap();
         app.insert_non_send_resource(udev);
         app.add_systems(First, receive_events.in_set(DWayTTYSet::UdevSystem));
     }
@@ -97,12 +91,12 @@ impl Plugin for UDevPlugin {
 mod tests {
     use super::UDevPlugin;
     use bevy::{log::LogPlugin, prelude::App};
-    use dway_util::eventloop::{EventLoop, EventLoopPlugin};
+    use dway_util::eventloop::{Poller, EventLoopPlugin};
 
     #[test]
     pub fn test_udev_plugin() {
         App::new()
-            .insert_non_send_resource(EventLoop::new())
+            .insert_non_send_resource(Poller::new())
             .add_plugins((
                 LogPlugin::default(),
                 UDevPlugin {
