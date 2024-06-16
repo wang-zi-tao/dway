@@ -37,7 +37,7 @@ VolumeControl=>
         }
     }
 }
-@plugin{ app.register_system(open_popup).register_system(delay_destroy); }
+@plugin{ app.register_system(open_popup); }
 @use_state(volume:f32)
 @use_state(mute:bool)
 @arg(volume_control: NonSend<VolumeController> => {

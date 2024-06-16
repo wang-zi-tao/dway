@@ -40,6 +40,7 @@ use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_svg::SvgPlugin;
 pub use dway_ui_derive::*;
 use event::EventDispatch;
+use widgets::drag::UiDrag;
 
 use crate::{
     prelude::*,
@@ -94,6 +95,7 @@ impl Plugin for UiFrameworkPlugin {
         .init_resource::<input::UiFocusState>()
         .add_event::<input::UiFocusEvent>()
         .register_type::<input::UiFocusEvent>()
+        .register_type::<UiDrag>()
         .register_system(delay_destroy)
         .register_component_as::<dyn EventDispatch<AnimationEvent>, UiPopup>()
         .add_systems(
@@ -105,6 +107,7 @@ impl Plugin for UiFrameworkPlugin {
                 update_ui_input.in_set(InputSystems).after(UiSystem::Focus),
                 widgets::button::process_ui_button_event.in_set(WidgetInputSystems),
                 widgets::checkbox::process_ui_checkbox_event.in_set(WidgetInputSystems),
+                widgets::drag::ui_drag_system.in_set(WidgetInputSystems),
             ),
         )
         .add_systems(

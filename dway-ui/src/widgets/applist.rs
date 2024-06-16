@@ -1,12 +1,19 @@
-use super::icon::{UiIcon, UiIconBundle};
-use crate::popups::app_window_preview::{AppWindowPreviewPopup, AppWindowPreviewPopupBundle};
-use crate::prelude::*;
 use dway_client_core::{desktop::FocusedWindow, model::apps::AppListModel};
 use dway_server::apps::{
     icon::LinuxIcon, launchapp::LaunchAppRequest, DesktopEntriesSet, DesktopEntry, WindowList,
 };
-use dway_ui_framework::widgets::button::UiRawButtonExt;
+use dway_ui_framework::{
+    animation::translation::{UiTranslationAnimation, UiTranslationAnimationExt},
+    util::Direction,
+    widgets::button::UiRawButtonExt,
+};
 use indexmap::{IndexMap, IndexSet};
+
+use super::icon::{UiIcon, UiIconBundle};
+use crate::{
+    popups::app_window_preview::{AppWindowPreviewPopup, AppWindowPreviewPopupBundle},
+    prelude::*,
+};
 
 #[derive(Component, Reflect)]
 pub struct AppEntryUI(pub Entity);
@@ -23,7 +30,6 @@ AppListUI=>
 fn click_app(
     In(event): In<UiButtonEvent>,
     query: Query<(&AppListUISubStateList,&AppListUISubWidgetList)>,
-    theme: Res<Theme>,
     mut commands: Commands,
     mut launch_event: EventWriter<LaunchAppRequest>,
     key_input: Res<ButtonInput<KeyCode>>,
@@ -33,13 +39,20 @@ fn click_app(
     if event.kind == UiButtonEventKind::Released{
         let ctrl = key_input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
         if *state.count() > 0 && !ctrl {
-            commands.spawn(AppWindowPreviewPopupBundle{
-                prop:AppWindowPreviewPopup{app:widget.data_entity},
-                style: style!("absolute bottom-110% align-self:center"),
-                ..default()
-            })
-            .insert(UiPopupExt::from( UiPopup::default().with_callback(event.receiver, theme.system(delay_destroy))))
-            .set_parent(widget.node_popup_entity);
+            commands.spawn((
+                UiPopupBundle::default(),
+                UiTranslationAnimationExt {
+                    translation: UiTranslationAnimation::new(Direction::BOTTOM),
+                    target_style: style!("absolute bottom-52 align-self:center").clone().into(),
+                    ..Default::default()
+                },
+            )).with_children(|c|{
+                c.spawn(AppWindowPreviewPopupBundle{
+                    prop: AppWindowPreviewPopup{app:widget.data_entity},
+                    style: style!("h-auto w-auto"),
+                    ..default()
+                });
+            }).set_parent(widget.node_popup_entity);
         } else {
             launch_event.send(LaunchAppRequest::new(widget.data_entity));
         }
@@ -63,10 +76,10 @@ fn click_app(
 <MaterialNodeBundle::<RoundedUiRectMaterial> @id="List"
     @for_query(mut(window_list,entry) in Query<(Option<Ref<WindowList>>,Ref<DesktopEntry>)>::iter_many(state.app_entitys().iter().cloned())=>[
         entry=>{if let Some(icon_url)=entry.icon_url(48){ state.set_icon(assets_server.load(icon_url)); }},
-        
+
         ]=>{
             if window_list.as_ref().map(|c|c.is_changed()).unwrap_or(false) {
-                state.set_count(window_list.map(|l|l.len()).unwrap_or(0)); 
+                state.set_count(window_list.map(|l|l.len()).unwrap_or(0));
             }
         }) >
     <NodeBundle @id="app_root"

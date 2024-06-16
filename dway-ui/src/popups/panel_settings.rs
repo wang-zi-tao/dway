@@ -14,7 +14,7 @@ pub struct PanelSettings {}
 dway_widget! {
 PanelSettings=>
 @state_reflect()
-@plugin{ app.register_system(open_popup).register_system(delay_destroy); }
+@plugin{ app.register_system(open_popup); }
 @callback{[UiButtonEvent]
     fn do_logout( In(event): In<UiButtonEvent>, mut event_writer: EventWriter<SystemControllRequest>) {
         if event.kind == UiButtonEventKind::Released {

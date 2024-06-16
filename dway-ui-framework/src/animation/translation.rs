@@ -16,11 +16,19 @@ structstruck::strike! {
     pub struct UiTranslationAnimation {
         #[default(Direction::TOP)]
         pub direction: Direction,
+        #[default(true)]
         pub appear: bool,
     }
 }
 
 impl UiTranslationAnimation {
+    pub fn new(direction: Direction) -> Self {
+        Self {
+            direction,
+            appear: true,
+        }
+    }
+
     pub fn open(&mut self, animation: &mut Animation) {
         self.appear = true;
         animation.play();
@@ -105,7 +113,7 @@ impl EventDispatch<UiNodeAppearEvent> for UiTranslationAnimation {
 make_bundle! {
     @addon UiTranslationAnimationExt,
     UiTranslationAnimationBundle{
-        pub collapse: UiTranslationAnimation,
+        pub translation: UiTranslationAnimation,
         pub animation: Animation,
         pub target_style: TargetStyle,
     }

@@ -3,6 +3,7 @@ pub mod button;
 pub mod canvas;
 pub mod checkbox;
 pub mod combobox;
+pub mod drag;
 pub mod inputbox;
 pub mod popup;
 pub mod rightclick_popup;

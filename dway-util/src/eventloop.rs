@@ -1,13 +1,3 @@
-use anyhow::Result;
-use bevy::{app::AppExit, prelude::*, utils::HashMap, window::RequestRedraw};
-use nix::sys::{
-    time::TimeSpec,
-    timer::{Expiration, TimerSetTimeFlags},
-    timerfd::{ClockId, TimerFd, TimerFlags},
-};
-pub use polling::AsSource;
-use polling::{Event, Events, PollMode};
-use smart_default::SmartDefault;
 use std::{
     any::{type_name, TypeId},
     num::NonZero,
@@ -18,6 +8,17 @@ use std::{
     },
     time::{Duration, Instant},
 };
+
+use anyhow::Result;
+use bevy::{app::AppExit, prelude::*, utils::HashMap, window::RequestRedraw};
+use nix::sys::{
+    time::TimeSpec,
+    timer::{Expiration, TimerSetTimeFlags},
+    timerfd::{ClockId, TimerFd, TimerFlags},
+};
+pub use polling::AsSource;
+use polling::{Event, Events, PollMode};
+use smart_default::SmartDefault;
 
 pub const FD_KEY_BEGIN: usize = 1024;
 pub const FD_KEY_TIMER: usize = 1;
@@ -76,6 +77,7 @@ impl<Fd: AsSource + std::fmt::Debug> std::fmt::Debug for PollerGuard<Fd> {
 
 impl<Fd: AsSource> std::ops::Deref for PollerGuard<Fd> {
     type Target = Fd;
+
     fn deref(&self) -> &Self::Target {
         &self.fd
     }
@@ -280,8 +282,6 @@ impl PollerInner {
                         if let Some(listen_fd) = self.fds.lock().unwrap().get(&event.key) {
                             debug!("poll fd {:?}", listen_fd.fd);
                             response.fd_event = true;
-                        } else {
-                            unreachable!();
                         }
                     }
                 }
@@ -337,7 +337,7 @@ structstruck::strike! {
 }
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-pub enum PollerSystems{
+pub enum PollerSystems {
     Flush,
 }
 

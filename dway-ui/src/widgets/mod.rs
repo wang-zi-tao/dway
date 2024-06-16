@@ -9,6 +9,7 @@ pub mod screen;
 pub mod system_monitor;
 pub mod window;
 pub mod windowlist;
+pub mod windowmenu;
 pub mod windowtitle;
 pub mod worksapce;
 pub mod workspacelist;

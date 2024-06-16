@@ -212,7 +212,11 @@ impl Animation {
 }
 
 pub fn update_animation_system(
-    mut query: Query<(Entity, &mut Animation, &dyn EventDispatch<AnimationEvent>)>,
+    mut query: Query<(
+        Entity,
+        &mut Animation,
+        Option<&dyn EventDispatch<AnimationEvent>>,
+    )>,
     time: Res<Time>,
     mut commands: Commands,
 ) {
@@ -244,7 +248,7 @@ pub fn update_animation_system(
             for callback in &animation.callbacks {
                 commands.run_system_with_input(*callback, animation_event.clone());
             }
-            for dispatch in &dispatchs {
+            for dispatch in dispatchs.iter().flatten() {
                 let mut entity_commands = commands.entity(entity);
                 dispatch.on_event(entity_commands.reborrow(), animation_event.clone());
             }

@@ -94,7 +94,7 @@ pub fn update_popup(
         Entity,
         &mut UiPopup,
         &RelativeCursorPosition,
-        &dyn EventDispatch<PopupEvent>,
+        Option<&dyn EventDispatch<PopupEvent>>,
     )>,
     mouse: Res<ButtonInput<MouseButton>>,
     mut commands: Commands,
@@ -115,7 +115,7 @@ pub fn update_popup(
                     );
                 }
                 let mut entity_commands = commands.entity(entity);
-                for dispatch in &dispatchs {
+                for dispatch in dispatchs.iter().flatten() {
                     dispatch.on_event(
                         entity_commands.reborrow(),
                         PopupEvent {

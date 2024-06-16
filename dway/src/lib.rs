@@ -4,6 +4,8 @@ pub mod keys;
 pub mod opttions;
 pub mod spawn_app;
 
+use std::time::Duration;
+
 use bevy::{
     app::PluginGroupBuilder,
     audio::AudioPlugin,
@@ -32,7 +34,6 @@ use dway_ui_framework::diagnostics::UiDiagnosticsPlugin;
 use dway_util::logger::DWayLogPlugin;
 use keys::*;
 use opttions::DWayOption;
-use std::time::Duration;
 
 const LOG_LEVEL: Level = Level::INFO;
 const LOG: &str = "\
@@ -165,6 +166,9 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         #[cfg(feature = "inspector")]
         {
             app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
+            app.add_plugins(bevy_inspector_egui::quick::FilterQueryInspectorPlugin::<
+                With<dway_ui_framework::widgets::drag::UiDrag>,
+            >::default()); //TODO
         }
     }
 

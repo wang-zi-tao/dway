@@ -1,7 +1,7 @@
 #![feature(linked_list_cursors)]
 
 use bevy::prelude::*;
-use bevy_relationship::relationship;
+use bevy_relationship::{relationship, AppExt};
 use dway_server::schedule::DWayServerSet;
 use dway_util::tokio::TokioPlugin;
 use log::info;
@@ -161,6 +161,8 @@ impl Plugin for DWayClientPlugin {
             screen::ScreenPlugin,
             workspace::WorkspacePlugin,
         ));
+
+        app.register_relation::<UiAttachData>();
     }
 }
 
