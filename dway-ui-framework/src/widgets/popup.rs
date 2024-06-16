@@ -1,14 +1,21 @@
-use crate::{
-    animation::ui::{
-        despawn_recursive_on_animation_finish, popup_open_close_up, popup_open_drop_down,
-        UiAnimationConfig,
-    },
-    make_bundle,
-    prelude::*, render::layer_manager::RenderToLayer, theme::{ThemeComponent, WidgetKind},
-};
-use bevy::ui::RelativeCursorPosition;
+use bevy::{ecs::system::EntityCommands, ui::RelativeCursorPosition};
 use derive_builder::Builder;
 use interpolation::EaseFunction;
+
+use crate::{
+    animation::{
+        ui::{
+            despawn_recursive_on_animation_finish, popup_open_close_up, popup_open_drop_down,
+            UiAnimationConfig,
+        },
+        AnimationEvent,
+    },
+    event::{EventDispatch, UiNodeAppearEvent},
+    make_bundle,
+    prelude::*,
+    render::layer_manager::RenderToLayer,
+    theme::{ThemeComponent, WidgetKind},
+};
 
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq)]
 pub enum PopupEventKind {
@@ -20,6 +27,16 @@ pub struct PopupEvent {
     pub entity: Entity,
     pub receiver: Entity,
     pub kind: PopupEventKind,
+}
+
+impl<T: EventDispatch<UiNodeAppearEvent>> EventDispatch<PopupEvent> for T {
+    fn on_event(&self, commands: EntityCommands, event: PopupEvent) {
+        let appear_event = match event.kind {
+            PopupEventKind::Opened => UiNodeAppearEvent::Appear,
+            PopupEventKind::Closed => UiNodeAppearEvent::Disappear,
+        };
+        self.on_event(commands, appear_event);
+    }
 }
 
 structstruck::strike! {
@@ -65,6 +82,7 @@ impl UiPopup {
         self.callbacks.push((receiver, callback));
         self
     }
+
     pub fn with_auto_destroy(mut self) -> Self {
         self.auto_destroy = true;
         self
@@ -72,13 +90,18 @@ impl UiPopup {
 }
 
 pub fn update_popup(
-    mut popup_query: Query<(Entity, &mut UiPopup, &RelativeCursorPosition)>,
+    mut popup_query: Query<(
+        Entity,
+        &mut UiPopup,
+        &RelativeCursorPosition,
+        &dyn EventDispatch<PopupEvent>,
+    )>,
     mouse: Res<ButtonInput<MouseButton>>,
     mut commands: Commands,
 ) {
     let mouse_down =
         || mouse.any_just_pressed([MouseButton::Left, MouseButton::Middle, MouseButton::Right]);
-    for (entity, mut popup, relative_cursor) in popup_query.iter_mut() {
+    for (entity, mut popup, relative_cursor, dispatchs) in popup_query.iter_mut() {
         let run_close_callback =
             |popup: &UiPopup, commands: &mut Commands, kind: PopupEventKind| {
                 for (receiver, callback) in &popup.callbacks {
@@ -88,6 +111,17 @@ pub fn update_popup(
                             entity,
                             kind,
                             receiver: *receiver,
+                        },
+                    );
+                }
+                let mut entity_commands = commands.entity(entity);
+                for dispatch in &dispatchs {
+                    dispatch.on_event(
+                        entity_commands.reborrow(),
+                        PopupEvent {
+                            entity,
+                            kind,
+                            receiver: entity,
                         },
                     );
                 }
@@ -109,7 +143,7 @@ pub fn update_popup(
             }
             PopupClosePolicy::MouseButton => {
                 if mouse_down() {
-                    if !mouse_inside && !popup.mouse_state_init{
+                    if !mouse_inside && !popup.mouse_state_init {
                         popup.state = PopupState::Closed;
                         run_close_callback(&popup, &mut commands, PopupEventKind::Closed);
                     }
@@ -137,6 +171,14 @@ make_bundle! {
         pub focus_policy: FocusPolicy,
         #[default(ThemeComponent::widget(WidgetKind::BlurBackground))]
         pub theme: ThemeComponent,
+    }
+}
+
+impl EventDispatch<AnimationEvent> for UiPopup {
+    fn on_event(&self, commands: EntityCommands, event: AnimationEvent) {
+        if self.state == PopupState::Closed && event.just_finish {
+            commands.despawn_recursive();
+        }
     }
 }
 

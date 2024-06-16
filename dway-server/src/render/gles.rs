@@ -1,5 +1,28 @@
+use std::{
+    collections::{HashMap, HashSet},
+    ffi::{c_char, c_int, c_void},
+    num::NonZeroU32,
+    os::fd::AsRawFd,
+    ptr::null_mut,
+};
+
+use bevy::{ecs::entity::EntityHashMap, prelude::info, render::texture::GpuImage};
+use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
+use dway_util::formats::ImageFormat;
+use glow::{HasContext, NativeRenderbuffer, NativeTexture, PixelPackData};
+use image::{ImageBuffer, Rgba};
+use khronos_egl::{
+    Attrib, Boolean, EGLClientBuffer, EGLContext, EGLDisplay, EGLImage, Enum, Int, NONE,
+};
+use scopeguard::defer;
+use wayland_backend::server::WeakHandle;
+use wgpu::{FilterMode, SamplerDescriptor, Texture, TextureAspect};
+use wgpu_hal::{api::Gles, Api, MemoryFlags, TextureUses};
+use DWayRenderError::*;
+
 use super::{
     drm::{DrmInfo, DrmNode},
+    importnode::DWayDisplayHandles,
     util::*,
 };
 use crate::{
@@ -11,32 +34,6 @@ use crate::{
     },
     zwp::dmabufparam::DmaBuffer,
 };
-use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
-use dway_util::formats::ImageFormat;
-use image::{ImageBuffer, Rgba};
-use scopeguard::defer;
-use wayland_backend::server::WeakHandle;
-
-use std::{
-    collections::{HashMap, HashSet},
-    ffi::{c_char, c_int, c_void},
-    num::NonZeroU32,
-    os::fd::AsRawFd,
-    ptr::null_mut,
-};
-
-use bevy::{ecs::entity::EntityHashMap, prelude::info, render::texture::GpuImage};
-use glow::{HasContext, NativeRenderbuffer, NativeTexture, PixelPackData};
-
-use super::importnode::DWayDisplayHandles;
-use khronos_egl::{
-    Attrib, Boolean, EGLClientBuffer, EGLContext, EGLDisplay, EGLImage, Enum, Int, NONE,
-};
-use wgpu::{FilterMode, SamplerDescriptor, Texture, TextureAspect};
-use wgpu_hal::Api;
-use wgpu_hal::{api::Gles, MemoryFlags, TextureUses};
-
-use DWayRenderError::*;
 
 #[derive(Debug)]
 pub struct EglState {
@@ -83,6 +80,7 @@ impl EglState {
             }
         });
     }
+
     pub fn new(
         gl: &glow::Context,
         egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4>,
@@ -119,6 +117,7 @@ impl EglState {
 
 pub fn drm_info(device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError> {
     with_gl(device, |context, egl, _gl| {
+        info!("use gl");
         egl_check_extensions(egl, &["EGL_EXT_device_base", "EGL_EXT_device_query"])?;
         let egl_display = context.raw_display().ok_or_else(|| DisplayNotAvailable)?;
 

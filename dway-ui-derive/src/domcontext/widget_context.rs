@@ -180,7 +180,10 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                 );
 
             let mut state_namespace = dom_id.to_string().to_case(convert_case::Case::Snake);
-            let mut state_builder = ComponentBuilder::new(sub_widget_state_type.clone());
+            let mut state_builder = ComponentBuilder::new_with_generics(
+                sub_widget_state_type.clone(),
+                self.state_builder.generics.clone(),
+            );
             state_builder.generate_init = true;
             state_builder
                 .init
@@ -340,6 +343,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
 #[derive(Parse)]
 pub struct WidgetDeclare {
     pub name: Ident,
+    pub generics: Generics,
     #[prefix(Token![=>])]
     #[call(DomArg::parse_vec)]
     pub args: Vec<DomArg>,
@@ -348,7 +352,15 @@ pub struct WidgetDeclare {
 }
 
 pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
-    let WidgetDeclare { name, args, dom } = decl;
+    let WidgetDeclare {
+        name,
+        generics,
+        args,
+        dom,
+    } = decl;
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let prop_type = quote! {#name #ty_generics};
+
     let state_name = format_ident!("{}State", name, span = name.span());
     let widget_name = format_ident!("{}Widget", name, span = name.span());
     let resource_name = format_ident!("{}Resource", name, span = name.span());
@@ -367,11 +379,11 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
     let mut dom_context = DomContext::new(&mut root_context);
 
     let mut context = WidgetDomContext {
-        state_builder: ComponentBuilder::new(state_name.clone()),
+        state_builder: ComponentBuilder::new_with_generics(state_name.clone(), generics.clone()),
         widget_builder: ComponentBuilder::new(widget_name.clone()),
-        bundle_builder: ComponentBuilder::new(bundle_name),
+        bundle_builder: ComponentBuilder::new_with_generics(bundle_name, generics.clone()),
         resources_builder: ResourceBuilder::new(resource_name),
-        plugin_builder: PluginBuilder::new(plugin_name),
+        plugin_builder: PluginBuilder::new(plugin_name, generics.clone()),
         dom_context: &mut dom_context,
         world_query: Default::default(),
         system_querys: Default::default(),
@@ -406,11 +418,11 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
         }
     });
 
-    #[cfg(feature="css")]
+    #[cfg(feature = "css")]
     {
         let css_name = name.to_string().to_case(convert_case::Case::Kebab);
         context.plugin_builder.stmts.push(quote! {
-            bevy_ecss::RegisterComponentSelector::register_component_selector::<#name>(app, #css_name);
+            bevy_ecss::RegisterComponentSelector::register_component_selector::<#prop_type>(app, #css_name);
         });
     }
 
@@ -445,15 +457,15 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
             output = arg
                 .inner
                 .wrap_update_children(None, output, &mut node_context);
-            if let Some(tokens) = arg.inner.before_foreach(&mut node_context){
+            if let Some(tokens) = arg.inner.before_foreach(&mut node_context) {
                 before_foreach.push(tokens);
             }
         }
         quote!( #update #output )
     };
 
-    let state_name = context.state_builder.name.clone();
-    let widget_name = context.widget_builder.name.clone();
+    let state_name = context.state_builder.get_type();
+    let widget_name = context.widget_builder.get_type();
 
     context
         .bundle_builder
@@ -473,14 +485,16 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
     );
     context
         .bundle_builder
-        .add_field(&format_ident!("prop"), quote!(pub prop: #name));
+        .add_field(&format_ident!("prop"), quote!(pub prop: #prop_type));
 
-    { 
-        let state_name = &context.state_builder.name;
+    let function_ty_generics = ty_generics.as_turbofish();
+
+    {
+        let state_name = &context.state_builder.get_type();
         let bundle_name = &context.bundle_builder.name;
-        context.plugin_builder.other_items.push(quote!{
-            impl From<#name> for #bundle_name {
-                fn from(prop: #name) -> Self {
+        context.plugin_builder.other_items.push(quote! {
+            impl #impl_generics From<#prop_type> for #bundle_name #ty_generics #where_clause {
+                fn from(prop: #prop_type) -> Self {
                     Self {
                         prop,
                         ..Default::default()
@@ -488,15 +502,15 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
                 }
             }
 
-            impl #bundle_name {
-                pub fn from_prop(prop: #name) -> Self {
+            impl #impl_generics #bundle_name #ty_generics #where_clause {
+                pub fn from_prop(prop: #prop_type) -> Self {
                     Self {
                         prop,
                         ..Default::default()
                     }
                 }
 
-                pub fn from_prop_state(prop: #name, state: #state_name) -> Self {
+                pub fn from_prop_state(prop: #prop_type, state: #state_name) -> Self {
                     Self {
                         prop,
                         state,
@@ -504,13 +518,13 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
                     }
                 }
             }
-        }); 
+        });
     }
 
-    #[cfg(feature="hot_reload")]
+    #[cfg(feature = "hot_reload")]
     {
-        let state_name = &context.state_builder.name;
-        let widget_name = &context.widget_builder.name;
+        let state_name = &context.state_builder.get_type();
+        let widget_name = &context.widget_builder.get_type();
         let reset_system_name = format_ident!(
             "{}_reset",
             name.to_string().to_case(convert_case::Case::Snake),
@@ -518,9 +532,9 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
         );
 
         context.plugin_builder.systems.push(quote! {
-            pub fn #reset_system_name(mut query:Query<(Entity,&mut #name,&mut #state_name,&mut #widget_name)>,mut commands:Commands){
+            pub fn #reset_system_name(mut query:Query<(Entity,&mut #prop_type,&mut #state_name,&mut #widget_name)>,mut commands:Commands){
                 for(entity,mut prop, mut state, mut widget) in &mut query{
-                    debug!(?entity, "reset widget ({})", stringify!(#name));
+                    debug!(?entity, "reset widget ({})", stringify!(#prop_type));
                     prop.set_changed();
                     *state = Default::default();
                     *widget = Default::default();
@@ -529,8 +543,8 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
             }
         });
 
-        context.plugin_builder.other_items.push(quote!{
-            impl dway_ui_framework::reexport::ReplacableComponent for #name{
+        context.plugin_builder.other_items.push(quote! {
+            impl dway_ui_framework::reexport::ReplacableComponent for #prop_type{
                 fn get_type_name() -> &'static str {
                     std::any::type_name::<Self>()
                 }
@@ -538,18 +552,18 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
         });
 
         context.plugin_builder.hot_reload_stmts.push(quote! {
-            app.register_replacable_component::<#name>();
-            app.reset_setup::<#name, _>(#reset_system_name);
-            app.add_systems(Update, #system_name
-                .run_if(|query:Query<(),With<#name>>|{!query.is_empty()})
+            app.register_replacable_component::<#prop_type>();
+            app.reset_setup::<#prop_type, _>(#reset_system_name #ty_generics);
+            app.add_systems(Update, #system_name #function_ty_generics
+                .run_if(|query:Query<(),With<#prop_type>>|{!query.is_empty()})
                 .in_set(#systems_name::Render));
         });
     }
-    #[cfg(not(feature="hot_reload"))]
+    #[cfg(not(feature = "hot_reload"))]
     {
         context.plugin_builder.stmts.push(quote! {
-            app.add_systems(Update, #system_name
-                .run_if(|query:Query<(),With<#name>>|{!query.is_empty()})
+            app.add_systems(Update, #system_name #function_ty_generics
+                .run_if(|query:Query<(),With<#prop_type>>|{!query.is_empty()})
                 .in_set(#systems_name::Render));
         });
     }
@@ -583,17 +597,17 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
     let system = quote! {
         #[allow(unused_braces)]
         #[allow(non_snake_case)]
-        pub fn #system_name(
+        pub fn #system_name #impl_generics(
             mut this_query: Query<(
                 Entity,
-                Ref<#name>,
+                Ref<#prop_type>,
                 &mut #state_name,
                 &mut #widget_name,
                 #(#this_query),*
             )>,
             mut __dway_ui_commands: Commands,
             #(#system_args),*
-        ) {
+        ) #where_clause {
             let commands = &mut __dway_ui_commands;
             #(#before_foreach)*
             for (

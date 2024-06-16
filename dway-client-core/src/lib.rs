@@ -11,11 +11,11 @@ pub mod components;
 pub mod compositor;
 pub mod config;
 pub mod controller;
-pub mod model;
 pub mod debug;
 pub mod desktop;
 pub mod input;
 pub mod layout;
+pub mod model;
 pub mod navigation;
 pub mod prelude;
 pub mod screen;
@@ -82,7 +82,7 @@ impl Plugin for DWayClientPlugin {
         app.init_resource::<DWayClientSetting>();
         use DWayClientSystem::*;
         app.configure_sets(Startup, Init);
-        if !app.is_plugin_added::<TokioPlugin>(){
+        if !app.is_plugin_added::<TokioPlugin>() {
             app.add_plugins(TokioPlugin::default());
         }
         app.configure_sets(

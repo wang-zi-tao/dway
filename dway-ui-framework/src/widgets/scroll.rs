@@ -1,4 +1,5 @@
 use bevy::{input::mouse::MouseWheel, ui::RelativeCursorPosition};
+
 use crate::prelude::*;
 
 #[derive(Component, SmartDefault, Reflect, Debug)]
@@ -47,11 +48,11 @@ UiScroll=>
             state.set_content(*content);
         }
     }
-    loop {
+    (||{
         let scroll_rect = Rect::from_center_size(transform.translation().xy(), node.size());
-        let Ok((content_node,mut content_style)) = style_query.get_mut(*state.content()) else {break};
+        let Ok((content_node,mut content_style)) = style_query.get_mut(*state.content()) else {return};
         let inside = mouse_position.mouse_over();
-        if !content_node.is_changed() && wheel_move == Vec2::ZERO && !inside {break};
+        if !content_node.is_changed() && wheel_move == Vec2::ZERO && !inside {return};
         let diff_size = content_node.size() - scroll_rect.size();
         let offset = if diff_size.x<0.0 && prop.horizontal || diff_size.y<0.0 && prop.vertical || !inside {
             *state.offset()
@@ -71,8 +72,7 @@ UiScroll=>
             content_style.left = Val::Px(-offset.x);
             content_style.top = Val::Px(-offset.y);
         }
-        break;
-    }
+    })();
 }
 @global(theme:Theme)
 <MiniNodeBundle @if(prop.vertical) @style="absolute full">
@@ -94,4 +94,3 @@ UiScroll=>
     </MiniNodeBundle>
 </MiniNodeBundle>
 }
-

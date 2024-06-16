@@ -9,10 +9,6 @@ use std::{
     sync::Arc,
 };
 
-use crate::{
-    client::{Client, ClientData, ClientEvents},
-    prelude::*,
-};
 use anyhow::anyhow;
 use bevy::{
     ecs::{
@@ -27,6 +23,11 @@ use dway_util::eventloop::{Poller, PollerGuard};
 use futures::{io::BufReader, AsyncBufReadExt, FutureExt, StreamExt};
 use wayland_backend::server::{ClientId, ObjectId};
 use wayland_server::{DataInit, ListeningSocket, New};
+
+use crate::{
+    client::{Client, ClientData, ClientEvents},
+    prelude::*,
+};
 
 #[derive(Component, Default)]
 pub struct WlResourceIndex {
@@ -78,11 +79,7 @@ pub struct DWayServer {
 }
 
 impl DWayServer {
-    pub fn new(
-        config: &DWayServerConfig,
-        entity: Entity,
-        poller: &mut Poller,
-    ) -> Self {
+    pub fn new(config: &DWayServerConfig, entity: Entity, poller: &mut Poller) -> Self {
         let display = wayland_server::Display::<DWay>::new().unwrap();
         let mut display = poller.add(display);
         let socket = ListeningSocket::bind_auto("wayland", 1..33).unwrap();
@@ -111,15 +108,13 @@ impl DWayServer {
     pub fn dispatch(&mut self, entity: Entity, world: &mut World) -> Result<()> {
         while let Some(stream) = self.socket.accept()? {
             let mut poller = world.non_send_resource_mut::<Poller>();
-            dbg!(&stream);
-            let guard = unsafe{ poller.add_raw(&stream) };
+            let guard = unsafe { poller.add_raw(&stream) };
             let events = world.resource::<ClientEvents>().clone();
             let mut entity_mut = world.spawn_empty();
-            match self
-                .display
-                .handle()
-                .insert_client(stream, Arc::new(ClientData::new(entity_mut.id(), &events, guard)))
-            {
+            match self.display.handle().insert_client(
+                stream,
+                Arc::new(ClientData::new(entity_mut.id(), &events, guard)),
+            ) {
                 Ok(c) => {
                     entity_mut
                         .insert((Name::new(Cow::from(client_name(&c.id()))), Client::new(&c)));
@@ -151,6 +146,7 @@ impl DWayServer {
         }
         self.do_spawn_process(command);
     }
+
     pub fn spawn_process(&self, mut command: process::Command) {
         if let Some(display_number) = self.display_number {
             command.env("DISPLAY", ":".to_string() + &display_number.to_string());
@@ -160,12 +156,14 @@ impl DWayServer {
         command.env("WAYLAND_DISPLAY", &*self.socket_name());
         self.do_spawn_process(command);
     }
+
     pub fn spawn_process_wayland(&self, mut command: process::Command) {
         command
             .env("WAYLAND_DISPLAY", &*self.socket_name())
             .env_remove("DISPLAY");
         self.do_spawn_process(command);
     }
+
     fn do_spawn_process(&self, mut command: process::Command) {
         command.envs(&self.envs);
         IoTaskPool::get()
@@ -271,12 +269,15 @@ impl DWay {
         };
         f(&mut this)
     }
+
     pub fn world(&self) -> &World {
         unsafe { self.world.as_ref().unwrap() }
     }
+
     pub fn world_mut(&mut self) -> &mut World {
         unsafe { self.world.as_mut().unwrap() }
     }
+
     pub fn set_enum<T, R>(e: WEnum<T>, mut f: impl FnMut(T) -> R) -> Option<R> {
         match e.into_result() {
             Ok(e) => Some(f(e)),
@@ -286,10 +287,12 @@ impl DWay {
             }
         }
     }
+
     pub fn add_child(&mut self, parent: Entity, child: Entity) {
         let world = self.world_mut();
         world.entity_mut(parent).add_child(child);
     }
+
     pub fn connect<R>(&mut self, from: Entity, to: Entity)
     where
         R: Relationship + Default + Send + Sync + 'static,
@@ -301,6 +304,7 @@ impl DWay {
         trace!("connect ({:?})-[{}]->({:?})", from, type_name::<R>(), to);
         command.apply(world);
     }
+
     pub fn disconnect<R>(&mut self, from: Entity, to: Entity)
     where
         R: Relationship + Default + Send + Sync + 'static,
@@ -317,6 +321,7 @@ impl DWay {
         );
         command.apply(world);
     }
+
     pub fn disconnect_all<R>(&mut self, from: Entity)
     where
         R: Relationship + Default + Send + Sync + 'static,
@@ -332,6 +337,7 @@ impl DWay {
         );
         command.apply(world);
     }
+
     pub fn disconnect_all_rev<R>(&mut self, from: Entity)
     where
         R: Relationship + Default + Send + Sync + 'static,
@@ -347,11 +353,13 @@ impl DWay {
         );
         command.apply(world);
     }
+
     pub fn destroy_object(&mut self, object: &impl wayland_server::Resource) {
         let entity = DWay::get_entity(object);
         debug!(?entity,resource=%wayland_server::Resource::id(object),"destroy wayland object");
         self.despawn_tree(entity);
     }
+
     pub fn create_client(
         &mut self,
         parent: Entity,
@@ -361,7 +369,7 @@ impl DWay {
     ) {
         let world = self.world_mut();
         let events = world.resource::<ClientEvents>().clone();
-        let guard = unsafe{ poller.add_raw(&client_stream) };
+        let guard = unsafe { poller.add_raw(&client_stream) };
         let mut entity_mut = world.spawn_empty();
         match display.handle().insert_client(
             client_stream,
@@ -379,6 +387,7 @@ impl DWay {
         let entity = entity_mut.id();
         self.send_event(Insert::<Client>::new(entity));
     }
+
     pub fn bind<T, C, F>(
         &mut self,
         client: &wayland_server::Client,
@@ -401,6 +410,7 @@ impl DWay {
         entity_command.insert(f(object));
         entity
     }
+
     pub fn bind_spawn<T, B, F>(
         &mut self,
         client: &wayland_server::Client,
@@ -424,6 +434,7 @@ impl DWay {
         world.entity_mut(client_data.entity).add_child(entity);
         entity
     }
+
     pub fn spawn_child_object_bundle<B, T, F>(
         &mut self,
         parent: Entity,
@@ -440,6 +451,7 @@ impl DWay {
         self.spawn((resource, data_init, f).with_parent(parent))
             .id()
     }
+
     pub fn insert_object<T, C, F>(
         &mut self,
         entity: Entity,
@@ -459,6 +471,7 @@ impl DWay {
         )
         .map(|e| e.id())
     }
+
     pub fn spawn_child_object<T, C, F>(
         &mut self,
         parent: Entity,
@@ -475,38 +488,45 @@ impl DWay {
         self.spawn((resource, data_init, f).with_parent(parent))
             .id()
     }
+
     pub fn spawn_child<B>(&mut self, parent: Entity, bundle: B) -> Entity
     where
         B: Bundle,
     {
         self.spawn(bundle.with_parent(parent)).id()
     }
+
     pub fn get_entity(object: &impl wayland_server::Resource) -> Entity {
         *object
             .data::<Entity>()
             .expect("the user data type on wayland object should be Entity")
     }
+
     pub fn client_entity(client: &wayland_server::Client) -> Entity {
         client
             .get_data::<crate::client::ClientData>()
             .unwrap()
             .entity
     }
+
     pub fn component<T: Component>(&self, entity: Entity) -> &T {
         self.world().entity(entity).get::<T>().unwrap()
     }
+
     pub fn object_component<T: Component>(&self, object: &impl wayland_server::Resource) -> &T {
         self.world()
             .entity(DWay::get_entity(object))
             .get::<T>()
             .unwrap()
     }
+
     pub fn despawn_tree(&mut self, entity: Entity) {
         if let Some(entity_mut) = self.get_entity_mut(entity) {
             trace!(?entity, "despawn recursive");
             entity_mut.despawn_recursive();
         }
     }
+
     pub fn despawn(&mut self, entity: Entity) {
         if let Some(e) = self.world_mut().get_entity_mut(entity) {
             if let Some(parent) = e.get::<Parent>() {
@@ -526,6 +546,7 @@ impl DWay {
             EntityWorldMut::despawn(e)
         }
     }
+
     pub fn despawn_object_component<T: Bundle>(
         &mut self,
         entity: Entity,
@@ -536,10 +557,12 @@ impl DWay {
             e.remove::<T>();
         }
     }
+
     pub fn despawn_object(&mut self, entity: Entity, resource: &impl wayland_server::Resource) {
         trace!(entity=?entity,resource=%resource.id(),"despawn object");
         self.despawn_tree(entity);
     }
+
     pub fn with_component<T, F, R>(
         &mut self,
         object: &impl wayland_server::Resource,
@@ -564,6 +587,7 @@ impl DWay {
             .ok()?;
         Some(f(&mut component))
     }
+
     pub fn query<B, F, R>(&mut self, entity: Entity, f: F) -> R
     where
         B: QueryData,
@@ -573,6 +597,7 @@ impl DWay {
         let mut query = world.query::<B>();
         f(query.get_mut(world, entity).unwrap())
     }
+
     pub fn try_query<B, F, R>(&mut self, entity: Entity, f: F) -> Result<R, QueryEntityError>
     where
         B: QueryData,
@@ -582,6 +607,7 @@ impl DWay {
         let mut query = world.query::<B>();
         query.get_mut(world, entity).map(f)
     }
+
     pub fn query_object_component<C, F, R>(
         &mut self,
         object: &impl wayland_server::Resource,
@@ -595,6 +621,7 @@ impl DWay {
         let entity = Self::get_entity(object);
         f(&mut world.get_mut(entity).unwrap())
     }
+
     pub fn query_object<B, F, R>(
         &mut self,
         object: &impl wayland_server::Resource,
@@ -609,6 +636,7 @@ impl DWay {
         let mut query = world.query::<B>();
         Some(f(query.get_mut(world, entity).ok()?))
     }
+
     pub fn send_event<T: Event>(&mut self, event: T) {
         let world = self.world_mut();
         world.send_event(event);
@@ -652,12 +680,7 @@ pub fn on_create_display_event(
     mut poller: NonSendMut<Poller>,
 ) {
     for _event in events.read() {
-        create_display(
-            &mut commands,
-            &config,
-            &mut event_sender,
-            &mut poller,
-        );
+        create_display(&mut commands, &config, &mut event_sender, &mut poller);
     }
 }
 
@@ -714,6 +737,7 @@ impl DWay {
         let world = self.world_mut();
         f.insert(world, entity)
     }
+
     pub fn spawn<T>(&mut self, f: impl EntityFactory<T>) -> EntityWorldMut {
         f.spawn(self.world_mut())
     }

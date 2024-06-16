@@ -3,8 +3,13 @@ use interpolation::EaseFunction;
 use super::{AnimationEaseMethod, AnimationEvent};
 use crate::prelude::*;
 
-#[derive(Component, Debug, Clone)]
-pub struct BackupStyle(pub Style);
+#[derive(Component, Debug, Clone, Default)]
+pub struct TargetStyle(pub Style);
+impl From<Style> for TargetStyle {
+    fn from(value: Style) -> Self {
+        Self(value)
+    }
+}
 
 pub fn with_backup_style<R>(
     event: &AnimationEvent,
@@ -13,11 +18,11 @@ pub fn with_backup_style<R>(
 ) -> R {
     if event.just_start {
         let style = entity.get::<Style>().unwrap();
-        entity.insert(BackupStyle(style.clone()));
+        entity.insert(TargetStyle(style.clone()));
     }
     let r = f(entity);
     if event.just_finish {
-        entity.remove::<BackupStyle>();
+        entity.remove::<TargetStyle>();
     }
     r
 }
@@ -34,10 +39,10 @@ fn move_val_by_percent(dest: &mut Val, src: &Val, offset: f32, size: f32) {
     }
 }
 
-fn move_rect_by_percent(dest: &mut Style, src: &Style, offset: Vec2, size: Vec2) {
+pub(crate) fn move_rect_by_percent(dest: &mut Style, src: &Style, offset: Vec2, size: Vec2) {
     move_val_by_percent(&mut dest.top, &src.top, offset.y, size.y);
     move_val_by_percent(&mut dest.bottom, &src.bottom, -offset.y, size.y);
-    move_val_by_percent(&mut dest.left, &src.top, offset.x, size.x);
+    move_val_by_percent(&mut dest.left, &src.left, offset.x, size.x);
     move_val_by_percent(&mut dest.right, &src.bottom, -offset.x, size.x);
 }
 
@@ -46,7 +51,7 @@ pub fn popup_open_drop_down(
     world: &mut World,
 ) {
     with_backup_style(&event, &mut world.entity_mut(entity), |e| {
-        let backup_style = e.get::<BackupStyle>().unwrap().clone();
+        let backup_style = e.get::<TargetStyle>().unwrap().clone();
         let size = e.get::<Node>().unwrap().size();
         move_rect_by_percent(
             &mut e.get_mut().unwrap(),
@@ -62,7 +67,7 @@ pub fn popup_open_close_up(
     world: &mut World,
 ) {
     with_backup_style(&event, &mut world.entity_mut(entity), |e| {
-        let backup_style = e.get::<BackupStyle>().unwrap().clone();
+        let backup_style = e.get::<TargetStyle>().unwrap().clone();
         let size = e.get::<Node>().unwrap().size();
         move_rect_by_percent(
             &mut e.get_mut().unwrap(),
@@ -76,8 +81,11 @@ pub fn popup_open_close_up(
     }
 }
 
-pub fn despawn_recursive_on_animation_finish(In(event):In<AnimationEvent>, mut commands:Commands){
-    if event.just_finish{
+pub fn despawn_recursive_on_animation_finish(
+    In(event): In<AnimationEvent>,
+    mut commands: Commands,
+) {
+    if event.just_finish {
         commands.entity(event.entity).despawn_recursive();
     }
 }
@@ -86,12 +94,16 @@ pub trait UiAnimationConfig {
     fn appear_time() -> Duration {
         Duration::from_secs_f32(0.5)
     }
-    fn appear_ease() -> AnimationEaseMethod {EaseFunction::QuarticIn.into()}
+    fn appear_ease() -> AnimationEaseMethod {
+        EaseFunction::QuarticIn.into()
+    }
     fn appear_animation(theme: &Theme) -> SystemId<AnimationEvent>;
     fn disappear_time() -> Duration {
         Duration::from_secs_f32(0.5)
     }
-    fn disappear_ease() -> AnimationEaseMethod{EaseFunction::QuarticOut.into()}
+    fn disappear_ease() -> AnimationEaseMethod {
+        EaseFunction::QuarticOut.into()
+    }
     fn disappear_animation(theme: &Theme) -> SystemId<AnimationEvent>;
 }
 

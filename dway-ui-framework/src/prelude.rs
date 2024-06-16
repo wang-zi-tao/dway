@@ -14,6 +14,7 @@ pub use measure_time::{debug_time, error_time, info_time, print_time, trace_time
 pub use smart_default::SmartDefault;
 pub(crate) use crate as dway_ui_framework;
 pub(crate) use serde::{Serialize, Deserialize};
+pub(crate) use bevy_trait_query::*;
 
 pub use crate::{
     animation::{Animation, AssetAnimationPlugin, AssetTweenExt, Interpolation, Tween},

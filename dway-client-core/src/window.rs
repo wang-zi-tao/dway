@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bevy::prelude::*;
 use bevy_relationship::{graph_query2, ControlFlow};
 use dway_server::{
@@ -9,6 +11,7 @@ use dway_server::{
     },
 };
 use dway_util::update;
+use getset::Getters;
 
 use crate::{
     layout::LayoutStyle,
@@ -25,6 +28,14 @@ pub struct WindowClientInfo {
     pub max: bool,
     pub min: bool,
     pub fullscreen: bool,
+}
+
+#[derive(Component, Getters, Default)]
+pub struct WindowStatistics {
+    #[get(copy)]
+    fullscreen: bool,
+    #[get(copy)]
+    max: bool,
 }
 
 pub fn on_window_created(mut new_windows: EventReader<Insert<DWayWindow>>, mut commands: Commands) {
@@ -88,13 +99,53 @@ pub fn update_window(
     }
 }
 
+graph_query2! {
+WindowSatisticsGraph=>
+   mut windows=match
+    (screen: (Entity, &mut WindowStatistics) where ?)-[ScreenContainsWindow]->(window: Ref<DWayToplevel>)
+}
+
+pub fn window_statistics_system(mut graph: WindowSatisticsGraph) {
+    let mut changed = HashSet::new();
+    graph.foreach_windows(
+        |_| true,
+        |(screen_entity, _), window| {
+            if window.is_changed() {
+                changed.insert(*screen_entity);
+                ControlFlow::Break
+            } else {
+                ControlFlow::continue_iter()
+            }
+        },
+    );
+
+    for screen_entity in changed {
+        graph.foreach_windows_mut_from(
+            screen_entity,
+            |(_, window)| {
+                window.fullscreen = false;
+                window.max = false;
+                true
+            },
+            |(_, stat), toplevel| {
+                stat.max |= toplevel.max;
+                stat.fullscreen |= toplevel.fullscreen;
+                ControlFlow::continue_iter()
+            },
+        );
+    }
+}
+
 pub struct DWayWindowPlugin;
 impl Plugin for DWayWindowPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<WindowClientInfo>().add_systems(
             PreUpdate,
             (
-                on_window_created.run_if(on_event::<Insert<DWayWindow>>()).in_set(DWayClientSystem::CreateComponent),
+                on_window_created
+                    .run_if(on_event::<Insert<DWayWindow>>())
+                    .in_set(DWayClientSystem::CreateComponent),
+                window_statistics_system.in_set(DWayClientSystem::UpdateScreen),
                 update_window.in_set(DWayClientSystem::UpdateWindow),
             ),
         );

@@ -1,20 +1,16 @@
 use std::sync::Arc;
 
 use super::{insert_material_tween, StyleFlags, ThemeComponent, ThemeDispatch};
-use crate::animation::AnimationEaseMethod;
-use crate::render::layer_manager::{FillWithLayer, RenderToLayer};
-use crate::shader::effect::Border;
-use crate::shader::fill::{AddColor, Fill};
-use crate::shader::shape::{RoundedBar, Shape};
-use crate::shader::transform::Margins;
-use crate::shader::{ShaderAsset, ShaderPlugin, Transformed};
 use crate::{
+    animation::ease::AnimationEaseMethod,
     prelude::*,
+    render::layer_manager::{FillWithLayer, RenderToLayer},
     shader::{
-        effect::{InnerShadow, Shadow},
-        fill::FillColor,
-        shape::{Circle, RoundedRect},
-        ShapeRender,
+        effect::{Border, InnerShadow, Shadow},
+        fill::{AddColor, Fill, FillColor},
+        shape::{Circle, RoundedBar, RoundedRect, Shape},
+        transform::Margins,
+        ShaderAsset, ShaderPlugin, ShapeRender, Transformed,
     },
 };
 
@@ -279,15 +275,19 @@ impl FlatTheme {
     fn inactive_border(&self) -> Border<FillColor> {
         Border::new(self.fill_color3, self.border_width * 0.5)
     }
+
     fn invisible_border(&self) -> Border<FillColor> {
         Border::new(self.fill_color, 0.0)
     }
+
     fn border(&self) -> Border<FillColor> {
         Border::new(self.main_color, self.border_width)
     }
+
     fn invisible_shadow(&self) -> Shadow {
         Shadow::new(Color::NONE, Vec2::ZERO, Vec2::ZERO, 0.0)
     }
+
     fn shadow(&self) -> Shadow {
         Shadow::new(
             self.shadow_color,
@@ -296,18 +296,23 @@ impl FlatTheme {
             self.shadow_radius,
         )
     }
+
     fn popup_block_rounded_rect(&self) -> RoundedRect {
         RoundedRect::new(self.block_cornor)
     }
+
     fn block_rounded_rect(&self) -> RoundedRect {
         RoundedRect::new(self.block_cornor)
     }
+
     fn rounded_rect(&self) -> RoundedRect {
         RoundedRect::new(self.cornor)
     }
+
     fn fill_color(&self) -> FillColor {
         FillColor::new(self.fill_color)
     }
+
     fn invisible_inner_shadow<F: Fill>(&self, filler: F) -> InnerShadow<F> {
         InnerShadow {
             filler,
@@ -316,6 +321,7 @@ impl FlatTheme {
             radius: 0.0,
         }
     }
+
     fn inner_shadow<F: Fill>(&self, filler: F) -> InnerShadow<F> {
         InnerShadow {
             filler,
@@ -324,6 +330,7 @@ impl FlatTheme {
             radius: self.inner_shadow_radius,
         }
     }
+
     fn apply_material_animation<M: Asset + Interpolation>(
         &self,
         entity: Entity,
@@ -540,9 +547,7 @@ pub fn update_ui_material(
                 texture: render_to_layer.ui_background.clone(),
                 texture_size: render_to_layer.background_size,
             },
-            theme
-                .fill_color
-                .with_a(1.0 - theme.blur_brightness),
+            theme.fill_color.with_a(1.0 - theme.blur_brightness),
         ));
         *shader_handle = material_assets.add(material);
     }

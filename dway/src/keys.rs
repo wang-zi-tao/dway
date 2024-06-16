@@ -185,9 +185,6 @@ pub fn wm_mouse_action(
     let mouse_just_down = mouse_buttons.get_just_pressed().next().is_some();
     let _mouse_just_up = mouse_buttons.get_just_released().next().is_some();
 
-    let meta = alt;
-    let alt = false;
-
     if mouse_just_down {
         *mouse_drag_delta = Some(Vec2::ZERO);
     }

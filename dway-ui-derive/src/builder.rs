@@ -2,10 +2,11 @@ use convert_case::Casing;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use std::collections::BTreeMap;
-use syn::Ident;
+use syn::{Generics, Ident};
 
 pub struct ComponentBuilder {
     pub name: Ident,
+    pub generics: Generics,
     pub attributes: Vec<TokenStream>,
     pub fields: BTreeMap<String, TokenStream>,
     pub init: BTreeMap<String, TokenStream>,
@@ -15,6 +16,17 @@ impl ComponentBuilder {
     pub fn new(name: Ident) -> Self {
         Self {
             name,
+            generics: Default::default(),
+            fields: Default::default(),
+            attributes: Default::default(),
+            init: Default::default(),
+            generate_init: false,
+        }
+    }
+    pub fn new_with_generics(name: Ident, generics: Generics) -> Self {
+        Self {
+            name,
+            generics,
             fields: Default::default(),
             attributes: Default::default(),
             init: Default::default(),
@@ -28,21 +40,28 @@ impl ComponentBuilder {
         self.fields.insert(name.to_string(), field);
         self.init.insert(name.to_string(), init.to_token_stream());
     }
+    pub fn get_type(&self) -> TokenStream {
+        let (_, ty_generics, _) = self.generics.split_for_impl();
+        let name = &self.name;
+        quote! {#name #ty_generics}
+    }
 }
 
 impl ToTokens for ComponentBuilder {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let Self {
             name,
+            generics,
             attributes,
             fields,
             init,
             generate_init,
         } = &self;
+        let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
         let fields = fields.values();
         tokens.extend(quote! {
             #(#attributes)*
-            pub struct #name {
+            pub struct #name #impl_generics #where_clause {
                 #(#fields),*
             }
         });
@@ -67,7 +86,7 @@ impl ToTokens for ComponentBuilder {
                     }
                 }));
             tokens.extend(quote! {
-                impl Default for #name {
+                impl #impl_generics Default for #name #ty_generics #where_clause {
                     fn default() -> Self {
                         Self {
                              #(#field_init),*
@@ -87,10 +106,11 @@ pub struct PluginBuilder {
     pub hot_reload_stmts: Vec<TokenStream>,
     pub other_items: Vec<TokenStream>,
     pub name: Ident,
+    pub generics: Generics,
 }
 
 impl PluginBuilder {
-    pub fn new(name: Ident) -> Self {
+    pub fn new(name: Ident, generics: Generics) -> Self {
         Self {
             components: vec![],
             resources: vec![],
@@ -99,6 +119,7 @@ impl PluginBuilder {
             other_items: vec![],
             hot_reload_stmts: vec![],
             name,
+            generics,
         }
     }
 }
@@ -113,10 +134,12 @@ impl ToTokens for PluginBuilder {
             systems,
             stmts,
             name,
+            generics,
         } = self;
+        let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
         #[cfg(feature = "hot_reload")]
-        let (hot_reload_loader, hot_reload_register, plugin_stats)  = {
+        let (hot_reload_loader, hot_reload_register, plugin_stats) = {
             #[cfg(feature = "hot_reload")]
             let reloadable_name = format_ident!(
                 "{}_reload",
@@ -124,32 +147,39 @@ impl ToTokens for PluginBuilder {
                 span = name.span()
             );
             (
-                Some( quote! {
+                Some(quote! {
                     #[dway_ui_framework::reexport::dexterous_developer_setup]
-                    fn #reloadable_name(app: &mut ReloadableAppContents) {
+                    fn #reloadable_name #impl_generics(app: &mut ReloadableAppContents) #where {
                         #(#hot_reload_stmts)*
                     }
-                } ),
-                Some( quote! {
+                }),
+                Some(quote! {
                     use dway_ui_framework::reexport::ReloadableElementsSetup as _;
                     app.setup_reloadable_elements::<#reloadable_name>();
-                } ),
-                quote!{
+                }),
+                quote! {
                     #(#stmts)*
-                }
+                },
             )
         };
 
-        #[cfg(not( feature = "hot_reload" ))]
-        let (hot_reload_loader, hot_reload_register, plugin_stats)  = {
+        #[cfg(not(feature = "hot_reload"))]
+        let (hot_reload_loader, hot_reload_register, plugin_stats) = {
             (
                 None::<TokenStream>,
                 None::<TokenStream>,
-                quote!{
+                quote! {
                     #(#hot_reload_stmts)*
                     #(#stmts)*
-                }
+                },
             )
+        };
+
+        let bundle_struct = if generics.type_params().next().is_some() {
+            let type_params = generics.type_params().map(|g| &g.ident);
+            Some(quote! {(std::marker::PhantomData<(#(#type_params),*)>)})
+        } else {
+            None
         };
 
         let resource_stmts = resources.iter().map(|r| r.into_plugin());
@@ -160,8 +190,8 @@ impl ToTokens for PluginBuilder {
             #(#resources)*
             #(#systems)*
             #(#other_items)*
-            pub struct #name;
-            impl Plugin for #name {
+            pub struct #name #impl_generics #bundle_struct;
+            impl #impl_generics Plugin for #name #ty_generics #where_clause {
                 fn build(&self, app: &mut App) {
                     #plugin_stats
                     #(#resource_stmts)*

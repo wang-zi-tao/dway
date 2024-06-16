@@ -1,16 +1,27 @@
-use crate::{
-    prelude::*,
-    workspace::{ScreenAttachWorkspace, Workspace, WorkspaceWindow},
-};
 use dway_server::{
     geometry::{Geometry, GlobalGeometry},
     util::rect::IRect,
     xdg::DWayWindow,
 };
 
+use crate::{
+    prelude::*,
+    window::WindowStatistics,
+    workspace::{ScreenAttachWorkspace, Workspace, WorkspaceWindow},
+};
+
 #[derive(Component)]
 pub struct Screen {
     pub name: String,
+}
+
+#[derive(Bundle)]
+pub struct ScreenBundle {
+    pub name: Name,
+    pub geometry: Geometry,
+    pub global_geometry: GlobalGeometry,
+    pub screen: Screen,
+    pub stat: WindowStatistics,
 }
 
 pub fn create_screen(
@@ -29,14 +40,15 @@ pub fn create_screen(
             window.resolution.height() as i32,
         );
         if screen.is_none() {
-            commands.entity(entity).insert((
-                Screen {
+            commands.entity(entity).insert(ScreenBundle {
+                screen: Screen {
                     name: window.title.clone(),
                 },
-                Name::new(window.title.clone()),
-                Geometry::new(rect),
-                GlobalGeometry::new(rect),
-            ));
+                name: Name::new(window.title.clone()),
+                geometry: Geometry::new(rect),
+                global_geometry: GlobalGeometry::new(rect),
+                stat: WindowStatistics::default(),
+            });
             event.send(Insert::new(entity));
         }
     }
@@ -73,7 +85,10 @@ pub fn update_screen(
     for w in &window_query {
         let (window_entity, window_geo, ref window, workspace_window) = &w;
         if window_geo.is_changed()
-            || workspace_window.as_ref().map(|x| x.is_changed()).unwrap_or(false)
+            || workspace_window
+                .as_ref()
+                .map(|x| x.is_changed())
+                .unwrap_or(false)
             || window.is_changed()
         {
             commands
@@ -90,7 +105,7 @@ pub fn update_screen(
                 .entity(screen_entity)
                 .disconnect_all::<ScreenContainsWindow>();
             for w in &window_query {
-                update(&s, &w, &mut commands);
+                update(s, &w, &mut commands);
             }
         }
     }

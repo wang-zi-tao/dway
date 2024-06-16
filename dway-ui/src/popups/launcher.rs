@@ -1,23 +1,16 @@
+use dway_server::apps::{
+    icon::LinuxIcon, launchapp::LaunchAppRequest, DesktopEntriesSet, DesktopEntry,
+};
+use dway_ui_framework::animation::translation::UiTranslationAnimationExt;
+
 use crate::{
     panels::PanelButtonBundle,
     prelude::*,
     widgets::icon::{UiIcon, UiIconBundle},
 };
-use dway_server::apps::{
-    icon::LinuxIcon, launchapp::LaunchAppRequest, DesktopEntriesSet, DesktopEntry,
-};
 
 #[derive(Component, Default)]
 pub struct LauncherUI;
-
-pub fn delay_destroy_launcher(In(event): In<PopupEvent>, mut commands: Commands) {
-    if PopupEventKind::Closed == event.kind {
-        commands.entity(event.entity).despawn_recursive(); // TODO: remove
-                                                           // commands.entity(event.entity).insert(despawn_animation(
-                                                           //     animation!(Tween 0.5 secs:BackIn->TransformScaleLens(Vec3::ONE=>Vec3::splat(0.5))),
-                                                           // ));
-    }
-}
 
 dway_widget! {
 LauncherUI=>
@@ -36,7 +29,6 @@ LauncherUI=>
 @global(asset_server: AssetServer)
 @plugin{{
     app.register_system(open_popup);
-    app.register_system(delay_destroy_launcher);
 }}
 <MiniNodeBundle
 @style="flex-col p-4">
@@ -97,16 +89,18 @@ pub fn open_popup(In(event): In<UiButtonEvent>, theme: Res<Theme>, mut commands:
     if event.kind == UiButtonEventKind::Released {
         commands
             .spawn((
-                // animation!(0.5 secs:BackOut->TransformScaleLens(Vec3::splat(0.5)=>Vec3::ONE)),
-                LauncherUIBundle {
-                    style: style!("absolute top-120% left-0"),
-                    ..default()
+                UiPopupBundle::default(),
+                UiTranslationAnimationExt {
+                    target_style: style!("absolute top-36 left-0").into(),
+                    ..Default::default()
                 },
             ))
-            .insert(UiPopupExt::from(UiPopup::default().with_callback(
-                event.receiver,
-                theme.system(delay_destroy_launcher),
-            )))
+            .with_children(|c| {
+                c.spawn(LauncherUIBundle {
+                    style: style!("h-auto w-auto"),
+                    ..default()
+                });
+            })
             .set_parent(event.button);
     }
 }

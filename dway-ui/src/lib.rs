@@ -10,19 +10,6 @@ pub mod reexport {
     pub use bevy_relationship;
 }
 
-use crate::{
-    panels::PanelButtonBundle,
-    prelude::*,
-    widgets::{
-        applist::AppListUIBundle,
-        cursor::{Cursor, CursorBundle},
-        notifys::NotifyButtonBundle,
-        screen::{ScreenWindows, ScreenWindowsBundle},
-        system_monitor::PanelSystemMonitorBundle,
-        windowtitle::WindowTitleBundle,
-        workspacelist::WorkspaceListUIBundle,
-    },
-};
 use bevy::{render::camera::RenderTarget, window::WindowRef};
 use bevy_svg::SvgPlugin;
 pub use bitflags::bitflags as __bitflags;
@@ -37,6 +24,20 @@ use dway_ui_framework::{
     theme::{ThemeComponent, WidgetKind},
 };
 use widgets::clock::ClockBundle;
+
+use crate::{
+    panels::PanelButtonBundle,
+    prelude::*,
+    widgets::{
+        applist::AppListUIBundle,
+        cursor::{Cursor, CursorBundle},
+        notifys::NotifyButtonBundle,
+        screen::{ScreenWindows, ScreenWindowsBundle},
+        system_monitor::PanelSystemMonitorBundle,
+        windowtitle::WindowTitleBundle,
+        workspacelist::WorkspaceListUIBundle,
+    },
+};
 
 pub struct DWayUiPlugin;
 impl Plugin for DWayUiPlugin {
@@ -75,7 +76,7 @@ impl Plugin for DWayUiPlugin {
         ));
         app.add_systems(
             PreUpdate,
-            init_screen_ui.after(DWayClientSystem::CreateComponent),
+            init_screen_ui.after(DWayClientSystem::CreateComponentFlush),
         );
         app.add_systems(Startup, setup);
     }
@@ -179,14 +180,19 @@ fn init_screen_ui(
         } else {
             RenderTarget::Window(WindowRef::Entity(entity))
         };
-        let mut camera_cmd = commands.spawn(Camera2dBundle {
-            camera: Camera {
-                target: target.clone(),
-                ..default()
+        let mut camera_cmd = commands.spawn((
+            Name::new("camera"),
+            Camera2dBundle {
+                camera: Camera {
+                    target: target.clone(),
+                    ..default()
+                },
+                ..Default::default()
             },
-            ..Default::default()
-        });
-        camera_cmd.add(LayerManager::with_window_target(RenderTarget::Window(WindowRef::Entity(entity))));
+        ));
+        camera_cmd.add(LayerManager::with_window_target(RenderTarget::Window(
+            WindowRef::Entity(entity),
+        )));
         let camera = camera_cmd.id();
         info!("init camera");
 

@@ -1,9 +1,3 @@
-use super::util::DWayRenderError::*;
-use super::util::*;
-use crate::{prelude::*, util::file::create_sealed_file};
-use bevy::render::renderer::RenderDevice;
-use drm_fourcc::DrmFormat;
-use nix::libc::{self, dev_t};
 use std::{
     ffi::{CStr, CString},
     fs::File,
@@ -12,6 +6,13 @@ use std::{
         Arc, Mutex,
     },
 };
+
+use bevy::render::renderer::RenderDevice;
+use drm_fourcc::DrmFormat;
+use nix::libc::{self, dev_t};
+
+use super::util::{DWayRenderError::*, *};
+use crate::{prelude::*, util::file::create_sealed_file};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DrmNodeType {
@@ -116,6 +117,7 @@ impl DrmNodeState {
         self.set(inner);
         Ok(())
     }
+
     pub fn create_format_table(texture_format: &Vec<DrmFormat>) -> Result<(File, usize)> {
         if texture_format.is_empty() {
             warn!("invalid drm format table");
@@ -161,6 +163,7 @@ pub fn init_drm_state(device: Res<RenderDevice>, mut state: ResMut<DrmNodeState>
     if state.state.is_some() {
         return;
     }
+    info_span!("update drm node state");
     match with_hal(
         || super::vulkan::drm_info(device.wgpu_device()),
         || super::gles::drm_info(device.wgpu_device()),

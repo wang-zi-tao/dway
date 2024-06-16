@@ -1,10 +1,12 @@
-use super::volume_control::VolumeControlBundle;
-use crate::{panels::PanelButtonBundle, prelude::*};
 use dway_client_core::controller::systemcontroller::SystemControllRequest;
 use dway_ui_framework::animation::{
     interpolation::EaseFunction,
+    translation::{UiTranslationAnimationBundle, UiTranslationAnimationExt},
     ui::{popup_open_close_up, popup_open_drop_down},
 };
+
+use super::volume_control::VolumeControlBundle;
+use crate::{panels::PanelButtonBundle, prelude::*};
 
 #[derive(Component, Default)]
 pub struct PanelSettings {}
@@ -58,29 +60,22 @@ PanelSettings=>
 </MiniNodeBundle>
 }
 
-pub fn delay_destroy(In(event): In<PopupEvent>, mut commands: Commands, theme: Res<Theme>) {
-    if PopupEventKind::Closed == event.kind {
-        commands.entity(event.entity).insert(
-            Animation::new(Duration::from_secs_f32(0.4), EaseFunction::CubicOut)
-                .with_callback(theme.system(popup_open_close_up)),
-        );
-    }
-}
-
-pub fn open_popup(In(event): In<UiButtonEvent>, theme: Res<Theme>, mut commands: Commands) {
+pub fn open_popup(In(event): In<UiButtonEvent>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         commands
             .spawn((
-                Animation::new(Duration::from_secs_f32(0.5), EaseFunction::CubicIn)
-                    .with_callback(theme.system(popup_open_drop_down)),
-                PanelSettingsBundle {
-                    style: style!("absolute top-120% right-0 align-self:end p-8"),
-                    ..default()
+                UiPopupBundle::default(),
+                UiTranslationAnimationExt {
+                    target_style: style!("absolute top-36 align-self:end p-8 right-0").into(),
+                    ..Default::default()
                 },
             ))
-            .insert(UiPopupExt::from(
-                UiPopup::default().with_callback(event.receiver, theme.system(delay_destroy)),
-            ))
+            .with_children(|c| {
+                c.spawn((PanelSettingsBundle {
+                    style: style!("h-auto w-auto"),
+                    ..default()
+                },));
+            })
             .set_parent(event.button);
     }
 }

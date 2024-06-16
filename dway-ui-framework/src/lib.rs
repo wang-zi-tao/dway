@@ -3,43 +3,49 @@
 pub mod animation;
 pub mod assets;
 pub mod diagnostics;
+pub mod event;
 pub mod input;
+pub mod mvvm;
 pub mod prelude;
 pub mod render;
 pub mod shader;
 pub mod theme;
+pub mod util;
 pub mod widgets;
 
 pub mod reexport {
-    pub use smart_default::SmartDefault;
-    #[cfg(feature="hot_reload")]
-    pub use dexterous_developer;
-    #[cfg(feature="hot_reload")]
-    pub use dexterous_developer::dexterous_developer_setup;
-    #[cfg(feature="hot_reload")]
-    pub use dexterous_developer::ReplacableComponent;
-    #[cfg(feature="hot_reload")]
+    #[cfg(feature = "hot_reload")]
     pub use bevy_dexterous_developer;
-    #[cfg(feature="hot_reload")]
+    #[cfg(feature = "hot_reload")]
     pub use bevy_dexterous_developer::ReloadableElementsSetup;
-    #[cfg(feature="hot_reload")]
-    pub use serde::Serialize;
-    #[cfg(feature="hot_reload")]
+    #[cfg(feature = "hot_reload")]
+    pub use dexterous_developer;
+    #[cfg(feature = "hot_reload")]
+    pub use dexterous_developer::dexterous_developer_setup;
+    #[cfg(feature = "hot_reload")]
+    pub use dexterous_developer::ReplacableComponent;
+    #[cfg(feature = "hot_reload")]
     pub use serde::Deserialize;
+    #[cfg(feature = "hot_reload")]
+    pub use serde::Serialize;
+    pub use smart_default::SmartDefault;
     pub mod shape {
         pub use bevy_prototype_lyon::prelude::*;
     }
 }
+
+use animation::AnimationEvent;
+use bevy::ui::UiSystem;
+use bevy_prototype_lyon::plugin::ShapePlugin;
+use bevy_svg::SvgPlugin;
+pub use dway_ui_derive::*;
+use event::EventDispatch;
 
 use crate::{
     prelude::*,
     render::mesh::{UiMeshHandle, UiMeshMaterialPlugin, UiMeshTransform},
     widgets::svg::{SvgLayout, SvgMagerial},
 };
-use bevy::ui::UiSystem;
-use bevy_prototype_lyon::plugin::ShapePlugin;
-use bevy_svg::SvgPlugin;
-pub use dway_ui_derive::*;
 
 pub struct UiFrameworkPlugin;
 impl Plugin for UiFrameworkPlugin {
@@ -61,6 +67,7 @@ impl Plugin for UiFrameworkPlugin {
             animation::AnimationPlugin,
             render::blur::PostProcessingPlugin,
             render::layer_manager::LayerManagerPlugin,
+            mvvm::MvvmPlugin,
         ))
         .add_plugins((
             widgets::slider::UiSliderPlugin,
@@ -88,6 +95,7 @@ impl Plugin for UiFrameworkPlugin {
         .add_event::<input::UiFocusEvent>()
         .register_type::<input::UiFocusEvent>()
         .register_system(delay_destroy)
+        .register_component_as::<dyn EventDispatch<AnimationEvent>, UiPopup>()
         .add_systems(
             PreUpdate,
             (
@@ -119,7 +127,13 @@ impl Plugin for UiFrameworkPlugin {
         )
         .configure_sets(
             PostUpdate,
-            (UpdateWidgets, UpdatePopup, UpdateTheme, ApplyAnimation)
+            (
+                UpdateMVVM,
+                UpdateWidgets,
+                UpdatePopup,
+                UpdateTheme,
+                ApplyAnimation,
+            )
                 .before(UiSystem::Layout)
                 .chain(),
         )
@@ -146,6 +160,7 @@ impl Plugin for UiFrameworkPlugin {
 pub enum UiFrameworkSystems {
     InputSystems,
     WidgetInputSystems,
+    UpdateMVVM,
     UpdateWidgets,
     UpdatePopup,
     UpdateTheme,
@@ -327,6 +342,7 @@ pub mod tests {
                 },
             );
         }
+
         fn is_unique(&self) -> bool {
             false
         }

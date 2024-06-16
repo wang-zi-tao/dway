@@ -1,9 +1,15 @@
-use crate::prelude::*;
 use dway_client_core::controller::volume::VolumeController;
 use dway_ui_derive::dway_widget;
-use dway_ui_framework::animation::interpolation::EaseFunction;
-use dway_ui_framework::animation::ui::{popup_open_close_up, popup_open_drop_down};
-use dway_ui_framework::widgets::checkbox::UiCheckBoxBundle;
+use dway_ui_framework::{
+    animation::{
+        interpolation::EaseFunction,
+        translation::UiTranslationAnimationExt,
+        ui::{popup_open_close_up, popup_open_drop_down},
+    },
+    widgets::checkbox::UiCheckBoxBundle,
+};
+
+use crate::prelude::*;
 
 #[derive(Component, Default)]
 pub struct VolumeControl;
@@ -61,33 +67,23 @@ VolumeControl=>
     UiSliderState=(UiSliderState{value: *state.volume(),..default()})/>
 }
 
-pub fn delay_destroy(In(event): In<PopupEvent>, mut commands: Commands, theme: Res<Theme>) {
-    if PopupEventKind::Closed == event.kind {
-        commands.entity(event.entity).insert(
-            Animation::new(Duration::from_secs_f32(0.4), EaseFunction::CubicOut)
-                .with_callback(theme.system(popup_open_close_up)),
-        );
-    }
-}
-
-pub fn open_popup(
-    In(event): In<UiButtonEvent>,
-    theme: Res<Theme>,
-    mut commands: Commands,
-) {
+pub fn open_popup(In(event): In<UiButtonEvent>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
+        let style = style!("absolute justify-items:center top-36 align-self:end p-8");
         commands
             .spawn((
-                Animation::new(Duration::from_secs_f32(0.5), EaseFunction::CubicIn)
-                    .with_callback(theme.system(popup_open_drop_down)),
-                VolumeControlBundle {
-                    style: style!("absolute top-120% align-self:end p-8"),
-                    ..default()
+                UiPopupBundle::default(),
+                UiTranslationAnimationExt {
+                    target_style: style.clone().into(),
+                    ..Default::default()
                 },
             ))
-            .insert(UiPopupExt::from(
-                UiPopup::default().with_callback(event.receiver, theme.system(delay_destroy)),
-            ))
+            .with_children(|c| {
+                c.spawn(VolumeControlBundle {
+                    style: style!("h-auto w-auto"),
+                    ..Default::default()
+                });
+            })
             .set_parent(event.button);
     }
 }

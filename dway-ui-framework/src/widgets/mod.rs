@@ -227,9 +227,7 @@ pub mod shader {
 
     pub type UiImageMaterial = ShaderAsset<ShapeRender<Rect, FillImage>>;
     pub fn ui_image(image: Handle<Image>) -> UiImageMaterial {
-        Rect::new()
-            .with_effect(FillImage::from(image))
-            .into()
+        Rect::new().with_effect(FillImage::from(image)).into()
     }
     pub type RoundedUiImageMaterial = ShaderAsset<ShapeRender<RoundedRect, FillImage>>;
     pub fn rounded_ui_image(

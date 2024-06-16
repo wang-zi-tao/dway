@@ -1,3 +1,27 @@
+use std::{
+    ffi::CStr,
+    os::fd::{AsFd, AsRawFd, IntoRawFd},
+    sync::{Arc, RwLock},
+};
+
+use anyhow::{anyhow, bail, Result};
+use ash::{
+    extensions::{ext::PhysicalDeviceDrm, khr::ExternalMemoryFd},
+    vk::{self, *},
+};
+use bevy::{
+    render::{render_asset::RenderAssets, texture::GpuImage},
+    utils::{Entry, HashMap},
+};
+use bevy_relationship::reexport::SmallVec;
+use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
+use dway_util::formats::ImageFormat;
+use nix::libc::makedev;
+use wgpu::{
+    Extent3d, FilterMode, ImageCopyTexture, SamplerDescriptor, TextureAspect, TextureDimension,
+};
+use wgpu_hal::{api::Vulkan, MemoryFlags, TextureUses};
+
 use super::{
     drm::{DrmInfo, DrmNode},
     importnode::merge_damage,
@@ -12,28 +36,6 @@ use crate::{
     },
     zwp::dmabufparam::DmaBuffer,
 };
-use anyhow::{anyhow, bail, Result};
-use ash::{
-    extensions::{ext::PhysicalDeviceDrm, khr::ExternalMemoryFd},
-    vk::{self, *},
-};
-use bevy::{
-    render::{render_asset::RenderAssets, texture::GpuImage},
-    utils::{Entry, HashMap},
-};
-use bevy_relationship::reexport::SmallVec;
-use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
-use dway_util::formats::ImageFormat;
-use nix::libc::makedev;
-use std::{
-    ffi::CStr,
-    os::fd::{AsFd, AsRawFd, IntoRawFd},
-    sync::{Arc, RwLock},
-};
-use wgpu::{
-    Extent3d, FilterMode, ImageCopyTexture, SamplerDescriptor, TextureAspect, TextureDimension,
-};
-use wgpu_hal::{api::Vulkan, MemoryFlags, TextureUses};
 
 pub const MEM_PLANE_ASCPECT: [ImageAspectFlags; 4] = [
     ImageAspectFlags::MEMORY_PLANE_0_EXT,
@@ -70,6 +72,7 @@ pub fn drm_info(render_device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError
         render_device
             .as_hal::<Vulkan, _, _>(|hal_device| {
                 let hal_device = hal_device.ok_or_else(|| BackendIsNotVulkan)?;
+                info!("use vulkan");
 
                 let instance = hal_device.shared_instance().raw_instance();
                 let raw_phy = hal_device.raw_physical_device();

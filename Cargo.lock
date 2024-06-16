@@ -642,7 +642,6 @@ name = "bevy"
 version = "0.13.2"
 source = "git+https://github.com/wang-zi-tao/bevy?rev=92f55a7db744c03817489186d8fd5c06ef9ae50d#92f55a7db744c03817489186d8fd5c06ef9ae50d"
 dependencies = [
- "bevy_dylib",
  "bevy_internal 0.13.2",
 ]
 
@@ -1056,14 +1055,6 @@ dependencies = [
  "bevy_utils 0.13.2",
  "const-fnv1a-hash",
  "sysinfo 0.30.12",
-]
-
-[[package]]
-name = "bevy_dylib"
-version = "0.13.2"
-source = "git+https://github.com/wang-zi-tao/bevy?rev=92f55a7db744c03817489186d8fd5c06ef9ae50d#92f55a7db744c03817489186d8fd5c06ef9ae50d"
-dependencies = [
- "bevy_internal 0.13.2",
 ]
 
 [[package]]

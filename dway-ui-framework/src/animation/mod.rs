@@ -1,10 +1,19 @@
+pub mod ease;
+pub mod translation;
 pub mod ui;
 
-use crate::prelude::*;
+use std::{marker::PhantomData, sync::Arc};
+
+use bevy::ecs::system::EntityCommands;
 use bevy_relationship::reexport::SmallVec;
+use ease::AnimationEaseMethod;
 pub use interpolation;
 use interpolation::{Ease, EaseFunction};
-use std::{marker::PhantomData, sync::Arc};
+
+use crate::{
+    event::{EventDispatch, UiNodeAppearEvent},
+    prelude::*,
+};
 
 pub trait Interpolation {
     fn interpolation(&self, other: &Self, v: f32) -> Self;
@@ -67,48 +76,6 @@ impl<T: Interpolation> Interpolation for [T; 4] {
     }
 }
 
-#[derive(Clone)]
-pub enum AnimationEaseMethod {
-    EaseFunction(EaseFunction),
-    Linear,
-    Step(f32),
-    Lambda(Arc<dyn Fn(f32) -> f32 + Send + Sync + 'static>),
-}
-
-impl From<EaseFunction> for AnimationEaseMethod {
-    fn from(value: EaseFunction) -> Self {
-        AnimationEaseMethod::EaseFunction(value)
-    }
-}
-
-impl Default for AnimationEaseMethod {
-    fn default() -> Self {
-        Self::EaseFunction(EaseFunction::CubicIn)
-    }
-}
-
-impl AnimationEaseMethod {
-    pub fn calc(&self, value: f32) -> f32 {
-        match self {
-            AnimationEaseMethod::EaseFunction(f) => value.calc(*f),
-            AnimationEaseMethod::Lambda(f) => f(value),
-            AnimationEaseMethod::Linear => value,
-            AnimationEaseMethod::Step(c) => value - value % c,
-        }
-    }
-}
-
-impl std::fmt::Debug for AnimationEaseMethod {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::EaseFunction(arg0) => f.debug_tuple("EaseFunction").field(arg0).finish(),
-            Self::Lambda(_) => f.debug_tuple("Lambda").finish(),
-            AnimationEaseMethod::Linear => f.debug_tuple("Linear").finish(),
-            AnimationEaseMethod::Step(c) => f.debug_tuple("Step").field(&c).finish(),
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct AnimationEvent {
     pub entity: Entity,
@@ -129,6 +96,13 @@ structstruck::strike! {
             Pause,
             Finished,
         },
+        pub direction:
+        #[derive(PartialEq, Eq, Default, Copy)]
+        enum AnimationDirection{
+            #[default]
+            Positive,
+            Negative,
+        },
         #[reflect(ignore)]
         pub ease: AnimationEaseMethod,
         pub clock: struct AnimationClock {
@@ -139,6 +113,23 @@ structstruck::strike! {
         pub callbacks: SmallVec<[SystemId<AnimationEvent>; 2]>,
     }
 }
+
+impl AnimationDirection {
+    pub fn new(value: bool) -> Self {
+        if value {
+            Self::Positive
+        } else {
+            Self::Negative
+        }
+    }
+}
+
+impl Default for Animation {
+    fn default() -> Self {
+        Animation::new(Duration::from_secs_f32(0.5), EaseFunction::CubicOut)
+    }
+}
+
 impl Animation {
     pub fn new(duration: Duration, ease: impl Into<AnimationEaseMethod>) -> Self {
         Self {
@@ -149,17 +140,21 @@ impl Animation {
                 total_duration: duration,
             },
             callbacks: Default::default(),
+            direction: AnimationDirection::Positive,
         }
     }
+
     pub fn with_callback(mut self, callback: SystemId<AnimationEvent>) -> Self {
         self.callbacks.push(callback);
         self
     }
+
     pub fn pause(&mut self) {
         if self.state != AnimationState::Play {
             self.state = AnimationState::Pause;
         }
     }
+
     pub fn replay(&mut self) {
         match self.state {
             AnimationState::Play => {
@@ -175,6 +170,7 @@ impl Animation {
         }
         self.state = AnimationState::Play;
     }
+
     pub fn play(&mut self) {
         match self.state {
             AnimationState::Play => {}
@@ -188,20 +184,39 @@ impl Animation {
         }
         self.state = AnimationState::Play;
     }
+
+    pub fn play_with_direction(&mut self, direction: AnimationDirection) {
+        match self.state {
+            AnimationState::Play | AnimationState::Pause => {
+                if direction != self.direction {
+                    self.clock.duration = self.clock.total_duration - self.clock.duration;
+                    self.ease.set_direction(direction);
+                }
+            }
+            AnimationState::Finished => {
+                self.clock.duration = Duration::ZERO;
+                self.state = AnimationState::Play;
+            }
+        }
+        self.direction = direction;
+        self.state = AnimationState::Play;
+    }
+
     pub fn set_duration(&mut self, duration: Duration) {
         self.clock.total_duration = duration;
     }
+
     pub fn set_ease_method(&mut self, ease: AnimationEaseMethod) {
         self.ease = ease;
     }
 }
 
 pub fn update_animation_system(
-    mut query: Query<(Entity, &mut Animation)>,
+    mut query: Query<(Entity, &mut Animation, &dyn EventDispatch<AnimationEvent>)>,
     time: Res<Time>,
     mut commands: Commands,
 ) {
-    for (entity, mut animation) in &mut query {
+    for (entity, mut animation, dispatchs) in &mut query {
         if animation.state != AnimationState::Play {
             continue;
         }
@@ -218,18 +233,23 @@ pub fn update_animation_system(
         if duration > animation.clock.total_duration {
             ease = 1.0;
         }
-        for callback in &animation.callbacks {
-            commands.run_system_with_input(
-                *callback,
-                AnimationEvent {
-                    entity,
-                    value: ease,
-                    old_value: ease_old,
-                    just_start: animation.clock.duration == Duration::ZERO,
-                    just_finish: duration > animation.clock.total_duration,
-                },
-            );
+        {
+            let animation_event = AnimationEvent {
+                entity,
+                value: ease,
+                old_value: ease_old,
+                just_start: animation.clock.duration == Duration::ZERO,
+                just_finish: duration > animation.clock.total_duration,
+            };
+            for callback in &animation.callbacks {
+                commands.run_system_with_input(*callback, animation_event.clone());
+            }
+            for dispatch in &dispatchs {
+                let mut entity_commands = commands.entity(entity);
+                dispatch.on_event(entity_commands.reborrow(), animation_event.clone());
+            }
         }
+
         if duration > animation.clock.total_duration {
             animation.state = AnimationState::Finished;
         }
@@ -247,6 +267,7 @@ impl<I: Interpolation + Asset> Tween<I> {
     pub fn new(begin: Handle<I>, end: Handle<I>) -> Self {
         Self { begin, end }
     }
+
     pub fn reverse(&mut self) {
         let Self { begin, end } = self;
         std::mem::swap(begin, end);
@@ -284,6 +305,7 @@ impl<T: Interpolation + Asset> Plugin for AssetAnimationPlugin<T> {
     fn build(&self, app: &mut App) {
         app.register_system(apply_tween_asset::<T>);
     }
+
     fn is_unique(&self) -> bool {
         false
     }
@@ -313,6 +335,9 @@ impl Plugin for AnimationPlugin {
                 .chain()
                 .in_set(UiFrameworkSystems::ApplyAnimation),
         )
+        .register_component_as::<dyn EventDispatch<AnimationEvent>, translation::UiTranslationAnimation>()
+        .register_component_as::<dyn EventDispatch<UiNodeAppearEvent>, translation::UiTranslationAnimation>()
+        .register_component_as::<dyn EventDispatch<PopupEvent>, translation::UiTranslationAnimation>()
         .register_system(ui::popup_open_drop_down)
         .register_system(ui::popup_open_close_up)
         .register_system(ui::despawn_recursive_on_animation_finish);

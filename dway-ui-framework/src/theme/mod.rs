@@ -2,9 +2,9 @@ pub mod flat;
 
 use std::{
     any::{type_name, Any, TypeId},
+    fmt::Debug,
     hash::Hash,
     sync::Arc,
-    fmt::Debug,
 };
 
 use bevy::{
@@ -19,7 +19,7 @@ use derive_more::From;
 use downcast_rs::{impl_downcast, Downcast};
 
 use crate::{
-    animation::{apply_tween_asset, AnimationEaseMethod},
+    animation::{apply_tween_asset, ease::AnimationEaseMethod},
     prelude::*,
     shader::{
         effect::{InnerShadow, Shadow},
@@ -109,9 +109,11 @@ impl Theme {
     pub fn default_font(&self) -> Handle<Font> {
         self.default_font.clone()
     }
+
     pub fn color(&self, color: &str) -> Color {
         self.color_map.get(color).cloned().unwrap_or(Color::NONE)
     }
+
     pub fn icon(&self, name: &str, asset_server: &AssetServer) -> Handle<Svg> {
         if let Some(icon) = self
             .icons
@@ -124,6 +126,7 @@ impl Theme {
             Default::default()
         }
     }
+
     pub fn system<F, I, M>(&self, system: F) -> SystemId<I, ()>
     where
         F: IntoSystem<I, (), M> + 'static,
@@ -357,19 +360,24 @@ impl ThemeComponent {
             widget_kind,
         }
     }
+
     pub fn widget(kind: WidgetKind) -> Self {
         Self::new(StyleFlags::default(), kind)
     }
+
     pub fn none() -> Self {
         Self::new(StyleFlags::empty(), WidgetKind::None)
     }
+
     pub fn set_flag(&mut self, flag: StyleFlags, value: bool) {
         self.style_flags.set(flag, value);
     }
+
     pub fn with_flag(mut self, flag: StyleFlags) -> Self {
         self.style_flags = self.style_flags.union(flag);
         self
     }
+
     pub fn with_flag_value(mut self, flag: StyleFlags, value: bool) -> Self {
         self.style_flags.set(flag, value);
         self
