@@ -101,7 +101,11 @@ impl Poller {
         let timer = TimerFd::new(ClockId::CLOCK_REALTIME, TimerFlags::TFD_CLOEXEC).unwrap();
         unsafe {
             poller
-                .add(&timer.as_fd(), Event::readable(FD_KEY_BEGIN))
+                .add_with_mode(
+                    &timer.as_fd(),
+                    Event::readable(FD_KEY_BEGIN),
+                    PollMode::Edge,
+                )
                 .unwrap()
         };
         Self {
@@ -277,6 +281,8 @@ impl PollerInner {
                 match event.key {
                     FD_KEY_BEGIN => {
                         response.timeout = true;
+                        debug!("reset timer");
+                        self.timer.wait()?;
                     }
                     _ => {
                         if let Some(listen_fd) = self.fds.lock().unwrap().get(&event.key) {
@@ -305,12 +311,15 @@ impl PollerInner {
             }
             if let Some(time) = message.add_timer {
                 let now = Instant::now();
-                if now < time {
+                if time > now + Duration::from_millis(1) {
+                    debug!("set timer {}ms", (time - now).as_millis());
                     self.timer.set(
                         Expiration::OneShot(TimeSpec::from_duration(time - now)),
-                        TimerSetTimeFlags::empty(),
+                        TimerSetTimeFlags::TFD_TIMER_CANCEL_ON_SET,
                     )?;
-                }
+                } else {
+                    self.raw.notify()?;
+                };
             }
         }
         Ok(())

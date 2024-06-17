@@ -1,3 +1,5 @@
+use std::{collections::VecDeque, sync::mpsc};
+
 use backtrace::Backtrace;
 use bevy::{
     app::Update,
@@ -5,10 +7,8 @@ use bevy::{
     log::{error, warn, Level},
     prelude::Plugin,
 };
-use nix::sys::signal;
-use nix::sys::signal::Signal;
+use nix::sys::{signal, signal::Signal};
 use smallvec::SmallVec;
-use std::{collections::VecDeque, sync::mpsc};
 use tracing_subscriber::{fmt::MakeWriter, prelude::__tracing_subscriber_SubscriberExt, EnvFilter};
 
 #[derive(Debug)]
@@ -78,6 +78,7 @@ impl std::io::Write for LoggerWritter {
 
 impl<'a> MakeWriter<'a> for LoggerWritter {
     type Writer = Self;
+
     fn make_writer(&'a self) -> Self::Writer {
         self.clone()
     }
@@ -174,6 +175,5 @@ fn register_signal(signal: Signal) {
 
 pub fn install_signal_handler() {
     register_signal(Signal::SIGKILL);
-    register_signal(Signal::SIGABRT);
     register_signal(Signal::SIGSEGV);
 }

@@ -48,7 +48,8 @@ dway_server::render::importnode=info,\
 dway_server::zxdg::decoration=trace,\
 dway_client_core=info,\
 dway_util::eventloop=info,\
-dway-tty=trace,\
+dway_tty=info,\
+dway_util::eventloop=info,\
 nega::front=info,\
 naga=warn,\
 wgpu=info,\
@@ -137,9 +138,9 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     app.insert_resource(Time::<Virtual>::from_max_delta(Duration::from_secs(1)))
         .add_plugins(default_plugins);
 
-    let use_winit = std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err();
+    let use_tty = std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err();
     app.insert_resource(DWayClientSetting {
-        window_type: if use_winit {
+        window_type: if use_tty {
             OutputType::Winit
         } else {
             OutputType::Tty
@@ -147,9 +148,9 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         ..Default::default()
     });
 
-    if use_winit {
+    if use_tty {
         app.insert_resource(DWayTTYSettings {
-            frame_duration: Duration::from_secs_f32(1.0 / 144.0),
+            frame_duration: Duration::from_secs_f32(1.0 / 60.0),
         });
         app.add_plugins((DWayTTYPlugin::default(),));
     } else {
