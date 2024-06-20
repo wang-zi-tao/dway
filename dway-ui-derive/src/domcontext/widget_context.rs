@@ -1,3 +1,12 @@
+use std::collections::BTreeMap;
+
+use convert_case::Casing;
+use derive_syn_parse::Parse;
+use proc_macro2::TokenStream;
+use quote::{format_ident, quote, quote_spanned};
+use syn::*;
+
+use super::DomContext;
 use crate::{
     builder::{ComponentBuilder, PluginBuilder, ResourceBuilder},
     dom::Dom,
@@ -6,14 +15,6 @@ use crate::{
     generate::BoolExpr,
     parser::check_stmts,
 };
-use convert_case::Casing;
-use derive_syn_parse::Parse;
-use proc_macro2::TokenStream;
-use quote::{format_ident, quote, quote_spanned};
-use std::collections::BTreeMap;
-use syn::*;
-
-use super::DomContext;
 
 pub struct WidgetNodeContext<'l, 'w: 'l, 'g: 'w> {
     pub tree_context: &'l mut WidgetDomContext<'w, 'g>,
@@ -597,6 +598,7 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
     let system = quote! {
         #[allow(unused_braces)]
         #[allow(non_snake_case)]
+        #[allow(clippy::too_many_arguments)]
         pub fn #system_name #impl_generics(
             mut this_query: Query<(
                 Entity,

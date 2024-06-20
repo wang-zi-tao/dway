@@ -1,8 +1,9 @@
-use crate::domarg::DomArg;
 use derive_syn_parse::Parse;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::{parse::ParseStream, spanned::Spanned, token::Paren, *};
+
+use crate::domarg::DomArg;
 
 pub struct DomChildren {
     pub list: Vec<Dom>,
@@ -87,7 +88,7 @@ pub struct Dom {
 }
 impl Dom {
     pub fn span(&self) -> Span {
-        self._lt0.span().join(self._gt0.span()).unwrap()
+        self._lt0.span()
     }
 
     pub fn parse_vec(input: ParseStream) -> syn::Result<Vec<Self>> {
