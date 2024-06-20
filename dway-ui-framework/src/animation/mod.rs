@@ -4,7 +4,7 @@ pub mod ui;
 
 use std::{marker::PhantomData, sync::Arc};
 
-use bevy::ecs::system::EntityCommands;
+use bevy::{ecs::system::EntityCommands, window::RequestRedraw};
 use bevy_relationship::reexport::SmallVec;
 use ease::AnimationEaseMethod;
 pub use interpolation;
@@ -218,12 +218,15 @@ pub fn update_animation_system(
         Option<&dyn EventDispatch<AnimationEvent>>,
     )>,
     time: Res<Time>,
+    mut redraw_request: EventWriter<RequestRedraw>,
     mut commands: Commands,
 ) {
+    let mut play = false;
     for (entity, mut animation, dispatchs) in &mut query {
         if animation.state != AnimationState::Play {
             continue;
         }
+        play = true;
         let duration = animation.clock.duration + time.delta();
         let mut ease_old = animation.ease.calc(
             animation.clock.duration.as_secs_f32() / animation.clock.total_duration.as_secs_f32(),
@@ -258,6 +261,9 @@ pub fn update_animation_system(
             animation.state = AnimationState::Finished;
         }
         animation.clock.duration = duration;
+    }
+    if play {
+        redraw_request.send(RequestRedraw);
     }
 }
 

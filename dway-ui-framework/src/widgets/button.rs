@@ -1,11 +1,12 @@
 use bevy_relationship::reexport::SmallVec;
+use smart_default::SmartDefault;
+
 // use bevy_tweening::{AssetAnimator, EaseMethod};
 use crate::{
     make_bundle,
     prelude::*,
     theme::{StyleFlags, ThemeComponent, WidgetKind},
 };
-use smart_default::SmartDefault;
 
 #[derive(Event, Debug, Clone, PartialEq, Eq)]
 pub enum UiButtonEventKind {
@@ -38,18 +39,21 @@ impl UiButton {
             state: Interaction::None,
         }
     }
+
     pub fn with_callback(receiver: Entity, system: SystemId<UiButtonEvent>) -> Self {
         Self {
             callback: SmallVec::from_slice(&[(receiver, system)]),
             state: Interaction::None,
         }
     }
+
     pub fn with_callbacks(callbacks: &[(Entity, SystemId<UiButtonEvent>)]) -> Self {
         Self {
             callback: SmallVec::from_slice(callbacks),
             state: Interaction::None,
         }
     }
+
     pub fn register_callback(&mut self, callback: Callback<UiButtonEvent>) {
         self.callback.push(callback);
     }
@@ -163,6 +167,7 @@ impl UiButtonExt {
             ..default()
         }
     }
+
     pub fn from_slice(callbacks: &[(Entity, SystemId<UiButtonEvent>)]) -> Self {
         Self {
             button: UiButton::with_callbacks(callbacks),

@@ -32,7 +32,10 @@ use bevy::{
         view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
         Extract, Render, RenderApp, RenderSet,
     },
-    ui::{PreparedUiMaterial, RenderUiMaterials, RenderUiSystem, TransparentUi, UiMaterialVertex, UiStack},
+    ui::{
+        PreparedUiMaterial, RenderUiMaterials, RenderUiSystem, TransparentUi, UiMaterialVertex,
+        UiStack,
+    },
     utils::{FloatOrd, HashMap, HashSet},
     window::PrimaryWindow,
 };
@@ -278,9 +281,9 @@ pub type DrawUiMaterial<M> = (
 
 pub struct SetMatUiViewBindGroup<M: UiMaterial, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P> for SetMatUiViewBindGroup<M, I> {
+    type ItemQuery = ();
     type Param = SRes<UiMaterialMeta<M>>;
     type ViewQuery = Read<ViewUniformOffset>;
-    type ItemQuery = ();
 
     fn render<'w>(
         _item: &P,
@@ -302,9 +305,9 @@ pub struct SetUiMaterialBindGroup<M: UiMaterial, const I: usize>(PhantomData<M>)
 impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
     for SetUiMaterialBindGroup<M, I>
 {
+    type ItemQuery = Read<UiMaterialBatch<M>>;
     type Param = SRes<RenderUiMaterials<M>>;
     type ViewQuery = ();
-    type ItemQuery = Read<UiMaterialBatch<M>>;
 
     fn render<'w>(
         _item: &P,
@@ -326,9 +329,9 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
 
 pub struct DrawUiMaterialNode<M>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
+    type ItemQuery = Read<UiMaterialBatch<M>>;
     type Param = SRes<UiMaterialMeta<M>>;
     type ViewQuery = ();
-    type ItemQuery = Read<UiMaterialBatch<M>>;
 
     #[inline]
     fn render<'w>(

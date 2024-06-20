@@ -13,3 +13,4 @@ pub mod windowmenu;
 pub mod windowtitle;
 pub mod worksapce;
 pub mod workspacelist;
+pub mod workspacepreview;

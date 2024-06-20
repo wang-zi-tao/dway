@@ -1,18 +1,11 @@
-// use bevy_tweening::{lens::*, Animator, EaseFunction, Tween};
-
 use dway_client_core::desktop::FocusedWindow;
 use dway_server::{
     apps::WindowList, geometry::GlobalGeometry, util::rect::IRect, wl::surface::WlSurface,
     xdg::toplevel::DWayToplevel,
 };
-use dway_ui_framework::{theme::ThemeComponent, widgets::button::{UiRawButtonBundle, UiRawButtonExt}};
+use dway_ui_framework::widgets::button::{UiRawButtonBundle, UiRawButtonExt};
 
-use crate::{
-    prelude::*,
-    widgets::{
-        window::create_raw_window_material,
-    },
-};
+use crate::{prelude::*, widgets::window::create_raw_window_material};
 
 #[derive(Component, Reflect)]
 pub struct AppWindowPreviewPopup {

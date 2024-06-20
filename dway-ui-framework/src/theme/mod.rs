@@ -262,6 +262,7 @@ impl Plugin for ThemePlugin {
                 ("panel-foreground".to_string(), color!("#1b1d1e")),
                 ("scroll-bar".to_string(), color!("#6791C9").with_a(0.8)),
                 ("shadow".to_string(), color!("#888888").with_a(0.5)),
+                ("border".to_string(), color!("#6791C9")),
                 (POPUP_BACKGROUND.to_string(), color!("#D8DEE9")),
             ]),
             style_map: HashMap::from([("popup".to_string(), style!("m-4"))]),

@@ -1,13 +1,3 @@
-use crate::{
-    prelude::*,
-    shader::{
-        fill::Fill,
-        shape::{RoundedRect, Shape},
-        BindGroupBuilder, BindGroupLayoutBuilder, BuildBindGroup, ShaderAsset, ShaderBuilder,
-        ShaderPlugin, ShaderVariables, ShapeRender, UniformLayout,
-    },
-    widgets::util::visibility,
-};
 use bevy::{
     asset::load_internal_asset,
     ecs::{entity::EntityHashSet, system::EntityCommand},
@@ -26,6 +16,17 @@ use bevy::{
     window::PrimaryWindow,
 };
 use bevy_relationship::reexport::Entity;
+
+use crate::{
+    prelude::*,
+    shader::{
+        fill::Fill,
+        shape::{RoundedRect, Shape},
+        BindGroupBuilder, BindGroupLayoutBuilder, BuildBindGroup, ShaderAsset, ShaderBuilder,
+        ShaderPlugin, ShaderVariables, ShapeRender, UniformLayout,
+    },
+    widgets::util::visibility,
+};
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Debug)]
 pub enum LayerKind {
@@ -292,12 +293,14 @@ impl BlurMethod {
             BlurMethod::Dual { .. } => BlurMethodKind::Dual,
         }
     }
+
     pub fn kawase() -> Self {
         Self::Kawase {
             layer: 4,
             radius: 1.0,
         }
     }
+
     pub fn dual() -> Self {
         Self::Dual {
             layer: 4,
