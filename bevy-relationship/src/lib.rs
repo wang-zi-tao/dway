@@ -1,20 +1,26 @@
 mod app;
 mod builtins;
+mod changed;
 mod commands;
 mod graph;
+mod lifetime;
 mod macros;
+mod matrix;
 pub mod reexport;
 mod register;
-mod changed;
-mod matrix;
 
-#[allow(unused_imports)]
-pub use crate::{app::*, builtins::*, commands::*, graph::*, macros::*, register::*};
+use std::{iter::Cloned, marker::PhantomData};
+
 pub use app::AppExt;
 use bevy::prelude::*;
 pub use bevy_relationship_derive::*;
 use smallvec::SmallVec;
-use std::{iter::Cloned, marker::PhantomData};
+
+#[allow(unused_imports)]
+pub use crate::{
+    app::*, builtins::*, commands::*, graph::*, lifetime::n_to_n::*, lifetime::n_to_one::*,
+    lifetime::one_to_one::*, macros::*, register::*,
+};
 
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Debug)]
@@ -25,14 +31,15 @@ pub struct RelationshipToOneEntity {
     pub sender: ConnectionEventSender,
 }
 
-
 impl RelationshipToOneEntity {
     pub fn get(&self) -> Option<Entity> {
         self.peer
     }
+
     pub fn connect(&mut self, entity: Entity) -> Option<Entity> {
         self.peer.replace(entity)
     }
+
     pub fn take(&mut self) -> Option<Entity> {
         self.peer.take()
     }
@@ -84,7 +91,6 @@ pub struct RelationshipToManyEntity {
     #[reflect(ignore)]
     pub sender: ConnectionEventSender,
 }
-
 
 impl std::ops::Deref for RelationshipToManyEntity {
     type Target = SmallVec<[Entity; 4]>;

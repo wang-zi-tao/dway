@@ -1,9 +1,6 @@
 #[macro_export]
 macro_rules! relationship {
-    (#[derive $derive:tt] struct $name:ident($inner:ty) @peer($peer:ty)) => {
-        #[derive $derive]
-        pub struct $name(pub $inner);
-
+    (#[derive $derive:tt] struct $name:ident($inner:ty) Deref @peer($peer:ty)) => {
         impl std::ops::Deref for $name {
             type Target = $inner;
             fn deref(&self) -> &Self::Target {
@@ -15,6 +12,8 @@ macro_rules! relationship {
                 &mut self.0
             }
         }
+    };
+    (#[derive $derive:tt] struct $name:ident($inner:ty) Connectable @peer($peer:ty)) => {
         impl $crate::Connectable for $name {
             type Iterator<'l> = <$inner as $crate::Connectable>::Iterator<'l>;
 
@@ -45,6 +44,11 @@ macro_rules! relationship {
                 self.0.get_sender_mut()
             }
         }
+    };
+
+    (#[derive $derive:tt] struct $name:ident($inner:ty) @peer($peer:ty)) => {
+        #[derive $derive]
+        pub struct $name(pub $inner);
 
         impl Drop for $name {
             fn drop(&mut self) {
@@ -53,6 +57,9 @@ macro_rules! relationship {
                 }
             }
         }
+
+        relationship!(#[derive($crate::reexport::Component, Clone, Default, Debug, $crate::reexport::Reflect)] struct $name($inner) Deref @peer($peer));
+        relationship!(#[derive($crate::reexport::Component, Clone, Default, Debug, $crate::reexport::Reflect)] struct $name($inner) Connectable @peer($peer));
     };
     (-- $type1:ident @peer($peer:ty)) => {
         relationship!(#[derive($crate::reexport::Component, Clone, Default, Debug, $crate::reexport::Reflect)] struct $type1($crate::RelationshipToOneEntity) @peer($peer));

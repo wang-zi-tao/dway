@@ -1,9 +1,11 @@
-use crate::ConnectableMut;
-use bevy::prelude::*;
 use std::sync::{
     mpsc::{Receiver, Sender},
     Arc,
 };
+
+use bevy::prelude::*;
+
+use crate::ConnectableMut;
 
 pub type DisconnectPeerFn = fn(&mut World, Entity, Entity);
 
@@ -29,6 +31,12 @@ impl ConnectionEventSender {
     pub fn send<T: ConnectableMut>(&self, peer_entity: Entity) {
         if let Some(sender) = &self.sender {
             let _ = sender.send((remove_peer::<T>, self.this_entity, peer_entity));
+        }
+    }
+
+    pub fn send_function(&self, peer_entity: Entity, function: DisconnectPeerFn) {
+        if let Some(sender) = &self.sender {
+            let _ = sender.send((function, self.this_entity, peer_entity));
         }
     }
 
