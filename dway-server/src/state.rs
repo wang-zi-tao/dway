@@ -3,7 +3,7 @@ use std::{
     borrow::Cow,
     ffi::OsString,
     marker::PhantomData,
-    os::{fd::AsRawFd, unix::net::UnixStream},
+    os::unix::net::UnixStream,
     path::Path,
     process::{self, Stdio},
     sync::Arc,
@@ -12,8 +12,9 @@ use std::{
 use anyhow::anyhow;
 use bevy::{
     ecs::{
+        event::ManualEventReader,
         query::{QueryData, QueryEntityError, WorldQuery},
-        system::Command,
+        system::{Command, SystemState},
     },
     tasks::IoTaskPool,
     utils::HashMap,
@@ -81,7 +82,9 @@ pub struct DWayServer {
 impl DWayServer {
     pub fn new(config: &DWayServerConfig, entity: Entity, poller: &mut Poller) -> Self {
         let display = wayland_server::Display::<DWay>::new().unwrap();
-        let mut display = poller.add(display);
+        let display = poller.add_with_callback(display, move |world| {
+            world.send_event(DispatchDisplay(entity));
+        });
         let socket = ListeningSocket::bind_auto("wayland", 1..33).unwrap();
         info!("create wayland server {:?}", &socket.socket_name().unwrap());
         let handle = display.handle();
@@ -108,7 +111,11 @@ impl DWayServer {
     pub fn dispatch(&mut self, entity: Entity, world: &mut World) -> Result<()> {
         while let Some(stream) = self.socket.accept()? {
             let mut poller = world.non_send_resource_mut::<Poller>();
-            let guard = unsafe { poller.add_raw(&stream) };
+            let guard = unsafe {
+                poller.add_raw_with_callback(&stream, move |world| {
+                    world.send_event(DispatchDisplay(entity));
+                })
+            };
             let events = world.resource::<ClientEvents>().clone();
             let mut entity_mut = world.spawn_empty();
             match self.display.handle().insert_client(
@@ -247,8 +254,10 @@ pub struct DWay {
     world: *mut World,
 }
 
-unsafe impl Sync for DWay {}
-unsafe impl Send for DWay {}
+unsafe impl Sync for DWay {
+}
+unsafe impl Send for DWay {
+}
 impl std::ops::Deref for DWay {
     type Target = World;
 
@@ -362,14 +371,18 @@ impl DWay {
 
     pub fn create_client(
         &mut self,
-        parent: Entity,
+        display_entity: Entity,
         client_stream: UnixStream,
         display: &wayland_server::Display<DWay>,
         poller: &mut Poller,
     ) {
         let world = self.world_mut();
         let events = world.resource::<ClientEvents>().clone();
-        let guard = unsafe { poller.add_raw(&client_stream) };
+        let guard = unsafe {
+            poller.add_raw_with_callback(&client_stream, move |world| {
+                world.send_event(DispatchDisplay(display_entity));
+            })
+        };
         let mut entity_mut = world.spawn_empty();
         match display.handle().insert_client(
             client_stream,
@@ -383,7 +396,7 @@ impl DWay {
                 error!("Error adding wayland client: {}", err);
             }
         }
-        entity_mut.set_parent(parent);
+        entity_mut.set_parent(display_entity);
         let entity = entity_mut.id();
         self.send_event(Insert::<Client>::new(entity));
     }
@@ -668,7 +681,12 @@ impl Plugin for DWayStatePlugin {
             )
                 .chain(),
         );
-        app.add_systems(PreUpdate, dispatch_events.in_set(DWayServerSet::Dispatch));
+        app.add_systems(
+            PreUpdate,
+            (dispatch_events, apply_deferred)
+                .run_if(on_event::<DispatchDisplay>())
+                .in_set(DWayServerSet::Dispatch),
+        );
         app.add_systems(Last, flush_display.in_set(DWayServerSet::Clean));
     }
 }
@@ -700,11 +718,14 @@ pub fn create_display(
     entity
 }
 
-pub fn dispatch_events(world: &mut World) {
-    let displays = world
-        .query_filtered::<Entity, With<DWayServer>>()
-        .iter(world)
-        .collect::<Vec<_>>();
+pub fn dispatch_events(
+    world: &mut World,
+    mut event_reader: Local<ManualEventReader<DispatchDisplay>>,
+) {
+    let displays = event_reader
+        .read(world.resource())
+        .map(|e| e.0)
+        .collect::<SmallVec<[Entity; 4]>>();
     for display_entity in displays {
         let mut display_entity_mut = world.entity_mut(display_entity);
         let Some(mut server) = display_entity_mut.take::<DWayServer>() else {

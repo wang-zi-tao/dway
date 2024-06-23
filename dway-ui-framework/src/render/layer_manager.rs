@@ -268,7 +268,7 @@ structstruck::strike! {
     #[derive(Debug, Reflect, Clone)]
     pub(crate) struct BlurLayer{
         pub(crate) blur_method:
-            #[derive(Clone, Copy, Reflect, Debug)]
+            #[derive(Clone, Copy, Reflect, Debug, PartialEq)]
             pub enum BlurMethod {
                 Kawase{ layer: usize, radius: f32 },
                 Dual{ layer: usize, radius: f32 },

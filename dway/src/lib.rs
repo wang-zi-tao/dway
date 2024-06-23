@@ -18,6 +18,7 @@ use bevy::{
     },
     winit::WinitPlugin,
 };
+use bevy_framepace::Limiter;
 use clap::Parser;
 use dway_client_core::{
     layout::{
@@ -35,7 +36,7 @@ use dway_util::logger::DWayLogPlugin;
 use keys::*;
 use opttions::DWayOption;
 
-const LOG_LEVEL: Level = Level::INFO;
+const LOG_LEVEL: Level = Level::DEBUG;
 const LOG: &str = "\
 bevy_ecs=info,\
 bevy_render=debug,\
@@ -43,10 +44,10 @@ bevy_ui=trace,\
 dway=debug,\
 polling=info,\
 bevy_relationship=debug,\
-dway_server=info,\
-dway_server::render::importnode=info,\
-dway_server::zxdg::decoration=trace,\
-dway_client_core=info,\
+dway_server=debug,\
+dway_server::render::importnode=debug,\
+dway_server::zxdg::decoration=debug,\
+dway_client_core=debug,\
 dway_util::eventloop=info,\
 dway_tty=info,\
 dway_util::eventloop=info,\
@@ -56,7 +57,6 @@ wgpu=info,\
 wgpu-hal=info,\
 dexterous_developer_internal=debug,\
 bevy_ecss=info,\
-dway_tty=info,\
 ";
 
 #[cfg(not(feature = "hot_reload"))]
@@ -89,7 +89,10 @@ pub fn bevy_main(initial_plugins: impl InitialPlugins) {
 
 pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     #[cfg(feature = "dhat-heap")]
-    let _profiler = dhat::Profiler::new_heap();
+    let _profiler = debug::memory_profiler();
+
+    #[cfg(feature = "pprof")]
+    let _pprof_profiler = debug::pprof_profiler();
 
     let opts = DWayOption::parse();
     app.insert_resource(opts.clone());
@@ -150,25 +153,31 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
 
     if use_tty {
         app.insert_resource(DWayTTYSettings {
-            frame_duration: Duration::from_secs_f32(1.0 / 60.0),
+            frame_duration: Duration::from_secs_f32(1.0 / opts.frame_rate),
         });
         app.add_plugins((DWayTTYPlugin::default(),));
     } else {
-        app.insert_resource(bevy::winit::WinitSettings {
-            focused_mode: bevy::winit::UpdateMode::Reactive {
-                wait: Duration::from_secs_f32(1.0),
-            },
-            unfocused_mode: bevy::winit::UpdateMode::Reactive {
-                wait: Duration::from_secs_f32(1.0),
-            },
-        });
-        app.add_plugins(WinitPlugin::default());
-        app.add_plugins(dway_util::eventloop::EventLoopPlugin::default());
+        cfg_if::cfg_if! {
+            if #[cfg(any(feature = "cpu_profile", feature="heap_profile"))] {
+                app.insert_resource(bevy::winit::WinitSettings::game());
+            } else {
+                app.insert_resource(bevy::winit::WinitSettings::desktop_app());
+                app.insert_resource(bevy_framepace::FramepaceSettings {
+                    limiter: Limiter::from_framerate(opts.frame_rate as f64),
+                });
+            }
+        }
+
+        app.add_plugins((
+            WinitPlugin::default(),
+            dway_util::eventloop::EventLoopPlugin::default(),
+            bevy_framepace::FramepacePlugin,
+        ));
         #[cfg(feature = "inspector")]
         {
             app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
             app.add_plugins(bevy_inspector_egui::quick::FilterQueryInspectorPlugin::<
-                With<dway_ui_framework::widgets::drag::UiDrag>,
+                With<dway_ui::widgets::window::WindowUI>,
             >::default()); //TODO
         }
     }
@@ -236,6 +245,13 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
         });
     }
+    app.edit_schedule(First, |schedule| {
+        schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+    });
+    app.edit_schedule(Last, |schedule| {
+        schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+    });
+
     #[cfg(feature = "dump_system_graph")]
     if opts.debug_schedule {
         debug::print_resources(&mut app.world);
@@ -308,7 +324,8 @@ pub fn update(_query: Query<&Window>) {
     // info!("window count: {}",window_query.iter().count());
 }
 
-pub fn last(_commands: Commands) {}
+pub fn last(_commands: Commands) {
+}
 
 #[cfg(feature = "dhat-heap")]
 #[global_allocator]

@@ -260,7 +260,7 @@ impl Plugin for DesktopEntriesPlugin {
         );
         app.add_systems(
             PreUpdate,
-            attach_to_app.in_set(DWayServerSet::UpdateAppInfo),
+            attach_to_app.run_if(on_event::<DispatchDisplay>()).in_set(DWayServerSet::UpdateAppInfo),
         );
         app.add_systems(
             PostUpdate,

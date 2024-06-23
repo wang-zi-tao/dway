@@ -1,7 +1,10 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
+use bevy::time::Time;
 use dway_server::macros::{ResMut, Resource};
 use sysinfo::{Disks, Networks, System};
+
+use crate::prelude::*;
 
 pub struct CpuInfo {
     pub name: String,
@@ -11,6 +14,8 @@ pub struct CpuInfo {
 
 #[derive(Resource)]
 pub struct SystemInfo {
+    disk_update_timer: Timer,
+    network_update_timer: Timer,
     system: System,
     disks: Disks,
     networks: Networks,
@@ -27,6 +32,8 @@ impl Default for SystemInfo {
             networks: Networks::new_with_refreshed_list(),
             last_refresh_time: instant,
             refresh_time: instant,
+            disk_update_timer: Timer::from_seconds(10.0, TimerMode::Repeating),
+            network_update_timer: Timer::from_seconds(1.0, TimerMode::Repeating),
         }
     }
 }
@@ -63,18 +70,23 @@ impl SystemInfo {
     pub fn total_memory(&self) -> u64 {
         self.system.total_memory()
     }
+
     pub fn used_memory(&self) -> u64 {
         self.system.used_memory()
     }
+
     pub fn available_memory(&self) -> u64 {
         self.system.available_memory()
     }
+
     pub fn total_swap(&self) -> u64 {
         self.system.total_swap()
     }
+
     pub fn used_swap(&self) -> u64 {
         self.system.used_swap()
     }
+
     pub fn free_swap(&self) -> u64 {
         self.system.free_swap()
     }
@@ -106,25 +118,37 @@ impl SystemInfo {
     }
 }
 
-pub fn update_system_info_system(mut system_info: ResMut<SystemInfo>) {
+pub fn update_system_info_system(mut system_info: ResMut<SystemInfo>, time: Res<Time>) {
     system_info.system.refresh_cpu();
     system_info.system.refresh_memory();
-    system_info.disks.refresh_list();
-    system_info.disks.refresh();
-    system_info.networks.refresh_list();
-    system_info.networks.refresh();
+    if system_info
+        .disk_update_timer
+        .tick(time.delta())
+        .just_finished()
+    {
+        system_info.disks.refresh_list();
+        system_info.disks.refresh();
+    }
+    if system_info
+        .network_update_timer
+        .tick(time.delta())
+        .just_finished()
+    {
+        system_info.networks.refresh_list();
+        system_info.networks.refresh();
+    }
     system_info.last_refresh_time = system_info.refresh_time;
     system_info.refresh_time = Instant::now();
 }
 
-pub fn human_readable_byte(byte: u64)->String{
-    if byte >> 30 !=0 {
-        format!("{:.1}GiB", byte as f32 / (1<<30) as f32)
-    }else if byte >> 20 != 0 {
-        format!("{:.1}MiB", byte as f32 / (1<<20) as f32)
-    }else if byte >> 10 != 0 {
-        format!("{:.1}KiB", byte as f32 / (1<<10) as f32)
-    }else{
+pub fn human_readable_byte(byte: u64) -> String {
+    if byte >> 30 != 0 {
+        format!("{:.1}GiB", byte as f32 / (1 << 30) as f32)
+    } else if byte >> 20 != 0 {
+        format!("{:.1}MiB", byte as f32 / (1 << 20) as f32)
+    } else if byte >> 10 != 0 {
+        format!("{:.1}KiB", byte as f32 / (1 << 10) as f32)
+    } else {
         format!("{}B", byte)
     }
 }
@@ -133,11 +157,11 @@ pub fn human_readable_fresequency(frequency: u64) -> String {
     let byte = frequency;
     if frequency > 1000_000_000 {
         format!("{:.1}GHz", byte as f32 / 1000_000_000 as f32)
-    }else if frequency > 1000_000 {
+    } else if frequency > 1000_000 {
         format!("{:.1}MHz", byte as f32 / 1000_000 as f32)
-    }else if frequency > 1000 {
+    } else if frequency > 1000 {
         format!("{:.1}KHz", frequency as f32 / 1000 as f32)
-    }else{
+    } else {
         format!("{}Hz", frequency)
     }
 }

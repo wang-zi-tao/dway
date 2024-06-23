@@ -76,8 +76,12 @@ fn runner(mut app: App) {
 
     let rx = poller.take_recevier().unwrap();
 
-    for _event in rx.iter() {
+    for event in rx.iter() {
         let start_time = Instant::now();
+
+        for callback in event.commands{
+            callback(&mut app.world);
+        }
 
         app.update();
 

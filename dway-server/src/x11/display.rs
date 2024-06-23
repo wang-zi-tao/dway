@@ -1,6 +1,3 @@
-use bevy::utils::{HashMap, HashSet};
-use dway_util::eventloop::{Poller, PollerGuard, PollerInner};
-use nix::{errno::Errno, sys::socket};
 use std::{
     fs,
     io::{self, Read, Write},
@@ -11,6 +8,10 @@ use std::{
     process::Child,
     sync::{Arc, Mutex, Weak},
 };
+
+use bevy::utils::{HashMap, HashSet};
+use dway_util::eventloop::{Poller, PollerGuard, PollerInner};
+use nix::{errno::Errno, sys::socket};
 pub use x11rb::protocol::xproto::Window as XWindowID;
 use x11rb::{
     connection::Connection,
@@ -25,13 +26,12 @@ use x11rb::{
     wrapper::ConnectionExt as RustConnectionExt,
 };
 
+use super::events::XWaylandError;
 use crate::{
     client::{self, ClientData, ClientEvents},
     prelude::*,
     x11::atoms::Atoms,
 };
-
-use super::events::XWaylandError;
 
 #[derive(Debug)]
 pub enum XWaylandThreadEvent {
@@ -123,7 +123,15 @@ impl XWaylandDisplay {
         dway_server.display_number = Some(display_number as usize);
 
         let mut entity_mut = commands.spawn((Name::new(format!("xwayland:{}", display_number)),));
-        let guard = unsafe { poller.clone().add_raw(&wayland_client_stream) };
+        let entity = entity_mut.id();
+        let guard = unsafe {
+            poller.clone().add_raw(
+                &wayland_client_stream,
+                Some(Arc::new(move |world: &mut World| {
+                    world.send_event(DispatchXWaylandDisplay(entity));
+                })),
+            )
+        };
         let client = match dway_server.display.handle().insert_client(
             wayland_client_stream,
             Arc::new(ClientData::new(entity_mut.id(), events, guard)),
@@ -157,7 +165,12 @@ impl XWaylandDisplay {
             .spawn(move || {
                 let result: Result<()> = (|| {
                     let (stream, _peer) = DefaultStream::from_unix_stream(x11_stream)?;
-                    let stream = UnixStreamWrapper(poller.add(stream));
+                    let stream = UnixStreamWrapper(poller.add(
+                        stream,
+                        Some(Arc::new(move |world: &mut World| {
+                            world.send_event(DispatchXWaylandDisplay(entity));
+                        })),
+                    ));
                     let rust_connection = RustConnection::connect_to_stream(stream, 0)?;
                     let (atoms, wm_window) = Self::start_wm(&rust_connection)?;
                     let connection = Arc::new((rust_connection, atoms));
@@ -192,6 +205,7 @@ impl XWaylandDisplay {
 
         Ok(entity_mut.id())
     }
+
     pub fn start_wm(connection: &RustConnection<UnixStreamWrapper>) -> Result<(Atoms, u32)> {
         let screen = connection.setup().roots[0].clone();
         let atoms = Atoms::new(connection)?.reply()?;
@@ -304,6 +318,7 @@ impl XWaylandDisplay {
         conn.flush()?;
         Ok((atoms, win))
     }
+
     fn spawn_xwayland(
         display_number: u32,
         streams: Vec<UnixStream>,
@@ -342,11 +357,13 @@ impl XWaylandDisplay {
         let child = command.spawn()?;
         Ok(child)
     }
+
     fn unset_cloexec(fd: RawFd) -> io::Result<()> {
         use nix::fcntl::{fcntl, FcntlArg, FdFlag};
         fcntl(fd, FcntlArg::F_SETFD(FdFlag::empty()))?;
         Ok(())
     }
+
     fn get_number() -> Option<(u32, Vec<UnixStream>)> {
         for d in 0..255 {
             if Self::lock_display(d).is_some() {
@@ -357,6 +374,7 @@ impl XWaylandDisplay {
         }
         None
     }
+
     fn lock_display(number: u32) -> Option<()> {
         let filename = format!("/tmp/.X{}-lock", number);
         let lockfile = ::std::fs::OpenOptions::new()
@@ -397,6 +415,7 @@ impl XWaylandDisplay {
             }
         }
     }
+
     fn open_x11_sockets_for_display(
         display: u32,
         open_abstract_socket: bool,
@@ -415,6 +434,7 @@ impl XWaylandDisplay {
         }
         Ok(Some(sockets))
     }
+
     fn open_socket(addr: socket::UnixAddr) -> nix::Result<UnixStream> {
         let fd = socket::socket(
             socket::AddressFamily::Unix,

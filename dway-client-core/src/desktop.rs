@@ -1,8 +1,10 @@
-use crate::DWayClientSystem;
+use std::num::NonZeroUsize;
+
 use bevy::prelude::*;
 use dway_server::apps::AppRef;
 use lru::LruCache;
-use std::num::NonZeroUsize;
+
+use crate::DWayClientSystem;
 
 pub struct DWayDesktop;
 impl Plugin for DWayDesktop {
@@ -16,7 +18,9 @@ impl Plugin for DWayDesktop {
         app.register_type::<CursorOnWindow>();
         app.add_systems(
             PreUpdate,
-            update_window_stack_by_focus.in_set(DWayClientSystem::UpdateState),
+            update_window_stack_by_focus
+                .run_if(resource_changed::<FocusedWindow>)
+                .in_set(DWayClientSystem::UpdateWindowStack),
         );
     }
 }
@@ -38,17 +42,17 @@ pub struct FocusedWindow {
 #[derive(Resource, Default, Reflect, Debug)]
 pub struct CursorOnOutput(pub Option<(Entity, IVec2)>);
 
-impl CursorOnOutput{
+impl CursorOnOutput {
     pub fn get_screen(&self) -> Option<Entity> {
-        self.0.as_ref().map(|x|x.0)
+        self.0.as_ref().map(|x| x.0)
     }
 }
 
 #[derive(Resource, Default, Reflect, Debug)]
 pub struct CursorOnWindow(pub Option<(Entity, IVec2)>);
-impl CursorOnWindow{
+impl CursorOnWindow {
     pub fn get_window(&self) -> Option<Entity> {
-        self.0.as_ref().map(|x|x.0)
+        self.0.as_ref().map(|x| x.0)
     }
 }
 

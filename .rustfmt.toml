@@ -1,3 +1,4 @@
 merge_imports = true
 reorder_impl_items = true
 group_imports = "StdExternalCrate"
+empty_item_single_line = false

@@ -84,7 +84,7 @@ make_bundle!{
     }
 }
 
-pub fn process_ui_checkbox_event(
+pub fn update_ui_checkbox(
     mut ui_query: Query<
         (Entity, &mut UiCheckBox, &mut UiCheckBoxState, &Interaction, Option<&mut ThemeComponent>),
         Changed<Interaction>,

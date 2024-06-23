@@ -63,12 +63,13 @@ impl Plugin for UiFrameworkPlugin {
             theme::ThemePlugin,
             theme::flat::FlatThemePlugin::default(),
             render::mesh::UiMeshPlugin,
-            shader::ShaderFrameworkPlugin,
             render::mesh::UiMeshMaterialPlugin::<ColorMaterial>::default(),
-            animation::AnimationPlugin,
             render::blur::PostProcessingPlugin,
             render::layer_manager::LayerManagerPlugin,
+            render::ui_nodes::UiNodeRenderPlugin,
+            shader::ShaderFrameworkPlugin,
             mvvm::MvvmPlugin,
+            animation::AnimationPlugin,
         ))
         .add_plugins((
             widgets::slider::UiSliderPlugin,
@@ -105,15 +106,15 @@ impl Plugin for UiFrameworkPlugin {
                     .run_if(on_event::<CursorMoved>())
                     .in_set(InputSystems),
                 update_ui_input.in_set(InputSystems).after(UiSystem::Focus),
-                widgets::button::process_ui_button_event.in_set(WidgetInputSystems),
-                widgets::checkbox::process_ui_checkbox_event.in_set(WidgetInputSystems),
-                widgets::drag::ui_drag_system.in_set(WidgetInputSystems),
+                widgets::button::update_ui_button.in_set(WidgetInputSystems),
+                widgets::checkbox::update_ui_checkbox.in_set(WidgetInputSystems),
+                widgets::drag::update_ui_drag.in_set(WidgetInputSystems),
             ),
         )
         .add_systems(
             PostUpdate,
             (
-                widgets::svg::uisvg_update_system.in_set(UpdateWidgets),
+                widgets::svg::update_uisvg.in_set(UpdateWidgets),
                 widgets::shape::after_process_shape
                     .in_set(ProcessMesh)
                     .after(bevy_prototype_lyon::plugin::BuildShapes),

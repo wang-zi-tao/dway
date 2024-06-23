@@ -65,6 +65,12 @@ pub struct MoveRequest(pub Entity);
 #[derive(Event)]
 pub struct ResizeRequest(pub Entity);
 
+#[derive(Event, Deref)]
+pub struct DispatchDisplay(pub Entity);
+
+#[derive(Event, Deref)]
+pub struct DispatchXWaylandDisplay(pub Entity);
+
 pub struct EventPlugin;
 impl Plugin for EventPlugin {
     fn build(&self, app: &mut App) {
@@ -73,5 +79,7 @@ impl Plugin for EventPlugin {
         app.add_event::<MoveRequest>();
         app.add_event::<ResizeRequest>();
         app.add_event::<WindowAction>();
+        app.add_event::<DispatchDisplay>();
+        app.add_event::<DispatchXWaylandDisplay>();
     }
 }

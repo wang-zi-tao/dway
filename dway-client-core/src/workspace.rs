@@ -1,7 +1,7 @@
 use dway_server::{
     geometry::{Geometry, GlobalGeometry},
     util::rect::IRect,
-    xdg::DWayWindow,
+    xdg::{toplevel::DWayToplevel, DWayWindow},
 };
 use dway_util::update;
 
@@ -65,11 +65,12 @@ relationship!(WindowOnWorkspace=>WindowWorkspaceList>-<WindowList);
 relationship!(ScreenAttachWorkspace=>ScreenWorkspaceList>-<ScreenList);
 
 pub fn attach_window_to_workspace(
-    new_window: Query<(Entity, &GlobalGeometry), (With<DWayWindow>, Without<WindowWorkspaceList>)>,
+    new_window: Query<(Entity, &GlobalGeometry)>,
+    mut insert_window_event: EventReader<Insert<DWayWindow>>,
     workspace_query: Query<(Entity, &Workspace, &GlobalGeometry)>,
     mut commands: Commands,
 ) {
-    for (window, window_geo) in new_window.iter() {
+    for (window, window_geo) in new_window.iter_many(insert_window_event.read().map(|e| e.entity)) {
         for (workspace_entity, workspace, workspace_geo) in workspace_query.iter() {
             if !workspace.hide
                 && workspace_geo.intersection(window_geo.geometry).size() != IVec2::default()
@@ -87,15 +88,16 @@ pub fn attach_window_to_workspace(
 }
 
 pub fn attach_workspace_to_screen(
-    screen_query: Query<(Entity, &GlobalGeometry), (Added<Screen>, Without<ScreenWorkspaceList>)>,
+    screen_query: Query<(Entity, &GlobalGeometry), Added<Screen>>,
     mut workspace_query: Query<
         (Entity, &mut Workspace, &mut Geometry),
         (With<Workspace>, Without<Hidden>),
     >,
+    mut new_screen: EventReader<Insert<Screen>>,
     mut commands: Commands,
 ) {
-    for (screen_entity, screen_geo) in screen_query.iter() {
-        for (workspace_entity, mut workspace, mut workspace_geo) in workspace_query.iter_mut() {
+    for (screen_entity, screen_geo) in screen_query.iter_many(new_screen.read().map(|e| e.entity)) {
+        for (workspace_entity, workspace, mut workspace_geo) in workspace_query.iter_mut() {
             if !workspace.hide {
                 commands.add(ConnectCommand::<ScreenAttachWorkspace>::new(
                     screen_entity,
@@ -152,13 +154,22 @@ impl Plugin for WorkspacePlugin {
         app.init_resource::<WorkspaceManager>();
         app.add_systems(
             PreUpdate,
+            (attach_workspace_to_screen, apply_deferred)
+                .run_if(on_event::<Insert<Screen>>())
+                .after(DWayClientSystem::CreateScreen)
+                .before(DWayClientSystem::UpdateWorkspace),
+        );
+        app.add_systems(
+            PreUpdate,
             (
-                attach_workspace_to_screen.after(create_screen),
-                attach_window_to_workspace.after(attach_workspace_to_screen),
-                (update_workspace_system, update_workspace_window_system)
+                update_workspace_system.in_set(DWayClientSystem::UpdateWorkspace),
+                (
+                    (attach_window_to_workspace, apply_deferred)
+                        .run_if(on_event::<Insert<DWayWindow>>()),
+                    update_workspace_window_system,
+                )
                     .chain()
-                    .after(attach_window_to_workspace)
-                    .after(attach_workspace_to_screen),
+                    .in_set(DWayClientSystem::UpdateWorkspace),
             )
                 .in_set(DWayClientSystem::UpdateWorkspace),
         );

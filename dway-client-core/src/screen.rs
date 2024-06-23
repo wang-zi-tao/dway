@@ -57,7 +57,7 @@ pub fn create_screen(
 relationship!(ScreenContainsWindow=>ScreenWindowList>-<WindowScreenList);
 
 pub fn update_screen(
-    screen_query: Query<(Entity, Ref<GlobalGeometry>)>,
+    screen_query: Query<(Entity, Ref<GlobalGeometry>), With<Screen>>,
     window_query: Query<(
         Entity,
         Ref<GlobalGeometry>,
@@ -126,8 +126,8 @@ impl Plugin for ScreenPlugin {
         app.add_systems(
             PreUpdate,
             (
-                create_screen.in_set(DWayClientSystem::CreateComponent),
-                update_screen.in_set(DWayClientSystem::CreateComponent),
+                create_screen.in_set(DWayClientSystem::CreateScreen),
+                update_screen.in_set(DWayClientSystem::UpdateScreen),
             )
                 .chain(),
         );

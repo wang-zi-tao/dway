@@ -1,11 +1,12 @@
-use super::Slot;
-use crate::{layout::WorkspaceHasSlot, prelude::*, workspace};
 use derive_builder::Builder;
 use dway_server::{
     geometry::{Geometry, GlobalGeometry},
     util::rect::IRect,
     xdg::{toplevel::DWayToplevel, DWayWindow},
 };
+
+use super::Slot;
+use crate::{layout::WorkspaceHasSlot, prelude::*, workspace};
 
 #[derive(Component, Clone, Debug, Reflect)]
 pub enum TileLayoutKind {
@@ -154,7 +155,14 @@ pub fn update_tile_layout(
         ),
         Or<(Changed<workspace::WindowList>, Changed<TileLayoutKind>)>,
     >,
-    window_query: Query<Entity, (With<DWayWindow>, With<DWayToplevel>, Without<WindowWithoutTile>)>,
+    window_query: Query<
+        Entity,
+        (
+            With<DWayWindow>,
+            With<DWayToplevel>,
+            Without<WindowWithoutTile>,
+        ),
+    >,
     mut commands: Commands,
 ) {
     for (entity, geometry, global_geometry, windows, layout) in workspace.iter() {
@@ -191,9 +199,7 @@ impl Plugin for TileLayoutPlugin {
         app.register_type::<TileLayoutSet>();
         app.add_systems(
             PreUpdate,
-            update_tile_layout
-                .before(super::attach_window_to_slot)
-                .in_set(DWayClientSystem::UpdateLayout),
+            update_tile_layout.in_set(DWayClientSystem::UpdateLayout),
         );
     }
 }

@@ -1,7 +1,8 @@
-use std::{hash::Hash, marker::PhantomData, ops::Range};
+use std::{any::type_name, hash::Hash, marker::PhantomData, ops::Range};
 
 use bevy::{
     ecs::{
+        entity::EntityHashSet,
         query::ROQueryItem,
         storage::SparseSet,
         system::{
@@ -86,9 +87,7 @@ where
         //    "ui_material.wgsl",
         //    Shader::from_wgsl
         //);
-        app.init_asset::<M>()
-            .add_plugins(ExtractComponentPlugin::<Handle<M>>::extract_visible());
-
+        app.init_asset::<M>();
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<TransparentUi, DrawUiMaterial<M>>()
@@ -101,7 +100,7 @@ where
                     ExtractSchedule,
                     (
                         extract_ui_materials::<M>,
-                        extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractNode),
+                        extract_ui_nodes::<M>.in_set(RenderUiSystem::ExtractNode),
                     ),
                 )
                 .add_systems(
@@ -374,7 +373,7 @@ impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
     }
 }
 
-pub fn extract_ui_material_nodes<M: UiMaterial>(
+pub fn extract_ui_nodes<M: UiMaterial>(
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
     ui_stack: Extract<Res<UiStack>>,

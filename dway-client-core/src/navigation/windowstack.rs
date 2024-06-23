@@ -1,6 +1,8 @@
-use crate::{desktop::FocusedWindow, prelude::*};
-use dway_server::xdg::DWayWindow;
 use std::collections::LinkedList;
+
+use dway_server::xdg::DWayWindow;
+
+use crate::{desktop::FocusedWindow, prelude::*};
 
 #[derive(Component, Reflect, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WindowIndex {
@@ -170,11 +172,16 @@ impl Plugin for WindowStackPlugin {
             .add_systems(
                 PreUpdate,
                 (
-                    init_window_index.in_set(DWayClientSystem::CreateComponent),
-                    update_window_index.in_set(DWayClientSystem::UpdateZIndex),
+                    init_window_index.in_set(DWayClientSystem::InsertWindowComponent),
                     update_window_stack_by_focus
                         .run_if(resource_changed::<FocusedWindow>)
-                        .in_set(DWayClientSystem::UpdateFocus),
+                        .in_set(DWayClientSystem::UpdateZIndex)
+                        .before(update_window_index),
+                    update_window_index
+                        .run_if(
+                            on_event::<SetWindowIndex>().or_else(resource_changed::<WindowStack>),
+                        )
+                        .in_set(DWayClientSystem::UpdateZIndex),
                 ),
             );
     }

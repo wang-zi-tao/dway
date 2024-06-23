@@ -61,7 +61,7 @@ impl UiSvgBundle {
     }
 }
 
-pub fn uisvg_update_system(
+pub fn update_uisvg(
     mut query: Query<(
         Entity,
         Ref<Node>,

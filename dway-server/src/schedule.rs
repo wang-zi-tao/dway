@@ -21,6 +21,7 @@ pub enum DWayServerSet {
     UpdateGeometry,
     UpdateSurface,
     UpdateAppInfo,
+    UpdateImage,
 
     Input,
     GrabInput,
@@ -52,7 +53,7 @@ impl Plugin for DWayServerSchedulePlugin {
         use DWayServerSet::*;
 
         app.configure_sets(
-            PreUpdate,
+            Startup,
             (
                 DWayStartSet::CreateDisplay,
                 DWayStartSet::CreateDisplayFlush,
@@ -71,10 +72,12 @@ impl Plugin for DWayServerSchedulePlugin {
                 UpdateJoin.after(UpdateGeometry),
                 UpdateAppInfo,
                 UpdateSurface.after(UpdateGeometry),
+                UpdateImage,
             )
                 .before(EndPreUpdate)
                 .after(Dispatch)
-                .before(Update),
+                .before(Update)
+                .ambiguous_with_all(),
         );
         app.configure_sets(
             PreUpdate,
@@ -88,12 +91,13 @@ impl Plugin for DWayServerSchedulePlugin {
             (Input.after(UiSystem::Focus), GrabInput, InputFlush)
                 .chain()
                 .before(Create)
-                .before(EndPreUpdate),
+                .before(EndPreUpdate)
+                .ambiguous_with_all(),
         );
 
         app.configure_sets(
             bevy::prelude::PostUpdate,
-            (UpdateKeymap,).after(StartPostUpdate),
+            (UpdateKeymap,).after(StartPostUpdate).ambiguous_with_all(),
         );
 
         app.configure_sets(

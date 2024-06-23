@@ -18,7 +18,7 @@ pub fn spawn(
             }
 
             for command in [
-                "tilix",
+                // "tilix",
                 "gnome-system-monitor",
                 "gedit",
                 "gnome-calculator",
@@ -32,7 +32,7 @@ pub fn spawn(
                 "gnome-tweaks",
                 "gnome-weather",
                 // "/home/wangzi/.build/5e0dff7f0473a25a4eb0bbaeeda9b3fa091ba89-wgpu/debug/examples/cube",
-                "alacritty",
+                // "alacritty",
             ] {
                 compositor.spawn_process(process::Command::new(command));
             }

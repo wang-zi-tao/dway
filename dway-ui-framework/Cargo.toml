@@ -37,6 +37,9 @@ type-equals = "0.1.0"
 downcast-rs = {workspace=true}
 bevy-trait-query = {workspace=true}
 derive_more = "0.99.17"
+rayon = {workspace=true}
+dyn-eq = {workspace=true}
+smallbox = {workspace=true}
 
 [dev-dependencies]
 bevy = { workspace = true, features = ["png", "jpeg"] }

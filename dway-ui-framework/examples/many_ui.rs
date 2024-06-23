@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
@@ -10,7 +12,9 @@ use dway_ui_framework::shader::{
     transform::Margins,
     ShaderAsset, ShaderPlugin, ShapeRender, Transformed,
 };
-use std::time::Duration;
+
+// const NODE_COUNT: usize = 40000;
+const NODE_COUNT: usize = 34000;
 
 fn main() {
     App::new()
@@ -20,10 +24,14 @@ fn main() {
         .add_plugins((
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin {
-                wait_duration: Duration::from_secs(4),
+                wait_duration: Duration::from_secs(1),
                 ..Default::default()
             },
         ))
+        .insert_resource(bevy::winit::WinitSettings {
+            focused_mode: bevy::winit::UpdateMode::Continuous,
+            unfocused_mode: bevy::winit::UpdateMode::Continuous,
+        })
         .add_systems(Startup, setup)
         .insert_resource(ClearColor(Color::WHITE))
         .run();
@@ -75,7 +83,7 @@ fn setup(
                     ),
                 );
                 let handle = ui_material_checkbox.add(shader);
-                for _i in 0..256 {
+                for _i in 0..200 {
                     c.spawn(NodeBundle {
                         style: Style {
                             flex_direction: FlexDirection::Column,
@@ -84,7 +92,7 @@ fn setup(
                         ..Default::default()
                     })
                     .with_children(|c| {
-                        for _j in 0..256 {
+                        for _j in 0..NODE_COUNT / 200 {
                             c.spawn(MaterialNodeBundle {
                                 style: (Style {
                                     width: Val::Px(8.0),

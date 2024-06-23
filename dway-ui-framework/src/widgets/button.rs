@@ -59,7 +59,7 @@ impl UiButton {
     }
 }
 
-pub fn process_ui_button_event(
+pub fn update_ui_button(
     mut ui_query: Query<
         (
             Entity,

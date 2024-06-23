@@ -144,7 +144,7 @@ impl Plugin for DWayWindowPlugin {
             (
                 on_window_created
                     .run_if(on_event::<Insert<DWayWindow>>())
-                    .in_set(DWayClientSystem::CreateComponent),
+                    .in_set(DWayClientSystem::InsertWindowComponent),
                 window_statistics_system.in_set(DWayClientSystem::UpdateScreen),
                 update_window.in_set(DWayClientSystem::UpdateWindow),
             ),

@@ -19,6 +19,8 @@ dhat = {version="0.3.2", optional=true}
 bevy_egui = "0.26.0"
 dexterous_developer = { workspace = true, optional=true}
 bevy_dexterous_developer = {workspace = true, optional=true}
+cfg-if = {workspace=true}
+pprof = {version="0.13", optional=true, features = ["flamegraph"]}
 
 [dependencies.bevy]
 features = ["jpeg", "wayland", "serialize", "default_font", "subpixel_glyph_atlas", "embedded_watcher"]
@@ -74,6 +76,7 @@ dhat-heap = ["dep:dhat"]    # if you are doing heap profiling
 dhat-ad-hoc = ["dep:dhat"]  # if you are doing ad hoc profiling
 trace_tracy = ["bevy/trace_tracy","cpu_profile"]
 trace_chrome = ["bevy/trace_chrome","cpu_profile"]
+pprof = ["cpu_profile", "dep:pprof"]
 heap_profile = ["dhat-heap"]
 cpu_profile = []
 

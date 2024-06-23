@@ -16,7 +16,9 @@ use crate::{
 relationship!(XDisplayHasWindow=>XWindowList-<XDisplayRef);
 
 use self::{
-    events::dispatch_x11_events, systems::{process_window_action_events, x11_window_attach_wl_surface}, window::{MappedXWindow, XWindow, XWindowAttachSurface}
+    events::dispatch_x11_events,
+    systems::{process_window_action_events, x11_window_attach_wl_surface},
+    window::{MappedXWindow, XWindow, XWindowAttachSurface},
 };
 
 #[derive(Bundle)]
@@ -83,13 +85,19 @@ impl Plugin for DWayXWaylandPlugin {
                     .chain()
                     .in_set(DWayServerSet::Create)
                     .after(on_create_display_event),
-                dispatch_x11_events.in_set(DWayServerSet::Dispatch),
-                x11_window_attach_wl_surface.in_set(DWayServerSet::UpdateXWayland),
+                dispatch_x11_events
+                    .run_if(on_event::<DispatchXWaylandDisplay>())
+                    .in_set(DWayServerSet::Dispatch),
+                x11_window_attach_wl_surface
+                    .run_if(on_event::<DispatchDisplay>())
+                    .in_set(DWayServerSet::UpdateXWayland),
             ),
         );
         app.add_systems(
             Last,
-            process_window_action_events.in_set(DWayServerSet::ProcessWindowAction),
+            process_window_action_events
+                .run_if(on_event::<WindowAction>())
+                .in_set(DWayServerSet::ProcessWindowAction),
         );
         app.register_type::<XWindow>();
         app.register_type::<MappedXWindow>();

@@ -1,4 +1,6 @@
 use anyhow::anyhow;
+use bevy::ecs::event::ManualEventReader;
+use reexport::SmallVec;
 use scopeguard::defer;
 use thiserror::Error;
 use x11rb::{
@@ -11,6 +13,7 @@ use x11rb::{
     COPY_DEPTH_FROM_PARENT,
 };
 
+use super::{DWayHasXWayland, DWayXWaylandReady, XWaylandDisplay, XWaylandDisplayWrapper};
 use crate::{
     geometry::{Geometry, GlobalGeometry},
     input::grab::{ResizeEdges, SurfaceGrabKind, WlSurfacePointerState},
@@ -24,8 +27,6 @@ use crate::{
     },
     xdg::DWayWindow,
 };
-
-use super::{DWayHasXWayland, DWayXWaylandReady, XWaylandDisplay, XWaylandDisplayWrapper};
 
 #[derive(Error, Debug)]
 pub enum XWaylandError {
@@ -363,10 +364,17 @@ pub fn process_x11_event(
     Ok(())
 }
 
-pub fn dispatch_x11_events(world: &mut World) {
+pub fn dispatch_x11_events(
+    world: &mut World,
+    mut event_reader: Local<ManualEventReader<DispatchXWaylandDisplay>>,
+) {
+    let display_entity_list = event_reader
+        .read(world.resource())
+        .map(|e| e.0)
+        .collect::<SmallVec<[Entity; 2]>>();
     let display_list = world
         .query::<(Entity, &XWaylandDisplayWrapper, &Parent)>()
-        .iter(world)
+        .iter_many(world, display_entity_list)
         .map(|(entity, display, parent)| (entity, display.clone(), parent.get()))
         .collect::<Vec<_>>();
     display_list

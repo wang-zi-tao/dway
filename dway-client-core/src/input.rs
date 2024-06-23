@@ -112,6 +112,7 @@ impl SurfaceUiNode {
     }
 }
 
+#[derive(Debug)]
 enum MouseEvent<'l> {
     Move(&'l CursorMoved),
     Button(&'l MouseButtonInput),

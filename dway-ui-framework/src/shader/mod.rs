@@ -6,7 +6,7 @@ pub mod transform;
 pub mod test;
 
 use crate::prelude::*;
-use crate::render::ui_material::UiMaterialPlugin;
+use crate::render::ui_nodes::UiMaterialPlugin;
 use bevy::render::render_resource::encase::private::Metadata;
 use bevy::{
     asset::{io::embedded::EmbeddedAssetRegistry, load_internal_asset},
@@ -771,7 +771,7 @@ impl<T: Material> UiMaterial for ShaderAsset<T> {
 pub struct ShaderPlugin<T: Material>(PhantomData<T>);
 
 impl<T: Material> ShaderPlugin<T> {
-    pub fn add_inoto(self, app: &mut App) {
+    pub fn add_into(self, app: &mut App) {
         if !app.is_plugin_added::<Self>() {
             app.add_plugins(self);
         }

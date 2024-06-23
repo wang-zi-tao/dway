@@ -185,7 +185,7 @@ WindowUI=>
         ( state.bbox_rect().min-state.rect().min ).as_vec2() / state.rect().size().as_vec2(),
         state.bbox_rect().size().as_vec2() / state.rect().size().as_vec2(),
         state.image().clone())) />
-    <NodeBundle ZIndex=(ZIndex::Local(2)) @id="title_bar"
+    <NodeBundle @id="title_bar"
         UiDragExt=(UiDrag::default().with_callback(this_entity, on_title_bar_mouse_event).into())
         @style="absolute left-0 right-0 top-{-DECORATION_HEIGHT} height-{DECORATION_HEIGHT}" >
         <MiniNodeBundle @id="close" @style="m-2 w-20 h-20"

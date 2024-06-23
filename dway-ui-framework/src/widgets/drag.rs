@@ -37,7 +37,7 @@ structstruck::strike! {
     }
 }
 
-pub fn ui_drag_system(
+pub fn update_ui_drag(
     mut query: Query<
         (
             Entity,

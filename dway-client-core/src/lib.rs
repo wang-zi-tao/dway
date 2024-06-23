@@ -25,17 +25,14 @@ pub mod workspace;
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum DWayClientSystem {
     Init,
-    FromServer,
-    Create,
-    CreateFlush,
-    CreateComponent,
-    CreateComponentFlush,
+    CreateScreen,
+    InsertWindowComponent,
     Input,
     UpdateState,
     UpdateFocus,
+    UpdateWindowStack,
     UpdateZIndex,
     UpdateLayout,
-    UpdateLayoutFlush,
     UpdateWindowGeometry,
     UpdateScreen,
     UpdateWorkspace,
@@ -88,41 +85,28 @@ impl Plugin for DWayClientPlugin {
         app.configure_sets(
             PreUpdate,
             (
-                FromServer,
-                Create,
-                CreateFlush,
-                CreateComponent,
-                CreateComponentFlush,
+                InsertWindowComponent,
+                CreateScreen,
+                UpdateWorkspace,
+                UpdateScreen.after(UpdateWorkspace).after(CreateScreen),
                 Input,
+                UpdateWindowStack.after(Input),
+                UpdateFocus,
+                UpdateZIndex
+                    .after(InsertWindowComponent)
+                    .after(UpdateFocus)
+                    .after(UpdateWindowStack),
+                UpdateWindow.after(UpdateScreen).after(UpdateWorkspace),
+                UpdateLayout
+                    .after(UpdateWorkspace)
+                    .after(UpdateScreen)
+                    .after(UpdateWindowGeometry),
+                UpdateWindowGeometry.before(UpdateLayout),
                 UpdateState,
-                UpdateUI,
             )
-                .chain()
-                .after(DWayServerSet::EndPreUpdate)
-                .ambiguous_with_all(),
-        );
-        app.configure_sets(
-            PreUpdate,
-            (UpdateLayout, UpdateLayoutFlush, UpdateWindowGeometry)
-                .chain()
-                .after(DWayServerSet::EndPreUpdate)
-                .after(UpdateState)
-                .after(UpdateFocus)
-                .before(UpdateUI),
-        );
-        app.configure_sets(
-            PreUpdate,
-            (UpdateScreen, UpdateWorkspace, UpdateWindow)
-                .after(DWayServerSet::EndPreUpdate)
-                .after(UpdateState)
-                .before(UpdateUI),
-        );
-        app.configure_sets(
-            PreUpdate,
-            (UpdateFocus, UpdateZIndex)
-                .after(DWayServerSet::EndPreUpdate)
-                .after(UpdateState)
-                .before(UpdateUI),
+                .ambiguous_with_all()
+                .before(UpdateUI)
+                .after(DWayServerSet::UpdateGeometry),
         );
         app.configure_sets(
             PostUpdate,
@@ -137,16 +121,7 @@ impl Plugin for DWayClientPlugin {
                 .ambiguous_with_all(),
         );
 
-        app.add_systems(
-            PreUpdate,
-            (
-                apply_deferred.in_set(UpdateLayoutFlush),
-                apply_deferred.in_set(CreateFlush),
-                apply_deferred.in_set(CreateComponentFlush),
-            ),
-        );
-
-        app.add_systems(PreUpdate, (setup_2d, apply_deferred).chain().in_set(Init));
+        app.add_systems(Startup, (setup_2d, apply_deferred).chain().in_set(Init));
         app.add_systems(PostUpdate, apply_deferred.in_set(DestroyFlush));
         app.add_plugins((
             model::DWayClientModelPlugin,

@@ -1,20 +1,34 @@
+use std::path::{Path, PathBuf};
+
 use anyhow::Result;
 use bevy::{ecs::schedule::ScheduleLabel, prelude::*};
 #[cfg(feature = "dump_system_graph")]
 use bevy_mod_debugdump::schedule_graph;
-use std::path::{Path, PathBuf};
 
 #[cfg(feature = "dump_system_graph")]
-pub fn dump_schedule(app: &mut App, name: &str, schedule_label: impl ScheduleLabel) -> Result<()> {
+pub fn dump_schedule(app: &mut App, schedule_label: impl ScheduleLabel) -> Result<()> {
+    let mut path = PathBuf::from(".output/schedule");
+    path.push(&format!("{schedule_label:?}"));
+    path.set_extension("dot");
+
     let dot = bevy_mod_debugdump::schedule_graph_dot(
         app,
         schedule_label,
         &schedule_graph::Settings::default(),
     );
-    let mut path = PathBuf::from(".output/schedule");
-    path.push(name);
-    path.set_extension("dot");
     std::fs::write(&path, dot)?;
+
+    let mut svg_path = path.clone();
+    svg_path.set_extension("svg");
+    let _ = std::process::Command::new("dot")
+        .args([
+            "-Tsvg",
+            &path.to_string_lossy(),
+            "-o",
+            &svg_path.to_string_lossy(),
+        ])
+        .spawn();
+
     Ok(())
 }
 
@@ -25,16 +39,15 @@ pub fn dump_schedules_system_graph(app: &mut App) -> Result<()> {
         std::fs::create_dir(".output/schedule")?;
     }
 
-    dump_schedule(app, "Main", Main)?;
-    dump_schedule(app, "PreStartUp", PreStartup)?;
-    dump_schedule(app, "Startup", Startup)?;
-    dump_schedule(app, "PostStartup", PostStartup)?;
-    dump_schedule(app, "First", First)?;
-    dump_schedule(app, "PreUpdate", PreUpdate)?;
-    dump_schedule(app, "StateTransition", StateTransition)?;
-    dump_schedule(app, "Update", Update)?;
-    dump_schedule(app, "PostUpdate", PostUpdate)?;
-    dump_schedule(app, "Last", Last)?;
+    dump_schedule(app, Main)?;
+    dump_schedule(app, Startup)?;
+    dump_schedule(app, PostStartup)?;
+    dump_schedule(app, First)?;
+    dump_schedule(app, PreUpdate)?;
+    dump_schedule(app, StateTransition)?;
+    dump_schedule(app, Update)?;
+    dump_schedule(app, PostUpdate)?;
+    dump_schedule(app, Last)?;
     Ok(())
 }
 
@@ -67,3 +80,44 @@ pub fn print_debug_info(query: Query<(Entity, &Node, &Interaction)>, mut command
     //     }
     // }
 }
+
+#[cfg(feature = "dhat-heap")]
+pub fn memory_profiler() -> dhat::Profiler {
+    dhat::Profiler::new_heap()
+}
+
+#[cfg(feature = "pprof")]
+mod pprof {
+    use std::{fs::File, process::Command};
+
+    use pprof::ProfilerGuard;
+
+    use crate::info;
+
+    pub struct PprofGuard(ProfilerGuard<'static>);
+    impl Drop for PprofGuard {
+        fn drop(&mut self) {
+            if let Ok(report) = self.0.report().build() {
+                info!("performance report: flamegraph.svg");
+                {
+                    let file = File::create("flamegraph.svg").unwrap();
+                    report.flamegraph(file).unwrap();
+                }
+                let _ = Command::new("xdg-open").arg("flamegraph.svg").spawn();
+            };
+        }
+    }
+
+    pub fn pprof_profiler() -> PprofGuard {
+        PprofGuard(
+            pprof::ProfilerGuardBuilder::default()
+                .frequency(1000)
+                .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+                .build()
+                .unwrap(),
+        )
+    }
+}
+
+#[cfg(feature = "pprof")]
+pub use pprof::pprof_profiler;

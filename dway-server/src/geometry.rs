@@ -120,17 +120,19 @@ pub fn update_global_physical_rect(
         With<Parent>,
     >,
 ) {
-    for (global, geometry, children) in root_query.iter_mut() {
-        do_update_node(
-            global,
-            geometry.map(|r| r.geometry).unwrap_or_else(|| {
-                IRect::from_pos_size(Default::default(), IVec2::new(i32::MAX, i32::MAX))
-            }),
-            Default::default(),
-            children,
-            &children_query,
-        );
-    }
+    root_query
+        .par_iter_mut()
+        .for_each(|(global, geometry, children)| {
+            do_update_node(
+                global,
+                geometry.map(|r| r.geometry).unwrap_or_else(|| {
+                    IRect::from_pos_size(Default::default(), IVec2::new(i32::MAX, i32::MAX))
+                }),
+                Default::default(),
+                children,
+                &children_query,
+            )
+        });
 }
 
 pub struct GeometryPlugin;
@@ -138,7 +140,9 @@ impl Plugin for GeometryPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PreUpdate,
-            update_global_physical_rect.after(DWayServerSet::UpdateGeometry),
+            update_global_physical_rect
+                .run_if(|geo_query: Query<(), Changed<Geometry>>| !geo_query.is_empty())
+                .in_set(DWayServerSet::UpdateGeometry),
         );
         app.register_type::<Geometry>();
         app.register_type::<GlobalGeometry>();
@@ -146,7 +150,7 @@ impl Plugin for GeometryPlugin {
     }
 }
 
-pub fn set_geometry(geo: &mut Geometry, global_geo: &mut GlobalGeometry, rect: IRect){
+pub fn set_geometry(geo: &mut Geometry, global_geo: &mut GlobalGeometry, rect: IRect) {
     let global_pos = global_geo.pos();
     global_geo.set_pos(global_pos + rect.pos() - geo.pos());
     global_geo.set_size(rect.size());

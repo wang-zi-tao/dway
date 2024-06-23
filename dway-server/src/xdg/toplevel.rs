@@ -248,7 +248,7 @@ pub struct ToplevelWorldQuery {
     pointer_state: &'static mut WlSurfacePointerState,
 }
 
-pub fn process_window_action_event(
+pub fn receive_window_action_event(
     mut graph: InputGraph,
     mut events: EventReader<WindowAction>,
     mut window_query: Query<ToplevelWorldQuery, With<DWayWindow>>,
@@ -345,7 +345,7 @@ impl Plugin for XdgToplevelPlugin {
         app.register_type::<DWayToplevel>();
         app.add_systems(
             Last,
-            process_window_action_event.in_set(DWayServerSet::ProcessWindowAction),
+            receive_window_action_event.in_set(DWayServerSet::ProcessWindowAction),
         );
     }
 }

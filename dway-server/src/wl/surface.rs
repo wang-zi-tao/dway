@@ -1,10 +1,13 @@
-use bevy::core::FrameCount;
+use std::borrow::Cow;
+
+use bevy::{core::FrameCount, tasks::IoTaskPool};
 use bevy_relationship::relationship;
 use wayland_server::backend::smallvec::SmallVec;
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 
 use crate::{
     client::ClientData,
+    display::DisplayListQuery,
     geometry::Geometry,
     prelude::*,
     state::flush_display,
@@ -13,7 +16,6 @@ use crate::{
     xdg::popup::XdgPopup,
     zwp::dmabufparam::DmaBuffer,
 };
-use std::borrow::Cow;
 
 relationship!(ClientHasSurface=>SurfaceList-<ClientRef);
 
@@ -108,6 +110,7 @@ impl WlSurface {
             commit_count: 0,
         }
     }
+
     pub fn texture_descriptor<'l>(image_size: Extent3d) -> TextureDescriptor<'l> {
         TextureDescriptor {
             label: None,
@@ -123,6 +126,7 @@ impl WlSurface {
             view_formats: &[],
         }
     }
+
     pub fn resize(&mut self, assets: &mut Assets<Image>, size: IVec2) {
         let image_size = Extent3d {
             width: size.x as u32,
@@ -142,6 +146,7 @@ impl WlSurface {
             .push(IRect::from_pos_size((0, 0).into(), size));
         self.just_commit = true;
     }
+
     pub fn image_rect(&self) -> IRect {
         IRect::from_pos_size(
             -self.commited.window_geometry.unwrap_or_default().pos(),
@@ -447,15 +452,29 @@ pub fn cleanup_buffer(buffer_query: Query<(&WlShmBuffer, &AttachedBy)>) {
     }
 }
 
-pub fn emit_callbacks(mut surface_query: Query<&mut WlSurface>, time: Res<Time>) {
+pub fn emit_callbacks(
+    mut surface_query: Query<&mut WlSurface>,
+    time: Res<Time>,
+    display_query: DisplayListQuery,
+) {
+    let mut tasks = Vec::new();
     for mut surface in surface_query.iter_mut() {
         if !surface.commited.callbacks.is_empty() {
             for callback in surface.commited.callbacks.drain(..) {
-                debug!("{} done", WlResource::id(&callback));
-                callback.done(time.elapsed().as_millis() as u32);
+                tasks.push((callback, time.elapsed()));
             }
         }
     }
+    let mut handles = display_query.get_handle_list();
+    IoTaskPool::get()
+        .spawn(async move {
+            for (callback, duration) in tasks {
+                debug!("{} done", WlResource::id(&callback));
+                callback.done(duration.as_millis() as u32);
+            }
+            handles.flush();
+        })
+        .detach();
 }
 
 pub fn cleanup_surface(mut surface_query: Query<&mut WlSurface>) {
@@ -481,7 +500,7 @@ impl Plugin for WlSurfacePlugin {
         app.add_systems(First, cleanup_surface);
         app.add_systems(
             PreUpdate,
-            update_buffer_size.in_set(DWayServerSet::UpdateGeometry),
+            update_buffer_size.in_set(DWayServerSet::UpdateImage),
         );
         app.register_type::<WlSurface>();
         app.register_relation::<AttachmentRelationship>();

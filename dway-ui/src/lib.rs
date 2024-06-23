@@ -74,10 +74,7 @@ impl Plugin for DWayUiPlugin {
             popups::volume_control::VolumeControlPlugin,
             popups::panel_settings::PanelSettingsPlugin,
         ));
-        app.add_systems(
-            PreUpdate,
-            init_screen_ui.after(DWayClientSystem::CreateComponentFlush),
-        );
+        app.add_systems(PreUpdate, init_screen_ui.after(DWayClientSystem::UpdateUI));
         app.add_systems(Startup, setup);
     }
 }
