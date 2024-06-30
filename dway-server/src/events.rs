@@ -8,7 +8,7 @@ pub struct Insert<T> {
     pub entity: Entity,
     pub phase: std::marker::PhantomData<T>,
 }
-impl<T: Component> Event for Insert<T> {}
+impl<T: Send + Sync + 'static> Event for Insert<T> {}
 impl<T> Insert<T> {
     pub fn new(entity: Entity) -> Self {
         Self {
@@ -22,7 +22,7 @@ pub struct Destroy<T> {
     pub entity: Entity,
     pub phase: std::marker::PhantomData<T>,
 }
-impl<T: Component> Event for Destroy<T> {}
+impl<T: Send + Sync + 'static> Event for Destroy<T> {}
 impl<T> Destroy<T> {
     pub fn new(entity: Entity) -> Self {
         Self {

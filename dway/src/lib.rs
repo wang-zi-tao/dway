@@ -19,6 +19,7 @@ use bevy::{
     winit::WinitPlugin,
 };
 use bevy_framepace::Limiter;
+use cfg_if::cfg_if;
 use clap::Parser;
 use dway_client_core::{
     layout::{
@@ -36,21 +37,26 @@ use dway_util::logger::DWayLogPlugin;
 use keys::*;
 use opttions::DWayOption;
 
-const LOG_LEVEL: Level = Level::DEBUG;
+cfg_if!{if #[cfg(feature="debug")]{
+    const LOG_LEVEL: Level = Level::DEBUG;
+}else{
+    const LOG_LEVEL: Level = Level::INFO;
+}}
+
 const LOG: &str = "\
 bevy_ecs=info,\
 bevy_render=debug,\
 bevy_ui=trace,\
+bevy_time=info,\
 dway=debug,\
 polling=info,\
-bevy_relationship=debug,\
+bevy_relationship=info,\
 dway_server=debug,\
 dway_server::render::importnode=debug,\
 dway_server::zxdg::decoration=debug,\
-dway_client_core=debug,\
+dway_client_core=info,\
 dway_util::eventloop=info,\
 dway_tty=info,\
-dway_util::eventloop=info,\
 nega::front=info,\
 naga=warn,\
 wgpu=info,\
@@ -182,19 +188,18 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         }
     }
 
-    #[cfg(feature = "debug")]
-    {
-        app.add_plugins(LogDiagnosticsPlugin {
-            wait_duration: Duration::from_secs(8),
-            ..Default::default()
-        });
-    }
-    #[cfg(not(feature = "debug"))]
-    {
-        app.add_plugins(LogDiagnosticsPlugin {
-            wait_duration: Duration::from_secs(256),
-            ..Default::default()
-        });
+    cfg_if::cfg_if! {
+        if #[cfg(any(feature = "cpu_profile", feature="heap_profile"))] {
+            app.add_plugins(LogDiagnosticsPlugin {
+                wait_duration: Duration::from_secs(8),
+                ..Default::default()
+            });
+        } else {
+            app.add_plugins(LogDiagnosticsPlugin {
+                wait_duration: Duration::from_secs(1024),
+                ..Default::default()
+            });
+        }
     }
 
     app.add_plugins((
@@ -212,17 +217,17 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     app.add_systems(Startup, setup);
     #[cfg(feature = "debug")]
     {
-        app.add_systems(
-            PreUpdate,
-            (
-                spawn_app::spawn
-                    .run_if(on_event::<dway_server::state::WaylandDisplayCreated>())
-                    .in_set(dway_server::macros::DWayServerSet::CreateGlobal),
-                spawn_app::spawn_x11
-                    .run_if(on_event::<dway_server::x11::DWayXWaylandReady>())
-                    .in_set(dway_server::macros::DWayServerSet::UpdateXWayland),
-            ),
-        );
+        // app.add_systems(
+        //     PreUpdate,
+        //     (
+        //         spawn_app::spawn
+        //             .run_if(on_event::<dway_server::state::WaylandDisplayCreated>())
+        //             .in_set(dway_server::macros::DWayServerSet::CreateGlobal),
+        //         spawn_app::spawn_x11
+        //             .run_if(on_event::<dway_server::x11::DWayXWaylandReady>())
+        //             .in_set(dway_server::macros::DWayServerSet::UpdateXWayland),
+        //     ),
+        // );
     }
     app.add_systems(Update, (wm_mouse_action, wm_keys, update));
     app.add_systems(Last, last);

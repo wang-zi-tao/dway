@@ -46,7 +46,7 @@ bevy = { workspace = true, features = ["png", "jpeg"] }
 regex = {workspace=true}
 lazy_static = {workspace=true}
 pretty_assertions = "1.4.0"
-image = "0.23"
+image = {workspace=true}
 image-diff = "0.1"
 tempdir = "0.3.7"
 bevy-inspector-egui = "0.23.0"

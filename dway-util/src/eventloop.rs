@@ -10,7 +10,17 @@ use std::{
 };
 
 use anyhow::Result;
-use bevy::{app::AppExit, ecs::system::Command, prelude::*, utils::HashMap, window::RequestRedraw};
+use backtrace::Backtrace;
+use bevy::{
+    app::{AppExit, MainScheduleOrder},
+    ecs::{
+        schedule::{ExecutorKind, ScheduleLabel},
+        system::Command,
+    },
+    prelude::*,
+    utils::HashMap,
+    window::RequestRedraw,
+};
 use nix::{
     libc::listen,
     sys::{
@@ -249,6 +259,7 @@ impl PollerInner {
         callback: Option<FdCallback>,
     ) -> PollerRawGuard {
         let raw_fd = fd.as_raw_fd();
+        debug!("add file descriptor ({:?}) into EPOLL", raw_fd);
         unsafe {
             self.do_add_raw(raw_fd, callback);
         }
@@ -263,6 +274,11 @@ impl PollerInner {
         fd: Fd,
         callback: Option<FdCallback>,
     ) -> PollerGuard<Fd> {
+        debug!(
+            "add file descriptor ({:?}: {}) into EPOLL",
+            fd.as_fd(),
+            type_name::<Fd>()
+        );
         let raw_fd = fd.as_fd().as_raw_fd();
         unsafe {
             self.do_add_raw(raw_fd, callback);
@@ -271,11 +287,7 @@ impl PollerInner {
     }
 
     pub fn remove(&self, fd: impl AsSource + AsRawFd) -> Result<()> {
-        debug!("remove file descriptor ({:?}) from EPOLL", fd.as_raw_fd());
-        let key = Self::fd_key(fd.as_raw_fd());
-        self.fds.lock().unwrap().remove(&key);
-        self.raw.delete(fd)?;
-        Ok(())
+        unsafe { self.remove_raw(fd.as_raw_fd()) }
     }
 
     pub unsafe fn remove_raw(&self, fd: RawFd) -> Result<()> {
@@ -315,7 +327,7 @@ impl PollerInner {
 
             for event in events.iter() {
                 match event.key {
-                    FD_KEY_BEGIN => {
+                    FD_KEY_TIMER => {
                         response.timeout = true;
                         debug!("reset timer");
                         self.timer.wait()?;
@@ -365,6 +377,9 @@ impl PollerInner {
     }
 }
 
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+struct PollerSchedule;
+
 fn on_frame_begin(world: &mut World) {
     let mut commands = SmallVec::<[_; 8]>::new();
     {
@@ -408,7 +423,13 @@ impl Plugin for EventLoopPlugin {
         app.insert_non_send_resource(Poller::new());
         match &self.mode {
             EventLoopPluginMode::WinitMode => {
-                app.add_systems(First, on_frame_begin.in_set(PollerSystems::PollEvent));
+                let mut poller_schedule = Schedule::new(PollerSchedule);
+                poller_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+                poller_schedule.add_systems(on_frame_begin.in_set(PollerSystems::PollEvent));
+                app.add_schedule(poller_schedule);
+                let mut main_schedule_order = app.world.resource_mut::<MainScheduleOrder>();
+                main_schedule_order.insert_after(First, PollerSchedule);
+
                 app.add_systems(Last, on_frame_finish.in_set(PollerSystems::Flush));
                 let winit_eventloop_proxy = app
                     .world

@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use ash::vk;
-use bevy::render::texture::TextureFormatPixelInfo;
+use bevy::render::texture::{TextureFormatPixelInfo};
 use drm_fourcc::DrmFourcc;
 use wayland_server::protocol::wl_shm;
 use wgpu::TextureFormat;
@@ -68,6 +68,15 @@ impl ImageFormat {
             DrmFourcc::Xbgr8888 => ABGR8888,
             _ => {
                 bail!("unsupported fourcc ({fourcc:?})");
+            },
+        } )
+    }
+    pub fn from_wgpu(format: wgpu::TextureFormat) -> Result<Self>{
+        Ok( match format {
+            wgpu::TextureFormat::Bgra8UnormSrgb => ARGB8888,
+            wgpu::TextureFormat::Rgba8Unorm => ABGR8888,
+            _ => {
+                bail!("unsupported wgpu format ({format:?})");
             },
         } )
     }

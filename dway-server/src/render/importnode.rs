@@ -6,6 +6,20 @@ use std::{
     },
 };
 
+use bevy::{
+    core::FrameCount,
+    ecs::{entity::EntityHashMap, system::SystemState},
+    render::{
+        render_asset::RenderAssets,
+        render_graph::Node,
+        renderer::{RenderDevice, RenderQueue},
+        texture::GpuImage,
+        Extract,
+    },
+    utils::HashSet,
+};
+use wgpu::CommandEncoderDescriptor;
+
 use super::{
     gles::EglState,
     util::DWayRenderError,
@@ -20,18 +34,6 @@ use crate::{
         surface::WlSurface,
     },
     zwp::dmabufparam::DmaBuffer,
-};
-use bevy::{
-    core::FrameCount,
-    ecs::{entity::EntityHashMap, system::SystemState},
-    render::{
-        render_asset::RenderAssets,
-        render_graph::Node,
-        renderer::{RenderDevice, RenderQueue},
-        texture::GpuImage,
-        Extract,
-    },
-    utils::HashSet,
 };
 
 pub mod graph {
@@ -99,6 +101,7 @@ pub struct DWayDisplayHandles {
     pub map: EntityHashMap<DisplayHandle>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn extract_surface(
     surface_query: Extract<Query<&WlSurface>>,
     shm_buffer_query: Extract<Query<&WlShmBuffer>>,
@@ -113,10 +116,9 @@ pub fn extract_surface(
     mut state: ResMut<ImportState>,
 ) {
     state.removed_image.clear();
-    state.removed_image.clear();
     for surface in surface_query.iter() {
-        if !(surface.just_commit
-            || surface.commit_time + 2 >= frame_count.0 && surface.commit_count <= 2)
+        if !surface.just_commit
+        // TODO test
         {
             continue;
         }
@@ -175,12 +177,12 @@ pub fn prepare_surfaces(
     let Some(state_guard) = state_guard.as_mut() else {
         return;
     };
-    match state_guard{
-        ImportStateKind::Egl(state) => {},
+    match state_guard {
+        ImportStateKind::Egl(_state) => {}
         ImportStateKind::Vulkan(state) => {
-            state.shm_image_map.retain(|k,_|k.is_alive());
-            state.dma_image_map.retain(|k,_|k.is_alive());
-        },
+            state.shm_image_map.retain(|k, _| k.is_alive());
+            state.dma_image_map.retain(|k, _| k.is_alive());
+        }
     };
     surface_query
         .iter()
@@ -188,7 +190,8 @@ pub fn prepare_surfaces(
             match state_guard {
                 ImportStateKind::Egl(_) => {}
                 ImportStateKind::Vulkan(vulkan) => {
-                    let _span = debug_span!("prepare wayland surface", surface = ?surface.raw.id()).entered();
+                    let _span = debug_span!("prepare wayland surface", surface = ?surface.raw.id())
+                        .entered();
                     if let Err(e) = vulkan::prepare_wl_surface(
                         vulkan,
                         render_device.wgpu_device(),
@@ -224,7 +227,7 @@ impl Node for ImportSurfacePassNode {
     fn run(
         &self,
         _graph: &mut bevy::render::render_graph::RenderGraphContext,
-        _render_context: &mut bevy::render::renderer::RenderContext,
+        render_context: &mut bevy::render::renderer::RenderContext,
         world: &bevy::prelude::World,
     ) -> Result<(), bevy::render::render_graph::NodeRunError> {
         let render_device = world.resource::<RenderDevice>();
@@ -243,6 +246,10 @@ impl Node for ImportSurfacePassNode {
                 break;
             }
         }
+
+        let mut command_encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("import_wayland_buffer_command_encoder"),
+        });
         for (entity, surface, buffer, dma_buffer, egl_buffer) in
             self.surface_query.iter_manual(world)
         {
@@ -258,9 +265,15 @@ impl Node for ImportSurfacePassNode {
                     render_device.wgpu_device(),
                     gles,
                 ),
-                Some(ImportStateKind::Vulkan(_)) => {
-                    super::vulkan::import_wl_surface(surface, buffer, &texture.texture, &render_queue)
-                }
+                Some(ImportStateKind::Vulkan(vulkan)) => super::vulkan::import_wl_surface(
+                    surface,
+                    buffer,
+                    dma_buffer,
+                    &texture.texture,
+                    render_queue,
+                    vulkan,
+                    &mut command_encoder,
+                ),
                 None => continue,
             };
 
@@ -278,7 +291,7 @@ impl Node for ImportSurfacePassNode {
                 );
             };
         }
-
+        render_context.add_command_buffer(command_encoder.finish());
         Ok(())
     }
 

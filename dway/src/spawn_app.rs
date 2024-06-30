@@ -33,8 +33,14 @@ pub fn spawn(
                 "gnome-weather",
                 // "/home/wangzi/.build/5e0dff7f0473a25a4eb0bbaeeda9b3fa091ba89-wgpu/debug/examples/cube",
                 // "alacritty",
+            
             ] {
                 compositor.spawn_process(process::Command::new(command));
+            }
+            {
+                let mut command = process::Command::new("target/debug/dway-test-client");
+                command.args(["gtk4"]);
+                compositor.spawn_process(command);
             }
 
             // let mut command = process::Command::new("alacritty");

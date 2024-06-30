@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use bevy::ecs::event::ManualEventReader;
+use bevy::ecs::{entity::EntityHashSet, event::ManualEventReader};
 use reexport::SmallVec;
 use scopeguard::defer;
 use thiserror::Error;
@@ -371,7 +371,7 @@ pub fn dispatch_x11_events(
     let display_entity_list = event_reader
         .read(world.resource())
         .map(|e| e.0)
-        .collect::<SmallVec<[Entity; 2]>>();
+        .collect::<EntityHashSet>();
     let display_list = world
         .query::<(Entity, &XWaylandDisplayWrapper, &Parent)>()
         .iter_many(world, display_entity_list)

@@ -26,6 +26,9 @@ polling = "3.7.1"
 
 wayland-server = { version="0.31.0",features = [] }
 wgpu = { workspace = true }
+wgpu-hal = { workspace = true }
 ash = { workspace = true }
 glow = { workspace = true }
 drm-fourcc = { workspace = true }
+image = {workspace = true}
+chrono = {workspace = true}

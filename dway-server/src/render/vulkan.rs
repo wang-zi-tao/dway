@@ -18,7 +18,8 @@ use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use dway_util::formats::ImageFormat;
 use nix::libc::makedev;
 use wgpu::{
-    Extent3d, FilterMode, ImageCopyTexture, SamplerDescriptor, TextureAspect, TextureDimension,
+    CommandEncoder, Extent3d, FilterMode, ImageCopyTexture, SamplerDescriptor, TextureAspect,
+    TextureDimension,
 };
 use wgpu_hal::{api::Vulkan, MemoryFlags, TextureUses};
 
@@ -371,6 +372,7 @@ pub unsafe fn image_to_hal_texture(
             usage: TextureUses::COLOR_TARGET
                 | TextureUses::DEPTH_STENCIL_READ
                 | TextureUses::DEPTH_STENCIL_WRITE
+                | TextureUses::COPY_SRC
                 | TextureUses::COPY_DST,
             view_formats: vec![],
             memory_flags: MemoryFlags::empty(),
@@ -401,6 +403,7 @@ pub unsafe fn hal_texture_to_gpuimage(
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT
                 | wgpu::TextureUsages::TEXTURE_BINDING
                 | wgpu::TextureUsages::STORAGE_BINDING
+                | wgpu::TextureUsages::COPY_SRC
                 | wgpu::TextureUsages::COPY_DST,
             view_formats: &[texture_format],
         },
@@ -499,6 +502,65 @@ pub unsafe fn import_shm(
     Ok(())
 }
 
+pub unsafe fn import_dma(
+    surface: &WlSurface,
+    command_encoder: &mut CommandEncoder,
+    dma_buffer: &DmaBuffer,
+    texture: &wgpu::Texture,
+    vulkan_state: &VulkanState,
+) -> Result<()> {
+    span!(Level::ERROR, "import_shm", shm_buffer = %WlResource::id(&dma_buffer.raw));
+    let size = dma_buffer.size;
+
+    let Some(dma_texture) = vulkan_state.dma_image_map.get(&dma_buffer.raw) else {
+        return Ok(());
+    };
+
+    let image_area = IRect::from_pos_size(IVec2::default(), size);
+    let texture_extent = texture.size();
+    let texture_size = IVec2::new(texture_extent.width as i32, texture_extent.height as i32);
+    let mut emit_rect = |rect: IRect| -> Result<()> {
+        let rect = rect.intersection(IRect::from_pos_size(IVec2::ZERO, texture_size));
+        debug!(?rect, "copy dma texture");
+        let origin = wgpu::Origin3d {
+            x: rect.x() as u32,
+            y: rect.y() as u32,
+            z: 0,
+        };
+        command_encoder.copy_texture_to_texture(
+            ImageCopyTexture {
+                texture: &dma_texture.1.texture,
+                mip_level: 0,
+                origin,
+                aspect: TextureAspect::All,
+            },
+            ImageCopyTexture {
+                texture,
+                mip_level: 0,
+                origin,
+                aspect: TextureAspect::All,
+            },
+            Extent3d {
+                width: rect.width() as u32,
+                height: rect.height() as u32,
+                depth_or_array_layers: 1,
+            },
+        );
+        Ok(())
+    };
+
+    let damage = merge_damage(&surface.commited.damages);
+    if damage.is_empty() {
+        emit_rect(image_area)?;
+    } else {
+        for rect in damage {
+            emit_rect(rect)?;
+        }
+    }
+
+    Ok(())
+}
+
 pub fn prepare_wl_surface(
     state: &mut VulkanState,
     device: &wgpu::Device,
@@ -541,9 +603,7 @@ pub fn prepare_wl_surface(
             image_assets.insert(surface.image.clone(), gpu_image);
         } else if let Some(dma_buffer) = dma_buffer {
             match state.dma_image_map.entry(dma_buffer.raw.clone()) {
-                Entry::Occupied(o) => {
-                    image_assets.insert(surface.image.clone(), o.get().1.clone());
-                }
+                Entry::Occupied(o) => {}
                 Entry::Vacant(v) => {
                     let (size, format, image) = device
                         .as_hal::<Vulkan, _, _>(|hal_device| {
@@ -561,7 +621,6 @@ pub fn prepare_wl_surface(
                         .ok_or(DWayRenderError::BackendIsIsInvalid)??;
                     let hal_texture = image_to_hal_texture(size, format, image.image);
                     let gpu_image = hal_texture_to_gpuimage(device, size, format, hal_texture);
-                    image_assets.insert(surface.image.clone(), gpu_image.clone());
                     v.insert((image, gpu_image));
                 }
             };
@@ -573,12 +632,17 @@ pub fn prepare_wl_surface(
 pub fn import_wl_surface(
     surface: &WlSurface,
     shm_buffer: Option<&WlShmBuffer>,
+    dma_buffer: Option<&DmaBuffer>,
     texture: &wgpu::Texture,
     queue: &wgpu::Queue,
+    vulkan_state: &VulkanState,
+    command_encoder: &mut CommandEncoder,
 ) -> Result<(), DWayRenderError> {
     unsafe {
         if let Some(shm_buffer) = shm_buffer {
             import_shm(surface, queue, shm_buffer, texture)?;
+        } else if let Some(dma_buffer) = dma_buffer {
+            import_dma(surface, command_encoder, dma_buffer, texture, vulkan_state)?;
         }
         Ok(())
     }

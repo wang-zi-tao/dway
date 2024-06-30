@@ -12,7 +12,8 @@ members = [
     "dway-ui-framework",
     "bevy-relationship",
     "bevy-relationship-derive",
-    "dway-util",
+    "dway-util", 
+    "dway-server-test/dway-test-client",
 ]
 
 [workspace.dependencies]
@@ -80,6 +81,7 @@ drm-fourcc = "2.2.0"
 wayland-server = { version="0.31.0",features = [] }
 wayland-backend = { version="0.3.2", features = ["server_system"] }
 wayland-protocols = { version = "0.31.0", features = ["unstable", "staging", "server", "wayland-server"]}
+image = "0.23"
 
 [workspace.dependencies.bevy]
 version = "0.13.2"

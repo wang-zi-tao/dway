@@ -129,6 +129,7 @@ impl XWaylandDisplay {
                 &wayland_client_stream,
                 Some(Arc::new(move |world: &mut World| {
                     world.send_event(DispatchXWaylandDisplay(entity));
+                    world.send_event(DispatchDisplay(dway_entity));
                 })),
             )
         };

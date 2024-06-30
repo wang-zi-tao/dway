@@ -12,6 +12,7 @@ use std::{
 use anyhow::anyhow;
 use bevy::{
     ecs::{
+        entity::EntityHashSet,
         event::ManualEventReader,
         query::{QueryData, QueryEntityError, WorldQuery},
         system::{Command, SystemState},
@@ -76,16 +77,23 @@ pub struct DWayServer {
     pub display_number: Option<usize>,
     pub globals: Vec<GlobalId>,
     pub envs: HashMap<OsString, OsString>,
-    pub socket: ListeningSocket,
+    pub socket: PollerGuard<ListeningSocket>,
 }
 
 impl DWayServer {
     pub fn new(config: &DWayServerConfig, entity: Entity, poller: &mut Poller) -> Self {
-        let display = wayland_server::Display::<DWay>::new().unwrap();
-        let display = poller.add_with_callback(display, move |world| {
-            world.send_event(DispatchDisplay(entity));
-        });
-        let socket = ListeningSocket::bind_auto("wayland", 1..33).unwrap();
+        let display = poller.add_with_callback(
+            wayland_server::Display::<DWay>::new().unwrap(),
+            move |world| {
+                world.send_event(DispatchDisplay(entity));
+            },
+        );
+        let socket = poller.add_with_callback(
+            ListeningSocket::bind_auto("wayland", 1..33).unwrap(),
+            move |world| {
+                world.send_event(DispatchDisplay(entity));
+            },
+        );
         info!("create wayland server {:?}", &socket.socket_name().unwrap());
         let handle = display.handle();
         for func in &config.globals {
@@ -110,30 +118,7 @@ impl DWayServer {
 
     pub fn dispatch(&mut self, entity: Entity, world: &mut World) -> Result<()> {
         while let Some(stream) = self.socket.accept()? {
-            let mut poller = world.non_send_resource_mut::<Poller>();
-            let guard = unsafe {
-                poller.add_raw_with_callback(&stream, move |world| {
-                    world.send_event(DispatchDisplay(entity));
-                })
-            };
-            let events = world.resource::<ClientEvents>().clone();
-            let mut entity_mut = world.spawn_empty();
-            match self.display.handle().insert_client(
-                stream,
-                Arc::new(ClientData::new(entity_mut.id(), &events, guard)),
-            ) {
-                Ok(c) => {
-                    entity_mut
-                        .insert((Name::new(Cow::from(client_name(&c.id()))), Client::new(&c)));
-                    info!(entity=?entity_mut.id(),"add client");
-                }
-                Err(err) => {
-                    error!("Error adding wayland client: {}", err);
-                }
-            }
-            entity_mut.set_parent(entity);
-            let client_entity = entity_mut.id();
-            world.send_event(Insert::<Client>::new(client_entity));
+            create_client(world, entity, stream, &self.display);
         }
         {
             let mut state = DWay {
@@ -367,38 +352,6 @@ impl DWay {
         let entity = DWay::get_entity(object);
         debug!(?entity,resource=%wayland_server::Resource::id(object),"destroy wayland object");
         self.despawn_tree(entity);
-    }
-
-    pub fn create_client(
-        &mut self,
-        display_entity: Entity,
-        client_stream: UnixStream,
-        display: &wayland_server::Display<DWay>,
-        poller: &mut Poller,
-    ) {
-        let world = self.world_mut();
-        let events = world.resource::<ClientEvents>().clone();
-        let guard = unsafe {
-            poller.add_raw_with_callback(&client_stream, move |world| {
-                world.send_event(DispatchDisplay(display_entity));
-            })
-        };
-        let mut entity_mut = world.spawn_empty();
-        match display.handle().insert_client(
-            client_stream,
-            Arc::new(ClientData::new(entity_mut.id(), &events, guard)),
-        ) {
-            Ok(c) => {
-                entity_mut.insert((Name::new(Cow::from(client_name(&c.id()))), Client::new(&c)));
-                info!(entity=?entity_mut.id(),"add client");
-            }
-            Err(err) => {
-                error!("Error adding wayland client: {}", err);
-            }
-        }
-        entity_mut.set_parent(display_entity);
-        let entity = entity_mut.id();
-        self.send_event(Insert::<Client>::new(entity));
     }
 
     pub fn bind<T, C, F>(
@@ -656,6 +609,39 @@ impl DWay {
     }
 }
 
+pub fn create_client(
+    world: &mut World,
+    display_entity: Entity,
+    client_stream: UnixStream,
+    display: &wayland_server::Display<DWay>,
+) {
+    let guard = unsafe {
+        let mut poller = world.non_send_resource_mut::<Poller>();
+        poller.add_raw_with_callback(&client_stream, move |world| {
+            world.send_event(DispatchDisplay(display_entity));
+        })
+    };
+    let entity = world.spawn_empty().id();
+    let events = world.resource::<ClientEvents>().clone();
+    let result = display.handle().insert_client(
+        client_stream,
+        Arc::new(ClientData::new(entity, &events, guard)),
+    );
+    let mut entity_mut = world.entity_mut(entity);
+    match result {
+        Ok(c) => {
+            entity_mut.insert((Name::new(Cow::from(client_name(&c.id()))), Client::new(&c)));
+            info!(entity=?entity_mut.id(),"add client");
+        }
+        Err(err) => {
+            error!("Error adding wayland client: {}", err);
+        }
+    }
+    entity_mut.set_parent(display_entity);
+    let entity = entity_mut.id();
+    world.send_event(Insert::<Client>::new(entity));
+}
+
 #[derive(Event)]
 pub struct CreateDisplay;
 
@@ -725,14 +711,18 @@ pub fn dispatch_events(
     let displays = event_reader
         .read(world.resource())
         .map(|e| e.0)
-        .collect::<SmallVec<[Entity; 4]>>();
+        .collect::<EntityHashSet>();
     for display_entity in displays {
         let mut display_entity_mut = world.entity_mut(display_entity);
-        let Some(mut server) = display_entity_mut.take::<DWayServer>() else {
-            continue;
-        };
+        let mut server = display_entity_mut.take::<DWayServer>().unwrap();
+        debug!(entity=?display_entity_mut.id(), wayland = server.socket_name() , "dispatch wayland event");
         display_entity_mut.world_scope(|world| {
-            let _ = server.dispatch(display_entity, world);
+            if let Err(err) = server.dispatch(display_entity, world){
+                error!("failed to receive wayland requests: {err}");
+            };
+            if let Err(err) = server.display.flush_clients(){
+                error!("failed flush wayland events buffer: {err}");
+            };
         });
         display_entity_mut.insert(server);
     }
@@ -740,7 +730,9 @@ pub fn dispatch_events(
 
 pub fn flush_display(mut display_query: Query<&mut DWayServer>) {
     for mut display in display_query.iter_mut() {
-        let _ = display.display.flush_clients();
+        if let Err(e) = display.display.flush_clients(){
+            error!("failed to flush wayland display: {e}");
+        };
     }
 }
 

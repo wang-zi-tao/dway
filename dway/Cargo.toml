@@ -1,6 +1,7 @@
 [dependencies]
 bevy-relationship = {path="../bevy-relationship"}
 bevy-relationship-derive = {path="../bevy-relationship-derive"}
+dway-test-client = {path="../dway-server-test/dway-test-client", optional=true}
 anyhow = {workspace=true}
 bevy_framepace = "0.15"
 bevy_mod_debugdump = { version="0.10.0",optional=true }
@@ -21,6 +22,7 @@ dexterous_developer = { workspace = true, optional=true}
 bevy_dexterous_developer = {workspace = true, optional=true}
 cfg-if = {workspace=true}
 pprof = {version="0.13", optional=true, features = ["flamegraph"]}
+
 
 [dependencies.bevy]
 features = ["jpeg", "wayland", "serialize", "default_font", "subpixel_glyph_atlas", "embedded_watcher"]
@@ -68,7 +70,7 @@ default = [
 ]
 inspector = [ "dep:bevy-inspector-egui"]
 dump_system_graph = ["dep:bevy_mod_debugdump"]
-debug = [ "inspector", "dump_system_graph"]
+debug = [ "inspector", "dump_system_graph", "dep:dway-test-client"]
 dway_log = []
 hot_reload = ["dep:dexterous_developer", "dep:bevy_dexterous_developer", "dep:serde", "dway-ui/hot_reload"]
 single_thread = []

@@ -598,7 +598,7 @@ pub fn bind_wayland(
 }
 
 #[tracing::instrument(skip_all)]
-pub fn import_wl_surface(
+pub fn import_wl_surface( // TODO copy image
     surface: &WlSurface,
     shm_buffer: Option<&WlShmBuffer>,
     dma_buffer: Option<&DmaBuffer>,

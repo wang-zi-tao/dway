@@ -139,7 +139,7 @@ impl WlSurface {
         };
         image.resize(image_size);
         assets.insert(self.image.clone(), image);
-        debug!(resource=%self.raw.id(),"resize image to {:?}", size);
+        debug!(resource=%self.raw.id(), origin_size = ?self.size, "resize image to {:?}", size);
         self.size = Some(size);
         self.commited
             .damages
@@ -227,12 +227,13 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                     };
                     let _origin_buffer = c.pending.buffer.take();
                     c.pending.buffer = Some(buffer_entity);
-                    if let Some(Some(wl_buffer)) = &c.pending.wl_buffer {
-                        if wl_buffer.is_alive() {
-                            wl_buffer.release()
+                    if let Some(buffer) = buffer {
+                        if let Some(Some(wl_buffer)) = c.pending.wl_buffer.replace(Some(buffer)) {
+                            if wl_buffer.is_alive() {
+                                wl_buffer.release()
+                            }
                         }
                     }
-                    c.pending.wl_buffer = Some(buffer);
                 };
             }
             wl_surface::Request::Damage {

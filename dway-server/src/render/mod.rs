@@ -4,7 +4,6 @@ pub mod importnode;
 pub mod util;
 pub mod vulkan;
 
-use crate::prelude::*;
 use bevy::{
     core_pipeline::core_2d::graph::{Core2d, Node2d},
     render::{
@@ -13,6 +12,7 @@ use bevy::{
 };
 
 use self::{drm::DrmNodeState, importnode::ImportSurfacePassNode};
+use crate::prelude::*;
 
 pub struct DWayServerRenderPlugin;
 impl Plugin for DWayServerRenderPlugin {
@@ -32,9 +32,7 @@ impl Plugin for DWayServerRenderPlugin {
             render_app.add_systems(ExtractSchedule, importnode::extract_surface);
             render_app.add_systems(
                 Render,
-                importnode::prepare_surfaces
-                    .in_set(RenderSet::PrepareAssets)
-                    .after(prepare_assets::<Image>),
+                importnode::prepare_surfaces.after(RenderSet::PrepareAssets),
             );
 
             render_app
