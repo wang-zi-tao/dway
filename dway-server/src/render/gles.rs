@@ -1,12 +1,19 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     ffi::{c_char, c_int, c_void},
-    num::NonZeroU32,
+    mem::take,
+    num::{NonZero, NonZeroU32},
     os::fd::AsRawFd,
     ptr::null_mut,
+    sync::Arc,
 };
 
-use bevy::{ecs::entity::EntityHashMap, prelude::info, render::texture::GpuImage};
+use bevy::{
+    ecs::entity::EntityHashMap,
+    prelude::info,
+    render::{renderer::RenderDevice, texture::GpuImage},
+};
+use crossbeam_queue::SegQueue;
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use dway_util::formats::ImageFormat;
 use glow::{HasContext, NativeRenderbuffer, NativeTexture, PixelPackData};
@@ -17,23 +24,32 @@ use khronos_egl::{
 use scopeguard::defer;
 use wayland_backend::server::WeakHandle;
 use wgpu::{FilterMode, SamplerDescriptor, Texture, TextureAspect};
-use wgpu_hal::{api::Gles, Api, MemoryFlags, TextureUses};
+use wgpu_hal::{api::Gles, gles, Api, MemoryFlags, TextureUses};
 use DWayRenderError::*;
 
 use super::{
     drm::{DrmInfo, DrmNode},
-    importnode::DWayDisplayHandles,
+    importnode::{
+        drm_fourcc_to_wgpu_format, hal_texture_descriptor, hal_texture_to_gpuimage,
+        DWayDisplayHandles,
+    },
     util::*,
+    ImportDmaBufferRequest,
 };
 use crate::{
     prelude::*,
     util::rect::IRect,
-    wl::{
-        buffer::{UninitedWlBuffer, WlShmBuffer},
-        surface::WlSurface,
-    },
-    zwp::dmabufparam::DmaBuffer,
+    wl::{buffer::WlShmBuffer, surface::WlSurface},
 };
+
+pub struct DestroyBuffer {
+    egl_image: EGLImage,
+    texture: NativeTexture,
+}
+unsafe impl Send for DestroyBuffer {
+}
+unsafe impl Sync for DestroyBuffer {
+}
 
 #[derive(Debug)]
 pub struct EglState {
@@ -44,13 +60,12 @@ pub struct EglState {
         EGLClientBuffer,
         *const Int,
     ) -> EGLImage,
-    pub gl_eglimage_target_texture2_does:
-        unsafe extern "system" fn(target: Enum, image: *const c_void),
+    pub gl_eglimage_target_texture2_does: unsafe extern "system" fn(target: Enum, image: EGLImage),
     pub egl_bind_wayland_display_wl: unsafe extern "system" fn(EGLDisplay, *mut c_void) -> Boolean,
-    pub egl_unbind_wayland_display_wl:
-        unsafe extern "system" fn(EGLDisplay, *mut c_void) -> Boolean,
+    pub egl_unbind_wayland_display_wl: unsafe extern "system" fn(EGLDisplay, EGLImage) -> Boolean,
     pub extensions: HashSet<String>,
     pub wayland_map: EntityHashMap<WeakHandle>,
+    pub destroy_queue: Arc<SegQueue<DestroyBuffer>>,
 }
 impl EglState {
     pub fn bind_wayland(
@@ -110,6 +125,7 @@ impl EglState {
                 egl_unbind_wayland_display_wl,
                 extensions,
                 wayland_map: Default::default(),
+                destroy_queue: Arc::new(Default::default()),
             })
         }
     }
@@ -227,24 +243,41 @@ pub fn drm_info(device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError> {
 
 pub type TextureId = (NativeTexture, u32);
 
+pub struct ImageGuard {
+    pub egl_image: EGLImage,
+    pub texture: NativeTexture,
+    pub destroy_queue: Arc<SegQueue<DestroyBuffer>>,
+}
+unsafe impl Send for ImageGuard {
+}
+unsafe impl Sync for ImageGuard {
+}
+impl Drop for ImageGuard {
+    fn drop(&mut self) {
+        self.destroy_queue.push(DestroyBuffer {
+            egl_image: self.egl_image,
+            texture: self.texture,
+        });
+    }
+}
+
 #[tracing::instrument(skip_all)]
-pub unsafe fn import_dma(
+pub unsafe fn create_gles_dma_image(
     gl: &glow::Context,
-    dma_buffer: &DmaBuffer,
     display: EGLDisplay,
-    egl_state: &mut EglState,
-    dest: TextureId,
-) -> Result<()> {
+    egl_state: &EglState,
+    buffer_info: &mut ImportDmaBufferRequest,
+) -> Result<ImageGuard> {
     let mut out: Vec<c_int> = Vec::with_capacity(50);
-    let planes = dma_buffer.planes.lock().unwrap();
+    let planes = take(&mut buffer_info.planes);
 
     out.extend([
         khronos_egl::WIDTH,
-        dma_buffer.size.x,
+        buffer_info.size.x,
         khronos_egl::HEIGHT,
-        dma_buffer.size.y,
+        buffer_info.size.y,
         LINUX_DRM_FOURCC_EXT as i32,
-        dma_buffer.format as i32,
+        buffer_info.format as i32,
     ]);
 
     let names = [
@@ -277,7 +310,7 @@ pub unsafe fn import_dma(
             DMA_BUF_PLANE3_MODIFIER_HI_EXT,
         ],
     ];
-    for (i, plane) in planes.list.iter().enumerate() {
+    for (i, plane) in planes.iter().enumerate() {
         let fd = &plane.fd;
         let offset = plane.offset;
         let stride = plane.stride;
@@ -289,78 +322,90 @@ pub unsafe fn import_dma(
             names[i][2] as i32,
             stride as i32,
         ]);
-        if planes.list[0].modifier() != DrmModifier::Invalid
-            && planes.list[0].modifier() != DrmModifier::Linear
-        {
+        let modifier = planes[i].modifier;
+        if modifier != DrmModifier::Invalid && modifier != DrmModifier::Linear {
             out.extend([
                 names[i][3] as i32,
-                planes.list[0].modifier_lo as i32,
+                u64::from(modifier) as i32,
                 names[i][4] as i32,
-                planes.list[0].modifier_hi as i32,
+                (u64::from(modifier) >> 32) as i32,
             ])
         }
     }
 
     out.push(NONE);
 
-    let image = (egl_state.egl_create_image_khr)(
+    let egl_image = (egl_state.egl_create_image_khr)(
         display,
         khronos_egl::NO_CONTEXT,
         LINUX_DMA_BUF_EXT,
         std::ptr::null_mut(),
         out.as_ptr(),
     );
-
-    if image == null_mut() {
+    if egl_image.is_null() {
         return Err(FailedToCreateDmaImage.into());
     }
 
-    image_bind_texture(gl, image, egl_state, dest, dma_buffer.size)?;
-    Ok(())
+    let texture = image_bind_texture(gl, egl_image, egl_state)?;
+
+    Ok(ImageGuard {
+        egl_image,
+        texture,
+        destroy_queue: egl_state.destroy_queue.clone(),
+    })
 }
 
 #[tracing::instrument(skip_all)]
 pub unsafe fn image_bind_texture(
     gl: &glow::Context,
-    raw_image: EGLImage,
-    egl_state: &mut EglState,
-    dest: TextureId,
-    size: IVec2,
-) -> Result<()> {
+    egl_image: EGLImage,
+    egl_state: &EglState,
+) -> Result<NativeTexture> {
     let texture = gl
         .create_texture()
         .map_err(|s| anyhow!("failed to create texture: {s}"))?;
-    defer! {
-        gl.delete_texture(texture);
-    }
-
     gl.bind_texture(glow::TEXTURE_2D, Some(texture));
     call_gl(gl, || {
-        (egl_state.gl_eglimage_target_texture2_does)(glow::TEXTURE_2D, raw_image);
+        (egl_state.gl_eglimage_target_texture2_does)(glow::TEXTURE_2D, egl_image);
     })?;
     gl.generate_mipmap(glow::TEXTURE_2D);
-    gl.copy_image_sub_data(
-        texture,
-        glow::TEXTURE_2D,
-        0,
-        0,
-        0,
-        0,
-        dest.0,
-        glow::TEXTURE_2D,
-        0,
-        0,
-        0,
-        0,
-        size.x,
-        size.y,
-        1,
-    );
-    Ok(())
+    gl.bind_texture(glow::TEXTURE_2D, None);
+    Ok(texture)
+}
+
+pub fn create_wgpu_dma_image(
+    device: &wgpu::Device,
+    request: &mut ImportDmaBufferRequest,
+    egl_state: &EglState,
+) -> Result<GpuImage, DWayRenderError> {
+    unsafe {
+        let format = drm_fourcc_to_wgpu_format(request)?;
+        let hal_texture = device
+            .as_hal::<Gles, _, _>(|hal_device| {
+                let hal_device = hal_device.ok_or_else(|| BackendIsNotEGL)?;
+                let egl_context = hal_device.context();
+                let gl: &glow::Context = &egl_context.lock();
+                let display = egl_context
+                    .raw_display()
+                    .ok_or_else(|| DisplayNotAvailable)?;
+                debug!(size=?request.size, ?format, "create dma image");
+                let image_guard = create_gles_dma_image(gl, display.as_ptr(), egl_state, request)?;
+                let texture = image_guard.texture;
+                let hal_texture = hal_device.texture_from_raw(
+                    texture.0,
+                    &hal_texture_descriptor(request.size, format)?,
+                    Some(Box::new(image_guard)),
+                );
+                Result::<_, DWayRenderError>::Ok(hal_texture)
+            })
+            .ok_or(DWayRenderError::BackendIsIsInvalid)??;
+        let gpu_image = hal_texture_to_gpuimage::<Gles>(device, request.size, format, hal_texture)?;
+        Ok(gpu_image)
+    }
 }
 
 #[tracing::instrument(skip_all)]
-pub unsafe fn import_shm(
+pub unsafe fn import_raw_shm_buffer(
     surface: &WlSurface,
     buffer: &WlShmBuffer,
     gl: &glow::Context,
@@ -450,8 +495,7 @@ pub unsafe fn import_egl(
     egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4>,
     gl: &glow::Context,
     display: khronos_egl::Display,
-    egl_state: &mut EglState,
-    dest: TextureId,
+    egl_state: &EglState,
 ) -> Result<(), DWayRenderError> {
     let egl_surface: khronos_egl::Surface =
         khronos_egl::Surface::from_ptr(buffer.id().as_ptr() as _);
@@ -464,18 +508,17 @@ pub unsafe fn import_egl(
         .map_err(|_| FailedToImportEglBuffer)?;
 
     let out = [WAYLAND_PLANE_WL as i32, 0_i32, khronos_egl::NONE];
-    let image = (egl_state.egl_create_image_khr)(
+    let egl_image = (egl_state.egl_create_image_khr)(
         display.as_ptr(),
         khronos_egl::NO_CONTEXT,
         LINUX_DMA_BUF_EXT,
         std::ptr::null_mut(),
         out.as_ptr(),
     );
-    if image == EGL_NO_IMAGE_KHR {
+    if egl_image == EGL_NO_IMAGE_KHR {
         return Err(FailedToImportEglBuffer);
     }
-    image_bind_texture(gl, image, egl_state, dest, IVec2::new(width, height))?;
-    output_texture("eglbuffer", gl, dest.0, IVec2::new(width, height));
+    let texture = image_bind_texture(gl, egl_image, egl_state)?;
     warn!("import egl buffer");
     Ok(())
 }
@@ -496,96 +539,6 @@ pub unsafe fn import_buffer(
     Ok(render_buffer)
 }
 
-pub unsafe fn create_gpu_image(
-    device: &wgpu::Device,
-    raw_image: NonZeroU32,
-    size: IVec2,
-) -> Result<GpuImage> {
-    let texture_format = wgpu::TextureFormat::Rgba8Unorm;
-    let hal_texture: <Gles as Api>::Texture = device
-        .as_hal::<Gles, _, _>(|hal_device| {
-            Result::<_, anyhow::Error>::Ok(
-                hal_device.ok_or_else(|| FailedToGetHal)?.texture_from_raw(
-                    raw_image,
-                    &wgpu_hal::TextureDescriptor {
-                        label: None,
-                        size: wgpu::Extent3d {
-                            width: size.x as u32,
-                            height: size.y as u32,
-                            depth_or_array_layers: 1,
-                        },
-                        mip_level_count: 1,
-                        sample_count: 1,
-                        dimension: wgpu::TextureDimension::D2,
-                        format: texture_format,
-                        memory_flags: MemoryFlags::empty(),
-                        usage: TextureUses::COPY_DST,
-                        view_formats: vec![texture_format],
-                    },
-                    None,
-                ),
-            )
-        })
-        .ok_or(BackendIsIsInvalid)??;
-    let wgpu_texture = device.create_texture_from_hal::<Gles>(
-        hal_texture,
-        &wgpu::TextureDescriptor {
-            label: None,
-            size: wgpu::Extent3d {
-                width: size.x as u32,
-                height: size.y as u32,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: texture_format,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                | wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::STORAGE_BINDING,
-            view_formats: &[texture_format],
-        },
-    );
-    let texture: wgpu::Texture = wgpu_texture;
-    let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
-        label: None,
-        format: Some(texture_format),
-        dimension: None,
-        aspect: TextureAspect::All,
-        base_mip_level: 0,
-        mip_level_count: Some(1.try_into().unwrap()),
-        base_array_layer: 0,
-        array_layer_count: None,
-    });
-    let sampler: wgpu::Sampler = device.create_sampler(&SamplerDescriptor {
-        label: None,
-        mag_filter: FilterMode::Linear,
-        min_filter: FilterMode::Nearest,
-        mipmap_filter: FilterMode::Nearest,
-        compare: None,
-        anisotropy_clamp: 1,
-        border_color: None,
-        address_mode_u: Default::default(),
-        address_mode_v: Default::default(),
-        address_mode_w: Default::default(),
-        lod_min_clamp: Default::default(),
-        lod_max_clamp: Default::default(),
-    });
-    let image = GpuImage {
-        texture: texture.into(),
-        texture_view: texture_view.into(),
-        texture_format,
-        sampler: sampler.into(),
-        size: Vec2::new(size.x as f32, size.y as f32),
-        mip_level_count: 1,
-    };
-    Ok(image)
-}
-pub enum BufferType {
-    Shm,
-    Egl,
-    Dma,
-}
 #[tracing::instrument(skip_all)]
 pub fn bind_wayland(
     display_handles: &DWayDisplayHandles,
@@ -597,36 +550,18 @@ pub fn bind_wayland(
     Ok(())
 }
 
-#[tracing::instrument(skip_all)]
-pub fn import_wl_surface( // TODO copy image
+pub fn import_shm(
     surface: &WlSurface,
-    shm_buffer: Option<&WlShmBuffer>,
-    dma_buffer: Option<&DmaBuffer>,
-    egl_buffer: Option<&UninitedWlBuffer>,
+    shm_buffer: &WlShmBuffer,
     texture: &Texture,
     device: &wgpu::Device,
-    egl_state: &mut EglState,
 ) -> Result<(), DWayRenderError> {
     unsafe {
-        let display: khronos_egl::Display = device
-            .as_hal::<Gles, _, _>(|hal_device| {
-                hal_device
-                    .ok_or_else(|| BackendIsNotEGL)?
-                    .context()
-                    .raw_display()
-                    .cloned()
-                    .ok_or_else(|| DisplayNotAvailable)
-            })
-            .ok_or(BackendIsIsInvalid)??;
         let mut texture_id = None;
         texture.as_hal::<Gles, _>(|texture| {
             let texture = texture.unwrap();
-            // debug!("dest texture: {:?}",texture);
-            match &texture.inner {
-                wgpu_hal::gles::TextureInner::Texture { raw, target } => {
-                    texture_id = Some((*raw, *target));
-                }
-                _ => {}
+            if let wgpu_hal::gles::TextureInner::Texture { raw, target } = &texture.inner {
+                texture_id = Some((*raw, *target));
             }
         });
         let Some(texture_id) = texture_id else {
@@ -637,22 +572,10 @@ pub fn import_wl_surface( // TODO copy image
                 let hal_device = hal_device.ok_or_else(|| BackendIsNotEGL)?;
                 let egl_context = hal_device.context();
                 let gl: &glow::Context = &egl_context.lock();
-                let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> =
-                    egl_context.egl_instance().ok_or_else(|| {
-                        gl.disable(glow::DEBUG_OUTPUT);
-                        BackendIsNotEGL
-                    })?;
-                if let Some(egl_buffer) = egl_buffer {
-                    import_egl(&egl_buffer.raw, egl, gl, display, egl_state, texture_id)?;
-                } else if let Some(dma_buffer) = dma_buffer {
-                    import_dma(gl, dma_buffer, display.as_ptr(), egl_state, texture_id)?;
-                } else if let Some(shm_buffer) = shm_buffer {
-                    import_shm(surface, shm_buffer, gl, texture_id)?;
-                }
-                Result::<(), DWayRenderError>::Ok(())
+                import_raw_shm_buffer(surface, shm_buffer, gl, texture_id)?;
+                Ok(())
             })
-            .ok_or(BackendIsIsInvalid)??;
-        Ok(())
+            .ok_or(BackendIsIsInvalid)?
     }
 }
 
@@ -682,12 +605,37 @@ pub fn output_texture(name: &str, gl: &glow::Context, texture: NativeTexture, si
         gl.bind_texture(glow::TEXTURE_2D, None);
         gl.bind_framebuffer(glow::FRAMEBUFFER, None);
 
-        dbg!(buffer.iter().map(|v| *v as usize).sum::<usize>() / buffer.len());
+        debug!(
+            "avg value: {}",
+            buffer.iter().map(|v| *v as usize).sum::<usize>() / buffer.len()
+        );
         let image: ImageBuffer<Rgba<u8>, Vec<_>> =
             ImageBuffer::from_vec(size.x as u32, size.y as u32, buffer).unwrap();
         let snapshtip_count = std::fs::read_dir(".snapshot").unwrap().count();
         let path = format!(".snapshot/{name}_{}.png", snapshtip_count + 1);
         info!("take snapshot, save at ${path}");
         image.save(&path).unwrap();
+    }
+}
+
+pub fn clean(state: &EglState, render_device: &RenderDevice) {
+    if state.destroy_queue.len() > 0 {
+        unsafe {
+            render_device
+                .wgpu_device()
+                .as_hal::<Gles, _, _>(|hal_device| {
+                    let Some(hal_device) = hal_device else { return };
+                    let egl_context = hal_device.context();
+                    let gl: &glow::Context = &egl_context.lock();
+                    let Some(display) = egl_context.raw_display() else {
+                        return;
+                    };
+                    while let Some(DestroyBuffer { egl_image, texture }) = state.destroy_queue.pop()
+                    {
+                        gl.delete_texture(texture);
+                        (state.egl_unbind_wayland_display_wl)(display.as_ptr(), egl_image);
+                    }
+                });
+        }
     }
 }

@@ -23,8 +23,6 @@ pub fn gtk4_app(opts: ClientOption) {
                 crate::ClientOperate::CreatePopup => todo!(),
                 crate::ClientOperate::ClosePopup => todo!(),
                 crate::ClientOperate::Snapshot => {
-                    for window in app_clone.windows() {
-                    }
                 },
                 crate::ClientOperate::Quit => app_clone.quit(),
             };

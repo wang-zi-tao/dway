@@ -7,6 +7,9 @@ edition = "2021"
 anyhow = {workspace=true}
 clap = { version="4.5", features=["derive"] }
 tokio = {workspace=true, features=["rt", "rt-multi-thread", "sync"]}
+tracing = {workspace = true}
+tracing-appender = {workspace = true}
+tracing-subscriber = {workspace = true}
 
 cxx = {version="1.0.124"}
 cxx-qt = {version="0.6.1"}

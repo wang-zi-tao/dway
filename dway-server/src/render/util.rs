@@ -6,10 +6,11 @@ use std::{
 
 use crate::prelude::*;
 use ash::vk;
-use drm_fourcc::DrmFourcc;
+use drm_fourcc::{DrmFourcc, UnrecognizedFourcc};
 use glow::HasContext;
 use khronos_egl::{Attrib, Boolean, Int};
 use thiserror::Error;
+use wayland_backend::server::InvalidId;
 use wgpu_hal::{api::Gles, gles::AdapterContext};
 
 pub const LINUX_DMA_BUF_EXT: u32 = 0x3270;
@@ -97,8 +98,12 @@ pub enum DWayRenderError {
     UnsupportedFormat(wl_shm::Format),
     #[error("unsupported format: {0:?}")]
     UnsupportedDrmFormat(DrmFourcc),
+    #[error("unrecognized fourcc: {0}")]
+    UnrecognizedFourcc(#[from] UnrecognizedFourcc),
     #[error("gl error: {0:?}")]
     GLError(u32),
+    #[error("wayland object id is invalid: {0:?}")]
+    InvalidWaylandObjectId(#[from] InvalidId),
     #[error("egl error: {0:?}")]
     EglError(#[from] khronos_egl::Error),
     #[error("vulkan error: {0:?}")]

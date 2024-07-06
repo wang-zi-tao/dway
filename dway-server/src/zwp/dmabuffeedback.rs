@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     prelude::*,
-    render::drm::{DmaFeedbackWriter, DrmNodeStateInner},
+    render::{drm::DmaBackend, DWayServerRenderClient},
 };
 
 #[derive(Debug, Default)]
@@ -49,6 +49,7 @@ impl Dispatch<zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1, Entity> fo
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
@@ -61,18 +62,25 @@ impl Dispatch<zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1, Entity> fo
 
 pub fn do_init_feedback(
     feedback: &zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
-    drm_node_state: &DrmNodeStateInner,
+    dma_backend: &DmaBackend,
 ) {
-    feedback.main_device(drm_node_state.main_device.device.to_ne_bytes().to_vec());
+    feedback.main_device(
+        dma_backend
+            .main_tranche
+            .target_device
+            .device
+            .to_ne_bytes()
+            .to_vec(),
+    );
     feedback.format_table(
-        drm_node_state.format_table.0.as_fd(),
-        drm_node_state.format_table.1 as u32,
+        dma_backend.format_table.0.as_fd(),
+        dma_backend.format_table.1 as u32,
     );
 
-    for tranche in drm_node_state
+    for tranche in dma_backend
         .preferred_tranches
         .iter()
-        .chain(std::iter::once(&drm_node_state.main_tranche))
+        .chain(std::iter::once(&dma_backend.main_tranche))
     {
         feedback.tranche_target_device(tranche.target_device.device.to_ne_bytes().to_vec());
         feedback.tranche_flags(tranche.flags);
@@ -94,8 +102,15 @@ pub fn init_feedback(
     world: &mut World,
     feedback: &zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
 ) {
-    if let Some(drm_node_state) = &world.resource::<DmaFeedbackWriter>().state {
-        do_init_feedback(feedback, drm_node_state)
+    if let Some(drm_node) = &world
+        .resource::<DWayServerRenderClient>()
+        .drm_node
+        .lock()
+        .ok()
+    {
+        if let Some(drm_node) = drm_node.as_ref() {
+            do_init_feedback(feedback, drm_node)
+        }
     } else {
         warn!("failed to init dmabuf feedback");
     }

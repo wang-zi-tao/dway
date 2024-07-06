@@ -1,8 +1,12 @@
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use anyhow::Result;
-use bevy::tasks::block_on;
-use tokio::{runtime::Runtime, sync::mpsc::{channel, Receiver, Sender}};
+use bevy::{log, tasks::block_on};
+use tokio::{
+    runtime::Runtime,
+    sync::mpsc::{channel, Receiver, Sender},
+};
+use tracing::{debug, error, error_span, info, info_span, warn};
 use wgpu::SurfaceTargetUnsafe;
 use winit::{
     application::ApplicationHandler,
@@ -14,6 +18,7 @@ use winit::{
 
 use crate::ClientOperate;
 
+#[derive(Debug)]
 enum AppEvent {
     Operate(ClientOperate),
     Event(WindowEvent),
@@ -89,16 +94,21 @@ async fn run_window(
         .unwrap();
     surface.configure(&device, &config);
 
+    info!("window launched");
+    let mut frame_count = 0;
+
     while let Some(request) = rx.recv().await {
+        let _span = error_span!("window event", event = ?request).entered();
         match request {
             AppEvent::Operate(o) => match o {
                 ClientOperate::Quit => {
                     break;
-                },
-                _=>{}
+                }
+                _ => {}
             },
             AppEvent::Event(e) => match e {
                 WindowEvent::RedrawRequested => {
+                    let _span = info_span!("redraw").entered();
                     let frame = surface.get_current_texture()?;
                     let view = frame
                         .texture
@@ -112,7 +122,7 @@ async fn run_window(
                                 view: &view,
                                 resolve_target: None,
                                 ops: wgpu::Operations {
-                                    load: wgpu::LoadOp::Clear(wgpu::Color::GREEN),
+                                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                                     store: wgpu::StoreOp::Store,
                                 },
                             })],
@@ -126,8 +136,9 @@ async fn run_window(
 
                     queue.submit(Some(encoder.finish()));
                     frame.present();
+                    debug!("present");
 
-                    window.request_redraw();
+                    // window.request_redraw();
                 }
                 WindowEvent::CloseRequested => {
                     break;
@@ -189,7 +200,6 @@ impl ApplicationHandler for App {
         let tx = &self.windows[&id];
         if let Err(_e) = tx.blocking_send(AppEvent::Event(event.clone())) {
             self.windows.remove(&id);
-
         }
         match &event {
             WindowEvent::CloseRequested
@@ -205,7 +215,7 @@ impl ApplicationHandler for App {
             }
             _ => {}
         }
-        if self.windows.is_empty(){
+        if self.windows.is_empty() {
             event_loop.exit();
         }
     }

@@ -1,7 +1,9 @@
 use std::{
     ffi::CStr,
     os::fd::{AsFd, AsRawFd, IntoRawFd},
+    ptr::null,
     sync::{Arc, RwLock},
+    time::Duration,
 };
 
 use anyhow::{anyhow, bail, Result};
@@ -16,17 +18,21 @@ use bevy::{
 use bevy_relationship::reexport::SmallVec;
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use dway_util::formats::ImageFormat;
-use nix::libc::makedev;
+use nix::{libc::makedev, sys::stat::fstat};
 use wgpu::{
     CommandEncoder, Extent3d, FilterMode, ImageCopyTexture, SamplerDescriptor, TextureAspect,
     TextureDimension,
 };
-use wgpu_hal::{api::Vulkan, MemoryFlags, TextureUses};
+use wgpu_hal::{api::Vulkan, vulkan, MemoryFlags, TextureUses};
 
 use super::{
     drm::{DrmInfo, DrmNode},
-    importnode::merge_damage,
+    importnode::{
+        drm_fourcc_to_wgpu_format, hal_texture_descriptor, hal_texture_to_gpuimage, merge_damage,
+        ImoprtedBuffers,
+    },
     util::DWayRenderError::{self, *},
+    ImportDmaBufferRequest,
 };
 use crate::{
     prelude::*,
@@ -46,20 +52,30 @@ pub const MEM_PLANE_ASCPECT: [ImageAspectFlags; 4] = [
 ];
 
 #[derive(Debug)]
-pub struct ImportedImage {
+pub struct ImageDropGuard {
+    pub device: vk::Device,
     pub image: vk::Image,
-    pub fence: vk::Fence,
     pub memory: SmallVec<[vk::DeviceMemory; 4]>,
-    pub buffer_to_release: Option<wl_buffer::WlBuffer>,
     pub shm_pool: Option<Arc<RwLock<WlShmPoolInner>>>,
+    pub fn_free_memory: PFN_vkFreeMemory,
+    pub fn_destroy_image: PFN_vkDestroyImage,
+}
+
+impl Drop for ImageDropGuard {
+    fn drop(&mut self) {
+        unsafe {
+            (self.fn_destroy_image)(self.device, self.image, null());
+        }
+        for memory in &self.memory {
+            unsafe {
+                (self.fn_free_memory)(self.device, *memory, null());
+            }
+        }
+    }
 }
 
 #[derive(Debug, Default)]
-pub struct VulkanState {
-    pub dma_image_map: HashMap<wl_buffer::WlBuffer, (ImportedImage, GpuImage)>,
-    pub shm_image_map:
-        HashMap<wayland_server::protocol::wl_surface::WlSurface, (ImportedImage, GpuImage)>,
-}
+pub struct VulkanState {}
 
 pub const SUPPORTED_FORMATS: [DrmFourcc; 4] = [
     DrmFourcc::Argb8888,
@@ -135,18 +151,20 @@ pub fn drm_info(render_device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError
     }
 }
 
-pub fn create_dma_image(
+pub fn create_vulkan_dma_image(
     hal_device: &wgpu_hal::vulkan::Device,
-    buffer: &DmaBuffer,
-) -> Result<ImportedImage> {
+    buffer: &mut ImportDmaBufferRequest,
+) -> Result<ImageDropGuard> {
     let instance = hal_device.shared_instance().raw_instance();
     let device = hal_device.raw_device();
     let physical = hal_device.raw_physical_device();
 
     let format = DrmFourcc::try_from(buffer.format)?;
 
+    debug!(size=?buffer.size, ?format, "create dma image");
+
     unsafe {
-        let planes = &buffer.planes.lock().unwrap().list;
+        let planes = std::mem::take(&mut buffer.planes);
         if planes.is_empty() {
             bail!(InvalidDmaBuffer);
         }
@@ -160,13 +178,26 @@ pub fn create_dma_image(
             })
             .collect();
 
+        let is_disjoint = if planes.len() == 1 {
+            false
+        } else {
+            fstat(planes[0].fd.as_raw_fd())
+                .map(|first_stat| {
+                    planes.iter().any(|plane| {
+                        fstat(plane.fd.as_raw_fd())
+                            .map(|stat| stat.st_ino != first_stat.st_ino)
+                            .unwrap_or(true)
+                    })
+                })
+                .unwrap_or(true)
+        };
+
         debug!(
             "dma image format: {:?} modifier: {:?}",
-            format,
-            planes[0].modifier()
+            format, planes[0].modifier
         );
         let mut drm_info = ash::vk::ImageDrmFormatModifierExplicitCreateInfoEXT::builder()
-            .drm_format_modifier(planes[0].modifier().into())
+            .drm_format_modifier(planes[0].modifier.into())
             .plane_layouts(&plane_layouts)
             .build();
 
@@ -186,9 +217,12 @@ pub fn create_dma_image(
             .array_layers(1)
             .format(ImageFormat::from_drm_fourcc(format)?.vulkan_format)
             .samples(SampleCountFlags::TYPE_1)
-            .initial_layout(ImageLayout::PREINITIALIZED)
             .usage(ImageUsageFlags::COLOR_ATTACHMENT)
-            .flags(ImageCreateFlags::DISJOINT)
+            .flags(if is_disjoint {
+                ImageCreateFlags::DISJOINT
+            } else {
+                ImageCreateFlags::empty()
+            })
             .push_next(&mut dmabuf_info)
             .push_next(&mut drm_info)
             .build();
@@ -198,8 +232,10 @@ pub fn create_dma_image(
 
         let mut plane_infos = Vec::with_capacity(planes.len());
         let mut bind_infos = Vec::with_capacity(planes.len());
+
+        let plane_count = if is_disjoint { planes.len() } else { 1 };
         let mut memorys = SmallVec::<[_; 4]>::new();
-        for (i, plane) in planes.iter().enumerate() {
+        for (i, plane) in planes.into_iter().enumerate().take(plane_count) {
             let memory_requirement = {
                 let mut requirement_info = ash::vk::ImageMemoryRequirementsInfo2::builder()
                     .image(image)
@@ -208,14 +244,14 @@ pub fn create_dma_image(
                     ash::vk::ImagePlaneMemoryRequirementsInfo::builder()
                         .plane_aspect(MEM_PLANE_ASCPECT[i])
                         .build();
-                if planes.len() > 1 {
+                if is_disjoint {
                     requirement_info.p_next = &mut plane_requirement_info
                         as *mut ImagePlaneMemoryRequirementsInfo
                         as *mut _;
                 }
-                let mut memr = ash::vk::MemoryRequirements2::builder().build();
-                device.get_image_memory_requirements2(&requirement_info, &mut memr);
-                memr
+                let mut memory_requrement = ash::vk::MemoryRequirements2::builder().build();
+                device.get_image_memory_requirements2(&requirement_info, &mut memory_requrement);
+                memory_requrement
             };
             let phy_mem_prop = instance.get_physical_device_memory_properties(physical);
 
@@ -239,7 +275,7 @@ pub fn create_dma_image(
             };
 
             let mut fd_info = ash::vk::ImportMemoryFdInfoKHR::builder()
-                .fd(plane.fd.try_clone()?.into_raw_fd())
+                .fd(plane.fd.into_raw_fd())
                 .handle_type(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT)
                 .build();
 
@@ -270,7 +306,7 @@ pub fn create_dma_image(
                 .memory_offset(0)
                 .build();
 
-            if planes.len() > 1 {
+            if is_disjoint {
                 let mut info = Box::new(
                     vk::BindImagePlaneMemoryInfo::builder()
                         .plane_aspect(MEM_PLANE_ASCPECT[i])
@@ -287,159 +323,14 @@ pub fn create_dma_image(
             .bind_image_memory2(&bind_infos)
             .map_err(|e| anyhow!("error while bind_image_memory2: {e}"))?;
 
-        let fence = device.create_fence(&FenceCreateInfo::builder().build(), None)?;
-        // buffer.render_image = RenderImage::Vulkan(Image { image, fence });
-
-        Ok(ImportedImage {
+        Ok(ImageDropGuard {
+            device: device.handle(),
             image,
-            fence,
             memory: memorys,
-            buffer_to_release: Some(buffer.raw.clone()),
             shm_pool: None,
+            fn_free_memory: device.fp_v1_0().free_memory,
+            fn_destroy_image: device.fp_v1_0().destroy_image,
         })
-    }
-}
-
-pub fn create_shm_image(
-    hal_device: &wgpu_hal::vulkan::Device,
-    buffer: &WlShmBuffer,
-) -> Result<ImportedImage> {
-    let device = hal_device.raw_device();
-    unsafe {
-        let create_image_info = ash::vk::ImageCreateInfo::builder()
-            .sharing_mode(SharingMode::EXCLUSIVE)
-            .image_type(ImageType::TYPE_2D)
-            .extent(Extent3D {
-                width: buffer.size.x as u32,
-                height: buffer.size.y as u32,
-                depth: 1,
-            })
-            .mip_levels(1)
-            .array_layers(1)
-            .format(ImageFormat::from_wayland_format(buffer.format)?.vulkan_format)
-            .samples(SampleCountFlags::TYPE_1)
-            .initial_layout(ImageLayout::UNDEFINED)
-            .usage(ImageUsageFlags::COLOR_ATTACHMENT)
-            .flags(ImageCreateFlags::empty())
-            .build();
-        let image = device.create_image(&create_image_info, None)?;
-        let req = device.get_image_memory_requirements(image);
-
-        let index = req.memory_type_bits.trailing_zeros();
-        if index == 32 {
-            bail!(NoValidMemoryType);
-        }
-        let memory = device.allocate_memory(
-            &mut vk::MemoryAllocateInfo::builder()
-                .allocation_size(req.size.max(1))
-                .memory_type_index(index)
-                .build(),
-            None,
-        )?;
-        device.bind_image_memory(image, memory, 0)?;
-
-        let fence = device.create_fence(&FenceCreateInfo::builder().build(), None)?;
-
-        Ok(ImportedImage {
-            image,
-            fence,
-            memory: SmallVec::from_slice(&[memory]),
-            buffer_to_release: Some(buffer.raw.clone()),
-            shm_pool: Some(buffer.pool.clone()),
-        })
-    }
-}
-
-pub unsafe fn image_to_hal_texture(
-    size: IVec2,
-    texture_format: wgpu::TextureFormat,
-    image: vk::Image,
-) -> wgpu_hal::vulkan::Texture {
-    wgpu_hal::vulkan::Device::texture_from_raw(
-        image,
-        &wgpu_hal::TextureDescriptor {
-            label: Some("gbm renderbuffer"),
-            size: Extent3d {
-                width: size.x as u32,
-                height: size.y as u32,
-                depth_or_array_layers: 1,
-                ..Default::default()
-            },
-            dimension: TextureDimension::D2,
-            format: texture_format,
-            mip_level_count: 1,
-            sample_count: 1,
-            usage: TextureUses::COLOR_TARGET
-                | TextureUses::DEPTH_STENCIL_READ
-                | TextureUses::DEPTH_STENCIL_WRITE
-                | TextureUses::COPY_SRC
-                | TextureUses::COPY_DST,
-            view_formats: vec![],
-            memory_flags: MemoryFlags::empty(),
-        },
-        None,
-    )
-}
-
-pub unsafe fn hal_texture_to_gpuimage(
-    device: &wgpu::Device,
-    size: IVec2,
-    texture_format: wgpu::TextureFormat,
-    hal_texture: wgpu_hal::vulkan::Texture,
-) -> GpuImage {
-    let wgpu_texture = device.create_texture_from_hal::<Vulkan>(
-        hal_texture,
-        &wgpu::TextureDescriptor {
-            label: None,
-            size: wgpu::Extent3d {
-                width: size.x as u32,
-                height: size.y as u32,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: texture_format,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                | wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::STORAGE_BINDING
-                | wgpu::TextureUsages::COPY_SRC
-                | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[texture_format],
-        },
-    );
-    let texture: wgpu::Texture = wgpu_texture;
-    let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
-        label: None,
-        format: Some(texture_format),
-        dimension: None,
-        aspect: TextureAspect::All,
-        base_mip_level: 0,
-        mip_level_count: Some(1.try_into().unwrap()),
-        base_array_layer: 0,
-        array_layer_count: None,
-    });
-    let sampler: wgpu::Sampler = device.create_sampler(&SamplerDescriptor {
-        label: None,
-        mag_filter: FilterMode::Linear,
-        min_filter: FilterMode::Nearest,
-        mipmap_filter: FilterMode::Nearest,
-        compare: None,
-        anisotropy_clamp: 1,
-        border_color: None,
-        address_mode_u: Default::default(),
-        address_mode_v: Default::default(),
-        address_mode_w: Default::default(),
-        lod_min_clamp: Default::default(),
-        lod_max_clamp: Default::default(),
-    });
-    GpuImage {
-        texture: texture.into(),
-        texture_view: texture_view.into(),
-        texture_format,
-        sampler: sampler.into(),
-        size: size.as_vec2(),
-        mip_level_count: 1,
     }
 }
 
@@ -448,7 +339,7 @@ pub unsafe fn import_shm(
     queue: &wgpu::Queue,
     shm_buffer: &WlShmBuffer,
     texture: &wgpu::Texture,
-) -> Result<()> {
+) -> Result<(), DWayRenderError> {
     span!(Level::ERROR, "import_shm", shm_buffer = %WlResource::id(&shm_buffer.raw));
     let buffer_guard = shm_buffer.pool.read().unwrap();
     let size = shm_buffer.size;
@@ -502,148 +393,27 @@ pub unsafe fn import_shm(
     Ok(())
 }
 
-pub unsafe fn import_dma(
-    surface: &WlSurface,
-    command_encoder: &mut CommandEncoder,
-    dma_buffer: &DmaBuffer,
-    texture: &wgpu::Texture,
-    vulkan_state: &VulkanState,
-) -> Result<()> {
-    span!(Level::ERROR, "import_shm", shm_buffer = %WlResource::id(&dma_buffer.raw));
-    let size = dma_buffer.size;
-
-    let Some(dma_texture) = vulkan_state.dma_image_map.get(&dma_buffer.raw) else {
-        return Ok(());
-    };
-
-    let image_area = IRect::from_pos_size(IVec2::default(), size);
-    let texture_extent = texture.size();
-    let texture_size = IVec2::new(texture_extent.width as i32, texture_extent.height as i32);
-    let mut emit_rect = |rect: IRect| -> Result<()> {
-        let rect = rect.intersection(IRect::from_pos_size(IVec2::ZERO, texture_size));
-        debug!(?rect, "copy dma texture");
-        let origin = wgpu::Origin3d {
-            x: rect.x() as u32,
-            y: rect.y() as u32,
-            z: 0,
-        };
-        command_encoder.copy_texture_to_texture(
-            ImageCopyTexture {
-                texture: &dma_texture.1.texture,
-                mip_level: 0,
-                origin,
-                aspect: TextureAspect::All,
-            },
-            ImageCopyTexture {
-                texture,
-                mip_level: 0,
-                origin,
-                aspect: TextureAspect::All,
-            },
-            Extent3d {
-                width: rect.width() as u32,
-                height: rect.height() as u32,
-                depth_or_array_layers: 1,
-            },
-        );
-        Ok(())
-    };
-
-    let damage = merge_damage(&surface.commited.damages);
-    if damage.is_empty() {
-        emit_rect(image_area)?;
-    } else {
-        for rect in damage {
-            emit_rect(rect)?;
-        }
-    }
-
-    Ok(())
-}
-
-pub fn prepare_wl_surface(
-    state: &mut VulkanState,
+pub fn create_wgpu_dma_image(
     device: &wgpu::Device,
-    surface: &WlSurface,
-    shm_buffer: Option<&WlShmBuffer>,
-    dma_buffer: Option<&DmaBuffer>,
-    image_assets: &mut RenderAssets<bevy::render::texture::Image>,
-) -> Result<()> {
+    request: &mut ImportDmaBufferRequest,
+) -> Result<GpuImage, DWayRenderError> {
     unsafe {
-        if let Some(shm_buffer) = shm_buffer {
-            let create_shm_image = || {
-                let (size, format, image) = device
-                    .as_hal::<Vulkan, _, _>(|hal_device| {
-                        let hal_device = hal_device.ok_or_else(|| BackendIsNotVulkan)?;
-                        let size = shm_buffer.size;
-                        let format =
-                            ImageFormat::from_wayland_format(shm_buffer.format)?.wgpu_format;
-                        let image = create_shm_image(hal_device, shm_buffer)?;
-                        debug!(?size, ?format, buffer=?shm_buffer.raw.id(), "create shm image");
-                        Result::<_, DWayRenderError>::Ok((size, format, image))
-                    })
-                    .ok_or(DWayRenderError::BackendIsIsInvalid)??;
-                let hal_texture = image_to_hal_texture(size, format, image.image);
-                let gpu_image = hal_texture_to_gpuimage(device, size, format, hal_texture);
-                anyhow::Result::<_, anyhow::Error>::Ok((image, gpu_image))
-            };
-            let gpu_image = match state.shm_image_map.entry(surface.raw.clone()) {
-                Entry::Occupied(mut o) => {
-                    if o.get().1.size != shm_buffer.size.as_vec2() {
-                        let (image, gpu_image) = create_shm_image()?;
-                        o.insert((image, gpu_image));
-                    }
-                    o.get().1.clone()
-                }
-                Entry::Vacant(v) => {
-                    let (image, gpu_image) = create_shm_image()?;
-                    v.insert((image, gpu_image)).1.clone()
-                }
-            };
-            image_assets.insert(surface.image.clone(), gpu_image);
-        } else if let Some(dma_buffer) = dma_buffer {
-            match state.dma_image_map.entry(dma_buffer.raw.clone()) {
-                Entry::Occupied(o) => {}
-                Entry::Vacant(v) => {
-                    let (size, format, image) = device
-                        .as_hal::<Vulkan, _, _>(|hal_device| {
-                            let hal_device = hal_device.ok_or_else(|| BackendIsNotVulkan)?;
-                            let size = dma_buffer.size;
-                            let format = ImageFormat::from_drm_fourcc(
-                                DrmFourcc::try_from(dma_buffer.format)
-                                    .map_err(|e| Unknown(anyhow!("{e}")))?,
-                            )?
-                            .wgpu_format;
-                            debug!(?size, ?format, "create dma image");
-                            let image = create_dma_image(hal_device, dma_buffer)?;
-                            Result::<_, DWayRenderError>::Ok((size, format, image))
-                        })
-                        .ok_or(DWayRenderError::BackendIsIsInvalid)??;
-                    let hal_texture = image_to_hal_texture(size, format, image.image);
-                    let gpu_image = hal_texture_to_gpuimage(device, size, format, hal_texture);
-                    v.insert((image, gpu_image));
-                }
-            };
-        }
-        Ok(())
-    }
-}
-
-pub fn import_wl_surface(
-    surface: &WlSurface,
-    shm_buffer: Option<&WlShmBuffer>,
-    dma_buffer: Option<&DmaBuffer>,
-    texture: &wgpu::Texture,
-    queue: &wgpu::Queue,
-    vulkan_state: &VulkanState,
-    command_encoder: &mut CommandEncoder,
-) -> Result<(), DWayRenderError> {
-    unsafe {
-        if let Some(shm_buffer) = shm_buffer {
-            import_shm(surface, queue, shm_buffer, texture)?;
-        } else if let Some(dma_buffer) = dma_buffer {
-            import_dma(surface, command_encoder, dma_buffer, texture, vulkan_state)?;
-        }
-        Ok(())
+        let image_guard = device
+            .as_hal::<Vulkan, _, _>(|hal_device| {
+                let hal_device = hal_device.ok_or_else(|| BackendIsNotVulkan)?;
+                let image = create_vulkan_dma_image(hal_device, request)?;
+                Result::<_, DWayRenderError>::Ok(image)
+            })
+            .ok_or(DWayRenderError::BackendIsIsInvalid)??;
+        let image = image_guard.image;
+        let format = drm_fourcc_to_wgpu_format(&request)?;
+        let hal_texture = vulkan::Device::texture_from_raw(
+            image,
+            &hal_texture_descriptor(request.size, format)?,
+            Some(Box::new(image_guard)),
+        );
+        let gpu_image =
+            hal_texture_to_gpuimage::<Vulkan>(device, request.size, format, hal_texture)?;
+        Ok(gpu_image)
     }
 }

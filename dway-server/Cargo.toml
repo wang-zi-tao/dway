@@ -9,6 +9,7 @@ bevy-relationship = {path="../bevy-relationship/"}
 
 lazy_static = { workspace=true }
 crossbeam-channel = {workspace=true}
+crossbeam-queue = {workspace=true}
 uuid = { workspace=true }
 memory-stats = "1.1.0"
 image = "0.24.6"

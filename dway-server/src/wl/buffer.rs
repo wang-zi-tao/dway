@@ -1,20 +1,26 @@
-use super::surface::AttachedBy;
-use crate::{
-    prelude::*,
-    state::{add_global_dispatch, EntityFactory},
-};
-use drm_fourcc::DrmModifier;
-use dway_util::formats::ImageFormat;
-use khronos_egl::EGLDisplay;
-use nix::sys::mman;
-use wl_buffer::WlBuffer;
 use std::{
     num::NonZeroUsize,
     os::fd::OwnedFd,
     ptr::NonNull,
     sync::{Arc, RwLock},
 };
+
+use drm_fourcc::DrmModifier;
+use dway_util::formats::ImageFormat;
+use khronos_egl::EGLDisplay;
+use nix::sys::mman;
 use wayland_server::Resource;
+use wl_buffer::WlBuffer;
+
+use super::surface::AttachedBy;
+use crate::{
+    prelude::*,
+    state::{add_global_dispatch, EntityFactory},
+};
+
+#[derive(Component, Reflect, Debug, Clone)]
+#[reflect(Debug)]
+pub struct WaylandBuffer;
 
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
@@ -33,6 +39,7 @@ pub struct WlShmBuffer {
 pub struct WlMemoryBufferBundle {
     resource: WlShmBuffer,
     attach_by: AttachedBy,
+    mark: WaylandBuffer,
 }
 
 impl WlMemoryBufferBundle {
@@ -40,6 +47,7 @@ impl WlMemoryBufferBundle {
         Self {
             resource,
             attach_by: Default::default(),
+            mark: WaylandBuffer,
         }
     }
 }
@@ -79,8 +87,10 @@ pub struct EGLBufferInner {
     pub handle: EGLDisplay,
     pub _native: Box<dyn std::any::Any + 'static>,
 }
-unsafe impl Send for EGLBufferInner {}
-unsafe impl Sync for EGLBufferInner {}
+unsafe impl Send for EGLBufferInner {
+}
+unsafe impl Sync for EGLBufferInner {
+}
 #[derive(Component, Clone)]
 pub struct EGLBuffer {
     pub display: Option<Entity>,
@@ -124,8 +134,10 @@ impl WlShmPoolInner {
     }
 }
 
-unsafe impl Sync for WlShmPoolInner {}
-unsafe impl Send for WlShmPoolInner {}
+unsafe impl Sync for WlShmPoolInner {
+}
+unsafe impl Send for WlShmPoolInner {
+}
 impl Drop for WlShmPoolInner {
     fn drop(&mut self) {
         if let Err(e) = unsafe { mman::munmap(self.ptr.as_ptr().cast(), self.size) } {
@@ -226,6 +238,7 @@ impl wayland_server::Dispatch<wl_shm::WlShm, Entity, DWay> for BufferDelegate {
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

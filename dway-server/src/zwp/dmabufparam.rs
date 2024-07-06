@@ -1,24 +1,27 @@
 use std::{
+    mem::take,
     os::fd::OwnedFd,
     sync::{Arc, Mutex},
 };
 
+use bevy::ecs::world;
 use drm_fourcc::DrmModifier;
 use wayland_protocols::wp::linux_dmabuf::zv1::server::zwp_linux_buffer_params_v1::Flags;
 
-use crate::prelude::*;
+use crate::{
+    prelude::*,
+    render::{DWayRenderRequest, DWayServerRenderClient, ImportDmaBufferRequest},
+};
 
 #[derive(Component, Clone, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct DmaBuffer {
     #[reflect(ignore, default = "unimplemented")]
-    pub raw: wl_buffer::WlBuffer,
+    pub raw: Option<wl_buffer::WlBuffer>,
     pub size: IVec2,
     pub format: u32,
     #[reflect(ignore, default = "unimplemented")]
     pub flags: WEnum<Flags>,
-    #[reflect(ignore)]
-    pub planes: Arc<Mutex<DmaBufferPlanes>>,
 }
 
 #[derive(Component, Debug)]
@@ -27,24 +30,13 @@ pub struct DmaBufferPlane {
     pub plane_idx: u32,
     pub offset: u32,
     pub stride: u32,
-    pub modifier_hi: u32,
-    pub modifier_lo: u32,
-}
-impl DmaBufferPlane {
-    pub fn modifier(&self) -> DrmModifier {
-        DrmModifier::from(((self.modifier_hi as u64) << 32) | self.modifier_lo as u64)
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct DmaBufferPlanes {
-    pub list: Vec<DmaBufferPlane>,
+    pub modifier: DrmModifier,
 }
 
 #[derive(Component, Debug)]
 pub struct DmaBufferParams {
     pub raw: zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1,
-    pub planes: Arc<Mutex<DmaBufferPlanes>>,
+    pub planes: Vec<DmaBufferPlane>,
 }
 impl DmaBufferParams {
     pub fn new(raw: zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1) -> Self {
@@ -80,15 +72,14 @@ impl Dispatch<zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1, Entity> for DW
                 modifier_hi,
                 modifier_lo,
             } => {
-                let params = state.get_mut::<DmaBufferParams>(*data).unwrap();
-                let mut planes = params.planes.lock().unwrap();
-                planes.list.push(DmaBufferPlane {
+                let mut params = state.get_mut::<DmaBufferParams>(*data).unwrap();
+                let modifier = DrmModifier::from(((modifier_hi as u64) << 32) | modifier_lo as u64);
+                params.planes.push(DmaBufferPlane {
                     fd,
                     plane_idx,
                     offset,
                     stride,
-                    modifier_hi,
-                    modifier_lo,
+                    modifier,
                 })
             }
             zwp_linux_buffer_params_v1::Request::Create {
@@ -97,30 +88,34 @@ impl Dispatch<zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1, Entity> for DW
                 format,
                 flags,
             } => {
-                let planes = state.get::<DmaBufferParams>(*data).unwrap().planes.clone();
-                let mut entity = state.spawn_empty();
-                let buffer = match client.create_resource::<wl_buffer::WlBuffer, Entity, DWay>(
-                    dhandle,
-                    1,
-                    entity.id(),
-                ) {
-                    Ok(o) => o,
-                    Err(e) => {
-                        error!("failed to create wl_buffer: {e}");
-                        resource.failed();
-                        return;
-                    }
-                };
-                resource.created(&buffer);
-                entity
-                    .insert(DmaBuffer {
-                        raw: buffer,
+                let buffer_entity = state
+                    .spawn_empty()
+                    .set_parent(DWay::client_entity(client))
+                    .id();
+                let mut planes = take(&mut state.get_mut::<DmaBufferParams>(*data).unwrap().planes);
+                planes.sort_by_key(|p|p.plane_idx);
+                let render_client = state.resource::<DWayServerRenderClient>();
+
+                render_client
+                    .request_tx
+                    .push(DWayRenderRequest::ImportDmaBuffer(ImportDmaBufferRequest {
+                        buffer: None,
+                        client: client.clone(),
+                        display: dhandle.clone(),
                         size: IVec2::new(width, height),
                         format,
                         flags,
                         planes,
-                    })
-                    .set_parent(DWay::client_entity(client));
+                        buffer_entity,
+                        params: resource.clone(),
+                    }));
+
+                state.entity_mut(buffer_entity).insert(DmaBuffer {
+                    raw: None,
+                    size: IVec2::new(width, height),
+                    format,
+                    flags,
+                });
             }
             zwp_linux_buffer_params_v1::Request::CreateImmed {
                 buffer_id,
@@ -129,23 +124,41 @@ impl Dispatch<zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1, Entity> for DW
                 format,
                 flags,
             } => {
-                let planes = state.get::<DmaBufferParams>(*data).unwrap().planes.clone();
-                state.spawn_child_object_bundle(
-                    DWay::client_entity(client),
-                    buffer_id,
-                    data_init,
-                    |o| DmaBuffer {
-                        raw: o,
+                let buffer_entity = state
+                    .spawn_empty()
+                    .set_parent(DWay::client_entity(client))
+                    .id();
+                let mut planes = take(&mut state.get_mut::<DmaBufferParams>(*data).unwrap().planes);
+                planes.sort_by_key(|p|p.plane_idx);
+                let render_client = state.resource::<DWayServerRenderClient>();
+
+                let buffer = data_init.init(buffer_id, buffer_entity);
+
+                render_client
+                    .request_tx
+                    .push(DWayRenderRequest::ImportDmaBuffer(ImportDmaBufferRequest {
+                        buffer: Some(buffer.clone()),
+                        client: client.clone(),
+                        display: dhandle.clone(),
                         size: IVec2::new(width, height),
                         format,
                         flags,
                         planes,
-                    },
-                );
+                        buffer_entity,
+                        params: resource.clone(),
+                    }));
+
+                state.entity_mut(buffer_entity).insert(DmaBuffer {
+                    raw: None,
+                    size: IVec2::new(width, height),
+                    format,
+                    flags,
+                });
             }
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

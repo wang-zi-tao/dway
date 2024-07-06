@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, mem::replace};
 
 use bevy::{core::FrameCount, tasks::IoTaskPool};
 use bevy_relationship::relationship;
@@ -227,11 +227,9 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                     };
                     let _origin_buffer = c.pending.buffer.take();
                     c.pending.buffer = Some(buffer_entity);
-                    if let Some(buffer) = buffer {
-                        if let Some(Some(wl_buffer)) = c.pending.wl_buffer.replace(Some(buffer)) {
-                            if wl_buffer.is_alive() {
-                                wl_buffer.release()
-                            }
+                    if let Some(Some(wl_buffer)) = c.pending.wl_buffer.replace(buffer) {
+                        if wl_buffer.is_alive() {
+                            wl_buffer.release()
                         }
                     }
                 };
@@ -453,35 +451,13 @@ pub fn cleanup_buffer(buffer_query: Query<(&WlShmBuffer, &AttachedBy)>) {
     }
 }
 
-pub fn emit_callbacks(
-    mut surface_query: Query<&mut WlSurface>,
-    time: Res<Time>,
-    display_query: DisplayListQuery,
-) {
-    let mut tasks = Vec::new();
-    for mut surface in surface_query.iter_mut() {
-        if !surface.commited.callbacks.is_empty() {
-            for callback in surface.commited.callbacks.drain(..) {
-                tasks.push((callback, time.elapsed()));
-            }
-        }
-    }
-    let mut handles = display_query.get_handle_list();
-    IoTaskPool::get()
-        .spawn(async move {
-            for (callback, duration) in tasks {
-                debug!("{} done", WlResource::id(&callback));
-                callback.done(duration.as_millis() as u32);
-            }
-            handles.flush();
-        })
-        .detach();
-}
-
 pub fn cleanup_surface(mut surface_query: Query<&mut WlSurface>) {
     for mut surface in surface_query.iter_mut() {
         if !surface.commited.damages.is_empty() {
             surface.commited.damages.clear();
+        }
+        if !surface.commited.callbacks.is_empty() {
+            surface.commited.callbacks.clear();
         }
         if surface.just_commit {
             surface.just_commit = false;
@@ -492,12 +468,6 @@ pub fn cleanup_surface(mut surface_query: Query<&mut WlSurface>) {
 pub struct WlSurfacePlugin;
 impl Plugin for WlSurfacePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Last,
-            emit_callbacks
-                .in_set(DWayServerSet::Clean)
-                .before(flush_display),
-        );
         app.add_systems(First, cleanup_surface);
         app.add_systems(
             PreUpdate,
