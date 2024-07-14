@@ -28,10 +28,10 @@ impl Plugin for DWayAssetsPlugin {
         embedded_asset!(app, "assets", "fonts/FiraSans-Bold.ttf");
         embedded_asset!(app, "assets", "fonts/FiraMono-Medium.ttf");
 
-        let asset_server = app.world.resource::<AssetServer>();
+        let asset_server = app.world().resource::<AssetServer>();
         let default_font = asset_server.load("embedded://dway_ui/fonts/SmileySans-Oblique.ttf");
 
-        let mut theme = app.world.resource_mut::<Theme>();
+        let mut theme = app.world_mut().resource_mut::<Theme>();
         theme.default_font = default_font;
         theme.register_icons_in_dictory(
             "embedded://dway_ui/icons",

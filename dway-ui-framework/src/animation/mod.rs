@@ -35,11 +35,11 @@ make_interpolation!(Vec3);
 make_interpolation!(Vec4);
 impl Interpolation for Color {
     fn interpolation(&self, other: &Self, v: f32) -> Self {
-        Color::rgba_from_array(Interpolation::interpolation(
-            &self.rgba_to_vec4(),
-            &other.rgba_to_vec4(),
+        LinearRgba::from_f32_array(Interpolation::interpolation(
+            &self.to_linear().to_f32_array(),
+            &other.to_linear().to_f32_array(),
             v,
-        ))
+        )).into()
     }
 }
 
@@ -73,6 +73,17 @@ impl<T: Interpolation> Interpolation for [T; 4] {
             Interpolation::interpolation(&self[2], &other[2], v),
             Interpolation::interpolation(&self[3], &other[3], v),
         ]
+    }
+}
+
+impl Interpolation for LinearRgba{
+    fn interpolation(&self, other: &Self, v: f32) -> Self {
+        Self{
+            red: Interpolation::interpolation(&self.red, &other.red, v),
+            green: Interpolation::interpolation(&self.green, &other.green, v),
+            blue: Interpolation::interpolation(&self.blue, &other.blue, v),
+            alpha: Interpolation::interpolation(&self.alpha, &other.alpha, v),
+        }
     }
 }
 
@@ -303,7 +314,7 @@ pub fn apply_tween_asset<I: Interpolation + Asset>(
         if &*handle == &tween.begin || &*handle == &tween.end {
             *handle = assets.add(new_asset);
         } else {
-            assets.insert(handle.clone(), new_asset);
+            assets.insert(handle.id(), new_asset);
         }
     }
 }
@@ -313,7 +324,7 @@ pub struct AssetAnimationPlugin<T: Interpolation + Asset>(PhantomData<T>);
 
 impl<T: Interpolation + Asset> Plugin for AssetAnimationPlugin<T> {
     fn build(&self, app: &mut App) {
-        app.register_system(apply_tween_asset::<T>);
+        app.register_callback(apply_tween_asset::<T>);
     }
 
     fn is_unique(&self) -> bool {
@@ -348,8 +359,8 @@ impl Plugin for AnimationPlugin {
         .register_component_as::<dyn EventDispatch<AnimationEvent>, translation::UiTranslationAnimation>()
         .register_component_as::<dyn EventDispatch<UiNodeAppearEvent>, translation::UiTranslationAnimation>()
         .register_component_as::<dyn EventDispatch<PopupEvent>, translation::UiTranslationAnimation>()
-        .register_system(ui::popup_open_drop_down)
-        .register_system(ui::popup_open_close_up)
-        .register_system(ui::despawn_recursive_on_animation_finish);
+        .register_callback(ui::popup_open_drop_down)
+        .register_callback(ui::popup_open_close_up)
+        .register_callback(ui::despawn_recursive_on_animation_finish);
     }
 }

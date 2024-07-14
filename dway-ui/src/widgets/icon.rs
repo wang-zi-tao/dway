@@ -1,7 +1,8 @@
-use crate::prelude::*;
-use bevy::{ecs::entity::EntityHashSet, utils::HashSet};
+use bevy::{ecs::entity::EntityHashSet};
 use dway_server::apps::icon::{LinuxIcon, LinuxIconKind};
 use dway_ui_framework::{make_bundle, render::mesh::UiMeshHandle, widgets::svg::UiSvgExt};
+
+use crate::prelude::*;
 
 #[derive(Component, Reflect, Debug, Default)]
 pub struct UiIcon {
@@ -19,39 +20,44 @@ make_bundle! {
     UiIconBundle{
         pub icon: UiIcon,
         pub svg: UiSvgExt,
-        pub image: UiImage,
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub fn uiicon_render(
     mut uiicon_query: Query<(
         Entity,
         Ref<UiIcon>,
-        &mut UiImage,
+        Option<&mut UiImage>,
         &mut UiSvg,
         &mut UiMeshHandle,
     )>,
     icons: Res<Assets<LinuxIcon>>,
     mut padding_entity: Local<EntityHashSet>,
+    mut commands: Commands,
 ) {
-    for (e, icon, mut image, mut svg, mut mesh) in uiicon_query.iter_mut() {
+    for (e, icon, image, mut svg, mut mesh) in uiicon_query.iter_mut() {
         if !icon.is_changed() && padding_entity.is_empty() && !padding_entity.remove(&e) {
             continue;
         };
         if let Some(linux_icon) = icons.get(icon.handle.id()) {
             match &linux_icon.handle {
                 LinuxIconKind::Image(h) => {
-                    if &image.texture != h {
-                        image.texture = h.clone();
-                        svg.set_if_neq(Default::default());
-                        mesh.set_if_neq(Default::default());
+                    if let Some(mut image) = image {
+                        if &image.texture != h {
+                            image.texture = h.clone();
+                            svg.set_if_neq(Default::default());
+                            mesh.set_if_neq(Default::default());
+                        }
+                    } else {
+                        commands.entity(e).insert(UiImage::new(h.clone()));
                     }
                 }
                 LinuxIconKind::Svg(h) => {
                     if &**svg != h {
                         *svg = h.clone().into();
-                        if image.texture != Handle::<Image>::default() {
-                            image.texture = Default::default();
+                        if image.is_some(){
+                            commands.entity(e).remove::<UiImage>();
                         }
                     }
                 }

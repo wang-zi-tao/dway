@@ -63,7 +63,7 @@ impl TtyRenderState {
 pub struct TtyRenderPlugin;
 impl Plugin for TtyRenderPlugin {
     fn build(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<TtyRenderState>()
                 .add_systems(ExtractSchedule, extract_drm_surfaces)
@@ -107,7 +107,7 @@ pub fn prepare_drm_surface(
     mut state: ResMut<TtyRenderState>,
     surface_query: Query<(&DrmSurface, &Parent)>,
     drm_query: Query<(&DrmDevice, &GbmDevice)>,
-    mut render_images: ResMut<RenderAssets<Image>>,
+    mut render_images: ResMut<RenderAssets<GpuImage>>,
     render_device: Res<RenderDevice>,
     default_sampler: Res<DefaultImageSampler>,
 ) {
@@ -151,14 +151,14 @@ pub fn prepare_drm_surface(
                 texture_view: texture_view.into(),
                 texture_format: TextureFormat::Bgra8UnormSrgb,
                 sampler: (**default_sampler).clone(),
-                size: buffer.size.as_vec2(),
+                size: buffer.size.as_uvec2(),
                 mip_level_count: 1,
             };
             info!("create drm image");
             state.buffers.insert(buffer.framebuffer, gpu_image.clone());
             gpu_image
         };
-        render_images.insert(surface.image.clone(), gpu_image);
+        render_images.insert(surface.image.id(), gpu_image);
     });
 }
 

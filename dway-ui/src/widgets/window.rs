@@ -178,7 +178,7 @@ WindowUI=>
         ZIndex=(ZIndex::Local(0))
         UiDragExt=(UiDrag::default().with_callback(this_entity, on_decorated_mouse_event).into())
         @style="absolute left-{-DECORATION_MARGIN} right-{-DECORATION_MARGIN} bottom-{-DECORATION_MARGIN} top-{-DECORATION_HEIGHT}"
-        @handle(RoundedUiRectMaterial=>rounded_rect(Color::WHITE*0.2, 16.0)) />
+        @handle(RoundedUiRectMaterial=>rounded_rect(color!("#333333"), 16.0)) />
     <MaterialNodeBundle::<RoundedUiImageMaterial> @id="surface" @style="absolute full"
     @handle(RoundedUiImageMaterial=>rounded_ui_image(
         14.0,
@@ -190,17 +190,17 @@ WindowUI=>
         @style="absolute left-0 right-0 top-{-DECORATION_HEIGHT} height-{DECORATION_HEIGHT}" >
         <MiniNodeBundle @id="close" @style="m-2 w-20 h-20"
             UiRawButtonExt=(UiButton::new(prop.window_entity, on_close_button_event).into())
-            @handle(UiCircleMaterial=>circle_material(Color::WHITE*0.3)) >
+            @handle(UiCircleMaterial=>circle_material(color!("#505050"))) >
             <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg"))) @style="full" />
         </MiniNodeBundle>
         <MiniNodeBundle @id="max" @style="m-2 w-20 h-20"
             UiRawButtonExt=(UiButton::new(prop.window_entity, on_max_button_event).into())
-            @handle(UiCircleMaterial=>circle_material(Color::WHITE*0.3)) >
+            @handle(UiCircleMaterial=>circle_material(color!("#505050"))) >
             <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/maximize.svg"))) @style="full" />
         </MiniNodeBundle>
         <MiniNodeBundle @id="min" @style="m-2 w-20 h-20"
             UiRawButtonExt=(UiButton::new(prop.window_entity, on_min_button_event).into())
-            @handle(UiCircleMaterial=>circle_material(Color::WHITE*0.3)) >
+            @handle(UiCircleMaterial=>circle_material(color!("#505050"))) >
             <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/minimize.svg"))) @style="full" />
         </MiniNodeBundle>
         <TextBundle @id="title" @style="items-center justify-center m-auto"

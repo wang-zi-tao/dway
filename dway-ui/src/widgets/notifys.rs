@@ -24,7 +24,7 @@ NotifyButton=>
 @global(theme:Theme)
 @global(asset_server: AssetServer)
 <UiRawButtonBundle UiButton=(UiButton::new(this_entity, open_notify_list))
-    @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup")*0.9, 8.0))
+    @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 8.0))
 >
     <(UiSvgBundle::new(theme.icon("notifications", &asset_server))) @style="w-24 h-24" @id="icon"/>
 </UiRawButtonBundle>

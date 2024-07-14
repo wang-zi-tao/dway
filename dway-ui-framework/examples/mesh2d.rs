@@ -4,6 +4,7 @@ use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::diagnostic::LogDiagnosticsPlugin;
 use bevy::prelude::*;
 use bevy::sprite::Mesh2dHandle;
+use dway_ui_derive::color;
 use dway_ui_framework::render::mesh::UiMeshBundle;
 use dway_ui_framework::render::mesh::UiMeshHandle;
 use dway_ui_framework::render::mesh::UiMeshMaterialPlugin;
@@ -16,6 +17,7 @@ fn main() {
             UiMeshPlugin,
             UiMeshMaterialPlugin::<ColorMaterial>::default(),
             FrameTimeDiagnosticsPlugin,
+            bevy_inspector_egui::quick::WorldInspectorPlugin::default(),
             LogDiagnosticsPlugin {
                 wait_duration: Duration::from_secs(4),
                 ..Default::default()
@@ -45,13 +47,13 @@ fn setup(
                 top: Val::Px(64.0),
                 ..default()
             },
-            background_color: (Color::WHITE *0.8).into(),
+            background_color: (Color::rgb(0.8, 0.8, 0.8)).into(),
             ..default()
         })
         .with_children(|commands| {
             commands.spawn(UiMeshBundle {
                 mesh: UiMeshHandle::from(meshes.add(RegularPolygon::new(128.0, 6))),
-                material: mesh2d_materials.add(Color::BLUE),
+                material: mesh2d_materials.add(color!("#0000ff")),
                 style: Style {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
@@ -64,7 +66,7 @@ fn setup(
     commands.spawn(ColorMesh2dBundle {
         transform: Transform::default().with_translation(Vec3::new(100.0, 200.0, 0.0)),
         mesh: Mesh2dHandle::from(meshes.add(RegularPolygon::new(128.0, 8))),
-        material: mesh2d_materials.add(Color::RED),
+        material: mesh2d_materials.add( color!("#ff0000")),
         ..Default::default()
     });
 }

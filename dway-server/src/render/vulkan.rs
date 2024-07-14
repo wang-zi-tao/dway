@@ -3,7 +3,6 @@ use std::{
     os::fd::{AsFd, AsRawFd, IntoRawFd},
     ptr::null,
     sync::{Arc, RwLock},
-    time::Duration,
 };
 
 use anyhow::{anyhow, bail, Result};
@@ -11,25 +10,18 @@ use ash::{
     extensions::{ext::PhysicalDeviceDrm, khr::ExternalMemoryFd},
     vk::{self, *},
 };
-use bevy::{
-    render::{render_asset::RenderAssets, texture::GpuImage},
-    utils::{Entry, HashMap},
-};
+use bevy::render::texture::GpuImage;
 use bevy_relationship::reexport::SmallVec;
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use dway_util::formats::ImageFormat;
 use nix::{libc::makedev, sys::stat::fstat};
-use wgpu::{
-    CommandEncoder, Extent3d, FilterMode, ImageCopyTexture, SamplerDescriptor, TextureAspect,
-    TextureDimension,
-};
-use wgpu_hal::{api::Vulkan, vulkan, MemoryFlags, TextureUses};
+use wgpu::{Extent3d, ImageCopyTexture, TextureAspect};
+use wgpu_hal::vulkan::{self, Api as Vulkan};
 
 use super::{
     drm::{DrmInfo, DrmNode},
     importnode::{
         drm_fourcc_to_wgpu_format, hal_texture_descriptor, hal_texture_to_gpuimage, merge_damage,
-        ImoprtedBuffers,
     },
     util::DWayRenderError::{self, *},
     ImportDmaBufferRequest,
@@ -41,7 +33,6 @@ use crate::{
         buffer::{WlShmBuffer, WlShmPoolInner},
         surface::WlSurface,
     },
-    zwp::dmabufparam::DmaBuffer,
 };
 
 pub const MEM_PLANE_ASCPECT: [ImageAspectFlags; 4] = [

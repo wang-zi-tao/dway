@@ -97,7 +97,7 @@ impl Plugin for UiFrameworkPlugin {
         .add_event::<input::UiFocusEvent>()
         .register_type::<input::UiFocusEvent>()
         .register_type::<UiDrag>()
-        .register_system(delay_destroy)
+        .register_callback(delay_destroy)
         .register_component_as::<dyn EventDispatch<AnimationEvent>, UiPopup>()
         .add_systems(
             PreUpdate,
@@ -187,9 +187,10 @@ pub mod tests {
         ecs::system::BoxedSystem,
         render::{camera::RenderTarget, view::screenshot::ScreenshotManager},
         window::{PresentMode, WindowRef},
-        winit::WinitPlugin,
+        winit::{WakeUp, WinitPlugin},
     };
-    use image::{DynamicImage, GenericImageView};
+    use image::{DynamicImage, GenericImageView, RgbaImage};
+    use rayon::iter::IntoParallelRefIterator;
 
     use super::*;
 
@@ -209,6 +210,22 @@ pub mod tests {
                 std::fs::remove_dir_all(tmp).unwrap();
             }
         };
+    }
+
+    pub fn image_diff(src_image: &RgbaImage, dest_image: &RgbaImage) -> RgbaImage {
+        assert_eq!(src_image.width(), dest_image.width());
+        assert_eq!(src_image.height(), dest_image.height());
+        let mut output_image = RgbaImage::new(src_image.width(), src_image.height());
+        for (src_pixel, dest_pixel) in
+            Iterator::zip(src_image.enumerate_pixels(), dest_image.enumerate_pixels())
+        {
+            assert_eq!(src_pixel.0, dest_pixel.0);
+            assert_eq!(src_pixel.1, dest_pixel.1);
+            if src_pixel.2 != dest_pixel.2 {
+                output_image.get_pixel_mut(src_pixel.0, src_pixel.1).0 = [255, 0, 0, 255];
+            }
+        }
+        output_image
     }
 
     pub fn compare_image(
@@ -236,7 +253,7 @@ pub mod tests {
                 return Ok(None);
             }
         }
-        let diff_image = image_diff::diff(dest_image, src_image)?;
+        let diff_image = image_diff(&src_image.to_rgba8(), &dest_image.to_rgba8());
         let mut tmp = tmp.to_owned();
         tmp.push("diff.png");
         diff_image.save(&tmp)?;
@@ -264,7 +281,7 @@ pub mod tests {
             let title = format!("unit test: {}", &self.name);
             let size = self.image_size;
             let window_entity = app
-                .world
+                .world_mut()
                 .spawn(Window {
                     title: title.clone(),
                     name: Some(title),
@@ -276,7 +293,7 @@ pub mod tests {
                 })
                 .id();
             let camera_entity = app
-                .world
+                .world_mut()
                 .spawn(Camera2dBundle {
                     camera: Camera {
                         target: RenderTarget::Window(WindowRef::Entity(window_entity)),
@@ -384,8 +401,10 @@ pub mod tests {
                     }),
                     ..default()
                 })
-                .set(WinitPlugin {
-                    run_on_any_thread: true,
+                .set({
+                    let mut plugin = WinitPlugin::<WakeUp>::default();
+                    plugin.run_on_any_thread = true;
+                    plugin
                 })
                 .add(crate::UiFrameworkPlugin),
         )
@@ -407,7 +426,7 @@ pub mod tests {
                     .all(|s| matches!(s, UnitTestState::Ok | UnitTestState::Err(_)))
                     || frame.0 > 256
                 {
-                    exit_event.send(AppExit);
+                    exit_event.send(AppExit::Success);
                 }
             },
         );

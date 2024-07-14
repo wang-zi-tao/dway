@@ -10,34 +10,32 @@ use bevy::{
             SystemParamItem,
         },
     },
+    math::FloatOrd,
     render::{
         extract_component::ExtractComponentPlugin,
         globals::{GlobalsBuffer, GlobalsUniform},
         mesh::PrimitiveTopology,
-        render_asset::RenderAssets,
+        render_asset::{RenderAssetPlugin, RenderAssets},
         render_phase::{
-            AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-            RenderPhase, SetItemPipeline, TrackedRenderPass,
+            AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
+            RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewSortedRenderPhases,
         },
         render_resource::{
             binding_types::uniform_buffer, AsBindGroupError, BindGroup, BindGroupEntries,
             BindGroupLayout, BindGroupLayoutEntries, BlendState, BufferUsages, BufferVec,
             ColorTargetState, ColorWrites, FragmentState, FrontFace, MultisampleState,
-            OwnedBindingResource, PipelineCache, PolygonMode, PrimitiveState,
+            OwnedBindingResource, PipelineCache, PolygonMode, PrimitiveState, RawBufferVec,
             RenderPipelineDescriptor, ShaderRef, ShaderStages, SpecializedRenderPipeline,
             SpecializedRenderPipelines, TextureFormat, VertexBufferLayout, VertexFormat,
             VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
-        texture::{BevyDefault, FallbackImage},
+        texture::{BevyDefault, FallbackImage, GpuImage},
         view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
         Extract, Render, RenderApp, RenderSet,
     },
-    ui::{
-        PreparedUiMaterial, RenderUiMaterials, RenderUiSystem, TransparentUi, UiMaterialVertex,
-        UiStack,
-    },
-    utils::{FloatOrd, HashMap, HashSet},
+    ui::{PreparedUiMaterial, RenderUiSystem, TransparentUi, UiMaterialPipeline, UiMaterialVertex, UiStack},
+    utils::{HashMap, HashSet},
     window::PrimaryWindow,
 };
 
@@ -81,32 +79,24 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        //load_internal_asset!( TODO
-        //    app,
-        //    UI_MATERIAL_SHADER_HANDLE,
-        //    "ui_material.wgsl",
-        //    Shader::from_wgsl
-        //);
-        app.init_asset::<M>();
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        app.init_asset::<M>().add_plugins((
+            ExtractComponentPlugin::<Handle<M>>::extract_visible(),
+            RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),
+        ));
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<TransparentUi, DrawUiMaterial<M>>()
                 .init_resource::<ExtractedUiMaterials<M>>()
                 .init_resource::<ExtractedUiMaterialNodes<M>>()
-                .init_resource::<RenderUiMaterials<M>>()
                 .init_resource::<UiMaterialMeta<M>>()
                 .init_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
                 .add_systems(
                     ExtractSchedule,
-                    (
-                        extract_ui_materials::<M>,
-                        extract_ui_nodes::<M>.in_set(RenderUiSystem::ExtractNode),
-                    ),
+                    (extract_ui_materials::<M>, extract_ui_nodes::<M>),
                 )
                 .add_systems(
                     Render,
                     (
-                        prepare_ui_materials::<M>.in_set(RenderSet::PrepareAssets),
                         queue_ui_material_nodes::<M>.in_set(RenderSet::Queue),
                         prepare_uimaterial_nodes::<M>.in_set(RenderSet::PrepareBindGroups),
                     ),
@@ -115,7 +105,7 @@ where
     }
 
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<UiMaterialPipeline<M>>();
         }
     }
@@ -123,7 +113,7 @@ where
 
 #[derive(Resource)]
 pub struct UiMaterialMeta<M: UiMaterial> {
-    vertices: BufferVec<UiMaterialVertex>,
+    vertices: RawBufferVec<UiMaterialVertex>,
     view_bind_group: Option<BindGroup>,
     marker: PhantomData<M>,
 }
@@ -131,144 +121,19 @@ pub struct UiMaterialMeta<M: UiMaterial> {
 impl<M: UiMaterial> Default for UiMaterialMeta<M> {
     fn default() -> Self {
         Self {
-            vertices: BufferVec::new(BufferUsages::VERTEX),
+            vertices: RawBufferVec::new(BufferUsages::VERTEX),
             view_bind_group: Default::default(),
             marker: PhantomData,
         }
     }
 }
 
-// in this [`UiMaterialPipeline`] there is (currently) no batching going on.
-// Therefore the [`UiMaterialBatch`] is more akin to a draw call.
 #[derive(Component)]
 pub struct UiMaterialBatch<M: UiMaterial> {
     /// The range of vertices inside the [`UiMaterialMeta`]
     pub range: Range<u32>,
     pub material: AssetId<M>,
     pub camera: Entity,
-}
-
-/// Render pipeline data for a given [`UiMaterial`]
-#[derive(Resource)]
-pub struct UiMaterialPipeline<M: UiMaterial> {
-    pub ui_layout: BindGroupLayout,
-    pub view_layout: BindGroupLayout,
-    pub vertex_shader: Option<Handle<Shader>>,
-    pub fragment_shader: Option<Handle<Shader>>,
-    marker: PhantomData<M>,
-}
-
-impl<M: UiMaterial> SpecializedRenderPipeline for UiMaterialPipeline<M>
-where
-    M::Data: PartialEq + Eq + Hash + Clone,
-{
-    type Key = UiMaterialKey<M>;
-
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let vertex_layout = VertexBufferLayout::from_vertex_formats(
-            VertexStepMode::Vertex,
-            vec![
-                // position
-                VertexFormat::Float32x3,
-                // uv
-                VertexFormat::Float32x2,
-                // size
-                VertexFormat::Float32x2,
-                // border_widths
-                VertexFormat::Float32x4,
-            ],
-        );
-        let shader_defs = Vec::new();
-
-        let mut descriptor = RenderPipelineDescriptor {
-            vertex: VertexState {
-                shader: UI_MATERIAL_SHADER_HANDLE,
-                entry_point: "vertex".into(),
-                shader_defs: shader_defs.clone(),
-                buffers: vec![vertex_layout],
-            },
-            fragment: Some(FragmentState {
-                shader: UI_MATERIAL_SHADER_HANDLE,
-                shader_defs,
-                entry_point: "fragment".into(),
-                targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
-                    blend: Some(BlendState::ALPHA_BLENDING),
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            layout: vec![],
-            push_constant_ranges: Vec::new(),
-            primitive: PrimitiveState {
-                front_face: FrontFace::Ccw,
-                cull_mode: None,
-                unclipped_depth: false,
-                polygon_mode: PolygonMode::Fill,
-                conservative: false,
-                topology: PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-            },
-            depth_stencil: None,
-            multisample: MultisampleState {
-                count: key.sample_count as u32,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            label: Some("ui_material_pipeline".into()),
-        };
-        if let Some(vertex_shader) = &self.vertex_shader {
-            descriptor.vertex.shader = vertex_shader.clone();
-        }
-
-        if let Some(fragment_shader) = &self.fragment_shader {
-            descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
-        }
-
-        descriptor.layout = vec![self.view_layout.clone(), self.ui_layout.clone()];
-
-        M::specialize(&mut descriptor, key);
-
-        descriptor
-    }
-}
-
-impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
-    fn from_world(world: &mut World) -> Self {
-        let asset_server = world.resource::<AssetServer>();
-        let render_device = world.resource::<RenderDevice>();
-        let ui_layout = M::bind_group_layout(render_device);
-
-        let view_layout = render_device.create_bind_group_layout(
-            "ui_view_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::VERTEX_FRAGMENT,
-                (
-                    uniform_buffer::<ViewUniform>(true),
-                    uniform_buffer::<GlobalsUniform>(false),
-                ),
-            ),
-        );
-
-        UiMaterialPipeline {
-            ui_layout,
-            view_layout,
-            vertex_shader: match M::vertex_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            fragment_shader: match M::fragment_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            marker: PhantomData,
-        }
-    }
 }
 
 pub type DrawUiMaterial<M> = (
@@ -305,7 +170,7 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
     for SetUiMaterialBindGroup<M, I>
 {
     type ItemQuery = Read<UiMaterialBatch<M>>;
-    type Param = SRes<RenderUiMaterials<M>>;
+    type Param = SRes<RenderAssets<PreparedUiMaterial<M>>>;
     type ViewQuery = ();
 
     fn render<'w>(
@@ -318,7 +183,7 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
         let Some(material_handle) = material_handle else {
             return RenderCommandResult::Failure;
         };
-        let Some(material) = materials.into_inner().get(&material_handle.material) else {
+        let Some(material) = materials.into_inner().get(material_handle.material) else {
             return RenderCommandResult::Failure;
         };
         pass.set_bind_group(I, &material.bind_group, &[]);
@@ -470,7 +335,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
-    mut phases: Query<&mut RenderPhase<TransparentUi>>,
+    mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut previous_len: Local<usize>,
 ) {
     if let (Some(view_binding), Some(globals_binding)) = (
@@ -487,7 +352,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
         ));
         let mut index = 0;
 
-        for mut ui_phase in &mut phases {
+        for ui_phase in phases.values_mut() {
             let mut batch_item_index = 0;
             let mut batch_shader_handle = AssetId::invalid();
 
@@ -679,71 +544,6 @@ impl<M: UiMaterial> Default for PrepareNextFrameMaterials<M> {
     }
 }
 
-pub fn prepare_ui_materials<M: UiMaterial>(
-    mut prepare_next_frame: Local<PrepareNextFrameMaterials<M>>,
-    mut extracted_assets: ResMut<ExtractedUiMaterials<M>>,
-    mut render_materials: ResMut<RenderUiMaterials<M>>,
-    render_device: Res<RenderDevice>,
-    images: Res<RenderAssets<Image>>,
-    fallback_image: Res<FallbackImage>,
-    pipeline: Res<UiMaterialPipeline<M>>,
-) {
-    let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
-    for (id, material) in queued_assets {
-        match prepare_ui_material(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-        ) {
-            Ok(prepared_asset) => {
-                render_materials.insert(id, prepared_asset);
-            }
-            Err(AsBindGroupError::RetryNextUpdate) => {
-                prepare_next_frame.assets.push((id, material));
-            }
-        }
-    }
-
-    for removed in std::mem::take(&mut extracted_assets.removed) {
-        render_materials.remove(&removed);
-    }
-
-    for (handle, material) in std::mem::take(&mut extracted_assets.extracted) {
-        match prepare_ui_material(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-        ) {
-            Ok(prepared_asset) => {
-                render_materials.insert(handle, prepared_asset);
-            }
-            Err(AsBindGroupError::RetryNextUpdate) => {
-                prepare_next_frame.assets.push((handle, material));
-            }
-        }
-    }
-}
-
-fn prepare_ui_material<M: UiMaterial>(
-    material: &M,
-    render_device: &RenderDevice,
-    images: &RenderAssets<Image>,
-    fallback_image: &Res<FallbackImage>,
-    pipeline: &UiMaterialPipeline<M>,
-) -> Result<PreparedUiMaterial<M>, AsBindGroupError> {
-    let prepared =
-        material.as_bind_group(&pipeline.ui_layout, render_device, images, fallback_image)?;
-    Ok(PreparedUiMaterial {
-        bindings: prepared.bindings,
-        bind_group: prepared.bind_group,
-        key: prepared.data,
-    })
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn queue_ui_material_nodes<M: UiMaterial>(
     extracted_uinodes: Res<ExtractedUiMaterialNodes<M>>,
@@ -751,8 +551,9 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiMaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    render_materials: Res<RenderUiMaterials<M>>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    render_materials: Res<RenderAssets<PreparedUiMaterial<M>>>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
+    mut views: Query<(Entity, &ExtractedView)>,
     msaa: Res<Msaa>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -760,12 +561,15 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     let draw_function = draw_functions.read().id::<DrawUiMaterial<M>>();
 
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let Ok((view, mut transparent_phase)) = views.get_mut(extracted_uinode.camera_entity)
-        else {
+        let Ok((view_entity, view)) = views.get_mut(extracted_uinode.camera_entity) else {
             continue;
         };
 
-        let Some(material) = render_materials.get(&extracted_uinode.material) else {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+            continue;
+        };
+
+        let Some(material) = render_materials.get(extracted_uinode.material) else {
             continue;
         };
 
@@ -790,7 +594,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 entity.index(),
             ),
             batch_range: 0..0,
-            dynamic_offset: None,
+            extra_index: PhaseItemExtraIndex::maybe_dynamic_offset(None),
         });
     }
 }

@@ -1,0 +1,7 @@
+features = [
+    "hot_reload",
+]
+package = "dway"
+code_watch_folders = [
+    "./dway-ui/",
+]

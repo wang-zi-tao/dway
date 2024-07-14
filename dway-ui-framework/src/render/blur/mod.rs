@@ -5,7 +5,7 @@ use bevy::{
     ecs::{entity::EntityHashMap, query::QueryItem},
     render::{
         extract_component::ExtractComponent,
-        mesh::GpuBufferInfo,
+        mesh::{GpuBufferInfo, GpuMesh},
         render_asset::RenderAssets,
         render_graph::{RenderGraphApp, RenderLabel, ViewNode, ViewNodeRunner},
         render_resource::{
@@ -20,7 +20,7 @@ use bevy::{
             TextureViewDescriptor, VertexState,
         },
         renderer::{RenderDevice, RenderQueue},
-        texture::BevyDefault,
+        texture::{BevyDefault, GpuImage},
         view::ViewTarget,
         Extract, RenderApp, RenderSet,
     },
@@ -195,7 +195,7 @@ pub fn prepare_blur_pipeline(
     render_device: Res<RenderDevice>,
     pipeline_cache: ResMut<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlurPipeline>>,
-    gpu_images: Res<RenderAssets<Image>>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
 ) {
     for removed_entity in &extracted.removed {
         datas.remove(removed_entity);
@@ -297,7 +297,7 @@ impl ViewNode for BlurNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let render_device = world.resource::<RenderDevice>();
         let render_queue = world.resource::<RenderQueue>();
-        let meshes = world.resource::<RenderAssets<Mesh>>();
+        let meshes = world.resource::<RenderAssets<GpuMesh>>();
         let blur_datas = world.resource::<PreparedBlurData>();
 
         let Some((_, blur_data)) = blur_datas.get(&entity) else {
@@ -381,7 +381,7 @@ impl ViewNode for BlurNode {
 pub struct PostProcessingPlugin;
 impl Plugin for PostProcessingPlugin {
     fn build(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedBlurCamera>()
                 .init_resource::<PreparedBlurData>()

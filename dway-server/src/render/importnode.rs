@@ -269,7 +269,7 @@ impl Node for ImportSurfacePassNode {
     ) -> Result<(), bevy::render::render_graph::NodeRunError> {
         let render_device = world.resource::<RenderDevice>();
         let render_queue = world.resource::<RenderQueue>();
-        let textures = world.resource::<RenderAssets<Image>>();
+        let textures = world.resource::<RenderAssets<GpuImage>>();
         let import_state = world.resource::<ImportState>();
         let imported_buffers = world.resource::<ImoprtedBuffers>();
         loop {
@@ -431,14 +431,14 @@ pub(crate) fn drm_fourcc_to_wgpu_format(
 }
 
 pub(crate) fn hal_texture_descriptor(
-    size: IVec2,
+    size: UVec2,
     format: wgpu::TextureFormat,
 ) -> Result<wgpu_hal::TextureDescriptor<'static>> {
     Ok(wgpu_hal::TextureDescriptor {
         label: Some("gbm renderbuffer"),
         size: Extent3d {
-            width: size.x as u32,
-            height: size.y as u32,
+            width: size.x,
+            height: size.y,
             depth_or_array_layers: 1,
         },
         dimension: TextureDimension::D2,
@@ -457,7 +457,7 @@ pub(crate) fn hal_texture_descriptor(
 
 pub(crate) unsafe fn hal_texture_to_gpuimage<A>(
     device: &wgpu::Device,
-    size: IVec2,
+    size: UVec2,
     texture_format: wgpu::TextureFormat,
     hal_texture: A::Texture,
 ) -> Result<GpuImage>
@@ -469,8 +469,8 @@ where
         &wgpu::TextureDescriptor {
             label: None,
             size: wgpu::Extent3d {
-                width: size.x as u32,
-                height: size.y as u32,
+                width: size.x,
+                height: size.y,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -515,7 +515,7 @@ where
         texture_view: texture_view.into(),
         texture_format,
         sampler: sampler.into(),
-        size: size.as_vec2(),
+        size,
         mip_level_count: 1,
     })
 }

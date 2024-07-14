@@ -20,7 +20,7 @@ impl Default for WindowMenu {
 dway_widget! {
 WindowMenu=>
 @bundle{{ popup: UiPopupBundle }}
-@plugin{ app.register_system(open_popup); }
+@plugin{ app.register_callback(open_popup); }
 @callback{ [UiButtonEvent]
     fn on_close_button_event(
         In(event): In<UiButtonEvent>,

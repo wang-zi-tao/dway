@@ -1,5 +1,7 @@
-use bevy::render::render_resource::AsBindGroupError;
-use encase::internal::{BufferMut, Writer};
+use bevy::render::render_resource::{
+    encase::internal::{BufferMut, Writer},
+    AsBindGroupError,
+};
 
 use super::{
     fill::{Fill, FillColor},
@@ -14,7 +16,7 @@ pub trait Effect: BuildBindGroup {
 
 #[derive(Clone, Debug, Default, Interpolation)]
 pub struct Shadow {
-    pub color: Color,
+    pub color: LinearRgba,
     pub offset: Vec2,
     pub margin: Vec2,
     pub radius: f32,
@@ -23,7 +25,7 @@ pub struct Shadow {
 impl Shadow {
     pub fn new(color: Color, offset: Vec2, margin: Vec2, radius: f32) -> Self {
         Self {
-            color,
+            color: color.to_linear(),
             offset,
             margin,
             radius,
@@ -56,7 +58,7 @@ impl Effect for Shadow {
                 {{
                     let shadow_pos = {uniform_offset} + (vertex_uv - vec2(0.5)) * 4.0 * {uniform_margin};
                     let shadow_size = size + 2.0 * {uniform_margin};
-                    out.position = view.view_proj * vec4<f32>(vertex_position + vec3(shadow_pos, 0.0), 1.0);
+                    out.position = view.clip_from_world * vec4<f32>(vertex_position + vec3(shadow_pos, 0.0), 1.0);
                     out.uv = vertex_uv + shadow_pos / size;
                 }}
             "); // TODO 需要优化
@@ -79,7 +81,8 @@ impl Effect for Shadow {
     }
 }
 impl BuildBindGroup for Shadow {
-    fn bind_group_layout_entries(_builder: &mut super::BindGroupLayoutBuilder) {}
+    fn bind_group_layout_entries(_builder: &mut super::BindGroupLayoutBuilder) {
+    }
 
     fn unprepared_bind_group(
         &self,
@@ -110,7 +113,7 @@ impl BuildBindGroup for Shadow {
 #[derive(Clone, Debug, Default, Interpolation)]
 pub struct InnerShadow<F: Fill = FillColor> {
     pub filler: F,
-    pub color: Color,
+    pub color: LinearRgba,
     pub offset: Vec2,
     pub radius: f32,
 }
@@ -119,7 +122,7 @@ impl<F: Fill> InnerShadow<F> {
     pub fn new(filler: impl Into<F>, color: Color, offset: Vec2, radius: f32) -> Self {
         Self {
             filler: filler.into(),
-            color,
+            color: color.to_linear(),
             offset,
             radius,
         }
@@ -170,7 +173,8 @@ impl<F: Fill> Effect for InnerShadow<F> {
     }
 }
 impl<F: Fill> BuildBindGroup for InnerShadow<F> {
-    fn bind_group_layout_entries(_builder: &mut super::BindGroupLayoutBuilder) {}
+    fn bind_group_layout_entries(_builder: &mut super::BindGroupLayoutBuilder) {
+    }
 
     fn unprepared_bind_group(
         &self,
@@ -266,7 +270,8 @@ impl Arc {
     }
 }
 impl Shape for Arc {
-    fn register_uniforms(_builder: &mut ShaderBuilder) {}
+    fn register_uniforms(_builder: &mut ShaderBuilder) {
+    }
 
     fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
         let ShaderVariables { pos, size } = var;
@@ -323,7 +328,7 @@ impl<T: Fill> Effect for T {
 
 #[derive(Debug, Clone, Default, Interpolation)]
 pub struct Fake3D {
-    pub color: Color,
+    pub color: LinearRgba,
     pub half_dir: Vec3,
     pub corner: f32,
 }
@@ -331,7 +336,7 @@ pub struct Fake3D {
 impl Fake3D {
     pub fn new(color: Color, light_direction: Vec3, corner: f32) -> Self {
         Self {
-            color,
+            color: color.to_linear(),
             half_dir: (light_direction + Vec3::Z).normalize(),
             corner,
         }

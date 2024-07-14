@@ -1,6 +1,7 @@
-use crate::prelude::*;
+use bevy::render::render_resource::encase::internal::{BufferMut, Writer};
 
 use super::{BuildBindGroup, Material, ShaderBuilder, ShaderVariables, Transformed};
+use crate::prelude::*;
 pub trait Transform: BuildBindGroup {
     fn transform(builder: &mut ShaderBuilder, var: &ShaderVariables) -> ShaderVariables;
 
@@ -34,10 +35,10 @@ impl BuildBindGroup for Translation {
         layout.update_layout(&self.offset);
     }
 
-    fn write_uniform<B: encase::internal::BufferMut>(
+    fn write_uniform<B: BufferMut>(
         &self,
         layout: &mut super::UniformLayout,
-        writer: &mut encase::internal::Writer<B>,
+        writer: &mut Writer<B>,
     ) {
         layout.write_uniform(&self.offset, writer);
     }
@@ -69,10 +70,10 @@ impl BuildBindGroup for Rotation {
         layout.update_layout(&self.rotation);
     }
 
-    fn write_uniform<B: encase::internal::BufferMut>(
+    fn write_uniform<B: BufferMut>(
         &self,
         layout: &mut super::UniformLayout,
-        writer: &mut encase::internal::Writer<B>,
+        writer: &mut Writer<B>,
     ) {
         layout.write_uniform(&self.rotation, writer);
     }
@@ -93,11 +94,13 @@ impl Margins {
             margins: Vec4::splat(value),
         }
     }
+
     pub fn axes(horizontal: f32, vertical: f32) -> Self {
         Self {
             margins: Vec4::new(horizontal, horizontal, vertical, vertical),
         }
     }
+
     pub fn new(left: f32, right: f32, top: f32, bottom: f32) -> Self {
         Self {
             margins: Vec4::new(left, right, top, bottom),
@@ -119,10 +122,10 @@ impl BuildBindGroup for Margins {
         layout.update_layout(&self.margins);
     }
 
-    fn write_uniform<B: encase::internal::BufferMut>(
+    fn write_uniform<B: BufferMut>(
         &self,
         layout: &mut super::UniformLayout,
-        writer: &mut encase::internal::Writer<B>,
+        writer: &mut Writer<B>,
     ) {
         layout.write_uniform(&self.margins, writer);
     }

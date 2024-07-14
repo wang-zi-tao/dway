@@ -1,12 +1,12 @@
-use anyhow::Result;
-use bevy::{prelude::*, utils::HashMap};
-use dway_util::eventloop::{AsSource, Poller, PollerGuard};
 use std::{
     collections::VecDeque,
     ffi::{OsStr, OsString},
-    os::fd::{AsFd, AsRawFd, BorrowedFd},
     path::PathBuf,
 };
+
+use anyhow::Result;
+use bevy::{prelude::*, utils::HashMap};
+use dway_util::eventloop::{Poller, PollerGuard};
 use udev::{Device, MonitorBuilder, MonitorSocket};
 
 use crate::schedule::DWayTTYSet;
@@ -80,7 +80,7 @@ pub struct UDevPlugin {
 }
 impl Plugin for UDevPlugin {
     fn build(&self, app: &mut App) {
-        let mut poller = app.world.non_send_resource_mut::<Poller>();
+        let mut poller = app.world_mut().non_send_resource_mut::<Poller>();
         let udev = UDevMonitor::new(&self.sub_system, &mut poller).unwrap();
         app.insert_non_send_resource(udev);
         app.add_systems(First, receive_events.in_set(DWayTTYSet::UdevSystem));
@@ -89,9 +89,10 @@ impl Plugin for UDevPlugin {
 
 #[cfg(test)]
 mod tests {
-    use super::UDevPlugin;
     use bevy::{log::LogPlugin, prelude::App};
-    use dway_util::eventloop::{Poller, EventLoopPlugin};
+    use dway_util::eventloop::{EventLoopPlugin, Poller};
+
+    use super::UDevPlugin;
 
     #[test]
     pub fn test_udev_plugin() {

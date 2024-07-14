@@ -9,9 +9,9 @@ use std::{
 
 use bevy::{
     app::DynEq,
-    ecs::system::Command,
+    ecs::{label::DynHash, world::Command},
     ui::UiSystem,
-    utils::{label::DynHash, HashMap},
+    utils::HashMap,
 };
 use bevy_svg::prelude::Svg;
 use bitflags::bitflags;
@@ -127,6 +127,7 @@ impl Theme {
         }
     }
 
+    #[deprecated]
     pub fn system<F, I, M>(&self, system: F) -> SystemId<I, ()>
     where
         F: IntoSystem<I, (), M> + 'static,
@@ -138,7 +139,7 @@ impl Theme {
 note: add code
 ```
 use dway_ui::theme::ThemeAppExt;
-app.register_system({system});
+app.register_callback({system});
 ``` to the plugin to register the system",
                 system = type_name::<F>()
             );
@@ -221,7 +222,7 @@ pub fn apply_theme_system(
 pub struct ThemePlugin;
 impl Plugin for ThemePlugin {
     fn build(&self, app: &mut App) {
-        let asset_server = app.world.resource_mut::<AssetServer>();
+        let asset_server = app.world_mut().resource_mut::<AssetServer>();
         let theme = Theme {
             default_font: asset_server
                 .load("embedded://dway_ui_framework/fonts/SmileySans-Oblique.ttf"),
@@ -253,15 +254,16 @@ impl Plugin for ThemePlugin {
                 ("inputbox:cursor".to_string(), color!("#6791C9")),
                 ("inputbox:placeholder".to_string(), color!("#C8CED9")),
                 ("inputbox:text".to_string(), color!("#10171e")),
-                ("panel".to_string(), Color::WHITE.with_a(0.5)),
+                ("panel".to_string(), Color::WHITE.with_alpha(0.5)),
                 ("panel:hover".to_string(), color!("#ffffff")),
                 ("panel:clicked".to_string(), color!("#D8DEE9")),
-                ("panel-popup".to_string(), Color::WHITE.with_a(0.5)),
+                ("panel-popup".to_string(), Color::WHITE.with_alpha(0.5)),
+                ("panel-popup1".to_string(), Color::rgba(0.9,0.9,0.9,0.5)),
                 ("panel-popup:hover".to_string(), color!("#ffffff")),
                 ("panel-popup:clicked".to_string(), color!("#D8DEE9")),
                 ("panel-foreground".to_string(), color!("#1b1d1e")),
-                ("scroll-bar".to_string(), color!("#6791C9").with_a(0.8)),
-                ("shadow".to_string(), color!("#888888").with_a(0.5)),
+                ("scroll-bar".to_string(), color!("#6791C9").with_alpha(0.8)),
+                ("shadow".to_string(), color!("#888888").with_alpha(0.5)),
                 ("border".to_string(), color!("#6791C9")),
                 (POPUP_BACKGROUND.to_string(), color!("#D8DEE9")),
             ]),
@@ -281,21 +283,23 @@ impl Plugin for ThemePlugin {
     }
 }
 
+#[deprecated]
 pub trait ThemeAppExt {
-    fn register_system<F, I, M>(&mut self, system: F) -> &mut App
+    #[deprecated]
+    fn register_callback<F, I, M>(&mut self, system: F) -> &mut App
     where
         F: IntoSystem<I, (), M> + 'static,
         I: 'static;
 }
 impl ThemeAppExt for App {
-    fn register_system<F, I, M>(&mut self, system: F) -> &mut App
+    fn register_callback<F, I, M>(&mut self, system: F) -> &mut App
     where
         F: IntoSystem<I, (), M> + 'static,
         I: 'static,
     {
         let type_id = system.type_id();
-        let system_id = self.world.register_system(system);
-        let mut theme = self.world.resource_mut::<Theme>();
+        let system_id = self.world_mut().register_system(system);
+        let mut theme = self.world_mut().resource_mut::<Theme>();
         theme.callbacks.insert(type_id, Box::new(system_id));
         self
     }

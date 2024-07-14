@@ -26,7 +26,7 @@ pub struct ImportDmaBufferRequest {
     pub(crate) buffer: Option<wl_buffer::WlBuffer>,
     pub(crate) client: Client,
     pub(crate) display: DisplayHandle,
-    pub(crate) size: IVec2,
+    pub(crate) size: UVec2,
     pub(crate) format: u32,
     pub(crate) flags: WEnum<zwp_linux_buffer_params_v1::Flags>,
     pub(crate) planes: Vec<DmaBufferPlane>,
@@ -125,7 +125,7 @@ impl Plugin for DWayServerRenderPlugin {
             DWayServerRenderClient::response_system.in_set(DWayServerSet::CreateGlobal),
         );
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.insert_resource(server);
             render_app.init_resource::<ImoprtedBuffers>();
 
@@ -148,7 +148,7 @@ impl Plugin for DWayServerRenderPlugin {
                 )
                 .add_render_graph_edges(
                     Core2d,
-                    (Node2d::MainPass, importnode::graph::Labels2d::Import),
+                    (Node2d::MsaaWriteback, importnode::graph::Labels2d::Import, Node2d::StartMainPass),
                 );
 
             render_app.add_systems(

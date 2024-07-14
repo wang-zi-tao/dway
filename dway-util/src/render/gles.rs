@@ -6,11 +6,12 @@ use wgpu::Texture;
 use crate::formats::ImageFormat;
 
 pub fn get_gpu_image(texture: &Texture, image: NativeTexture, gl: &glow::Context) -> RgbaImage {
+    let format: wgpu::TextureFormat = texture.format();
     let size = texture.size().width as usize
         * texture.size().height as usize
-        * texture.format().pixel_size();
+        * format.components() as usize
+        * size_of::<u8>();
     let mut buffer = vec![0u8; size];
-    let format: wgpu::TextureFormat = texture.format();
     unsafe {
         gl.bind_texture(glow::TEXTURE_2D, Some(image));
         gl.read_pixels(

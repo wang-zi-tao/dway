@@ -3,9 +3,9 @@ bevy-relationship = {path="../bevy-relationship"}
 bevy-relationship-derive = {path="../bevy-relationship-derive"}
 dway-test-client = {path="../dway-server-test/dway-test-client", optional=true}
 anyhow = {workspace=true}
-bevy_framepace = "0.15"
-bevy_mod_debugdump = { version="0.10.0",optional=true }
-bevy_prototype_lyon = "0.11.0"
+bevy_framepace = {workspace=true}
+bevy_mod_debugdump = {workspace=true,optional=true}
+bevy_prototype_lyon = {workspace=true}
 chrono = {workspace=true}
 crossbeam-channel = {workspace=true}
 failure = {workspace=true}
@@ -17,7 +17,6 @@ pretty_env_logger = {workspace=true}
 rand = {workspace=true}
 uuid = {workspace=true}
 dhat = {version="0.3.2", optional=true}
-bevy_egui = "0.26.0"
 dexterous_developer = { workspace = true, optional=true}
 bevy_dexterous_developer = {workspace = true, optional=true}
 cfg-if = {workspace=true}
@@ -25,12 +24,12 @@ pprof = {version="0.13", optional=true, features = ["flamegraph"]}
 
 
 [dependencies.bevy]
-features = ["jpeg", "wayland", "serialize", "default_font", "subpixel_glyph_atlas", "embedded_watcher"]
+features = ["jpeg", "wayland", "serialize", "default_font", "embedded_watcher"]
 workspace = true
 
 [dependencies.bevy-inspector-egui]
 optional = true
-version = "=0.23.3"
+version = "0.25"
 features = ["highlight_changes"]
 
 [dependencies.clap]

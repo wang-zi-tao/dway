@@ -33,11 +33,11 @@ fn main() {
         ))
         .add_systems(Startup, setup)
         .add_plugins(CounterPlugin)
-        .insert_resource(ClearColor(Color::WHITE * 0.8))
+        .insert_resource(ClearColor(Color::rgb(0.8, 0.8, 0.8)))
         .insert_resource(Msaa::Sample4)
-        .register_system(button_open_poppup)
-        .register_system(open_menu)
-        .register_system(popup_animation_system::<UiAnimationDropdownConfig>)
+        .register_callback(button_open_poppup)
+        .register_callback(open_menu)
+        .register_callback(popup_animation_system::<UiAnimationDropdownConfig>)
         .run();
 }
 

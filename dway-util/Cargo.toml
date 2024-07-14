@@ -10,7 +10,7 @@ log = { workspace = true}
 memory-stats = { workspace = true}
 anyhow = "1.0.75"
 send_wrapper = "0.6.0"
-winit = { version = "0.29", default-features = false }
+winit = { version = "0.30", default-features = false }
 tracing-appender = "0.2.2"
 tracing-subscriber = { version="0.3.17",features=["env-filter"] }
 log-panics = { version = "2", features = ["with-backtrace", "backtrace"]}

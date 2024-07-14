@@ -21,7 +21,7 @@ impl AppExt for App {
     {
         self.register_type::<R::From>();
         self.register_type::<R::To>();
-        if !self.world.contains_non_send::<ConnectionEventReceiver>() {
+        if !self.world().contains_non_send::<ConnectionEventReceiver>() {
             self.init_non_send_resource::<ConnectionEventReceiver>();
             self.add_systems(Last, apply_disconnection);
         }

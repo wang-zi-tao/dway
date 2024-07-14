@@ -96,7 +96,7 @@ impl Plugin for DWayLogPlugin {
         let default_filter = format!("{},{}", self.level, self.filter);
 
         let (tx, rx) = mpsc::channel();
-        let mut cache = app.world.non_send_resource_mut::<LoggerCache>();
+        let mut cache = app.world_mut().non_send_resource_mut::<LoggerCache>();
         cache.rx = Some(rx);
 
         let subscriber = tracing_subscriber::registry()

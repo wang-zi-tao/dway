@@ -1,12 +1,11 @@
 use std::marker::PhantomData;
+
 use bevy::{
-    ecs::system::{Command, EntityCommands},
-    prelude::{
-        despawn_with_children_recursive, Entity,
-        EntityWorldMut, World,
-    },
+    ecs::{system::EntityCommands, world::Command},
+    prelude::{despawn_with_children_recursive, Entity, EntityWorldMut, World},
 };
 use smallvec::SmallVec;
+
 use crate::{
     ConnectableMut, ConnectionEventReceiver, ConnectionEventSender, Relationship,
     ReserveRelationship,
@@ -199,7 +198,6 @@ where
     T: Relationship,
 {
     type From = T::To;
-
     type To = T::From;
 }
 
@@ -216,7 +214,10 @@ pub trait EntityCommandsExt {
     where
         R::From: ConnectableMut + Default,
         R::To: ConnectableMut + Default;
-    fn disconnect_from<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity) -> &mut Self
+    fn disconnect_from<R: Relationship + Send + Sync + 'static>(
+        &mut self,
+        peer: Entity,
+    ) -> &mut Self
     where
         R::From: ConnectableMut + Default,
         R::To: ConnectableMut + Default;
@@ -262,7 +263,10 @@ impl<'w> EntityCommandsExt for EntityCommands<'w> {
         self
     }
 
-    fn disconnect_from<R: Relationship + Send + Sync + 'static>(&mut self, peer: Entity) -> &mut Self
+    fn disconnect_from<R: Relationship + Send + Sync + 'static>(
+        &mut self,
+        peer: Entity,
+    ) -> &mut Self
     where
         R::From: ConnectableMut + Default,
         R::To: ConnectableMut + Default,

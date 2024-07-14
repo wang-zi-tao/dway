@@ -1,38 +1,41 @@
 pub mod effect;
 pub mod fill;
 pub mod shape;
-pub mod transform;
 #[cfg(test)]
 pub mod test;
+pub mod transform;
 
-use crate::prelude::*;
-use crate::render::ui_nodes::UiMaterialPlugin;
-use bevy::render::render_resource::encase::private::Metadata;
+use std::{
+    any::{type_name, TypeId},
+    borrow::Borrow,
+    collections::BTreeSet,
+    marker::PhantomData,
+    path::PathBuf,
+};
+
 use bevy::{
     asset::{io::embedded::EmbeddedAssetRegistry, load_internal_asset},
     render::{
         render_asset::RenderAssets,
         render_resource::{
-            encase::{internal::WriteInto, UniformBuffer},
+            encase::{
+                internal::{AlignmentValue, BufferMut, SizeValue, WriteInto, Writer},
+                private::Metadata,
+                UniformBuffer,
+            },
             AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindingType,
             BufferBindingType, BufferInitDescriptor, BufferUsages, OwnedBindingResource,
             RenderPipelineDescriptor, SamplerBindingType, ShaderRef, ShaderStages, ShaderType,
             TextureSampleType, TextureViewDimension, UnpreparedBindGroup,
         },
         renderer::RenderDevice,
-        texture::FallbackImage,
+        texture::{FallbackImage, GpuImage},
     },
 };
 use dway_ui_derive::Interpolation;
-use encase::internal::{AlignmentValue, BufferMut, SizeValue, Writer};
-use std::{
-    any::{type_name, TypeId},
-    collections::BTreeSet,
-    marker::PhantomData,
-    path::PathBuf,
-};
 
 use self::{effect::Effect, shape::Shape, transform::Transform};
+use crate::{prelude::*, render::ui_nodes::UiMaterialPlugin};
 
 type Ident = String;
 type Expr = String;
@@ -68,6 +71,7 @@ impl ShaderBuilder {
         }
         format!("uniforms.{name}")
     }
+
     pub fn get_binding(&mut self, name: &str, attr: &str, ty: &str) -> Ident {
         let name = format!(
             "{}_{}",
@@ -80,13 +84,16 @@ impl ShaderBuilder {
         }
         name
     }
+
     pub fn add_import(&mut self, import: &str) {
         self.imports.insert(import.to_string());
     }
+
     pub fn import_from_builtin(&mut self, import: &str) {
         self.imports
             .insert(format!("dway_ui_framework::shader::framework::{import}"));
     }
+
     pub fn add_var(&mut self, name: &str, value: Expr) -> (Ident, Stat) {
         let name = if let Some(prefix) = self.prefixes.last() {
             format!("{prefix}_{name}")
@@ -100,16 +107,19 @@ impl ShaderBuilder {
         );
         (name, stat)
     }
+
     pub fn in_namespace<R>(&mut self, namespace: &str, f: impl FnOnce(&mut Self) -> R) -> R {
         self.prefixes.push(namespace.to_string());
         let r = f(self);
         self.prefixes.pop();
         r
     }
+
     pub fn in_new_namespace<R>(&mut self, namespace: &str, f: impl FnOnce(&mut Self) -> R) -> R {
         let full_namespace = self.new_namespace(namespace);
         self.in_namespace(&full_namespace, f)
     }
+
     pub fn new_namespace(&self, ns: &str) -> String {
         if let Some(prefix) = self.prefixes.last() {
             format!("{prefix}_{ns}")
@@ -117,6 +127,7 @@ impl ShaderBuilder {
             ns.to_string()
         }
     }
+
     pub fn build(&self) -> String {
         let Self {
             fragment_inner,
@@ -183,7 +194,7 @@ fn vertex(
     @location(3) border_widths: vec4<f32>,
 ) -> VertexOutput {{
     var out: VertexOutput;
-    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    out.position = view.clip_from_world * vec4<f32>(vertex_position, 1.0);
     out.border_widths = border_widths;
     var rect_position = (vertex_uv - 0.5) * size;
     var rect_size = size;
@@ -214,14 +225,14 @@ pub struct BindGroupBuilder<'l> {
     pub output: Vec<(u32, OwnedBindingResource)>,
     pub layout: &'l BindGroupLayout,
     pub render_device: &'l RenderDevice,
-    pub images: &'l RenderAssets<Image>,
+    pub images: &'l RenderAssets<GpuImage>,
     pub fallback_image: &'l FallbackImage,
 }
 impl<'l> BindGroupBuilder<'l> {
     pub fn new(
         layout: &'l BindGroupLayout,
         render_device: &'l RenderDevice,
-        images: &'l RenderAssets<Image>,
+        images: &'l RenderAssets<GpuImage>,
         fallback_image: &'l FallbackImage,
     ) -> Self {
         Self {
@@ -357,6 +368,7 @@ impl UniformLayout {
         self.size = round_up_size;
         self.size += value.size().get();
     }
+
     pub fn write_uniform<T: ShaderType + WriteInto, B: BufferMut>(
         &mut self,
         value: &T,
@@ -389,7 +401,8 @@ impl Default for UniformLayout {
 }
 
 pub trait BuildBindGroup: Clone + Send + Sync + 'static {
-    fn bind_group_layout_entries(_builder: &mut BindGroupLayoutBuilder) {}
+    fn bind_group_layout_entries(_builder: &mut BindGroupLayoutBuilder) {
+    }
     fn unprepared_bind_group(
         &self,
         _builder: &mut BindGroupBuilder,
@@ -654,12 +667,15 @@ impl<T: Material> ShaderAsset<T> {
         T::to_wgsl(&mut builder, &vars);
         builder.build()
     }
+
     fn id() -> String {
         (format!("{:?}", TypeId::of::<T>())).replace(|c: char| c == ':', "=")
     }
+
     pub fn raw_path() -> String {
         format!("dway_ui_framework/render/gen/{}/render.wgsl", Self::id())
     }
+
     pub fn path() -> String {
         format!(
             "embedded://dway_ui_framework/render/gen/{}/render.wgsl",
@@ -702,12 +718,15 @@ impl<T: Material> WriteInto for ShaderAsset<T> {
 
 impl<T: Material> ShaderType for ShaderAsset<T> {
     type ExtraMetadata = ();
+
     const METADATA: Metadata<()> = Metadata {
         alignment: AlignmentValue::new(1),
         has_uniform_min_alignment: false,
         min_size: SizeValue::new(32),
         extra: (),
+        is_pod: true,
     };
+
     fn min_size() -> std::num::NonZeroU64 {
         Self::METADATA.min_size().0
     }
@@ -737,7 +756,7 @@ impl<T: Material> AsBindGroup for ShaderAsset<T> {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<Image>,
+        images: &RenderAssets<GpuImage>,
         fallback_image: &FallbackImage,
     ) -> std::prelude::v1::Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         let mut builder = BindGroupBuilder::new(layout, render_device, images, fallback_image);
@@ -765,7 +784,16 @@ impl<T: Material> UiMaterial for ShaderAsset<T> {
         ShaderRef::Path(Self::path().into())
     }
 
-    fn specialize(_descriptor: &mut RenderPipelineDescriptor, _key: UiMaterialKey<Self>) {}
+    fn specialize(descriptor: &mut RenderPipelineDescriptor, _key: UiMaterialKey<Self>) {
+        let label = format!(
+            "{} {:?}",
+            type_name::<Self>(),
+            descriptor.label.as_ref().map(|l| l.as_ref())
+        );
+        descriptor.label = Some(label.into());
+
+
+    }
 }
 
 pub struct ShaderPlugin<T: Material>(PhantomData<T>);
@@ -787,7 +815,7 @@ impl<T: Material> Default for ShaderPlugin<T> {
 impl<T: Material> Plugin for ShaderPlugin<T> {
     fn build(&self, app: &mut App) {
         if !app.is_plugin_added::<UiMaterialPlugin<ShaderAsset<T>>>() {
-            let embedded = app.world.resource_mut::<EmbeddedAssetRegistry>();
+            let embedded = app.world_mut().resource_mut::<EmbeddedAssetRegistry>();
             let path: PathBuf = ShaderAsset::<T>::raw_path().into();
             let wgsl = ShaderAsset::<T>::to_wgsl();
             trace!("add shader: {path:?}\n{wgsl}");

@@ -87,14 +87,14 @@ fn click_app(
         @use_state(pub count:usize) @use_state(pub icon:Handle<LinuxIcon>) @use_state(pub is_focused:bool)
         @arg(focused_window: ResMut<FocusedWindow> => { state.set_is_focused(focused_window.app_entity == Some(widget.data_entity)); }) >
         <MiniNodeBundle @style="w-48 h-48 m-4 flex-col" @id="app_rect"
-            @handle(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.4), 10.0)) >
+            @handle(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_alpha(0.4), 10.0)) >
             <MiniNodeBundle @id="button" @style="absolute full flex-col"
                 UiRawButtonExt=(UiButton::new(node!(app_root), click_app).into()) >
                 <UiIconBundle @id="app_icon" @style="w-full h-full" UiIcon=(state.icon().clone().into()) @id="app_icon" />
                 <NodeBundle @id="focus_mark" Style=(Style{
                         width:Val::Percent(((*state.count() as f32)/4.0).min(1.0)*80.0),
                     ..style!("absolute bottom-0 h-2 align-center")})
-                    BackgroundColor=((if *state.is_focused() {Color::BLUE} else {Color::WHITE} ).into())
+                    BackgroundColor=((if *state.is_focused() {color!("#0000ff")} else {Color::WHITE} ).into())
                 />
             </MiniNodeBundle>
             <MiniNodeBundle @id="popup" @style="absolute full flex-col" />

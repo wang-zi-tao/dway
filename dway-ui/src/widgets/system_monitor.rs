@@ -42,7 +42,7 @@ PanelSystemMonitor=>
         <TextBundle Text=(Text::from_section( format!("down {}", human_readable_byte(*state.download())), theme.text_style(12.0, "foreground"),).with_no_wrap())/>
     </MiniNodeBundle>
     <MiniNodeBundle @style="h-full w-auto"
-        @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup")*0.9, 8.0))
+        @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 8.0))
     >
         <UiShapeBundle @id="cpu_shape"
         Style=(Style{

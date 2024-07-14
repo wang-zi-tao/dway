@@ -9,6 +9,7 @@ use bevy_prototype_lyon::{
 };
 use bevy_svg::prelude::{FillOptions, StrokeOptions};
 use chrono::Timelike;
+use dway_ui_derive::color;
 use dway_ui_framework::{widgets::shape::UiShapeBundle, UiFrameworkPlugin};
 use std::{f32::consts::PI, time::Duration};
 
@@ -39,7 +40,7 @@ fn setup(mut commands: Commands) {
         Clock,
         Fill {
             options: FillOptions::default(),
-            color: Color::YELLOW,
+            color: color!("#ffff00"),
         },
         Stroke {
             options: StrokeOptions::default()

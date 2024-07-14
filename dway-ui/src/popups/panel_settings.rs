@@ -14,7 +14,7 @@ pub struct PanelSettings {}
 dway_widget! {
 PanelSettings=>
 @state_reflect()
-@plugin{ app.register_system(open_popup); }
+@plugin{ app.register_callback(open_popup); }
 @callback{[UiButtonEvent]
     fn do_logout( In(event): In<UiButtonEvent>, mut event_writer: EventWriter<SystemControllRequest>) {
         if event.kind == UiButtonEventKind::Released {
@@ -42,7 +42,7 @@ PanelSettings=>
 <MiniNodeBundle @style="flex-col">
     <VolumeControlBundle/>
     <MiniNodeBundle @id="bottom_bar" @style="p-4 justify-content:space-evenly"
-        @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup")*0.9, 16.0))
+        @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 16.0))
     >
         <( PanelButtonBundle::with_callback(&theme,&mut assets_rounded_ui_rect_material, &[(this_entity, do_logout)]) )
             @style="w-32 h-32" @id="logout_button">

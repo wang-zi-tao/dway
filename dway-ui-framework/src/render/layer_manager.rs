@@ -6,8 +6,7 @@ use bevy::{
         mesh::{Indices, PrimitiveTopology},
         render_asset::RenderAssetUsages,
         render_resource::{
-            AsBindGroupError, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
-            TextureUsages,
+            encase::internal::{BufferMut, Writer}, AsBindGroupError, Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages
         },
     },
     transform::components::Transform,
@@ -420,7 +419,7 @@ fn create_image_descripteor(size: UVec2) -> Image {
 fn update_image(size: UVec2, handle: &mut Handle<Image>, images: &mut Assets<Image>) {
     let image = create_image_descripteor(size);
     if handle.is_strong() {
-        images.insert(handle.clone(), image);
+        images.insert(handle.id(), image);
     } else {
         *handle = images.add(image);
     }
@@ -625,7 +624,7 @@ pub fn update_layers(
                     .map(|w| UVec2::new(w.physical_width(), w.physical_height()))
                     .unwrap_or(UVec2::ONE),
                 Some(NormalizedRenderTarget::Image(image)) => {
-                    images.get(image).map(Image::size).unwrap_or(UVec2::ONE)
+                    images.get(image.id()).map(Image::size).unwrap_or(UVec2::ONE)
                 }
                 _ => UVec2::ONE,
             };
@@ -761,10 +760,10 @@ impl BuildBindGroup for FillWithLayer {
         layout.update_layout(&self.texture_size);
     }
 
-    fn write_uniform<B: encase::internal::BufferMut>(
+    fn write_uniform<B: BufferMut>(
         &self,
         layout: &mut UniformLayout,
-        writer: &mut encase::internal::Writer<B>,
+        writer: &mut Writer<B>,
     ) {
         layout.write_uniform(&self.texture_size, writer);
     }

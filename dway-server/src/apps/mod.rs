@@ -253,7 +253,7 @@ impl Plugin for DesktopEntriesPlugin {
         app.init_resource::<DesktopEntriesSet>();
         app.register_relation::<ToplevelConnectAppEntry>();
         app.add_systems(Startup, start_scan_desktop_file);
-        app.world.spawn((Name::new("app_entry_root"), AppEntryRoot));
+        app.world_mut().spawn((Name::new("app_entry_root"), AppEntryRoot));
         app.add_systems(
             PreUpdate,
             update_app_entry_set.in_set(DWayServerSet::UpdateAppInfo),

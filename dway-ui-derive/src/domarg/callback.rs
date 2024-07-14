@@ -39,7 +39,7 @@ impl DomDecorator for Callback {
             .add_field_with_initer(
                 name,
                 quote!(#vis #name: bevy::ecs::system::SystemId<#ty>),
-                quote!(app.world.register_system(#name)),
+                quote!(app.world_mut().register_system(#name)),
             );
         let resources_name = &context.tree_context.resources_builder.name;
         context

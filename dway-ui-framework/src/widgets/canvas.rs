@@ -207,14 +207,6 @@ pub fn prepare_render_command(
                     },
                     ..Default::default()
                 };
-                let view_projection =
-                    projection.get_projection_matrix() * transform.compute_matrix().inverse();
-                let frustum = Frustum::from_view_projection_custom_far(
-                    &view_projection,
-                    &transform.translation,
-                    &transform.back(),
-                    projection.far(),
-                );
                 let camera_entity = commands
                     .spawn((
                         Camera2dBundle {
@@ -225,7 +217,6 @@ pub fn prepare_render_command(
                             },
                             camera_2d: Camera2d,
                             projection,
-                            frustum,
                             transform,
                             ..default()
                         },

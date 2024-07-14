@@ -15,7 +15,8 @@ use bevy::{
         entity::EntityHashSet,
         event::ManualEventReader,
         query::{QueryData, QueryEntityError, WorldQuery},
-        system::{Command, SystemState},
+        system::SystemState,
+        world::Command as _,
     },
     tasks::IoTaskPool,
     utils::HashMap,
@@ -50,7 +51,7 @@ where
     DWay: GlobalDispatch<T, Entity>,
     T: wayland_server::Resource + 'static,
 {
-    let mut config = app.world.resource_mut::<DWayServerConfig>();
+    let mut config = app.world_mut().resource_mut::<DWayServerConfig>();
     config.add_global::<T, VERSION>();
 }
 
@@ -717,10 +718,10 @@ pub fn dispatch_events(
         let mut server = display_entity_mut.take::<DWayServer>().unwrap();
         debug!(entity=?display_entity_mut.id(), wayland = server.socket_name() , "dispatch wayland event");
         display_entity_mut.world_scope(|world| {
-            if let Err(err) = server.dispatch(display_entity, world){
+            if let Err(err) = server.dispatch(display_entity, world) {
                 error!("failed to receive wayland requests: {err}");
             };
-            if let Err(err) = server.display.flush_clients(){
+            if let Err(err) = server.display.flush_clients() {
                 error!("failed flush wayland events buffer: {err}");
             };
         });
@@ -730,7 +731,7 @@ pub fn dispatch_events(
 
 pub fn flush_display(mut display_query: Query<&mut DWayServer>) {
     for mut display in display_query.iter_mut() {
-        if let Err(e) = display.display.flush_clients(){
+        if let Err(e) = display.display.flush_clients() {
             error!("failed to flush wayland display: {e}");
         };
     }

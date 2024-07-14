@@ -23,7 +23,7 @@ relationship!(R4=>F4>-<T4);
 
 fn test_suit(system: BoxedSystem) {
     let mut app = App::new();
-    let systemid = app.world.register_boxed_system(system);
+    let systemid = app.world_mut().register_boxed_system(system);
     app.add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_once()))
         .register_relation::<R0>()
         .register_relation::<R1>()

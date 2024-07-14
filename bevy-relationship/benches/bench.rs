@@ -5,7 +5,8 @@ use bevy::{
     app::ScheduleRunnerPlugin,
     ecs::{
         entity,
-        system::{Command, RunSystemOnce, SystemParam},
+        system::{RunSystemOnce, SystemParam},
+        world::Command,
     },
     prelude::*,
 };
@@ -64,7 +65,7 @@ fn init_tree(world: &mut World, entitys: &[Entity], w: usize) {
     let mut queue = VecDeque::new();
     queue.push_back(entitys[0]);
     while let Some(root) = queue.pop_front() {
-        if let Some(chunk) = iter.next(){
+        if let Some(chunk) = iter.next() {
             for peer in chunk {
                 ConnectCommand::<Tree>::new(root, *peer).apply(world);
             }
@@ -90,7 +91,7 @@ fn create_random_graph() -> (App, Vec<Entity>) {
         .register_relation::<RandomGraph>()
         .register_relation::<R3>()
         .register_relation::<R4>();
-    let world = &mut app.world;
+    let world = app.world_mut();
     let entitys = (0..1024)
         .map(|i| world.spawn(C0(i)).id())
         .collect::<Vec<_>>();
@@ -106,7 +107,7 @@ fn bench_iter(c: &mut Criterion) {
     let (mut app, mut entitys) = create_random_graph();
     let mut rng = rand::thread_rng();
     entitys.shuffle(&mut rng);
-    let world = &mut app.world;
+    let world = app.world_mut();
 
     c.bench_function("iter_entity", |b| {
         let mut query = QueryState::<Entity, With<C0>>::new(world);
@@ -145,7 +146,7 @@ fn bench_iter(c: &mut Criterion) {
 
     c.bench_function("query_path2_manual", |b| {
         b.iter(|| {
-            app.world
+            app.world_mut()
                 .run_system_once(|query: Query<(Entity, &WzPeer)>, query2: Query<Entity>| {
                     let mut r: u64 = 0;
                     for (n0, f0) in query.iter() {
@@ -165,7 +166,7 @@ fn bench_iter(c: &mut Criterion) {
                 QueryGraph=>path=match (node0:Entity)-[WzGraph]->(node1:Entity)
             }
 
-            app.world.run_system_once(|graph: QueryGraph| {
+            app.world_mut().run_system_once(|graph: QueryGraph| {
                 let mut r: u64 = 0;
                 graph.foreach_path(|n0, n1| {
                     r += n0.to_bits() + n1.to_bits();
@@ -182,7 +183,7 @@ fn bench_iter(c: &mut Criterion) {
                 QueryGraph=>path=match (node0:Entity)-[WzGraph]->(node1:Entity)-[WzGraph]->(node2:Entity)
             }
 
-            app.world.run_system_once(|graph: QueryGraph| {
+            app.world_mut().run_system_once(|graph: QueryGraph| {
                 let mut r: u64 = 0;
                 graph.foreach_path(|n0, n1, n2| {
                     r += n0.to_bits() + n1.to_bits() + n2.to_bits();
@@ -199,7 +200,7 @@ fn bench_iter(c: &mut Criterion) {
                 QueryGraph=>path=match (node0:Entity)-[Tree]->(node1:Entity)
             }
 
-            app.world.run_system_once(|graph: QueryGraph| {
+            app.world_mut().run_system_once(|graph: QueryGraph| {
                 let mut r: u64 = 0;
                 let mut c = 0;
                 graph.foreach_path(|n0, n1| {
@@ -219,7 +220,7 @@ fn bench_iter(c: &mut Criterion) {
                 QueryGraph=>path=match (node0:Entity filter With<Root>)-[Tree]->(node1:Entity)-[Tree]->(node2:Entity)
             }
 
-            app.world.run_system_once(|graph: QueryGraph| {
+            app.world_mut().run_system_once(|graph: QueryGraph| {
                 let mut r: u64 = 0;
                 let mut c =0;
                 graph.foreach_path(|n0, n1, n2| {
@@ -239,7 +240,7 @@ fn bench_iter(c: &mut Criterion) {
                 QueryGraph=>path=match (node0:Entity)
             }
 
-            app.world.run_system_once(|graph: QueryGraph| {
+            app.world_mut().run_system_once(|graph: QueryGraph| {
                 let mut r: u64 = 0;
                 graph.foreach_path(|n0| {
                     r += n0.to_bits();
@@ -256,7 +257,7 @@ fn bench_iter(c: &mut Criterion) {
                 QueryGraph=>path=match (node0:Entity)-[RandomGraph]->(node1:Entity)
             }
 
-            app.world.run_system_once(|graph: QueryGraph| {
+            app.world_mut().run_system_once(|graph: QueryGraph| {
                 let mut r: u64 = 0;
                 graph.foreach_path(|n0, n1| {
                     r += n0.to_bits() + n1.to_bits();
@@ -273,7 +274,7 @@ fn bench_iter(c: &mut Criterion) {
                 QueryGraph=>path=match (node0:Entity)-[RandomGraph]->(node1:Entity)-[RandomGraph]->(node2:Entity)
             }
 
-            app.world.run_system_once(|graph: QueryGraph| {
+            app.world_mut().run_system_once(|graph: QueryGraph| {
                 let mut r: u64 = 0;
                 graph.foreach_path(|n0, n1, n2| {
                     r += n0.to_bits() + n1.to_bits() + n2.to_bits();

@@ -138,7 +138,7 @@ impl WlSurface {
             ..default()
         };
         image.resize(image_size);
-        assets.insert(self.image.clone(), image);
+        assets.insert(self.image.id(), image);
         debug!(resource=%self.raw.id(), origin_size = ?self.size, "resize image to {:?}", size);
         self.size = Some(size);
         self.commited

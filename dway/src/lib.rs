@@ -16,7 +16,7 @@ use bevy::{
         settings::{Backends, RenderCreation, WgpuSettings},
         RenderPlugin,
     },
-    winit::WinitPlugin,
+    winit::{WakeUp, WinitPlugin},
 };
 use bevy_framepace::Limiter;
 use cfg_if::cfg_if;
@@ -130,7 +130,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     default_plugins = default_plugins
         .set(RenderPlugin {
             render_creation: RenderCreation::Automatic(WgpuSettings {
-                backends: Some(Backends::VULKAN),
+                backends: Some(Backends::GL),
                 priority: bevy::render::settings::WgpuSettingsPriority::Functionality,
                 ..Default::default()
             }),
@@ -175,9 +175,9 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         }
 
         app.add_plugins((
-            WinitPlugin::default(),
+            WinitPlugin::<WakeUp>::default(),
             dway_util::eventloop::EventLoopPlugin::default(),
-            bevy_framepace::FramepacePlugin,
+            // bevy_framepace::FramepacePlugin,
         ));
         #[cfg(feature = "inspector")]
         {

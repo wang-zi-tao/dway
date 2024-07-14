@@ -4,6 +4,7 @@ pub struct Bind<T: WlResource> {
     pub entity: Entity,
     pub phase: std::marker::PhantomData<T>,
 }
+#[derive(Component)]
 pub struct Insert<T> {
     pub entity: Entity,
     pub phase: std::marker::PhantomData<T>,
@@ -18,6 +19,7 @@ impl<T> Insert<T> {
     }
 }
 
+#[derive(Component)]
 pub struct Destroy<T> {
     pub entity: Entity,
     pub phase: std::marker::PhantomData<T>,

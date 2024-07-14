@@ -1,6 +1,9 @@
 use std::marker::PhantomData;
 
-use bevy::render::render_resource::AsBindGroupError;
+use bevy::render::render_resource::{
+    encase::internal::{BufferMut, Writer},
+    AsBindGroupError,
+};
 
 use super::{BuildBindGroup, Expr, ShaderBuilder};
 use crate::{prelude::*, shader::ShaderVariables};
@@ -11,7 +14,7 @@ pub trait Fill: BuildBindGroup {
 
 #[derive(Clone, Default, Debug, Interpolation)]
 pub struct Gradient {
-    pub color: Color,
+    pub color: LinearRgba,
     pub delta_color: Vec4,
     pub direction: Vec2,
 }
@@ -19,7 +22,7 @@ pub struct Gradient {
 impl Gradient {
     pub fn new(color: Color, delta_color: Vec4, direction: Vec2) -> Self {
         Self {
-            color,
+            color: color.to_linear(),
             delta_color,
             direction,
         }
@@ -41,10 +44,10 @@ impl BuildBindGroup for Gradient {
         layout.update_layout(&self.direction);
     }
 
-    fn write_uniform<B: encase::internal::BufferMut>(
+    fn write_uniform<B: BufferMut>(
         &self,
         layout: &mut super::UniformLayout,
-        writer: &mut encase::internal::Writer<B>,
+        writer: &mut Writer<B>,
     ) {
         layout.write_uniform(&self.color, writer);
         layout.write_uniform(&self.delta_color, writer);
@@ -60,11 +63,13 @@ impl ColorWheel {
     }
 }
 impl BuildBindGroup for ColorWheel {
-    fn update_layout(&self, _layout: &mut super::UniformLayout) {}
-    fn write_uniform<B: encase::internal::BufferMut>(
+    fn update_layout(&self, _layout: &mut super::UniformLayout) {
+    }
+
+    fn write_uniform<B: BufferMut>(
         &self,
         _layout: &mut super::UniformLayout,
-        _writer: &mut encase::internal::Writer<B>,
+        _writer: &mut Writer<B>,
     ) {
     }
 }
@@ -78,18 +83,18 @@ impl Fill for ColorWheel {
 
 #[derive(Clone, Default, Debug, Interpolation)]
 pub struct FillColor {
-    pub color: Color,
+    pub color: LinearRgba,
 }
 
 impl From<Color> for FillColor {
     fn from(value: Color) -> Self {
-        Self { color: value }
+        Self { color: value.to_linear() }
     }
 }
 
 impl FillColor {
     pub fn new(color: Color) -> Self {
-        Self { color }
+        Self { color: color.to_linear() }
     }
 }
 impl Fill for FillColor {
@@ -102,10 +107,10 @@ impl BuildBindGroup for FillColor {
         layout.update_layout(&self.color);
     }
 
-    fn write_uniform<B: encase::internal::BufferMut>(
+    fn write_uniform<B: BufferMut>(
         &self,
         layout: &mut super::UniformLayout,
-        writer: &mut encase::internal::Writer<B>,
+        writer: &mut Writer<B>,
     ) {
         layout.write_uniform(&self.color, writer);
     }
@@ -163,17 +168,17 @@ impl BuildBindGroup for FillImage {
         layout.update_layout(&self.scaling);
     }
 
-    fn write_uniform<B: encase::internal::BufferMut>(
+    fn write_uniform<B: BufferMut>(
         &self,
         layout: &mut super::UniformLayout,
-        writer: &mut encase::internal::Writer<B>,
+        writer: &mut Writer<B>,
     ) {
         layout.write_uniform(&self.offset, writer);
         layout.write_uniform(&self.scaling, writer);
     }
 }
 
-pub trait BlurMethod: Clone + Send + Sync + 'static{
+pub trait BlurMethod: Clone + Send + Sync + 'static {
     fn method() -> String;
 }
 #[derive(Clone)]
@@ -198,7 +203,6 @@ impl BlurMethod for GaussianBlur {
     }
 }
 
-
 #[derive(Clone, SmartDefault, Debug)]
 pub struct BlurImage<M: BlurMethod> {
     #[default(1.0)]
@@ -208,7 +212,11 @@ pub struct BlurImage<M: BlurMethod> {
 }
 impl<M: BlurMethod> BlurImage<M> {
     pub fn new(radius: f32, image: Handle<Image>) -> Self {
-        Self { radius, image, phantom: PhantomData }
+        Self {
+            radius,
+            image,
+            phantom: PhantomData,
+        }
     }
 }
 impl<M: BlurMethod> Fill for BlurImage<M> {
@@ -239,10 +247,10 @@ impl<M: BlurMethod> BuildBindGroup for BlurImage<M> {
         layout.update_layout(&self.radius);
     }
 
-    fn write_uniform<B: encase::internal::BufferMut>(
+    fn write_uniform<B: BufferMut>(
         &self,
         layout: &mut super::UniformLayout,
-        writer: &mut encase::internal::Writer<B>,
+        writer: &mut Writer<B>,
     ) {
         layout.write_uniform(&self.radius, writer);
     }
@@ -251,12 +259,12 @@ impl<M: BlurMethod> BuildBindGroup for BlurImage<M> {
 #[derive(Clone, Default, Debug, Interpolation)]
 pub struct AddColor<F: Fill> {
     pub inner: F,
-    pub color: Color,
+    pub color: LinearRgba,
 }
 
 impl<F: Fill> AddColor<F> {
     pub fn new(inner: F, color: Color) -> Self {
-        Self { inner, color }
+        Self { inner, color: color.to_linear() }
     }
 }
 
@@ -268,13 +276,17 @@ impl<F: Fill> Fill for AddColor<F> {
         format!("mix_alpha({inner}, {uniform_color})")
     }
 }
-impl <F: Fill> BuildBindGroup for AddColor<F> {
+impl<F: Fill> BuildBindGroup for AddColor<F> {
     fn update_layout(&self, layout: &mut super::UniformLayout) {
         self.inner.update_layout(layout);
         layout.update_layout(&self.color);
     }
 
-    fn write_uniform<B: encase::internal::BufferMut>(&self, layout: &mut super::UniformLayout, writer: &mut encase::internal::Writer<B>) {
+    fn write_uniform<B: BufferMut>(
+        &self,
+        layout: &mut super::UniformLayout,
+        writer: &mut Writer<B>,
+    ) {
         self.inner.write_uniform(layout, writer);
         layout.write_uniform(&self.color, writer);
     }
@@ -284,9 +296,9 @@ impl <F: Fill> BuildBindGroup for AddColor<F> {
     }
 
     fn unprepared_bind_group(
-            &self,
-            builder: &mut super::BindGroupBuilder,
-        ) -> Result<(), AsBindGroupError> {
+        &self,
+        builder: &mut super::BindGroupBuilder,
+    ) -> Result<(), AsBindGroupError> {
         self.inner.unprepared_bind_group(builder)
     }
 }

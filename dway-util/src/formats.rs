@@ -81,6 +81,6 @@ impl ImageFormat {
         } )
     }
     pub fn pixel_size(&self)->usize{
-        self.wgpu_format.pixel_size()
+        self.wgpu_format.components() as usize
     }
 }

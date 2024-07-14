@@ -11,7 +11,6 @@ pub mod components;
 pub mod compositor;
 pub mod config;
 pub mod controller;
-pub mod debug;
 pub mod desktop;
 pub mod input;
 pub mod layout;
@@ -121,7 +120,6 @@ impl Plugin for DWayClientPlugin {
                 .ambiguous_with_all(),
         );
 
-        app.add_systems(Startup, (setup_2d, apply_deferred).chain().in_set(Init));
         app.add_systems(PostUpdate, apply_deferred.in_set(DestroyFlush));
         app.add_plugins((
             model::DWayClientModelPlugin,
@@ -130,7 +128,6 @@ impl Plugin for DWayClientPlugin {
             input::DWayInputPlugin { debug: false },
             desktop::DWayDesktop,
             window::DWayWindowPlugin,
-            debug::DebugPlugin::default(),
             navigation::windowstack::WindowStackPlugin,
             layout::LayoutPlugin,
             screen::ScreenPlugin,
@@ -147,4 +144,3 @@ pub fn debug_info(cameras: Query<&Camera>, cameras2d: Query<&Camera2d>) {
     info!("cameras : {:?}", cameras.iter().collect::<Vec<_>>());
     info!("cameras2d : {:?}", cameras2d.iter().count());
 }
-fn setup_2d() {}

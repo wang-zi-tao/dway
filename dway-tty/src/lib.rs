@@ -57,7 +57,7 @@ impl Plugin for DWayTTYPlugin {
     }
 }
 
-fn runner(mut app: App) {
+fn runner(mut app: App) -> AppExit {
     let plugins_state = app.plugins_state();
     if plugins_state != PluginsState::Cleaned {
         while app.plugins_state() == PluginsState::Adding {
@@ -69,8 +69,9 @@ fn runner(mut app: App) {
     }
 
     let mut redraw_events_reader = ManualEventReader::<RequestRedraw>::default();
+    let mut exit_events_reader = ManualEventReader::<AppExit>::default();
 
-    let mut poller = app.world.non_send_resource_mut::<Poller>().take();
+    let mut poller = app.world_mut().non_send_resource_mut::<Poller>().take();
 
     poller.launch(None);
 
@@ -79,19 +80,24 @@ fn runner(mut app: App) {
     for event in rx.iter() {
         let start_time = Instant::now();
 
-        for callback in event.commands{
-            callback(&mut app.world);
+        for callback in event.commands {
+            callback(app.world_mut());
         }
 
         app.update();
 
         let mut poller_request = PollerRequest::default();
-        if !app.world.resource_mut::<Events<AppExit>>().is_empty() {
-            poller_request.quit = true;
-        }
-        if let Some(frame) = app.world.get_resource::<DWayTTYSettings>() {
+
+        let exit_code =
+            if let Some(exit_code) = exit_events_reader.read(app.world().resource()).last(){
+                poller_request.quit = true;
+                Some(exit_code.clone())
+            } else {
+                None
+            };
+        if let Some(frame) = app.world().get_resource::<DWayTTYSettings>() {
             if redraw_events_reader
-                .read(app.world.resource())
+                .read(app.world().resource())
                 .last()
                 .is_some()
             {
@@ -99,10 +105,11 @@ fn runner(mut app: App) {
             }
         }
         poller.send(poller_request.clone());
-        if poller_request.quit {
-            break;
+        if let Some(exit_code) = exit_code {
+            return exit_code;
         }
     }
+    AppExit::Success
 }
 
 #[cfg(test)]

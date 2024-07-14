@@ -271,10 +271,10 @@ pub fn receive_events(
 pub struct LibInputPlugin;
 impl Plugin for LibInputPlugin {
     fn build(&self, app: &mut App) {
-        let libinput = {
-            let cell = app.world.cell();
-            let mut seat = cell.non_send_resource_mut::<SeatState>();
-            let mut poller = cell.non_send_resource_mut::<Poller>();
+        let libinput = unsafe{
+            let cell = app.world_mut().as_unsafe_world_cell();
+            let mut seat = cell.get_non_send_resource_mut::<SeatState>().unwrap();
+            let mut poller = cell.get_non_send_resource_mut::<Poller>().unwrap();
             LibinputDevice::new(&mut seat, &mut poller).unwrap()
         };
         app.add_systems(First, receive_events.in_set(DWayTTYSet::LibinputSystem))

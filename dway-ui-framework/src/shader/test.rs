@@ -1,11 +1,9 @@
-use bevy::{render::RenderPlugin, ui::UiPlugin};
+use std::path::Path;
 
+use bevy::{render::RenderPlugin, ui::UiPlugin};
 use lazy_static::lazy_static;
 use pretty_assertions::assert_eq;
 use regex::Regex;
-use std::path::Path;
-
-use crate::tests::{run_test_plugins, UnitTestPlugin};
 
 use self::{
     effect::{Border, Shadow},
@@ -13,8 +11,8 @@ use self::{
     shape::{Circle, Rect, RoundedRect},
     transform::Translation,
 };
-
 use super::*;
+use crate::tests::{run_test_plugins, UnitTestPlugin};
 
 lazy_static! {
     static ref RE: Regex = Regex::new(r"  +").unwrap();
@@ -55,7 +53,7 @@ fn generate_shader_shape() {
 @group(1) @binding(0) var<uniform> uniforms: Settings; 
 struct Settings { @location(0) shape_radius: f32, @location(1) effect_color: vec4<f32>, } 
 struct VertexOutput { @location(0) uv: vec2<f32>, @location(1) border_widths: vec4<f32>, @location(2) @interpolate(flat) size: vec2<f32>, @builtin(position) position: vec4<f32>, }; 
-@vertex fn vertex( @location(0) vertex_position: vec3<f32>, @location(1) vertex_uv: vec2<f32>, @location(2) size: vec2<f32>, @location(3) border_widths: vec4<f32>, ) -> VertexOutput { var out: VertexOutput; out.position = view.view_proj * vec4<f32>(vertex_position, 1.0); out.border_widths = border_widths; var rect_position = (vertex_uv - 0.5) * size; var rect_size = size; var extend_left = 0.0; var extend_right = 0.0; var extend_top = 0.0; var extend_bottom = 0.0; out.uv = vertex_uv; out.size = size; return out; } 
+@vertex fn vertex( @location(0) vertex_position: vec3<f32>, @location(1) vertex_uv: vec2<f32>, @location(2) size: vec2<f32>, @location(3) border_widths: vec4<f32>, ) -> VertexOutput { var out: VertexOutput; out.position = view.clip_from_world * vec4<f32>(vertex_position, 1.0); out.border_widths = border_widths; var rect_position = (vertex_uv - 0.5) * size; var rect_size = size; var extend_left = 0.0; var extend_right = 0.0; var extend_top = 0.0; var extend_bottom = 0.0; out.uv = vertex_uv; out.size = size; return out; } 
 @fragment fn fragment(in: VertexOutput) -> @location(0) vec4<f32> { var out = vec4(1.0, 1.0, 1.0, 0.0); let rect_position = (in.uv - 0.5) * in.size; let rect_size = in.size; { let shape_pos = rect_position; let shape_size = rect_size; let shape_d = rounded_rect_sdf(shape_pos, shape_size, uniforms.shape_radius); if shape_d<0.5 { out = mix_alpha(out, mix_color(uniforms.effect_color, shape_d)); if out.a > 255.0/256.0 { return out; } } } return out; }
 "###,
     );
@@ -143,8 +141,8 @@ fn test_shaders() {
                 Circle::new().with_effect((
                     Border::new(Color::WHITE, 2.0),
                     Gradient::new(
-                        Color::WHITE * 0.5,
-                        Color::BLUE.rgba_to_vec4() - Color::RED.rgba_to_vec4(),
+                        Color::linear_rgb(0.5, 0.5, 0.5),
+                        Vec4::new(-1.0, 0.0, 1.0, 0.0),
                         Vec2::ONE.normalize() / 256.0,
                     ),
                     Shadow::new(color!("#888888"), Vec2::ONE * 1.0, Vec2::ONE * 1.0, 2.0),
@@ -154,7 +152,7 @@ fn test_shaders() {
                 &temp_dir_path,
                 "rect_fill",
                 Vec2::splat(384.0),
-                Rect::new().with_effect(FillColor::new(Color::BLUE)),
+                Rect::new().with_effect(FillColor::new(Color::rgba(0.0, 0.0, 1.0, 1.0))),
             ),
         ],
     );

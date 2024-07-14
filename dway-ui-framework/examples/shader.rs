@@ -1,7 +1,17 @@
 use std::time::Duration;
-use bevy::{diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin}, prelude::*};
+
+use bevy::{
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    prelude::*,
+};
 use dway_ui_derive::color;
-use dway_ui_framework::shader::{effect::{Border, Shadow}, fill::{FillColor, Gradient}, shape::{Circle, *}, transform::Margins, ShaderAsset, ShaderPlugin, ShapeRender, Transformed};
+use dway_ui_framework::shader::{
+    effect::{Border, Shadow},
+    fill::{FillColor, Gradient},
+    shape::{Circle, *},
+    transform::Margins,
+    ShaderAsset, ShaderPlugin, ShapeRender, Transformed,
+};
 
 fn main() {
     App::new()
@@ -57,8 +67,8 @@ fn setup(
         shadow.clone(),
     );
     let gradient = Gradient::new(
-        Color::WHITE * 0.5,
-        Color::BLUE.rgba_to_vec4() - Color::RED.rgba_to_vec4(),
+        color!("#808080"),
+        Vec4::new(-1.0, 0.0, 1.0, 0.0),
         Vec2::ONE.normalize() / 256.0,
     );
 

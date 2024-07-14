@@ -1,4 +1,9 @@
-use std::{any::TypeId, hash::Hash, marker::PhantomData, ops::Range};
+use std::{
+    any::{type_name, TypeId},
+    hash::Hash,
+    marker::PhantomData,
+    ops::Range,
+};
 
 use bevy::{
     app::DynEq,
@@ -11,30 +16,32 @@ use bevy::{
             SystemParamItem,
         },
     },
+    math::FloatOrd,
     render::{
         globals::{GlobalsBuffer, GlobalsUniform},
         mesh::PrimitiveTopology,
         render_asset::RenderAssets,
         render_phase::{
-            AddRenderCommand, DrawFunctionId, DrawFunctions, PhaseItem, RenderCommand,
-            RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass,
+            AddRenderCommand, DrawFunctionId, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
+            RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
+            ViewSortedRenderPhases,
         },
         render_resource::{
             binding_types::uniform_buffer, AsBindGroupError, BindGroup, BindGroupEntries,
             BindGroupLayout, BindGroupLayoutEntries, BlendState, BufferUsages, BufferVec,
             ColorTargetState, ColorWrites, FragmentState, FrontFace, MultisampleState,
-            OwnedBindingResource, PipelineCache, PolygonMode, PrimitiveState,
+            OwnedBindingResource, PipelineCache, PolygonMode, PrimitiveState, RawBufferVec,
             RenderPipelineDescriptor, ShaderRef, ShaderStages, SpecializedRenderPipeline,
             SpecializedRenderPipelines, TextureFormat, VertexBufferLayout, VertexFormat,
             VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
-        texture::{BevyDefault, FallbackImage},
+        texture::{BevyDefault, FallbackImage, GpuImage},
         view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
         Extract, Render, RenderApp, RenderSet,
     },
     ui::{ExtractedUiNode, ExtractedUiNodes, RenderUiSystem, TransparentUi, UiStack},
-    utils::{hashbrown::hash_map::Entry, FloatOrd, HashMap, HashSet},
+    utils::{hashbrown::hash_map::Entry, HashMap, HashSet},
 };
 use bevy_relationship::reexport::SmallVec;
 use bytemuck::{Pod, Zeroable};
@@ -46,16 +53,13 @@ use crate::{prelude::*, widgets::scroll::ui_scroll_render};
 pub struct UiNodeRenderPlugin;
 impl Plugin for UiNodeRenderPlugin {
     fn build(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedUiNodeSet>()
                 .init_resource::<RenderUiMaterialSet>()
                 .init_resource::<RenderUiNodeSet>()
                 .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
-                .add_systems(
-                    ExtractSchedule,
-                    extract_ui_nodes.in_set(RenderUiSystem::ExtractNode),
-                )
+                .add_systems(ExtractSchedule, extract_ui_nodes)
                 .add_systems(
                     Render,
                     (
@@ -78,34 +82,34 @@ impl<M: UiMaterial> Default for UiMaterialPlugin<M> {
 impl<M: UiMaterial<Data = ()>> Plugin for UiMaterialPlugin<M> {
     fn build(&self, app: &mut App) {
         app.init_asset::<M>();
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<TransparentUi, DrawUiMaterial<M>>()
                 .init_resource::<ExtractedUiMaterials<M>>()
                 .add_systems(
                     ExtractSchedule,
-                    (
-                        (extract_ui_materials::<M>, extract_ui_node_handle::<M>)
-                            .in_set(RenderUiSystem::ExtractNode)
-                            .after(extract_ui_nodes),
-                        prepare_ui_materials::<M>.in_set(RenderSet::PrepareAssets),
-                    ),
+                    (extract_ui_materials::<M>, extract_ui_node_handle::<M>)
+                        .after(extract_ui_nodes),
+                )
+                .add_systems(
+                    Render,
+                    prepare_ui_materials::<M>.in_set(RenderSet::PrepareAssets),
                 );
         }
     }
 
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            let pipeline = UiPipeline::new::<M>(&mut render_app.world);
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            let pipeline = UiPipeline::new::<M>(render_app.world_mut());
             {
-                let mut material_set = render_app.world.resource_mut::<RenderUiMaterialSet>();
+                let mut material_set = render_app.world_mut().resource_mut::<RenderUiMaterialSet>();
                 material_set
                     .draw_function_index
                     .insert(pipeline.draw_function, TypeId::of::<M>());
                 material_set.pipelines.insert(TypeId::of::<M>(), pipeline);
             }
             {
-                let mut node_set = render_app.world.resource_mut::<RenderUiNodeSet>();
+                let mut node_set = render_app.world_mut().resource_mut::<RenderUiNodeSet>();
                 node_set.vertex_buffer.insert(
                     TypeId::of::<M>(),
                     UiVertexList {
@@ -146,6 +150,7 @@ structstruck::strike! {
             }
         >,
         pub pipelines: HashMap<TypeId,
+            #[derive(Debug)]
             pub struct UiPipeline {
                 pub specialize: UiMaterialSpecializeFn,
                 pub ui_layout: BindGroupLayout,
@@ -177,8 +182,8 @@ pub struct UiBatch {
 structstruck::strike! {
     #[derive(Resource, SmartDefault)]
     pub struct RenderUiNodeSet{
-        #[default(BufferVec::new(BufferUsages::VERTEX))]
-        pub vertices: BufferVec<UiMaterialVertex>,
+        #[default(RawBufferVec::new(BufferUsages::VERTEX))]
+        pub vertices: RawBufferVec<UiMaterialVertex>,
         pub vertex_buffer: HashMap<TypeId,
             pub struct UiVertexList {
                 pub view_bind_group: Option<BindGroup>,
@@ -289,7 +294,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: vec![],
+            layout: vec![self.view_layout.clone(), self.ui_layout.clone()],
             push_constant_ranges: Vec::new(),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
@@ -306,7 +311,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("ui_material_pipeline".into()),
+            label: Some("dway_untyped_ui_material_pipeline".into()),
         };
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
@@ -484,7 +489,7 @@ pub fn prepare_ui_materials<M: UiMaterial>(
     mut extracted_assets: ResMut<ExtractedUiMaterials<M>>,
     mut render_materials: ResMut<RenderUiMaterialSet>,
     render_device: Res<RenderDevice>,
-    images: Res<RenderAssets<Image>>,
+    images: Res<RenderAssets<GpuImage>>,
     fallback_image: Res<FallbackImage>,
 ) {
     for removed in std::mem::take(&mut extracted_assets.removed) {
@@ -492,10 +497,10 @@ pub fn prepare_ui_materials<M: UiMaterial>(
     }
 
     let queued_assets = std::mem::take(&mut *prepare_next_frame);
-    for (handle, material) in std::mem::take(&mut extracted_assets.extracted)
-        .into_iter()
-        .chain(queued_assets)
-    {
+    for (handle, material) in Iterator::chain(
+        std::mem::take(&mut extracted_assets.extracted).into_iter(),
+        queued_assets,
+    ) {
         match prepare_ui_material(
             &material,
             &render_device,
@@ -518,7 +523,7 @@ pub fn prepare_ui_materials<M: UiMaterial>(
 fn prepare_ui_material<M: UiMaterial>(
     material: &M,
     render_device: &RenderDevice,
-    images: &RenderAssets<Image>,
+    images: &RenderAssets<GpuImage>,
     fallback_image: &Res<FallbackImage>,
     render_materials: &RenderUiMaterialSet,
 ) -> Result<PreparedUiMaterialInstant, AsBindGroupError> {
@@ -540,13 +545,17 @@ pub fn queue_ui_nodes(
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     render_materials: Res<RenderUiMaterialSet>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
+    mut views: Query<(Entity, &ExtractedView)>,
     msaa: Res<Msaa>,
 ) {
     for ((entity, _), asset_id) in extracted.node_materials.iter() {
         let extracted_uinode = &extracted.nodes[entity];
-        let Ok((view, mut transparent_phase)) = views.get_mut(extracted_uinode.camera_entity)
-        else {
+        let Ok((view_entity, view)) = views.get_mut(extracted_uinode.camera_entity) else {
+            continue;
+        };
+
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
             continue;
         };
 
@@ -578,7 +587,7 @@ pub fn queue_ui_nodes(
                 entity.index(),
             ),
             batch_range: 0..0,
-            dynamic_offset: None,
+            extra_index: PhaseItemExtraIndex::NONE,
         });
     }
 }
@@ -592,7 +601,7 @@ pub fn prepare_ui_nodes(
     mut render_ui_nodes: ResMut<RenderUiNodeSet>,
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
-    mut phases: Query<&mut RenderPhase<TransparentUi>>,
+    mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut previous_len: Local<usize>,
 ) {
     render_ui_nodes.vertices.clear();
@@ -604,7 +613,7 @@ pub fn prepare_ui_nodes(
         let mut pedding_batch: Option<(UntypedAssetId, Entity, UiBatch)> = Default::default();
         let mut index = 0;
 
-        for mut ui_phase in &mut phases {
+        for mut ui_phase in phases.values_mut() {
             let mut batch_item_index = 0;
             let mut batch_shader_handle = AssetId::<Image>::invalid().untyped();
 
@@ -612,8 +621,11 @@ pub fn prepare_ui_nodes(
                 let item = &mut ui_phase.items[item_index];
                 let entity = item.entity;
                 if let Some(extracted_uinode) = extracted_uinodes.nodes.get(&item.entity) {
-                    let Some( &asset_typeid ) = render_materials.draw_function_index.get( &item.draw_function )else{
-                        continue
+                    let Some(&asset_typeid) = render_materials
+                        .draw_function_index
+                        .get(&item.draw_function)
+                    else {
+                        continue;
                     };
                     let asset_id = extracted_uinodes.node_materials[&(entity, asset_typeid)];
                     let mut create_batch = || {

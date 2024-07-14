@@ -98,7 +98,7 @@ pub fn wm_keys(
                 }
             }
         } else if shift && input.just_pressed(KeyCode::KeyQ) {
-            exit.send(AppExit);
+            exit.send(AppExit::Success);
         } else if input.just_pressed(KeyCode::KeyQ) || input.just_pressed(KeyCode::F4) {
             if let Some((window, _)) = &window_under_cursor.0 {
                 window_action.send(WindowAction::Close(*window));

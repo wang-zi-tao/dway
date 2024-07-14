@@ -152,14 +152,16 @@ impl FlatTheme {
                 ))));
             self.button_material_hover =
                 button_material_assets.add(ShaderAsset::new(self.rounded_rect().with_effect((
-                    self.invisible_inner_shadow(FillColor::new(self.fill_color * 0.95)),
-                    FillColor::new(self.fill_color * 0.95),
+                    self.invisible_inner_shadow(FillColor::new(
+                        (self.fill_color.to_srgba() * 0.95).into(),
+                    )),
+                    FillColor::new((self.fill_color.to_srgba() * 0.95).into()),
                     self.shadow(),
                 ))));
             self.button_material_clicked =
                 button_material_assets.add(ShaderAsset::new(self.rounded_rect().with_effect((
-                    self.inner_shadow(FillColor::new(self.fill_color * 0.95)),
-                    FillColor::new(self.fill_color * 0.95),
+                    self.inner_shadow(FillColor::new((self.fill_color.to_srgba() * 0.95).into())),
+                    FillColor::new((self.fill_color.to_srgba() * 0.95).into()),
                     self.invisible_shadow(),
                 ))));
         }
@@ -208,7 +210,7 @@ impl FlatTheme {
                     .with_effect(self.fill_color())
                     .with_transform(Margins::new(1.0, 32.0, 1.0, 1.0)),
                 RoundedBar::new().with_effect((
-                    FillColor::new(self.fill_color * 0.9),
+                    FillColor::new((self.fill_color.to_srgba() * 0.9).into()),
                     self.invisible_shadow(),
                 )),
             )));
@@ -217,7 +219,7 @@ impl FlatTheme {
                     .with_effect(self.fill_color())
                     .with_transform(Margins::new(1.0, 32.0, 1.0, 1.0)),
                 RoundedBar::new().with_effect((
-                    FillColor::new(self.fill_color * 0.93),
+                    FillColor::new((self.fill_color.to_srgba() * 0.93).into()),
                     self.invisible_shadow(),
                 )),
             )));
@@ -231,8 +233,10 @@ impl FlatTheme {
                 Circle::new()
                     .with_effect(self.fill_color())
                     .with_transform(Margins::new(32.0, 1.0, 1.0, 1.0)),
-                RoundedBar::new()
-                    .with_effect((FillColor::new(self.main_color * 1.1), self.shadow())),
+                RoundedBar::new().with_effect((
+                    FillColor::new((self.main_color.to_srgba() * 1.1).into()),
+                    self.shadow(),
+                )),
             )));
         }
 
@@ -316,7 +320,7 @@ impl FlatTheme {
     fn invisible_inner_shadow<F: Fill>(&self, filler: F) -> InnerShadow<F> {
         InnerShadow {
             filler,
-            color: Color::NONE,
+            color: Color::NONE.to_linear(),
             offset: Vec2::ZERO,
             radius: 0.0,
         }
@@ -325,7 +329,7 @@ impl FlatTheme {
     fn inner_shadow<F: Fill>(&self, filler: F) -> InnerShadow<F> {
         InnerShadow {
             filler,
-            color: self.inner_shadow_color,
+            color: self.inner_shadow_color.to_linear(),
             offset: self.inner_shadow_offset,
             radius: self.inner_shadow_radius,
         }
@@ -547,7 +551,7 @@ pub fn update_ui_material(
                 texture: render_to_layer.ui_background.clone(),
                 texture_size: render_to_layer.background_size,
             },
-            theme.fill_color.with_a(1.0 - theme.blur_brightness),
+            theme.fill_color.with_alpha(1.0 - theme.blur_brightness),
         ));
         *shader_handle = material_assets.add(material);
     }
@@ -593,8 +597,8 @@ impl Plugin for FlatThemePlugin {
             update_ui_material.in_set(UiFrameworkSystems::UpdateLayers),
         );
         let mut flat_theme = self.theme.clone();
-        flat_theme.init(&mut app.world);
-        let mut theme = app.world.resource_mut::<Theme>();
+        flat_theme.init(app.world_mut());
+        let mut theme = app.world_mut().resource_mut::<Theme>();
         theme.set_theme_dispatch(Some(std::sync::Arc::new(flat_theme)));
     }
 }

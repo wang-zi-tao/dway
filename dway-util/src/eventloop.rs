@@ -13,13 +13,10 @@ use anyhow::Result;
 use backtrace::Backtrace;
 use bevy::{
     app::{AppExit, MainScheduleOrder},
-    ecs::{
-        schedule::{ExecutorKind, ScheduleLabel},
-        system::Command,
-    },
+    ecs::schedule::{ExecutorKind, ScheduleLabel},
     prelude::*,
     utils::HashMap,
-    window::RequestRedraw,
+    window::RequestRedraw, winit::WakeUp,
 };
 use nix::{
     libc::listen,
@@ -427,17 +424,17 @@ impl Plugin for EventLoopPlugin {
                 poller_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
                 poller_schedule.add_systems(on_frame_begin.in_set(PollerSystems::PollEvent));
                 app.add_schedule(poller_schedule);
-                let mut main_schedule_order = app.world.resource_mut::<MainScheduleOrder>();
+                let mut main_schedule_order = app.world_mut().resource_mut::<MainScheduleOrder>();
                 main_schedule_order.insert_after(First, PollerSchedule);
 
                 app.add_systems(Last, on_frame_finish.in_set(PollerSystems::Flush));
                 let winit_eventloop_proxy = app
-                    .world
-                    .non_send_resource::<winit::event_loop::EventLoop<RequestRedraw>>()
+                    .world()
+                    .non_send_resource::<winit::event_loop::EventLoop<WakeUp>>()
                     .create_proxy();
-                let mut poller = app.world.non_send_resource_mut::<Poller>();
+                let mut poller = app.world_mut().non_send_resource_mut::<Poller>();
                 poller.launch(Some(Box::new(move |_event| {
-                    let _ = winit_eventloop_proxy.send_event(RequestRedraw);
+                    let _ = winit_eventloop_proxy.send_event(WakeUp);
                     false
                 })));
             }

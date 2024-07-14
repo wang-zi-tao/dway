@@ -62,7 +62,7 @@ pub fn input_event_system(
     }
     for event in keyboard_event.read() {
         if event.key_code == KeyCode::Escape {
-            exit.send(AppExit);
+            exit.send(AppExit::Success);
         }
         info!("{event:?}");
     }

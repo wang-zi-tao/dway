@@ -28,17 +28,17 @@ LauncherUI=>
 @global(entries: DesktopEntriesSet)
 @global(asset_server: AssetServer)
 @plugin{{
-    app.register_system(open_popup);
+    app.register_callback(open_popup);
 }}
 <MiniNodeBundle
 @style="flex-col p-4">
     <MiniNodeBundle @style="min-h-600 w-full">
         <MiniNodeBundle @id="left_bar" @style="w-34% m-4 min-h-600"
-            @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup")*0.9, 16.0))
+            @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 16.0))
         >
         </MiniNodeBundle>
         <MiniNodeBundle @id="right_block" @style="m-4 w-full"
-            @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup")*0.9, 16.0))
+            @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 16.0))
         >
             <UiScrollBundle @style="max-h-600 m-4 w-full" @id="app_list_scroll">
                 <MiniNodeBundle @style="absolute flex-col w-full" @id="AppList"
@@ -64,7 +64,7 @@ LauncherUI=>
         </MiniNodeBundle>
     </MiniNodeBundle>
     <MiniNodeBundle @id="bottom_bar" @style="p-4 min-w-512 justify-content:space-evenly"
-        @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup")*0.9, 16.0))
+        @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 16.0))
     >
         <( PanelButtonBundle::new(&theme,&mut assets_rounded_ui_rect_material) ) @style="w-32 h-32" @id="user_icon">
             <(UiSvgBundle::new(theme.icon("user", &asset_server))) @style="w-32 h-32"/>

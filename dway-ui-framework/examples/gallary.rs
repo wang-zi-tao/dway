@@ -61,7 +61,7 @@ fn main() {
         .insert_resource(ClearColor(Color::WHITE));
 
     {
-        let embedded = app.world.resource_mut::<EmbeddedAssetRegistry>();
+        let embedded = app.world_mut().resource_mut::<EmbeddedAssetRegistry>();
         embedded.insert_asset(std::path::PathBuf::new(), &PathBuf::from("dway_ui_framework/examples/gallary/power.svg"), r###"
 <svg width="800px" height="800px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M12.5 6L8.5 12H14.5L10.5 18M21 13V11M7.7 6H6.2C5.0799 6 4.51984 6 4.09202 6.21799C3.71569 6.40973 3.40973 6.71569 3.21799 7.09202C3 7.51984 3 8.0799 3 9.2V14.8C3 15.9201 3 16.4802 3.21799 16.908C3.40973 17.2843 3.71569 17.5903 4.09202 17.782C4.51984 18 5.0799 18 6.2 18H6.5M16.5 6H16.8C17.9201 6 18.4802 6 18.908 6.21799C19.2843 6.40973 19.5903 6.71569 19.782 7.09202C20 7.51984 20 8.0799 20 9.2V14.8C20 15.9201 20 16.4802 19.782 16.908C19.5903 17.2843 19.2843 17.5903 18.908 17.782C18.4802 18 17.9201 18 16.8 18H15.31" stroke="#6791C9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -175,7 +175,7 @@ Gallary=>
                     TextStyle {
                         font: theme.default_font(),
                         font_size: 24_f32,
-                        color: Color::BLUE,
+                        color: color!("#0000ff"),
                     },
             ) ))/>
         </>
@@ -218,8 +218,8 @@ Gallary=>
         <UiSliderBundle @style="w-full" />
     </MiniNodeBundle>
     <MiniNodeBundle Style=(cell_style())>
-        <UiButtonBundle @style="w-128 h-128 align-items:center justify-content:center"
-            @material(ArcMaterial=>arc_material(Color::GREEN, Color::WHITE, 8.0, [0.0,5.28]))
+        <MiniButtonBundle @style="w-128 h-128 align-items:center justify-content:center"
+            @material(ArcMaterial=>arc_material(color!("#00ff00"), Color::WHITE, 8.0, [0.0,5.28]))
         >
             <( UiSvgBundle{
                 svg: UiSvg::from(asset_server.load("embedded://dway_ui_framework/examples/gallary/power.svg")),
@@ -235,14 +235,14 @@ Gallary=>
         @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
         <( UiMeshBundle{
             mesh: UiMeshHandle::from(meshes.add(RegularPolygon::new(48.0, 6))),
-            material: mesh2d_materials.add(Color::RED),
+            material: mesh2d_materials.add(color!("#ff0000")),
             style: style!("w-64 h-64"),
             ..default()
         })/>
     </MiniNodeBundle>
     <MiniNodeBundle Style=(cell_style())
         @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
-        <UiShapeBundle Fill=(Fill::color(Color::BLUE)) Stroke=( Stroke::new(Color::BLACK, 8.0) )
+        <UiShapeBundle Fill=(Fill::color(color!("#0000ff"))) Stroke=( Stroke::new(Color::BLACK, 8.0) )
         UiMeshTransform=(Transform::default().with_translation(Vec3::new(-64.0,-64.0,0.0)).with_scale(Vec3::splat(1.0/8.0)).into())
         Path=(GeometryBuilder::build_as(&shapes::SvgPathShape {
             svg_doc_size_in_px: Vec2::splat(0.0),
@@ -251,7 +251,7 @@ Gallary=>
     </MiniNodeBundle>
     <MiniNodeBundle Style=(cell_style())
         @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
-        <UiShapeBundle Fill=(Fill::color(Color::YELLOW))
+        <UiShapeBundle Fill=(Fill::color(color!("#ffff00")))
         Stroke=(Stroke{
             color: Color::BLACK,
             options: StrokeOptions::default().with_line_join(bevy_svg::prelude::LineJoin::Round).with_line_width(16.0)

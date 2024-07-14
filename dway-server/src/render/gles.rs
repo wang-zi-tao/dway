@@ -273,9 +273,9 @@ pub unsafe fn create_gles_dma_image(
 
     out.extend([
         khronos_egl::WIDTH,
-        buffer_info.size.x,
+        buffer_info.size.x as i32,
         khronos_egl::HEIGHT,
-        buffer_info.size.y,
+        buffer_info.size.y as i32,
         LINUX_DRM_FOURCC_EXT as i32,
         buffer_info.format as i32,
     ]);
@@ -557,23 +557,18 @@ pub fn import_shm(
     device: &wgpu::Device,
 ) -> Result<(), DWayRenderError> {
     unsafe {
-        let mut texture_id = None;
-        texture.as_hal::<Gles, _>(|texture| {
-            let texture = texture.unwrap();
-            if let wgpu_hal::gles::TextureInner::Texture { raw, target } = &texture.inner {
-                texture_id = Some((*raw, *target));
-            }
-        });
-        let Some(texture_id) = texture_id else {
-            return Err(FailedToGetHal);
-        };
         device
             .as_hal::<Gles, _, _>(|hal_device| {
                 let hal_device = hal_device.ok_or_else(|| BackendIsNotEGL)?;
                 let egl_context = hal_device.context();
                 let gl: &glow::Context = &egl_context.lock();
-                import_raw_shm_buffer(surface, shm_buffer, gl, texture_id)?;
-                Ok(())
+                texture.as_hal::<Gles, _, _>(|texture| {
+                    let texture = texture.unwrap();
+                    if let wgpu_hal::gles::TextureInner::Texture { raw, target } = &texture.inner {
+                        import_raw_shm_buffer(surface, shm_buffer, gl, (*raw, *target))?;
+                    }
+                    Ok(())
+                })
             })
             .ok_or(BackendIsIsInvalid)?
     }

@@ -1,3 +1,5 @@
+use bevy::render::render_resource::encase::internal::{BufferMut, Writer};
+
 use super::{effect::Effect, BuildBindGroup, Expr, ShaderBuilder, ShaderVariables, ShapeRender};
 use crate::prelude::*;
 
@@ -26,7 +28,8 @@ impl Shape for Circle {
         format!("circle_sdf({pos}, 0.5 * min({size}.x, {size}.y))")
     }
 
-    fn register_uniforms(_builder: &mut ShaderBuilder) {}
+    fn register_uniforms(_builder: &mut ShaderBuilder) {
+    }
 
     fn to_gradient_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
         let ShaderVariables { pos, size } = var;
@@ -35,12 +38,13 @@ impl Shape for Circle {
     }
 }
 impl BuildBindGroup for Circle {
-    fn update_layout(&self, _layout: &mut super::UniformLayout) {}
+    fn update_layout(&self, _layout: &mut super::UniformLayout) {
+    }
 
-    fn write_uniform<B: encase::internal::BufferMut>(
+    fn write_uniform<B: BufferMut>(
         &self,
         _layout: &mut super::UniformLayout,
-        _writer: &mut encase::internal::Writer<B>,
+        _writer: &mut Writer<B>,
     ) {
     }
 }
@@ -71,11 +75,13 @@ impl Shape for Rect {
     }
 }
 impl BuildBindGroup for Rect {
-    fn update_layout(&self, _layout: &mut super::UniformLayout) {}
-    fn write_uniform<B: encase::internal::BufferMut>(
+    fn update_layout(&self, _layout: &mut super::UniformLayout) {
+    }
+
+    fn write_uniform<B: BufferMut>(
         &self,
         _layout: &mut super::UniformLayout,
-        _writer: &mut encase::internal::Writer<B>,
+        _writer: &mut Writer<B>,
     ) {
     }
 }
@@ -120,10 +126,10 @@ impl BuildBindGroup for RoundedRect {
         layout.update_layout(&self.corner);
     }
 
-    fn write_uniform<B: encase::internal::BufferMut>(
+    fn write_uniform<B: BufferMut>(
         &self,
         layout: &mut super::UniformLayout,
-        writer: &mut encase::internal::Writer<B>,
+        writer: &mut Writer<B>,
     ) {
         layout.write_uniform(&self.corner, writer);
     }
@@ -138,7 +144,8 @@ impl RoundedBar {
     }
 }
 impl Shape for RoundedBar {
-    fn register_uniforms(_builder: &mut ShaderBuilder) {}
+    fn register_uniforms(_builder: &mut ShaderBuilder) {
+    }
 
     fn to_wgsl(builder: &mut ShaderBuilder, var: &ShaderVariables) -> Expr {
         let ShaderVariables { pos, size } = var;
@@ -153,12 +160,13 @@ impl Shape for RoundedBar {
     }
 }
 impl BuildBindGroup for RoundedBar {
-    fn update_layout(&self, _layout: &mut super::UniformLayout) {}
+    fn update_layout(&self, _layout: &mut super::UniformLayout) {
+    }
 
-    fn write_uniform<B: encase::internal::BufferMut>(
+    fn write_uniform<B: BufferMut>(
         &self,
         _layout: &mut super::UniformLayout,
-        _writer: &mut encase::internal::Writer<B>,
+        _writer: &mut Writer<B>,
     ) {
     }
 }
