@@ -2,7 +2,6 @@
 resolver = "2"
 members = [
     "dway",
-    "dway-launcher",
     "dway-util",
     "dway-tty",
     "dway-server",
@@ -89,7 +88,7 @@ image = "0.25"
 
 [workspace.dependencies.bevy_svg]
 git="https://github.com/wang-zi-tao/bevy_svg"
-rev="510aed8dd735ff47bb6b8470759131a233eeaeff"
+rev="871dd4237d7dd829495eaeac0cc563eca52e5719"
 default-features = false
 features = ["2d"] 
 
@@ -97,6 +96,9 @@ features = ["2d"]
 version = "0.14.0"
 default-features = false
 features = [
+  "bevy_dynamic_plugin",
+  "bevy_color",
+  "bevy_state",
   # "animation",
   "bevy_asset",
   "bevy_audio",
@@ -110,6 +112,7 @@ features = [
   # "bevy_sprite",
   "bevy_text",
   "bevy_ui",
+  "bevy_dev_tools",
   "multi_threaded",
   "png",
   "hdr",
@@ -128,7 +131,6 @@ features = [
 ]
 
 [patch.crates-io]
-bevy_svg = {git="https://github.com/wang-zi-tao/bevy_svg",rev="510aed8dd735ff47bb6b8470759131a233eeaeff"}
 bevy = {git="https://github.com/wang-zi-tao/bevy",rev="878ba9633409b2e9dd67d0147462452307e5e7ad"}
 bevy_log = { git = "https://github.com/wang-zi-tao/bevy", rev = "878ba9633409b2e9dd67d0147462452307e5e7ad" }
 bevy_pbr = { git = "https://github.com/wang-zi-tao/bevy", rev = "878ba9633409b2e9dd67d0147462452307e5e7ad" }

@@ -32,6 +32,7 @@ use dway_client_core::{
 };
 use dway_server::apps::icon::LinuxIconSourcePlugin;
 use dway_tty::{DWayTTYPlugin, DWayTTYSettings};
+use dway_ui::widgets::windowmenu::UiSvg;
 use dway_ui_framework::diagnostics::UiDiagnosticsPlugin;
 use dway_util::logger::DWayLogPlugin;
 use keys::*;

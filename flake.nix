@@ -133,7 +133,7 @@
           # LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs + "";
           AMD_VULKAN_ICD = "RADV";
           # AMD_VULKAN_ICD = "AMDVLK";
-          AMDVLK_ENABLE_DEVELOPING_EXT = "all";
+          # AMDVLK_ENABLE_DEVELOPING_EXT = "all";
           # VK_LOADER_DEBUG="all";
           # G_MESSAGES_DEBUG="all";
           shellHook = ''
