@@ -62,3 +62,7 @@ opt-level = 3
 
 [profile.release]
 lto = "thin"
+
+[[test]]
+name = "shader"
+path = "./tests/shader/test.rs"

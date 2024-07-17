@@ -1,8 +1,6 @@
 pub mod effect;
 pub mod fill;
 pub mod shape;
-#[cfg(test)]
-pub mod test;
 pub mod transform;
 
 use std::{

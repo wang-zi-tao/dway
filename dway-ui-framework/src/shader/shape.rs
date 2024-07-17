@@ -70,8 +70,7 @@ impl Shape for Rect {
         format!("rect_sdf_gradient({pos}, {size})")
     }
 
-    fn register_uniforms(builder: &mut ShaderBuilder) {
-        builder.get_uniform("size", "", "vec2<f32>");
+    fn register_uniforms(_builder: &mut ShaderBuilder) {
     }
 }
 impl BuildBindGroup for Rect {

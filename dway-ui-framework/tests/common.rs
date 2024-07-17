@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    path::{Path, PathBuf},
+    path::{absolute, Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
@@ -8,30 +8,37 @@ use std::{
 };
 
 use bevy::{
-    app::AppExit,
+    app::{AppExit, ScheduleRunnerPlugin},
     core::FrameCount,
-    ecs::system::BoxedSystem,
+    core_pipeline::core_2d::graph::{Core2d, Node2d},
+    ecs::system::{BoxedSystem, RunSystemOnce},
     render::{
         camera::RenderTarget,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         render_asset::RenderAssets,
-        render_graph::{self, NodeRunError, RenderGraphContext},
+        render_graph::{
+            self, NodeRunError, RenderGraph, RenderGraphApp, RenderGraphContext, RenderLabel,
+        },
         render_resource::{
             Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d,
-            ImageCopyBuffer, ImageDataLayout, Maintain, MapMode,
+            ImageCopyBuffer, ImageDataLayout, Maintain, MapMode, TextureDescriptor,
+            TextureDimension, TextureFormat, TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
         texture::{GpuImage, Image},
         view::screenshot::ScreenshotManager,
         Render, RenderApp, RenderSet,
     },
+    ui::graph::NodeUi,
     window::{PresentMode, WindowRef},
     winit::{WakeUp, WinitPlugin},
 };
 use crossbeam_channel::{Receiver, Sender};
 use dway_ui_framework::{prelude::*, *};
 use image::{DynamicImage, GenericImageView, RgbaImage};
-use rayon::iter::IntoParallelRefIterator;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use render::mesh::graph::NodeUiExt;
+use tempdir::TempDir;
 
 pub fn image_diff(src_image: &RgbaImage, dest_image: &RgbaImage) -> RgbaImage {
     assert_eq!(src_image.width(), dest_image.width());
@@ -52,8 +59,7 @@ pub fn image_diff(src_image: &RgbaImage, dest_image: &RgbaImage) -> RgbaImage {
 pub fn compare_image(
     src_image: &RgbaImage,
     dest_image: &RgbaImage,
-    tmp: &Path,
-) -> Result<Option<PathBuf>, anyhow::Error> {
+) -> Result<Option<RgbaImage>, anyhow::Error> {
     'l: {
         if src_image.width() == dest_image.width() && src_image.height() == src_image.height() {
             let width = src_image.width();
@@ -74,18 +80,15 @@ pub fn compare_image(
         }
     }
     let diff_image = image_diff(&src_image, &dest_image);
-    let mut tmp = tmp.to_owned();
-    tmp.push("diff.png");
-    diff_image.save(&tmp)?;
-    Ok(Some(tmp))
+    Ok(Some(diff_image))
 }
 
 #[derive(Component)]
 struct ImageCopier {
     buffer: Buffer,
     src_image: Handle<Image>,
-    rx: Receiver<RgbaImage>,
-    tx: Sender<RgbaImage>,
+    rx: Receiver<Option<RgbaImage>>,
+    tx: Sender<Option<RgbaImage>>,
     processing: AtomicBool,
 }
 
@@ -93,7 +96,7 @@ struct ImageCopier {
 struct ExtractedImageCopier {
     buffer: Buffer,
     src_image: Handle<Image>,
-    tx: Sender<RgbaImage>,
+    tx: Sender<Option<RgbaImage>>,
 }
 
 impl ExtractComponent for ImageCopier {
@@ -114,28 +117,23 @@ impl ExtractComponent for ImageCopier {
 }
 
 impl ImageCopier {
-    pub fn new(
-        src_image: Handle<Image>,
-        size: Extent3d,
-        render_device: &RenderDevice,
-    ) -> ImageCopier {
-        let padded_bytes_per_row =
-            RenderDevice::align_copy_bytes_per_row((size.width) as usize) * 4;
+    pub fn new(src_image: Handle<Image>, size: Vec2, render_device: &RenderDevice) -> ImageCopier {
+        let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(size.x as usize) * 4;
 
         let cpu_buffer = render_device.create_buffer(&BufferDescriptor {
             label: None,
-            size: padded_bytes_per_row as u64 * size.height as u64,
+            size: padded_bytes_per_row as u64 * size.y as u64,
             usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         let (tx, rx) = crossbeam_channel::bounded(1);
 
         ImageCopier {
-            buffer: cpu_buffer,
             src_image,
             tx,
             rx,
             processing: AtomicBool::new(false),
+            buffer: cpu_buffer,
         }
     }
 }
@@ -207,39 +205,97 @@ impl render_graph::Node for CopyImageNode {
     }
 }
 
-structstruck::strike! {
-    #[derive(Component, Clone, ExtractComponent)]
-    pub struct UnitTest{
-        pub name: String,
-        pub image_path: PathBuf,
-        pub image_size: Vec2,
-        pub output_dir: PathBuf,
-        pub setup: SystemId<
-        pub struct UnitTestParams{
-            pub camera: Entity,
-            pub window: Entity,
-        }>,
-    }
+pub struct UnitTestParams {
+    pub camera: Entity,
+    pub window: Entity,
 }
 
-pub struct TestPlugin;
-impl Plugin for TestPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_plugins((
-            ExtractComponentPlugin::<UnitTest>::default(),
-            ExtractComponentPlugin::<ImageCopier>::default(),
-        ))
-        .add_systems(Last, wait_render);
-        let render_app = app.sub_app_mut(RenderApp);
+#[derive(Component)]
+pub struct UnitTest {
+    pub name: String,
+    pub image_path: PathBuf,
+    pub image_size: Vec2,
+    pub setup: SystemId<UnitTestParams>,
+}
 
-        render_app.add_systems(Render, receive_image_from_buffer.in_set(RenderSet::Cleanup));
+fn start_unit_test(
+    mut unit_test_qeruy: Query<(Entity, &mut UnitTest)>,
+    mut commands: Commands,
+    mut test_suit: ResMut<TestSuite>,
+    mut images: ResMut<Assets<Image>>,
+    render_device: Res<RenderDevice>,
+) {
+    for (entity, unit_test) in &mut unit_test_qeruy {
+        test_suit
+            .unit_tests
+            .insert(unit_test.name.clone(), UnitTestState::Padding);
+
+        let image_size = Extent3d {
+            width: unit_test.image_size.x as u32,
+            height: unit_test.image_size.y as u32,
+            ..default()
+        };
+        let mut image = Image {
+            texture_descriptor: TextureDescriptor {
+                label: None,
+                size: image_size,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Bgra8UnormSrgb,
+                mip_level_count: 1,
+                sample_count: 1,
+                usage: TextureUsages::TEXTURE_BINDING
+                    | TextureUsages::COPY_DST
+                    | TextureUsages::COPY_SRC
+                    | TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            },
+            ..default()
+        };
+        image.resize(image_size);
+        let image_handle = images.add(image);
+
+        let title = format!("unit test: {}", &unit_test.name);
+        let size = unit_test.image_size;
+        let window_entity = commands
+            .spawn(Window {
+                title: title.clone(),
+                name: Some(title),
+                visible: false,
+                present_mode: PresentMode::AutoVsync,
+                prevent_default_event_handling: false,
+                resolution: (size.x, size.y).into(),
+                ..Default::default()
+            })
+            .id();
+        let camera_entity = commands
+            .spawn(Camera2dBundle {
+                camera: Camera {
+                    target: RenderTarget::Image(image_handle.clone()),
+                    clear_color: ClearColorConfig::Custom(Color::WHITE),
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .id();
+        commands.entity(entity).insert(ImageCopier::new(
+            image_handle,
+            unit_test.image_size,
+            &render_device,
+        ));
+
+        let params = UnitTestParams {
+            camera: camera_entity,
+            window: window_entity,
+        };
+        commands.run_system_with_input(unit_test.setup, params);
     }
 }
 
 fn receive_image_from_buffer(
-    copier_qeruy: Query<(&mut ExtractedImageCopier)>,
+    copier_qeruy: Query<&mut ExtractedImageCopier>,
     render_device: Res<RenderDevice>,
     gpu_images: ResMut<RenderAssets<GpuImage>>,
+    frame: Res<FrameCount>,
 ) {
     for image_copier in copier_qeruy.iter() {
         let buffer_slice = image_copier.buffer.slice(..);
@@ -252,18 +308,23 @@ fn receive_image_from_buffer(
         render_device.poll(Maintain::wait()).panic_on_timeout();
         r.recv().expect("Failed to receive the map_async message");
         let vec = buffer_slice.get_mapped_range().to_vec();
+        image_copier.buffer.unmap();
 
         let gpu_image = gpu_images.get(&image_copier.src_image).unwrap();
         let output_image =
             image::RgbaImage::from_raw(gpu_image.size.x, gpu_image.size.y, vec).unwrap();
-        let _ = image_copier.tx.send(output_image);
-        image_copier.buffer.unmap();
+        let result = if frame.0 < 64 || output_image.get_pixel(16, 16).0 != [255, 255, 255, 255] {
+            None
+        } else {
+            Some(output_image)
+        };
+        let _ = image_copier.tx.send(result);
     }
 }
 
 fn wait_render(
     copier_qeruy: Query<(Entity, &mut ImageCopier, &UnitTest)>,
-    mut test_result: ResMut<TestSuiteResource>,
+    mut test_suit: ResMut<TestSuite>,
     mut commands: Commands,
 ) {
     for (entity, copie, unit_test) in copier_qeruy.iter() {
@@ -271,34 +332,109 @@ fn wait_render(
             continue;
         }
 
-        let tmp = &unit_test.output_dir;
-        let src_image = copie.rx.recv().unwrap();
-        let dest = &unit_test.image_path;
-        let result = match image::open(dest)
-            .map(|image| image.into_rgba8())
-            .map_err(|e| e.into())
-            .and_then(|dest_image| compare_image(&src_image, &dest_image, &unit_test.output_dir))
-        {
-            Ok(Some(diff)) => {
-                let mut output_image_path = tmp.to_owned();
-                output_image_path.push("screenshot.png");
-                src_image.save(&output_image_path).unwrap();
-                UnitTestState::Err(anyhow::anyhow!("image is different. \nexcept: {dest:?}\nscreenshot: {output_image_path:?}\ndiff image: {diff:?}"))
-            }
+        let output_image = match copie.rx.recv_timeout(Duration::from_secs_f32(1.0 / 10.0)) {
+            Ok(Some(output_image)) => output_image,
             Ok(None) => {
-                let _ = std::fs::remove_dir_all(tmp);
-                UnitTestState::Ok
+                continue;
             }
-            Err(e) => {
-                let mut output_image_path = tmp.to_owned();
-                output_image_path.push("screenshot.png");
-                src_image.save(&output_image_path).unwrap();
-                UnitTestState::Err(anyhow::anyhow!("failed to compare image: {e} \nexcept: {dest:?}\nscreenshot: {output_image_path:?}"))
+            Err(_e) => {
+                warn!("render timeout");
+                continue;
             }
         };
-        test_result
-            .unit_tests
-            .insert(unit_test.name.clone(), result);
+
+        let dest = absolute(&unit_test.image_path).unwrap();
+
+        let result = match image::open(&dest)
+            .map(|image| image.into_rgba8())
+            .map_err(|e| e.into())
+            .and_then(|dest_image| compare_image(&output_image, &dest_image))
+        {
+            Ok(Some(diff)) => {
+                let mut diff_image_path = test_suit.tmp.to_owned();
+                diff_image_path.push(format!("{}_diff.png", &unit_test.name));
+                diff.save(&diff_image_path).unwrap();
+
+                let mut output_image_path = test_suit.tmp.to_owned();
+                output_image_path.push(format!("{}.png", &unit_test.name));
+                output_image.save(&output_image_path).unwrap();
+                UnitTestState::Err(anyhow::anyhow!("image is different. \nexcept: {dest:?}\nscreenshot: {output_image_path:?}\ndiff image: {diff_image_path:?}"))
+            }
+            Ok(None) => UnitTestState::Ok,
+            Err(e) => {
+                output_image.save(&unit_test.image_path).unwrap();
+                UnitTestState::Err(anyhow::anyhow!(
+                    "failed to compare image: {e} \nexcept: {dest:?}\nscreenshot: {:?}",
+                    &unit_test.image_path
+                ))
+            }
+        };
+        info!("unit test ({}): {:?}", &unit_test.name, result);
+        test_suit.unit_tests.insert(unit_test.name.clone(), result);
+
+        commands.entity(entity).despawn_recursive();
+    }
+}
+
+fn check_exit(
+    frame: Res<FrameCount>,
+    mut exit_event: EventWriter<AppExit>,
+    test_suit: ResMut<TestSuite>,
+) {
+    let finished = test_suit
+        .unit_tests
+        .values()
+        .all(|s| matches!(s, UnitTestState::Ok | UnitTestState::Err(_)));
+    let success = test_suit
+        .unit_tests
+        .values()
+        .all(|s| matches!(s, UnitTestState::Ok));
+    if finished || frame.0 > 96 {
+        exit_event.send(if success {
+            let _ = std::fs::remove_dir_all(&test_suit.tmp);
+            AppExit::Success
+        } else {
+            AppExit::error()
+        });
+        for (name, test_stat) in test_suit.unit_tests.iter() {
+            match test_stat {
+                UnitTestState::Padding => {
+                    error!("unit test {name}: timeout");
+                }
+                UnitTestState::Ok => {
+                    info!("unit test {name}: Ok");
+                }
+                UnitTestState::Err(e) => {
+                    error!("unit test {name}: failed: {e}");
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash, RenderLabel)]
+struct ImageCopy;
+
+pub struct TestPlugin;
+impl Plugin for TestPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins((ExtractComponentPlugin::<ImageCopier>::default(),))
+            .insert_resource(ClearColor(Color::WHITE))
+            .add_systems(Startup, start_unit_test)
+            .add_systems(Last, (wait_render, check_exit).chain());
+
+        let render_app = app.sub_app_mut(RenderApp);
+        render_app.add_systems(Render, receive_image_from_buffer.after(RenderSet::Render));
+
+        let node = CopyImageNode::from_world(render_app.world_mut());
+        let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
+        if let Some(graph2d) = graph.get_sub_graph_mut(Core2d) {
+            graph2d.add_node(ImageCopy, node);
+            graph2d.add_node_edge(Node2d::Upscaling, ImageCopy);
+        }
+    }
+
+    fn finish(&self, _app: &mut App) {
     }
 }
 
@@ -306,14 +442,22 @@ pub struct TestPluginsSet;
 impl PluginGroup for TestPluginsSet {
     fn build(self) -> bevy::app::PluginGroupBuilder {
         let group = DefaultPlugins.build();
-        group.set(WindowPlugin {
-            primary_window: None,
-            exit_condition: bevy::window::ExitCondition::DontExit,
-            close_when_requested: false,
-        })
+        group
+            .disable::<WinitPlugin>()
+            .add(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f32(
+                1.0 / 60.0,
+            )))
+            .set(WindowPlugin {
+                primary_window: None,
+                exit_condition: bevy::window::ExitCondition::DontExit,
+                close_when_requested: false,
+            })
+            .add(dway_ui_framework::UiFrameworkPlugin)
+            .add(TestPlugin)
     }
 }
 
+#[derive(Debug)]
 pub enum UnitTestState {
     Padding,
     Ok,
@@ -321,84 +465,19 @@ pub enum UnitTestState {
 }
 
 #[derive(Resource)]
-pub struct TestSuiteResource {
+pub struct TestSuite {
     pub name: String,
+    pub tmp: PathBuf,
     pub unit_tests: HashMap<String, UnitTestState>,
 }
 
-// pub fn run_test_plugins(name: &str, tests: Vec<UnitTestPlugin>) {
-//     let title = format!("dway_ui_framework unit test ({name})");
-//     let mut app = App::default();
-//     let test_states = Arc::new(Mutex::new(HashMap::from_iter(
-//         tests
-//             .iter()
-//             .map(|t| (t.name.clone(), UnitTestState::Padding)),
-//     )));
-//     app.add_plugins(
-//         DefaultPlugins
-//             .build()
-//             .set(WindowPlugin {
-//                 primary_window: Some(Window {
-//                     title: title.clone(),
-//                     name: Some(title.clone()),
-//                     visible: false,
-//                     ..default()
-//                 }),
-//                 ..default()
-//             })
-//             .set({
-//                 let mut plugin = WinitPlugin::<WakeUp>::default();
-//                 plugin.run_on_any_thread = true;
-//                 plugin
-//             })
-//             .add(crate::UiFrameworkPlugin),
-//     )
-//     .insert_resource(ClearColor(Color::WHITE))
-//     .insert_resource(TestSuiteResource {
-//         name: name.to_owned(),
-//         unit_tests: test_states.clone(),
-//     })
-//     .add_systems(
-//         Last,
-//         move |frame: Res<FrameCount>,
-//               mut exit_event: EventWriter<AppExit>,
-//               tests_suite: ResMut<TestSuiteResource>| {
-//             if tests_suite
-//                 .unit_tests
-//                 .lock()
-//                 .unwrap()
-//                 .values()
-//                 .all(|s| matches!(s, UnitTestState::Ok | UnitTestState::Err(_)))
-//                 || frame.0 > 256
-//             {
-//                 exit_event.send(AppExit::Success);
-//             }
-//         },
-//     );
-//     for plugin in tests {
-//         app.add_plugins(plugin);
-//     }
-//     app.run();
-//     for (name, test_stat) in test_states.lock().unwrap().iter() {
-//         match test_stat {
-//             UnitTestState::Padding => {
-//                 error!("unit test {name}: timeout");
-//             }
-//             UnitTestState::Ok => {
-//                 info!("unit test {name}: Ok");
-//             }
-//             UnitTestState::Err(e) => {
-//                 error!("unit test {name}: failed: {e}");
-//             }
-//         }
-//     }
-//     if !test_states
-//         .lock()
-//         .unwrap()
-//         .iter()
-//         .all(|(_, r)| matches!(r, UnitTestState::Ok))
-//     {
-//         std::thread::sleep(Duration::from_secs(1));
-//         panic!("test failed");
-//     }
-// }
+impl TestSuite {
+    pub fn new(name: &str) -> Self {
+        let tmp = tempdir::TempDir::new(name).unwrap();
+        Self {
+            name: name.to_string(),
+            tmp: tmp.into_path(),
+            unit_tests: Default::default(),
+        }
+    }
+}
