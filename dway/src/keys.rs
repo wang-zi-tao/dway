@@ -4,6 +4,7 @@ use bevy::{
     app::AppExit,
     input::mouse::{MouseButtonInput, MouseMotion},
     prelude::*,
+    winit::WinitSettings,
 };
 use bevy_relationship::{graph_query2, ControlFlow};
 use dway_client_core::{
@@ -44,11 +45,16 @@ pub fn wm_keys(
     mut run_command_event: EventWriter<RunCommandRequest>,
     workspace_manager: Res<WorkspaceManager>,
     window_query: Query<&DWayToplevel>,
+    maybe_winit: Option<Res<WinitSettings>>,
 ) {
-    let meta = input.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
+    let mut meta = input.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
     let shift = input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
     let ctrl = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
     let alt = input.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
+
+    if maybe_winit.is_some() {
+        meta = alt;
+    }
 
     if meta {
         if input.just_pressed(KeyCode::Enter) {

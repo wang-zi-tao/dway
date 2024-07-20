@@ -33,7 +33,7 @@ use dway_client_core::{
 use dway_server::apps::icon::LinuxIconSourcePlugin;
 use dway_tty::{DWayTTYPlugin, DWayTTYSettings};
 use dway_ui_framework::diagnostics::UiDiagnosticsPlugin;
-use dway_util::logger::DWayLogPlugin;
+use dway_util::logger::{log_layer, DWayLogPlugin};
 use keys::*;
 use opttions::DWayOption;
 
@@ -118,15 +118,13 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         });
     }
 
-    #[cfg(all(feature = "dway_log", not(feature = "cpu_profile")))]
-    {
-        default_plugins = default_plugins.disable::<LogPlugin>().add(DWayLogPlugin {
+    default_plugins = default_plugins
+        .add_before::<LogPlugin, _>(DWayLogPlugin)
+        .set(LogPlugin {
             level: LOG_LEVEL,
             filter: std::env::var("RUST_LOG").unwrap_or_else(|_| LOG.to_string()),
-        });
-    }
-
-    default_plugins = default_plugins
+            custom_layer: log_layer,
+        })
         .set(RenderPlugin {
             render_creation: RenderCreation::Automatic(WgpuSettings {
                 backends: Some(Backends::GL),

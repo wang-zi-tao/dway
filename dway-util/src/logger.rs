@@ -1,15 +1,17 @@
-use std::{collections::VecDeque, sync::mpsc};
+use std::{borrow::Cow, collections::VecDeque, sync::mpsc};
 
 use backtrace::Backtrace;
 use bevy::{
-    app::Update,
-    ecs::system::NonSendMut,
-    log::{error, warn, Level},
+    app::{App, Update},
+    ecs::system::{NonSendMut, Resource},
+    log::{error, warn, BoxedLayer, Level},
     prelude::Plugin,
 };
 use nix::sys::{signal, signal::Signal};
 use smallvec::SmallVec;
-use tracing_subscriber::{fmt::MakeWriter, prelude::__tracing_subscriber_SubscriberExt, EnvFilter};
+use tracing_subscriber::{
+    fmt::MakeWriter, prelude::__tracing_subscriber_SubscriberExt, EnvFilter, Layer,
+};
 
 #[derive(Debug)]
 pub struct LogLine {
@@ -31,16 +33,17 @@ impl Default for LoggerCache {
     }
 }
 
-pub struct DWayLogPlugin {
-    pub filter: String,
-    pub level: Level,
+#[derive(Clone, Debug, Resource)]
+pub struct DWayLogSetting {
+    pub log_dir: Cow<'static, str>,
+    pub log_file: Cow<'static, str>,
 }
 
-impl Default for DWayLogPlugin {
+impl Default for DWayLogSetting {
     fn default() -> Self {
         Self {
-            filter: Default::default(),
-            level: Level::INFO,
+            log_dir: ".output".into(),
+            log_file: "dway.log".into(),
         }
     }
 }
@@ -84,32 +87,31 @@ impl<'a> MakeWriter<'a> for LoggerWritter {
     }
 }
 
+pub fn log_layer(app: &mut App) -> Option<BoxedLayer> {
+    let settings = app.world().resource::<DWayLogSetting>().clone();
+    let _ = std::fs::create_dir(&*settings.log_dir);
+    let file_appender = tracing_appender::rolling::hourly(&*settings.log_dir, &*settings.log_file);
+    let (log_file, log_file_guard) = tracing_appender::non_blocking(file_appender);
+    app.insert_non_send_resource(log_file_guard);
+
+    let (tx, rx) = mpsc::channel();
+    let mut cache = app.world_mut().non_send_resource_mut::<LoggerCache>();
+    cache.rx = Some(rx);
+
+    Some(Box::new(
+        (tracing_subscriber::fmt::Layer::new().with_writer(std::io::stderr))
+            .and_then(tracing_subscriber::fmt::Layer::new().with_writer(log_file))
+            .and_then(tracing_subscriber::fmt::Layer::new().with_writer(LoggerWritter { tx }))
+            .and_then(tracing_journald::Layer::new().unwrap()),
+    ))
+}
+
+pub struct DWayLogPlugin;
 impl Plugin for DWayLogPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        app.init_resource::<DWayLogSetting>();
         app.init_non_send_resource::<LoggerCache>();
         app.add_systems(Update, revceive_log_system);
-
-        let _ = std::fs::create_dir(".output");
-        let file_appender = tracing_appender::rolling::hourly(".output", "dway_tty.log");
-        let (log_file, log_file_guard) = tracing_appender::non_blocking(file_appender);
-        app.insert_non_send_resource(log_file_guard);
-        let default_filter = format!("{},{}", self.level, self.filter);
-
-        let (tx, rx) = mpsc::channel();
-        let mut cache = app.world_mut().non_send_resource_mut::<LoggerCache>();
-        cache.rx = Some(rx);
-
-        let subscriber = tracing_subscriber::registry()
-            .with(
-                EnvFilter::try_from_default_env()
-                    .unwrap_or_else(|_| EnvFilter::new(&default_filter)),
-            )
-            .with(tracing_subscriber::fmt::Layer::new().with_writer(std::io::stderr))
-            .with(tracing_subscriber::fmt::Layer::new().with_writer(log_file))
-            .with(tracing_subscriber::fmt::Layer::new().with_writer(LoggerWritter { tx }))
-            .with(tracing_journald::Layer::new().unwrap());
-
-        let _ = bevy::utils::tracing::subscriber::set_global_default(subscriber);
         install_panic_hook();
         install_signal_handler();
     }
