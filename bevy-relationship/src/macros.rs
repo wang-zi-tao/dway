@@ -39,10 +39,6 @@ macro_rules! relationship {
             fn drain(&mut self) -> Self::Drain<'_> {
                 self.0.drain()
             }
-
-            fn get_sender_mut(&mut self)->&mut $crate::ConnectionEventSender {
-                self.0.get_sender_mut()
-            }
         }
     };
 
@@ -50,22 +46,14 @@ macro_rules! relationship {
         #[derive $derive]
         pub struct $name(pub $inner);
 
-        impl Drop for $name {
-            fn drop(&mut self) {
-                for peer_entity in $crate::Connectable::iter(self) {
-                    self.sender.send::<$peer>(peer_entity);
-                }
-            }
-        }
-
-        relationship!(#[derive($crate::reexport::Component, Clone, Default, Debug, $crate::reexport::Reflect)] struct $name($inner) Deref @peer($peer));
-        relationship!(#[derive($crate::reexport::Component, Clone, Default, Debug, $crate::reexport::Reflect)] struct $name($inner) Connectable @peer($peer));
+        relationship!(#[derive(Clone, Default, Debug, $crate::reexport::Reflect)] struct $name($inner) Deref @peer($peer));
+        relationship!(#[derive(Clone, Default, Debug, $crate::reexport::Reflect)] struct $name($inner) Connectable @peer($peer));
     };
     (-- $type1:ident @peer($peer:ty)) => {
-        relationship!(#[derive($crate::reexport::Component, Clone, Default, Debug, $crate::reexport::Reflect)] struct $type1($crate::RelationshipToOneEntity) @peer($peer));
+        relationship!(#[derive(Clone, Default, Debug, $crate::reexport::Reflect)] struct $type1($crate::RelationshipToOneEntity) @peer($peer));
     };
     (>- $type1:ident @peer($peer:ty)) => {
-        relationship!(#[derive($crate::reexport::Component, Clone, Default, Debug, $crate::reexport::Reflect)] struct $type1($crate::RelationshipToManyEntity) @peer($peer));
+        relationship!(#[derive(Clone, Default, Debug, $crate::reexport::Reflect)] struct $type1($crate::RelationshipToManyEntity) @peer($peer));
     };
     (@Relationship $relationship:ident => $type1:ident) => {
         impl $crate::Peer for $type1{
@@ -78,6 +66,17 @@ macro_rules! relationship {
             type From = $type1;
             type To = $type1;
         }
+
+        impl $crate::reexport::Component for $type1{
+            const STORAGE_TYPE: $crate::reexport::StorageType= $crate::reexport::StorageType::Table;
+
+            fn register_component_hooks(hooks: &mut bevy::ecs::component::ComponentHooks) {
+                hooks.on_remove(|world, entity, _componentid|{
+                    $crate::disconnect_all::<$type1, $type1>(world, entity);
+                });
+            }
+        }
+
     };
     (@Relationship $relationship:ident => $type1:ident - $type2:ident) => {
         impl $crate::Peer for $type1{
@@ -93,6 +92,26 @@ macro_rules! relationship {
         impl $crate::Relationship for $relationship {
             type From = $type1;
             type To = $type2;
+        }
+
+        impl $crate::reexport::Component for $type1{
+            const STORAGE_TYPE: $crate::reexport::StorageType= $crate::reexport::StorageType::Table;
+
+            fn register_component_hooks(hooks: &mut $crate::reexport::ComponentHooks) {
+                hooks.on_remove(|world, entity, _componentid|{
+                    $crate::disconnect_all::<$type1, $type2>(world, entity);
+                });
+            }
+        }
+
+        impl $crate::reexport::Component for $type2{
+            const STORAGE_TYPE: $crate::reexport::StorageType= $crate::reexport::StorageType::Table;
+
+            fn register_component_hooks(hooks: &mut $crate::reexport::ComponentHooks) {
+                hooks.on_remove(|world, entity, _componentid|{
+                    $crate::disconnect_all::<$type2, $type1>(world, entity);
+                });
+            }
         }
     };
     ($relationship:ident => $type1:ident -- $type2:ident) => {

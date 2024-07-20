@@ -1,3 +1,6 @@
-pub use bevy;
-pub use bevy::prelude::{Component, Entity, Reflect};
+pub use bevy::{
+    self,
+    ecs::component::{ComponentHooks, StorageType},
+    prelude::{Component, Entity, Reflect},
+};
 pub use smallvec::SmallVec;

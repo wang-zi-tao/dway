@@ -138,8 +138,7 @@ fn test_query_node_mut() {
                 ControlFlow::<()>::Continue
             });
             assert!(r.is_none());
-            let r = graph.foreach_path_mut(|mut e: &mut Mut<C0>| {
-                let _: &mut C0 = &mut e;
+            let r = graph.foreach_path_mut(|e: &mut Mut<C0>| {
                 ops_mut.insert(e.0);
                 ControlFlow::<()>::Continue
             });

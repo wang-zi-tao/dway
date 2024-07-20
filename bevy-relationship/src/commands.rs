@@ -1,15 +1,15 @@
 use std::marker::PhantomData;
 
 use bevy::{
-    ecs::{system::EntityCommands, world::Command},
-    prelude::{despawn_with_children_recursive, Entity, EntityWorldMut, World},
+    ecs::{
+        system::EntityCommands,
+        world::{Command, DeferredWorld},
+    },
+    prelude::{despawn_with_children_recursive, Entity, World},
 };
 use smallvec::SmallVec;
 
-use crate::{
-    ConnectableMut, ConnectionEventReceiver, ConnectionEventSender, Relationship,
-    ReserveRelationship,
-};
+use crate::{ConnectableMut, Relationship, ReserveRelationship};
 
 #[derive(Debug)]
 pub struct ConnectCommand<R: Relationship> {
@@ -33,14 +33,6 @@ where
     R::To: ConnectableMut + Default,
 {
     fn apply(self, world: &mut World) {
-        fn get_sender(entity_mut: &mut EntityWorldMut, entity: Entity) -> ConnectionEventSender {
-            entity_mut.world_scope(|world| {
-                world
-                    .non_send_resource::<ConnectionEventReceiver>()
-                    .get_sender(entity)
-            })
-        }
-
         if world.get_entity(self.to).is_none() {
             return;
         };
@@ -48,16 +40,9 @@ where
             return;
         };
         let old = if let Some(mut peer) = from_entity.get_mut::<R::From>() {
-            let old = peer.connect(self.to);
-            if !peer.get_sender_mut().inited() {
-                let new_sender = get_sender(&mut from_entity, self.from);
-                let mut peer = from_entity.get_mut::<R::From>().unwrap();
-                *peer.get_sender_mut() = new_sender;
-            }
-            old
+            peer.connect(self.to)
         } else {
             let mut peer = R::From::default();
-            *peer.get_sender_mut() = get_sender(&mut from_entity, self.from);
             let old = peer.connect(self.to);
             from_entity.insert(peer);
             old
@@ -72,16 +57,9 @@ where
             return;
         };
         let old = if let Some(mut peer) = to_entity.get_mut::<R::To>() {
-            let old = peer.connect(self.from);
-            if !peer.get_sender_mut().inited() {
-                let new_sender = get_sender(&mut to_entity, self.to);
-                let mut peer = to_entity.get_mut::<R::To>().unwrap();
-                *peer.get_sender_mut() = new_sender;
-            }
-            old
+            peer.connect(self.from)
         } else {
             let mut peer = R::To::default();
-            *peer.get_sender_mut() = get_sender(&mut to_entity, self.to);
             let old = peer.connect(self.from);
             to_entity.insert(peer);
             old
@@ -129,6 +107,22 @@ pub struct DisconnectAllCommand<R: Relationship> {
     _phantom: PhantomData<R>,
 }
 
+pub fn disconnect_all<ThisPeer: ConnectableMut, TargetPeer: ConnectableMut>(
+    mut world: DeferredWorld,
+    this_entity: Entity,
+) {
+    let peer_entitys = if let Some(mut out_component) = world.get_mut::<ThisPeer>(this_entity) {
+        out_component.drain().collect::<SmallVec<[Entity; 8]>>()
+    } else {
+        Default::default()
+    };
+    for peer_entity in peer_entitys {
+        if let Some(mut in_component) = world.get_mut::<TargetPeer>(peer_entity) {
+            in_component.disconnect(this_entity);
+        }
+    }
+}
+
 impl<R: Relationship> DisconnectAllCommand<R> {
     pub fn new(from: Entity) -> Self {
         Self {
@@ -143,18 +137,7 @@ where
     R::To: ConnectableMut,
 {
     fn apply(self, world: &mut World) {
-        let mut from_query = world.query::<&mut R::From>();
-        let mut to_query = world.query::<&mut R::To>();
-        let target = if let Ok(mut from_component) = from_query.get_mut(world, self.from) {
-            from_component.drain().collect::<SmallVec<[Entity; 8]>>()
-        } else {
-            Default::default()
-        };
-        for entity in target {
-            if let Ok(mut to_component) = to_query.get_mut(world, entity) {
-                to_component.disconnect(self.from);
-            }
-        }
+        disconnect_all::<R::From, R::To>(world.into(), self.from);
     }
 }
 

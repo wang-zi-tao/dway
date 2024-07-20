@@ -1,84 +1,167 @@
-use bevy::prelude::*;
+use bevy::{ecs::world::DeferredWorld, prelude::*};
+use smallvec::SmallVec;
 
 use crate::ConnectableMut;
-fn despawn_peer_if_empty<C: ConnectableMut>(
-    world: &mut World,
+fn disconnect<ThisPeer: ConnectableMut, TargetPeer: ConnectableMut>(
+    mut world: DeferredWorld,
     this_entity: Entity,
-    peer_entity: Entity,
 ) {
-    if let Some(mut component) = world.get_mut::<C>(peer_entity) {
-        component.disconnect(this_entity);
-        if component.as_slice().is_empty() {
-            world.entity_mut(peer_entity).despawn_recursive();
-        }
+    let peer_entitys = if let Some(mut from_component) = world.get_mut::<ThisPeer>(this_entity) {
+        from_component.drain().collect::<SmallVec<[Entity; 8]>>()
+    } else {
+        Default::default()
     };
+    for peer_entity in peer_entitys {
+        if let Some(mut to_component) = world.get_mut::<TargetPeer>(peer_entity) {
+            to_component.disconnect(this_entity);
+            if to_component.as_slice().is_empty() {
+                world.commands().entity(peer_entity).despawn_recursive();
+            }
+        }
+    }
 }
 
 pub mod n_to_n {
-    use bevy::prelude::*;
+    use bevy::{ecs::component::StorageType, prelude::*};
 
-    use super::despawn_peer_if_empty;
-    use crate::relationship;
+    use super::disconnect;
+    use crate::{disconnect_all, relationship, Peer, Relationship};
 
-    #[derive(crate::reexport::Component, Clone, Default, Debug, crate::reexport::Reflect)]
+    #[derive(Clone, Default, Debug, crate::reexport::Reflect)]
     pub struct Reference(pub crate::RelationshipToManyEntity);
 
-    impl Drop for Reference {
-        fn drop(&mut self) {
-            for peer_entity in crate::Connectable::iter(self) {
-                self.sender
-                    .send_function(peer_entity, despawn_peer_if_empty::<ReferenceFrom>);
-            }
-        }
-    }
     relationship!(#[derive(crate::reexport::Component,Clone,Default,Debug,crate::reexport::Reflect)]struct Reference(crate::RelationshipToManyEntity)Deref@peer(RcItem));
     relationship!(#[derive(crate::reexport::Component,Clone,Default,Debug,crate::reexport::Reflect)]struct Reference(crate::RelationshipToManyEntity)Connectable@peer(RcItem));
     relationship!(>-ReferenceFrom@peer(Reference));
-    relationship!(@Relationship ReferenceRelationship => Reference-ReferenceFrom);
+    impl Peer for Reference {
+        type Target = ReferenceFrom;
+    }
+    impl Peer for ReferenceFrom {
+        type Target = Reference;
+    }
+    #[derive(Default)]
+    pub struct ReferenceRelationship;
+
+    impl Relationship for ReferenceRelationship {
+        type From = Reference;
+        type To = ReferenceFrom;
+    }
+    impl Component for Reference {
+        const STORAGE_TYPE: StorageType = StorageType::Table;
+
+        fn register_component_hooks(hooks: &mut bevy::ecs::component::ComponentHooks) {
+            hooks.on_remove(|world, entity, _componentid| {
+                disconnect::<Reference, ReferenceFrom>(world, entity);
+            });
+        }
+    }
+    impl Component for ReferenceFrom {
+        const STORAGE_TYPE: StorageType = StorageType::Table;
+
+        fn register_component_hooks(hooks: &mut bevy::ecs::component::ComponentHooks) {
+            hooks.on_remove(|world, entity, _componentid| {
+                disconnect_all::<ReferenceFrom, Reference>(world, entity);
+            });
+        }
+    }
 }
 
 pub mod n_to_one {
-    use bevy::prelude::*;
+    use bevy::{
+        ecs::component::{ComponentHooks, StorageType},
+        prelude::*,
+    };
 
-    use super::despawn_peer_if_empty;
+    use super::disconnect;
     use crate::relationship;
 
-    #[derive(crate::reexport::Component, Clone, Default, Debug, crate::reexport::Reflect)]
+    #[derive(Clone, Default, Debug, crate::reexport::Reflect)]
     pub struct SharedRefreence(pub crate::RelationshipToOneEntity);
 
-    impl Drop for SharedRefreence {
-        fn drop(&mut self) {
-            for peer_entity in crate::Connectable::iter(self) {
-                self.sender
-                    .send_function(peer_entity, despawn_peer_if_empty::<SharedReferenceFrom>);
-            }
-        }
-    }
     relationship!(#[derive(crate::reexport::Component,Clone,Default,Debug,crate::reexport::Reflect)]struct SharedRefreence(crate::RelationshipToOneEntity)Deref@peer(RcItem));
     relationship!(#[derive(crate::reexport::Component,Clone,Default,Debug,crate::reexport::Reflect)]struct SharedRefreence(crate::RelationshipToOneEntity)Connectable@peer(RcItem));
     relationship!(>-SharedReferenceFrom@peer(SharedRefreence));
-    relationship!(@Relationship SharedReferenceRelationship => SharedRefreence-SharedReferenceFrom);
+    impl crate::Peer for SharedRefreence {
+        type Target = SharedReferenceFrom;
+    }
+    impl crate::Peer for SharedReferenceFrom {
+        type Target = SharedRefreence;
+    }
+    #[derive(Default)]
+    pub struct SharedReferenceRelationship;
+
+    impl crate::Relationship for SharedReferenceRelationship {
+        type From = SharedRefreence;
+        type To = SharedReferenceFrom;
+    }
+    impl Component for SharedRefreence {
+        const STORAGE_TYPE: StorageType = StorageType::Table;
+
+        fn register_component_hooks(hooks: &mut ComponentHooks) {
+            hooks.on_remove(|world, entity, _componentid| {
+                disconnect::<SharedRefreence, SharedReferenceFrom>(world, entity);
+            });
+        }
+    }
+    impl Component for SharedReferenceFrom {
+        const STORAGE_TYPE: StorageType = StorageType::Table;
+
+        fn register_component_hooks(hooks: &mut ComponentHooks) {
+            hooks.on_remove(|world, entity, _componentid| {
+                crate::commands::disconnect_all::<SharedReferenceFrom, SharedRefreence>(
+                    world, entity,
+                );
+            });
+        }
+    }
 }
 
 pub mod one_to_one {
-    use bevy::prelude::*;
+    use bevy::{
+        ecs::component::{ComponentHooks, StorageType},
+        prelude::*,
+    };
 
-    use super::despawn_peer_if_empty;
+    use super::disconnect;
     use crate::relationship;
 
-    #[derive(crate::reexport::Component, Clone, Default, Debug, crate::reexport::Reflect)]
+    #[derive(Clone, Default, Debug, crate::reexport::Reflect)]
     pub struct UniqueRefreence(pub crate::RelationshipToOneEntity);
 
-    impl Drop for UniqueRefreence {
-        fn drop(&mut self) {
-            for peer_entity in crate::Connectable::iter(self) {
-                self.sender
-                    .send_function(peer_entity, despawn_peer_if_empty::<UniqueReferenceFrom>);
-            }
-        }
-    }
     relationship!(#[derive(crate::reexport::Component,Clone,Default,Debug,crate::reexport::Reflect)]struct UniqueRefreence(crate::RelationshipToOneEntity)Deref@peer(RcItem));
     relationship!(#[derive(crate::reexport::Component,Clone,Default,Debug,crate::reexport::Reflect)]struct UniqueRefreence(crate::RelationshipToOneEntity)Connectable@peer(RcItem));
     relationship!(--UniqueReferenceFrom@peer(UniqueRefreence));
-    relationship!(@Relationship UniqueReferenceRelationship => UniqueRefreence-UniqueReferenceFrom);
+    impl crate::Peer for UniqueRefreence {
+        type Target = UniqueReferenceFrom;
+    }
+    impl crate::Peer for UniqueReferenceFrom {
+        type Target = UniqueRefreence;
+    }
+    #[derive(Default)]
+    pub struct UniqueReferenceRelationship;
+
+    impl crate::Relationship for UniqueReferenceRelationship {
+        type From = UniqueRefreence;
+        type To = UniqueReferenceFrom;
+    }
+    impl Component for UniqueRefreence {
+        const STORAGE_TYPE: StorageType = StorageType::Table;
+
+        fn register_component_hooks(hooks: &mut ComponentHooks) {
+            hooks.on_remove(|world, entity, _componentid| {
+                disconnect::<UniqueRefreence, UniqueReferenceFrom>(world, entity);
+            });
+        }
+    }
+    impl Component for UniqueReferenceFrom {
+        const STORAGE_TYPE: StorageType = StorageType::Table;
+
+        fn register_component_hooks(hooks: &mut ComponentHooks) {
+            hooks.on_remove(|world, entity, _componentid| {
+                crate::commands::disconnect_all::<UniqueReferenceFrom, UniqueRefreence>(
+                    world, entity,
+                );
+            });
+        }
+    }
 }

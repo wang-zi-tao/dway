@@ -7,7 +7,6 @@ mod lifetime;
 mod macros;
 mod matrix;
 pub mod reexport;
-mod register;
 
 use std::{iter::Cloned, marker::PhantomData};
 
@@ -18,8 +17,12 @@ use smallvec::SmallVec;
 
 #[allow(unused_imports)]
 pub use crate::{
-    app::*, builtins::*, commands::*, graph::*, lifetime::n_to_n::*, lifetime::n_to_one::*,
-    lifetime::one_to_one::*, macros::*, register::*,
+    app::*,
+    builtins::*,
+    commands::*,
+    graph::*,
+    lifetime::{n_to_n::*, n_to_one::*, one_to_one::*},
+    macros::*,
 };
 
 #[derive(Component, Clone, Debug, Reflect)]
@@ -27,8 +30,6 @@ pub use crate::{
 #[derive(Default)]
 pub struct RelationshipToOneEntity {
     pub peer: Option<Entity>,
-    #[reflect(ignore)]
-    pub sender: ConnectionEventSender,
 }
 
 impl RelationshipToOneEntity {
@@ -78,18 +79,12 @@ impl ConnectableMut for RelationshipToOneEntity {
     fn drain(&mut self) -> Self::Drain<'_> {
         self.peer.take().into_iter()
     }
-
-    fn get_sender_mut(&mut self) -> &mut ConnectionEventSender {
-        &mut self.sender
-    }
 }
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Debug)]
 #[derive(Default)]
 pub struct RelationshipToManyEntity {
     pub peers: SmallVec<[Entity; 4]>,
-    #[reflect(ignore)]
-    pub sender: ConnectionEventSender,
 }
 
 impl std::ops::Deref for RelationshipToManyEntity {
@@ -130,10 +125,6 @@ impl ConnectableMut for RelationshipToManyEntity {
     fn drain(&mut self) -> Self::Drain<'_> {
         self.peers.drain(..)
     }
-
-    fn get_sender_mut(&mut self) -> &mut ConnectionEventSender {
-        &mut self.sender
-    }
 }
 pub trait Peer: Connectable {
     type Target: Peer<Target = Self>;
@@ -162,6 +153,4 @@ pub trait ConnectableMut: Connectable {
     fn connect(&mut self, target: Entity) -> Option<Entity>;
     fn disconnect(&mut self, target: Entity) -> bool;
     fn drain(&mut self) -> Self::Drain<'_>;
-
-    fn get_sender_mut(&mut self) -> &mut ConnectionEventSender;
 }

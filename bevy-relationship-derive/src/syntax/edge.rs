@@ -46,7 +46,7 @@ impl EdgeQuery {
                 };
                 quote_spanned!(span=>
                     self.#query_name.get(entity).into_iter()
-                        .map(bevy_relationship::Connectable::iter).flatten()
+                        .flat_map(bevy_relationship::Connectable::iter)
                 )
             }
             EdgeQuery::Hierarchy(p) => {
