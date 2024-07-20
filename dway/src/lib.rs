@@ -32,13 +32,12 @@ use dway_client_core::{
 };
 use dway_server::apps::icon::LinuxIconSourcePlugin;
 use dway_tty::{DWayTTYPlugin, DWayTTYSettings};
-use dway_ui::widgets::windowmenu::UiSvg;
 use dway_ui_framework::diagnostics::UiDiagnosticsPlugin;
 use dway_util::logger::DWayLogPlugin;
 use keys::*;
 use opttions::DWayOption;
 
-cfg_if!{if #[cfg(feature="debug")]{
+cfg_if! {if #[cfg(feature="debug")]{
     const LOG_LEVEL: Level = Level::DEBUG;
 }else{
     const LOG_LEVEL: Level = Level::INFO;
@@ -75,12 +74,12 @@ pub fn bevy_main() {
 }
 
 #[cfg(feature = "hot_reload")]
-use dexterous_developer::{hot_bevy_main, InitialPlugins};
+use bevy_dexterous_developer::{self, *};
 
 #[cfg(feature = "hot_reload")]
-#[hot_bevy_main]
-pub fn bevy_main(initial_plugins: impl InitialPlugins) {
+bevy_dexterous_developer::reloadable_main!(bevy_main(initial_plugins) {
     use dexterous_developer::{ReloadMode, ReloadSettings, ReloadableElementPolicy};
+    use bevy::prelude::*;
 
     let mut app = App::new();
     app.insert_resource(ReloadSettings {
@@ -92,7 +91,7 @@ pub fn bevy_main(initial_plugins: impl InitialPlugins) {
         reloadable_element_selection: None,
     });
     init_app(&mut app, initial_plugins.initialize::<DefaultPlugins>());
-}
+});
 
 pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     #[cfg(feature = "dhat-heap")]
@@ -106,8 +105,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     app.insert_resource(ClearColor(Color::NONE));
     app.insert_resource(Msaa::Sample4);
 
-    #[cfg(feature = "single_thread")]
-    {
+    if cfg!(feature = "single_thread") {
         default_plugins = default_plugins.set(TaskPoolPlugin {
             task_pool_options: TaskPoolOptions {
                 compute: bevy::core::TaskPoolThreadAssignmentPolicy {
@@ -155,7 +153,6 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         } else {
             OutputType::Tty
         },
-        ..Default::default()
     });
 
     if use_tty {
@@ -189,18 +186,16 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         }
     }
 
-    cfg_if::cfg_if! {
-        if #[cfg(any(feature = "cpu_profile", feature="heap_profile"))] {
-            app.add_plugins(LogDiagnosticsPlugin {
-                wait_duration: Duration::from_secs(8),
-                ..Default::default()
-            });
-        } else {
-            app.add_plugins(LogDiagnosticsPlugin {
-                wait_duration: Duration::from_secs(1024),
-                ..Default::default()
-            });
-        }
+    if cfg!(any(feature = "cpu_profile", feature = "heap_profile")) {
+        app.add_plugins(LogDiagnosticsPlugin {
+            wait_duration: Duration::from_secs(8),
+            ..Default::default()
+        });
+    } else {
+        app.add_plugins(LogDiagnosticsPlugin {
+            wait_duration: Duration::from_secs(1024),
+            ..Default::default()
+        });
     }
 
     app.add_plugins((
@@ -216,25 +211,14 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     ));
 
     app.add_systems(Startup, setup);
-    #[cfg(feature = "debug")]
-    {
-        // app.add_systems(
-        //     PreUpdate,
-        //     (
-        //         spawn_app::spawn
-        //             .run_if(on_event::<dway_server::state::WaylandDisplayCreated>())
-        //             .in_set(dway_server::macros::DWayServerSet::CreateGlobal),
-        //         spawn_app::spawn_x11
-        //             .run_if(on_event::<dway_server::x11::DWayXWaylandReady>())
-        //             .in_set(dway_server::macros::DWayServerSet::UpdateXWayland),
-        //     ),
-        // );
+    if cfg!(feature = "debug") {
+        app.observe(spawn_app::spawn);
+        app.observe(spawn_app::spawn_x11);
     }
     app.add_systems(Update, (wm_mouse_action, wm_keys, update));
     app.add_systems(Last, last);
 
-    #[cfg(feature = "single_thread")]
-    {
+    if cfg!(feature = "single_thread") {
         app.edit_schedule(First, |schedule| {
             schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
         });

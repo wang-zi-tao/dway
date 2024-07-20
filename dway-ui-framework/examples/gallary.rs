@@ -1,3 +1,5 @@
+use std::{path::PathBuf, time::Duration};
+
 use bevy::{
     asset::io::embedded::EmbeddedAssetRegistry,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -10,16 +12,15 @@ use bevy_prototype_lyon::{
     shapes,
 };
 use bevy_svg::prelude::StrokeOptions;
-use dway_ui::{
+use dway_ui_derive::dway_widget;
+use dway_ui_framework::{
+    prelude::*,
     render::mesh::{UiMeshBundle, UiMeshHandle, UiMeshTransform},
     widgets::{
         inputbox::{UiInputBox, UiInputBoxBundle},
         shape::UiShapeBundle,
     },
 };
-use dway_ui_derive::dway_widget;
-use dway_ui_framework::prelude::*;
-use std::path::PathBuf;
 
 fn main() {
     let mut app = App::new();

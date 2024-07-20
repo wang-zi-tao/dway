@@ -16,7 +16,7 @@ pub enum UiButtonEventKind {
     Leaved,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct UiButtonEvent {
     pub kind: UiButtonEventKind,
     pub receiver: Entity,
@@ -53,10 +53,6 @@ impl UiButton {
             state: Interaction::None,
         }
     }
-
-    pub fn register_callback(&mut self, callback: Callback<UiButtonEvent>) {
-        self.callback.push(callback);
-    }
 }
 
 pub fn update_ui_button(
@@ -86,6 +82,16 @@ pub fn update_ui_button(
                     },
                 );
             }
+            commands.trigger_targets(
+                UiButtonEvent {
+                    kind: kind.clone(),
+                    receiver: Entity::PLACEHOLDER,
+                    button: entity,
+                    state: *button_state,
+                    prev_state: button.state,
+                },
+                entity,
+            );
         };
         match (button.state, button_state) {
             (Interaction::Pressed, Interaction::Hovered) => {

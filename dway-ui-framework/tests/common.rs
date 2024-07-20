@@ -1,23 +1,18 @@
 use std::{
     collections::HashMap,
-    path::{absolute, Path, PathBuf},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
-    },
+    path::{absolute, PathBuf},
+    sync::
+        atomic::{AtomicBool, Ordering}, time::Duration
+    ,
 };
 
 use bevy::{
-    app::{AppExit, ScheduleRunnerPlugin},
-    core::FrameCount,
-    core_pipeline::core_2d::graph::{Core2d, Node2d},
-    ecs::system::{BoxedSystem, RunSystemOnce},
-    render::{
+    app::{AppExit, ScheduleRunnerPlugin}, core::FrameCount, core_pipeline::core_2d::graph::{Core2d, Node2d}, ecs::system::SystemId, prelude::*, render::{
         camera::RenderTarget,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         render_asset::RenderAssets,
         render_graph::{
-            self, NodeRunError, RenderGraph, RenderGraphApp, RenderGraphContext, RenderLabel,
+            self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel,
         },
         render_resource::{
             Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d,
@@ -26,19 +21,12 @@ use bevy::{
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
         texture::{GpuImage, Image},
-        view::screenshot::ScreenshotManager,
         Render, RenderApp, RenderSet,
-    },
-    ui::graph::NodeUi,
-    window::{PresentMode, WindowRef},
-    winit::{WakeUp, WinitPlugin},
+    }, window::PresentMode, winit::WinitPlugin
 };
 use crossbeam_channel::{Receiver, Sender};
-use dway_ui_framework::{prelude::*, *};
-use image::{DynamicImage, GenericImageView, RgbaImage};
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use render::mesh::graph::NodeUiExt;
-use tempdir::TempDir;
+use dway_ui_framework::prelude::*;
+use image::RgbaImage;
 
 pub fn image_diff(src_image: &RgbaImage, dest_image: &RgbaImage) -> RgbaImage {
     assert_eq!(src_image.width(), dest_image.width());

@@ -429,6 +429,7 @@ pub fn dispatch_x11_events(
                                     x.screen_windows.insert(screen.root);
                                 }
                                 dway.send_event(DWayXWaylandReady::new(dway_entity));
+                                dway.trigger(DWayXWaylandReady::new(dway_entity));
                                 dway.connect::<DWayHasXWayland>(dway_entity, display_entity);
                                 return Ok(());
                             }
@@ -437,6 +438,7 @@ pub fn dispatch_x11_events(
                                 dway.despawn_tree(display_entity);
                                 info!(cause=?e,"despawn xwayland on {display_entity:?}");
                                 dway.send_event(DWayXWaylandStoped::new(dway_entity));
+                                dway.trigger(DWayXWaylandStoped::new(dway_entity));
                                 dway.disconnect::<DWayHasXWayland>(dway_entity, display_entity);
                                 return Ok(());
                             }

@@ -774,6 +774,7 @@ name = "bevy"
 version = "0.14.0"
 source = "git+https://github.com/wang-zi-tao/bevy?rev=878ba9633409b2e9dd67d0147462452307e5e7ad#878ba9633409b2e9dd67d0147462452307e5e7ad"
 dependencies = [
+ "bevy_dylib",
  "bevy_internal 0.14.0",
 ]
 
@@ -1444,6 +1445,14 @@ dependencies = [
  "bevy_time 0.14.0 (git+https://github.com/wang-zi-tao/bevy?rev=878ba9633409b2e9dd67d0147462452307e5e7ad)",
  "bevy_utils 0.14.0",
  "const-fnv1a-hash",
+]
+
+[[package]]
+name = "bevy_dylib"
+version = "0.14.0"
+source = "git+https://github.com/wang-zi-tao/bevy?rev=878ba9633409b2e9dd67d0147462452307e5e7ad#878ba9633409b2e9dd67d0147462452307e5e7ad"
+dependencies = [
+ "bevy_internal 0.14.0",
 ]
 
 [[package]]
@@ -4915,7 +4924,6 @@ dependencies = [
  "dway-client-core",
  "dway-server",
  "dway-tty",
- "dway-ui-derive",
  "dway-ui-framework",
  "dway-util",
  "failure",

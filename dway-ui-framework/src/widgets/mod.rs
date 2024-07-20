@@ -14,10 +14,16 @@ pub mod svg;
 pub mod text;
 pub mod tips;
 
-pub trait WidgetTemplate<Input> {
-    fn spawn(input: &Input, commands: &mut Commands);
+#[derive(Component, Debug, Clone, Deref, Reflect)]
+pub struct UiWidgetRoot(Entity);
+
+impl From<Entity> for UiWidgetRoot {
+    fn from(value: Entity) -> Self {
+        Self(value)
+    }
 }
 
+#[deprecated]
 #[derive(Component, Default)]
 pub struct Callback(pub Option<SystemId>);
 

@@ -8,7 +8,6 @@ dway-util = {path="../dway-util/"}
 dway-server = {path="../dway-server/"}
 dway-tty = {path="../dway-tty/"}
 dway-client-core = {path="../dway-client-core/"}
-dway-ui-derive = {path="../dway-ui-derive/", features=[]}
 dway-ui-framework = {path="../dway-ui-framework", features=[]}
 bevy-relationship = {path="../bevy-relationship"}
 
@@ -39,7 +38,7 @@ lazy_static = {workspace=true}
 pretty_assertions = "1.4.0"
 
 [features]
-hot_reload = ["dep:dexterous_developer","dway-ui-derive/hot_reload"]
+hot_reload = ["dep:dexterous_developer", "dway-ui-framework/hot_reload"]
 css = ["dep:bevy_ecss"]
 
 [profile.dev]

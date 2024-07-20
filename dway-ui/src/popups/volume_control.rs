@@ -1,5 +1,4 @@
 use dway_client_core::controller::volume::VolumeController;
-use dway_ui_derive::dway_widget;
 use dway_ui_framework::{
     animation::{
         interpolation::EaseFunction,

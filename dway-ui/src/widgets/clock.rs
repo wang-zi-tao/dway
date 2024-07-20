@@ -6,7 +6,7 @@ pub struct Clock {
     pub format: String,
 }
 
-dway_ui_derive::dway_widget!{ 
+dway_widget!{ 
 Clock=>
 @use_state{ pub text:String="".to_string() }
 @state_component{#[derive(Debug)]}
@@ -24,11 +24,4 @@ Clock=>
         ..default()
     },
 )) /> 
-}
-
-pub struct ClockUiPlugin;
-impl Plugin for ClockUiPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Update, clock_render.in_set(ClockSystems::Render));
-    }
 }

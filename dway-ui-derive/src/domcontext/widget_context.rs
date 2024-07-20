@@ -36,6 +36,7 @@ pub struct WidgetDomContext<'l: 'g, 'g> {
     pub world_query: BTreeMap<String, (TokenStream, TokenStream)>,
     pub system_querys: BTreeMap<String, TokenStream>,
     pub state_namespace: String,
+    pub enable_hot_reload: bool,
 }
 
 impl<'l, 'g> std::ops::DerefMut for WidgetDomContext<'l, 'g> {
@@ -191,7 +192,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                 .insert("__dway_changed_flags".to_string(), quote!(!0));
             state_builder.attributes.push(quote! {
                 #[derive(Component)]
-                #[dway_ui_derive::change_detact]
+                #[dway_ui_framework::prelude::change_detact]
             });
             let mut widget_builder = ComponentBuilder::new(sub_widget_type.clone());
             widget_builder.attributes.push(quote!(
@@ -379,16 +380,18 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
     root_context.namespace = name.to_string();
     let mut dom_context = DomContext::new(&mut root_context);
 
+    let enable_hot_reload = cfg!(feature = "hot_reload") && generics.type_params().next().is_none();
     let mut context = WidgetDomContext {
         state_builder: ComponentBuilder::new_with_generics(state_name.clone(), generics.clone()),
         widget_builder: ComponentBuilder::new(widget_name.clone()),
         bundle_builder: ComponentBuilder::new_with_generics(bundle_name, generics.clone()),
         resources_builder: ResourceBuilder::new(resource_name),
-        plugin_builder: PluginBuilder::new(plugin_name, generics.clone()),
+        plugin_builder: PluginBuilder::new(plugin_name, generics.clone(), enable_hot_reload),
         dom_context: &mut dom_context,
         world_query: Default::default(),
         system_querys: Default::default(),
         state_namespace: "root".to_string(),
+        enable_hot_reload,
     };
 
     context.state_builder.generate_init = true;
@@ -398,7 +401,7 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
         .insert("__dway_changed_flags".to_string(), quote!(!0));
     context.state_builder.attributes.push(quote! {
         #[derive(Component)]
-        #[dway_ui_derive::change_detact]
+        #[dway_ui_framework::prelude::change_detact]
     });
 
     context.widget_builder.attributes.push(quote! {
@@ -522,8 +525,7 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
         });
     }
 
-    #[cfg(feature = "hot_reload")]
-    {
+    if context.enable_hot_reload {
         let state_name = &context.state_builder.get_type();
         let widget_name = &context.widget_builder.get_type();
         let reset_system_name = format_ident!(
@@ -544,24 +546,14 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
             }
         });
 
-        context.plugin_builder.other_items.push(quote! {
-            impl dway_ui_framework::reexport::ReplacableComponent for #prop_type{
-                fn get_type_name() -> &'static str {
-                    std::any::type_name::<Self>()
-                }
-            }
-        });
-
         context.plugin_builder.hot_reload_stmts.push(quote! {
-            app.register_replacable_component::<#prop_type>();
+            use dway_ui_framework::reexport::bevy_dexterous_developer::{self,*};
             app.reset_setup::<#prop_type, _>(#reset_system_name #ty_generics);
             app.add_systems(Update, #system_name #function_ty_generics
                 .run_if(|query:Query<(),With<#prop_type>>|{!query.is_empty()})
                 .in_set(#systems_name::Render));
         });
-    }
-    #[cfg(not(feature = "hot_reload"))]
-    {
+    } else {
         context.plugin_builder.stmts.push(quote! {
             app.add_systems(Update, #system_name #function_ty_generics
                 .run_if(|query:Query<(),With<#prop_type>>|{!query.is_empty()})

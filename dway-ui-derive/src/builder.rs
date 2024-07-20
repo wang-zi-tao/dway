@@ -1,7 +1,8 @@
+use std::collections::BTreeMap;
+
 use convert_case::Casing;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
-use std::collections::BTreeMap;
 use syn::{Generics, Ident};
 
 pub struct ComponentBuilder {
@@ -23,6 +24,7 @@ impl ComponentBuilder {
             generate_init: false,
         }
     }
+
     pub fn new_with_generics(name: Ident, generics: Generics) -> Self {
         Self {
             name,
@@ -33,13 +35,16 @@ impl ComponentBuilder {
             generate_init: false,
         }
     }
+
     pub fn add_field(&mut self, name: &Ident, field: TokenStream) {
         self.fields.insert(name.to_string(), field);
     }
+
     pub fn add_field_with_initer(&mut self, name: &Ident, field: TokenStream, init: TokenStream) {
         self.fields.insert(name.to_string(), field);
         self.init.insert(name.to_string(), init.to_token_stream());
     }
+
     pub fn get_type(&self) -> TokenStream {
         let (_, ty_generics, _) = self.generics.split_for_impl();
         let name = &self.name;
@@ -107,10 +112,11 @@ pub struct PluginBuilder {
     pub other_items: Vec<TokenStream>,
     pub name: Ident,
     pub generics: Generics,
+    pub enable_hot_reload: bool,
 }
 
 impl PluginBuilder {
-    pub fn new(name: Ident, generics: Generics) -> Self {
+    pub fn new(name: Ident, generics: Generics, enable_hot_reload: bool) -> Self {
         Self {
             components: vec![],
             resources: vec![],
@@ -120,6 +126,7 @@ impl PluginBuilder {
             hot_reload_stmts: vec![],
             name,
             generics,
+            enable_hot_reload,
         }
     }
 }
@@ -135,12 +142,16 @@ impl ToTokens for PluginBuilder {
             stmts,
             name,
             generics,
+            enable_hot_reload,
         } = self;
         let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-        #[cfg(feature = "hot_reload")]
-        let (hot_reload_loader, hot_reload_register, plugin_stats) = {
-            #[cfg(feature = "hot_reload")]
+        let (hot_reload_loader, hot_reload_register, plugin_stats) = if *enable_hot_reload {
+            let reloadable_mod_name = format_ident!(
+                "{}_reload_mod",
+                name.to_string().to_case(convert_case::Case::Snake),
+                span = name.span()
+            );
             let reloadable_name = format_ident!(
                 "{}_reload",
                 name.to_string().to_case(convert_case::Case::Snake),
@@ -148,23 +159,24 @@ impl ToTokens for PluginBuilder {
             );
             (
                 Some(quote! {
-                    #[dway_ui_framework::reexport::dexterous_developer_setup]
-                    fn #reloadable_name #impl_generics(app: &mut ReloadableAppContents) #where {
-                        #(#hot_reload_stmts)*
+                    mod #reloadable_mod_name{
+                        use super::*;
+                        use dway_ui_framework::reexport::bevy_dexterous_developer::{self,*};
+                        reloadable_scope!(#reloadable_name(app){
+                            #(#hot_reload_stmts)*
+                        });
                     }
+                    pub use #reloadable_mod_name::*;
                 }),
                 Some(quote! {
-                    use dway_ui_framework::reexport::ReloadableElementsSetup as _;
+                    use dway_ui_framework::reexport::bevy_dexterous_developer::ReloadableElementsSetup as _;
                     app.setup_reloadable_elements::<#reloadable_name>();
                 }),
                 quote! {
                     #(#stmts)*
                 },
             )
-        };
-
-        #[cfg(not(feature = "hot_reload"))]
-        let (hot_reload_loader, hot_reload_register, plugin_stats) = {
+        } else {
             (
                 None::<TokenStream>,
                 None::<TokenStream>,
@@ -219,13 +231,16 @@ impl ResourceBuilder {
             generate_init: false,
         }
     }
+
     pub fn add_field(&mut self, name: &Ident, field: TokenStream) {
         self.fields.insert(name.to_string(), field);
     }
+
     pub fn add_field_with_initer(&mut self, name: &Ident, field: TokenStream, init: TokenStream) {
         self.fields.insert(name.to_string(), field);
         self.init.insert(name.to_string(), init.to_token_stream());
     }
+
     pub fn into_plugin(&self) -> TokenStream {
         let Self {
             name,

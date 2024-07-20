@@ -127,7 +127,6 @@ features = [
 
   "async-io",
   "wayland",
-  # "dynamic_linking",
 ]
 
 [patch.crates-io]

@@ -88,15 +88,15 @@ pub fn attach_window_to_workspace(
 }
 
 pub fn attach_workspace_to_screen(
-    screen_query: Query<(Entity, &GlobalGeometry), Added<Screen>>,
+    trigger: Trigger<OnAdd, Screen>,
+    screen_query: Query<(Entity, &GlobalGeometry)>,
     mut workspace_query: Query<
         (Entity, &mut Workspace, &mut Geometry),
         (With<Workspace>, Without<Hidden>),
     >,
-    mut new_screen: EventReader<Insert<Screen>>,
     mut commands: Commands,
 ) {
-    for (screen_entity, screen_geo) in screen_query.iter_many(new_screen.read().map(|e| e.entity)) {
+    if let Ok((screen_entity, screen_geo)) = screen_query.get(trigger.entity()) {
         for (workspace_entity, workspace, mut workspace_geo) in workspace_query.iter_mut() {
             if !workspace.hide {
                 commands.add(ConnectCommand::<ScreenAttachWorkspace>::new(
@@ -152,13 +152,7 @@ impl Plugin for WorkspacePlugin {
         app.register_type::<WorkspaceManager>();
         app.register_type::<WorkspaceWindow>();
         app.init_resource::<WorkspaceManager>();
-        app.add_systems(
-            PreUpdate,
-            (attach_workspace_to_screen, apply_deferred)
-                .run_if(on_event::<Insert<Screen>>())
-                .after(DWayClientSystem::CreateScreen)
-                .before(DWayClientSystem::UpdateWorkspace),
-        );
+        app.observe(attach_workspace_to_screen);
         app.add_systems(
             PreUpdate,
             (

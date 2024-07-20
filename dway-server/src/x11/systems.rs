@@ -159,7 +159,7 @@ pub fn update_xwindow(mut graph: XWindowUpdateGraph) {
             if decorated != toplevel.decorated {
                 toplevel.decorated = true;
             }
-            if &xwindow.title != &toplevel.title {
+            if xwindow.title != toplevel.title {
                 toplevel.title = xwindow.title.clone();
             }
             // TODO

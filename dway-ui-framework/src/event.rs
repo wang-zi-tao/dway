@@ -9,10 +9,13 @@ pub trait EventDispatch<E> {
     fn on_event(&self, commands: EntityCommands, event: E);
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Event)]
 pub struct UiClickEvent;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Event)]
+pub struct UiDataEvent<T>(T);
+
+#[derive(Clone, Debug, PartialEq, Eq, Event)]
 pub enum UiNodeAppearEvent {
     Appear,
     Disappear,

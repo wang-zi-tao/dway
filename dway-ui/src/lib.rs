@@ -55,7 +55,7 @@ impl Plugin for DWayUiPlugin {
         ));
         app.add_plugins((
             widgets::icon::UiIconPlugin,
-            widgets::clock::ClockUiPlugin,
+            widgets::clock::ClockPlugin,
             widgets::window::WindowUIPlugin,
             widgets::popupwindow::PopupUIPlugin,
             widgets::applist::AppListUIPlugin,
@@ -74,12 +74,13 @@ impl Plugin for DWayUiPlugin {
             popups::volume_control::VolumeControlPlugin,
             popups::panel_settings::PanelSettingsPlugin,
         ));
-        app.add_systems(PreUpdate, init_screen_ui.after(DWayClientSystem::UpdateUI));
+        app.observe(init_screen_ui);
         app.add_systems(Startup, setup);
     }
 }
 
-fn setup(mut commands: Commands) {}
+fn setup(mut commands: Commands) {
+}
 
 #[derive(Component, SmartDefault)]
 pub struct ScreenUI {
@@ -166,11 +167,12 @@ ScreenUI=>
 }
 
 fn init_screen_ui(
-    screen_query: Query<(Entity, Option<&DrmSurface>), Added<Screen>>,
+    trigger: Trigger<OnAdd, Screen>,
+    screen_query: Query<(Entity, Option<&DrmSurface>)>,
     mut commands: Commands,
     mut camera_count: Local<usize>,
 ) {
-    for (entity, drm_surface) in screen_query.iter() {
+    if let Ok((entity, drm_surface)) = screen_query.get(trigger.entity()) {
         let target = if let Some(drm_surface) = drm_surface {
             let image_handle = drm_surface.image();
             RenderTarget::Image(image_handle)

@@ -67,24 +67,23 @@ pub enum SetWindowIndex {
 }
 
 pub fn init_window_index(
+    trigger: Trigger<OnAdd, DWayWindow>,
     config: Res<WindowStackConfig>,
     mut stack: ResMut<WindowStack>,
-    new_window_query: Query<Entity, Added<DWayWindow>>,
 ) {
-    new_window_query.into_iter().for_each(|new_window| {
-        match config.default_position {
-            WindowIndexDefaultPosition::Top => {
-                stack.list.push_front(new_window);
-            }
-            WindowIndexDefaultPosition::Bottom => {
-                stack.list.push_back(new_window);
-            }
-            WindowIndexDefaultPosition::Index(i) => {
-                stack.insert_entity(i, new_window);
-            }
-        };
-        debug!(winodw=?new_window, "add window to stack");
-    });
+    let new_window = trigger.entity();
+    match config.default_position {
+        WindowIndexDefaultPosition::Top => {
+            stack.list.push_front(new_window);
+        }
+        WindowIndexDefaultPosition::Bottom => {
+            stack.list.push_back(new_window);
+        }
+        WindowIndexDefaultPosition::Index(i) => {
+            stack.insert_entity(i, new_window);
+        }
+    };
+    debug!(winodw=?new_window, "add window to stack");
 }
 
 pub fn update_window_index(
@@ -169,10 +168,10 @@ impl Plugin for WindowStackPlugin {
             .init_resource::<WindowStackConfig>()
             .init_resource::<WindowStack>()
             .add_event::<SetWindowIndex>()
+            .observe(init_window_index)
             .add_systems(
                 PreUpdate,
                 (
-                    init_window_index.in_set(DWayClientSystem::InsertWindowComponent),
                     update_window_stack_by_focus
                         .run_if(resource_changed::<FocusedWindow>)
                         .in_set(DWayClientSystem::UpdateZIndex)

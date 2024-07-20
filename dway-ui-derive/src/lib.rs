@@ -69,7 +69,7 @@ pub fn color(input: TokenStream) -> TokenStream {
             quote_spanned!(lit.span()=> compile_error!("failed to parse color")),
         );
     };
-    TokenStream::from(quote_spanned!(lit.span()=> Color::rgba_u8(#r,#g,#b,#a)))
+    TokenStream::from(quote_spanned!(lit.span()=> Color::srgba_u8(#r,#g,#b,#a)))
 }
 
 #[proc_macro]

@@ -3,13 +3,10 @@ use std::{sync::Arc, thread::spawn};
 use bevy::{prelude::*, ui::RelativeCursorPosition};
 use dway_ui_derive::{dway_widget, spawn, style};
 use dway_ui_framework::{
-    animation::ui::UiAnimationDropdownConfig,
-    input::{UiInput, UiInputEvent, UiInputEventKind, UiInputExt},
-    theme::{self, Theme, ThemeAppExt},
-    widgets::{
+    animation::ui::UiAnimationDropdownConfig, event::UiClickEvent, input::{UiInput, UiInputEvent, UiInputEventKind, UiInputExt}, prelude::*, theme::{Theme, ThemeAppExt}, widgets::{
         bundles::{
             MiniNodeBundle, UiBlockBundle, UiHighlightBlockBundle, UiHollowBlockBundle,
-            UiNodeBundle, UiSunkenBlockBundle,
+            UiSunkenBlockBundle,
         },
         button::{
             UiButton, UiButtonBundle, UiButtonEvent, UiButtonEventKind, UiHightlightButtonBundle,
@@ -18,10 +15,9 @@ use dway_ui_framework::{
         combobox::{StringItem, UiComboBox, UiComboBoxBundle},
         inputbox::UiInputBoxBundle,
         popup::{popup_animation_system, UiPopup, UiPopupExt},
-        rightclick_popup::RgithClickPopupConfig,
         slider::UiSliderBundle,
-        text::{UiTextBundle, UiTextExt},
-    },
+        text::UiTextBundle,
+    }
 };
 
 fn main() {
@@ -45,7 +41,7 @@ fn setup(mut commands: Commands, theme: Res<Theme>) {
     // Camera so we can see UI
     commands.spawn(Camera2dBundle::default());
 
-    spawn!{&mut commands=>
+    spawn! {&mut commands=>
         <UiBlockBundle Name=(Name::new("widgets"))
             Style=(Style {
                 align_self: AlignSelf::Center,
@@ -81,7 +77,7 @@ fn setup(mut commands: Commands, theme: Res<Theme>) {
             <(UiTextBundle::new("text", 32, &theme))/>
         </UiBlockBundle>
     }
-    spawn!{&mut commands=>
+    spawn! {&mut commands=>
         <MiniNodeBundle>
             <UiHollowBlockBundle @style="w-256 h-256 p-8 m-8">
                 <UiInputBoxBundle @style="full m-8" />
@@ -157,7 +153,14 @@ Counter=>
 <UiHollowBlockBundle @style="p-8">
     <UiTextBundle @style="w-64"
         Text=(Text::from_section(state.count().to_string(), TextStyle{ font_size: 32.0, ..theme.default_text_style() }))/>
-    <UiHightlightButtonBundle @style="p-4 w-32 h-32 align-items:center justify-content:center" UiButton=(UiButton::new(this_entity, inc)) >
+    <UiHightlightButtonBundle @style="p-4 w-32 h-32 align-items:center justify-content:center"  @id="button"
+        UiButton=(default()) UiWidgetRoot=(this_entity.into())
+        @after{
+            commands.entity(this_entity).observe(|trigger:Trigger<UiClickEvent, Counter>|{
+                trigger.entity();
+            });
+        }
+        >
         <UiTextBundle Text=(Text::from_section("+", TextStyle{ font_size: 32.0, color: Color::WHITE, font:theme.default_font() }))/>
     </UiHightlightButtonBundle>
 </UiHollowBlockBundle>

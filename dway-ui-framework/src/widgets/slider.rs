@@ -3,7 +3,6 @@ use smart_default::SmartDefault;
 use crate::{prelude::*, theme::{StyleFlags, ThemeComponent, WidgetKind}};
 
 #[derive(Component, SmartDefault, Reflect)]
-#[cfg_attr(feature = "hot_reload", derive(Serialize, Deserialize))]
 pub struct UiSlider {
     #[reflect(ignore)]
     pub callback: Option<(Entity, SystemId<UiSliderEvent>)>,
