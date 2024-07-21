@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use dway_client_core::{desktop::CursorOnOutput, workspace::{ScreenAttachWorkspace, ScreenList, Workspace, WorkspaceManager}};
+use dway_client_core::{desktop::CursorOnScreen, workspace::{ScreenAttachWorkspace, ScreenList, Workspace, WorkspaceManager}};
 use dway_ui_framework::widgets::button::UiRawButtonBundle;
 
 #[derive(Component, Default)]
@@ -11,7 +11,7 @@ WorkspaceListUI=>
     fn on_click(
         In(event): In<UiButtonEvent>,
         query: Query<&WorkspaceListUISubWidgetList>,
-        focus_screen: Res<CursorOnOutput>,
+        focus_screen: Res<CursorOnScreen>,
         mut commands: Commands,
     ) {
         let Ok(widget) = query.get(event.receiver) else {return};

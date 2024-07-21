@@ -7,6 +7,7 @@ use dway_util::update;
 use smart_default::SmartDefault;
 
 use crate::{
+    desktop::{CursorOnScreen, FocusedWindow},
     layout::WorkspaceList,
     prelude::*,
     screen::{
@@ -42,6 +43,45 @@ pub fn on_destroy_workspace(
     workspace_manager
         .workspaces
         .retain(|e| *e != trigger.entity());
+}
+
+graph_query2! { FocusedWindowGraph=>
+mut window_path=match (window:Entity)-[WindowOnWorkspace]->(workspace:( Entity,&Workspace ));
+}
+
+pub fn on_focus_window(
+    window_focus: Res<FocusedWindow>,
+    screen: Res<CursorOnScreen>,
+    graph: FocusedWindowGraph,
+    mut commands: Commands,
+) {
+    if !window_focus.is_changed() {
+        return;
+    }
+    let Some(window) = window_focus.window_entity else {
+        return;
+    };
+    let Some((screen, _)) = screen.0 else {
+        return;
+    };
+
+    let attached = graph.foreach_window_path_from(window, |w, workspace| {
+        if !workspace.1.no_screen {
+            return ControlFlow::Return(());
+        }
+        ControlFlow::Continue
+    });
+    if attached.is_some() {
+        return;
+    }
+
+    let has_show = graph.foreach_window_path_from(window, |w, workspace| {
+        commands
+            .entity(screen)
+            .disconnect_all::<ScreenAttachWorkspace>()
+            .connect_to::<ScreenAttachWorkspace>(workspace.0);
+        return ControlFlow::Return(());
+    });
 }
 
 #[derive(Event)]
@@ -237,8 +277,9 @@ impl Plugin for WorkspacePlugin {
         app.add_systems(
             PreUpdate,
             (
-                update_workspace_system.in_set(DWayClientSystem::UpdateWorkspace),
-                update_workspace_window_system.in_set(DWayClientSystem::UpdateWorkspace),
+                on_focus_window.run_if(resource_changed::<FocusedWindow>),
+                update_workspace_system,
+                update_workspace_window_system.after(on_focus_window),
             )
                 .in_set(DWayClientSystem::UpdateWorkspace),
         );

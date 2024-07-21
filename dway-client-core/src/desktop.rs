@@ -11,10 +11,10 @@ impl Plugin for DWayDesktop {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.insert_resource(FocusStack::default());
         app.insert_resource(FocusedWindow::default());
-        app.insert_resource(CursorOnOutput::default());
+        app.insert_resource(CursorOnScreen::default());
         app.insert_resource(CursorOnWindow::default());
         app.register_type::<FocusedWindow>();
-        app.register_type::<CursorOnOutput>();
+        app.register_type::<CursorOnScreen>();
         app.register_type::<CursorOnWindow>();
         app.add_systems(
             PreUpdate,
@@ -40,9 +40,9 @@ pub struct FocusedWindow {
 }
 
 #[derive(Resource, Default, Reflect, Debug)]
-pub struct CursorOnOutput(pub Option<(Entity, IVec2)>);
+pub struct CursorOnScreen(pub Option<(Entity, IVec2)>);
 
-impl CursorOnOutput {
+impl CursorOnScreen {
     pub fn get_screen(&self) -> Option<Entity> {
         self.0.as_ref().map(|x| x.0)
     }

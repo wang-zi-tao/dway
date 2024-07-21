@@ -1,4 +1,4 @@
-use dway_client_core::desktop::{CursorOnOutput, CursorOnWindow};
+use dway_client_core::desktop::{CursorOnScreen, CursorOnWindow};
 use dway_server::{
     geometry::GlobalGeometry,
     input::{pointer::WlPointer, seat::SeatHasPointer},
@@ -36,7 +36,7 @@ pub fn update_cursor_state(
     graph: CursorQuery,
     cursor_on_window: Res<CursorOnWindow>,
     mut widget_query: Query<(Ref<Cursor>, &mut CursorState)>,
-    focus_screen: Res<CursorOnOutput>,
+    focus_screen: Res<CursorOnScreen>,
 ) {
     let Some((_output, pos)) = &focus_screen.0 else {
         return;

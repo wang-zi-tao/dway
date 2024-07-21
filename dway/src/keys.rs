@@ -8,7 +8,7 @@ use bevy::{
 };
 use bevy_relationship::{graph_query2, ControlFlow};
 use dway_client_core::{
-    desktop::{CursorOnOutput, CursorOnWindow, FocusedWindow},
+    desktop::{CursorOnScreen, CursorOnWindow, FocusedWindow},
     layout::tile::{TileLayoutKind, TileLayoutSet},
     navigation::windowstack::WindowStack,
     workspace::{
@@ -38,7 +38,7 @@ pub fn wm_keys(
     mut exit: EventWriter<AppExit>,
     mut window_action: EventWriter<WindowAction>,
     window_stack: Res<WindowStack>,
-    focus_screen: Res<CursorOnOutput>,
+    focus_screen: Res<CursorOnScreen>,
     mut focus_window: ResMut<FocusedWindow>,
     mut commands: Commands,
     mut tab_counter: Local<usize>,

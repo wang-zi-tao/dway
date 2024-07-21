@@ -1,4 +1,4 @@
-use super::desktop::{CursorOnOutput, FocusedWindow};
+use super::desktop::{CursorOnScreen, FocusedWindow};
 use crate::{desktop::CursorOnWindow, DWayClientSystem};
 use bevy::{
     input::{
@@ -83,7 +83,7 @@ pub fn keyboard_input_system(
 
 pub fn mouse_move_on_window(
     mut cursor_moved_events: EventReader<CursorMoved>,
-    mut focus: ResMut<CursorOnOutput>,
+    mut focus: ResMut<CursorOnScreen>,
 ) {
     for event in cursor_moved_events.read() {
         focus.0 = Some((event.window, event.position.as_ivec2()));
@@ -131,7 +131,7 @@ pub fn on_input_event(
     mut graph: InputGraph,
     mut ui_query: Query<(&Interaction, &mut SurfaceUiNode, &mut Style)>,
     window_root_ui_query: Query<(&Node, &GlobalTransform)>,
-    cursor: Res<CursorOnOutput>,
+    cursor: Res<CursorOnScreen>,
     mut output_focus: ResMut<FocusedWindow>,
     mut cursor_on_window: ResMut<CursorOnWindow>,
     mut cursor_moved_events: EventReader<CursorMoved>,
