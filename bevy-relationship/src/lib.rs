@@ -60,7 +60,11 @@ impl ConnectableMut for RelationshipToOneEntity {
     type Drain<'l> = std::option::IntoIter<Entity>;
 
     fn connect(&mut self, entity: Entity) -> Option<Entity> {
-        self.peer.replace(entity)
+        if self.peer != Some(entity) {
+            self.peer.replace(entity)
+        } else {
+            None
+        }
     }
 
     fn disconnect(&mut self, target: Entity) -> bool {
@@ -109,7 +113,9 @@ impl ConnectableMut for RelationshipToManyEntity {
     type Drain<'l> = smallvec::Drain<'l, [Entity; 4]>;
 
     fn connect(&mut self, entity: Entity) -> Option<Entity> {
-        self.peers.push(entity);
+        if !self.peers.contains(&entity){
+            self.peers.push(entity);
+        }
         None
     }
 

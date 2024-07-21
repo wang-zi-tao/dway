@@ -54,6 +54,12 @@ pub fn create_screen(
     }
 }
 
+#[derive(Event, Debug)]
+pub enum ScreenNotify {
+    WindowEnter(Entity),
+    WindowLeave(Entity),
+}
+
 relationship!(ScreenContainsWindow=>ScreenWindowList>-<WindowScreenList);
 
 pub fn update_screen(
@@ -80,6 +86,7 @@ pub fn update_screen(
             commands
                 .entity(*screen_entity)
                 .connect_to::<ScreenContainsWindow>(*window_entity);
+            commands.trigger_targets(ScreenNotify::WindowEnter(*window_entity), *screen_entity);
         }
     };
     for w in &window_query {
@@ -116,7 +123,8 @@ ScreenGraph=>
     window_to_screen=match (window:(&DWayWindow,&GlobalGeometry)) -[WindowOnWorkspace]->(w:(&Workspace)) <-[ScreenAttachWorkspace]-(s:(&Screen,&GlobalGeometry));
 }
 
-pub fn update_screen_system() {}
+pub fn update_screen_system() {
+}
 
 pub struct ScreenPlugin;
 impl Plugin for ScreenPlugin {

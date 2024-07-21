@@ -86,8 +86,6 @@ impl Plugin for DWayClientPlugin {
             (
                 InsertWindowComponent,
                 CreateScreen,
-                UpdateWorkspace,
-                UpdateScreen.after(UpdateWorkspace).after(CreateScreen),
                 Input,
                 UpdateWindowStack.after(Input),
                 UpdateFocus,
@@ -95,7 +93,9 @@ impl Plugin for DWayClientPlugin {
                     .after(InsertWindowComponent)
                     .after(UpdateFocus)
                     .after(UpdateWindowStack),
-                UpdateWindow.after(UpdateScreen).after(UpdateWorkspace),
+                UpdateScreen.after(InsertWindowComponent),
+                UpdateWindow.after(UpdateScreen),
+                UpdateWorkspace.after(UpdateScreen),
                 UpdateLayout
                     .after(UpdateWorkspace)
                     .after(UpdateScreen)

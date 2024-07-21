@@ -271,7 +271,6 @@ pub fn setup(mut commands: Commands, mut app_model: ResMut<AppListModel>) {
                     WorkspaceBundle {
                         workspace: Workspace {
                             name: format!("workspace{i}"),
-                            hide: i != 0,
                             ..Default::default()
                         },
                         ..Default::default()

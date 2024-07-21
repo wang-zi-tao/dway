@@ -4,10 +4,15 @@ use dway_server::{
     xdg::{toplevel::DWayToplevel, DWayWindow},
 };
 use dway_util::update;
+use smart_default::SmartDefault;
 
 use crate::{
+    layout::WorkspaceList,
     prelude::*,
-    screen::{create_screen, Screen},
+    screen::{
+        create_screen, update_screen, Screen, ScreenContainsWindow, ScreenNotify, ScreenWindowList,
+        WindowScreenList,
+    },
     window::Hidden,
 };
 
@@ -24,31 +29,89 @@ pub struct WorkspaceManager {
     pub workspaces: Vec<Entity>,
 }
 
-structstruck::strike! {
-    pub struct WorkspaceRequest {
-        pub workspace: Entity,
-        pub kind: pub enum WorkspaceRequestKind {
-            AttachToScreen{
-                screen: Entity,
-                unique: bool,
-            },
-            LeaveScreen{
-                screen: Entity,
-            },
-            AttachWindow{
-                window: Entity,
-            },
-            RemoveWindow{
-                window: Entity,
+pub fn on_new_workspace(
+    trigger: Trigger<OnInsert, Workspace>,
+    mut workspace_manager: ResMut<WorkspaceManager>,
+) {
+    workspace_manager.workspaces.push(trigger.entity());
+}
+pub fn on_destroy_workspace(
+    trigger: Trigger<OnRemove, Workspace>,
+    mut workspace_manager: ResMut<WorkspaceManager>,
+) {
+    workspace_manager
+        .workspaces
+        .retain(|e| *e != trigger.entity());
+}
+
+#[derive(Event)]
+pub enum WorkspaceRequest {
+    AttachToScreen { screen: Entity, unique: bool },
+    LeaveScreen { screen: Entity },
+    AttachWindow { window: Entity, unique: bool },
+    RemoveWindow { window: Entity },
+    UpdateWorkspace,
+}
+
+pub fn resolve_workspace_request(
+    trigger: Trigger<WorkspaceRequest>,
+    mut workspace_query: Query<&Workspace>,
+    screen_query: Query<&Screen>,
+    mut geometry_query: Query<&mut Geometry>,
+    mut commands: Commands,
+) {
+    match trigger.event() {
+        WorkspaceRequest::AttachToScreen { screen, unique } => {
+            if *unique {
+                commands
+                    .entity(*screen)
+                    .disconnect_all::<ScreenAttachWorkspace>();
             }
+            commands
+                .entity(trigger.entity())
+                .connect_from::<ScreenAttachWorkspace>(*screen);
+            if let Ok([screen_geo, mut workspace_geo]) =
+                geometry_query.get_many_mut([*screen, trigger.entity()])
+            {
+                *workspace_geo = screen_geo.clone();
+            };
         }
+        WorkspaceRequest::LeaveScreen { screen } => {
+            commands
+                .entity(trigger.entity())
+                .disconnect_from::<ScreenAttachWorkspace>(*screen);
+        }
+        WorkspaceRequest::AttachWindow { window, unique } => {
+            if *unique {
+                commands
+                    .entity(*window)
+                    .disconnect_all::<WindowOnWorkspace>();
+            }
+            commands
+                .entity(*window)
+                .connect_to::<WindowOnWorkspace>(trigger.entity());
+        }
+        WorkspaceRequest::RemoveWindow { window } => {
+            commands
+                .entity(*window)
+                .disconnect_to::<WindowOnWorkspace>(trigger.entity());
+        }
+        WorkspaceRequest::UpdateWorkspace => {}
     }
 }
 
-#[derive(Component, Default, Debug, Reflect)]
+#[derive(Component, SmartDefault, Debug, Reflect)]
 pub struct Workspace {
     pub name: String,
     pub hide: bool,
+    #[default(true)]
+    pub no_screen: bool,
+}
+
+impl Workspace {
+    pub fn visiable(self) -> bool {
+        !self.no_screen && !self.hide
+    }
 }
 
 #[derive(Bundle, Default)]
@@ -65,30 +128,46 @@ relationship!(WindowOnWorkspace=>WindowWorkspaceList>-<WindowList);
 relationship!(ScreenAttachWorkspace=>ScreenWorkspaceList>-<ScreenList);
 
 pub fn attach_window_to_workspace(
-    new_window: Query<(Entity, &GlobalGeometry)>,
-    mut insert_window_event: EventReader<Insert<DWayWindow>>,
-    workspace_query: Query<(Entity, &Workspace, &GlobalGeometry)>,
+    trigger: Trigger<ScreenNotify>,
+    window_query: Query<&WindowWorkspaceList>,
+    screen_query: Query<&ScreenWorkspaceList>,
+    geo_query: Query<&GlobalGeometry>,
     mut commands: Commands,
 ) {
-    for (window, window_geo) in new_window.iter_many(insert_window_event.read().map(|e| e.entity)) {
-        for (workspace_entity, workspace, workspace_geo) in workspace_query.iter() {
-            if !workspace.hide
-                && workspace_geo.intersection(window_geo.geometry).size() != IVec2::default()
-            {
-                commands.entity(window).insert(WorkspaceWindow {
-                    hide: workspace.hide,
-                });
-                commands.add(ConnectCommand::<WindowOnWorkspace>::new(
-                    window,
-                    workspace_entity,
-                ));
+    let ScreenNotify::WindowEnter(window_entity) = trigger.event() else {
+        return;
+    };
+    let Ok(window_rect) = geo_query.get(*window_entity) else {
+        warn!(entity=?window_entity, "the window has no GlobalGeometry");
+        return;
+    };
+
+    if window_query
+        .get(*window_entity)
+        .map(|l| l.is_empty())
+        .unwrap_or(true)
+    {
+        if let Ok(workspace_list) = screen_query.get(trigger.entity()) {
+            for workspace in workspace_list.iter() {
+                let Ok(workspace_rect) = geo_query.get(workspace) else {
+                    warn!(entity=?workspace, "the workspace has no GlobalGeometry");
+                    continue;
+                };
+                if workspace_rect.intersection(window_rect.geometry).area() > 0 {
+                    commands
+                        .entity(*window_entity)
+                        .insert(WorkspaceWindow::default())
+                        .disconnect_all::<WindowOnWorkspace>()
+                        .connect_to::<WindowOnWorkspace>(workspace);
+                    return;
+                }
             }
         }
     }
 }
 
-pub fn attach_workspace_to_screen(
-    trigger: Trigger<OnAdd, Screen>,
+pub fn on_add_screen(
+    trigger: Trigger<OnInsert, Screen>,
     screen_query: Query<(Entity, &GlobalGeometry)>,
     mut workspace_query: Query<
         (Entity, &mut Workspace, &mut Geometry),
@@ -98,12 +177,13 @@ pub fn attach_workspace_to_screen(
 ) {
     if let Ok((screen_entity, screen_geo)) = screen_query.get(trigger.entity()) {
         for (workspace_entity, workspace, mut workspace_geo) in workspace_query.iter_mut() {
-            if !workspace.hide {
+            if workspace.no_screen && !workspace.hide {
                 commands.add(ConnectCommand::<ScreenAttachWorkspace>::new(
                     screen_entity,
                     workspace_entity,
                 ));
                 workspace_geo.geometry = screen_geo.geometry;
+                break;
             }
         }
     }
@@ -120,11 +200,8 @@ pub fn update_workspace_system(
     mut workspace_manager: ResMut<WorkspaceManager>,
 ) {
     graph.foreach_workspaces_mut(|(entity, workspace, screen_list)| {
-        if workspace.is_added() {
-            workspace_manager.workspaces.push(*entity);
-        }
-        let hide = screen_list.map(|l| l.is_empty()).unwrap_or(true);
-        update!(workspace.hide, hide);
+        let no_screen = screen_list.map(|l| l.is_empty()).unwrap_or(true);
+        update!(workspace.no_screen, no_screen);
         ControlFlow::<()>::Continue
     });
 }
@@ -138,7 +215,7 @@ mut workspaces_to_window=match
 
 pub fn update_workspace_window_system(mut graph: WorkspaceWindowGraph) {
     graph.foreach_workspaces_to_window_mut(|workspace, workspace_info| {
-        update!(workspace_info.hide, workspace.hide);
+        update!(workspace_info.hide, workspace.no_screen | workspace.hide);
         ControlFlow::<()>::Continue
     });
 }
@@ -152,18 +229,16 @@ impl Plugin for WorkspacePlugin {
         app.register_type::<WorkspaceManager>();
         app.register_type::<WorkspaceWindow>();
         app.init_resource::<WorkspaceManager>();
-        app.observe(attach_workspace_to_screen);
+        app.observe(on_add_screen);
+        app.observe(resolve_workspace_request);
+        app.observe(on_new_workspace);
+        app.observe(on_destroy_workspace);
+        app.observe(attach_window_to_workspace);
         app.add_systems(
             PreUpdate,
             (
                 update_workspace_system.in_set(DWayClientSystem::UpdateWorkspace),
-                (
-                    (attach_window_to_workspace, apply_deferred)
-                        .run_if(on_event::<Insert<DWayWindow>>()),
-                    update_workspace_window_system,
-                )
-                    .chain()
-                    .in_set(DWayClientSystem::UpdateWorkspace),
+                update_workspace_window_system.in_set(DWayClientSystem::UpdateWorkspace),
             )
                 .in_set(DWayClientSystem::UpdateWorkspace),
         );

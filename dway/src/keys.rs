@@ -13,7 +13,7 @@ use dway_client_core::{
     navigation::windowstack::WindowStack,
     workspace::{
         ScreenAttachWorkspace, ScreenWorkspaceList, WindowOnWorkspace, WorkspaceManager,
-        WorkspaceSet,
+        WorkspaceRequest, WorkspaceSet,
     },
 };
 use dway_server::{
@@ -127,39 +127,38 @@ pub fn wm_keys(
                 (KeyCode::Digit9, 8),
                 (KeyCode::Digit0, 9),
             ] {
-                if input.just_pressed(key) {
-                    match (shift, ctrl, alt) {
-                        (false, false, _) => {
-                            if let (Some(workspace), Some((screen, _))) =
-                                (workspace_manager.workspaces.get(num), &focus_screen.0)
-                            {
-                                commands
-                                    .entity(*screen)
-                                    .disconnect_all::<ScreenAttachWorkspace>()
-                                    .connect_to::<ScreenAttachWorkspace>(*workspace);
+                if let (Some(workspace), Some((screen, _))) =
+                    (workspace_manager.workspaces.get(num), &focus_screen.0)
+                {
+                    if input.just_pressed(key) {
+                        match (shift, ctrl, alt) {
+                            (false, false, _) => commands.trigger_targets(
+                                WorkspaceRequest::AttachToScreen {
+                                    screen: *screen,
+                                    unique: true,
+                                },
+                                *workspace,
+                            ),
+                            (false, true, _) => commands.trigger_targets(
+                                WorkspaceRequest::AttachToScreen {
+                                    screen: *screen,
+                                    unique: false,
+                                },
+                                *workspace,
+                            ),
+                            (true, false, _) => {
+                                if let Some(window) = &focus_window.window_entity {
+                                    commands.trigger_targets(
+                                        WorkspaceRequest::AttachWindow {
+                                            window: *window,
+                                            unique: true,
+                                        },
+                                        *workspace,
+                                    )
+                                }
                             }
+                            _ => {}
                         }
-                        (false, true, _) => {
-                            if let (Some(workspace), Some((screen, _))) =
-                                (workspace_manager.workspaces.get(num), &focus_screen.0)
-                            {
-                                commands
-                                    .entity(*screen)
-                                    .connect_to::<ScreenAttachWorkspace>(*workspace);
-                            }
-                        }
-                        (true, false, _) => {
-                            if let (Some(workspace), Some(window)) = (
-                                workspace_manager.workspaces.get(num),
-                                &focus_window.window_entity,
-                            ) {
-                                commands
-                                    .entity(*window)
-                                    .disconnect_all::<WindowOnWorkspace>()
-                                    .connect_to::<WindowOnWorkspace>(*workspace);
-                            }
-                        }
-                        _ => {}
                     }
                 }
             }
