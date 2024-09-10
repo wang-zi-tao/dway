@@ -13,6 +13,7 @@ use bevy::{
     app::PluginGroupBuilder,
     audio::AudioPlugin,
     diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    ecs::schedule::{LogLevel, ScheduleBuildSettings},
     log::{Level, LogPlugin},
     prelude::*,
     render::{
@@ -102,6 +103,12 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
 
     #[cfg(feature = "pprof")]
     let _pprof_profiler = debug::pprof_profiler();
+
+    app.configure_schedules(ScheduleBuildSettings {
+        ambiguity_detection: LogLevel::Warn,
+        hierarchy_detection: LogLevel::Warn,
+        ..Default::default()
+    });
 
     let opts = DWayOption::parse();
     app.insert_resource(opts.clone());

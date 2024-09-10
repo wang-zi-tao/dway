@@ -41,11 +41,13 @@ pub fn create_raw_window_material(
 #[derive(Component, Reflect, Debug)]
 pub struct WindowUI {
     pub window_entity: Entity,
+    pub screen_geomety: IRect,
 }
 impl Default for WindowUI {
     fn default() -> Self {
         Self {
             window_entity: Entity::PLACEHOLDER,
+            screen_geomety: Default::default(),
         }
     }
 }
@@ -130,15 +132,15 @@ WindowUI=>
 @global(theme: Theme)
 @world_query(z_index: &mut ZIndex)
 @query(window_query:(rect,surface, toplevel, index, popups)<-Query<(Ref<GlobalGeometry>, Ref<WlSurface>, Ref<DWayToplevel>, Ref<WindowIndex>, Option<Ref<PopupList>>), With<DWayWindow>>[prop.window_entity]->{
-    let init = !widget.inited;
+    let init = !widget.inited || prop.is_changed();
     if init {
         commands.add(ConnectCommand::<UiAttachData>::new(this_entity, prop.window_entity));
     }
     if init || rect.is_changed(){
-        *state.rect_mut() = rect.geometry;
+        *state.rect_mut() = rect.geometry.offset(- prop.screen_geomety.pos());
     }
     if init || rect.is_changed() || surface.is_changed() {
-        *state.bbox_rect_mut() = surface.image_rect().offset(rect.pos());
+        *state.bbox_rect_mut() = surface.image_rect().offset(rect.pos() - prop.screen_geomety.pos());
     }
     if init || toplevel.is_changed(){
         if state.title() != &toplevel.title {

@@ -23,6 +23,7 @@ use bevy::{
             },
             GetBatchData, GetFullBatchData, NoAutomaticBatching,
         },
+        camera::ExtractedCamera,
         extract_component::ExtractComponentPlugin,
         globals::{GlobalsBuffer, GlobalsUniform},
         mesh::{GpuBufferInfo, GpuMesh, MeshVertexBufferLayoutRef},
@@ -257,23 +258,28 @@ pub fn extract_ui_mesh_node(
             // render commands require an entity to exist at the moment.
             entities.push((entity, UiMesh));
             let rect = node.logical_rect(transform);
-            render_mesh_instances.insert(
-                entity,
-                RenderUiMeshInstance {
-                    transforms: Mesh2dTransforms {
-                        transform: (&transform.mul_transform(**mesh_transform).affine()).into(),
-                        flags: MeshFlags::empty().bits(),
-                        rect: clip
-                            .map(|clip| clip.clip)
-                            .unwrap_or(node.logical_rect(transform)),
+            let clip_rect = clip.map(|clip| clip.clip).unwrap_or(rect);
+            if clip_rect.width() > 0.0 && clip_rect.height() > 0.0 {
+                render_mesh_instances.insert(
+                    entity,
+                    RenderUiMeshInstance {
+                        transforms: Mesh2dTransforms {
+                            transform: (&transform
+                                // .mul_transform(Transform::from_translation(-rect.min.extend(0.0)))
+                                .mul_transform(**mesh_transform)
+                                .affine())
+                                .into(),
+                            flags: MeshFlags::empty().bits(),
+                            rect: clip_rect,
+                        },
+                        mesh_asset_id: handle.0.id(),
+                        material_bind_group_id: Material2dBindGroupId::default(),
+                        automatic_batching: !no_automatic_batching,
+                        stack_index,
+                        camera: camera_entity,
                     },
-                    mesh_asset_id: handle.0.id(),
-                    material_bind_group_id: Material2dBindGroupId::default(),
-                    automatic_batching: !no_automatic_batching,
-                    stack_index,
-                    camera: camera_entity,
-                },
-            );
+                );
+            }
         }
     }
     *previous_len = entities.len();
@@ -427,7 +433,6 @@ pub struct UiMesh2dUniform {
     pub inverse_transpose_model_a: [Vec4; 2],
     pub inverse_transpose_model_b: f32,
     pub flags: u32,
-    // pub rect: [Vec2; 2],
 }
 
 impl From<&Mesh2dTransforms> for UiMesh2dUniform {
@@ -439,7 +444,6 @@ impl From<&Mesh2dTransforms> for UiMesh2dUniform {
             inverse_transpose_model_a,
             inverse_transpose_model_b,
             flags: mesh_transforms.flags,
-            // rect: [mesh_transforms.rect.min, mesh_transforms.rect.max],
         }
     }
 }
@@ -904,12 +908,12 @@ pub struct DoDrawUiMesh;
 impl<P: PhaseItem> RenderCommand<P> for DoDrawUiMesh {
     type ItemQuery = ();
     type Param = (SRes<RenderAssets<GpuMesh>>, SRes<RenderUiMesh2dInstances>);
-    type ViewQuery = ();
+    type ViewQuery = &'static ExtractedView;
 
     #[inline]
     fn render<'w>(
         item: &P,
-        _view: (),
+        view: &ExtractedView,
         _item_query: std::option::Option<()>,
         (meshes, render_mesh2d_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -917,8 +921,11 @@ impl<P: PhaseItem> RenderCommand<P> for DoDrawUiMesh {
         let meshes = meshes.into_inner();
         let render_mesh2d_instances = render_mesh2d_instances.into_inner();
 
-        let Some(RenderUiMeshInstance { mesh_asset_id, .. }) =
-            render_mesh2d_instances.get(&item.entity())
+        let Some(RenderUiMeshInstance {
+            mesh_asset_id,
+            transforms,
+            ..
+        }) = render_mesh2d_instances.get(&item.entity())
         else {
             return RenderCommandResult::Failure;
         };
@@ -927,6 +934,17 @@ impl<P: PhaseItem> RenderCommand<P> for DoDrawUiMesh {
         };
 
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+
+        let rect = transforms.rect;
+        // pass.set_viewport(
+        //     rect.min.x,
+        //     rect.min.y,
+        //     rect.width(),
+        //     rect.height(),
+        //     0.0,
+        //     1.0,
+        // );
+        // dbg!(rect);
 
         let batch_range = item.batch_range();
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -948,6 +966,17 @@ impl<P: PhaseItem> RenderCommand<P> for DoDrawUiMesh {
                 pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
             }
         }
+
+        let viewport = view.viewport;
+        pass.set_viewport(
+            viewport.x as f32,
+            viewport.y as f32,
+            viewport.z as f32,
+            viewport.w as f32,
+            0.0,
+            1.0,
+        );
+
         RenderCommandResult::Success
     }
 }
@@ -962,27 +991,6 @@ impl<M: Material2d> Default for PrepareNextFrameMaterials<M> {
             assets: Default::default(),
         }
     }
-}
-
-fn prepare_material2d<M: Material2d>(
-    material: &M,
-    render_device: &RenderDevice,
-    images: &RenderAssets<GpuImage>,
-    fallback_image: &FallbackImage,
-    pipeline: &UiMeshMaterialPipeline<M>,
-) -> Result<PreparedMaterial2d<M>, AsBindGroupError> {
-    let prepared = material.as_bind_group(
-        &pipeline.material2d_layout,
-        render_device,
-        images,
-        fallback_image,
-    )?;
-    Ok(PreparedMaterial2d {
-        bindings: prepared.bindings,
-        bind_group: prepared.bind_group,
-        key: prepared.data,
-        depth_bias: material.depth_bias(),
-    })
 }
 
 make_bundle! {

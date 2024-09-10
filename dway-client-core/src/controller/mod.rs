@@ -11,11 +11,10 @@ pub mod userinfo;
 pub mod volume;
 pub mod weathre;
 
-use crate::controller::volume::VolumeController;
-pub use crate::prelude::*;
-use bevy::time::common_conditions::on_timer;
-use smart_default::SmartDefault;
 use std::time::Duration;
+
+use bevy::time::{common_conditions::on_timer, TimeSystem};
+use smart_default::SmartDefault;
 
 use self::{
     dbus::DBusController,
@@ -24,6 +23,8 @@ use self::{
     systeminfo::SystemInfo,
     userinfo::UserInfo,
 };
+use crate::controller::volume::VolumeController;
+pub use crate::prelude::*;
 
 #[derive(SmartDefault)]
 pub struct ControllerPlugin {
@@ -46,6 +47,7 @@ impl Plugin for ControllerPlugin {
                     volume::update_volume_controller,
                     systeminfo::update_system_info_system,
                 )
+                    .after(TimeSystem)
                     .run_if(on_timer(self.timer)),
             )
             .add_systems(

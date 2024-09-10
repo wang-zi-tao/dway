@@ -89,7 +89,7 @@ fn runner(mut app: App) -> AppExit {
         let mut poller_request = PollerRequest::default();
 
         let exit_code =
-            if let Some(exit_code) = exit_events_reader.read(app.world().resource()).last(){
+            if let Some(exit_code) = exit_events_reader.read(app.world().resource()).last() {
                 poller_request.quit = true;
                 Some(exit_code.clone())
             } else {
@@ -122,7 +122,7 @@ mod test {
         prelude::*,
         winit::WinitPlugin,
     };
-    use dway_util::logger::DWayLogPlugin;
+    use dway_util::logger::{log_layer, DWayLogPlugin};
     use tracing::Level;
 
     use crate::DWayTTYPlugin;
@@ -149,9 +149,11 @@ mod test {
             .disable::<LogPlugin>()
             .disable::<WinitPlugin>()
             .add(ScheduleRunnerPlugin::run_once())
-            .add(DWayLogPlugin {
-                filter: Default::default(),
-                level: Level::TRACE,
+            .add_before::<LogPlugin, _>(DWayLogPlugin)
+            .set(LogPlugin {
+                level: Level::INFO,
+                filter: "".to_string(),
+                custom_layer: log_layer,
             })
     }
 }

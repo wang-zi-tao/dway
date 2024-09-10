@@ -1,3 +1,6 @@
+use bevy::ecs::query::QueryData;
+use smart_default::SmartDefault;
+
 use super::{DWayWindow, XdgSurface};
 use crate::{
     geometry::{set_geometry, Geometry, GlobalGeometry},
@@ -9,8 +12,6 @@ use crate::{
     resource::ResourceWrapper,
     wl::surface::ClientHasSurface,
 };
-use bevy::ecs::query::QueryData;
-use smart_default::SmartDefault;
 
 #[derive(Component)]
 pub struct PinedWindow;
@@ -50,6 +51,7 @@ impl XdgToplevel {
             send_configure: false,
         }
     }
+
     pub fn configure(&self, data: &DWayToplevel) {
         let mut states = vec![];
 
@@ -218,6 +220,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
@@ -246,6 +249,18 @@ pub struct ToplevelWorldQuery {
     global_geo: &'static mut GlobalGeometry,
     pinned: Option<&'static PinedWindow>,
     pointer_state: &'static mut WlSurfacePointerState,
+}
+
+pub fn update_window(
+    mut windows: Query<(&XdgToplevel, &XdgSurface, &mut DWayToplevel, Ref<Geometry>)>,
+) {
+    for (toplevel, xdg_surface, mut data, geometry) in &mut windows {
+        if geometry.is_changed() && Some(geometry.size()) != data.size {
+            data.size = Some(geometry.size());
+            toplevel.configure(&mut data);
+            xdg_surface.configure();
+        }
+    }
 }
 
 pub fn receive_window_action_event(
@@ -345,7 +360,11 @@ impl Plugin for XdgToplevelPlugin {
         app.register_type::<DWayToplevel>();
         app.add_systems(
             Last,
-            receive_window_action_event.in_set(DWayServerSet::ProcessWindowAction),
+            (
+                update_window,
+                receive_window_action_event.in_set(DWayServerSet::ProcessWindowAction),
+            )
+                .chain(),
         );
     }
 }

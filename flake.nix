@@ -45,7 +45,7 @@
             xorg.xcbutilimage
             xorg.xcbutilwm
             mesa
-            unstable.wlroots_0_16
+            # unstable.wlroots_0_16
             wayland-protocols
             vulkan-tools
             hwdata
