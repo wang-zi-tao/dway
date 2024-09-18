@@ -1,14 +1,16 @@
 pub mod ease;
+pub mod registry;
 pub mod translation;
 pub mod ui;
 
 use std::{marker::PhantomData, sync::Arc};
 
-use bevy::{ecs::system::EntityCommands, window::RequestRedraw};
+use bevy::window::RequestRedraw;
 use bevy_relationship::reexport::SmallVec;
 use ease::AnimationEaseMethod;
 pub use interpolation;
 use interpolation::{Ease, EaseFunction};
+use registry::AnimationRegister;
 
 use crate::{
     event::{EventDispatch, UiNodeAppearEvent},
@@ -39,7 +41,8 @@ impl Interpolation for Color {
             &self.to_linear().to_f32_array(),
             &other.to_linear().to_f32_array(),
             v,
-        )).into()
+        ))
+        .into()
     }
 }
 
@@ -76,9 +79,9 @@ impl<T: Interpolation> Interpolation for [T; 4] {
     }
 }
 
-impl Interpolation for LinearRgba{
+impl Interpolation for LinearRgba {
     fn interpolation(&self, other: &Self, v: f32) -> Self {
-        Self{
+        Self {
             red: Interpolation::interpolation(&self.red, &other.red, v),
             green: Interpolation::interpolation(&self.green, &other.green, v),
             blue: Interpolation::interpolation(&self.blue, &other.blue, v),
@@ -356,6 +359,7 @@ impl Plugin for AnimationPlugin {
                 .chain()
                 .in_set(UiFrameworkSystems::ApplyAnimation),
         )
+        .init_resource::<AnimationRegister>()
         .register_component_as::<dyn EventDispatch<AnimationEvent>, translation::UiTranslationAnimation>()
         .register_component_as::<dyn EventDispatch<UiNodeAppearEvent>, translation::UiTranslationAnimation>()
         .register_component_as::<dyn EventDispatch<PopupEvent>, translation::UiTranslationAnimation>()

@@ -39,6 +39,7 @@ derive_more = "0.99.17"
 rayon = {workspace=true}
 dyn-eq = {workspace=true}
 smallbox = {workspace=true}
+tokio = {workspace=true}
 
 [dev-dependencies]
 bevy = { workspace = true, features = ["png", "jpeg"] }

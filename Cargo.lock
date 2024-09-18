@@ -5002,6 +5002,7 @@ dependencies = [
  "smart-default",
  "structstruck",
  "tempdir",
+ "tokio",
  "type-equals",
  "undo",
  "uuid",

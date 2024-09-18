@@ -9,8 +9,11 @@ edition = "2021"
 bevy = { workspace = true }
 smallvec = "1.10.0"
 bevy-relationship-derive = {path="../bevy-relationship-derive/"}
-petgraph = "0.6.4"
+petgraph = "0.6.5"
 rand = "0.8.5"
+tokio = {workspace = true, features = ["sync"]}
+futures = {workspace = true}
+fixedbitset = "0.5.7"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
@@ -26,3 +29,6 @@ path = "./tests/query.rs"
 [[bench]]
 name = "bench"
 harness = false
+
+[profile.bench]
+debug = true

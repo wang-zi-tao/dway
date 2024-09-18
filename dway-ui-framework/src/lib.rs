@@ -4,6 +4,7 @@ pub mod animation;
 pub mod assets;
 pub mod diagnostics;
 pub mod event;
+pub mod future;
 pub mod input;
 pub mod mvvm;
 pub mod prelude;
@@ -68,6 +69,11 @@ impl Plugin for UiFrameworkPlugin {
             widgets::inputbox::UiInputBoxPlugin,
             UiMeshMaterialPlugin::<SvgMagerial>::default(),
         ))
+        .add_event::<event::DespawnLaterEvent>()
+        .add_systems(
+            Last,
+            event::on_despawn_later_event.run_if(on_event::<event::DespawnLaterEvent>()),
+        )
         .register_type::<UiCheckBox>()
         .register_type::<UiCheckBoxState>()
         .register_type::<UiSlider>()

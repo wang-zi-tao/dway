@@ -1,3 +1,4 @@
+#![feature(test)]
 mod app;
 mod builtins;
 mod changed;
@@ -6,6 +7,7 @@ mod graph;
 mod lifetime;
 mod macros;
 mod matrix;
+mod component_graph;
 pub mod reexport;
 
 use std::{iter::Cloned, marker::PhantomData};
@@ -23,6 +25,7 @@ pub use crate::{
     graph::*,
     lifetime::{n_to_n::*, n_to_one::*, one_to_one::*},
     macros::*,
+    component_graph::*,
 };
 
 #[derive(Component, Clone, Debug, Reflect)]
