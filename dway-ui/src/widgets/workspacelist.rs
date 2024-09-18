@@ -1,21 +1,25 @@
-use crate::prelude::*;
-use dway_client_core::{desktop::CursorOnScreen, workspace::{ScreenAttachWorkspace, ScreenList, Workspace, WorkspaceManager}};
+use dway_client_core::{
+    desktop::CursorOnScreen,
+    workspace::{ScreenAttachWorkspace, ScreenList, Workspace, WorkspaceManager},
+};
 use dway_ui_framework::widgets::button::UiRawButtonBundle;
+
+use crate::prelude::*;
 
 #[derive(Component, Default)]
 pub struct WorkspaceListUI;
 
-dway_widget! {
-WorkspaceListUI=>
-@callback{[UiButtonEvent]
-    fn on_click(
-        In(event): In<UiButtonEvent>,
-        query: Query<&WorkspaceListUISubWidgetList>,
-        focus_screen: Res<CursorOnScreen>,
-        mut commands: Commands,
-    ) {
-        let Ok(widget) = query.get(event.receiver) else {return};
-        if event.kind == UiButtonEventKind::Released{
+fn on_click(
+    In(event): In<UiButtonEvent>,
+    query: Query<&WorkspaceListUISubWidgetList>,
+    focus_screen: Res<CursorOnScreen>,
+    mut commands: Commands,
+) {
+    let Ok(widget) = query.get(event.receiver) else {
+        return;
+    };
+    match event.kind {
+        UiButtonEventKind::Released => {
             if let Some(screen) = focus_screen.get_screen() {
                 commands
                     .entity(screen)
@@ -23,8 +27,14 @@ WorkspaceListUI=>
                     .connect_to::<ScreenAttachWorkspace>(widget.data_entity);
             }
         }
+        UiButtonEventKind::Hovered => {}
+        _ => {}
     }
 }
+
+dway_widget! {
+WorkspaceListUI=>
+@add_callback{[UiButtonEvent]on_click}
 @state_reflect()
 @global(theme: Theme)
 @global(workspace_manager: WorkspaceManager)

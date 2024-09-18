@@ -12,6 +12,55 @@ pub struct CallbackSig {
 }
 
 #[derive(Parse)]
+pub struct AddCallback {
+    #[peek(syn::token::Bracket)]
+    pub arg_type: Option<CallbackSig>,
+    pub vis: Visibility,
+    pub func: Ident,
+}
+
+impl DomDecorator for AddCallback{
+    fn key(&self) -> DomArgKey {
+        DomArgKey::System(self.func.to_token_stream().to_string())
+    }
+    fn update_context(&self, context: &mut WidgetNodeContext) {
+        let vis = &self.vis;
+        let name = &self.func;
+        let ty = self
+            .arg_type
+            .as_ref()
+            .map(|a| a.args.to_token_stream())
+            .unwrap_or_else(|| quote!(()));
+        context
+            .tree_context
+            .resources_builder
+            .add_field(name, quote!(#vis #name: bevy::ecs::system::SystemId<#ty>));
+        context
+            .tree_context
+            .resources_builder
+            .add_field_with_initer(
+                name,
+                quote!(#vis #name: bevy::ecs::system::SystemId<#ty>),
+                quote!(app.world_mut().register_system(#name)),
+            );
+        let resources_name = &context.tree_context.resources_builder.name;
+        context.tree_context.system_querys.insert(
+            "resources".to_string(),
+            quote! {
+                resources: Res<#resources_name>
+            },
+        );
+    }
+    fn wrap_update(&self, inner: TokenStream, _context: &mut WidgetNodeContext) -> TokenStream {
+        let name = &self.func;
+        quote! {
+            let #name = resources.#name;
+            #inner
+        }
+    }
+}
+
+#[derive(Parse)]
 pub struct Callback {
     #[peek(syn::token::Bracket)]
     pub arg_type: Option<CallbackSig>,

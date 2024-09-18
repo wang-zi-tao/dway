@@ -200,6 +200,7 @@ impl syn::parse::Parse for DomArg {
                         "handle" => Box::new(content.parse::<ui::Handle>()?),
                         "material" => Box::new(content.parse::<ui::Handle>()?),
                         "callback" => Box::new(content.parse::<callback::Callback>()?),
+                        "add_callback" => Box::new(content.parse::<callback::AddCallback>()?),
                         "first" => Box::new(content.parse::<callback::First>()?),
                         "before" => Box::new(content.parse::<callback::BeforeUpdate>()?),
                         "before_update" => Box::new(content.parse::<callback::BeforeUpdate>()?),
