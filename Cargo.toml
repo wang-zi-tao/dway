@@ -93,7 +93,7 @@ default-features = false
 features = ["2d"] 
 
 [workspace.dependencies.bevy]
-version = "0.14.0"
+version = "0.14.2"
 default-features = false
 features = [
   "bevy_dynamic_plugin",
@@ -130,19 +130,19 @@ features = [
 ]
 
 [patch.crates-io]
-bevy = {git="https://github.com/wang-zi-tao/bevy",rev="878ba9633409b2e9dd67d0147462452307e5e7ad"}
-bevy_log = { git = "https://github.com/wang-zi-tao/bevy", rev = "878ba9633409b2e9dd67d0147462452307e5e7ad" }
-bevy_pbr = { git = "https://github.com/wang-zi-tao/bevy", rev = "878ba9633409b2e9dd67d0147462452307e5e7ad" }
-bevy_core = { git = "https://github.com/wang-zi-tao/bevy", rev = "878ba9633409b2e9dd67d0147462452307e5e7ad" }
-bevy_app = { git = "https://github.com/wang-zi-tao/bevy", rev = "878ba9633409b2e9dd67d0147462452307e5e7ad" }
-bevy_utils = { git = "https://github.com/wang-zi-tao/bevy", rev = "878ba9633409b2e9dd67d0147462452307e5e7ad" }
-bevy_asset = { git = "https://github.com/wang-zi-tao/bevy", rev = "878ba9633409b2e9dd67d0147462452307e5e7ad" }
-bevy_core_pipeline = { git = "https://github.com/wang-zi-tao/bevy", rev = "878ba9633409b2e9dd67d0147462452307e5e7ad" }
-bevy_derive = { git = "https://github.com/wang-zi-tao/bevy", rev = "878ba9633409b2e9dd67d0147462452307e5e7ad" }
-bevy_ecs = { git = "https://github.com/wang-zi-tao/bevy", rev = "878ba9633409b2e9dd67d0147462452307e5e7ad" }
-bevy_math = { git = "https://github.com/wang-zi-tao/bevy", rev = "878ba9633409b2e9dd67d0147462452307e5e7ad" }
-bevy_reflect = { git = "https://github.com/wang-zi-tao/bevy", rev = "878ba9633409b2e9dd67d0147462452307e5e7ad" }
-bevy_render = { git = "https://github.com/wang-zi-tao/bevy", rev = "878ba9633409b2e9dd67d0147462452307e5e7ad" }
-bevy_transform = { git = "https://github.com/wang-zi-tao/bevy", rev = "878ba9633409b2e9dd67d0147462452307e5e7ad" }
-bevy_window = { git = "https://github.com/wang-zi-tao/bevy", rev = "878ba9633409b2e9dd67d0147462452307e5e7ad" }
-bevy_hierarchy = { git = "https://github.com/wang-zi-tao/bevy", rev = "878ba9633409b2e9dd67d0147462452307e5e7ad" }
+bevy = {git="https://github.com/wang-zi-tao/bevy",rev="73fa93681769a2d75dd79db59f7b388db35c3ccc"}
+bevy_log = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
+bevy_pbr = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
+bevy_core = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
+bevy_app = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
+bevy_utils = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
+bevy_asset = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
+bevy_core_pipeline = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
+bevy_derive = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
+bevy_ecs = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
+bevy_math = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
+bevy_reflect = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
+bevy_render = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
+bevy_transform = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
+bevy_window = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
+bevy_hierarchy = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
