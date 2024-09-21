@@ -42,11 +42,12 @@ impl Plugin for ControllerPlugin {
             .add_event::<SystemControllRequest>()
             .add_event::<NotifyRequest>()
             .add_systems(
-                First,
+                FixedFirst,
                 (
                     volume::update_volume_controller,
                     systeminfo::update_system_info_system,
                 )
+                    .in_set(DWayClientSystem::UpdateSystemInfo)
                     .after(TimeSystem)
                     .run_if(on_timer(self.timer)),
             )

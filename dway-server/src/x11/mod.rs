@@ -2,6 +2,7 @@ mod display;
 pub mod events;
 pub use display::*;
 use dway_util::eventloop::Poller;
+use systems::update_xwindow_surface;
 pub mod screen;
 pub mod systems;
 pub mod util;
@@ -91,6 +92,10 @@ impl Plugin for DWayXWaylandPlugin {
                 x11_window_attach_wl_surface
                     .run_if(on_event::<DispatchDisplay>())
                     .in_set(DWayServerSet::UpdateXWayland),
+                update_xwindow_surface
+                    .run_if(on_event::<XWindowChanged>())
+                    .in_set(DWayServerSet::UpdateXWayland)
+                    .after(x11_window_attach_wl_surface),
             ),
         );
         app.add_systems(

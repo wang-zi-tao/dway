@@ -2,11 +2,13 @@ use bevy::{
     asset::load_internal_asset,
     ecs::{entity::EntityHashSet, system::EntityCommand},
     render::{
-        camera::{NormalizedRenderTarget, RenderTarget},
+        camera::{CameraUpdateSystem, NormalizedRenderTarget, RenderTarget},
         mesh::{Indices, PrimitiveTopology},
         render_asset::RenderAssetUsages,
         render_resource::{
-            encase::internal::{BufferMut, Writer}, AsBindGroupError, Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages
+            encase::internal::{BufferMut, Writer},
+            AsBindGroupError, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
+            TextureUsages,
         },
     },
     transform::components::Transform,
@@ -623,9 +625,10 @@ pub fn update_layers(
                     .get(window_ref.entity())
                     .map(|w| UVec2::new(w.physical_width(), w.physical_height()))
                     .unwrap_or(UVec2::ONE),
-                Some(NormalizedRenderTarget::Image(image)) => {
-                    images.get(image.id()).map(Image::size).unwrap_or(UVec2::ONE)
-                }
+                Some(NormalizedRenderTarget::Image(image)) => images
+                    .get(image.id())
+                    .map(Image::size)
+                    .unwrap_or(UVec2::ONE),
                 _ => UVec2::ONE,
             };
             if layer_manager.size != size {
@@ -760,11 +763,7 @@ impl BuildBindGroup for FillWithLayer {
         layout.update_layout(&self.texture_size);
     }
 
-    fn write_uniform<B: BufferMut>(
-        &self,
-        layout: &mut UniformLayout,
-        writer: &mut Writer<B>,
-    ) {
+    fn write_uniform<B: BufferMut>(&self, layout: &mut UniformLayout, writer: &mut Writer<B>) {
         layout.write_uniform(&self.texture_size, writer);
     }
 }
@@ -830,9 +829,12 @@ impl Plugin for LayerManagerPlugin {
             )
             .add_systems(
                 Last,
-                (update_layers, update_ui_root, update_ui_material)
-                    .chain()
-                    .in_set(UiFrameworkSystems::UpdateLayers),
+                (
+                    update_layers.in_set(UiFrameworkSystems::UpdateLayers),
+                    update_ui_root.in_set(UiFrameworkSystems::UpdateLayers),
+                    update_ui_material.in_set(UiFrameworkSystems::UpdateLayersMaterial),
+                )
+                    .chain(),
             );
     }
 }

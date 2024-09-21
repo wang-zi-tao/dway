@@ -594,7 +594,7 @@ impl Plugin for FlatThemePlugin {
         ));
         app.add_systems(
             Last,
-            update_ui_material.in_set(UiFrameworkSystems::UpdateLayers),
+            update_ui_material.in_set(UiFrameworkSystems::UpdateLayersMaterial),
         );
         let mut flat_theme = self.theme.clone();
         flat_theme.init(app.world_mut());

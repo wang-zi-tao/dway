@@ -39,7 +39,7 @@ impl Plugin for DWayInputPlugin {
             (
                 mouse_move_on_window.run_if(on_event::<CursorMoved>()),
                 keyboard_input_system.run_if(on_event::<KeyboardInput>()),
-                on_input_event,
+                on_input_event.before(mouse_move_on_window),
             )
                 .in_set(DWayServerSet::Input),
         );

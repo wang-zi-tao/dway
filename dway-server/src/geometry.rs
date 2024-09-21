@@ -140,9 +140,7 @@ impl Plugin for GeometryPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PreUpdate,
-            update_global_physical_rect
-                .run_if(|geo_query: Query<(), Changed<Geometry>>| !geo_query.is_empty())
-                .in_set(DWayServerSet::UpdateGeometry),
+            update_global_physical_rect.in_set(DWayServerSet::UpdateGeometry),
         );
         app.register_type::<Geometry>();
         app.register_type::<GlobalGeometry>();

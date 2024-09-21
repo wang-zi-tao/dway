@@ -1,6 +1,6 @@
 #![feature(linked_list_cursors)]
 
-use bevy::prelude::*;
+use bevy::{prelude::*, time::TimeSystem};
 use bevy_relationship::{relationship, AppExt};
 use dway_server::schedule::DWayServerSet;
 use dway_util::tokio::TokioPlugin;
@@ -27,6 +27,7 @@ pub enum DWayClientSystem {
     CreateScreen,
     InsertWindowComponent,
     Input,
+    UpdateSystemInfo,
     UpdateState,
     UpdateFocus,
     UpdateWindowStack,
@@ -81,6 +82,9 @@ impl Plugin for DWayClientPlugin {
         if !app.is_plugin_added::<TokioPlugin>() {
             app.add_plugins(TokioPlugin::default());
         }
+        app.configure_sets(FixedFirst, (
+            UpdateSystemInfo.after(TimeSystem)
+        ));
         app.configure_sets(
             PreUpdate,
             (

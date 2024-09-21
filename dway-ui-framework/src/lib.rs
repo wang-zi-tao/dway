@@ -130,13 +130,11 @@ impl Plugin for UiFrameworkPlugin {
             (
                 UpdateMVVM,
                 UpdateWidgets,
-                UpdatePopup,
-                UpdateTheme,
-                ApplyAnimation,
+                (UpdatePopup, UpdateTheme, ApplyAnimation),
             )
-                .before(UiSystem::Layout)
-                .chain(),
+                .before(UiSystem::Layout),
         )
+        .configure_sets(Last, UpdateLayersMaterial.after(UpdateLayers))
         .add_plugins((
             RoundedUiRectMaterial::plugin(),
             UiCircleMaterial::plugin(),
@@ -165,6 +163,7 @@ pub enum UiFrameworkSystems {
     UpdatePopup,
     UpdateTheme,
     UpdateLayers,
+    UpdateLayersMaterial,
     ApplyAnimation,
     ProcessMesh,
 }

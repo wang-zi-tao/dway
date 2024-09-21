@@ -8,21 +8,21 @@ use crate::{
     event::{EventDispatch, UiNodeAppearEvent},
     make_bundle,
     prelude::*,
-    util::Direction,
+    util::DwayUiDirection,
 };
 
 structstruck::strike! {
     #[derive(Component, SmartDefault)]
     pub struct UiTranslationAnimation {
-        #[default(Direction::TOP)]
-        pub direction: Direction,
+        #[default(DwayUiDirection::TOP)]
+        pub direction: DwayUiDirection,
         #[default(true)]
         pub appear: bool,
     }
 }
 
 impl UiTranslationAnimation {
-    pub fn new(direction: Direction) -> Self {
+    pub fn new(direction: DwayUiDirection) -> Self {
         Self {
             direction,
             appear: true,
@@ -73,16 +73,16 @@ impl EventDispatch<AnimationEvent> for UiTranslationAnimation {
                 *layout = target_layout.clone();
                 if !just_finish {
                     let offset = Vec2::new(
-                        if direction.contains(Direction::LEFT) {
+                        if direction.contains(DwayUiDirection::LEFT) {
                             v - 1.0
-                        } else if direction.contains(Direction::RIGHT) {
+                        } else if direction.contains(DwayUiDirection::RIGHT) {
                             1.0 - v
                         } else {
                             0.0
                         },
-                        if direction.contains(Direction::TOP) {
+                        if direction.contains(DwayUiDirection::TOP) {
                             v - 1.0
-                        } else if direction.contains(Direction::BOTTOM) {
+                        } else if direction.contains(DwayUiDirection::BOTTOM) {
                             1.0 - v
                         } else {
                             0.0

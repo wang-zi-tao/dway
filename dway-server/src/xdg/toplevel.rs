@@ -116,7 +116,13 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 state.with_component(resource, |c: &mut DWayToplevel| c.title = Some(title));
             }
             xdg_toplevel::Request::SetAppId { app_id } => {
-                state.with_component(resource, |c: &mut DWayToplevel| c.app_id = Some(app_id));
+                state.with_component(resource, |c: &mut DWayToplevel| {
+                    c.app_id = Some(app_id.clone())
+                });
+                state.send_event(WindowAppIdChanged {
+                    entity: *data,
+                    app_id,
+                });
             }
             xdg_toplevel::Request::ShowWindowMenu {
                 seat: _,

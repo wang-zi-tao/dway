@@ -144,35 +144,38 @@ pub fn process_window_action_events(
     }
 }
 
-graph_query!(
-XWindowUpdateGraph=>[
-    surface=<Option<&'static mut DWayToplevel>,With<DWayWindow>>,
-    xwindow=<&'static mut XWindow, Or<(Changed<XWindow>, Added<MappedXWindow>)>>,
-]=>{
-    path=xwindow<-[XWindowAttachSurface]-surface,
-});
+pub fn update_xwindow_surface(
+    mut events: EventReader<XWindowChanged>,
+    mut surface_query: Query<&mut DWayToplevel, With<DWayWindow>>,
+    xwindow_query: Query<&XWindow>,
+) {
+    for XWindowChanged {
+        xwindow_entity,
+        surface_entity,
+    } in events.read()
+    {
+        let Ok(xwindow) = xwindow_query.get(*xwindow_entity) else {
+            continue;
+        };
+        let Some(mut toplevel) = surface_entity.and_then(|e| surface_query.get_mut(e).ok()) else {
+            continue;
+        };
 
-pub fn update_xwindow(mut graph: XWindowUpdateGraph) {
-    graph.for_each_path_mut(|xwindow, toplevel| {
-        if let Some(toplevel) = toplevel {
-            let decorated = xwindow.is_decorated();
-            if decorated != toplevel.decorated {
-                toplevel.decorated = true;
-            }
-            if xwindow.title != toplevel.title {
-                toplevel.title = xwindow.title.clone();
-            }
-            // TODO
+        let decorated = xwindow.is_decorated();
+        if decorated != toplevel.decorated {
+            toplevel.decorated = true;
         }
-        ControlFlow::<()>::Continue
-    });
+        if xwindow.title != toplevel.title {
+            toplevel.title = xwindow.title.clone();
+        }
+    }
 }
 
 pub fn x11_window_attach_wl_surface(
-    xwindow_query: Query<
+    mut xwindow_query: Query<
         (
             Entity,
-            &XWindow,
+            &mut XWindow,
             &XDisplayRef,
             &Geometry,
             &GlobalGeometry,
@@ -190,8 +193,8 @@ pub fn x11_window_attach_wl_surface(
     mut event_writter: EventWriter<Insert<DWayWindow>>,
     mut commands: Commands,
 ) {
-    for (xwindow_entity, xwindow, display_ref, geometry, global_geometry, attached) in
-        xwindow_query.iter()
+    for (xwindow_entity, mut xwindow, display_ref, geometry, global_geometry, attached) in
+        xwindow_query.iter_mut()
     {
         if attached.map(|r| r.get().is_some()).unwrap_or_default() {
             continue;
@@ -214,10 +217,13 @@ pub fn x11_window_attach_wl_surface(
                 continue;
             };
             let wl_surface_entity = DWay::get_entity(&wl_surface);
+
             commands.add(ConnectCommand::<XWindowAttachSurface>::new(
                 xwindow_entity,
                 wl_surface_entity,
             ));
+            xwindow.surface_entity = Some(xwindow_entity);
+
             let mut entity_mut = commands.entity(wl_surface_entity);
             entity_mut.insert((
                 geometry.clone(),
@@ -225,7 +231,11 @@ pub fn x11_window_attach_wl_surface(
                 DWayWindow::default(),
             ));
             if xwindow.is_toplevel {
-                entity_mut.insert(DWayToplevel::default());
+                entity_mut.insert(DWayToplevel {
+                    decorated: xwindow.is_decorated(),
+                    title: xwindow.title.clone(),
+                    ..Default::default()
+                });
             }
             event_writter.send(Insert::new(wl_surface_entity));
             commands.entity(xwindow_entity).insert(MappedXWindow);

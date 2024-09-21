@@ -1,16 +1,18 @@
 pub mod icon;
 pub mod launchapp;
 
+use std::{borrow::Cow, collections::HashMap, path::PathBuf};
+
+use bevy::tasks::{block_on, IoTaskPool, Task};
+use futures_lite::future::poll_once;
+use gettextrs::{dgettext, setlocale, LocaleCategory};
+use indexmap::IndexSet;
+
 use self::{
     icon::LinuxIconLoader,
     launchapp::{launch_app_system, run_command_system, LaunchAppRequest, RunCommandRequest},
 };
 use crate::{apps::icon::LinuxIcon, prelude::*, xdg::toplevel::DWayToplevel};
-use bevy::tasks::{block_on, IoTaskPool, Task};
-use futures_lite::future::poll_once;
-use gettextrs::{dgettext, setlocale, LocaleCategory};
-use indexmap::IndexSet;
-use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 
 #[derive(Resource, Default, Reflect)]
 pub struct DesktopEntriesSet {
@@ -224,17 +226,15 @@ pub fn update_app_entry_set(
 relationship!(ToplevelConnectAppEntry=>AppRef>-WindowList);
 
 pub fn attach_to_app(
-    toplevel_query: Query<(Entity, &DWayToplevel), Changed<DWayToplevel>>,
+    mut events: EventReader<WindowAppIdChanged>,
     register: Res<DesktopEntriesSet>,
     mut commands: Commands,
 ) {
-    for (entity, toplevel) in toplevel_query.iter() {
-        if let Some(app_id) = &toplevel.app_id {
-            if let Some(entry_entity) = register.by_id.get(app_id) {
-                commands
-                    .entity(entity)
-                    .connect_to::<ToplevelConnectAppEntry>(*entry_entity);
-            }
+    for WindowAppIdChanged { entity, app_id } in events.read() {
+        if let Some(entry_entity) = register.by_id.get(app_id) {
+            commands
+                .entity(*entity)
+                .connect_to::<ToplevelConnectAppEntry>(*entry_entity);
         }
     }
 }
@@ -253,14 +253,17 @@ impl Plugin for DesktopEntriesPlugin {
         app.init_resource::<DesktopEntriesSet>();
         app.register_relation::<ToplevelConnectAppEntry>();
         app.add_systems(Startup, start_scan_desktop_file);
-        app.world_mut().spawn((Name::new("app_entry_root"), AppEntryRoot));
+        app.world_mut()
+            .spawn((Name::new("app_entry_root"), AppEntryRoot));
         app.add_systems(
             PreUpdate,
             update_app_entry_set.in_set(DWayServerSet::UpdateAppInfo),
         );
         app.add_systems(
             PreUpdate,
-            attach_to_app.run_if(on_event::<DispatchDisplay>()).in_set(DWayServerSet::UpdateAppInfo),
+            attach_to_app
+                .run_if(on_event::<WindowAppIdChanged>())
+                .in_set(DWayServerSet::UpdateAppInfo),
         );
         app.add_systems(
             PostUpdate,

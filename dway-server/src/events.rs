@@ -9,7 +9,8 @@ pub struct Insert<T> {
     pub entity: Entity,
     pub phase: std::marker::PhantomData<T>,
 }
-impl<T: Send + Sync + 'static> Event for Insert<T> {}
+impl<T: Send + Sync + 'static> Event for Insert<T> {
+}
 impl<T> Insert<T> {
     pub fn new(entity: Entity) -> Self {
         Self {
@@ -24,7 +25,8 @@ pub struct Destroy<T> {
     pub entity: Entity,
     pub phase: std::marker::PhantomData<T>,
 }
-impl<T: Send + Sync + 'static> Event for Destroy<T> {}
+impl<T: Send + Sync + 'static> Event for Destroy<T> {
+}
 impl<T> Destroy<T> {
     pub fn new(entity: Entity) -> Self {
         Self {
@@ -73,6 +75,30 @@ pub struct DispatchDisplay(pub Entity);
 #[derive(Event, Deref)]
 pub struct DispatchXWaylandDisplay(pub Entity);
 
+#[derive(Event)]
+pub struct WindowAppIdChanged {
+    pub entity: Entity,
+    pub app_id: String,
+}
+
+#[derive(Event)]
+pub struct BufferAttached{
+    pub surface_entity: Entity,
+    pub buffer_entity: Entity,
+}
+
+#[derive(Event)]
+pub struct WindowAttachedToApp{
+    pub app_entity: Entity,
+    pub window_entity: Entity,
+}
+
+#[derive(Event)]
+pub struct XWindowChanged{
+    pub xwindow_entity: Entity,
+    pub surface_entity: Option<Entity>,
+}
+
 pub struct EventPlugin;
 impl Plugin for EventPlugin {
     fn build(&self, app: &mut App) {
@@ -83,5 +109,9 @@ impl Plugin for EventPlugin {
         app.add_event::<WindowAction>();
         app.add_event::<DispatchDisplay>();
         app.add_event::<DispatchXWaylandDisplay>();
+        app.add_event::<WindowAppIdChanged>();
+        app.add_event::<BufferAttached>();
+        app.add_event::<WindowAttachedToApp>();
+        app.add_event::<XWindowChanged>();
     }
 }

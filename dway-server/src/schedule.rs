@@ -81,16 +81,26 @@ impl Plugin for DWayServerSchedulePlugin {
         );
         app.configure_sets(
             PreUpdate,
-            (Create, CreateGlobal, Dispatch, UpdateJoin, Update)
+            (Create, CreateGlobal)
                 .chain()
                 .before(EndPreUpdate)
                 .ambiguous_with_all(),
         );
         app.configure_sets(
             PreUpdate,
-            (Input.after(UiSystem::Focus), GrabInput, InputFlush)
+            (Dispatch, UpdateJoin, Update)
                 .chain()
-                .before(Create)
+                .before(EndPreUpdate)
+                .ambiguous_with_all(),
+        );
+        app.configure_sets(
+            PreUpdate,
+            (
+                Input.before(UpdateGeometry).after(UiSystem::Focus),
+                GrabInput,
+                InputFlush,
+            )
+                .chain()
                 .before(EndPreUpdate)
                 .ambiguous_with_all(),
         );
@@ -115,7 +125,5 @@ impl Plugin for DWayServerSchedulePlugin {
             Startup,
             apply_deferred.in_set(DWayStartSet::CreateDisplayFlush),
         );
-        app.add_systems(bevy::prelude::PreUpdate, apply_deferred.in_set(InputFlush));
-        app.add_systems(bevy::prelude::Last, apply_deferred.in_set(CleanFlush));
     }
 }

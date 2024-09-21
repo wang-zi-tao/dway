@@ -122,7 +122,7 @@ impl Plugin for DWayServerRenderPlugin {
         app.insert_resource(client);
         app.add_systems(
             PreUpdate,
-            DWayServerRenderClient::response_system.in_set(DWayServerSet::CreateGlobal),
+            DWayServerRenderClient::response_system.before(DWayServerSet::Dispatch),
         );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {

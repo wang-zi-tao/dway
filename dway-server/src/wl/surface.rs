@@ -332,6 +332,10 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                     )else{return};
                 if let Some(buffer_entity) = buffer_entity {
                     state.connect::<AttachmentRelationship>(*data, buffer_entity);
+                    state.send_event(BufferAttached {
+                        surface_entity: *data,
+                        buffer_entity,
+                    });
                 } else if let Some(old_buffer_entity) = old_buffer_entity {
                     state.disconnect::<AttachmentRelationship>(*data, old_buffer_entity);
                 }
@@ -471,7 +475,9 @@ impl Plugin for WlSurfacePlugin {
         app.add_systems(First, cleanup_surface);
         app.add_systems(
             PreUpdate,
-            update_buffer_size.in_set(DWayServerSet::UpdateImage),
+            update_buffer_size
+                .run_if(on_event::<BufferAttached>())
+                .in_set(DWayServerSet::UpdateImage),
         );
         app.register_type::<WlSurface>();
         app.register_relation::<AttachmentRelationship>();
@@ -481,32 +487,33 @@ impl Plugin for WlSurfacePlugin {
     }
 }
 pub fn update_buffer_size(
-    buffer_query: Query<
-        (Option<&WlShmBuffer>, Option<&DmaBuffer>, &AttachedBy),
-        Or<(
-            Changed<WlShmBuffer>,
-            Changed<DmaBuffer>,
-            Changed<AttachedBy>,
-        )>,
-    >,
+    mut events: EventReader<BufferAttached>,
+    buffer_query: Query<(Option<&WlShmBuffer>, Option<&DmaBuffer>)>,
     mut surface_query: Query<&mut WlSurface>,
     mut assets: ResMut<Assets<Image>>,
 ) {
-    for (shm_buffer, dma_buffer, attached_by) in buffer_query.iter() {
+    for BufferAttached {
+        surface_entity,
+        buffer_entity,
+    } in events.read()
+    {
+        let Ok((shm_buffer, dma_buffer)) = buffer_query.get(*buffer_entity) else {
+            continue;
+        };
+        let Ok(mut surface) = surface_query.get_mut(*surface_entity) else {
+            continue;
+        };
+
         let size = if let Some(shm_buffer) = shm_buffer {
             shm_buffer.size
         } else if let Some(dma_buffer) = dma_buffer {
             dma_buffer.size
         } else {
-            unreachable!();
+            continue;
         };
-        if let Some(mut surface) = attached_by
-            .get()
-            .and_then(|entity| surface_query.get_mut(entity).ok())
-        {
-            if surface.size != Some(size) {
-                surface.resize(&mut assets, size);
-            }
+
+        if surface.size != Some(size) {
+            surface.resize(&mut assets, size);
         }
     }
 }

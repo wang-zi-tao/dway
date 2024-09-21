@@ -51,6 +51,7 @@ pub struct XWindow {
     pub surface_id: Option<u32>,
     pub boarder_width: u32,
     pub is_toplevel: bool,
+    pub surface_entity: Option<Entity>,
 }
 relationship!(XWindowAttachSurface=>XWindowSurfaceRef--XWindowRef);
 
@@ -79,6 +80,7 @@ impl XWindow {
             surface_id: None,
             boarder_width: 0,
             is_toplevel,
+            surface_entity: None,
         }
     }
     pub fn atoms(&self) -> &Atoms {

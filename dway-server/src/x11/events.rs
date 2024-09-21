@@ -329,6 +329,11 @@ pub fn process_x11_event(
             let entity = x.find_window(e.window)?;
             let mut window = world.get_mut::<XWindow>(entity).unwrap();
             window.update_property(x, Some(e.atom))?;
+            let surface = window.surface_entity;
+            world.send_event(XWindowChanged {
+                xwindow_entity: entity,
+                surface_entity: surface,
+            });
         }
         x11rb::protocol::Event::ReparentNotify(_) => todo!(),
         x11rb::protocol::Event::ResizeRequest(_) => todo!(),
@@ -438,7 +443,6 @@ pub fn dispatch_x11_events(
                                 dway.despawn_tree(display_entity);
                                 info!(cause=?e,"despawn xwayland on {display_entity:?}");
                                 dway.send_event(DWayXWaylandStoped::new(dway_entity));
-                                dway.trigger(DWayXWaylandStoped::new(dway_entity));
                                 dway.disconnect::<DWayHasXWayland>(dway_entity, display_entity);
                                 return Ok(());
                             }
