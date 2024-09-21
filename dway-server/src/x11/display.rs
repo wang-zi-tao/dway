@@ -1,9 +1,9 @@
 use std::{
     fs,
-    io::{self, Read, Write},
+    io::{self, IsTerminal, Read, Write},
     os::{
         fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
-        unix::{net::UnixStream, process::CommandExt},
+        unix::{net::{UnixListener, UnixStream}, process::CommandExt},
     },
     process::Child,
     sync::{Arc, Mutex, Weak},
@@ -322,7 +322,7 @@ impl XWaylandDisplay {
 
     fn spawn_xwayland(
         display_number: u32,
-        streams: Vec<UnixStream>,
+        streams: Vec<UnixListener>,
         x11_socket: UnixStream,
         wayland_socket: UnixStream,
     ) -> Result<Child> {
@@ -365,7 +365,7 @@ impl XWaylandDisplay {
         Ok(())
     }
 
-    fn get_number() -> Option<(u32, Vec<UnixStream>)> {
+    fn get_number() -> Option<(u32, Vec<UnixListener>)> {
         for d in 0..255 {
             if Self::lock_display(d).is_some() {
                 if let Ok(Some(streams)) = Self::open_x11_sockets_for_display(d, true) {
@@ -420,38 +420,19 @@ impl XWaylandDisplay {
     fn open_x11_sockets_for_display(
         display: u32,
         open_abstract_socket: bool,
-    ) -> nix::Result<Option<Vec<UnixStream>>> {
+    ) -> Result<Option<Vec<UnixListener>>> {
         let lock_path = format!("/tmp/.X{}-lock", display);
         if fs::metadata(lock_path).is_ok() {
             return Ok(None);
         }
         let path = format!("/tmp/.X11-unix/X{}", display);
         let _ = ::std::fs::remove_file(&path);
-        let fs_addr = socket::UnixAddr::new(path.as_bytes()).unwrap();
-        let mut sockets = vec![Self::open_socket(fs_addr)?];
-        if open_abstract_socket {
-            let abs_addr = socket::UnixAddr::new_abstract(path.as_bytes()).unwrap();
-            sockets.push(Self::open_socket(abs_addr)?);
-        }
+        let mut sockets = vec![UnixListener::bind(path)?];
+        //if open_abstract_socket {
+        //    let abs_addr = socket::UnixAddr::new_abstract(path.as_bytes()).unwrap();
+        //    sockets.push(UnixListener::bind_addr(socket_addr)?);
+        //}
         Ok(Some(sockets))
-    }
-
-    fn open_socket(addr: socket::UnixAddr) -> nix::Result<UnixStream> {
-        let fd = socket::socket(
-            socket::AddressFamily::Unix,
-            socket::SockType::Stream,
-            socket::SockFlag::SOCK_CLOEXEC,
-            None,
-        )?;
-        if let Err(e) = socket::bind(fd.as_raw_fd(), &addr) {
-            let _ = ::nix::unistd::close(fd.as_raw_fd());
-            return Err(e);
-        }
-        if let Err(e) = socket::listen(&fd, 1) {
-            let _ = ::nix::unistd::close(fd.as_raw_fd());
-            return Err(e);
-        }
-        Ok(unsafe { FromRawFd::from_raw_fd(fd.as_raw_fd()) })
     }
 }
 
