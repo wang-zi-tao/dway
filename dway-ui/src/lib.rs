@@ -79,6 +79,7 @@ impl Plugin for DWayUiPlugin {
             popups::launcher::LauncherUIPlugin,
             popups::volume_control::VolumeControlPlugin,
             popups::panel_settings::PanelSettingsPlugin,
+            popups::workspace_window_preview::WorkspaceWindowPreviewPopupPlugin,
         ));
         app.observe(init_screen_ui);
         app.add_systems(Startup, setup);

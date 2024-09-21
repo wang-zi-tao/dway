@@ -29,7 +29,7 @@ workspace = true
 
 [dependencies.bevy-inspector-egui]
 optional = true
-version = "0.25"
+version = "=0.25.0"
 features = ["highlight_changes"]
 
 [dependencies.clap]

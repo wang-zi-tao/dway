@@ -20,7 +20,8 @@ use bevy::{
         settings::{Backends, RenderCreation, WgpuSettings},
         RenderPlugin,
     },
-    winit::{WakeUp, WinitPlugin},
+    window::RequestRedraw,
+    winit::{UpdateMode, WakeUp, WinitPlugin, WinitSettings},
 };
 use bevy_framepace::Limiter;
 use cfg_if::cfg_if;
@@ -107,6 +108,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     app.configure_schedules(ScheduleBuildSettings {
         ambiguity_detection: LogLevel::Warn,
         hierarchy_detection: LogLevel::Warn,
+        report_sets: true,
         ..Default::default()
     });
 
@@ -144,7 +146,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             ..Default::default()
         })
         .set(AssetPlugin {
-            file_path: "../dway/assets".to_string(),
+            file_path: opts.assets.clone(),
             ..Default::default()
         })
         .add_before::<AssetPlugin, _>(LinuxIconSourcePlugin)
@@ -185,13 +187,13 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             dway_util::eventloop::EventLoopPlugin::default(),
             // bevy_framepace::FramepacePlugin,
         ));
-        #[cfg(feature = "inspector")]
-        {
-            app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
-            app.add_plugins(bevy_inspector_egui::quick::FilterQueryInspectorPlugin::<
-                With<dway_ui::widgets::window::WindowUI>,
-            >::default()); //TODO
-        }
+        //#[cfg(feature = "inspector")]
+        //{
+        //    app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
+        //    app.add_plugins(bevy_inspector_egui::quick::FilterQueryInspectorPlugin::<
+        //        With<dway_ui::widgets::window::WindowUI>,
+        //    >::default()); //TODO
+        //}
     }
 
     if cfg!(any(feature = "cpu_profile", feature = "heap_profile")) {
@@ -252,7 +254,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
 
     #[cfg(feature = "dump_system_graph")]
     if opts.debug_schedule {
-        debug::print_resources(&mut app.world);
+        debug::print_resources(app.world_mut());
         if let Err(e) = debug::dump_schedules_system_graph(app) {
             error!("failed to dump system graph: {e}");
         }

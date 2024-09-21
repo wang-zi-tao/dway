@@ -28,6 +28,7 @@ pub fn dump_schedule(app: &mut App, schedule_label: impl ScheduleLabel) -> Resul
             &svg_path.to_string_lossy(),
         ])
         .spawn();
+    info!("create system graph at {:?}", &svg_path);
 
     Ok(())
 }

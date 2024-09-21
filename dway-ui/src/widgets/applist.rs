@@ -4,7 +4,7 @@ use dway_server::apps::{
 };
 use dway_ui_framework::{
     animation::translation::{UiTranslationAnimation, UiTranslationAnimationExt},
-    util::Direction,
+    util::DwayUiDirection,
     widgets::button::UiRawButtonExt,
 };
 use indexmap::{IndexMap, IndexSet};
@@ -42,7 +42,7 @@ fn click_app(
             commands.spawn((
                 UiPopupBundle::default(),
                 UiTranslationAnimationExt {
-                    translation: UiTranslationAnimation::new(Direction::BOTTOM),
+                    translation: UiTranslationAnimation::new(DwayUiDirection::BOTTOM),
                     target_style: style!("absolute bottom-52 align-self:center").clone().into(),
                     ..Default::default()
                 },

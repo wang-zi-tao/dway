@@ -1,10 +1,17 @@
+use animation::translation::{UiTranslationAnimation, UiTranslationAnimationExt};
 use dway_client_core::{
     desktop::CursorOnScreen,
     workspace::{ScreenAttachWorkspace, ScreenList, Workspace, WorkspaceManager},
 };
 use dway_ui_framework::widgets::button::UiRawButtonBundle;
+use util::DwayUiDirection;
 
-use crate::prelude::*;
+use crate::{
+    popups::workspace_window_preview::{
+        WorkspaceWindowPreviewPopup, WorkspaceWindowPreviewPopupBundle,
+    },
+    prelude::*,
+};
 
 #[derive(Component, Default)]
 pub struct WorkspaceListUI;
@@ -27,7 +34,30 @@ fn on_click(
                     .connect_to::<ScreenAttachWorkspace>(widget.data_entity);
             }
         }
-        UiButtonEventKind::Hovered => {}
+        UiButtonEventKind::Hovered => {
+            commands
+                .spawn((
+                    UiPopupBundle::default(),
+                    UiTranslationAnimationExt {
+                        translation: UiTranslationAnimation::new(DwayUiDirection::BOTTOM),
+                        target_style: style!("absolute top-52 align-self:center")
+                            .clone()
+                            .into(),
+                        ..Default::default()
+                    },
+                ))
+                .with_children(|c| {
+                    c.spawn(WorkspaceWindowPreviewPopupBundle {
+                        prop: WorkspaceWindowPreviewPopup {
+                            workspace: widget.data_entity,
+                            ..Default::default()
+                        },
+                        style: style!("h-auto w-auto"),
+                        ..default()
+                    });
+                })
+                .set_parent(event.receiver);
+        }
         _ => {}
     }
 }
