@@ -1,4 +1,5 @@
 #![feature(round_char_boundary)]
+#![feature(btree_cursors)]
 
 pub mod animation;
 pub mod assets;
@@ -28,8 +29,9 @@ pub mod reexport {
 use animation::AnimationEvent;
 use bevy::ui::UiSystem;
 use bevy_prototype_lyon::plugin::ShapePlugin;
-use bevy_svg::SvgPlugin;
+use bevy_svg::{prelude::Svg, SvgPlugin};
 pub use dway_ui_derive::*;
+use dway_util::asset_cache::AssetCachePlugin;
 use event::EventDispatch;
 use widgets::drag::UiDrag;
 
@@ -61,6 +63,7 @@ impl Plugin for UiFrameworkPlugin {
             shader::ShaderFrameworkPlugin,
             mvvm::MvvmPlugin,
             animation::AnimationPlugin,
+            AssetCachePlugin::<Svg>::default(),
         ))
         .add_plugins((
             widgets::slider::UiSliderPlugin,
@@ -128,6 +131,7 @@ impl Plugin for UiFrameworkPlugin {
         .configure_sets(
             PostUpdate,
             (
+                UpdateViewLayout,
                 UpdateMVVM,
                 UpdateWidgets,
                 (UpdatePopup, UpdateTheme, ApplyAnimation),
@@ -158,6 +162,7 @@ impl Plugin for UiFrameworkPlugin {
 pub enum UiFrameworkSystems {
     InputSystems,
     WidgetInputSystems,
+    UpdateViewLayout,
     UpdateMVVM,
     UpdateWidgets,
     UpdatePopup,

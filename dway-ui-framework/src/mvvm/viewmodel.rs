@@ -1,7 +1,9 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, ops::Range};
 
 use super::{
-    ContainerViewModel, DataItem, DynEntityCommand, EntityCommands, EntityWorldRef, ViewModel,
+    list::{ListRangeModel, ListViewModel},
+    ContainerViewModel, DataItem, DynEntityCommand, EntityCommands, EntityWorldRef, RangeModel,
+    UpdateModel, ViewModel,
 };
 use crate::prelude::*;
 
@@ -9,7 +11,8 @@ use crate::prelude::*;
 pub struct SimpleItemViewModel<Item: DataItem>(pub Item);
 
 impl<Item: DataItem> SimpleItemViewModel<Item> {
-    fn update(&self, entity: EntityRef, item: Item) {}
+    fn update(&self, entity: EntityRef, item: Item) {
+    }
 }
 
 impl<Item: DataItem + Clone> ViewModel<Item> for SimpleItemViewModel<Item> {
@@ -29,9 +32,31 @@ impl<Item: DataItem + Clone> ViewModel<Item> for SimpleItemViewModel<Item> {
 }
 
 #[derive(Component)]
-pub struct VecViewModel<Item: DataItem>(pub Vec<Item>);
+pub struct SimpleListViewModel<Item: DataItem>(pub Vec<Item>);
 
-impl<Item: DataItem + Clone> ContainerViewModel<usize, Item> for VecViewModel<Item> {
+impl<Item: DataItem + Clone> ListViewModel<Item> for SimpleListViewModel<Item> {
+    fn len(&self, world: EntityWorldRef<'_>) -> usize {
+        self.0.len()
+    }
+
+    fn get_changed_in_range(
+        &self,
+        entity: EntityWorldRef,
+        range: Range<usize>,
+    ) -> Vec<(usize, Item)> {
+        self.0
+            .iter()
+            .cloned()
+            .enumerate()
+            .skip(range.start)
+            .take(range.len())
+            .collect()
+    }
+}
+
+impl<Item: DataItem + Clone> ContainerViewModel<usize, Item> for SimpleListViewModel<Item> {
+    type UpdateModel = UpdateModel<usize, Item, ListRangeModel>;
+
     fn update_from_world(&self, entity: EntityWorldRef) -> bool {
         entity.get().get_ref::<Self>().unwrap().is_changed()
     }
@@ -40,18 +65,16 @@ impl<Item: DataItem + Clone> ContainerViewModel<usize, Item> for VecViewModel<It
         self.0.get(*key).cloned()
     }
 
-    fn get_changed(&self, entity: EntityWorldRef) -> Box<dyn Iterator<Item = (usize, Item)>> {
-        Box::new(
-            entity
-                .get()
-                .get_ref::<Self>()
-                .unwrap()
-                .is_changed()
-                .then(|| self.0.clone())
-                .unwrap_or_default()
-                .into_iter()
-                .enumerate(),
-        )
+    fn get_changed(&self, entity: EntityWorldRef) -> Self::UpdateModel {
+        let changed = self.update_from_world(entity);
+        UpdateModel {
+            items: if changed {
+                self.0.iter().cloned().enumerate().collect()
+            } else {
+                vec![]
+            },
+            range: changed.then_some(ListRangeModel(0..self.0.len())),
+        }
     }
 
     fn set(&self, key: &usize, mut commands: EntityCommands, item: Item) {
@@ -85,5 +108,6 @@ pub struct ViewModelPlugin<Item: DataItem>(PhantomData<Item>);
 impl<Item: DataItem + Clone> Plugin for ViewModelPlugin<Item> {
     fn build(&self, app: &mut App) {
         app.register_component_as::<dyn ViewModel<Item>, SimpleItemViewModel<Item>>();
+        app.register_component_as::<dyn ListViewModel<Item>, SimpleListViewModel<Item>>();
     }
 }

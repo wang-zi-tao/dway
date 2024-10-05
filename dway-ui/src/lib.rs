@@ -80,6 +80,7 @@ impl Plugin for DWayUiPlugin {
             popups::volume_control::VolumeControlPlugin,
             popups::panel_settings::PanelSettingsPlugin,
             popups::workspace_window_preview::WorkspaceWindowPreviewPopupPlugin,
+            popups::dock_launcher::DockLauncherUIPlugin,
         ));
         app.observe(init_screen_ui);
         app.add_systems(Startup, setup);
@@ -110,7 +111,7 @@ ScreenUI=>
     }
 })
 @global(mut assets_rounded_ui_rect_material: Assets<RoundedUiRectMaterial>)
-<NodeBundle Name=(Name::new("screen_ui"))
+<NodeBundle @id="screen_ui" Name=(Name::new("screen_ui"))
     // StyleSheet=(StyleSheet::new(asset_server.load("style/style.css")))
     @style="absolute full">
     <MiniNodeBundle Name=(Name::new("background")) @style="absolute full" @id="background">
@@ -118,6 +119,7 @@ ScreenUI=>
     </MiniNodeBundle>
     <ScreenWindowsBundle @style="absolute full" Name=(Name::new("windows")) @id="windows"
         ScreenWindows=(ScreenWindows{screen:prop.screen}) />
+    <MiniNodeBundle @style="full absolute" @id="popup_parent" ZIndex=(ZIndex::Global(1024)) />
     <MiniNodeBundle
         ThemeComponent=(ThemeComponent::widget(WidgetKind::BlurBackground))
         ZIndex=(ZIndex::Global(1024))
@@ -163,7 +165,9 @@ ScreenUI=>
             // @material(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.5), 16.0))
             >
             <AppListUIBundle/>
-            <(PanelButtonBundle::new(&theme,&mut assets!(RoundedUiRectMaterial)))>
+            <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
+                (node!(popup_parent),theme.system(popups::dock_launcher::open_popup))
+            ]))>
                 <(UiSvgBundle::new(theme.icon("apps", &asset_server))) @style="w-48 h-48" @id="apps"/>
             </PanelButtonBundle>
         </MiniNodeBundle>
@@ -203,7 +207,7 @@ fn init_screen_ui(
 
         commands.entity(entity).insert(LayoutStyle {
             padding: LayoutRect {
-                top: 40,
+                top: 160,
                 ..Default::default()
             },
             ..Default::default()

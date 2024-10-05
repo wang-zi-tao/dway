@@ -11,6 +11,8 @@ pub mod tokio;
 pub mod formats;
 mod typed_ecs;
 pub mod render;
+pub mod diagnostic;
+pub mod asset_cache;
 
 pub struct UtilPlugin;
 impl Plugin for UtilPlugin {

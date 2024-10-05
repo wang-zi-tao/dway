@@ -33,16 +33,12 @@ fn on_click(
                     .disconnect_all::<ScreenAttachWorkspace>()
                     .connect_to::<ScreenAttachWorkspace>(widget.data_entity);
             }
-        }
-        UiButtonEventKind::Hovered => {
             commands
                 .spawn((
                     UiPopupBundle::default(),
                     UiTranslationAnimationExt {
-                        translation: UiTranslationAnimation::new(DwayUiDirection::BOTTOM),
-                        target_style: style!("absolute top-52 align-self:center")
-                            .clone()
-                            .into(),
+                        translation: UiTranslationAnimation::new(DwayUiDirection::TOP),
+                        target_style: style!("absolute top-42 align-self:center").clone().into(),
                         ..Default::default()
                     },
                 ))
@@ -73,14 +69,16 @@ WorkspaceListUI=>
         ::iter_many(workspace_manager.workspaces.iter().cloned())=>[
         workspace=>{state.set_name(workspace.name.clone());},
         screen_list=>{ state.set_is_focused(screen_list.len()>0); }
-    ])>
-    <MiniNodeBundle @id="ws"
+    ])
+    @material(RoundedUiRectMaterial=>rounded_rect(theme.color("background1"), 12.0))
+>
+    <MiniNodeBundle @id="ws" @style="flex-col"
         @state_reflect()
         @use_state(pub name:String)
         @use_state(pub is_focused:bool)
         @use_state(pub screen_list:Vec<Entity>)
     >
-        <(UiRawButtonBundle::from(UiButton::new(node!(ws),on_click))) @style="p-4">
+        <(UiRawButtonBundle::from(UiButton::new(node!(ws),on_click))) @style="w-16 h-16 align-items:center justify-items:center" >
             <MiniNodeBundle
                 @material(UiCircleMaterial=>circle_material(theme.color("blue")))
                 Style=(Style{

@@ -23,6 +23,7 @@ tracing-journald = "0.3.0"
 backtrace = "0.3"
 tokio = {workspace=true, features=["rt", "rt-multi-thread", "sync"]}
 polling = "3.7.1"
+lru = {workspace=true}
 
 wayland-server = { version="0.31.0",features = [] }
 wgpu = { workspace = true }

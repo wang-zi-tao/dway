@@ -793,7 +793,7 @@ dependencies = [
  "bevy-inspector-egui-derive",
  "bevy_app 0.14.2",
  "bevy_asset 0.14.2",
- "bevy_color 0.14.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bevy_color",
  "bevy_core 0.14.2",
  "bevy_core_pipeline 0.14.2",
  "bevy_ecs 0.14.2",
@@ -935,7 +935,7 @@ source = "git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f
 dependencies = [
  "bevy_app 0.14.2",
  "bevy_asset 0.14.2",
- "bevy_color 0.14.3 (git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f7b388db35c3ccc)",
+ "bevy_color",
  "bevy_core 0.14.2",
  "bevy_derive 0.14.2",
  "bevy_ecs 0.14.2",
@@ -1158,19 +1158,6 @@ dependencies = [
 [[package]]
 name = "bevy_color"
 version = "0.14.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04842e9d38a93f0c75ab46f7f404ea24ef57ad83dbd159e5b4b35318b02257bb"
-dependencies = [
- "bevy_math 0.14.2",
- "bevy_reflect 0.14.2",
- "bytemuck",
- "encase 0.8.0",
- "thiserror",
-]
-
-[[package]]
-name = "bevy_color"
-version = "0.14.3"
 source = "git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f7b388db35c3ccc#73fa93681769a2d75dd79db59f7b388db35c3ccc"
 dependencies = [
  "bevy_math 0.14.2",
@@ -1277,7 +1264,7 @@ source = "git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f
 dependencies = [
  "bevy_app 0.14.2",
  "bevy_asset 0.14.2",
- "bevy_color 0.14.3 (git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f7b388db35c3ccc)",
+ "bevy_color",
  "bevy_core 0.14.2",
  "bevy_derive 0.14.2",
  "bevy_ecs 0.14.2",
@@ -1333,7 +1320,7 @@ source = "git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f
 dependencies = [
  "bevy_app 0.14.2",
  "bevy_asset 0.14.2",
- "bevy_color 0.14.3 (git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f7b388db35c3ccc)",
+ "bevy_color",
  "bevy_core 0.14.2",
  "bevy_core_pipeline 0.14.2",
  "bevy_diagnostic 0.14.2 (git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f7b388db35c3ccc)",
@@ -1713,7 +1700,7 @@ source = "git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f
 dependencies = [
  "bevy_app 0.14.2",
  "bevy_asset 0.14.2",
- "bevy_color 0.14.3 (git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f7b388db35c3ccc)",
+ "bevy_color",
  "bevy_core_pipeline 0.14.2",
  "bevy_ecs 0.14.2",
  "bevy_gizmos_macros 0.14.2",
@@ -1760,7 +1747,7 @@ dependencies = [
  "bevy_animation",
  "bevy_app 0.14.2",
  "bevy_asset 0.14.2",
- "bevy_color 0.14.3 (git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f7b388db35c3ccc)",
+ "bevy_color",
  "bevy_core 0.14.2",
  "bevy_core_pipeline 0.14.2",
  "bevy_ecs 0.14.2",
@@ -1958,7 +1945,7 @@ dependencies = [
  "bevy_app 0.14.2",
  "bevy_asset 0.14.2",
  "bevy_audio",
- "bevy_color 0.14.3 (git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f7b388db35c3ccc)",
+ "bevy_color",
  "bevy_core 0.14.2",
  "bevy_core_pipeline 0.14.2",
  "bevy_derive 0.14.2",
@@ -2153,7 +2140,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "30f0eab3099d7d474b25a95a6a2a945e6089d75e099af5a571fe896f7c1a455b"
 dependencies = [
  "bevy_app 0.14.2",
- "bevy_color 0.14.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bevy_color",
  "bevy_ecs 0.14.2",
  "bevy_render 0.14.2",
  "bevy_utils 0.14.2",
@@ -2170,7 +2157,7 @@ source = "git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f
 dependencies = [
  "bevy_app 0.14.2",
  "bevy_asset 0.14.2",
- "bevy_color 0.14.3 (git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f7b388db35c3ccc)",
+ "bevy_color",
  "bevy_core_pipeline 0.14.2",
  "bevy_derive 0.14.2",
  "bevy_ecs 0.14.2",
@@ -2407,7 +2394,7 @@ dependencies = [
  "async-channel 2.3.1",
  "bevy_app 0.14.2",
  "bevy_asset 0.14.2",
- "bevy_color 0.14.3 (git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f7b388db35c3ccc)",
+ "bevy_color",
  "bevy_core 0.14.2",
  "bevy_derive 0.14.2",
  "bevy_diagnostic 0.14.2 (git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f7b388db35c3ccc)",
@@ -2599,7 +2586,7 @@ source = "git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f
 dependencies = [
  "bevy_app 0.14.2",
  "bevy_asset 0.14.2",
- "bevy_color 0.14.3 (git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f7b388db35c3ccc)",
+ "bevy_color",
  "bevy_core_pipeline 0.14.2",
  "bevy_derive 0.14.2",
  "bevy_ecs 0.14.2",
@@ -2787,7 +2774,7 @@ dependencies = [
  "ab_glyph",
  "bevy_app 0.14.2",
  "bevy_asset 0.14.2",
- "bevy_color 0.14.3 (git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f7b388db35c3ccc)",
+ "bevy_color",
  "bevy_ecs 0.14.2",
  "bevy_math 0.14.2",
  "bevy_reflect 0.14.2",
@@ -2965,7 +2952,7 @@ dependencies = [
  "bevy_a11y 0.14.2 (git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f7b388db35c3ccc)",
  "bevy_app 0.14.2",
  "bevy_asset 0.14.2",
- "bevy_color 0.14.3 (git+https://github.com/wang-zi-tao/bevy?rev=73fa93681769a2d75dd79db59f7b388db35c3ccc)",
+ "bevy_color",
  "bevy_core_pipeline 0.14.2",
  "bevy_derive 0.14.2",
  "bevy_ecs 0.14.2",
@@ -5011,6 +4998,7 @@ dependencies = [
  "dexterous_developer",
  "downcast-rs",
  "dway-ui-derive",
+ "dway-util",
  "dyn-eq",
  "failure",
  "image 0.25.2",
@@ -5020,11 +5008,13 @@ dependencies = [
  "log",
  "lru",
  "measure_time",
+ "petgraph",
  "pretty_assertions",
  "rand 0.8.5",
  "rayon",
  "regex",
  "serde",
+ "slab_tree",
  "smallbox",
  "smart-default",
  "structstruck",
@@ -5049,6 +5039,7 @@ dependencies = [
  "image 0.25.2",
  "log",
  "log-panics",
+ "lru",
  "memory-stats",
  "nix 0.29.0",
  "polling 3.7.3",
@@ -9781,6 +9772,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "slab_tree"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9e8b45abe77b7cab703054a11973cffe164c82c5ff5e211ae5a73af5e42e39f"
+dependencies = [
+ "snowflake",
+]
+
+[[package]]
 name = "slotmap"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9848,6 +9848,12 @@ checksum = "dd538fb6910ac1099850255cf94a94df6551fbdd602454387d0adb2d1ca6dead"
 dependencies = [
  "serde",
 ]
+
+[[package]]
+name = "snowflake"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "27207bb65232eda1f588cf46db2fee75c0808d557f6b3cf19a75f5d6d7c94df1"
 
 [[package]]
 name = "socket2"

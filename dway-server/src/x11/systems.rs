@@ -172,29 +172,29 @@ pub fn update_xwindow_surface(
 }
 
 pub fn x11_window_attach_wl_surface(
-    mut xwindow_query: Query<
-        (
-            Entity,
-            &mut XWindow,
-            &XDisplayRef,
-            &Geometry,
-            &GlobalGeometry,
-            Option<&XWindowSurfaceRef>,
-        ),
-        (
-            Without<WlSurface>,
-            Without<XScreen>,
-            With<MappedXWindow>,
-            Without<XWaylandDisplayWrapper>,
-        ),
-    >,
+    mut event_reader: EventReader<XWindowAttachSurfaceRequest>,
+    mut xwindow_query: Query<(
+        Entity,
+        &mut XWindow,
+        &XDisplayRef,
+        &Geometry,
+        &GlobalGeometry,
+        Option<&XWindowSurfaceRef>,
+    )>,
     xdisplay_query: Query<(&XWaylandDisplayWrapper, &Parent)>,
     wl_query: Query<&DWayServer>,
     mut event_writter: EventWriter<Insert<DWayWindow>>,
     mut commands: Commands,
 ) {
-    for (xwindow_entity, mut xwindow, display_ref, geometry, global_geometry, attached) in
-        xwindow_query.iter_mut()
+    let mut iter = xwindow_query.iter_many_mut(event_reader.read().map(|e| e.xwindow_entity));
+    while let Some((
+        xwindow_entity,
+        mut xwindow,
+        display_ref,
+        geometry,
+        global_geometry,
+        attached,
+    )) = iter.fetch_next()
     {
         if attached.map(|r| r.get().is_some()).unwrap_or_default() {
             continue;

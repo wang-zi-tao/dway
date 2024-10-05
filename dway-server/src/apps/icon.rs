@@ -5,7 +5,7 @@ use bevy::asset::{
     AssetLoader,
 };
 use bevy_svg::prelude::Svg;
-use dway_util::try_or;
+use dway_util::{asset_cache::AssetCachePlugin, try_or};
 use futures::{ready, AsyncSeek};
 use futures_lite::AsyncRead;
 use x11rb::protocol::xinput::HierarchyChangeDataRemoveMaster;
@@ -267,6 +267,7 @@ impl AssetReader for LinuxIconReader {
 pub struct LinuxIconSourcePlugin;
 impl Plugin for LinuxIconSourcePlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugins(AssetCachePlugin::<LinuxIcon>::default());
         app.register_asset_source(
             "linuxicon",
             AssetSource::build().with_reader(|| Box::new(LinuxIconReader)),

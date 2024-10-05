@@ -18,12 +18,12 @@ use bevy::{
     render::{
         batching::{
             no_gpu_preprocessing::{
-                batch_and_prepare_sorted_render_phase, write_batched_instance_buffer,
-                BatchedInstanceBuffer,
+                batch_and_prepare_sorted_render_phase, clear_batched_cpu_instance_buffers,
+                write_batched_instance_buffer, BatchedInstanceBuffer,
             },
             GetBatchData, GetFullBatchData, NoAutomaticBatching,
         },
-        camera::ExtractedCamera,
+        camera::{extract_cameras, ExtractedCamera},
         extract_component::ExtractComponentPlugin,
         globals::{GlobalsBuffer, GlobalsUniform},
         mesh::{GpuBufferInfo, GpuMesh, MeshVertexBufferLayoutRef},
@@ -101,7 +101,7 @@ impl Plugin for UiMeshPlugin {
             render_app
                 .init_resource::<RenderUiMesh2dInstances>()
                 .init_resource::<SpecializedMeshPipelines<UiMesh2dPipeline>>()
-                .add_systems(ExtractSchedule, extract_ui_mesh_node)
+                .add_systems(ExtractSchedule, extract_ui_mesh_node.after(extract_cameras))
                 .add_systems(
                     bevy::render::Render,
                     (
@@ -111,6 +111,9 @@ impl Plugin for UiMeshPlugin {
                             .in_set(RenderSet::PrepareResourcesFlush),
                         prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
                         prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                        clear_batched_cpu_instance_buffers::<UiMesh2dPipeline>
+                            .in_set(RenderSet::Cleanup)
+                            .after(RenderSet::Render),
                     ),
                 )
                 .add_render_graph_node::<MsaaWritebackNode>(SubGraphUi, NodeUiExt::MsaaWriteback)
@@ -254,8 +257,6 @@ pub fn extract_ui_mesh_node(
             else {
                 continue;
             };
-            // FIXME: Remove this - it is just a workaround to enable rendering to work as
-            // render commands require an entity to exist at the moment.
             entities.push((entity, UiMesh));
             let rect = node.logical_rect(transform);
             let clip_rect = clip.map(|clip| clip.clip).unwrap_or(rect);
@@ -265,8 +266,13 @@ pub fn extract_ui_mesh_node(
                     RenderUiMeshInstance {
                         transforms: Mesh2dTransforms {
                             transform: (&transform
-                                // .mul_transform(Transform::from_translation(-rect.min.extend(0.0)))
                                 .mul_transform(**mesh_transform)
+                                // .mul_transform(Transform::from_translation(
+                                //     -clip_rect.min.extend(0.0),
+                                // ))
+                                // .mul_transform(Transform::from_scale(
+                                //     (rect.size() / clip_rect.size()).extend(1.0),
+                                // ))
                                 .affine())
                                 .into(),
                             flags: MeshFlags::empty().bits(),
@@ -944,7 +950,6 @@ impl<P: PhaseItem> RenderCommand<P> for DoDrawUiMesh {
         //     0.0,
         //     1.0,
         // );
-        // dbg!(rect);
 
         let batch_range = item.batch_range();
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]

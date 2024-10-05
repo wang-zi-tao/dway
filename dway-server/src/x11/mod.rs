@@ -90,7 +90,7 @@ impl Plugin for DWayXWaylandPlugin {
                     .run_if(on_event::<DispatchXWaylandDisplay>())
                     .in_set(DWayServerSet::Dispatch),
                 x11_window_attach_wl_surface
-                    .run_if(on_event::<DispatchDisplay>())
+                    .run_if(on_event::<XWindowAttachSurfaceRequest>())
                     .in_set(DWayServerSet::UpdateXWayland),
                 update_xwindow_surface
                     .run_if(on_event::<XWindowChanged>())

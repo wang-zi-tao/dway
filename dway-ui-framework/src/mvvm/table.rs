@@ -1,15 +1,50 @@
-use super::{ContainerViewModel, DataItem, ViewFactory};
-use crate::prelude::*;
-use bevy::ecs::system::EntityCommands;
 use std::{marker::PhantomData, ops::Range};
 
-#[bevy_trait_query::queryable]
-pub trait TableItemViewFactory<Item: DataItem>: ContainerViewModel<[usize; 2], Item> {
-    fn create_raw(&self, _index: usize, _commands: EntityCommands) {}
+use bevy::ecs::system::EntityCommands;
+
+use super::{ContainerViewModel, DataItem, RangeModel, ViewFactory};
+use crate::prelude::*;
+
+pub struct TableRangeModel {
+    pub min: [usize; 2],
+    pub max: [usize; 2],
 }
-impl<Item: DataItem, T: ViewFactory<Item> + ContainerViewModel<[usize; 2], Item>>
-    TableItemViewFactory<Item> for T
+
+impl Default for TableRangeModel {
+    fn default() -> Self {
+        Self {
+            min: [0; 2],
+            max: [usize::MAX; 2],
+        }
+    }
+}
+
+impl RangeModel<[usize; 2]> for TableRangeModel {
+    fn in_range(&self, &index: &[usize; 2]) -> bool {
+        index >= self.min && index <= self.max
+    }
+
+    fn upper_bound(&self) -> Option<&[usize; 2]> {
+        Some(&self.max)
+    }
+
+    fn lower_bound(&self) -> Option<&[usize; 2]> {
+        Some(&self.min)
+    }
+}
+
+pub struct TableUpdateModel<Item> {
+    pub row: Option<usize>,
+    pub col: Option<usize>,
+    pub updated_items: Vec<([usize; 2], Item)>,
+}
+
+#[bevy_trait_query::queryable]
+pub trait TableItemViewFactory<Item: DataItem>:
+    ContainerViewModel<[usize; 2], Item, UpdateModel = TableUpdateModel<Item>>
 {
+    fn create_raw(&self, _index: usize, _commands: EntityCommands) {
+    }
 }
 
 #[bevy_trait_query::queryable]

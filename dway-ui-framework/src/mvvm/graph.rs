@@ -1,8 +1,35 @@
-use bevy::ecs::system::EntityCommands;
+use std::hash::Hash;
 
+use bevy::{ecs::system::EntityCommands, utils::HashSet};
+
+use super::{DataItem, DynEntityCommand, RangeModel, UpdateModelTrait, ViewFactory};
 use crate::prelude::*;
 
-use super::{DataItem, DynEntityCommand, ViewFactory};
+pub struct GraphRangeModel<NodeId> {
+    pub items: HashSet<NodeId>,
+}
+
+impl<NodeId> Default for GraphRangeModel<NodeId> {
+    fn default() -> Self {
+        Self {
+            items: Default::default(),
+        }
+    }
+}
+
+impl<NodeId: Hash + Eq> RangeModel<NodeId> for GraphRangeModel<NodeId> {
+    fn in_range(&self, index: &NodeId) -> bool {
+        self.items.contains(index)
+    }
+
+    fn upper_bound(&self) -> Option<&NodeId> {
+        None
+    }
+
+    fn lower_bound(&self) -> Option<&NodeId> {
+        None
+    }
+}
 
 #[bevy_trait_query::queryable]
 pub trait GraphViewModel<NodeId, Node: DataItem, Edge: DataItem> {
@@ -28,6 +55,7 @@ impl<
     fn create_node(&self, _index: &NodeId, commands: EntityCommands, item: Node) {
         ViewFactory::create(&self.0, commands, item)
     }
+
     fn create_edge(&self, _from: &NodeId, _to: &NodeId, commands: EntityCommands, item: Edge) {
         ViewFactory::create(&self.1, commands, item)
     }

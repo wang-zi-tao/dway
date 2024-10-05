@@ -17,12 +17,16 @@ impl<Item: DataItem> ItemCell<Item> {
                 Entity,
                 One<&dyn ViewModel<Item>>,
                 One<&dyn ViewFactory<Item>>,
+                Option<&CalculatedClip>,
             ),
             With<Self>,
         >,
         mut commands: Commands,
     ) {
-        for (entity, model, view) in &mut query {
+        for (entity, model, view, clip) in &mut query {
+            if clip.map(|c| c.clip.is_empty() ).unwrap_or(false) {
+                continue
+            }
             let entity_world_ref = EntityWorldRef::new(world, entity);
             if model.update_from_world(entity_world_ref) {
                 let item = model.get(entity_world_ref);

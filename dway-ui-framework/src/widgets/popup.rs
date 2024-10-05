@@ -17,6 +17,11 @@ use crate::{
     theme::{ThemeComponent, WidgetKind},
 };
 
+#[derive(Resource, Default)]
+pub struct PopupStack {
+    pub stack: Vec<Entity>,
+}
+
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq)]
 pub enum PopupEventKind {
     Opened,
@@ -41,6 +46,7 @@ impl<T: EventDispatch<UiNodeAppearEvent>> EventDispatch<PopupEvent> for T {
 
 structstruck::strike! {
     #[derive(Component, Reflect, SmartDefault, Clone, Debug, Builder)]
+    #[builder(default)]
     pub struct UiPopup {
         pub close_policy:
             #[derive(Debug, Clone, Copy, Reflect, Default, PartialEq, Eq)]
@@ -73,6 +79,7 @@ structstruck::strike! {
         #[default(true)]
         pub(crate) mouse_state_init: bool,
         pub auto_destroy: bool,
+        pub request_close: bool,
         pub anchor: Option<Entity>,
     }
 }
@@ -86,6 +93,10 @@ impl UiPopup {
     pub fn with_auto_destroy(mut self) -> Self {
         self.auto_destroy = true;
         self
+    }
+
+    pub fn request_close(&mut self) {
+        self.request_close = true;
     }
 }
 
@@ -130,34 +141,41 @@ pub fn update_popup(
         if popup.is_added() && popup.state == PopupState::Open {
             run_close_callback(&popup, &mut commands, PopupEventKind::Opened);
         }
-        match popup.close_policy {
-            PopupClosePolicy::MouseLeave => {
-                if !mouse_inside {
-                    if !popup.hovered {
-                        popup.state = PopupState::Closed;
-                        run_close_callback(&popup, &mut commands, PopupEventKind::Closed);
+        if popup.state == PopupState::Open {
+            if popup.request_close {
+                popup.state = PopupState::Closed;
+                run_close_callback(&popup, &mut commands, PopupEventKind::Closed);
+            } else {
+                match popup.close_policy {
+                    PopupClosePolicy::MouseLeave => {
+                        if !mouse_inside {
+                            if !popup.hovered {
+                                popup.state = PopupState::Closed;
+                                run_close_callback(&popup, &mut commands, PopupEventKind::Closed);
+                            }
+                        } else {
+                            popup.hovered = true;
+                        }
                     }
-                } else {
-                    popup.hovered = true;
+                    PopupClosePolicy::MouseButton => {
+                        if mouse_down() {
+                            if !mouse_inside && !popup.mouse_state_init {
+                                popup.state = PopupState::Closed;
+                                run_close_callback(&popup, &mut commands, PopupEventKind::Closed);
+                            }
+                        } else {
+                            if popup.mouse_state_init {
+                                popup.mouse_state_init = false;
+                            }
+                        }
+                    }
+                    PopupClosePolicy::None => {}
                 }
             }
-            PopupClosePolicy::MouseButton => {
-                if mouse_down() {
-                    if !mouse_inside && !popup.mouse_state_init {
-                        popup.state = PopupState::Closed;
-                        run_close_callback(&popup, &mut commands, PopupEventKind::Closed);
-                    }
-                } else {
-                    if popup.mouse_state_init {
-                        popup.mouse_state_init = false;
-                    }
-                }
-            }
-            PopupClosePolicy::None => {}
+            if popup.state == PopupState::Closed && popup.auto_destroy {
+                commands.entity(entity).despawn_recursive();
+            };
         }
-        if popup.state == PopupState::Closed && popup.auto_destroy {
-            commands.entity(entity).despawn_recursive();
-        };
     }
 }
 

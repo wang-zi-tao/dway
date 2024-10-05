@@ -47,6 +47,10 @@ fn focus_window(
 
 dway_widget! {
 WorkspaceWindowPreviewPopup=>
+@plugin{
+    app.register_type::<WorkspaceWindowPreviewPopup>();
+}
+@state_reflect()
 @global(theme: Theme)
 @arg(asset_server: Res<AssetServer>)
 @use_state(windows: Vec<Entity>)

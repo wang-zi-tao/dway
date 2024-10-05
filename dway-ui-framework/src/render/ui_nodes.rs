@@ -1,5 +1,9 @@
 use std::{
-    any::{type_name, TypeId}, cell::Cell, hash::Hash, marker::PhantomData, ops::Range
+    any::{type_name, TypeId},
+    cell::Cell,
+    hash::Hash,
+    marker::PhantomData,
+    ops::Range,
 };
 
 use bevy::{
@@ -408,24 +412,25 @@ pub fn extract_ui_nodes(
             }
         }
     }
-    extracted.node_materials.clear();
 }
 
 pub fn extract_ui_node_handle<M: UiMaterial>(
-    query: Extract<Query<(Entity, &Handle<M>), With<Node>>>,
+    query: Extract<Query<(Entity, Ref<Handle<M>>, Ref<ViewVisibility>), With<Node>>>,
     mut removed: Extract<RemovedComponents<Handle<M>>>,
     mut extracted: ResMut<ExtractedUiNodeSet>,
 ) {
-    for (entity, handle) in &query {
-        let ExtractedUiNodeSet {
-            nodes,
-            node_materials,
-            ..
-        } = &mut *extracted;
+    let ExtractedUiNodeSet { node_materials, .. } = &mut *extracted;
+
+    for (entity, handle, visibility) in &query {
+        if !visibility.get() {
+            node_materials.remove(&(entity, TypeId::of::<M>()));
+            continue;
+        }
         node_materials.insert((entity, TypeId::of::<M>()), handle.id().untyped());
     }
+
     for entity in removed.read() {
-        // TODO
+        node_materials.remove(&(entity, TypeId::of::<M>()));
     }
 }
 

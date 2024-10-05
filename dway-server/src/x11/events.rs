@@ -79,6 +79,10 @@ pub fn process_x11_event(
                         .ok_or_else(|| InvalidWindowEntity(xwindow_entity))?;
                     xwindow.surface_id = Some(wid);
                     world.entity_mut(xwindow_entity).insert(MappedXWindow);
+
+                    world.send_event(XWindowAttachSurfaceRequest{
+                        xwindow_entity,
+                    });
                 }
                 t if t == atoms.WM_CHANGE_STATE => {
                     todo!()

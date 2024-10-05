@@ -1,19 +1,21 @@
-use super::{atoms::Atoms, UnixStreamWrapper, XWaylandDisplay};
-use crate::{
-    geometry::{Geometry, GlobalGeometry},
-    prelude::*,
-    util::rect::IRect,
-};
+use std::sync::Arc;
+
 use bevy::utils::HashSet;
 use encoding::{types::DecoderTrap, Encoding};
 use scopeguard::defer;
-use std::sync::Arc;
 use x11rb::{
     connection::Connection,
     properties::{WmClass, WmHints, WmSizeHints},
     protocol::xproto::{Atom, AtomEnum, ConfigureWindowAux, ConnectionExt, PropMode},
     rust_connection::{ConnectionError, RustConnection},
     wrapper::ConnectionExt as RustConnectionExt,
+};
+
+use super::{atoms::Atoms, UnixStreamWrapper, XWaylandDisplay};
+use crate::{
+    geometry::{Geometry, GlobalGeometry},
+    prelude::*,
+    util::rect::IRect,
 };
 
 const MWM_HINTS_FLAGS_FIELD: usize = 0;
@@ -83,15 +85,19 @@ impl XWindow {
             surface_entity: None,
         }
     }
+
     pub fn atoms(&self) -> &Atoms {
         &self.connection.1
     }
+
     pub fn xwayland_connection(&self) -> &RustConnection<UnixStreamWrapper> {
         &self.connection.0
     }
+
     fn connection(&self) -> (&RustConnection<UnixStreamWrapper>, &Atoms) {
         (self.xwayland_connection(), self.atoms())
     }
+
     pub fn update_property(
         &mut self,
         x: &XWaylandDisplay,
@@ -389,8 +395,13 @@ impl XWindow {
     }
 
     pub fn is_decorated(&self) -> bool {
-        if (self.motif_hints[MWM_HINTS_FLAGS_FIELD] & MWM_HINTS_DECORATIONS) != 0 {
-            return self.motif_hints[MWM_HINTS_DECORATIONS_FIELD] == 0;
+        if self
+            .motif_hints
+            .get(MWM_HINTS_FLAGS_FIELD)
+            .map(|v| v & MWM_HINTS_DECORATIONS != 0)
+            .unwrap_or_default()
+        {
+            return self.motif_hints.get(MWM_HINTS_DECORATIONS_FIELD) == Some(&0);
         }
         false
     }

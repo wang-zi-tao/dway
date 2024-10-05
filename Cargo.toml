@@ -43,7 +43,7 @@ futures-lite = "2.0.0"
 crossbeam = "0.8.2"
 crossbeam-channel = "0.5.6"
 crossbeam-queue = "0.3.11"
-tokio = { version="1.37.0", features=[] }
+tokio = { version="1.37.0", features=["sync", "rt", "rt-multi-thread"] }
 
 log = "0.4"
 failure = "0.1"
@@ -146,3 +146,4 @@ bevy_render = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769
 bevy_transform = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
 bevy_window = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
 bevy_hierarchy = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }
+bevy_color = { git = "https://github.com/wang-zi-tao/bevy", rev = "73fa93681769a2d75dd79db59f7b388db35c3ccc" }

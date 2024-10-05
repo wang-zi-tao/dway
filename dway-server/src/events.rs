@@ -1,4 +1,4 @@
-use crate::{input::grab::ResizeEdges, prelude::*, util::rect::IRect};
+use crate::{input::grab::ResizeEdges, prelude::*, util::rect::IRect, x11::window::XWindowAttachSurface};
 
 pub struct Bind<T: WlResource> {
     pub entity: Entity,
@@ -99,6 +99,11 @@ pub struct XWindowChanged{
     pub surface_entity: Option<Entity>,
 }
 
+#[derive(Event)]
+pub struct XWindowAttachSurfaceRequest{
+    pub xwindow_entity: Entity,
+}
+
 pub struct EventPlugin;
 impl Plugin for EventPlugin {
     fn build(&self, app: &mut App) {
@@ -113,5 +118,6 @@ impl Plugin for EventPlugin {
         app.add_event::<BufferAttached>();
         app.add_event::<WindowAttachedToApp>();
         app.add_event::<XWindowChanged>();
+        app.add_event::<XWindowAttachSurfaceRequest>();
     }
 }

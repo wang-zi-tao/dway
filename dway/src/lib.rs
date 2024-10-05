@@ -38,7 +38,7 @@ use dway_client_core::{
 use dway_server::apps::icon::LinuxIconSourcePlugin;
 use dway_tty::{DWayTTYPlugin, DWayTTYSettings};
 use dway_ui_framework::diagnostics::UiDiagnosticsPlugin;
-use dway_util::logger::{log_layer, DWayLogPlugin};
+use dway_util::{diagnostic::ChangedDiagnosticPlugin, logger::{log_layer, DWayLogPlugin}};
 use keys::*;
 use opttions::DWayOption;
 
@@ -66,6 +66,7 @@ nega::front=info,\
 naga=warn,\
 wgpu=info,\
 wgpu-hal=info,\
+wgpu_core=info,\
 dexterous_developer_internal=debug,\
 bevy_ecss=info,\
 ";
@@ -116,6 +117,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     app.insert_resource(opts.clone());
     app.insert_resource(ClearColor(Color::NONE));
     app.insert_resource(Msaa::Sample4);
+    app.insert_resource(Time::<Fixed>::from_hz(20.0));
 
     if cfg!(feature = "single_thread") {
         default_plugins = default_plugins.set(TaskPoolPlugin {
@@ -130,12 +132,18 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         });
     }
 
+    let enable_cpu_profile = cfg!(any(feature="trace_tracy", feature="trace_chrome")); 
+
+    if !enable_cpu_profile {
+        default_plugins = default_plugins
+            .add_before::<LogPlugin, _>(DWayLogPlugin);
+    }
+
     default_plugins = default_plugins
-        .add_before::<LogPlugin, _>(DWayLogPlugin)
         .set(LogPlugin {
             level: LOG_LEVEL,
             filter: std::env::var("RUST_LOG").unwrap_or_else(|_| LOG.to_string()),
-            custom_layer: log_layer,
+            custom_layer: if !enable_cpu_profile{ log_layer }else{ |_|None },
         })
         .set(RenderPlugin {
             render_creation: RenderCreation::Automatic(WgpuSettings {
@@ -187,13 +195,13 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             dway_util::eventloop::EventLoopPlugin::default(),
             // bevy_framepace::FramepacePlugin,
         ));
-        //#[cfg(feature = "inspector")]
-        //{
-        //    app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
-        //    app.add_plugins(bevy_inspector_egui::quick::FilterQueryInspectorPlugin::<
-        //        With<dway_ui::widgets::window::WindowUI>,
-        //    >::default()); //TODO
-        //}
+        #[cfg(feature = "inspector")]
+        {
+            app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
+            app.add_plugins(bevy_inspector_egui::quick::FilterQueryInspectorPlugin::<
+                With<dway_ui::popups::workspace_window_preview::WorkspaceWindowPreviewPopup>,
+            >::default()); //TODO
+        }
     }
 
     if cfg!(any(feature = "cpu_profile", feature = "heap_profile")) {
@@ -215,16 +223,18 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     ));
 
     app.add_plugins((
+        ChangedDiagnosticPlugin::<Style>::default(),
+        ChangedDiagnosticPlugin::<Transform>::default(),
+        ChangedDiagnosticPlugin::<Node>::default(),
+    ));
+
+    app.add_plugins((
         dway_server::DWayServerPlugin,
         dway_client_core::DWayClientPlugin,
         dway_ui::DWayUiPlugin,
     ));
 
     app.add_systems(Startup, setup);
-    if cfg!(feature = "debug") {
-        app.observe(spawn_app::spawn);
-        app.observe(spawn_app::spawn_x11);
-    }
     app.add_systems(Update, (wm_mouse_action, wm_keys, update));
     app.add_systems(Last, last);
 

@@ -1,6 +1,8 @@
+use std::process::ChildStdin;
+
 use bevy::{input::mouse::MouseWheel, ui::RelativeCursorPosition};
 
-use crate::prelude::*;
+use crate::{make_bundle, prelude::*};
 
 #[derive(Component, SmartDefault, Reflect, Debug)]
 #[cfg_attr(feature = "hot_reload", derive(Serialize, Deserialize))]
@@ -8,18 +10,19 @@ pub struct UiScroll {
     pub horizontal: bool,
     #[default(true)]
     pub vertical: bool,
+    pub create_viewport: bool,
 }
 
 dway_widget! {
 UiScroll=>
-@use_state(uv: Rect)
-@use_state(offset: Vec2)
-@use_state(size: Vec2)
+@use_state(pub uv: Rect)
+@use_state(pub offset: Vec2)
+@use_state(pub size: Vec2)
 @state_reflect()
 @prop_reflect()
 @arg(mut style_query:Query<(Ref<Node>,&mut Style)>)
 @world_query(focus_police: &mut FocusPolicy)
-@world_query(children: &Children)
+@world_query(children: Option<&Children>)
 @arg(mut mouse_wheel: EventReader<MouseWheel>)
 @global(key_input: ButtonInput<KeyCode>)
 @first{
@@ -36,7 +39,7 @@ UiScroll=>
 @world_query(node: &Node)
 @world_query(transform: &GlobalTransform)
 @world_query(mouse_position: Ref<RelativeCursorPosition>)
-@use_state(pub content: Entity = Entity::PLACEHOLDER)
+@use_state(pub content: Option<Entity>)
 @before{
     if !widget.inited{
         if let Ok(( _,mut style )) = style_query.get_mut(this_entity){
@@ -44,13 +47,24 @@ UiScroll=>
             if prop.vertical { style.overflow.y = OverflowAxis::Clip; }
         }
         *focus_police = FocusPolicy::Block;
-        if let Some(content) = children.first() {
-            state.set_content(*content);
+        if let Some(content) = children.and_then(|c|c.first()) {
+            state.set_content(Some(*content));
+        } else if prop.create_viewport {
+            let content = commands.spawn(MiniNodeBundle{
+                style: Style{
+                    min_width: Val::Percent(100.0),
+                    min_height: Val::Percent(100.0),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }).set_parent(this_entity).id();
+            state.set_content(Some(content));
         }
     }
     (||{
         let scroll_rect = Rect::from_center_size(transform.translation().xy(), node.size());
-        let Ok((content_node,mut content_style)) = style_query.get_mut(*state.content()) else {return};
+        let Some(content_entity) = *state.content() else {return};
+        let Ok((content_node,mut content_style)) = style_query.get_mut(content_entity) else {return};
         let inside = mouse_position.mouse_over();
         if !content_node.is_changed() && wheel_move == Vec2::ZERO && !inside {return};
         let diff_size = content_node.size() - scroll_rect.size();

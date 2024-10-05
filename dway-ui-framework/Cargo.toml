@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 dway-ui-derive = {path="../dway-ui-derive/", features=[]}
 bevy-relationship = {path="../bevy-relationship"}
+dway-util = {path="../dway-util"}
 
 anyhow = {workspace=true}
 chrono = { workspace = true }
@@ -40,6 +41,8 @@ rayon = {workspace=true}
 dyn-eq = {workspace=true}
 smallbox = {workspace=true}
 tokio = {workspace=true}
+slab_tree = "0.3.2"
+petgraph = "0.6.5"
 
 [dev-dependencies]
 bevy = { workspace = true, features = ["png", "jpeg"] }
