@@ -14,6 +14,7 @@ pub mod shader;
 pub mod theme;
 pub mod util;
 pub mod widgets;
+pub mod command;
 
 pub mod reexport {
     #[cfg(feature = "hot_reload")]

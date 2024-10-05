@@ -7,6 +7,7 @@ use bevy::{
     ui::RelativeCursorPosition,
 };
 use bevy_trait_query::RegisterExt;
+use derive_builder::Builder;
 
 use crate::{
     prelude::*,
@@ -19,6 +20,7 @@ structstruck::strike! {
         pub receiver: Entity,
         pub widget: Entity,
         pub kind:
+        #[derive(PartialEq, Eq)]
         enum UiInputboxEventKind {
             Enter,
             Changed,
@@ -69,7 +71,7 @@ impl UiInputCommand {
 }
 
 structstruck::strike! {
-    #[derive(Component, SmartDefault)]
+    #[derive(Component, SmartDefault, Builder)]
     #[strikethrough[derive(Debug, Clone, Reflect)]]
     pub struct UiInputBox{
         pub placeholder: String,
@@ -95,6 +97,11 @@ structstruck::strike! {
 impl UiInputBox {
     pub fn register_callback(&mut self, callback: Callback<UiInputboxEvent>) {
         self.callback.push(callback);
+    }
+
+    pub fn with_callback(mut self, callback: Callback<UiInputboxEvent>) -> Self {
+        self.callback.push(callback);
+        self
     }
 }
 

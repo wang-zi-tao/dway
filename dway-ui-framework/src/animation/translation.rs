@@ -5,6 +5,7 @@ use crate::{
         ui::{move_rect_by_percent, TargetStyle},
         AnimationDirection, AnimationEvent,
     },
+    command::DestroyInterceptor,
     event::{EventDispatch, UiNodeAppearEvent},
     make_bundle,
     prelude::*,
@@ -107,6 +108,13 @@ impl EventDispatch<UiNodeAppearEvent> for UiTranslationAnimation {
                 animation.play_with_direction(AnimationDirection::new(event.appear()));
             }
         });
+    }
+}
+
+impl DestroyInterceptor for UiTranslationAnimation {
+    fn apply(&self, entity: &EntityRef, mut commands: Commands) -> bool {
+        self.on_event(commands.entity(entity.id()), UiNodeAppearEvent::Disappear);
+        true
     }
 }
 

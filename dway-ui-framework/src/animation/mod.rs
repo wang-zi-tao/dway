@@ -13,8 +13,7 @@ use interpolation::{Ease, EaseFunction};
 use registry::AnimationRegister;
 
 use crate::{
-    event::{EventDispatch, UiNodeAppearEvent},
-    prelude::*,
+    command::DestroyInterceptor, event::{EventDispatch, UiNodeAppearEvent}, prelude::*
 };
 
 pub trait Interpolation {
@@ -363,6 +362,7 @@ impl Plugin for AnimationPlugin {
         .register_component_as::<dyn EventDispatch<AnimationEvent>, translation::UiTranslationAnimation>()
         .register_component_as::<dyn EventDispatch<UiNodeAppearEvent>, translation::UiTranslationAnimation>()
         .register_component_as::<dyn EventDispatch<PopupEvent>, translation::UiTranslationAnimation>()
+        .register_component_as::<dyn DestroyInterceptor, translation::UiTranslationAnimation>()
         .register_callback(ui::popup_open_drop_down)
         .register_callback(ui::popup_open_close_up)
         .register_callback(ui::despawn_recursive_on_animation_finish);
