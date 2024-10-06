@@ -125,7 +125,6 @@ impl<M: UiMaterial<Data = ()>> Plugin for UiMaterialPlugin<M> {
 structstruck::strike! {
     #[derive(Resource, Default)]
     pub struct ExtractedUiNodeSet{
-        pub removed_node: Vec<Entity>,
         pub nodes: EntityHashMap<
             pub struct ExtractedNode{
                 pub stack_index: usize,
@@ -134,7 +133,15 @@ structstruck::strike! {
                 pub clip: Option<Rect>,
                 pub camera_entity: Entity,
             }>,
-        pub node_materials: HashMap<(Entity, TypeId), UntypedAssetId>
+        pub node_materials: HashMap<(Entity, TypeId), UntypedAssetId>,
+
+        pub removed_nodes: Vec<Entity>,
+    }
+}
+
+impl ExtractedUiNodeSet {
+    pub fn clear(&mut self) {
+        self.removed_nodes.clear();
     }
 }
 
@@ -351,6 +358,8 @@ pub fn extract_ui_nodes(
     mut removed_target_camera: RemovedComponents<TargetCamera>,
     default_ui_camera: Extract<DefaultUiCamera>,
 ) {
+    extracted.clear();
+
     let default_ui_camera = default_ui_camera.get();
     let entity_with_removed_component = removed_clip
         .read()
@@ -358,7 +367,7 @@ pub fn extract_ui_nodes(
         .collect::<EntityHashSet>();
 
     for node_entity in removed_node.read() {
-        extracted.removed_node.push(node_entity);
+        extracted.removed_nodes.push(node_entity);
     }
 
     for (stack_index, &node_entity) in ui_stack.uinodes.iter().enumerate() {
@@ -366,7 +375,7 @@ pub fn extract_ui_nodes(
             uinode_query.get(node_entity)
         {
             if !visibility.get() {
-                extracted.removed_node.push(node_entity);
+                extracted.removed_nodes.push(node_entity);
                 extracted.nodes.remove(&node_entity);
                 continue;
             }

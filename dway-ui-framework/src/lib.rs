@@ -3,6 +3,7 @@
 
 pub mod animation;
 pub mod assets;
+pub mod command;
 pub mod diagnostics;
 pub mod event;
 pub mod future;
@@ -13,8 +14,8 @@ pub mod render;
 pub mod shader;
 pub mod theme;
 pub mod util;
+pub mod widget;
 pub mod widgets;
-pub mod command;
 
 pub mod reexport {
     #[cfg(feature = "hot_reload")]
@@ -28,7 +29,7 @@ pub mod reexport {
 }
 
 use animation::AnimationEvent;
-use bevy::ui::UiSystem;
+use bevy::{render::view::VisibilitySystems, ui::UiSystem};
 use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_svg::{prelude::Svg, SvgPlugin};
 pub use dway_ui_derive::*;
@@ -117,6 +118,8 @@ impl Plugin for UiFrameworkPlugin {
                 widgets::svg::update_uisvg.in_set(UpdateWidgets),
                 widgets::shape::after_process_shape
                     .in_set(ProcessMesh)
+                    .before(VisibilitySystems::CheckVisibility)
+                    .before(VisibilitySystems::CalculateBounds)
                     .after(bevy_prototype_lyon::plugin::BuildShapes),
                 widgets::popup::update_popup.in_set(UpdatePopup),
             ),

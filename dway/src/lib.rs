@@ -199,8 +199,8 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         {
             app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
             app.add_plugins(bevy_inspector_egui::quick::FilterQueryInspectorPlugin::<
-                With<dway_ui::popups::workspace_window_preview::WorkspaceWindowPreviewPopup>,
-            >::default()); //TODO
+                With<dway_ui_framework::render::mesh::UiMeshTransform>,
+            >::default());
         }
     }
 

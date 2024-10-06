@@ -26,7 +26,7 @@ fn parse_expr(s: &str) -> TokenStream {
 
 fn parse_val(prefix: &str, style: &str) -> TokenStream {
     let style = &style.replace(prefix, "");
-    if style == "fill" {
+    if style == "full" {
         quote!(Val::Percent(100.0))
     } else if style == "auto" {
         quote!(Val::Auto)
@@ -88,8 +88,6 @@ pub fn generate(input: &LitStr) -> TokenStream {
             continue;
         }
         let tokens = match component {
-            "w-full" => quote!(width:Val::Percent(100.0)),
-            "h-full" => quote!(height:Val::Percent(100.0)),
             "full" => quote!(width:Val::Percent(100.0),height:Val::Percent(100.0)),
             "clip" => quote!(overflow:bevy::ui::Overflow::clip()),
             "clip-x" => quote!(overflow:bevy::ui::Overflow::clip_x()),

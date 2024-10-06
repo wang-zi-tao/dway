@@ -1,3 +1,4 @@
+use core::f32;
 use std::{hash::Hash, marker::PhantomData};
 
 use bevy::{
@@ -259,20 +260,27 @@ pub fn extract_ui_mesh_node(
             };
             entities.push((entity, UiMesh));
             let rect = node.logical_rect(transform);
-            let clip_rect = clip.map(|clip| clip.clip).unwrap_or(rect);
+            let clip_rect = clip.map(|clip| clip.clip).unwrap_or(rect).intersect(rect);
+            let clip_offset = clip_rect.center() - rect.center();
+
+            let screen_size = Vec2::new(1904.0, 1028.0);
+
             if clip_rect.width() > 0.0 && clip_rect.height() > 0.0 {
                 render_mesh_instances.insert(
                     entity,
                     RenderUiMeshInstance {
                         transforms: Mesh2dTransforms {
-                            transform: (&transform
+                            transform: (&GlobalTransform::default()
+                                .mul_transform(
+                                    Transform::from_scale(
+                                        ((screen_size) / clip_rect.size()).extend(1.0),
+                                    )
+                                    .with_translation(screen_size.extend(0.0) * 0.5),
+                                )
+                                .mul_transform(Transform::from_translation(
+                                    -clip_offset.extend(0.0),
+                                ))
                                 .mul_transform(**mesh_transform)
-                                // .mul_transform(Transform::from_translation(
-                                //     -clip_rect.min.extend(0.0),
-                                // ))
-                                // .mul_transform(Transform::from_scale(
-                                //     (rect.size() / clip_rect.size()).extend(1.0),
-                                // ))
                                 .affine())
                                 .into(),
                             flags: MeshFlags::empty().bits(),
@@ -941,15 +949,24 @@ impl<P: PhaseItem> RenderCommand<P> for DoDrawUiMesh {
 
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
 
-        let rect = transforms.rect;
-        // pass.set_viewport(
-        //     rect.min.x,
-        //     rect.min.y,
-        //     rect.width(),
-        //     rect.height(),
-        //     0.0,
-        //     1.0,
-        // );
+        let viewport = view.viewport;
+        let rect = transforms.rect.intersect(Rect::new(
+            viewport.x as f32,
+            viewport.y as f32,
+            (viewport.x + viewport.z) as f32,
+            (viewport.y + viewport.w) as f32,
+        ));
+        if rect.width() <= 0.0 || rect.height() <= 0.0 {
+            return RenderCommandResult::Success;
+        }
+        pass.set_viewport(
+            rect.min.x,
+            rect.min.y,
+            rect.width(),
+            rect.height(),
+            0.0,
+            1.0,
+        );
 
         let batch_range = item.batch_range();
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
