@@ -102,7 +102,10 @@ impl Plugin for UiMeshPlugin {
             render_app
                 .init_resource::<RenderUiMesh2dInstances>()
                 .init_resource::<SpecializedMeshPipelines<UiMesh2dPipeline>>()
-                .add_systems(ExtractSchedule, extract_ui_mesh_node.after(extract_cameras))
+                .add_systems(
+                    ExtractSchedule,
+                    (apply_deferred, extract_ui_mesh_node).chain().after(extract_cameras),
+                )
                 .add_systems(
                     bevy::render::Render,
                     (
@@ -231,6 +234,7 @@ pub fn extract_ui_mesh_node(
             Option<&CalculatedClip>,
         )>,
     >,
+    view_query: Query<&ExtractedView>,
     default_ui_camera: Extract<DefaultUiCamera>,
 ) {
     render_mesh_instances.clear();
@@ -263,7 +267,10 @@ pub fn extract_ui_mesh_node(
             let clip_rect = clip.map(|clip| clip.clip).unwrap_or(rect).intersect(rect);
             let clip_offset = clip_rect.center() - rect.center();
 
-            let screen_size = Vec2::new(1904.0, 1028.0);
+            let Ok(extracted_view) = view_query.get(camera_entity) else {
+                continue;
+            };
+            let viewport_size = extracted_view.viewport.zw().as_vec2();
 
             if clip_rect.width() > 0.0 && clip_rect.height() > 0.0 {
                 render_mesh_instances.insert(
@@ -273,9 +280,9 @@ pub fn extract_ui_mesh_node(
                             transform: (&GlobalTransform::default()
                                 .mul_transform(
                                     Transform::from_scale(
-                                        ((screen_size) / clip_rect.size()).extend(1.0),
+                                        ((viewport_size) / clip_rect.size()).extend(1.0),
                                     )
-                                    .with_translation(screen_size.extend(0.0) * 0.5),
+                                    .with_translation(viewport_size.extend(0.0) * 0.5),
                                 )
                                 .mul_transform(Transform::from_translation(
                                     -clip_offset.extend(0.0),
