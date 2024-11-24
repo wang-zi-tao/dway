@@ -6,7 +6,7 @@ use crate::{
         AnimationDirection, AnimationEvent,
     },
     command::DestroyInterceptor,
-    event::{EventDispatch, UiNodeAppearEvent},
+    event::{EventReceiver, UiNodeAppearEvent},
     make_bundle,
     prelude::*,
     util::DwayUiDirection,
@@ -41,7 +41,7 @@ impl UiTranslationAnimation {
     }
 }
 
-impl EventDispatch<AnimationEvent> for UiTranslationAnimation {
+impl EventReceiver<AnimationEvent> for UiTranslationAnimation {
     fn on_event(&self, mut commands: EntityCommands, event: AnimationEvent) {
         let animation_progress = event.value;
         let v = match &self.appear {
@@ -96,7 +96,7 @@ impl EventDispatch<AnimationEvent> for UiTranslationAnimation {
     }
 }
 
-impl EventDispatch<UiNodeAppearEvent> for UiTranslationAnimation {
+impl EventReceiver<UiNodeAppearEvent> for UiTranslationAnimation {
     fn on_event(&self, mut commands: EntityCommands, event: UiNodeAppearEvent) {
         commands.add(move |mut entity_mut: EntityWorldMut| {
             {

@@ -3,13 +3,19 @@ use std::{sync::Arc, thread::spawn};
 use bevy::{prelude::*, ui::RelativeCursorPosition};
 use dway_ui_derive::{dway_widget, spawn, style};
 use dway_ui_framework::{
-    animation::ui::UiAnimationDropdownConfig, event::UiClickEvent, input::{UiInput, UiInputEvent, UiInputEventKind, UiInputExt}, prelude::*, theme::{Theme, ThemeAppExt}, widgets::{
+    animation::ui::UiAnimationDropdownConfig,
+    event::{make_callback, UiClickEvent, UiEvent},
+    input::{UiInput, UiInputEvent, UiInputEventKind, UiInputExt},
+    prelude::*,
+    theme::{Theme, ThemeAppExt},
+    widgets::{
         bundles::{
             MiniNodeBundle, UiBlockBundle, UiHighlightBlockBundle, UiHollowBlockBundle,
             UiSunkenBlockBundle,
         },
         button::{
-            UiButton, UiButtonBundle, UiButtonEvent, UiButtonEventKind, UiHightlightButtonBundle,
+            UiButton, UiButtonBundle, UiButtonEvent, UiButtonEventDispatcher, UiButtonEventKind,
+            UiHightlightButtonBundle,
         },
         checkbox::UiCheckBoxBundle,
         combobox::{StringItem, UiComboBox, UiComboBoxBundle},
@@ -17,7 +23,7 @@ use dway_ui_framework::{
         popup::{popup_animation_system, UiPopup, UiPopupExt},
         slider::UiSliderBundle,
         text::UiTextBundle,
-    }
+    },
 };
 
 fn main() {
@@ -59,7 +65,7 @@ fn setup(mut commands: Commands, theme: Res<Theme>) {
             <UiInputBoxBundle @style="w-128 h-32 p-4"/>
             <CounterBundle/>
             <UiButtonBundle  @style="flex-col p-4 m-4 justify-content:center"
-                UiButton=( UiButton::with_callback( Entity::PLACEHOLDER, theme.system(button_open_poppup),) )>
+                UiButtonEventDispatcher=( make_callback( Entity::PLACEHOLDER, theme.system(button_open_poppup),) )>
                 <(UiTextBundle::new("open popup", 32, &theme))/>
             </UiButtonBundle>
             <UiHollowBlockBundle  @style="flex-col p-4 m-4 justify-content:center"
@@ -88,12 +94,16 @@ fn setup(mut commands: Commands, theme: Res<Theme>) {
     }
 }
 
-pub fn button_open_poppup(In(event): In<UiButtonEvent>, mut commands: Commands, theme: Res<Theme>) {
+pub fn button_open_poppup(
+    In(event): In<UiEvent<UiButtonEvent>>,
+    mut commands: Commands,
+    theme: Res<Theme>,
+) {
     if event.kind == UiButtonEventKind::Released {
-        commands.entity(event.button).with_children(|c| {
+        commands.entity(event.sender()).with_children(|c| {
             spawn! {c=>
                 <UiBlockBundle ZIndex=(ZIndex::Global(1024)) @style="w-200 h-200 top-120% absolute align-self:center"
-                    UiPopupExt=( UiPopupExt::from(UiPopup::default().with_callback(event.receiver, theme.system(popup_animation_system::<UiAnimationDropdownConfig>),)) )>
+                    UiPopupExt=( UiPopupExt::from(UiPopup::default().with_callback(event.receiver(), theme.system(popup_animation_system::<UiAnimationDropdownConfig>),)) )>
                     <(UiTextBundle::new("popup inner", 32, &theme))/>
                 </UiBlockBundle>
             }
@@ -140,9 +150,9 @@ dway_widget! {
 Counter=>
 @global(theme: Theme)
 
-@callback{[UiButtonEvent]
-    fn inc( In(event): In<UiButtonEvent>, mut query: Query<&mut CounterState>) {
-        let Ok(mut state) = query.get_mut(event.receiver) else {return};
+@callback{[UiEvent<UiButtonEvent>]
+    fn inc( In(event): In<UiEvent<UiButtonEvent>>, mut query: Query<&mut CounterState>) {
+        let Ok(mut state) = query.get_mut(event.receiver()) else {return};
         if event.kind == UiButtonEventKind::Released{
             *state.count_mut() += 1;
         }
@@ -154,13 +164,9 @@ Counter=>
     <UiTextBundle @style="w-64"
         Text=(Text::from_section(state.count().to_string(), TextStyle{ font_size: 32.0, ..theme.default_text_style() }))/>
     <UiHightlightButtonBundle @style="p-4 w-32 h-32 align-items:center justify-content:center"  @id="button"
-        UiButton=(default()) UiWidgetRoot=(this_entity.into())
-        @after{
-            commands.entity(this_entity).observe(|trigger:Trigger<UiClickEvent, Counter>|{
-                trigger.entity();
-            });
-        }
-        >
+        UiWidgetRoot=(this_entity.into())
+        UiButtonEventDispatcher=(make_callback(this_entity, inc))
+    >
         <UiTextBundle Text=(Text::from_section("+", TextStyle{ font_size: 32.0, color: Color::WHITE, font:theme.default_font() }))/>
     </UiHightlightButtonBundle>
 </UiHollowBlockBundle>

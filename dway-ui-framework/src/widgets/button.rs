@@ -1,8 +1,10 @@
+use bevy::utils::tracing::dispatcher;
 use bevy_relationship::reexport::SmallVec;
 use smart_default::SmartDefault;
 
 // use bevy_tweening::{AssetAnimator, EaseMethod};
 use crate::{
+    event::{EventDispatcher, EventReceiverKind},
     make_bundle,
     prelude::*,
     theme::{StyleFlags, ThemeComponent, WidgetKind},
@@ -16,43 +18,18 @@ pub enum UiButtonEventKind {
     Leaved,
 }
 
+pub type UiButtonEventDispatcher = EventDispatcher<UiButtonEvent>;
+
 #[derive(Debug, Clone, Event)]
 pub struct UiButtonEvent {
     pub kind: UiButtonEventKind,
-    pub receiver: Entity,
-    pub button: Entity,
     pub state: Interaction,
     pub prev_state: Interaction,
 }
 
 #[derive(Component, Default, Clone, Reflect)]
 pub struct UiButton {
-    #[reflect(ignore)]
-    pub callback: SmallVec<[(Entity, SystemId<UiButtonEvent>); 2]>,
     pub state: Interaction,
-}
-
-impl UiButton {
-    pub fn new(receiver: Entity, callback: SystemId<UiButtonEvent>) -> Self {
-        Self {
-            callback: SmallVec::from_slice(&[(receiver, callback)]),
-            state: Interaction::None,
-        }
-    }
-
-    pub fn with_callback(receiver: Entity, system: SystemId<UiButtonEvent>) -> Self {
-        Self {
-            callback: SmallVec::from_slice(&[(receiver, system)]),
-            state: Interaction::None,
-        }
-    }
-
-    pub fn with_callbacks(callbacks: &[(Entity, SystemId<UiButtonEvent>)]) -> Self {
-        Self {
-            callback: SmallVec::from_slice(callbacks),
-            state: Interaction::None,
-        }
-    }
 }
 
 pub fn update_ui_button(
@@ -61,6 +38,7 @@ pub fn update_ui_button(
             Entity,
             &mut UiButton,
             &Interaction,
+            Option<&EventDispatcher<UiButtonEvent>>,
             Option<&mut ThemeComponent>,
         ),
         Changed<Interaction>,
@@ -68,30 +46,18 @@ pub fn update_ui_button(
     mut commands: Commands,
 ) {
     use UiButtonEventKind::*;
-    for (entity, mut button, button_state, theme) in &mut ui_query {
+    for (entity, mut button, button_state, dispatcher, theme) in &mut ui_query {
         let mut call = |kind: UiButtonEventKind| {
-            for (receiver, callback) in &button.callback {
-                commands.run_system_with_input(
-                    *callback,
+            if let Some(dispatcher) = &dispatcher {
+                dispatcher.send(
                     UiButtonEvent {
                         kind: kind.clone(),
-                        receiver: *receiver,
-                        button: entity,
                         state: *button_state,
                         prev_state: button.state,
                     },
+                    &mut commands,
                 );
             }
-            commands.trigger_targets(
-                UiButtonEvent {
-                    kind: kind.clone(),
-                    receiver: Entity::PLACEHOLDER,
-                    button: entity,
-                    state: *button_state,
-                    prev_state: button.state,
-                },
-                entity,
-            );
         };
         match (button.state, button_state) {
             (Interaction::Pressed, Interaction::Hovered) => {
@@ -139,6 +105,7 @@ make_bundle! {
         pub interaction: Interaction,
         #[default(FocusPolicy::Block)]
         pub focus_policy: FocusPolicy,
+        pub event_dispatch: UiButtonEventDispatcher,
     }
 }
 make_bundle! {
@@ -151,6 +118,7 @@ make_bundle! {
         pub theme: ThemeComponent,
         #[default(FocusPolicy::Block)]
         pub focus_policy: FocusPolicy,
+        pub event_dispatch: UiButtonEventDispatcher,
     }
 }
 make_bundle! {
@@ -163,21 +131,6 @@ make_bundle! {
         pub theme: ThemeComponent,
         #[default(FocusPolicy::Block)]
         pub focus_policy: FocusPolicy,
-    }
-}
-
-impl UiButtonExt {
-    pub fn new(receiver: Entity, callback: SystemId<UiButtonEvent>) -> Self {
-        Self {
-            button: UiButton::new(receiver, callback),
-            ..default()
-        }
-    }
-
-    pub fn from_slice(callbacks: &[(Entity, SystemId<UiButtonEvent>)]) -> Self {
-        Self {
-            button: UiButton::with_callbacks(callbacks),
-            ..default()
-        }
+        pub event_dispatch: UiButtonEventDispatcher,
     }
 }

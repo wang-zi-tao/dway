@@ -1,7 +1,7 @@
 use bevy::ui::RelativeCursorPosition;
 use bevy_relationship::reexport::SmallVec;
 
-use crate::{event::EventDispatch, make_bundle, prelude::*};
+use crate::{event::EventReceiver, make_bundle, prelude::*};
 
 structstruck::strike! {
     #[strikethrough[derive(Debug, Clone, Reflect)]]
@@ -45,7 +45,7 @@ pub fn update_ui_drag(
             &Node,
             &RelativeCursorPosition,
             &Interaction,
-            Option<&dyn EventDispatch<UiDragEvent>>,
+            Option<&dyn EventReceiver<UiDragEvent>>,
         ),
         Or<(Changed<Interaction>, Changed<RelativeCursorPosition>)>,
     >,

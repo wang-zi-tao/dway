@@ -34,7 +34,7 @@ use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_svg::{prelude::Svg, SvgPlugin};
 pub use dway_ui_derive::*;
 use dway_util::asset_cache::AssetCachePlugin;
-use event::EventDispatch;
+use event::EventReceiver;
 use widgets::drag::UiDrag;
 
 use crate::{
@@ -99,7 +99,7 @@ impl Plugin for UiFrameworkPlugin {
         .register_type::<input::UiFocusEvent>()
         .register_type::<UiDrag>()
         .register_callback(delay_destroy)
-        .register_component_as::<dyn EventDispatch<AnimationEvent>, UiPopup>()
+        .register_component_as::<dyn EventReceiver<AnimationEvent>, UiPopup>()
         .add_systems(
             PreUpdate,
             (

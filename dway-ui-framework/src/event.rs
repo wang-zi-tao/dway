@@ -8,12 +8,12 @@ use bevy::{
     reflect::List,
     utils::{hashbrown::hash_map::Entry, HashMap},
 };
-use bevy_relationship::reexport::SmallVec;
+use bevy_relationship::reexport::{SmallVec, StorageType};
 
-use crate::prelude::*;
+use crate::{mvvm::table::TableState, prelude::*};
 
 #[bevy_trait_query::queryable]
-pub trait EventDispatch<E> {
+pub trait EventReceiver<E> {
     fn on_event(&self, commands: EntityCommands, event: E);
 }
 
@@ -82,7 +82,7 @@ impl<E> UiEvent<E> {
     }
 }
 
-impl<E: std::ops::Deref> std::ops::Deref for UiEvent<E> {
+impl<E> std::ops::Deref for UiEvent<E> {
     type Target = E;
 
     fn deref(&self) -> &Self::Target {
@@ -90,37 +90,103 @@ impl<E: std::ops::Deref> std::ops::Deref for UiEvent<E> {
     }
 }
 
-pub enum EventReceiver<I> {
+pub enum EventReceiverKind<I> {
     SystemId(Entity, SystemId<UiEvent<I>>),
     Trigger(Entity),
     Trait(Entity),
-    Lambda(Box<dyn Fn(Entity, &I, &mut Commands)>),
+    Lambda(Box<dyn Fn(Entity, &I, &mut Commands) + Send + Sync + 'static>),
 }
 
-#[derive(Component)]
-pub struct EventDispatcher<E> {
-    pub callbacks: SmallVec<[EventReceiver<E>; 2]>,
+#[derive(SmartDefault)]
+pub struct EventDispatcher<E: Clone + Send + Sync + 'static> {
+    pub callbacks: Vec<EventReceiverKind<E>>,
+    #[default(Entity::PLACEHOLDER)]
+    this_entity: Entity,
+    #[default(false)]
     pub run_global_triggers: bool,
+    #[default(true)]
     pub run_sender_trigger: bool,
+    #[default(true)]
     pub run_sender_traits: bool,
 }
 
 impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
-    pub fn send(&self, event: E, sender: Entity, commands: &mut Commands) {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_system(mut self, receiver: Entity, system: SystemId<UiEvent<E>>) -> Self {
+        self.callbacks
+            .push(EventReceiverKind::SystemId(receiver, system));
+        self
+    }
+
+    pub fn with_trigger(mut self, receiver: Entity) -> Self {
+        self.callbacks.push(EventReceiverKind::Trigger(receiver));
+        self
+    }
+
+    pub fn with_trait(mut self, receiver: Entity) -> Self {
+        self.callbacks.push(EventReceiverKind::Trait(receiver));
+        self
+    }
+
+    pub fn with_lambda<F>(mut self, f: F) -> Self
+    where
+        F: Fn(Entity, &E, &mut Commands) + Send + Sync + 'static,
+    {
+        self.callbacks.push(EventReceiverKind::Lambda(Box::new(f)));
+        self
+    }
+
+    pub fn with_global_triggers(mut self) -> Self {
+        self.run_global_triggers = true;
+        self
+    }
+
+    pub fn with_sender_trigger(mut self) -> Self {
+        self.run_sender_trigger = true;
+        self
+    }
+
+    pub fn with_sender_traits(mut self) -> Self {
+        self.run_sender_traits = true;
+        self
+    }
+
+    pub fn new_with_system(receiver: Entity, system: SystemId<UiEvent<E>>) -> Self {
+        Self::default().with_system(receiver, system)
+    }
+}
+
+impl<E: Clone + Send + Sync + 'static> Component for EventDispatcher<E> {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+
+    fn register_component_hooks(hooks: &mut bevy_relationship::reexport::ComponentHooks) {
+        hooks.on_insert(|mut world, entity, _componentId| {
+            let mut dispatcher = world.get_mut::<EventDispatcher<E>>(entity).unwrap();
+            dispatcher.this_entity = entity;
+        });
+    }
+}
+
+impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
+    pub fn send(&self, event: E, commands: &mut Commands) {
+        let sender = self.this_entity;
         let mut trait_entitys: SmallVec<[Entity; 8]> = SmallVec::new();
         for receiver in self.callbacks.iter() {
             match receiver {
-                EventReceiver::SystemId(entity, system) => {
+                EventReceiverKind::SystemId(receiver, system) => {
                     commands.run_system_with_input(
                         *system,
                         UiEvent {
-                            receiver: *entity,
+                            receiver: *receiver,
                             event: event.clone(),
                             sender,
                         },
                     );
                 }
-                EventReceiver::Trigger(receiver) => {
+                EventReceiverKind::Trigger(receiver) => {
                     commands.trigger_targets(
                         UiEvent {
                             receiver: *receiver,
@@ -130,10 +196,10 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
                         *receiver,
                     );
                 }
-                EventReceiver::Trait(entity) => {
-                    trait_entitys.push(*entity);
+                EventReceiverKind::Trait(receiver) => {
+                    trait_entitys.push(*receiver);
                 }
-                EventReceiver::Lambda(f) => {
+                EventReceiverKind::Lambda(f) => {
                     f(sender, &event, commands);
                 }
             }
@@ -147,7 +213,7 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
             if !trait_entitys.is_empty() {
                 commands.add(move |world: &mut World| {
                     let mut system_state =
-                        SystemState::<(Query<All<&dyn EventDispatch<E>>>, Commands)>::new(world);
+                        SystemState::<(Query<All<&dyn EventReceiver<E>>>, Commands)>::new(world);
                     let (query, mut commands) = system_state.get(world);
                     for trait_impls in trait_entitys.into_iter().filter_map(|e| query.get(e).ok()) {
                         let mut entity_commands = commands.entity(sender);
@@ -275,4 +341,11 @@ pub fn on_despawn_later_event(mut events: EventReader<DespawnLaterEvent>, mut co
             commands.entity(e.entity).despawn_recursive();
         }
     }
+}
+
+pub fn make_callback<E>(recevier: Entity, system: SystemId<UiEvent<E>>) -> EventDispatcher<E>
+where
+    E: Clone + Send + Sync + 'static,
+{
+    EventDispatcher::new_with_system(recevier, system)
 }

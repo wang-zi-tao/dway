@@ -10,7 +10,7 @@ use crate::{
         },
         AnimationEvent,
     },
-    event::{EventDispatch, UiNodeAppearEvent},
+    event::{EventReceiver, UiNodeAppearEvent},
     make_bundle,
     prelude::*,
     render::layer_manager::RenderToLayer,
@@ -34,7 +34,7 @@ pub struct PopupEvent {
     pub kind: PopupEventKind,
 }
 
-impl<T: EventDispatch<UiNodeAppearEvent>> EventDispatch<PopupEvent> for T {
+impl<T: EventReceiver<UiNodeAppearEvent>> EventReceiver<PopupEvent> for T {
     fn on_event(&self, commands: EntityCommands, event: PopupEvent) {
         let appear_event = match event.kind {
             PopupEventKind::Opened => UiNodeAppearEvent::Appear,
@@ -105,7 +105,7 @@ pub fn update_popup(
         Entity,
         &mut UiPopup,
         &RelativeCursorPosition,
-        Option<&dyn EventDispatch<PopupEvent>>,
+        Option<&dyn EventReceiver<PopupEvent>>,
     )>,
     mouse: Res<ButtonInput<MouseButton>>,
     mut commands: Commands,
@@ -192,7 +192,7 @@ make_bundle! {
     }
 }
 
-impl EventDispatch<AnimationEvent> for UiPopup {
+impl EventReceiver<AnimationEvent> for UiPopup {
     fn on_event(&self, commands: EntityCommands, event: AnimationEvent) {
         if self.state == PopupState::Closed && event.just_finish {
             commands.despawn_recursive();

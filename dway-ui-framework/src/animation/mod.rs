@@ -13,7 +13,7 @@ use interpolation::{Ease, EaseFunction};
 use registry::AnimationRegister;
 
 use crate::{
-    command::DestroyInterceptor, event::{EventDispatch, UiNodeAppearEvent}, prelude::*
+    command::DestroyInterceptor, event::{EventReceiver, UiNodeAppearEvent}, prelude::*
 };
 
 pub trait Interpolation {
@@ -228,7 +228,7 @@ pub fn update_animation_system(
     mut query: Query<(
         Entity,
         &mut Animation,
-        Option<&dyn EventDispatch<AnimationEvent>>,
+        Option<&dyn EventReceiver<AnimationEvent>>,
     )>,
     time: Res<Time>,
     mut redraw_request: EventWriter<RequestRedraw>,
@@ -359,9 +359,9 @@ impl Plugin for AnimationPlugin {
                 .in_set(UiFrameworkSystems::ApplyAnimation),
         )
         .init_resource::<AnimationRegister>()
-        .register_component_as::<dyn EventDispatch<AnimationEvent>, translation::UiTranslationAnimation>()
-        .register_component_as::<dyn EventDispatch<UiNodeAppearEvent>, translation::UiTranslationAnimation>()
-        .register_component_as::<dyn EventDispatch<PopupEvent>, translation::UiTranslationAnimation>()
+        .register_component_as::<dyn EventReceiver<AnimationEvent>, translation::UiTranslationAnimation>()
+        .register_component_as::<dyn EventReceiver<UiNodeAppearEvent>, translation::UiTranslationAnimation>()
+        .register_component_as::<dyn EventReceiver<PopupEvent>, translation::UiTranslationAnimation>()
         .register_component_as::<dyn DestroyInterceptor, translation::UiTranslationAnimation>()
         .register_callback(ui::popup_open_drop_down)
         .register_callback(ui::popup_open_close_up)

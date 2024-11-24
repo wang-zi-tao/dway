@@ -67,7 +67,6 @@ pub fn update_selection<Index: IndexTrait>(
         (Entity, &mut ItemSelectionInfo<Index>, &Interaction),
         (Without<DontSelect>, Changed<Interaction>),
     >,
-    container: Query<(&mut SelectionModel<Index>)>,
     mut event_writer: EventWriter<SelectItemRequest<Index>>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
