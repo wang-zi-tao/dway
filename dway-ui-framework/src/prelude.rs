@@ -12,7 +12,7 @@ pub(crate) use crate as dway_ui;
 pub(crate) use crate as dway_ui_framework;
 pub use crate::{
     animation::{Animation, AssetAnimationPlugin, AssetTweenExt, Interpolation, Tween},
-    event::{CallbackRegisterAppExt, CallbackTypeRegister, EventDispatcher, UiEvent},
+    event::{CallbackRegisterAppExt, CallbackTypeRegister, EventDispatcher, UiEvent, make_callback},
     input::*,
     theme::Theme,
     widgets::{

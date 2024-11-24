@@ -11,7 +11,7 @@ use dway_server::{
 };
 use dway_ui_framework::widgets::{
     button::UiRawButtonExt,
-    drag::{UiDrag, UiDragEvent, UiDragEventKind, UiDragExt},
+    drag::{UiDrag, UiDragEvent, UiDragExt},
 };
 
 use super::popupwindow::{PopupUI, PopupUIBundle, PopupUISystems};
@@ -62,59 +62,59 @@ WindowUI=>
     app.register_type::<WindowUIState>();
     app.add_systems(Update, apply_deferred.after(WindowUISystems::Render).before(PopupUISystems::Render));
 }
-@callback{ [UiButtonEvent]
+@callback{ [UiEvent<UiButtonEvent>]
     fn on_close_button_event(
-        In(event): In<UiButtonEvent>,
+        In(event): In<UiEvent<UiButtonEvent>>,
         mut events: EventWriter<WindowAction>,
     ) {
         if event.kind == UiButtonEventKind::Released{
-            events.send(WindowAction::Close(event.receiver));
+            events.send(WindowAction::Close(event.receiver()));
         }
     }
 }
-@callback{ [UiButtonEvent]
+@callback{ [UiEvent<UiButtonEvent>]
     fn on_min_button_event(
-        In(event): In<UiButtonEvent>,
+        In(event): In<UiEvent<UiButtonEvent>>,
         mut events: EventWriter<WindowAction>,
     ) {
         if event.kind == UiButtonEventKind::Released{
-            events.send(WindowAction::Minimize(event.receiver));
+            events.send(WindowAction::Minimize(event.receiver()));
         }
     }
 }
-@callback{ [UiButtonEvent]
+@callback{ [UiEvent<UiButtonEvent>]
     fn on_max_button_event(
-        In(event): In<UiButtonEvent>,
+        In(event): In<UiEvent<UiButtonEvent>>,
         mut events: EventWriter<WindowAction>,
     ) {
         if event.kind == UiButtonEventKind::Released{
-            events.send(WindowAction::Maximize(event.receiver));
+            events.send(WindowAction::Maximize(event.receiver()));
         }
     }
 }
-@callback{ [UiDragEvent]
+@callback{ [UiEvent<UiDragEvent>]
     fn on_title_bar_mouse_event(
-        In(event): In<UiDragEvent>,
+        In(event): In<UiEvent<UiDragEvent>>,
         this_query: Query<&WindowUI>,
         window_query: Query<&Geometry>,
         mut events: EventWriter<WindowAction>,
     ) {
-        let Ok(prop) = this_query.get(event.receiver) else {return};
-        if let UiDragEventKind::Move(alpha) = &event.kind{
+        let Ok(prop) = this_query.get(event.receiver()) else {return};
+        if let UiDragEvent::Move(alpha) = &*event{
             let Ok(geo) = window_query.get(prop.window_entity) else{ return};
             events.send(WindowAction::SetRect(prop.window_entity, IRect::from_pos_size(geo.pos() + ( *alpha*0.5 ).as_ivec2(), geo.size())));
         }
     }
 }
-@callback{ [UiDragEvent]
+@callback{ [UiEvent<UiDragEvent>]
     fn on_decorated_mouse_event(
-        In(event): In<UiDragEvent>,
+        In(event): In<UiEvent<UiDragEvent>>,
         this_query: Query<&WindowUI>,
         window_query: Query<&Geometry>,
         mut events: EventWriter<WindowAction>,
     ) {
-        let Ok(prop) = this_query.get(event.receiver) else {return};
-        if let UiDragEventKind::Move(pos) = &event.kind{
+        let Ok(prop) = this_query.get(event.receiver()) else {return};
+        if let UiDragEvent::Move(pos) = &*event{
             let Ok(geo) = window_query.get(prop.window_entity) else{ return};
             // TODO
         }
@@ -178,7 +178,10 @@ WindowUI=>
      @id="with_decorated">
     <MaterialNodeBundle::<RoundedUiRectMaterial> @id="decorated_box"
         ZIndex=(ZIndex::Local(0))
-        UiDragExt=(UiDrag::default().with_callback(this_entity, on_decorated_mouse_event).into())
+        UiDragExt=(UiDragExt{
+            event_dispatcher: make_callback(this_entity, on_decorated_mouse_event),
+            ..default()
+        })
         @style="absolute left-{-DECORATION_MARGIN} right-{-DECORATION_MARGIN} bottom-{-DECORATION_MARGIN} top-{-DECORATION_HEIGHT}"
         @handle(RoundedUiRectMaterial=>rounded_rect(color!("#333333"), 16.0)) />
     <MaterialNodeBundle::<RoundedUiImageMaterial> @id="surface" @style="absolute full"
@@ -188,20 +191,23 @@ WindowUI=>
         state.bbox_rect().size().as_vec2() / state.rect().size().as_vec2(),
         state.image().clone())) />
     <NodeBundle @id="title_bar"
-        UiDragExt=(UiDrag::default().with_callback(this_entity, on_title_bar_mouse_event).into())
+        UiDragExt=(UiDragExt{
+            event_dispatcher: make_callback(this_entity, on_title_bar_mouse_event),
+            ..default()
+        })
         @style="absolute left-0 right-0 top-{-DECORATION_HEIGHT} height-{DECORATION_HEIGHT}" >
         <MiniNodeBundle @id="close" @style="m-2 w-20 h-20"
-            UiRawButtonExt=(UiButton::new(prop.window_entity, on_close_button_event).into())
+            UiRawButtonExt=(UiRawButtonExt::from_callback(prop.window_entity, on_close_button_event))
             @handle(UiCircleMaterial=>circle_material(color!("#505050"))) >
             <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg"))) @style="full" />
         </MiniNodeBundle>
         <MiniNodeBundle @id="max" @style="m-2 w-20 h-20"
-            UiRawButtonExt=(UiButton::new(prop.window_entity, on_max_button_event).into())
+            UiRawButtonExt=(UiRawButtonExt::from_callback(prop.window_entity, on_max_button_event))
             @handle(UiCircleMaterial=>circle_material(color!("#505050"))) >
             <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/maximize.svg"))) @style="full" />
         </MiniNodeBundle>
         <MiniNodeBundle @id="min" @style="m-2 w-20 h-20"
-            UiRawButtonExt=(UiButton::new(prop.window_entity, on_min_button_event).into())
+            UiRawButtonExt=(UiRawButtonExt::from_callback(prop.window_entity, on_min_button_event))
             @handle(UiCircleMaterial=>circle_material(color!("#505050"))) >
             <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/minimize.svg"))) @style="full" />
         </MiniNodeBundle>

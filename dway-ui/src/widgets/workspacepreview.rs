@@ -4,6 +4,7 @@ use dway_server::{
     xdg::toplevel::DWayToplevel,
 };
 use dway_ui_framework::widgets::button::{UiRawButtonBundle, UiRawButtonExt};
+use widgets::button::UiButtonEventDispatcher;
 
 use crate::{prelude::*, widgets::window::create_raw_window_material};
 
@@ -23,13 +24,13 @@ impl Default for WorkspacePreview {
 
 dway_widget! {
 WorkspacePreview=>
-@callback{ [UiButtonEvent]
+@callback{ [UiEvent<UiButtonEvent>]
 fn focus_window(
-    In(event): In<UiButtonEvent>,
+    In(event): In<UiEvent<UiButtonEvent>>,
     prop_query: Query<&WorkspacePreviewSubWidgetList>,
     mut focused: ResMut<FocusedWindow>,
 ){
-    let Ok(widget) = prop_query.get(event.receiver)else{return;};
+    let Ok(widget) = prop_query.get(event.receiver())else{return;};
     if event.kind == UiButtonEventKind::Released{
         focused.window_entity = Some(widget.data_entity);
     }
@@ -55,7 +56,7 @@ fn focus_window(
             @use_state(title:String) @use_state(geo:GlobalGeometry) @use_state(image:Handle<Image>) @use_state(image_rect:IRect)
             @use_state(preview_rect:Rect <= *state.image_rect() * prop.scale)
         >
-            <UiRawButtonBundle UiButton=(UiButton::new(node!(window_preview), focus_window))
+            <UiRawButtonBundle UiButtonEventDispatcher=(make_callback(node!(window_preview), focus_window))
                 @style="absolute left-{state.preview_rect().min.x} top-{state.preview_rect().min.y} w-{state.preview_rect().width()} h-{state.preview_rect().height()}"
                 @handle(RoundedUiRectMaterial=>rounded_rect(theme.color("border"), 16.0))
             >

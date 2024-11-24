@@ -2,11 +2,10 @@ use animation::translation::{UiTranslationAnimation, UiTranslationAnimationExt};
 use dway_server::apps::{
     icon::LinuxIcon, launchapp::LaunchAppRequest, DesktopEntriesSet, DesktopEntry,
 };
+use event::make_callback;
 use regex::{Regex, RegexBuilder};
 use util::DwayUiDirection;
-use widgets::inputbox::{
-    UiInputBox, UiInputBoxBundle, UiInputBoxState, UiInputboxEvent, UiInputboxEventKind,
-};
+use widgets::inputbox::{UiInputBox, UiInputBoxBundle, UiInputBoxEventDispatcher, UiInputBoxState, UiInputboxEvent};
 
 use crate::{
     panels::PanelButtonBundle,
@@ -15,7 +14,7 @@ use crate::{
 };
 
 fn on_launch(
-    In(event): In<UiButtonEvent>,
+    In(event): In<UiEvent<UiButtonEvent>>,
     widget_qeury: Query<(
         &DockLauncherUISubStateAppList,
         &DockLauncherUISubWidgetAppList,
@@ -24,7 +23,7 @@ fn on_launch(
     mut event_writer: EventWriter<LaunchAppRequest>,
 ) {
     if event.kind == UiButtonEventKind::Released {
-        let (state, widget) = widget_qeury.get(event.receiver).unwrap();
+        let (state, widget) = widget_qeury.get(event.receiver()).unwrap();
         event_writer.send(LaunchAppRequest::new(widget.data_entity));
 
         if let Some(mut popup) = state.popup.and_then(|e| popup_query.get_mut(e).ok()) {
@@ -33,7 +32,7 @@ fn on_launch(
     }
 }
 
-pub fn open_popup(In(event): In<UiButtonEvent>, mut commands: Commands) {
+pub fn open_popup(In(event): In<UiEvent<UiButtonEvent>>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         commands
             .spawn((
@@ -61,23 +60,23 @@ pub fn open_popup(In(event): In<UiButtonEvent>, mut commands: Commands) {
                     ..Default::default()
                 },
             ))
-            .set_parent(event.receiver);
+            .set_parent(event.receiver());
     }
 }
 
 fn on_text_changed(
-    In(event): In<UiInputboxEvent>,
+    In(event): In<UiEvent<UiInputboxEvent>>,
     mut widget_query: Query<&mut DockLauncherUIState>,
     inputbox_query: Query<&UiInputBoxState>,
 ) {
-    let Ok(mut state) = widget_query.get_mut(event.receiver) else {
+    let Ok(mut state) = widget_query.get_mut(event.receiver()) else {
         return;
     };
-    let Ok(inputbox_state) = inputbox_query.get(event.widget) else {
+    let Ok(inputbox_state) = inputbox_query.get(event.sender()) else {
         return;
     };
 
-    if UiInputboxEventKind::Changed == event.kind {
+    if matches!(&*event, UiInputboxEvent::Changed) {
         let filter_string = &inputbox_state.data;
         state.set_filter(
             RegexBuilder::new(&filter_string)
@@ -98,8 +97,8 @@ pub struct DockLauncherUI;
 
 dway_widget! {
 DockLauncherUI=>
-@add_callback{[UiButtonEvent]on_launch}
-@add_callback{[UiInputboxEvent]on_text_changed}
+@add_callback{[UiEvent<UiButtonEvent>]on_launch}
+@add_callback{[UiEvent<UiInputboxEvent>]on_text_changed}
 @global(theme:Theme)
 @global(entries: DesktopEntriesSet)
 @global(asset_server: AssetServer)
@@ -110,7 +109,7 @@ DockLauncherUI=>
 @use_state(pub filter: Regex = Regex::new(".*").unwrap())
 <MiniNodeBundle @style="full absolute" >
     <MiniNodeBundle @style="full flex-col p-8">
-        <UiInputBoxBundle UiInputBox=(UiInputBox::default().with_callback((this_entity, on_text_changed)))
+        <UiInputBoxBundle UiInputBoxEventDispatcher=(make_callback(this_entity, on_text_changed))
             @style="left-10% right-10% w-80% height-24"/>
         <UiScrollBundle @style="m-4 w-full flex_grow:1.0" @id="app_list_scroll">
             <MiniNodeBundle @style="absolute w-full min-h-full flex-row flex_wrap:FlexWrap::Wrap" @id="AppList"

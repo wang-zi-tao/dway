@@ -14,13 +14,13 @@ pub struct LauncherUI;
 
 dway_widget! {
 LauncherUI=>
-@callback{[UiButtonEvent]
+@callback{[UiEvent<UiButtonEvent>]
     fn on_launch(
-        In(event): In<UiButtonEvent>,
+        In(event): In<UiEvent<UiButtonEvent>>,
         mut event_writer: EventWriter<LaunchAppRequest>
     ) {
         if event.kind == UiButtonEventKind::Released {
-            event_writer.send(LaunchAppRequest::new(event.receiver));
+            event_writer.send(LaunchAppRequest::new(event.receiver()));
         }
     }
 }
@@ -85,7 +85,7 @@ LauncherUI=>
 </MiniNodeBundle>
 }
 
-pub fn open_popup(In(event): In<UiButtonEvent>, theme: Res<Theme>, mut commands: Commands) {
+pub fn open_popup(In(event): In<UiEvent<UiButtonEvent>>, theme: Res<Theme>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         commands
             .spawn((
@@ -101,6 +101,6 @@ pub fn open_popup(In(event): In<UiButtonEvent>, theme: Res<Theme>, mut commands:
                     ..default()
                 });
             })
-            .set_parent(event.button);
+            .set_parent(event.sender());
     }
 }

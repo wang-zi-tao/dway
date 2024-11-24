@@ -4,6 +4,8 @@ use dway_server::{
     xdg::toplevel::DWayToplevel,
 };
 use dway_ui_framework::widgets::button::{UiRawButtonBundle, UiRawButtonExt};
+use event::make_callback;
+use widgets::button::UiButtonEventDispatcher;
 
 use crate::{prelude::*, widgets::window::create_raw_window_material};
 
@@ -24,22 +26,22 @@ impl Default for WorkspaceWindowPreviewPopup {
 }
 
 fn close_window(
-    In(event): In<UiButtonEvent>,
+    In(event): In<UiEvent<UiButtonEvent>>,
     prop_query: Query<&WorkspaceWindowPreviewPopupSubWidgetList>,
     mut events: EventWriter<WindowAction>,
 ){
-    let Ok(widget) = prop_query.get(event.receiver)else{return;};
+    let Ok(widget) = prop_query.get(event.receiver())else{return;};
     if event.kind == UiButtonEventKind::Released{
         events.send(WindowAction::Close(widget.data_entity));
     }
 }
 
 fn focus_window(
-    In(event): In<UiButtonEvent>,
+    In(event): In<UiEvent<UiButtonEvent>>,
     prop_query: Query<&WorkspaceWindowPreviewPopupSubWidgetList>,
     mut focused: ResMut<FocusedWindow>,
 ){
-    let Ok(widget) = prop_query.get(event.receiver)else{return;};
+    let Ok(widget) = prop_query.get(event.receiver())else{return;};
     if event.kind == UiButtonEventKind::Released{
         focused.window_entity = Some(widget.data_entity);
     }
@@ -55,8 +57,8 @@ WorkspaceWindowPreviewPopup=>
 @arg(asset_server: Res<AssetServer>)
 @use_state(windows: Vec<Entity>)
 @component(window_list<-Query<Ref<WindowList>>[prop.workspace]->{ state.set_windows(window_list.iter().collect()); })
-@add_callback([UiButtonEvent] close_window)
-@add_callback([UiButtonEvent] focus_window)
+@add_callback([UiEvent<UiButtonEvent>] close_window)
+@add_callback([UiEvent<UiButtonEvent>] focus_window)
 <MiniNodeBundle @style="flex-row m-4" @id="List"
     @for_query((surface,geo,toplevel) in Query<(Ref<WlSurface>,Ref<GlobalGeometry>,Ref<DWayToplevel>)>::iter_many(state.windows().iter().cloned()) =>[
         toplevel=>{state.set_title(toplevel.title.clone().unwrap_or_default());},
@@ -71,10 +73,10 @@ WorkspaceWindowPreviewPopup=>
             @use_state(image_size:Vec2 <= state.geo().size().as_vec2() * PREVIEW_HIGHT / state.geo().height() as f32)
         >
             <NodeBundle @style="flex-row">
-                <MiniNodeBundle @id="close" @style="m-2 w-20 h-20"
-                    UiRawButtonExt=(UiButton::new(node!(window_preview), close_window).into()) >
+                <UiRawButtonBundle @id="close" @style="m-2 w-20 h-20"
+                    UiButtonEventDispatcher=(make_callback(node!(window_preview), close_window)) >
                     <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg")))  @style="full"/>
-                </MiniNodeBundle>
+                </UiRawButtonBundle>
                 <TextBundle @style="items-center justify-center m-auto"
                     Text=(Text::from_section(
                         state.title(),
@@ -86,7 +88,7 @@ WorkspaceWindowPreviewPopup=>
                     ).with_justify(JustifyText::Center))
                 />
             </NodeBundle>
-            <UiRawButtonBundle UiButton=(UiButton::new(node!(window_preview), focus_window))>
+            <UiRawButtonBundle UiButtonEventDispatcher=(make_callback(node!(window_preview), focus_window))>
                 <MaterialNodeBundle::<RoundedUiImageMaterial>
                 @handle(RoundedUiImageMaterial=>create_raw_window_material(*state.image_rect(),state.image().clone(),&state.geo, *state.image_size()))
                 @style="w-{state.image_size().x} h-{state.image_size().y}" />

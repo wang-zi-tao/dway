@@ -1,6 +1,7 @@
 use dway_ui_framework::{
     animation::translation::UiTranslationAnimationExt, widgets::button::UiRawButtonBundle,
 };
+use widgets::button::UiButtonEventDispatcher;
 
 pub use crate::prelude::*;
 
@@ -21,51 +22,51 @@ dway_widget! {
 WindowMenu=>
 @bundle{{ popup: UiPopupBundle }}
 @plugin{ app.register_callback(open_popup); }
-@callback{ [UiButtonEvent]
+@callback{ [UiEvent<UiButtonEvent>]
     fn on_close_button_event(
-        In(event): In<UiButtonEvent>,
+        In(event): In<UiEvent<UiButtonEvent>>,
         mut events: EventWriter<WindowAction>,
     ) {
         if event.kind == UiButtonEventKind::Released{
-            events.send(WindowAction::Close(event.receiver));
+            events.send(WindowAction::Close(event.receiver()));
         }
     }
 }
-@callback{ [UiButtonEvent]
+@callback{ [UiEvent<UiButtonEvent>]
     fn on_maximize_button_event(
-        In(event): In<UiButtonEvent>,
+        In(event): In<UiEvent<UiButtonEvent>>,
         mut events: EventWriter<WindowAction>,
     ) {
         if event.kind == UiButtonEventKind::Released{
-            events.send(WindowAction::Maximize(event.receiver));
+            events.send(WindowAction::Maximize(event.receiver()));
         }
     }
 }
-@callback{ [UiButtonEvent]
+@callback{ [UiEvent<UiButtonEvent>]
     fn on_minimize_button_event(
-        In(event): In<UiButtonEvent>,
+        In(event): In<UiEvent<UiButtonEvent>>,
         mut events: EventWriter<WindowAction>,
     ) {
         if event.kind == UiButtonEventKind::Released{
-            events.send(WindowAction::Minimize(event.receiver));
+            events.send(WindowAction::Minimize(event.receiver()));
         }
     }
 }
 @global(theme: Theme)
 <MiniNodeBundle @style="flex-col">
-    <UiRawButtonBundle UiButton=(UiButton::new(prop.window_entity, on_close_button_event))>
+    <UiRawButtonBundle UiButtonEventDispatcher=(make_callback(prop.window_entity, on_close_button_event))>
         <(UiTextBundle::new("close", 32, &theme))/>
     </UiRawButtonBundle>
-    <UiRawButtonBundle UiButton=(UiButton::new(prop.window_entity, on_maximize_button_event))>
+    <UiRawButtonBundle UiButtonEventDispatcher=(make_callback(prop.window_entity, on_maximize_button_event))>
         <(UiTextBundle::new("maximize", 32, &theme))/>
     </UiRawButtonBundle>
-    <UiRawButtonBundle UiButton=(UiButton::new(prop.window_entity, on_minimize_button_event))>
+    <UiRawButtonBundle UiButtonEventDispatcher=(make_callback(prop.window_entity, on_minimize_button_event))>
         <(UiTextBundle::new("minimize", 32, &theme))/>
     </UiRawButtonBundle>
 </MiniNodeBundle>
 }
 
-pub fn open_popup(In(event): In<UiButtonEvent>, mut commands: Commands) {
+pub fn open_popup(In(event): In<UiEvent<UiButtonEvent>>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         let style = style!("absolute justify-items:center top-36 align-self:end p-8");
         commands
@@ -82,6 +83,6 @@ pub fn open_popup(In(event): In<UiButtonEvent>, mut commands: Commands) {
                     ..Default::default()
                 });
             })
-            .set_parent(event.button);
+            .set_parent(event.sender());
     }
 }

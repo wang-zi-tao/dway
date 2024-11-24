@@ -1,6 +1,7 @@
 use bevy_svg::prelude::Svg;
 use dway_client_core::controller::notify::{NotifyAction, NotifyData, NotifyDataBuilder, NotifyHistory, NotifyRequest};
 use dway_ui_framework::widgets::{button::UiRawButtonBundle, util::visibility};
+use widgets::button::UiButtonEventDispatcher;
 
 use crate::prelude::*;
 
@@ -9,13 +10,13 @@ pub struct NotifyButton;
 
 dway_widget! {
 NotifyButton=>
-@callback{[UiButtonEvent]
+@callback{[UiEvent<UiButtonEvent>]
     fn open_notify_list(
-        In(event): In<UiButtonEvent>,
+        In(event): In<UiEvent<UiButtonEvent>>,
         mut query: Query<&mut NotifyButtonState>,
         mut notify_sender: EventWriter<NotifyRequest>
     ) {
-        let Ok(mut state) = query.get_mut(event.receiver) else {return};
+        let Ok(mut state) = query.get_mut(event.receiver()) else {return};
         if event.kind == UiButtonEventKind::Released{
         }
     }
@@ -23,7 +24,8 @@ NotifyButton=>
 @use_state(notify_count: usize)
 @global(theme:Theme)
 @global(asset_server: AssetServer)
-<UiRawButtonBundle UiButton=(UiButton::new(this_entity, open_notify_list))
+<UiRawButtonBundle 
+    UiButtonEventDispatcher=(make_callback(this_entity, open_notify_list))
     @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 8.0))
 >
     <(UiSvgBundle::new(theme.icon("notifications", &asset_server))) @style="w-24 h-24" @id="icon"/>

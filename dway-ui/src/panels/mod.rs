@@ -33,7 +33,7 @@ impl PanelButtonBundle {
     pub fn with_callback(
         theme: &Theme,
         rect_material_set: &mut Assets<RoundedUiRectMaterial>,
-        callback: &[(Entity, SystemId<UiButtonEvent>)],
+        callbacks: &[(Entity, SystemId<UiEvent<UiButtonEvent>>)],
     ) -> Self {
         Self {
             style: Style {
@@ -41,7 +41,7 @@ impl PanelButtonBundle {
                 ..Default::default()
             },
             button: UiButtonExt {
-                button: UiButton::with_callbacks(callback),
+                event_dispatch: EventDispatcher::default().with_systems(callbacks),
                 theme: ThemeComponent::widget(WidgetKind::None),
                 ..Default::default()
             },

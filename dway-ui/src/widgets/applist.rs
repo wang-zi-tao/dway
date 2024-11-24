@@ -7,7 +7,9 @@ use dway_ui_framework::{
     util::DwayUiDirection,
     widgets::button::UiRawButtonExt,
 };
+use event::make_callback;
 use indexmap::{IndexMap, IndexSet};
+use widgets::button::{UiButtonEventDispatcher, UiRawButtonBundle};
 
 use super::icon::{UiIcon, UiIconBundle};
 use crate::{
@@ -26,15 +28,15 @@ AppListUI=>
 @plugin{
     app.register_type::<AppListUIState>();
 }
-@callback{ [UiButtonEvent]
+@callback{ [UiEvent<UiButtonEvent>]
 fn click_app(
-    In(event): In<UiButtonEvent>,
+    In(event): In<UiEvent<UiButtonEvent>>,
     query: Query<(&AppListUISubStateList,&AppListUISubWidgetList)>,
     mut commands: Commands,
     mut launch_event: EventWriter<LaunchAppRequest>,
     key_input: Res<ButtonInput<KeyCode>>,
 ){
-    let Ok((state,widget)) = query.get(event.receiver)else{return;};
+    let Ok((state,widget)) = query.get(event.receiver())else{return;};
     if widget.node_popup_entity == Entity::PLACEHOLDER {return;}
     if event.kind == UiButtonEventKind::Released{
         let ctrl = key_input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
@@ -88,15 +90,15 @@ fn click_app(
         @arg(focused_window: ResMut<FocusedWindow> => { state.set_is_focused(focused_window.app_entity == Some(widget.data_entity)); }) >
         <MiniNodeBundle @style="w-48 h-48 m-4 flex-col" @id="app_rect"
             @handle(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_alpha(0.4), 10.0)) >
-            <MiniNodeBundle @id="button" @style="absolute full flex-col"
-                UiRawButtonExt=(UiButton::new(node!(app_root), click_app).into()) >
+            <UiRawButtonBundle @id="button" @style="absolute full flex-col"
+                UiButtonEventDispatcher=(make_callback(node!(app_root), click_app)) >
                 <UiIconBundle @id="app_icon" @style="w-full h-full" UiIcon=(state.icon().clone().into()) @id="app_icon" />
                 <NodeBundle @id="focus_mark" Style=(Style{
                         width:Val::Percent(((*state.count() as f32)/4.0).min(1.0)*80.0),
                     ..style!("absolute bottom-0 h-2 align-center")})
                     BackgroundColor=((if *state.is_focused() {color!("#0000ff")} else {Color::WHITE} ).into())
                 />
-            </MiniNodeBundle>
+            </UiRawButtonBundle>
             <MiniNodeBundle @id="popup" @style="absolute full flex-col" />
         </>
     </NodeBundle>

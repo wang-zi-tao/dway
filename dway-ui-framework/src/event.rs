@@ -135,6 +135,14 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
         self
     }
 
+    pub fn with_systems(mut self, systems: &[(Entity, SystemId<UiEvent<E>>)]) -> Self {
+        for (receiver, system) in systems {
+            self.callbacks
+                .push(EventReceiverKind::SystemId(Some(*receiver), *system));
+        }
+        self
+    }
+
     pub fn with_trigger(mut self, receiver: Entity) -> Self {
         self.callbacks.push(EventReceiverKind::Trigger(receiver));
         self

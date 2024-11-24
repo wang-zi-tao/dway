@@ -5,6 +5,7 @@ use dway_client_core::{
 };
 use dway_ui_framework::widgets::button::UiRawButtonBundle;
 use util::DwayUiDirection;
+use widgets::button::UiButtonEventDispatcher;
 
 use crate::{
     popups::workspace_window_preview::{
@@ -17,12 +18,12 @@ use crate::{
 pub struct WorkspaceListUI;
 
 fn on_click(
-    In(event): In<UiButtonEvent>,
+    In(event): In<UiEvent<UiButtonEvent>>,
     query: Query<&WorkspaceListUISubWidgetList>,
     focus_screen: Res<CursorOnScreen>,
     mut commands: Commands,
 ) {
-    let Ok(widget) = query.get(event.receiver) else {
+    let Ok(widget) = query.get(event.receiver()) else {
         return;
     };
     match event.kind {
@@ -52,7 +53,7 @@ fn on_click(
                         ..default()
                     });
                 })
-                .set_parent(event.receiver);
+                .set_parent(event.receiver());
         }
         _ => {}
     }
@@ -60,7 +61,7 @@ fn on_click(
 
 dway_widget! {
 WorkspaceListUI=>
-@add_callback{[UiButtonEvent]on_click}
+@add_callback{[UiEvent<UiButtonEvent>]on_click}
 @state_reflect()
 @global(theme: Theme)
 @global(workspace_manager: WorkspaceManager)
@@ -78,7 +79,8 @@ WorkspaceListUI=>
         @use_state(pub is_focused:bool)
         @use_state(pub screen_list:Vec<Entity>)
     >
-        <(UiRawButtonBundle::from(UiButton::new(node!(ws),on_click))) @style="w-16 h-16 align-items:center justify-items:center" >
+        <UiRawButtonBundle UiButtonEventDispatcher=(make_callback(node!(ws),on_click)) 
+            @style="w-16 h-16 align-items:center justify-items:center" >
             <MiniNodeBundle
                 @material(UiCircleMaterial=>circle_material(theme.color("blue")))
                 Style=(Style{

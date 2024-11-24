@@ -15,22 +15,22 @@ dway_widget! {
 PanelSettings=>
 @state_reflect()
 @plugin{ app.register_callback(open_popup); }
-@callback{[UiButtonEvent]
-    fn do_logout( In(event): In<UiButtonEvent>, mut event_writer: EventWriter<SystemControllRequest>) {
+@callback{[UiEvent<UiButtonEvent>]
+    fn do_logout( In(event): In<UiEvent<UiButtonEvent>>, mut event_writer: EventWriter<SystemControllRequest>) {
         if event.kind == UiButtonEventKind::Released {
             event_writer.send(SystemControllRequest::Logout);
         }
     }
 }
-@callback{[UiButtonEvent]
-    fn do_reboot( In(event): In<UiButtonEvent>, mut event_writer: EventWriter<SystemControllRequest>) {
+@callback{[UiEvent<UiButtonEvent>]
+    fn do_reboot( In(event): In<UiEvent<UiButtonEvent>>, mut event_writer: EventWriter<SystemControllRequest>) {
         if event.kind == UiButtonEventKind::Released {
             event_writer.send(SystemControllRequest::Reboot);
         }
     }
 }
-@callback{[UiButtonEvent]
-    fn do_shutdown( In(event): In<UiButtonEvent>, mut event_writer: EventWriter<SystemControllRequest>) {
+@callback{[UiEvent<UiButtonEvent>]
+    fn do_shutdown( In(event): In<UiEvent<UiButtonEvent>>, mut event_writer: EventWriter<SystemControllRequest>) {
         if event.kind == UiButtonEventKind::Released {
             event_writer.send(SystemControllRequest::Shutdown);
         }
@@ -60,7 +60,7 @@ PanelSettings=>
 </MiniNodeBundle>
 }
 
-pub fn open_popup(In(event): In<UiButtonEvent>, mut commands: Commands) {
+pub fn open_popup(In(event): In<UiEvent<UiButtonEvent>>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         commands
             .spawn((
@@ -76,6 +76,6 @@ pub fn open_popup(In(event): In<UiButtonEvent>, mut commands: Commands) {
                     ..default()
                 },));
             })
-            .set_parent(event.button);
+            .set_parent(event.sender());
     }
 }

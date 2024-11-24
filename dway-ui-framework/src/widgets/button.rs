@@ -4,7 +4,7 @@ use smart_default::SmartDefault;
 
 // use bevy_tweening::{AssetAnimator, EaseMethod};
 use crate::{
-    event::{EventDispatcher, EventReceiverKind},
+    event::{make_callback, EventDispatcher, EventReceiverKind},
     make_bundle,
     prelude::*,
     theme::{StyleFlags, ThemeComponent, WidgetKind},
@@ -130,5 +130,38 @@ make_bundle! {
         #[default(FocusPolicy::Block)]
         pub focus_policy: FocusPolicy,
         pub event_dispatch: UiButtonEventDispatcher,
+    }
+}
+
+impl UiRawButtonBundle {
+    pub fn from_callback(recevier: Entity, system: SystemId<UiEvent<UiButtonEvent>>) -> Self {
+        Self {
+            event_dispatch: make_callback(recevier, system),
+            ..default()
+        }
+    }
+}
+impl UiButtonBundle {
+    pub fn from_callback(recevier: Entity, system: SystemId<UiEvent<UiButtonEvent>>) -> Self {
+        Self {
+            event_dispatch: make_callback(recevier, system),
+            ..default()
+        }
+    }
+}
+impl UiButtonExt {
+    pub fn from_callback(recevier: Entity, system: SystemId<UiEvent<UiButtonEvent>>) -> Self {
+        Self {
+            event_dispatch: make_callback(recevier, system),
+            ..default()
+        }
+    }
+}
+impl UiRawButtonExt {
+    pub fn from_callback(recevier: Entity, system: SystemId<UiEvent<UiButtonEvent>>) -> Self {
+        Self {
+            event_dispatch: make_callback(recevier, system),
+            ..default()
+        }
     }
 }

@@ -7,6 +7,8 @@ use dway_ui_framework::{
     },
     widgets::checkbox::UiCheckBoxBundle,
 };
+use event::make_callback;
+use widgets::{checkbox::UiCheckBoxEventDispatcher, slider::UiSliderEventDispatcher};
 
 use crate::prelude::*;
 
@@ -16,9 +18,9 @@ pub struct VolumeControl;
 dway_widget! {
 VolumeControl=>
 @state_reflect()
-@callback{[UiSliderEvent]
+@callback{[UiEvent<UiSliderEvent>]
     fn on_slider_event(
-        In(event): In<UiSliderEvent>,
+        In(event): In<UiEvent<UiSliderEvent>>,
         mut volume_control: NonSendMut<VolumeController>,
     ) {
         if let Err(e) = volume_control.set_volume(event.value) {
@@ -26,9 +28,9 @@ VolumeControl=>
         }
     }
 }
-@callback{[UiCheckBoxEvent]
+@callback{[UiEvent<UiCheckBoxEvent>]
     fn on_mute_event(
-        In(event): In<UiCheckBoxEvent>,
+        In(event): In<UiEvent<UiCheckBoxEvent>>,
         mut volume_control: NonSendMut<VolumeController>,
     ) {
         if let Err(e) = volume_control.set_mute(event.value) {
@@ -50,7 +52,7 @@ VolumeControl=>
     }
 })
 @global(asset_server: AssetServer)
-<UiCheckBoxBundle UiCheckBox=(UiCheckBox::new(vec![(this_entity,on_mute_event)]))
+<UiCheckBoxBundle UiCheckBoxEventDispatcher=(make_callback(this_entity,on_mute_event))
     @style="p-4 align-self:center" @id="mute_checkbox"
     UiCheckBoxState=(UiCheckBoxState::new(*state.mute()))
 >
@@ -62,11 +64,11 @@ VolumeControl=>
         } )) />
 </UiCheckBoxBundle>
 <UiSliderBundle @id="slider" @style="m-8 h-32 w-256 align-self:center"
-    UiSlider=(UiSlider{ callback:Some((this_entity,on_slider_event)), ..default() })
+    UiSliderEventDispatcher=(make_callback(this_entity,on_slider_event))
     UiSliderState=(UiSliderState{value: *state.volume(),..default()})/>
 }
 
-pub fn open_popup(In(event): In<UiButtonEvent>, mut commands: Commands) {
+pub fn open_popup(In(event): In<UiEvent<UiButtonEvent>>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         let style = style!("absolute justify-items:center top-36 align-self:end p-8");
         commands
@@ -83,6 +85,6 @@ pub fn open_popup(In(event): In<UiButtonEvent>, mut commands: Commands) {
                     ..Default::default()
                 });
             })
-            .set_parent(event.button);
+            .set_parent(event.sender());
     }
 }

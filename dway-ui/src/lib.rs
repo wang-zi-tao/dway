@@ -98,6 +98,7 @@ pub struct ScreenUI {
 dway_widget! {
 ScreenUI=>
 @global(theme: Theme)
+@global(callbacks: CallbackTypeRegister)
 @global(asset_server: AssetServer)
 @bundle{{
     name:Name = Name::from("ScreenUI"),
@@ -128,7 +129,7 @@ ScreenUI=>
         Name=(Name::new("panel")) @id="panel">
         <MiniNodeBundle @style="absolute flex-row m-4 left-4" @id="left">
             <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
-                (prop.screen,theme.system(popups::launcher::open_popup))
+                (prop.screen,callbacks.system(popups::launcher::open_popup))
             ])) @style="flex-col">
                 <(UiSvgBundle::new(theme.icon("dashboard", &asset_server))) @style="w-24 h-24" @id="dashboard"/>
             </PanelButtonBundle>
@@ -139,13 +140,13 @@ ScreenUI=>
             <PanelSystemMonitorBundle @id="system_monitor" @style="h-full"/>
             <NotifyButtonBundle @id="notify"/>
             <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
-                (prop.screen,theme.system(popups::volume_control::open_popup))
+                (prop.screen,callbacks.system(popups::volume_control::open_popup))
             ])) @style="flex-col m-4">
                 // <MiniNodeBundle @style="h-24 w-24" />
                 <(UiSvgBundle::new(theme.icon("volume_on", &asset_server))) @style="w-24 h-24" @id="volume"/>
             </PanelButtonBundle>
             <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
-                (prop.screen,theme.system(popups::panel_settings::open_popup))
+                (prop.screen,callbacks.system(popups::panel_settings::open_popup))
             ])) @style="m-4">
                 <(UiSvgBundle::new(theme.icon("settings", &asset_server))) @style="w-24 h-24" @id="settings"/>
             </PanelButtonBundle>
@@ -166,7 +167,7 @@ ScreenUI=>
             >
             <AppListUIBundle/>
             <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
-                (node!(popup_parent),theme.system(popups::dock_launcher::open_popup))
+                (node!(popup_parent),callbacks.system(popups::dock_launcher::open_popup))
             ]))>
                 <(UiSvgBundle::new(theme.icon("apps", &asset_server))) @style="w-48 h-48" @id="apps"/>
             </PanelButtonBundle>
