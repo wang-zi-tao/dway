@@ -789,8 +789,6 @@ impl<T: Material> UiMaterial for ShaderAsset<T> {
             descriptor.label.as_ref().map(|l| l.as_ref())
         );
         descriptor.label = Some(label.into());
-
-
     }
 }
 

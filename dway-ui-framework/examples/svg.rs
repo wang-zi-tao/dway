@@ -1,8 +1,9 @@
-use bevy::asset::io::embedded::EmbeddedAssetRegistry;
-use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
-use bevy::prelude::*;
-use dway_ui_framework::prelude::*;
 use std::path::PathBuf;
+
+use bevy::{
+    asset::io::embedded::EmbeddedAssetRegistry, diagnostic::FrameTimeDiagnosticsPlugin, prelude::*,
+};
+use dway_ui_framework::prelude::*;
 
 fn main() {
     let mut app = App::new();

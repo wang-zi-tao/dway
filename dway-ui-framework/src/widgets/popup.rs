@@ -10,7 +10,7 @@ use crate::{
         },
         AnimationEvent,
     },
-    event::{EventReceiver, UiNodeAppearEvent},
+    event::{make_callback, EventReceiver, UiNodeAppearEvent},
     make_bundle,
     prelude::*,
     render::layer_manager::RenderToLayer,
@@ -23,22 +23,18 @@ pub struct PopupStack {
 }
 
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq)]
-pub enum PopupEventKind {
+pub enum UiPopupEvent {
     Opened,
     Closed,
 }
-#[derive(Debug)]
-pub struct PopupEvent {
-    pub entity: Entity,
-    pub receiver: Entity,
-    pub kind: PopupEventKind,
-}
 
-impl<T: EventReceiver<UiNodeAppearEvent>> EventReceiver<PopupEvent> for T {
-    fn on_event(&self, commands: EntityCommands, event: PopupEvent) {
-        let appear_event = match event.kind {
-            PopupEventKind::Opened => UiNodeAppearEvent::Appear,
-            PopupEventKind::Closed => UiNodeAppearEvent::Disappear,
+pub type UiPopupEventDispatcher = EventDispatcher<UiPopupEvent>;
+
+impl<T: EventReceiver<UiNodeAppearEvent>> EventReceiver<UiPopupEvent> for T {
+    fn on_event(&self, commands: EntityCommands, event: UiPopupEvent) {
+        let appear_event = match &event {
+            UiPopupEvent::Opened => UiNodeAppearEvent::Appear,
+            UiPopupEvent::Closed => UiNodeAppearEvent::Disappear,
         };
         self.on_event(commands, appear_event);
     }
@@ -56,8 +52,6 @@ structstruck::strike! {
                 MouseLeave,
                 None,
             },
-        #[reflect(ignore)]
-        pub callbacks: CallbackSlots<PopupEvent>,
         pub state:
             #[derive(Debug, Clone, Copy, Reflect, Default, PartialEq, Eq)]
             pub enum PopupState {
@@ -85,11 +79,6 @@ structstruck::strike! {
 }
 
 impl UiPopup {
-    pub fn with_callback(mut self, receiver: Entity, callback: SystemId<PopupEvent, ()>) -> Self {
-        self.callbacks.push((receiver, callback));
-        self
-    }
-
     pub fn with_auto_destroy(mut self) -> Self {
         self.auto_destroy = true;
         self
@@ -105,53 +94,29 @@ pub fn update_popup(
         Entity,
         &mut UiPopup,
         &RelativeCursorPosition,
-        Option<&dyn EventReceiver<PopupEvent>>,
+        &UiPopupEventDispatcher,
     )>,
     mouse: Res<ButtonInput<MouseButton>>,
     mut commands: Commands,
 ) {
     let mouse_down =
         || mouse.any_just_pressed([MouseButton::Left, MouseButton::Middle, MouseButton::Right]);
-    for (entity, mut popup, relative_cursor, dispatchs) in popup_query.iter_mut() {
-        let run_close_callback =
-            |popup: &UiPopup, commands: &mut Commands, kind: PopupEventKind| {
-                for (receiver, callback) in &popup.callbacks {
-                    commands.run_system_with_input(
-                        *callback,
-                        PopupEvent {
-                            entity,
-                            kind,
-                            receiver: *receiver,
-                        },
-                    );
-                }
-                let mut entity_commands = commands.entity(entity);
-                for dispatch in dispatchs.iter().flatten() {
-                    dispatch.on_event(
-                        entity_commands.reborrow(),
-                        PopupEvent {
-                            entity,
-                            kind,
-                            receiver: entity,
-                        },
-                    );
-                }
-            };
+    for (entity, mut popup, relative_cursor, event_dispatcher) in popup_query.iter_mut() {
         let mouse_inside = relative_cursor.mouse_over();
         if popup.is_added() && popup.state == PopupState::Open {
-            run_close_callback(&popup, &mut commands, PopupEventKind::Opened);
+            event_dispatcher.send(UiPopupEvent::Opened, &mut commands);
         }
         if popup.state == PopupState::Open {
             if popup.request_close {
                 popup.state = PopupState::Closed;
-                run_close_callback(&popup, &mut commands, PopupEventKind::Closed);
+                event_dispatcher.send(UiPopupEvent::Closed, &mut commands);
             } else {
                 match popup.close_policy {
                     PopupClosePolicy::MouseLeave => {
                         if !mouse_inside {
                             if !popup.hovered {
                                 popup.state = PopupState::Closed;
-                                run_close_callback(&popup, &mut commands, PopupEventKind::Closed);
+                                event_dispatcher.send(UiPopupEvent::Closed, &mut commands);
                             }
                         } else {
                             popup.hovered = true;
@@ -161,7 +126,7 @@ pub fn update_popup(
                         if mouse_down() {
                             if !mouse_inside && !popup.mouse_state_init {
                                 popup.state = PopupState::Closed;
-                                run_close_callback(&popup, &mut commands, PopupEventKind::Closed);
+                                event_dispatcher.send(UiPopupEvent::Closed, &mut commands);
                             }
                         } else {
                             if popup.mouse_state_init {
@@ -189,6 +154,7 @@ make_bundle! {
         pub focus_policy: FocusPolicy,
         #[default(ThemeComponent::widget(WidgetKind::BlurBackground))]
         pub theme: ThemeComponent,
+        pub event_dispatcher: UiPopupEventDispatcher,
     }
 }
 
@@ -201,29 +167,28 @@ impl EventReceiver<AnimationEvent> for UiPopup {
 }
 
 pub fn popup_animation_system<C: UiAnimationConfig>(
-    In(event): In<PopupEvent>,
-    theme: Res<Theme>,
+    In(event): In<UiEvent<UiPopupEvent>>,
+    callbacks: Res<CallbackTypeRegister>,
     mut commands: Commands,
 ) {
-    match event.kind {
-        PopupEventKind::Opened => {
-            commands.entity(event.entity).insert(
-                Animation::new(C::appear_time(), C::appear_ease())
-                    .with_callback(C::appear_animation(&theme)),
-            );
+    match &*event {
+        UiPopupEvent::Opened => {
+            commands.entity(event.receiver()).insert((
+                Animation::new(C::appear_time(), C::appear_ease()),
+                make_callback(event.sender(), C::appear_animation(&callbacks)),
+            ));
         }
-        PopupEventKind::Closed => {
-            commands.entity(event.entity).insert(
-                Animation::new(C::disappear_time(), C::disappear_ease())
-                    .with_callback(C::disappear_animation(&theme)),
-            );
+        UiPopupEvent::Closed => {
+            commands.entity(event.receiver()).insert((
+                Animation::new(C::disappear_time(), C::disappear_ease()),
+                make_callback(event.sender(), C::disappear_animation(&callbacks)),
+            ));
         }
     }
 }
 
-pub fn delay_destroy(In(event): In<PopupEvent>, mut commands: Commands) {
-    if PopupEventKind::Closed == event.kind {
-        commands.entity(event.entity).despawn_recursive(); // TODO: temp code
-                                                           // commands.entity(event.entity).insert(Animation::new(Duration::from_secs_f32(0.4), EaseFunction::BackOut).with_callback(theme.system(AnimationSystem::default())));
+pub fn delay_destroy(In(event): In<UiEvent<UiPopupEvent>>, mut commands: Commands) {
+    if matches!(&*event, UiPopupEvent::Closed) {
+        commands.entity(event.receiver()).despawn_recursive();
     }
 }

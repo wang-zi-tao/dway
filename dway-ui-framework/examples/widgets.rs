@@ -4,17 +4,17 @@ use bevy::{prelude::*, ui::RelativeCursorPosition};
 use dway_ui_derive::{dway_widget, spawn, style};
 use dway_ui_framework::{
     animation::ui::UiAnimationDropdownConfig,
-    event::{make_callback, UiClickEvent, UiEvent},
-    input::{UiInput, UiInputEvent, UiInputEventKind, UiInputExt},
+    event::{make_callback, UiEvent},
+    input::{UiInputEvent, UiInputExt},
     prelude::*,
-    theme::{Theme, ThemeAppExt},
+    theme::Theme,
     widgets::{
         bundles::{
             MiniNodeBundle, UiBlockBundle, UiHighlightBlockBundle, UiHollowBlockBundle,
             UiSunkenBlockBundle,
         },
         button::{
-            UiButton, UiButtonBundle, UiButtonEvent, UiButtonEventDispatcher, UiButtonEventKind,
+            UiButtonBundle, UiButtonEvent, UiButtonEventDispatcher, UiButtonEventKind,
             UiHightlightButtonBundle,
         },
         checkbox::UiCheckBoxBundle,
@@ -43,7 +43,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, theme: Res<Theme>) {
+fn setup(mut commands: Commands, theme: Res<Theme>, callbacks: Res<CallbackTypeRegister>) {
     // Camera so we can see UI
     commands.spawn(Camera2dBundle::default());
 
@@ -65,11 +65,15 @@ fn setup(mut commands: Commands, theme: Res<Theme>) {
             <UiInputBoxBundle @style="w-128 h-32 p-4"/>
             <CounterBundle/>
             <UiButtonBundle  @style="flex-col p-4 m-4 justify-content:center"
-                UiButtonEventDispatcher=( make_callback( Entity::PLACEHOLDER, theme.system(button_open_poppup),) )>
+                UiButtonEventDispatcher=( make_callback( Entity::PLACEHOLDER, callbacks.system(button_open_poppup),) )>
                 <(UiTextBundle::new("open popup", 32, &theme))/>
             </UiButtonBundle>
             <UiHollowBlockBundle  @style="flex-col p-4 m-4 justify-content:center"
-                UiInputExt=( UiInput::default().with_callback( Entity::PLACEHOLDER, theme.system(open_menu),).into() )>
+                UiInputExt=(UiInputExt{
+                    event_dispatcher: make_callback(Entity::PLACEHOLDER, callbacks.system(open_menu)),
+                    ..default()
+                })
+            >
                 <(UiTextBundle::new("open menu", 32, &theme))/>
             </UiHollowBlockBundle>
             <UiComboBoxBundle Name=(Name::new("combobox")) @style="w-128 h-32" UiComboBox=(UiComboBox {
@@ -98,12 +102,18 @@ pub fn button_open_poppup(
     In(event): In<UiEvent<UiButtonEvent>>,
     mut commands: Commands,
     theme: Res<Theme>,
+    callbacks: Res<CallbackTypeRegister>,
 ) {
     if event.kind == UiButtonEventKind::Released {
         commands.entity(event.sender()).with_children(|c| {
             spawn! {c=>
                 <UiBlockBundle ZIndex=(ZIndex::Global(1024)) @style="w-200 h-200 top-120% absolute align-self:center"
-                    UiPopupExt=( UiPopupExt::from(UiPopup::default().with_callback(event.receiver(), theme.system(popup_animation_system::<UiAnimationDropdownConfig>),)) )>
+                    UiPopupExt=(UiPopupExt{
+                        event_dispatcher: make_callback(event.receiver(),
+                            callbacks.system(popup_animation_system::<UiAnimationDropdownConfig>)),
+                        ..default()
+                    })
+                >
                     <(UiTextBundle::new("popup inner", 32, &theme))/>
                 </UiBlockBundle>
             }
@@ -112,21 +122,21 @@ pub fn button_open_poppup(
 }
 
 pub fn open_menu(
-    In(event): In<UiInputEvent>,
+    In(event): In<UiEvent<UiInputEvent>>,
     theme: Res<Theme>,
     mut commands: Commands,
     node_query: Query<(&RelativeCursorPosition, &Node)>,
 ) {
-    match event.kind {
-        UiInputEventKind::MouseRelease(MouseButton::Left) => {
-            let Ok((relative_pos, node)) = node_query.get(event.node) else {
+    match &*event {
+        UiInputEvent::MouseRelease(MouseButton::Left) => {
+            let Ok((relative_pos, node)) = node_query.get(event.sender()) else {
                 return;
             };
             let Some(normalized) = relative_pos.normalized else {
                 return;
             };
             let delta = normalized * node.size();
-            commands.entity(event.node).with_children(|c| {
+            commands.entity(event.sender()).with_children(|c| {
                 spawn! {c=>
                     <UiBlockBundle @style="absolute flex-col p-8 left-{delta.x} top-{delta.y}"
                         UiPopupExt=(UiPopup::default().with_auto_destroy().into())>

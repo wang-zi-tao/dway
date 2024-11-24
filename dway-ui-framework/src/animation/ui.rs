@@ -1,7 +1,10 @@
 use interpolation::EaseFunction;
 
 use super::{AnimationEaseMethod, AnimationEvent};
-use crate::prelude::*;
+use crate::{
+    event::{CallbackTypeRegister, UiEvent},
+    prelude::*,
+};
 
 #[derive(Component, Debug, Clone, Default)]
 pub struct TargetStyle(pub Style);
@@ -46,47 +49,41 @@ pub(crate) fn move_rect_by_percent(dest: &mut Style, src: &Style, offset: Vec2, 
     move_val_by_percent(&mut dest.right, &src.bottom, -offset.x, size.x);
 }
 
-pub fn popup_open_drop_down(
-    In(event @ AnimationEvent { entity, value, .. }): In<AnimationEvent>,
-    world: &mut World,
-) {
-    with_backup_style(&event, &mut world.entity_mut(entity), |e| {
+pub fn popup_open_drop_down(In(event): In<UiEvent<AnimationEvent>>, world: &mut World) {
+    with_backup_style(&event, &mut world.entity_mut(event.receiver()), |e| {
         let backup_style = e.get::<TargetStyle>().unwrap().clone();
         let size = e.get::<Node>().unwrap().size();
         move_rect_by_percent(
             &mut e.get_mut().unwrap(),
             &backup_style.0,
-            Vec2::NEG_Y * (1.0 - value),
+            Vec2::NEG_Y * (1.0 - event.value),
             size,
         );
     });
 }
 
-pub fn popup_open_close_up(
-    In(event @ AnimationEvent { entity, value, .. }): In<AnimationEvent>,
-    world: &mut World,
-) {
-    with_backup_style(&event, &mut world.entity_mut(entity), |e| {
+pub fn popup_open_close_up(In(event): In<UiEvent<AnimationEvent>>, world: &mut World) {
+    with_backup_style(&event, &mut world.entity_mut(event.receiver()), |e| {
         let backup_style = e.get::<TargetStyle>().unwrap().clone();
         let size = e.get::<Node>().unwrap().size();
         move_rect_by_percent(
             &mut e.get_mut().unwrap(),
             &backup_style.0,
-            Vec2::NEG_Y * value,
+            Vec2::NEG_Y * event.value,
             size,
         );
     });
     if event.just_finish {
-        world.entity_mut(entity).despawn_recursive();
+        world.entity_mut(event.receiver()).despawn_recursive();
     }
 }
 
 pub fn despawn_recursive_on_animation_finish(
-    In(event): In<AnimationEvent>,
+    In(event): In<UiEvent<AnimationEvent>>,
     mut commands: Commands,
 ) {
     if event.just_finish {
-        commands.entity(event.entity).despawn_recursive();
+        commands.entity(event.receiver()).despawn_recursive();
     }
 }
 
@@ -97,23 +94,23 @@ pub trait UiAnimationConfig {
     fn appear_ease() -> AnimationEaseMethod {
         EaseFunction::QuarticIn.into()
     }
-    fn appear_animation(theme: &Theme) -> SystemId<AnimationEvent>;
+    fn appear_animation(callbacks: &CallbackTypeRegister) -> SystemId<UiEvent<AnimationEvent>>;
     fn disappear_time() -> Duration {
         Duration::from_secs_f32(0.5)
     }
     fn disappear_ease() -> AnimationEaseMethod {
         EaseFunction::QuarticOut.into()
     }
-    fn disappear_animation(theme: &Theme) -> SystemId<AnimationEvent>;
+    fn disappear_animation(callbacks: &CallbackTypeRegister) -> SystemId<UiEvent<AnimationEvent>>;
 }
 
 pub struct UiAnimationDropdownConfig;
 impl UiAnimationConfig for UiAnimationDropdownConfig {
-    fn appear_animation(theme: &Theme) -> SystemId<AnimationEvent> {
-        theme.system(popup_open_drop_down)
+    fn appear_animation(callbacks: &CallbackTypeRegister) -> SystemId<UiEvent<AnimationEvent>> {
+        callbacks.system(popup_open_drop_down)
     }
 
-    fn disappear_animation(theme: &Theme) -> SystemId<AnimationEvent> {
-        theme.system(popup_open_close_up)
+    fn disappear_animation(callbacks: &CallbackTypeRegister) -> SystemId<UiEvent<AnimationEvent>> {
+        callbacks.system(popup_open_close_up)
     }
 }

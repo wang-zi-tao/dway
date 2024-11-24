@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
 use bevy::{
-    ecs::system::RunSystemOnce,
+    ecs::system::{EntityCommands, RunSystemOnce},
     input::keyboard::Key,
     text::{BreakLineOn, TextLayoutInfo},
     ui::RelativeCursorPosition,
@@ -10,23 +10,16 @@ use bevy_trait_query::RegisterExt;
 use derive_builder::Builder;
 
 use crate::{
+    event::{EventReceiver, UiEvent},
     prelude::*,
     theme::{ThemeComponent, WidgetKind},
 };
 
-structstruck::strike! {
-    #[strikethrough[derive(Debug, Clone, Reflect)]]
-    pub struct UiInputboxEvent{
-        pub receiver: Entity,
-        pub widget: Entity,
-        pub kind:
-        #[derive(PartialEq, Eq)]
-        enum UiInputboxEventKind {
-            Enter,
-            Changed,
-            CursorMoved,
-        }
-    }
+#[derive(Debug, Clone, Reflect, PartialEq, Eq)]
+pub enum UiInputboxEvent {
+    Enter,
+    Changed,
+    CursorMoved,
 }
 
 #[derive(Debug)]
@@ -75,8 +68,6 @@ structstruck::strike! {
     #[strikethrough[derive(Debug, Clone, Reflect)]]
     pub struct UiInputBox{
         pub placeholder: String,
-        #[reflect(ignore)]
-        pub callback: CallbackSlots<UiInputboxEvent>,
         pub kind:
             #[derive(Default)]
             enum UiInputBoxKind{
@@ -91,17 +82,6 @@ structstruck::strike! {
         #[default(24.0)]
         pub text_size: f32,
         pub font: Option<Handle<Font>>,
-    }
-}
-
-impl UiInputBox {
-    pub fn register_callback(&mut self, callback: Callback<UiInputboxEvent>) {
-        self.callback.push(callback);
-    }
-
-    pub fn with_callback(mut self, callback: Callback<UiInputboxEvent>) -> Self {
-        self.callback.push(callback);
-        self
     }
 }
 
@@ -159,7 +139,7 @@ pub fn move_cursor(
 }
 
 fn on_input_event(
-    In(event): In<UiInputEvent>,
+    In(event): In<UiEvent<UiInputEvent>>,
     mut query: Query<(
         Entity,
         Ref<Interaction>,
@@ -168,6 +148,7 @@ fn on_input_event(
         &mut UiInputBoxState,
         &mut UiInput,
         &RelativeCursorPosition,
+        &UiInputBoxEventDispatcher,
     )>,
     text_node_query: Query<(Ref<Node>, Ref<TextLayoutInfo>)>,
     mut input_focus_event: EventWriter<UiFocusEvent>,
@@ -181,13 +162,14 @@ fn on_input_event(
         mut inputbox_state,
         focus_state,
         relative_pos,
-    )) = query.get_mut(event.node)
+        event_dispatcher,
+    )) = query.get_mut(event.sender())
     else {
         return;
     };
 
-    match event.kind {
-        UiInputEventKind::MousePress(_) => {
+    match &*event {
+        UiInputEvent::MousePress(_) => {
             if *interaction == Interaction::None {
                 input_focus_event.send(UiFocusEvent::FocusLeaveRequest(entity));
                 return;
@@ -215,7 +197,7 @@ fn on_input_event(
                 }
             }
         }
-        UiInputEventKind::MouseMove(_) => {
+        UiInputEvent::MouseMove(_) => {
             if *interaction == Interaction::Pressed {
                 if let Some(normalized) = relative_pos.normalized {
                     let Ok((node, text_layout)) =
@@ -234,20 +216,7 @@ fn on_input_event(
                 }
             }
         }
-        UiInputEventKind::KeyboardInput(key) => {
-            let mut run_callbacks = |event: UiInputboxEventKind| {
-                for (receiver, callback) in &inputbox.callback {
-                    commands.run_system_with_input(
-                        *callback,
-                        UiInputboxEvent {
-                            receiver: *receiver,
-                            widget: entity,
-                            kind: event.clone(),
-                        },
-                    );
-                }
-            };
-
+        UiInputEvent::KeyboardInput(key) => {
             if key.state.is_pressed() {
                 return;
             }
@@ -266,8 +235,8 @@ fn on_input_event(
                             .data()
                             .floor_char_boundary(inputbox_state.cursor_char_index() + s.len());
                         inputbox_state.set_cursor_char_index(position);
-                        run_callbacks(UiInputboxEventKind::CursorMoved);
-                        run_callbacks(UiInputboxEventKind::Changed);
+                        event_dispatcher.send(UiInputboxEvent::CursorMoved, &mut commands);
+                        event_dispatcher.send(UiInputboxEvent::Changed, &mut commands);
                     }
                 }
                 Key::Space => {
@@ -281,8 +250,8 @@ fn on_input_event(
                             .data()
                             .floor_char_boundary(inputbox_state.cursor_char_index() + " ".len());
                         inputbox_state.set_cursor_char_index(position);
-                        run_callbacks(UiInputboxEventKind::CursorMoved);
-                        run_callbacks(UiInputboxEventKind::Changed);
+                        event_dispatcher.send(UiInputboxEvent::CursorMoved, &mut commands);
+                        event_dispatcher.send(UiInputboxEvent::Changed, &mut commands);
                     }
                 }
                 Key::Enter => {
@@ -298,8 +267,8 @@ fn on_input_event(
                         inputbox_state.set_cursor_char_index(position);
                     }
                     if !inputbox.readonly {
-                        run_callbacks(UiInputboxEventKind::CursorMoved);
-                        run_callbacks(UiInputboxEventKind::Enter);
+                        event_dispatcher.send(UiInputboxEvent::CursorMoved, &mut commands);
+                        event_dispatcher.send(UiInputboxEvent::Enter, &mut commands);
                     }
                 }
                 Key::Backspace => {
@@ -309,35 +278,35 @@ fn on_input_event(
                                 inputbox_state.cursor_char_index().saturating_sub(1),
                             );
                         UiInputCommand::new_delete(&inputbox_state).apply(&mut inputbox_state);
-                        run_callbacks(UiInputboxEventKind::CursorMoved);
-                        run_callbacks(UiInputboxEventKind::Changed);
+                        event_dispatcher.send(UiInputboxEvent::CursorMoved, &mut commands);
+                        event_dispatcher.send(UiInputboxEvent::Changed, &mut commands);
                     }
                 }
                 Key::Delete => {
                     if !inputbox.readonly {
                         UiInputCommand::new_delete(&inputbox_state).apply(&mut inputbox_state);
-                        run_callbacks(UiInputboxEventKind::Changed);
+                        event_dispatcher.send(UiInputboxEvent::Changed, &mut commands);
                     }
                 }
                 Key::Home => {
                     *inputbox_state.cursor_char_index_mut() = 0;
-                    run_callbacks(UiInputboxEventKind::CursorMoved);
+                    event_dispatcher.send(UiInputboxEvent::CursorMoved, &mut commands);
                 }
                 Key::End => {
                     *inputbox_state.cursor_char_index_mut() = inputbox_state.data().len();
-                    run_callbacks(UiInputboxEventKind::CursorMoved);
+                    event_dispatcher.send(UiInputboxEvent::CursorMoved, &mut commands);
                 }
                 Key::ArrowRight => {
                     *inputbox_state.cursor_char_index_mut() = inputbox_state
                         .data()
                         .floor_char_boundary(inputbox_state.cursor_char_index().saturating_add(1));
-                    run_callbacks(UiInputboxEventKind::CursorMoved);
+                    event_dispatcher.send(UiInputboxEvent::CursorMoved, &mut commands);
                 }
                 Key::ArrowLeft => {
                     *inputbox_state.cursor_char_index_mut() = inputbox_state
                         .data()
                         .ceil_char_boundary(inputbox_state.cursor_char_index().saturating_sub(1));
-                    run_callbacks(UiInputboxEventKind::CursorMoved);
+                    event_dispatcher.send(UiInputboxEvent::CursorMoved, &mut commands);
                 }
                 Key::ArrowUp => {
                     move_cursor(
@@ -365,19 +334,21 @@ fn on_input_event(
     }
 }
 
-impl UiInputDispatch for UiInputBox {
-    fn on_event(&self, event: UiInputEvent, commands: &mut Commands) {
-        commands.add(|world: &mut World| {
-            world.run_system_once_with(event, on_input_event);
+impl EventReceiver<UiInputEvent> for UiInputBox {
+    fn on_event(&self, mut commands: EntityCommands, event: UiInputEvent) {
+        commands.add(|entity: Entity, world: &mut World| {
+            world.run_system_once_with(UiEvent::new(entity, entity, event), on_input_event);
         });
     }
 }
+
+pub type UiInputBoxEventDispatcher = EventDispatcher<UiInputboxEvent>;
 
 dway_widget! {
 UiInputBox=>
 @plugin{
     app.register_type::<UiInputBox>();
-    app.register_component_as::<dyn UiInputDispatch, UiInputBox>();
+    app.register_component_as::<dyn EventReceiver<UiInputEvent>, UiInputBox>();
     app.register_callback(on_input_event);
 }
 @state_reflect()
@@ -392,6 +363,7 @@ UiInputBox=>
     pub relative_cursor_position: RelativeCursorPosition,
     pub interaction: Interaction,
     pub theme: ThemeComponent = ThemeComponent::widget(WidgetKind::Inputbox),
+    pub event_dispatcher: UiInputBoxEventDispatcher,
 }}
 @world_query(focus_policy: &mut FocusPolicy)
 @arg(text_node_query: Query<Ref<TextLayoutInfo>>)

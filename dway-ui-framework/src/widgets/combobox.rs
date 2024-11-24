@@ -39,13 +39,13 @@ UiComboBox=>
         }
     }
 }
-@callback{ [PopupEvent]
+@callback{ [UiEvent<UiPopupEvent>]
     fn close_popup(
-        In(event): In<PopupEvent>,
+        In(event): In<UiEvent<UiPopupEvent>>,
         mut query: Query<&mut UiComboBoxState>,
     ){
-        let Ok(mut state) = query.get_mut(event.receiver) else {return};
-        if event.kind==PopupEventKind::Closed{
+        let Ok(mut state) = query.get_mut(event.receiver()) else {return};
+        if *event==UiPopupEvent::Closed{
             state.set_open(false);
         }
     }
@@ -77,7 +77,7 @@ UiComboBox=>
 </UiRawButtonBundle>
 <MiniNodeBundle @style="full absolute" @if(*state.open())>
     <UiPopupBundle @id="List" @style="absolute top-110% align-self:center flex-col w-full p-2"
-        UiPopup=(UiPopup::default().with_callback(this_entity, close_popup))
+        UiPopupEventDispatcher=(make_callback(this_entity, close_popup))
         @for((index,item):(usize, &Arc<dyn UiComboboxItem> ) in prop.items.iter().enumerate() => {
             state.set_item(Some(item.clone()));
             state.set_index(index);

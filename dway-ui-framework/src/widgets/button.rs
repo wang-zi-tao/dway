@@ -38,7 +38,7 @@ pub fn update_ui_button(
             Entity,
             &mut UiButton,
             &Interaction,
-            Option<&EventDispatcher<UiButtonEvent>>,
+            &UiButtonEventDispatcher,
             Option<&mut ThemeComponent>,
         ),
         Changed<Interaction>,
@@ -48,16 +48,14 @@ pub fn update_ui_button(
     use UiButtonEventKind::*;
     for (entity, mut button, button_state, dispatcher, theme) in &mut ui_query {
         let mut call = |kind: UiButtonEventKind| {
-            if let Some(dispatcher) = &dispatcher {
-                dispatcher.send(
-                    UiButtonEvent {
-                        kind: kind.clone(),
-                        state: *button_state,
-                        prev_state: button.state,
-                    },
-                    &mut commands,
-                );
-            }
+            dispatcher.send(
+                UiButtonEvent {
+                    kind: kind.clone(),
+                    state: *button_state,
+                    prev_state: button.state,
+                },
+                &mut commands,
+            );
         };
         match (button.state, button_state) {
             (Interaction::Pressed, Interaction::Hovered) => {

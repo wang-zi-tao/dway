@@ -69,6 +69,14 @@ pub struct UiEvent<E> {
 }
 
 impl<E> UiEvent<E> {
+    pub fn new(receiver: Entity, sender: Entity, event: E) -> Self {
+        Self {
+            receiver,
+            sender,
+            event,
+        }
+    }
+
     pub fn sender(&self) -> Entity {
         self.sender
     }
@@ -91,7 +99,7 @@ impl<E> std::ops::Deref for UiEvent<E> {
 }
 
 pub enum EventReceiverKind<I> {
-    SystemId(Entity, SystemId<UiEvent<I>>),
+    SystemId(Option<Entity>, SystemId<UiEvent<I>>),
     Trigger(Entity),
     Trait(Entity),
     Lambda(Box<dyn Fn(Entity, &I, &mut Commands) + Send + Sync + 'static>),
@@ -115,9 +123,15 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
         Self::default()
     }
 
+    pub fn with_system_to_this(mut self, system: SystemId<UiEvent<E>>) -> Self {
+        self.callbacks
+            .push(EventReceiverKind::SystemId(None, system));
+        self
+    }
+
     pub fn with_system(mut self, receiver: Entity, system: SystemId<UiEvent<E>>) -> Self {
         self.callbacks
-            .push(EventReceiverKind::SystemId(receiver, system));
+            .push(EventReceiverKind::SystemId(Some(receiver), system));
         self
     }
 
@@ -177,14 +191,25 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
         for receiver in self.callbacks.iter() {
             match receiver {
                 EventReceiverKind::SystemId(receiver, system) => {
-                    commands.run_system_with_input(
-                        *system,
-                        UiEvent {
-                            receiver: *receiver,
-                            event: event.clone(),
-                            sender,
-                        },
-                    );
+                    if let Some(receiver) = receiver {
+                        commands.run_system_with_input(
+                            *system,
+                            UiEvent {
+                                receiver: *receiver,
+                                event: event.clone(),
+                                sender,
+                            },
+                        );
+                    } else {
+                        commands.run_system_with_input(
+                            *system,
+                            UiEvent {
+                                receiver: sender,
+                                event: event.clone(),
+                                sender,
+                            },
+                        );
+                    }
                 }
                 EventReceiverKind::Trigger(receiver) => {
                     commands.trigger_targets(
@@ -246,14 +271,13 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
     }
 }
 
-pub trait UiEventAppExt {
-    #[deprecated]
+pub trait CallbackRegisterAppExt {
     fn register_callback<F, I, M>(&mut self, system: F) -> &mut App
     where
         F: IntoSystem<I, (), M> + 'static,
         I: 'static;
 }
-impl UiEventAppExt for App {
+impl CallbackRegisterAppExt for App {
     fn register_callback<F, I, M>(&mut self, system: F) -> &mut App
     where
         F: IntoSystem<I, (), M> + 'static,
@@ -261,19 +285,19 @@ impl UiEventAppExt for App {
     {
         let type_id = system.type_id();
         let system_id = self.world_mut().register_system(system);
-        let mut theme = self.world_mut().resource_mut::<UiEventRegister>();
+        let mut theme = self.world_mut().resource_mut::<CallbackTypeRegister>();
         theme.systems.insert(type_id, Box::new(system_id));
         self
     }
 }
 
 #[derive(Resource)]
-pub struct UiEventRegister {
+pub struct CallbackTypeRegister {
     pub systems: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
     pub triggers: HashMap<TypeId, Entity>,
 }
 
-impl UiEventRegister {
+impl CallbackTypeRegister {
     pub fn register_system<F, I, M>(&mut self, system: F, commands: &mut Commands) -> SystemId<I>
     where
         F: IntoSystem<I, (), M> + 'static,
@@ -325,7 +349,7 @@ impl UiEventRegister {
                 "system is not registered: {system}
 note: add code
 ```
-use dway_ui_framework::event::UiEventAppExt;
+use dway_ui_framework::event::CallbackTypeRegister;
 app.register_callback({system});
 ``` to the plugin to register the system",
                 system = type_name::<F>()

@@ -104,7 +104,9 @@ impl Plugin for UiMeshPlugin {
                 .init_resource::<SpecializedMeshPipelines<UiMesh2dPipeline>>()
                 .add_systems(
                     ExtractSchedule,
-                    (apply_deferred, extract_ui_mesh_node).chain().after(extract_cameras),
+                    (apply_deferred, extract_ui_mesh_node)
+                        .chain()
+                        .after(extract_cameras),
                 )
                 .add_systems(
                     bevy::render::Render,

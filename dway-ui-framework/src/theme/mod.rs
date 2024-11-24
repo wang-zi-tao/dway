@@ -19,7 +19,8 @@ use derive_more::From;
 use downcast_rs::{impl_downcast, Downcast};
 
 use crate::{
-    animation::{apply_tween_asset, ease::AnimationEaseMethod},
+    animation::{apply_tween_asset, ease::AnimationEaseMethod, AnimationEvent},
+    event::{CallbackTypeRegister, EventDispatcher},
     prelude::*,
     shader::{
         effect::{InnerShadow, Shadow},
@@ -71,8 +72,6 @@ pub struct Theme {
     pub color_map: HashMap<String, Color>,
     pub style_map: HashMap<String, Style>,
     #[reflect(ignore)]
-    pub callbacks: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
-    #[reflect(ignore)]
     pub icons: HashMap<Box<str>, ThemeIcon>,
 
     #[reflect(ignore)]
@@ -92,7 +91,6 @@ impl Default for Theme {
             color_map: Default::default(),
             style_map: Default::default(),
             icons: Default::default(),
-            callbacks: Default::default(),
             material_shadow: Shadow::new(
                 color!("#888888"),
                 Vec2::new(0.0, 1.0),
@@ -125,26 +123,6 @@ impl Theme {
             warn!(icon_name = %name,"icon not found in theme");
             Default::default()
         }
-    }
-
-    #[deprecated]
-    pub fn system<F, I, M>(&self, system: F) -> SystemId<I, ()>
-    where
-        F: IntoSystem<I, (), M> + 'static,
-        I: 'static,
-    {
-        let Some(callback) = self.callbacks.get(&system.type_id()) else {
-            panic!(
-                "system is not registered: {system}
-note: add code
-```
-use dway_ui::theme::ThemeAppExt;
-app.register_callback({system});
-``` to the plugin to register the system",
-                system = type_name::<F>()
-            );
-        };
-        *callback.as_ref().downcast_ref().unwrap()
     }
 
     pub fn default_shadow_material(&self) -> Shadow {
@@ -258,7 +236,7 @@ impl Plugin for ThemePlugin {
                 ("panel:hover".to_string(), color!("#ffffff")),
                 ("panel:clicked".to_string(), color!("#D8DEE9")),
                 ("panel-popup".to_string(), Color::WHITE.with_alpha(0.5)),
-                ("panel-popup1".to_string(), Color::rgba(0.9,0.9,0.9,0.5)),
+                ("panel-popup1".to_string(), Color::rgba(0.9, 0.9, 0.9, 0.5)),
                 ("panel-popup:hover".to_string(), color!("#ffffff")),
                 ("panel-popup:clicked".to_string(), color!("#D8DEE9")),
                 ("panel-foreground".to_string(), color!("#1b1d1e")),
@@ -280,28 +258,6 @@ impl Plugin for ThemePlugin {
                 apply_theme_system.in_set(UiFrameworkSystems::UpdateTheme),
             )
             .register_type::<Theme>();
-    }
-}
-
-#[deprecated]
-pub trait ThemeAppExt {
-    #[deprecated]
-    fn register_callback<F, I, M>(&mut self, system: F) -> &mut App
-    where
-        F: IntoSystem<I, (), M> + 'static,
-        I: 'static;
-}
-impl ThemeAppExt for App {
-    fn register_callback<F, I, M>(&mut self, system: F) -> &mut App
-    where
-        F: IntoSystem<I, (), M> + 'static,
-        I: 'static,
-    {
-        let type_id = system.type_id();
-        let system_id = self.world_mut().register_system(system);
-        let mut theme = self.world_mut().resource_mut::<Theme>();
-        theme.callbacks.insert(type_id, Box::new(system_id));
-        self
     }
 }
 
@@ -411,12 +367,11 @@ pub fn insert_material_tween<M: Asset + Interpolation>(
             animation.replay();
         } else {
             let mut animation = Animation::new(duration, ease);
-            {
-                let theme = world.resource::<Theme>();
-                animation
-                    .callbacks
-                    .push(theme.system(apply_tween_asset::<M>));
-            }
+            let event_dispatcher = {
+                let callbacks_register = world.resource::<CallbackTypeRegister>();
+                let system = callbacks_register.system(apply_tween_asset::<M>);
+                EventDispatcher::<AnimationEvent>::default().with_system_to_this(system)
+            };
             animation.replay();
             world.entity_mut(entity).insert(animation);
         }

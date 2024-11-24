@@ -1,14 +1,14 @@
 use std::time::Duration;
 
-use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
-use bevy::diagnostic::LogDiagnosticsPlugin;
-use bevy::prelude::*;
-use bevy::sprite::Mesh2dHandle;
+use bevy::{
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    prelude::*,
+    sprite::Mesh2dHandle,
+};
 use dway_ui_derive::color;
-use dway_ui_framework::render::mesh::UiMeshBundle;
-use dway_ui_framework::render::mesh::UiMeshHandle;
-use dway_ui_framework::render::mesh::UiMeshMaterialPlugin;
-use dway_ui_framework::render::mesh::UiMeshPlugin;
+use dway_ui_framework::render::mesh::{
+    UiMeshBundle, UiMeshHandle, UiMeshMaterialPlugin, UiMeshPlugin,
+};
 
 fn main() {
     App::new()
@@ -66,7 +66,7 @@ fn setup(
     commands.spawn(ColorMesh2dBundle {
         transform: Transform::default().with_translation(Vec3::new(100.0, 200.0, 0.0)),
         mesh: Mesh2dHandle::from(meshes.add(RegularPolygon::new(128.0, 8))),
-        material: mesh2d_materials.add( color!("#ff0000")),
+        material: mesh2d_materials.add(color!("#ff0000")),
         ..Default::default()
     });
 }

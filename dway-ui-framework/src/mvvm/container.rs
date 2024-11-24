@@ -1,8 +1,7 @@
 use std::marker::PhantomData;
 
-use crate::prelude::*;
-
 use super::{DataItem, DynEntityCommand, EntityCommands, EntityWorldRef, ViewFactory, ViewModel};
+use crate::prelude::*;
 
 #[derive(Component, Default)]
 pub struct ItemCell<Item: DataItem> {
@@ -24,8 +23,8 @@ impl<Item: DataItem> ItemCell<Item> {
         mut commands: Commands,
     ) {
         for (entity, model, view, clip) in &mut query {
-            if clip.map(|c| c.clip.is_empty() ).unwrap_or(false) {
-                continue
+            if clip.map(|c| c.clip.is_empty()).unwrap_or(false) {
+                continue;
             }
             let entity_world_ref = EntityWorldRef::new(world, entity);
             if model.update_from_world(entity_world_ref) {

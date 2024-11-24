@@ -1,19 +1,21 @@
 use std::{
     collections::HashMap,
     path::{absolute, PathBuf},
-    sync::
-        atomic::{AtomicBool, Ordering}, time::Duration
-    ,
+    sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
 };
 
 use bevy::{
-    app::{AppExit, ScheduleRunnerPlugin}, core::FrameCount, core_pipeline::core_2d::graph::{Core2d, Node2d}, ecs::system::SystemId, prelude::*, render::{
+    app::{AppExit, ScheduleRunnerPlugin},
+    core::FrameCount,
+    core_pipeline::core_2d::graph::{Core2d, Node2d},
+    ecs::system::SystemId,
+    prelude::*,
+    render::{
         camera::RenderTarget,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         render_asset::RenderAssets,
-        render_graph::{
-            self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel,
-        },
+        render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         render_resource::{
             Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d,
             ImageCopyBuffer, ImageDataLayout, Maintain, MapMode, TextureDescriptor,
@@ -22,7 +24,9 @@ use bevy::{
         renderer::{RenderContext, RenderDevice, RenderQueue},
         texture::{GpuImage, Image},
         Render, RenderApp, RenderSet,
-    }, window::PresentMode, winit::WinitPlugin
+    },
+    window::PresentMode,
+    winit::WinitPlugin,
 };
 use crossbeam_channel::{Receiver, Sender};
 use dway_ui_framework::prelude::*;

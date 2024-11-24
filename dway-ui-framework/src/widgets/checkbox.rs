@@ -1,11 +1,14 @@
-use crate::{make_bundle, prelude::*, theme::{StyleFlags, ThemeComponent, WidgetKind}};
 use bevy_relationship::reexport::SmallVec;
 use smart_default::SmartDefault;
 
+use crate::{
+    make_bundle,
+    prelude::*,
+    theme::{StyleFlags, ThemeComponent, WidgetKind},
+};
+
 #[derive(Component, Default, Reflect)]
 pub struct UiCheckBox {
-    #[reflect(ignore)]
-    pub callback: SmallVec<[(Entity, SystemId<UiCheckBoxEvent>); 2]>,
     pub state: Interaction,
     pub prev_state: Interaction,
 }
@@ -21,19 +24,6 @@ impl UiCheckBoxState {
     }
 }
 
-impl UiCheckBox {
-    pub fn register_callback(&mut self, callback: Callback<UiCheckBoxEvent>) {
-        self.callback.push(callback);
-    }
-    pub fn new(callback: Vec<(Entity, SystemId<UiCheckBoxEvent>)>) -> Self {
-        Self {
-            callback: callback.into(),
-            state: default(),
-            prev_state: default(),
-        }
-    }
-}
-
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum UiCheckBoxEventKind {
     Down,
@@ -44,14 +34,13 @@ pub enum UiCheckBoxEventKind {
     Leaved,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct UiCheckBoxEvent {
-    pub receiver: Entity,
-    pub checkbox: Entity,
     pub kind: UiCheckBoxEventKind,
     pub value: bool,
-    pub state: Interaction,
-    pub prev_state: Interaction,
 }
+
+pub type UiCheckBoxEventDispatcher = EventDispatcher<UiCheckBoxEvent>;
 
 #[derive(Bundle, SmartDefault)]
 pub struct UiCheckBoxExtWithoutState {
@@ -70,7 +59,7 @@ impl From<UiCheckBox> for UiCheckBoxExtWithoutState {
     }
 }
 
-make_bundle!{
+make_bundle! {
     @from checkbox: UiCheckBox,
     @addon UiCheckBoxExt,
     UiCheckBoxBundle {
@@ -81,65 +70,132 @@ make_bundle!{
         pub focus_policy: FocusPolicy,
         #[default(ThemeComponent::new(StyleFlags::default(), WidgetKind::Checkbox))]
         pub theme: ThemeComponent,
+        pub event_dispatcher: UiCheckBoxEventDispatcher,
     }
 }
 
 pub fn update_ui_checkbox(
     mut ui_query: Query<
-        (Entity, &mut UiCheckBox, &mut UiCheckBoxState, &Interaction, Option<&mut ThemeComponent>),
+        (
+            Entity,
+            &mut UiCheckBox,
+            &mut UiCheckBoxState,
+            &Interaction,
+            &UiCheckBoxEventDispatcher,
+            Option<&mut ThemeComponent>,
+        ),
         Changed<Interaction>,
     >,
     mut commands: Commands,
 ) {
-    for (entity, mut checkbox, mut state, button_state, theme) in ui_query.iter_mut() {
+    for (entity, mut checkbox, mut state, button_state, event_dispatcher, theme) in
+        ui_query.iter_mut()
+    {
         use UiCheckBoxEventKind::*;
-        let mut call = |state: &UiCheckBoxState, kind: UiCheckBoxEventKind| {
-            for (receiver, callback) in &checkbox.callback {
-                commands.run_system_with_input(
-                    *callback,
-                    UiCheckBoxEvent {
-                        kind,
-                        receiver: *receiver,
-                        checkbox: entity,
-                        value: state.value,
-                        state: *button_state,
-                        prev_state: checkbox.state,
-                    },
-                );
-            }
-        };
         match (checkbox.state, button_state) {
             (Interaction::Pressed, Interaction::Hovered) => {
-                call(&state, Released);
+                event_dispatcher.send(
+                    UiCheckBoxEvent {
+                        kind: Released,
+                        value: state.value,
+                    },
+                    &mut commands,
+                );
                 state.value = !state.value;
                 if state.value {
-                    call(&state, UiCheckBoxEventKind::Down);
+                    event_dispatcher.send(
+                        UiCheckBoxEvent {
+                            kind: Down,
+                            value: state.value,
+                        },
+                        &mut commands,
+                    );
                 } else {
-                    call(&state, UiCheckBoxEventKind::Up);
+                    event_dispatcher.send(
+                        UiCheckBoxEvent {
+                            kind: Up,
+                            value: state.value,
+                        },
+                        &mut commands,
+                    );
                 }
             }
             (Interaction::Pressed, Interaction::None) => {
-                call(&state, Released);
-                call(&state, Leaved);
+                event_dispatcher.send(
+                    UiCheckBoxEvent {
+                        kind: Released,
+                        value: state.value,
+                    },
+                    &mut commands,
+                );
+                event_dispatcher.send(
+                    UiCheckBoxEvent {
+                        kind: Leaved,
+                        value: state.value,
+                    },
+                    &mut commands,
+                );
                 state.value = !state.value;
                 if state.value {
-                    call(&state, UiCheckBoxEventKind::Down);
+                    event_dispatcher.send(
+                        UiCheckBoxEvent {
+                            kind: Down,
+                            value: state.value,
+                        },
+                        &mut commands,
+                    );
                 } else {
-                    call(&state, UiCheckBoxEventKind::Up);
+                    event_dispatcher.send(
+                        UiCheckBoxEvent {
+                            kind: Up,
+                            value: state.value,
+                        },
+                        &mut commands,
+                    );
                 }
             }
             (Interaction::Hovered, Interaction::Pressed) => {
-                call(&state, Pressed);
+                event_dispatcher.send(
+                    UiCheckBoxEvent {
+                        kind: Pressed,
+                        value: state.value,
+                    },
+                    &mut commands,
+                );
             }
             (Interaction::Hovered, Interaction::None) => {
-                call(&state, Leaved);
+                event_dispatcher.send(
+                    UiCheckBoxEvent {
+                        kind: Leaved,
+                        value: state.value,
+                    },
+                    &mut commands,
+                );
             }
             (Interaction::None, Interaction::Pressed) => {
-                call(&state, Hovered);
-                call(&state, Pressed);
+                event_dispatcher.send(
+                    UiCheckBoxEvent {
+                        kind: Hovered,
+                        value: state.value,
+                    },
+                    &mut commands,
+                );
+                event_dispatcher.send(
+                    UiCheckBoxEvent {
+                        kind: Pressed,
+                        value: state.value,
+                    },
+                    &mut commands,
+                );
             }
             (Interaction::None, Interaction::Hovered) => {
-                call(&state, Hovered);
+                event_dispatcher.send(
+                    UiCheckBoxEvent {
+                        kind: Hovered,
+                        value: state.value,
+                    },
+                    &mut commands,
+                );
             }
             (Interaction::None, Interaction::None)
             | (Interaction::Hovered, Interaction::Hovered)
@@ -148,8 +204,12 @@ pub fn update_ui_checkbox(
         checkbox.state = *button_state;
 
         if let Some(mut theme) = theme {
-            theme.style_flags.set(StyleFlags::HOVERED, checkbox.state == Interaction::Hovered);
-            theme.style_flags.set(StyleFlags::CLICKED, checkbox.state == Interaction::Pressed);
+            theme
+                .style_flags
+                .set(StyleFlags::HOVERED, checkbox.state == Interaction::Hovered);
+            theme
+                .style_flags
+                .set(StyleFlags::CLICKED, checkbox.state == Interaction::Pressed);
             theme.style_flags.set(StyleFlags::DOWNED, state.value);
         }
     }

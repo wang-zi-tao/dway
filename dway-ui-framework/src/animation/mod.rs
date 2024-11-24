@@ -13,7 +13,12 @@ use interpolation::{Ease, EaseFunction};
 use registry::AnimationRegister;
 
 use crate::{
-    command::DestroyInterceptor, event::{EventReceiver, UiNodeAppearEvent}, prelude::*
+    command::DestroyInterceptor,
+    event::{
+        CallbackRegisterAppExt, CallbackTypeRegister, EventDispatcher, EventReceiver, UiEvent,
+        UiNodeAppearEvent,
+    },
+    prelude::*,
 };
 
 pub trait Interpolation {
@@ -91,7 +96,6 @@ impl Interpolation for LinearRgba {
 
 #[derive(Clone, Debug)]
 pub struct AnimationEvent {
-    pub entity: Entity,
     pub value: f32,
     pub old_value: f32,
     pub just_start: bool,
@@ -122,8 +126,6 @@ structstruck::strike! {
             duration: Duration,
             total_duration: Duration,
         },
-        #[reflect(ignore)]
-        pub callbacks: SmallVec<[SystemId<AnimationEvent>; 2]>,
     }
 }
 
@@ -152,14 +154,8 @@ impl Animation {
                 duration: Duration::ZERO,
                 total_duration: duration,
             },
-            callbacks: Default::default(),
             direction: AnimationDirection::Positive,
         }
-    }
-
-    pub fn with_callback(mut self, callback: SystemId<AnimationEvent>) -> Self {
-        self.callbacks.push(callback);
-        self
     }
 
     pub fn pause(&mut self) {
@@ -225,17 +221,13 @@ impl Animation {
 }
 
 pub fn update_animation_system(
-    mut query: Query<(
-        Entity,
-        &mut Animation,
-        Option<&dyn EventReceiver<AnimationEvent>>,
-    )>,
+    mut query: Query<(Entity, &mut Animation, &EventDispatcher<AnimationEvent>)>,
     time: Res<Time>,
     mut redraw_request: EventWriter<RequestRedraw>,
     mut commands: Commands,
 ) {
     let mut play = false;
-    for (entity, mut animation, dispatchs) in &mut query {
+    for (entity, mut animation, event_dispatcher) in &mut query {
         if animation.state != AnimationState::Play {
             continue;
         }
@@ -253,22 +245,16 @@ pub fn update_animation_system(
         if duration > animation.clock.total_duration {
             ease = 1.0;
         }
-        {
-            let animation_event = AnimationEvent {
-                entity,
+
+        event_dispatcher.send(
+            AnimationEvent {
                 value: ease,
                 old_value: ease_old,
                 just_start: animation.clock.duration == Duration::ZERO,
                 just_finish: duration > animation.clock.total_duration,
-            };
-            for callback in &animation.callbacks {
-                commands.run_system_with_input(*callback, animation_event.clone());
-            }
-            for dispatch in dispatchs.iter().flatten() {
-                let mut entity_commands = commands.entity(entity);
-                dispatch.on_event(entity_commands.reborrow(), animation_event.clone());
-            }
-        }
+            },
+            &mut commands,
+        );
 
         if duration > animation.clock.total_duration {
             animation.state = AnimationState::Finished;
@@ -298,10 +284,12 @@ impl<I: Interpolation + Asset> Tween<I> {
 }
 
 pub fn apply_tween_asset<I: Interpolation + Asset>(
-    In(AnimationEvent { entity, value, .. }): In<AnimationEvent>,
+    In(event): In<UiEvent<AnimationEvent>>,
     mut assets: ResMut<Assets<I>>,
     mut query: Query<(&mut Handle<I>, &Tween<I>)>,
 ) {
+    let entity = event.receiver();
+    let AnimationEvent { value, .. } = *event;
     let Ok((mut handle, tween)) = query.get_mut(entity) else {
         return;
     };
@@ -337,15 +325,19 @@ impl<T: Interpolation + Asset> Plugin for AssetAnimationPlugin<T> {
 #[derive(Bundle)]
 pub struct AssetTweenExt<T: Interpolation + Asset> {
     animation: Animation,
+    event_dispatcher: EventDispatcher<AnimationEvent>,
     tween: Tween<T>,
 }
 
 impl<T: Interpolation + Asset> AssetTweenExt<T> {
-    pub fn new(mut animation: Animation, tween: Tween<T>, theme: &Theme) -> Self {
-        animation
-            .callbacks
-            .push(theme.system(apply_tween_asset::<T>));
-        Self { animation, tween }
+    pub fn new(animation: Animation, tween: Tween<T>, callbacks: &CallbackTypeRegister) -> Self {
+        let event_dispatcher = EventDispatcher::default()
+            .with_system_to_this(callbacks.system(apply_tween_asset::<T>));
+        Self {
+            animation,
+            tween,
+            event_dispatcher,
+        }
     }
 }
 
@@ -361,7 +353,7 @@ impl Plugin for AnimationPlugin {
         .init_resource::<AnimationRegister>()
         .register_component_as::<dyn EventReceiver<AnimationEvent>, translation::UiTranslationAnimation>()
         .register_component_as::<dyn EventReceiver<UiNodeAppearEvent>, translation::UiTranslationAnimation>()
-        .register_component_as::<dyn EventReceiver<PopupEvent>, translation::UiTranslationAnimation>()
+        .register_component_as::<dyn EventReceiver<UiPopupEvent>, translation::UiTranslationAnimation>()
         .register_component_as::<dyn DestroyInterceptor, translation::UiTranslationAnimation>()
         .register_callback(ui::popup_open_drop_down)
         .register_callback(ui::popup_open_close_up)

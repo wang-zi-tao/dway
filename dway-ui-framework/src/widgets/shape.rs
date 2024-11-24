@@ -1,10 +1,16 @@
+use bevy::sprite::Mesh2dHandle;
+pub use bevy_prototype_lyon::{
+    draw::*,
+    entity::{Path, ShapeBundle},
+    geometry::GeometryBuilder,
+    path::PathBuilder,
+};
+
 use crate::{
     make_bundle,
     prelude::*,
     render::mesh::{UiMeshHandle, UiMeshTransform},
 };
-use bevy::sprite::{Mesh2dHandle};
-pub use bevy_prototype_lyon::{draw::*, entity::{Path, ShapeBundle}, geometry::GeometryBuilder, path::PathBuilder};
 
 pub fn after_process_shape(
     mut query: Query<(&mut Mesh2dHandle, &mut UiMeshHandle), Changed<Mesh2dHandle>>,

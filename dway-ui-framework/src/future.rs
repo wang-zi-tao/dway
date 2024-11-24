@@ -102,6 +102,6 @@ impl AsyncWorldContext {
 }
 
 #[derive(Component, Default)]
-pub struct TaskStub{
+pub struct TaskStub {
     tasks: Vec<Task<()>>,
 }

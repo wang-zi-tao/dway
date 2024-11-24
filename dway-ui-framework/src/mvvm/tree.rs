@@ -1,5 +1,6 @@
 use std::{
-    collections::{BTreeMap, BTreeSet}, ops::Range
+    collections::{BTreeMap, BTreeSet},
+    ops::Range,
 };
 
 use bevy::ecs::system::EntityCommands;
@@ -135,7 +136,6 @@ fn tree_node_bind_data<NodeId: IndexTrait, Item: DataItem>(
     entity_ref: EntityWorldRef<'_>,
     mut entity_commands: EntityCommands<'_>,
 ) {
-
     let children = model.get_children(id, entity_ref.clone());
     let item_layout = layout.add(entity_commands.reborrow(), id.clone());
     if let Some(children) = &children {
@@ -143,7 +143,13 @@ fn tree_node_bind_data<NodeId: IndexTrait, Item: DataItem>(
             if !layout.has_space() {
                 break;
             }
-            tree_node_bind_data(layout, &child_index, model, entity_ref.clone(), entity_commands.reborrow());
+            tree_node_bind_data(
+                layout,
+                &child_index,
+                model,
+                entity_ref.clone(),
+                entity_commands.reborrow(),
+            );
         }
     }
 }

@@ -88,13 +88,17 @@ pub struct FillColor {
 
 impl From<Color> for FillColor {
     fn from(value: Color) -> Self {
-        Self { color: value.to_linear() }
+        Self {
+            color: value.to_linear(),
+        }
     }
 }
 
 impl FillColor {
     pub fn new(color: Color) -> Self {
-        Self { color: color.to_linear() }
+        Self {
+            color: color.to_linear(),
+        }
     }
 }
 impl Fill for FillColor {
@@ -264,7 +268,10 @@ pub struct AddColor<F: Fill> {
 
 impl<F: Fill> AddColor<F> {
     pub fn new(inner: F, color: Color) -> Self {
-        Self { inner, color: color.to_linear() }
+        Self {
+            inner,
+            color: color.to_linear(),
+        }
     }
 }
 

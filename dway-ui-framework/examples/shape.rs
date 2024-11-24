@@ -1,3 +1,5 @@
+use std::{f32::consts::PI, time::Duration};
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
@@ -11,7 +13,6 @@ use bevy_svg::prelude::{FillOptions, StrokeOptions};
 use chrono::Timelike;
 use dway_ui_derive::color;
 use dway_ui_framework::{widgets::shape::UiShapeBundle, UiFrameworkPlugin};
-use std::{f32::consts::PI, time::Duration};
 
 fn main() {
     App::new()

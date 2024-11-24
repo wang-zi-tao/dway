@@ -1,11 +1,13 @@
 use bevy::ui::RelativeCursorPosition;
 use smart_default::SmartDefault;
-use crate::{prelude::*, theme::{StyleFlags, ThemeComponent, WidgetKind}};
+
+use crate::{
+    prelude::*,
+    theme::{StyleFlags, ThemeComponent, WidgetKind},
+};
 
 #[derive(Component, SmartDefault, Reflect)]
 pub struct UiSlider {
-    #[reflect(ignore)]
-    pub callback: Option<(Entity, SystemId<UiSliderEvent>)>,
     #[default(1.0)]
     pub max: f32,
     #[default(0.0)]
@@ -14,16 +16,16 @@ pub struct UiSlider {
 
 #[derive(Debug, Clone)]
 pub enum UiSliderEventKind {
-    Value(f32),
+    ValueChanged(f32),
 }
 
-#[derive(Event, Debug)]
+#[derive(Clone, Debug)]
 pub struct UiSliderEvent {
-    pub receiver: Entity,
-    pub slider: Entity,
     pub value: f32,
     pub kind: UiSliderEventKind,
 }
+
+pub type UiSliderEventDispatcher = EventDispatcher<UiSliderEvent>;
 
 dway_widget! {
 UiSlider=>
@@ -35,9 +37,11 @@ UiSlider=>
     pub focus_policy: FocusPolicy = FocusPolicy::Block,
     pub style: Style = style!("items-center absolute full min-h-16 min-w-32"),
     pub cursor_positon: RelativeCursorPosition, // TODO 优化
+    pub event_dispatcher: UiSliderEventDispatcher,
 })
 @world_query(slider_interaction: Ref<Interaction>)
 @world_query(mouse_position: Ref<RelativeCursorPosition>)
+@world_query(event_dispatcher: Ref<UiSliderEventDispatcher>)
 @before{
 if ( slider_interaction.is_changed() || mouse_position.is_changed() )
         && *slider_interaction == Interaction::Pressed{
@@ -45,17 +49,10 @@ if ( slider_interaction.is_changed() || mouse_position.is_changed() )
         let slider_rect = mouse_position.normalized_visible_node_rect;
         let raw_value = (relative.x/slider_rect.size().x).max(0.0).min(1.0);
         state.set_value(raw_value*(prop.max-prop.min)+prop.min);
-        if let Some((receiver,callback)) = &prop.callback {
-            commands.run_system_with_input(
-                *callback,
-                UiSliderEvent{
-                    receiver: *receiver,
-                    slider: this_entity,
-                    value: *state.value(),
-                    kind: UiSliderEventKind::Value(*state.value()),
-                }
-            );
-        }
+        event_dispatcher.send(UiSliderEvent{
+            value: *state.value(),
+            kind: UiSliderEventKind::ValueChanged(*state.value()),
+        }, commands);
     }
 } }
 <MiniNodeBundle @id="bar" @style="absolute h-8 w-full min-h-8 align-self:center"

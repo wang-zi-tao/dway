@@ -1,7 +1,9 @@
 pub mod list;
 use bevy::ecs::system::EntityCommands;
 
-use super::{layout::ContainerViewLayout, list::ListItemViewFactory, ContainerViewFactory, ViewFactory};
+use super::{
+    layout::ContainerViewLayout, list::ListItemViewFactory, ContainerViewFactory, ViewFactory,
+};
 use crate::{prelude::*, widgets::text::UiTextExt};
 
 #[derive(Component, Default)]

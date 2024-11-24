@@ -34,7 +34,10 @@ use bevy::{
         view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
         Extract, Render, RenderApp, RenderSet,
     },
-    ui::{PreparedUiMaterial, RenderUiSystem, TransparentUi, UiMaterialPipeline, UiMaterialVertex, UiStack},
+    ui::{
+        PreparedUiMaterial, RenderUiSystem, TransparentUi, UiMaterialPipeline, UiMaterialVertex,
+        UiStack,
+    },
     utils::{HashMap, HashSet},
     window::PrimaryWindow,
 };
