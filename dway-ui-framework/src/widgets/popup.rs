@@ -1,4 +1,7 @@
-use bevy::{ecs::system::EntityCommands, ui::RelativeCursorPosition};
+use bevy::{
+    ecs::{query, system::EntityCommands},
+    ui::RelativeCursorPosition,
+};
 use derive_builder::Builder;
 use interpolation::EaseFunction;
 

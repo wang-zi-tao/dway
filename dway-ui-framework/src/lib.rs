@@ -53,6 +53,7 @@ impl Plugin for UiFrameworkPlugin {
         if !app.is_plugin_added::<ShapePlugin>() {
             app.add_plugins(ShapePlugin);
         }
+        app.insert_resource(CallbackTypeRegister::default());
         app.add_plugins((
             assets::UiAssetsPlugin,
             theme::ThemePlugin,

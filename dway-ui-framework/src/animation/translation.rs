@@ -123,6 +123,7 @@ make_bundle! {
     UiTranslationAnimationBundle{
         pub translation: UiTranslationAnimation,
         pub animation: Animation,
+        pub event_dispatcher: EventDispatcher<AnimationEvent>,
         pub target_style: TargetStyle,
     }
 }

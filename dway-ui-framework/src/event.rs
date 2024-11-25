@@ -254,6 +254,8 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
                             impl_component.on_event(entity_commands.reborrow(), event.clone());
                         }
                     }
+
+                    system_state.apply(world);
                 });
             }
         }
@@ -299,7 +301,7 @@ impl CallbackRegisterAppExt for App {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct CallbackTypeRegister {
     pub systems: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
     pub triggers: HashMap<TypeId, Entity>,

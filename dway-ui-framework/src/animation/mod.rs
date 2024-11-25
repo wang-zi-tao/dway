@@ -324,9 +324,9 @@ impl<T: Interpolation + Asset> Plugin for AssetAnimationPlugin<T> {
 
 #[derive(Bundle)]
 pub struct AssetTweenExt<T: Interpolation + Asset> {
-    animation: Animation,
-    event_dispatcher: EventDispatcher<AnimationEvent>,
-    tween: Tween<T>,
+    pub animation: Animation,
+    pub event_dispatcher: EventDispatcher<AnimationEvent>,
+    pub tween: Tween<T>,
 }
 
 impl<T: Interpolation + Asset> AssetTweenExt<T> {
