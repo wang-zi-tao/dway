@@ -1,10 +1,14 @@
 use std::{
     any::{type_name, Any, TypeId},
+    marker::PhantomData,
     sync::atomic::{AtomicBool, Ordering},
 };
 
 use bevy::{
-    ecs::system::{EntityCommands, IntoObserverSystem, SystemState},
+    ecs::{
+        system::{EntityCommand, EntityCommands, IntoObserverSystem, SystemState},
+        world::{self, Command},
+    },
     reflect::List,
     utils::{hashbrown::hash_map::Entry, HashMap},
 };
@@ -121,6 +125,36 @@ pub struct EventDispatcher<E: Clone + Send + Sync + 'static> {
 impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn add_system(&mut self, receiver: Entity, system: SystemId<UiEvent<E>>) -> &mut Self {
+        self.callbacks
+            .push(EventReceiverKind::SystemId(Some(receiver), system));
+        self
+    }
+
+    pub fn add_system_to_this(&mut self, system: SystemId<UiEvent<E>>) -> &mut Self {
+        self.callbacks
+            .push(EventReceiverKind::SystemId(Some(self.this_entity), system));
+        self
+    }
+
+    pub fn add_systems(&mut self, systems: &[(Entity, SystemId<UiEvent<E>>)]) -> &mut Self {
+        for (receiver, system) in systems {
+            self.callbacks
+                .push(EventReceiverKind::SystemId(Some(*receiver), *system));
+        }
+        self
+    }
+
+    pub fn add_trigger(&mut self, receiver: Entity) -> &mut Self {
+        self.callbacks.push(EventReceiverKind::Trigger(receiver));
+        self
+    }
+
+    pub fn add_trait_callback(&mut self, receiver: Entity) -> &mut Self {
+        self.callbacks.push(EventReceiverKind::Trait(receiver));
+        self
     }
 
     pub fn with_system_to_this(mut self, system: SystemId<UiEvent<E>>) -> Self {
@@ -281,6 +315,80 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
     }
 }
 
+pub struct SendEventCommand<E: Send + Sync + 'static + Clone> {
+    pub event: E,
+    pub entity: Entity,
+}
+
+impl<E: Send + Sync + 'static + Clone> Command for SendEventCommand<E> {
+    fn apply(self, world: &mut World) {
+        let mut system_state = SystemState::<(Query<&EventDispatcher<E>>, Commands)>::new(world);
+        let (query, mut commands) = system_state.get(world);
+        if let Some(event_dispatcher) = query.get(self.entity).ok() {
+            event_dispatcher.send(self.event, &mut commands);
+        }
+        system_state.apply(world);
+    }
+}
+
+impl<E: Send + Sync + 'static + Clone> SendEventCommand<E> {
+    pub fn new(event: E, entity: Entity) -> Self {
+        Self { event, entity }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Action<E: Send + Sync + 'static + Clone, S: Send + Sync + 'static + Clone> {
+    phantom: PhantomData<(E, S)>,
+}
+
+impl<E: Send + Sync + 'static + Clone, S: Send + Sync + 'static + Clone> EntityCommand
+    for Action<E, S>
+where
+    S: IntoSystem<UiEvent<E>, (), ()> + 'static,
+{
+    fn apply(self, entity: Entity, world: &mut World) {
+        let systemid = world
+            .get_resource::<CallbackTypeRegister>()
+            .unwrap()
+            .get_system::<S, UiEvent<E>, ()>();
+        if let Some(mut dispatcher) = world.get_mut::<EventDispatcher<E>>(entity) {
+            dispatcher.add_system(entity, systemid);
+        } else {
+            error!("EventDispatcher not found for entity: {:?}", entity);
+        }
+    }
+}
+
+impl<E: Send + Sync + 'static + Clone, S: Send + Sync + 'static + Clone> Component for Action<E, S>
+where
+    S: IntoSystem<UiEvent<E>, (), ()> + 'static,
+{
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+
+    fn register_component_hooks(hooks: &mut bevy_relationship::reexport::ComponentHooks) {
+        hooks.on_insert(|mut world, entity, _componentId| {
+            let systemid = world
+                .get_resource::<CallbackTypeRegister>()
+                .unwrap()
+                .get_system::<S, UiEvent<E>, ()>();
+            if let Some(mut dispatcher) = world.get_mut::<EventDispatcher<E>>(entity) {
+                dispatcher.add_system(entity, systemid);
+            } else {
+                error!("EventDispatcher not found for entity: {:?}", entity);
+            }
+        });
+    }
+}
+
+impl<E: Send + Sync + 'static + Clone, S: Send + Sync + 'static + Clone> Action<E, S> {
+    pub fn new(_function: S) -> Self {
+        Self {
+            phantom: PhantomData,
+        }
+    }
+}
+
 pub trait CallbackRegisterAppExt {
     fn register_callback<F, I, M>(&mut self, system: F) -> &mut App
     where
@@ -347,6 +455,25 @@ impl CallbackTypeRegister {
                 v.insert(trigger);
             }
         }
+    }
+
+    pub fn get_system<F, I, M>(&self) -> SystemId<I, ()>
+    where
+        F: IntoSystem<I, (), M> + 'static,
+        I: 'static,
+    {
+        let Some(callback) = self.systems.get(&TypeId::of::<F>()) else {
+            panic!(
+                "system is not registered: {system}
+note: add code
+```
+use dway_ui_framework::event::CallbackTypeRegister;
+app.register_callback({system});
+``` to the plugin to register the system",
+                system = type_name::<F>()
+            );
+        };
+        *callback.as_ref().downcast_ref().unwrap()
     }
 
     pub fn system<F, I, M>(&self, system: F) -> SystemId<I, ()>

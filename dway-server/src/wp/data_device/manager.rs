@@ -1,6 +1,6 @@
 use crate::{
     prelude::*,
-    wp::data_device::{data_source::WlDataSource, WlDataDevice},
+    wp::data_device::{data_offer::WlDataOffer, data_source::WlDataSource, WlDataDevice},
 };
 
 #[derive(Component, Reflect, Debug)]
@@ -17,11 +17,11 @@ impl WlDataDeviceManager {
 impl Dispatch<wl_data_device_manager::WlDataDeviceManager, Entity> for DWay {
     fn request(
         state: &mut Self,
-        _client: &wayland_server::Client,
+        client: &wayland_server::Client,
         resource: &wl_data_device_manager::WlDataDeviceManager,
         request: <wl_data_device_manager::WlDataDeviceManager as WlResource>::Request,
         data: &Entity,
-        _dhandle: &DisplayHandle,
+        dhandle: &DisplayHandle,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span =
@@ -36,10 +36,24 @@ impl Dispatch<wl_data_device_manager::WlDataDeviceManager, Entity> for DWay {
                 state.insert_object(DWay::get_entity(&seat), id, data_init, |o| {
                     WlDataDevice::new(o)
                 });
+                if let Some(mut entity_mut) = state.get_entity_mut(DWay::get_entity(&seat)) {
+                    let data_device_version =
+                        entity_mut.get::<WlDataDevice>().unwrap().raw.version();
+                    match WlDataOffer::create(dhandle, client, data_device_version, entity_mut.id())
+                    {
+                        Ok(data_offer) => {
+                            entity_mut.insert(data_offer);
+                        }
+                        Err(e) => {
+                            error!("failed to create WlDataOffer: {e}");
+                        }
+                    };
+                }
             }
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

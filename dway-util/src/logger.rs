@@ -88,22 +88,28 @@ impl<'a> MakeWriter<'a> for LoggerWritter {
 }
 
 pub fn log_layer(app: &mut App) -> Option<BoxedLayer> {
-    let settings = app.world().resource::<DWayLogSetting>().clone();
+    let settings = app
+        .world_mut()
+        .get_resource_or_insert_with::<DWayLogSetting>(Default::default)
+        .clone();
     let _ = std::fs::create_dir(&*settings.log_dir);
     let file_appender = tracing_appender::rolling::hourly(&*settings.log_dir, &*settings.log_file);
     let (log_file, log_file_guard) = tracing_appender::non_blocking(file_appender);
     app.insert_non_send_resource(log_file_guard);
 
-    let (tx, rx) = mpsc::channel();
-    let mut cache = app.world_mut().non_send_resource_mut::<LoggerCache>();
-    cache.rx = Some(rx);
+    let layers = (tracing_subscriber::fmt::Layer::new().with_writer(std::io::stderr))
+        .and_then(tracing_subscriber::fmt::Layer::new().with_writer(log_file))
+        .and_then(tracing_journald::Layer::new().unwrap());
 
-    Some(Box::new(
-        (tracing_subscriber::fmt::Layer::new().with_writer(std::io::stderr))
-            .and_then(tracing_subscriber::fmt::Layer::new().with_writer(log_file))
-            .and_then(tracing_subscriber::fmt::Layer::new().with_writer(LoggerWritter { tx }))
-            .and_then(tracing_journald::Layer::new().unwrap()),
-    ))
+    if let Some(mut cache) = app.world_mut().get_non_send_resource_mut::<LoggerCache>() {
+        let (tx, rx) = mpsc::channel();
+        cache.rx = Some(rx);
+        return Some(Box::new(layers.and_then(
+            tracing_subscriber::fmt::Layer::new().with_writer(LoggerWritter { tx }),
+        )));
+    } else {
+        return Some(Box::new(layers));
+    }
 }
 
 pub struct DWayLogPlugin;

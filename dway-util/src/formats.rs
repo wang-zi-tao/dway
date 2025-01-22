@@ -17,17 +17,26 @@ pub struct ImageFormat {
 ///ARGB little endian
 pub const ARGB8888: ImageFormat = ImageFormat {
     wl_format: wl_shm::Format::Argb8888,
-    wgpu_format: TextureFormat::Bgra8UnormSrgb,
+    wgpu_format: TextureFormat::Bgra8Unorm,
     vulkan_format: vk::Format::B8G8R8A8_UNORM,
     drm_format: DrmFourcc::Argb8888,
     gles_format: glow::BGRA,
 };
 
+pub const ARGB8888_SRGB: ImageFormat = ImageFormat {
+    wl_format: wl_shm::Format::Argb8888,
+    wgpu_format: TextureFormat::Bgra8UnormSrgb,
+    vulkan_format: vk::Format::B8G8R8A8_SRGB,
+    drm_format: DrmFourcc::Argb8888,
+    gles_format: glow::SRGB_ALPHA,
+};
+
+
 ///RGB little endian
 pub const XRGB8888: ImageFormat = ImageFormat {
     wl_format: wl_shm::Format::Xrgb8888,
-    wgpu_format: TextureFormat::Rgba8UnormSrgb,
-    vulkan_format: vk::Format::B8G8R8_SRGB,
+    wgpu_format: TextureFormat::Rgba8Unorm,
+    vulkan_format: vk::Format::B8G8R8_UNORM,
     drm_format: DrmFourcc::Xrgb8888,
     gles_format: glow::BGRA,
 };
@@ -42,8 +51,8 @@ pub const ABGR8888: ImageFormat = ImageFormat {
 
 pub const XBGR8888: ImageFormat = ImageFormat {
     wl_format: wl_shm::Format::Xbgr8888,
-    wgpu_format: TextureFormat::Rgba8UnormSrgb,
-    vulkan_format: vk::Format::R8G8B8A8_SRGB,
+    wgpu_format: TextureFormat::Rgba8Unorm,
+    vulkan_format: vk::Format::R8G8B8A8_UNORM,
     drm_format: DrmFourcc::Xbgr8888,
     gles_format: glow::RGBA,
 };
@@ -73,7 +82,7 @@ impl ImageFormat {
     }
     pub fn from_wgpu(format: wgpu::TextureFormat) -> Result<Self>{
         Ok( match format {
-            wgpu::TextureFormat::Bgra8UnormSrgb => ARGB8888,
+            wgpu::TextureFormat::Bgra8UnormSrgb => ARGB8888_SRGB,
             wgpu::TextureFormat::Rgba8Unorm => ABGR8888,
             _ => {
                 bail!("unsupported wgpu format ({format:?})");

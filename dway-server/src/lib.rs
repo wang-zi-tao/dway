@@ -31,6 +31,7 @@ pub mod x11;
 pub mod xdg;
 pub mod zwp;
 pub mod zxdg;
+pub mod clipboard;
 
 #[derive(Default)]
 pub struct DWayServerPlugin;

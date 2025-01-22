@@ -8,13 +8,15 @@ use crate::prelude::*;
 pub struct WlDataSource {
     #[reflect(ignore, default = "unimplemented")]
     pub raw: wl_data_source::WlDataSource,
-    pub mime_type: SmallVec<[String; 1]>,
+    pub mime_types: SmallVec<[String; 1]>,
+    pub dnd_action: DndAction,
 }
 impl WlDataSource {
     pub fn new(raw: wl_data_source::WlDataSource) -> Self {
         Self {
             raw,
-            mime_type: Default::default(),
+            mime_types: Default::default(),
+            dnd_action: DndAction::None,
         }
     }
 }
@@ -35,31 +37,29 @@ impl Dispatch<wl_data_source::WlDataSource, Entity> for DWay {
         match request {
             wl_data_source::Request::Offer { mime_type } => {
                 state.with_component(resource, |c: &mut WlDataSource| {
-                    c.mime_type.push(mime_type);
+                    c.mime_types.push(mime_type);
                 });
             }
             wl_data_source::Request::Destroy => {
                 state.destroy_object(resource);
             }
-            wl_data_source::Request::SetActions { dnd_actions } => match dnd_actions {
-                WEnum::Value(DndAction::Ask) => todo!(),
-                WEnum::Value(DndAction::None) => todo!(),
-                WEnum::Value(DndAction::Copy) => {
-                    warn!("TODO: Copy");
-                }
-                WEnum::Value(DndAction::Move) => {
-                    warn!("TODO: Move");
-                },
-                WEnum::Unknown(action) => {
-                    warn!("Unknown dnd_action: {:?}", action);
-                }
-                _ => {
-
-                },
-            },
+            wl_data_source::Request::SetActions { dnd_actions } => {
+                match dnd_actions {
+                    WEnum::Value(action) => {
+                        state.with_component(resource, |c: &mut WlDataSource| {
+                            c.dnd_action = action;
+                        });
+                    }
+                    WEnum::Unknown(action) => {
+                        warn!("Unknown dnd_action: {:?}", action);
+                    }
+                    _ => {}
+                };
+            }
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

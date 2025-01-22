@@ -1,5 +1,6 @@
 pub mod data_source;
 pub mod manager;
+pub mod data_offer;
 
 use crate::{prelude::*, state::add_global_dispatch};
 
