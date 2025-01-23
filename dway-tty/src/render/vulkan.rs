@@ -1,7 +1,7 @@
 use crate::{
     drm::{surface::DrmSurface, DrmDevice},
     gbm::{
-        buffer::{GbmBuffer, RenderImage},
+        buffer::{GbmBuffer},
         SUPPORTED_FORMATS,
     },
 };
@@ -113,25 +113,25 @@ pub fn get_formats(render_device: &wgpu::Device) -> Option<Result<Vec<DrmFormat>
     }
 }
 
-pub fn reset_framebuffer(
-    render_device: &wgpu::Device,
-    buffer: &mut GbmBuffer,
-) -> Option<Result<()>> {
-    unsafe {
-        render_device
-            .as_hal::<Vulkan, _, _>(|hal_device| {
-                hal_device.map(|hal_device: &wgpu_hal::vulkan::Device| {
-                    let device = hal_device.raw_device();
-                    if let RenderImage::Vulkan(image) = &mut buffer.render_image {
-                        trace!(fence=?image.fence,"reset fence");
-                        device.reset_fences(&[image.fence])?;
-                    }
-                    Ok(())
-                })
-            })
-            .flatten()
-    }
-}
+//pub fn reset_framebuffer(
+//    render_device: &wgpu::Device,
+//    buffer: &mut GbmBuffer,
+//) -> Option<Result<()>> {
+//    unsafe {
+//        render_device
+//            .as_hal::<Vulkan, _, _>(|hal_device| {
+//                hal_device.map(|hal_device: &wgpu_hal::vulkan::Device| {
+//                    let device = hal_device.raw_device();
+//                    if let RenderImage::Vulkan(image) = &mut buffer.render_image {
+//                        trace!(fence=?image.fence,"reset fence");
+//                        device.reset_fences(&[image.fence])?;
+//                    }
+//                    Ok(())
+//                })
+//            })
+//            .flatten()
+//    }
+//}
 
 pub fn create_framebuffer_texture(
     hal_device: &wgpu_hal::vulkan::Device,
@@ -281,12 +281,12 @@ pub fn create_framebuffer_texture(
         device.bind_image_memory2(&bind_infos)?;
 
         let fence = device.create_fence(&FenceCreateInfo::builder().build(), None)?;
-        buffer.render_image = RenderImage::Vulkan(Image {
-            device: device.clone(),
-            image,
-            fence,
-            memorys,
-        });
+        //buffer.render_image = RenderImage::Vulkan(Image {
+        //    device: device.clone(),
+        //    image,
+        //    fence,
+        //    memorys,
+        //});
 
         Ok(wgpu_hal::vulkan::Device::texture_from_raw(
             image,
@@ -299,7 +299,7 @@ pub fn create_framebuffer_texture(
                     ..Default::default()
                 },
                 dimension: TextureDimension::D2,
-                format: TextureFormat::Bgra8UnormSrgb,
+                format: TextureFormat::Bgra8Unorm,
                 mip_level_count: 1,
                 sample_count: 1,
                 usage: TextureUses::COLOR_TARGET
@@ -313,46 +313,3 @@ pub fn create_framebuffer_texture(
     }
 }
 
-pub fn commit_drm(
-    surface: &DrmSurface,
-    render_device: &wgpu::Device,
-    drm: &DrmDevice,
-) -> Option<Result<()>> {
-    unsafe {
-        render_device
-            .as_hal::<Vulkan, _, _>(|hal_device| {
-                hal_device.map(|hal_device| {
-                    let guard = surface.inner.lock().unwrap();
-                    let conn = guard.connector;
-                    let device = hal_device.raw_device();
-                    if let Some(buffer) = &guard.pedding {
-                        if let RenderImage::Vulkan(image) = &buffer.render_image {
-                            device.queue_submit(hal_device.raw_queue(), &[], image.fence)?;
-                        }
-                    }
-                    drop(guard);
-
-                    surface.commit(conn, drm, |buffer| {
-                        if let RenderImage::Vulkan(image) = &mut buffer.render_image {
-                            if let Err(e) = device.wait_for_fences(&[image.fence], true, 128000) {
-                                error!("{e}");
-                            };
-                            match device.get_fence_status(image.fence) {
-                                Ok(o) => {
-                                    trace!(fence=?image.fence,"fence state: {o}");
-                                    o
-                                }
-                                Err(e) => {
-                                    error!("failed to get fence state: {e}");
-                                    false
-                                }
-                            }
-                        } else {
-                            false
-                        }
-                    })
-                })
-            })
-            .flatten()
-    }
-}

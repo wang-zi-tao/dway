@@ -17,11 +17,11 @@ use bevy::{
         settings::{RenderCreation, WgpuSettings},
         RenderPlugin,
     },
-    sprite::Mesh2dHandle,
+    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
     winit::WinitPlugin,
 };
 use dway_tty::{drm::surface::DrmSurface, DWayTTYPlugin};
-use dway_util::logger::DWayLogPlugin;
+use dway_util::logger::{log_layer, DWayLogPlugin};
 use tracing::Level;
 use wgpu::Backends;
 
@@ -37,14 +37,14 @@ pub fn main() {
         let mut plugins = DefaultPlugins
             .set(RenderPlugin {
                 render_creation: RenderCreation::Automatic(WgpuSettings {
-                    backends: Some(Backends::VULKAN | Backends::GL),
+                    backends: Some(Backends::GL),
                     ..Default::default()
                 }),
                 ..Default::default()
             })
             .set(LogPlugin {
-                level: Level::TRACE,
-                filter: "dway=debug,dway_server::wl::surface=debug,bevy_ecs=info,naga=info,naga::front=info,bevy_render=debug,bevy_ui=trace,dway_server::input::pointer=info,kayak_ui=info,naga=info,dway-tty=trace".to_string(),
+                level: Level::DEBUG,
+                filter: "dway=debug,dway_server::wl::surface=debug,bevy_ecs=info,naga=info,naga::front=info,bevy_render=trace,bevy_ui=trace,dway_server::input::pointer=info,kayak_ui=info,naga=info,dway-tty=trace".to_string(),
                 ..Default::default()
             });
             if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
@@ -60,7 +60,7 @@ pub fn main() {
         .add_systems(Update,input_event_system);
     app.finish();
     app.cleanup();
-    for i in 0..1024 {
+    for i in 0..64 {
         info!("frame {i}");
         app.update();
         std::thread::sleep(Duration::from_secs_f64(1.0 / 144.0));
@@ -71,6 +71,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
+    mut materials_2d: ResMut<Assets<ColorMaterial>>,
     surface_query: Query<&DrmSurface>,
 ) {
     info!("setup world");
@@ -85,7 +86,7 @@ fn setup(
     }
     for surface in surface_query.iter() {
         let image_handle = surface.image();
-        commands.spawn((Camera3dBundle {
+        commands.spawn((Camera2dBundle {
             transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             camera: Camera {
                 target: RenderTarget::Image(image_handle),
@@ -107,14 +108,21 @@ fn setup(
         ..default()
     });
 
-    commands
-        .spawn((
-            PbrBundle {
-                mesh: meshes.add(Mesh::from(Sphere::default())),
-                material: standard_materials.add(Color::rgb(0.8, 0.7, 0.6)),
-                ..default()
-            },
-        ));
+    commands.spawn(NodeBundle{
+        background_color: BackgroundColor(Color::rgb(0.8, 0.8, 0.8)),
+        style: Style {
+            width: Val::Px(64.),
+            height: Val::Px(64.),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Mesh::from(Sphere::default())),
+        material: standard_materials.add(Color::rgb(0.8, 0.7, 0.6)),
+        ..default()
+    });
 }
 
 pub fn animate_cube(time: Res<Time>, mut query: Query<&mut Transform, With<Mesh2dHandle>>) {

@@ -3,16 +3,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use super::{
-    camera::DrmCamera, connectors::Connector, planes::PlaneConfig, DrmDevice, DrmDeviceFd, PropMap,
-};
-use crate::{
-    drm::{planes::Planes, DrmDeviceState},
-    failure::DWayTTYError::*,
-    gbm::{buffer::GbmBuffer, GbmDevice},
-};
 use anyhow::{anyhow, bail, Result};
-use bevy::{prelude::*, render::camera::RenderTarget};
+use bevy::{prelude::*, render::{camera::RenderTarget, render_asset::RenderAssetUsages}};
 use drm::{
     control::{
         atomic::AtomicModeReq,
@@ -26,6 +18,15 @@ use drm_fourcc::DrmFormat;
 use measure_time::debug_time;
 use tracing::{span, Level};
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
+
+use super::{
+    camera::DrmCamera, connectors::Connector, planes::PlaneConfig, DrmDevice, DrmDeviceFd, PropMap,
+};
+use crate::{
+    drm::{planes::Planes, DrmDeviceState},
+    failure::DWayTTYError::*,
+    gbm::{buffer::GbmBuffer, GbmDevice},
+};
 
 bitflags::bitflags! {
     #[derive(Clone,Copy, Debug,Hash,PartialEq, Eq, PartialOrd, Ord)]
@@ -86,37 +87,14 @@ impl SurfaceInner {
         self.pedding.iter().len() + self.commited.len() + self.available.len()
     }
 
-    pub fn get_buffer(
-        &mut self,
-        drm: &DrmDevice,
-        gbm: &GbmDevice,
-        render_formats: &[DrmFormat],
-    ) -> Result<&mut GbmBuffer> {
-        if self.pedding.is_some() {
-            return Ok(self.pedding.as_mut().unwrap());
-        }
-        if let Some(buffer) = self.available.pop_front() {
-            return Ok(self.pedding.get_or_insert(buffer));
-        }
-        if self.buffer_count() >= 8 {
-            bail!("Number of render buffers reached maximum");
-        }
-        let size = self.mode.size();
-        let size = IVec2::new(size.0 as i32, size.1 as i32);
-        let gbm = gbm.create_buffer(drm, size, &self.formats, render_formats)?;
-        Ok(self.pedding.get_or_insert(gbm))
-    }
-
-    pub fn finish_frame(&mut self) {
-        if let Some(pedding) = self.pedding.take() {
-            self.commited.push_back(pedding);
-        }
-    }
-
     pub fn on_page_flip(&mut self, _event: &PageFlipEvent) {
-        if let Some(commited) = self.showing.take() {
-            self.available.push_back(commited);
-        }
+        //if let Some(commited) = self.showing.take() {
+        //    self.available.push_back(commited);
+        //}
+    }
+
+    pub fn formats(&self) -> &[DrmFormat] {
+        &self.formats
     }
 }
 
@@ -199,17 +177,13 @@ impl DrmSurface {
         self.inner.lock().unwrap().size()
     }
 
-    pub fn finish_frame(&self) {
-        self.inner.lock().unwrap().finish_frame()
-    }
-
-    pub fn commit(
+    pub fn commit_buffer(
         &self,
         conn: connector::Handle,
         drm: &DrmDevice,
-        mut checker: impl FnMut(&mut GbmBuffer) -> bool,
+        buffer: &GbmBuffer,
     ) -> Result<()> {
-        let mut self_guard = self.inner.lock().unwrap();
+        let self_guard = self.inner.lock().unwrap();
         let drm_guard = drm.inner.lock().unwrap();
 
         match (&self_guard.state, &drm_guard.states) {
@@ -219,60 +193,43 @@ impl DrmSurface {
                     props: drm_props, ..
                 },
             ) => {
-                let mut finished_buffer = None;
-                while let Some(buffer) = self_guard.commited.front_mut() {
-                    if checker(buffer) {
-                        if let Some(old_buffer) =
-                            finished_buffer.replace(self_guard.commited.pop_front().unwrap())
-                        {
-                            self_guard.available.push_back(old_buffer);
-                        }
-                    }
+                let size = self_guard.size();
+                let req = create_request(
+                    &self_guard,
+                    conn,
+                    &[(
+                        self_guard.planes.primary.handle,
+                        Some(PlaneConfig {
+                            src: Rect::from_corners(Vec2::default(), size.as_vec2()),
+                            dest: Rect::from_corners(Vec2::default(), size.as_vec2()),
+                            transform: self_guard.transform,
+                            framebuffer: buffer.framebuffer,
+                        }),
+                    )],
+                    drm_props,
+                )?;
+                {
+                    debug_time!("wait_vblank");
+                    if let Err(e) = drm.wait_vblank(
+                        drm::VblankWaitTarget::Relative(1),
+                        VblankWaitFlags::NEXT_ON_MISS,
+                        u32::from(self_guard.crtc) >> 27,
+                        15,
+                    ) {
+                        error!("wait error: {e}");
+                    };
                 }
+                {
+                    let _span =
+                        info_span!("atomic_commit",framebuffer=?buffer.framebuffer).entered();
+                    debug_time!("atomic_commit");
+                    drm.atomic_commit(
+                        AtomicCommitFlags::ALLOW_MODESET | AtomicCommitFlags::NONBLOCK,
+                        req,
+                    )
+                    .map_err(|e| anyhow!("failed to commit drm atomic request: {e}"))?;
 
-                if let Some(buffer) = finished_buffer {
-                    let framebuffer = buffer.framebuffer;
-                    if let Some(buffer) = self_guard.showing.replace(buffer) {
-                        self_guard.available.push_back(buffer);
-                    }
-
-                    let size = self_guard.size();
-                    let req = create_request(
-                        &self_guard,
-                        conn,
-                        &[(
-                            self_guard.planes.primary.handle,
-                            Some(PlaneConfig {
-                                src: Rect::from_corners(Vec2::default(), size.as_vec2()),
-                                dest: Rect::from_corners(Vec2::default(), size.as_vec2()),
-                                transform: self_guard.transform,
-                                framebuffer,
-                            }),
-                        )],
-                        drm_props,
-                    )?;
-                    {
-                        debug_time!("wait_vblank");
-                        if let Err(e) = drm.wait_vblank(
-                            drm::VblankWaitTarget::Relative(1),
-                            VblankWaitFlags::NEXT_ON_MISS,
-                            u32::from(self_guard.crtc) >> 27,
-                            15,
-                        ) {
-                            error!("wait error: {e}");
-                        };
-                    }
-                    {
-                        let _span = info_span!("atomic_commit",framebuffer=?framebuffer).entered();
-                        debug_time!("atomic_commit");
-                        drm.atomic_commit(
-                            AtomicCommitFlags::ALLOW_MODESET | AtomicCommitFlags::NONBLOCK,
-                            req,
-                        )
-                        .map_err(|e| anyhow!("failed to commit drm atomic request: {e}"))?;
-
-                        debug!("commmit drm render buffer");
-                    }
+                    debug!("commmit drm render buffer");
                 }
             }
             (SurfaceState::Legacy {}, DrmDeviceState::Legacy { .. }) => todo!(),
@@ -296,7 +253,6 @@ pub fn create_image(size: IVec2) -> Image {
     image.resize(Extent3d {
         width: size.x as u32,
         height: size.y as u32,
-        depth_or_array_layers: 1,
         ..default()
     });
     image
@@ -306,17 +262,19 @@ pub fn drm_framebuffer_descriptor<'l>(size: IVec2) -> TextureDescriptor<'l> {
     let image_size = Extent3d {
         width: size.x as u32,
         height: size.y as u32,
-        depth_or_array_layers: 1,
         ..default()
     };
     TextureDescriptor {
-        label: Some("gbm framebuffer"),
+        label: Some("gbm_framebuffer"),
         size: image_size,
         dimension: TextureDimension::D2,
         format: TextureFormat::Bgra8UnormSrgb,
         mip_level_count: 1,
         sample_count: 1,
-        usage: TextureUsages::RENDER_ATTACHMENT,
+        usage: TextureUsages::TEXTURE_BINDING
+            | TextureUsages::RENDER_ATTACHMENT
+            | TextureUsages::COPY_DST
+            | TextureUsages::COPY_SRC,
         view_formats: &[],
     }
 }
@@ -507,6 +465,7 @@ mod test {
     use gbm::Format;
     use tracing::Level;
 
+    use super::DrmSurface;
     use crate::{
         drm::{DrmDevice, DrmPlugin},
         gbm::{buffer::GbmBuffer, GbmDevice},
@@ -515,8 +474,6 @@ mod test {
         test::test_suite_plugins,
         udev::UDevPlugin,
     };
-
-    use super::DrmSurface;
 
     #[test]
     pub fn test_create_drm_surface() {

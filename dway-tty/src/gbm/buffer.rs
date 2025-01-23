@@ -1,11 +1,12 @@
+use std::{os::fd::OwnedFd, sync::Mutex};
+
 use anyhow::Result;
 use bevy::prelude::IVec2;
 use drm::control::Device;
 use drm_fourcc::{DrmFourcc, DrmModifier};
 use getset::Getters;
 use smallvec::SmallVec;
-use std::os::fd::OwnedFd;
-use tracing::{error, debug};
+use tracing::{debug, error};
 
 use crate::drm::{DrmDevice, DrmDeviceFd};
 
@@ -24,25 +25,16 @@ pub struct Plane {
     pub stride: u32,
 }
 
-#[derive(Default, Debug)]
-pub enum RenderImage {
-    #[default]
-    None,
-    Gl(crate::render::gles::RenderBuffer),
-    Vulkan(crate::render::vulkan::Image),
-}
-
 #[derive(Debug, Getters)]
 #[get = "pub"]
 pub struct GbmBuffer {
     pub(crate) drm: DrmDeviceFd,
     pub(crate) framebuffer: drm::control::framebuffer::Handle,
-    pub(crate) buffer: gbm::BufferObject<()>,
+    pub(crate) buffer: Mutex<gbm::BufferObject<()>>,
     pub(crate) planes: SmallVec<[Plane; 4]>,
     pub(crate) size: IVec2,
     pub(crate) format: DrmFourcc,
     pub(crate) modifier: DrmModifier,
-    pub(crate) render_image: RenderImage,
 }
 
 impl GbmBuffer {
@@ -70,10 +62,9 @@ impl GbmBuffer {
             planes,
             size,
             format,
-            buffer,
+            buffer: Mutex::new(buffer),
             drm: drm.fd.clone(),
             framebuffer,
-            render_image: Default::default(),
         })
     }
 }
