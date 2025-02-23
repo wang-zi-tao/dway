@@ -19,13 +19,12 @@ use bevy::{
                 batch_and_prepare_sorted_render_phase, clear_batched_cpu_instance_buffers,
                 write_batched_instance_buffer, BatchedInstanceBuffer,
             },
-            GetBatchData, GetFullBatchData, NoAutomaticBatching,
+            GetBatchData, NoAutomaticBatching,
         },
-        camera::{extract_cameras, ExtractedCamera},
-        extract_component::{ExtractComponent, ExtractComponentPlugin},
+        camera::extract_cameras,
         globals::{GlobalsBuffer, GlobalsUniform},
         mesh::{allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo},
-        render_asset::{prepare_assets, RenderAssetPlugin, RenderAssets},
+        render_asset::{RenderAssetPlugin, RenderAssets},
         render_graph::{RenderGraphApp, ViewNodeRunner},
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
@@ -34,7 +33,7 @@ use bevy::{
         render_resource::{binding_types::uniform_buffer, *},
         renderer::{RenderDevice, RenderQueue},
         sync_world::MainEntity,
-        texture::{DefaultImageSampler, FallbackImage, GpuImage},
+        texture::{DefaultImageSampler, GpuImage},
         view::*,
         Extract, RenderApp, RenderSet,
     }, sprite::{
@@ -43,7 +42,7 @@ use bevy::{
     }, ui::{
         graph::{NodeUi, SubGraphUi},
         TransparentUi, UiStack,
-    }, utils::{HashMap, HashSet}
+    }
 };
 
 use self::graph::NodeUiExt;
@@ -152,7 +151,7 @@ where
     T::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        if !app.world().contains_resource::<Assets<T>>() {}
+        app.world().contains_resource::<Assets<T>>();
         if !app.is_plugin_added::<RenderAssetPlugin<PreparedMaterial2d<T>>>() {
             app.add_plugins(RenderAssetPlugin::<PreparedMaterial2d<T>>::default());
         }

@@ -101,7 +101,7 @@ impl EventReceiver<UiNodeAppearEvent> for UiTranslationAnimation {
         commands.queue(move |mut entity_mut: EntityWorldMut| {
             {
                 let mut this = entity_mut.get_mut::<Self>().unwrap();
-                this.appear = &event == &UiNodeAppearEvent::Appear;
+                this.appear = event == UiNodeAppearEvent::Appear;
             }
             {
                 let mut animation = entity_mut.get_mut::<Animation>().unwrap();

@@ -1,10 +1,8 @@
-use bevy::utils::tracing::dispatcher;
-use bevy_relationship::reexport::SmallVec;
 use smart_default::SmartDefault;
 
 // use bevy_tweening::{AssetAnimator, EaseMethod};
 use crate::{
-    event::{make_callback, EventDispatcher, EventReceiverKind},
+    event::{make_callback, EventDispatcher},
     make_bundle,
     prelude::*,
     theme::{StyleFlags, ThemeComponent, WidgetKind},

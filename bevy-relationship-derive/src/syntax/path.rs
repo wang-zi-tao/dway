@@ -116,15 +116,15 @@ impl PathNodeQuery {
     pub fn build(&self, builder: &mut QueryBuilder) {
         let name = &self.name;
         if let Some(filter) = &self.filter {
-            let ty = self.node.to_item_type(builder, &name);
+            let ty = self.node.to_item_type(builder, name);
             let arg = if builder.mutable {
                 quote!(&mut #name)
             } else {
                 quote!(&#name)
             };
-            filter.build(builder, &name, arg, ty);
+            filter.build(builder, name, arg, ty);
         }
-        self.node.build(builder, &name, self.query_filter.as_ref());
+        self.node.build(builder, name, self.query_filter.as_ref());
     }
 }
 

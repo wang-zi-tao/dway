@@ -1,13 +1,10 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    ops::Range,
-};
+use std::collections::{BTreeMap, BTreeSet};
 
 use bevy::ecs::system::EntityCommands;
 
 use super::{
     layout::{ItemLayout, ViewAreaLayout, ViewLayouter},
-    ContainerViewFactory, ContainerViewModel, DataItem, DynEntityCommand, EntityWorldRef,
+    ContainerViewFactory, ContainerViewModel, DataItem, EntityWorldRef,
     IndexTrait, RangeModel, UpdateModel, ViewFactory,
 };
 use crate::prelude::*;
@@ -86,7 +83,7 @@ impl<NodeId: IndexTrait> TreeViewLayout<NodeId> {
         self.used_area.max.y < self.view_area.rect.max.y
     }
 
-    fn add<'l>(&'l mut self, entity: EntityCommands, index: NodeId) -> ItemLayout {
+    fn add(&mut self, entity: EntityCommands, index: NodeId) -> ItemLayout {
         todo!()
     }
 }
@@ -96,7 +93,7 @@ impl<NodeId: IndexTrait> ViewLayouter<NodeId> for TreeViewLayout<NodeId> {
         todo!()
     }
 
-    fn add<'l>(&'l mut self, entity: EntityCommands, index: NodeId) -> ItemLayout {
+    fn add(&mut self, entity: EntityCommands, index: NodeId) -> ItemLayout {
         todo!()
     }
 
@@ -136,7 +133,7 @@ fn tree_node_bind_data<NodeId: IndexTrait, Item: DataItem>(
     entity_ref: EntityWorldRef<'_>,
     mut entity_commands: EntityCommands<'_>,
 ) {
-    let children = model.get_children(id, entity_ref.clone());
+    let children = model.get_children(id, entity_ref);
     let item_layout = layout.add(entity_commands.reborrow(), id.clone());
     if let Some(children) = &children {
         for (child_index, child) in children {
@@ -145,9 +142,9 @@ fn tree_node_bind_data<NodeId: IndexTrait, Item: DataItem>(
             }
             tree_node_bind_data(
                 layout,
-                &child_index,
+                child_index,
                 model,
-                entity_ref.clone(),
+                entity_ref,
                 entity_commands.reborrow(),
             );
         }

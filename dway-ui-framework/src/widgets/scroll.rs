@@ -1,8 +1,7 @@
-use std::process::ChildStdin;
 
 use bevy::{input::mouse::MouseWheel, ui::RelativeCursorPosition};
 
-use crate::{make_bundle, prelude::*};
+use crate::prelude::*;
 
 #[derive(Component, SmartDefault, Reflect, Debug)]
 #[require(Node, UiScrollState, UiScrollWidget, RelativeCursorPosition, Interaction)]

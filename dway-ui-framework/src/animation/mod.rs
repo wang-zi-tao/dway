@@ -3,10 +3,9 @@ pub mod registry;
 pub mod translation;
 pub mod ui;
 
-use std::{marker::PhantomData, sync::Arc};
+use std::marker::PhantomData;
 
 use bevy::window::RequestRedraw;
-use bevy_relationship::reexport::SmallVec;
 use ease::AnimationEaseMethod;
 pub use interpolation;
 use interpolation::{Ease, EaseFunction};
@@ -15,7 +14,7 @@ use registry::AnimationRegister;
 use crate::{
     command::DestroyInterceptor,
     event::{
-        Action, CallbackRegisterAppExt, CallbackTypeRegister, EventDispatcher, EventReceiver,
+        CallbackRegisterAppExt, CallbackTypeRegister, EventDispatcher, EventReceiver,
         UiEvent, UiNodeAppearEvent,
     },
     prelude::*,
@@ -301,7 +300,7 @@ pub fn apply_tween_asset<I: UiMaterial + Interpolation + Asset>(
         (assets.get(&tween.begin), assets.get(&tween.end))
     {
         let new_asset = Interpolation::interpolation(begin_asset, end_asset, value);
-        if &material.0 == &tween.begin || &material.0 == &tween.end {
+        if material.0 == tween.begin || material.0 == tween.end {
             material.0 = assets.add(new_asset);
         } else {
             assets.insert(material.id(), new_asset);

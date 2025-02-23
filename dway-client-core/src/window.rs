@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use bevy::prelude::*;
 use bevy_relationship::{graph_query2, ControlFlow};
 use dway_server::{
-    geometry::{Geometry, GlobalGeometry},
+    geometry::GlobalGeometry,
     macros::{Insert, WindowAction},
     xdg::{
         toplevel::{DWayToplevel, PinedWindow},
@@ -15,7 +15,7 @@ use getset::Getters;
 
 use crate::{
     layout::LayoutStyle,
-    screen::{Screen, ScreenContainsWindow, WindowScreenList},
+    screen::{ScreenContainsWindow, WindowScreenList},
     DWayClientSystem,
 };
 

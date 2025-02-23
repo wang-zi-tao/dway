@@ -1,8 +1,7 @@
-use std::{any::type_name, hash::Hash, marker::PhantomData, ops::Range};
+use std::{hash::Hash, marker::PhantomData, ops::Range};
 
 use bevy::{
     ecs::{
-        entity::EntityHashSet,
         query::ROQueryItem,
         storage::SparseSet,
         system::{
@@ -12,24 +11,19 @@ use bevy::{
     },
     math::FloatOrd,
     render::{
-        extract_component::ExtractComponentPlugin, globals::{GlobalsBuffer, GlobalsUniform}, mesh::PrimitiveTopology, render_asset::{RenderAssetPlugin, RenderAssets}, render_phase::{
+        extract_component::ExtractComponentPlugin, globals::GlobalsBuffer, render_asset::{RenderAssetPlugin, RenderAssets}, render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
             RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewSortedRenderPhases,
         }, render_resource::{
-            binding_types::uniform_buffer, AsBindGroupError, BindGroup, BindGroupEntries,
-            BindGroupLayout, BindGroupLayoutEntries, BlendState, BufferUsages, BufferVec,
-            ColorTargetState, ColorWrites, FragmentState, FrontFace, MultisampleState,
-            OwnedBindingResource, PipelineCache, PolygonMode, PrimitiveState, RawBufferVec,
-            RenderPipelineDescriptor, ShaderRef, ShaderStages, SpecializedRenderPipeline,
-            SpecializedRenderPipelines, TextureFormat, VertexBufferLayout, VertexFormat,
-            VertexState, VertexStepMode,
-        }, renderer::{RenderDevice, RenderQueue}, sync_world::MainEntity, texture::{FallbackImage, GpuImage}, view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms}, Extract, Render, RenderApp, RenderSet
+            BindGroup, BindGroupEntries, BufferUsages, PipelineCache, RawBufferVec, SpecializedRenderPipeline,
+            SpecializedRenderPipelines,
+        }, renderer::{RenderDevice, RenderQueue}, sync_world::MainEntity, view::{ExtractedView, ViewUniformOffset, ViewUniforms}, Extract, Render, RenderApp, RenderSet
     },
     ui::{
-        PreparedUiMaterial, RenderUiSystem, TransparentUi, UiMaterialPipeline, UiMaterialVertex,
+        PreparedUiMaterial, TransparentUi, UiMaterialPipeline, UiMaterialVertex,
         UiStack,
     },
-    utils::{HashMap, HashSet},
+    utils::HashSet,
     window::PrimaryWindow,
 };
 

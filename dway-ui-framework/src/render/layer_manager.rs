@@ -2,7 +2,7 @@ use bevy::{
     asset::load_internal_asset,
     ecs::{entity::EntityHashSet, system::EntityCommand},
     render::{
-        camera::{CameraUpdateSystem, NormalizedRenderTarget, RenderTarget},
+        camera::{NormalizedRenderTarget, RenderTarget},
         mesh::{Indices, PrimitiveTopology},
         render_asset::RenderAssetUsages,
         render_resource::{

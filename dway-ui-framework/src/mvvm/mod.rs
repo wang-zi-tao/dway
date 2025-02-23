@@ -8,7 +8,7 @@ pub mod tree;
 pub mod view;
 pub mod viewmodel;
 
-use std::{any::Any, collections::BTreeSet, hash::Hash, marker::PhantomData};
+use std::{any::Any, hash::Hash, marker::PhantomData};
 
 use bevy::ecs::system::EntityCommands;
 use list::{ListItemViewFactory, ListViewLayout, ListViewTrait};

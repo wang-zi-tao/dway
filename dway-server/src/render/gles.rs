@@ -2,9 +2,7 @@ use std::{
     collections::HashSet,
     ffi::{c_char, c_int, c_void},
     mem::take,
-    num::{NonZero, NonZeroU32},
     os::fd::AsRawFd,
-    ptr::null_mut,
     sync::Arc,
 };
 
@@ -16,15 +14,13 @@ use bevy::{
 use crossbeam_queue::SegQueue;
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use dway_util::formats::ImageFormat;
-use glow::{HasContext, NativeRenderbuffer, NativeTexture, PixelPackData};
-use image::{ImageBuffer, Rgba};
+use glow::{HasContext, NativeRenderbuffer, NativeTexture};
 use khronos_egl::{
     Attrib, Boolean, EGLClientBuffer, EGLContext, EGLDisplay, EGLImage, Enum, Int, NONE,
 };
-use scopeguard::defer;
 use wayland_backend::server::WeakHandle;
-use wgpu::{FilterMode, SamplerDescriptor, Texture, TextureAspect};
-use wgpu_hal::{api::Gles, gles, Api, DropCallback, MemoryFlags, TextureUses};
+use wgpu::Texture;
+use wgpu_hal::{api::Gles, DropCallback};
 use DWayRenderError::*;
 
 use super::{

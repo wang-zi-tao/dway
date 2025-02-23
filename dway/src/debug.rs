@@ -1,7 +1,5 @@
-use std::path::{Path, PathBuf};
 
-use anyhow::Result;
-use bevy::{ecs::schedule::ScheduleLabel, prelude::*};
+use bevy::prelude::*;
 #[cfg(feature = "dump_system_graph")]
 use bevy_mod_debugdump::schedule_graph;
 
@@ -73,7 +71,7 @@ pub fn print_resources(world: &mut World) {
     });
 }
 
-pub fn print_debug_info(query: Query<(Entity, &Node, &Interaction)>, mut commands: Commands) {
+pub fn print_debug_info(query: Query<(Entity, &Node, &Interaction)>, commands: Commands) {
     // for (entity, node, interaction) in &query {
     //     if *interaction == Interaction::Pressed {
     //         debug!(?node,?interaction,"mouse press on {entity:?}");

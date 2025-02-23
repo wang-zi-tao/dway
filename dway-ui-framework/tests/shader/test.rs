@@ -1,4 +1,3 @@
-use std::sync::Arc;
 
 use bevy::prelude::*;
 use dway_ui_framework::{
@@ -8,7 +7,7 @@ use dway_ui_framework::{
         effect::*,
         fill::*,
         shape::{Circle, Rect, *},
-        ShaderAsset, ShaderPlugin, *,
+        ShaderAsset, ShaderPlugin,
     },
 };
 

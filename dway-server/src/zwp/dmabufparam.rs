@@ -1,10 +1,8 @@
 use std::{
     mem::take,
     os::fd::OwnedFd,
-    sync::{Arc, Mutex},
 };
 
-use bevy::ecs::world;
 use drm_fourcc::DrmModifier;
 use wayland_protocols::wp::linux_dmabuf::zv1::server::zwp_linux_buffer_params_v1::Flags;
 

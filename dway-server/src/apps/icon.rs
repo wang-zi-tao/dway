@@ -22,7 +22,6 @@ use futures::{ready, AsyncSeek};
 use futures_lite::AsyncRead;
 use thiserror::Error;
 use winnow::{ascii::dec_uint, seq, token::take_while, PResult, Parser};
-use x11rb::protocol::xinput::HierarchyChangeDataRemoveMaster;
 
 use crate::prelude::*;
 

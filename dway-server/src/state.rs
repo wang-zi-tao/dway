@@ -12,7 +12,7 @@ use std::{
 use anyhow::anyhow;
 use bevy::{
     ecs::{
-        entity::EntityHashSet, event::EventCursor, query::{QueryData, QueryEntityError, WorldQuery}, system::SystemState, world::Command as _
+        entity::EntityHashSet, event::EventCursor, query::{QueryData, QueryEntityError, WorldQuery}, world::Command as _
     },
     tasks::IoTaskPool,
     utils::HashMap,
@@ -198,31 +198,25 @@ impl DWayServer {
                             break;
                         }
                         line=stdout.next()=>{
-                            match line {
-                                Some(Ok(line))=>{
-                                    tracing::event!(
-                                        target:"subprocess",
-                                        tracing::Level::INFO,
-                                        {},
-                                        "({program}) [{id:?}] | {}",
-                                        line
-                                    );
-                                }
-                                _=>{}
+                            if let Some(Ok(line)) = line {
+                                tracing::event!(
+                                    target:"subprocess",
+                                    tracing::Level::INFO,
+                                    {},
+                                    "({program}) [{id:?}] | {}",
+                                    line
+                                );
                             };
                         }
                         line=stderr.next()=>{
-                            match line {
-                                Some(Ok(line))=>{
-                                    tracing::event!(
-                                        target:"subprocess",
-                                        tracing::Level::INFO,
-                                        {},
-                                        "({program}) [{id:?}] | {}",
-                                        line
-                                    );
-                                }
-                                _=>{}
+                            if let Some(Ok(line)) = line {
+                                tracing::event!(
+                                    target:"subprocess",
+                                    tracing::Level::INFO,
+                                    {},
+                                    "({program}) [{id:?}] | {}",
+                                    line
+                                );
                             };
                         }
                     };

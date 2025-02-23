@@ -1,19 +1,19 @@
 use std::cmp::Ordering;
 
 use bevy::{
-    ecs::system::{EntityCommands, RunSystemOnce},
+    ecs::system::EntityCommands,
     input::keyboard::Key,
     text::TextLayoutInfo,
     ui::RelativeCursorPosition,
 };
 use bevy_trait_query::RegisterExt;
 use derive_builder::Builder;
-use unicode_segmentation::{GraphemeCursor, UnicodeSegmentation};
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{
     event::{EventReceiver, UiEvent},
     prelude::*,
-    theme::{ThemeComponent, WidgetKind},
+    theme::ThemeComponent,
 };
 
 #[derive(Debug, Clone, Reflect, PartialEq, Eq)]

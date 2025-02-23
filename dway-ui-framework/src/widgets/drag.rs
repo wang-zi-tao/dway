@@ -1,8 +1,7 @@
 use bevy::ui::RelativeCursorPosition;
-use bevy_relationship::reexport::SmallVec;
 
 use crate::{
-    event::{EventDispatcher, EventReceiver},
+    event::EventDispatcher,
     make_bundle,
     prelude::*,
 };

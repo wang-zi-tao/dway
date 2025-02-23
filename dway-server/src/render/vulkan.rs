@@ -1,5 +1,4 @@
 use std::{
-    ffi::CStr,
     os::fd::{AsFd, AsRawFd, IntoRawFd},
     ptr::null,
     sync::{Arc, RwLock},
@@ -7,7 +6,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Result};
 use ash::{
-    ext::physical_device_drm, khr::external_memory_fd, vk::{self, *}
+    khr::external_memory_fd, vk::{self, *}
 };
 use bevy::render::texture::GpuImage;
 use bevy_relationship::reexport::SmallVec;
@@ -204,8 +203,8 @@ pub fn create_vulkan_dma_image(
             .sharing_mode(SharingMode::EXCLUSIVE)
             .image_type(ImageType::TYPE_2D)
             .extent(Extent3D {
-                width: buffer.size.x as u32,
-                height: buffer.size.y as u32,
+                width: buffer.size.x,
+                height: buffer.size.y,
                 depth: 1,
             })
             .tiling(ImageTiling::DRM_FORMAT_MODIFIER_EXT)
@@ -251,8 +250,7 @@ pub fn create_vulkan_dma_image(
             let fd_mem_type = if instance
                 .get_device_proc_addr(
                     device.handle(),
-                    CStr::from_bytes_with_nul(b"vkGetMemoryFdPropertiesKHR\0")
-                        .unwrap()
+                    c"vkGetMemoryFdPropertiesKHR"
                         .as_ptr(),
                 )
                 .is_some()
@@ -397,7 +395,7 @@ pub fn create_wgpu_dma_image(
             })
             .ok_or(DWayRenderError::BackendIsIsInvalid)??;
         let image = image_guard.image;
-        let format = drm_fourcc_to_wgpu_format(&request)?;
+        let format = drm_fourcc_to_wgpu_format(request)?;
         let hal_texture = vulkan::Device::texture_from_raw(
             image,
             &hal_texture_descriptor(request.size, format)?,

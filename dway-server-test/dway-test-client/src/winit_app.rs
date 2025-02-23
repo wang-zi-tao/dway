@@ -1,17 +1,13 @@
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use anyhow::Result;
-use bevy::{log, tasks::block_on};
-use tokio::{
-    runtime::Runtime,
-    sync::mpsc::{channel, Receiver, Sender},
-};
-use tracing::{debug, error, error_span, info, info_span, warn};
-use wgpu::{MemoryHints, SurfaceTargetUnsafe};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tracing::{debug, error_span, info, info_span};
+use wgpu::MemoryHints;
 use winit::{
     application::ApplicationHandler,
     event::{KeyEvent, WindowEvent},
-    event_loop::{self, ActiveEventLoop, ControlFlow, EventLoop},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     keyboard::NamedKey,
     window::{Window, WindowId},
 };
@@ -30,7 +26,7 @@ async fn run_window(
     render: Arc<AppRender>,
     mut rx: Receiver<AppEvent>,
 ) -> Result<()> {
-    let mut size = window.inner_size();
+    let size = window.inner_size();
 
     let instance = &render.wgpu_instance;
     let surface = instance.create_surface(&window)?;
@@ -93,22 +89,19 @@ async fn run_window(
         cache: None,
     });
 
-    let mut config = surface
+    let config = surface
         .get_default_config(&adapter, size.width, size.height)
         .unwrap();
     surface.configure(&device, &config);
 
     info!("window launched");
-    let mut frame_count = 0;
+    let frame_count = 0;
 
     while let Some(request) = rx.recv().await {
         let _span = error_span!("window event", event = ?request).entered();
         match request {
-            AppEvent::Operate(o) => match o {
-                ClientOperate::Quit => {
-                    break;
-                }
-                _ => {}
+            AppEvent::Operate(o) => if o == ClientOperate::Quit {
+                break;
             },
             AppEvent::Event(e) => match e {
                 WindowEvent::RedrawRequested => {

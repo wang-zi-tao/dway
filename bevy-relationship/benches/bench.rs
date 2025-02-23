@@ -4,8 +4,7 @@ use std::collections::VecDeque;
 use bevy::{
     app::ScheduleRunnerPlugin,
     ecs::{
-        entity,
-        system::{RunSystemOnce, SystemParam},
+        system::RunSystemOnce,
         world::Command,
     },
     prelude::*,

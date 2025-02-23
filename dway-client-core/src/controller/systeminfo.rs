@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use bevy::time::Time;
 use dway_server::macros::{ResMut, Resource};
@@ -158,9 +158,9 @@ pub fn human_readable_fresequency(frequency: u64) -> String {
     if frequency > 1000_000_000 {
         format!("{:.1}GHz", byte as f32 / 1000_000_000 as f32)
     } else if frequency > 1000_000 {
-        format!("{:.1}MHz", byte as f32 / 1000_000 as f32)
+        format!("{:.1}MHz", byte as f32 / 1000_000_f32)
     } else if frequency > 1000 {
-        format!("{:.1}KHz", frequency as f32 / 1000 as f32)
+        format!("{:.1}KHz", frequency as f32 / 1000_f32)
     } else {
         format!("{}Hz", frequency)
     }

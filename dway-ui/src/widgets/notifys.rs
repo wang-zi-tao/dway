@@ -1,5 +1,5 @@
 use bevy_svg::prelude::Svg;
-use dway_client_core::controller::notify::{NotifyAction, NotifyData, NotifyDataBuilder, NotifyHistory, NotifyRequest};
+use dway_client_core::controller::notify::{NotifyAction, NotifyHistory, NotifyRequest};
 use dway_ui_framework::widgets::{button::UiRawButtonBundle, util::visibility};
 use widgets::{button::UiButtonEventDispatcher, text::UiTextBundle};
 
@@ -14,9 +14,9 @@ NotifyButton=>
     fn open_notify_list(
         event: UiEvent<UiButtonEvent>,
         mut query: Query<&mut NotifyButtonState>,
-        mut notify_sender: EventWriter<NotifyRequest>
+        notify_sender: EventWriter<NotifyRequest>
     ) {
-        let Ok(mut state) = query.get_mut(event.receiver()) else {return};
+        let Ok(state) = query.get_mut(event.receiver()) else {return};
         if event.kind == UiButtonEventKind::Released{
         }
     }
@@ -64,7 +64,7 @@ NotifyView=>
         state.set_text(action.text.clone());
     })>
         <UiButtonBundle @use_state(action: String) @use_state(text: String) >
-            <( UiTextBundle::new(&state.text(), 24, &theme) )/>
+            <( UiTextBundle::new(state.text(), 24, &theme) )/>
         </UiButtonBundle>
     </MiniNodeBundle>
 </MiniNodeBundle>

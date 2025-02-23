@@ -1,28 +1,21 @@
 use std::{os::fd::AsRawFd, ptr::null_mut};
 
 use anyhow::{anyhow, bail, Result};
-use bevy::{
-    math::{IVec2, UVec2},
-    prelude::Entity,
-    utils::{HashMap, HashSet},
-};
+use bevy::utils::HashSet;
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
-use dway_util::render::gles::debug_output_texture;
 use gbm::EGLImage;
-use glow::{HasContext, NativeRenderbuffer};
-use khronos_egl::{Boolean, EGLClientBuffer, EGLContext, EGLDisplay, EGLSurface, Enum, Int};
-use tracing::{debug, info, trace};
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
+use glow::HasContext;
+use khronos_egl::{Boolean, EGLClientBuffer, EGLContext, EGLDisplay, Enum, Int};
+use tracing::{debug, trace};
 use wgpu_hal::{
     api::Gles,
-    gles::{AdapterContextLock, Device, Texture, TextureInner},
-    MemoryFlags, TextureUses,
+    gles::{Device, Texture, TextureInner},
 };
 
-use super::{RenderCache, TtyRender, TtyRenderError, TtyRenderState};
+use super::{TtyRender, TtyRenderError};
 use crate::{
     drm::{
-        surface::{DrmSurface, SurfaceInner},
+        surface::DrmSurface,
         DrmDevice,
     },
     gbm::{buffer::GbmBuffer, GbmDevice},
@@ -131,7 +124,7 @@ impl TtyRender for GlTtyRender {
         )?;
 
         let render_buffer =
-            do_create_renderbuffer(&gl, &buffer, egl_display.as_ptr(), &self.functions)?;
+            do_create_renderbuffer(gl, &buffer, egl_display.as_ptr(), &self.functions)?;
 
         debug!("swapchain created");
 
@@ -417,7 +410,7 @@ pub fn get_formats(
                 p_num,
             )
         })
-        .map_err(|e| TtyRenderError::EglError(e))?;
+        .map_err(TtyRenderError::EglError)?;
         if mods.is_empty() {
             render_formats.insert(DrmFormat {
                 code: fourcc,

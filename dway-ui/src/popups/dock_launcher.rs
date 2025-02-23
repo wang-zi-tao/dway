@@ -5,7 +5,7 @@ use dway_server::apps::{
 use event::make_callback;
 use regex::{Regex, RegexBuilder};
 use util::DwayUiDirection;
-use widgets::{inputbox::{UiInputBox, UiInputBoxBundle, UiInputBoxEventDispatcher, UiInputBoxState, UiInputboxEvent}, text::UiTextBundle};
+use widgets::{inputbox::{UiInputBoxBundle, UiInputBoxEventDispatcher, UiInputBoxState, UiInputboxEvent}, text::UiTextBundle};
 
 use crate::{
     panels::PanelButtonBundle,
@@ -40,7 +40,7 @@ pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
                     node: style!("full"),
                     ..Default::default()
                 },
-                DockLauncherUI::default(),
+                DockLauncherUI,
                 DockLauncherUIState::default(),
                 DockLauncherUIWidget::default(),
                 UiTranslationAnimationExt {
@@ -79,11 +79,11 @@ fn on_text_changed(
     if matches!(&*event, UiInputboxEvent::Changed) {
         let filter_string = &inputbox_state.data;
         state.set_filter(
-            RegexBuilder::new(&filter_string)
+            RegexBuilder::new(filter_string)
                 .case_insensitive(true)
                 .build()
                 .unwrap_or_else(|_| {
-                    RegexBuilder::new(&regex::escape(&filter_string))
+                    RegexBuilder::new(&regex::escape(filter_string))
                         .case_insensitive(true)
                         .build()
                         .unwrap()

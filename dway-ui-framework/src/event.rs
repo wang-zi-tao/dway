@@ -7,14 +7,14 @@ use std::{
 use bevy::{
     ecs::{
         system::{EntityCommand, EntityCommands, IntoObserverSystem, SystemState},
-        world::{self, Command},
+        world::{Command},
     },
     reflect::List,
     utils::{hashbrown::hash_map::Entry, HashMap},
 };
 use bevy_relationship::reexport::{SmallVec, StorageType};
 
-use crate::{mvvm::table::TableState, prelude::*};
+use crate::prelude::*;
 
 #[bevy_trait_query::queryable]
 pub trait EventReceiver<E> {
@@ -333,7 +333,7 @@ impl<E: Send + Sync + 'static + Clone> Command for SendEventCommand<E> {
     fn apply(self, world: &mut World) {
         let mut system_state = SystemState::<(Query<&EventDispatcher<E>>, Commands)>::new(world);
         let (query, mut commands) = system_state.get(world);
-        if let Some(event_dispatcher) = query.get(self.entity).ok() {
+        if let Ok(event_dispatcher) = query.get(self.entity) {
             event_dispatcher.send(self.event, &mut commands);
         }
         system_state.apply(world);

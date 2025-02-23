@@ -1,7 +1,4 @@
-use bevy::ecs::{
-    system::{SystemBuffer, SystemParam, SystemState},
-    world,
-};
+use bevy::ecs::system::{SystemBuffer, SystemParam, SystemState};
 
 pub use crate::prelude::*;
 
@@ -35,8 +32,8 @@ pub fn destroy_children_ui(entity: Entity, world: &mut World) {
     let Some(children) = world.get::<Children>(entity) else {
         return;
     };
-    let childrenVec = children.iter().cloned().collect::<Vec<_>>();
-    for child in childrenVec {
+    let children_vec = children.iter().cloned().collect::<Vec<_>>();
+    for child in children_vec {
         destroy_ui(child, world);
     }
 }

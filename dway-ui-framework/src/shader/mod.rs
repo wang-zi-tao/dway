@@ -5,7 +5,6 @@ pub mod transform;
 
 use std::{
     any::{type_name, TypeId},
-    borrow::Borrow,
     collections::BTreeSet,
     marker::PhantomData,
     path::PathBuf,
@@ -666,7 +665,7 @@ impl<T: Material> ShaderAsset<T> {
     }
 
     fn id() -> String {
-        (format!("{:?}", TypeId::of::<T>())).replace(|c: char| c == ':', "=")
+        (format!("{:?}", TypeId::of::<T>())).replace(':', "=")
     }
 
     pub fn raw_path() -> String {

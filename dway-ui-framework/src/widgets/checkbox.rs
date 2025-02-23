@@ -1,4 +1,3 @@
-use bevy_relationship::reexport::SmallVec;
 use smart_default::SmartDefault;
 
 use crate::{

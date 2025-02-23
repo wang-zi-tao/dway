@@ -309,8 +309,7 @@ pub fn do_receive_notify(
                         &data
                             .actions
                             .iter()
-                            .map(|a| [&*a.name, &*a.text])
-                            .flatten()
+                            .flat_map(|a| [&*a.name, &*a.text])
                             .collect::<Vec<&str>>(),
                         &data.hints,
                         data.expire_timeout

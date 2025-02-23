@@ -1,13 +1,11 @@
 use bevy::{
     app::ScheduleRunnerPlugin,
-    ecs::{system::BoxedSystem, world::Command},
+    ecs::world::Command,
     prelude::*,
-    utils::HashSet,
 };
 use bevy_relationship::{
-    relationship, AppExt, ConnectCommand, Connectable, ControlFlow, EntityCommandsExt, SharedReferenceFrom, SharedReferenceRelationship, UniqueReferenceRelationship
+    relationship, ConnectCommand, Connectable, SharedReferenceFrom, SharedReferenceRelationship, UniqueReferenceRelationship
 };
-use bevy_relationship_derive::graph_query2;
 
 relationship!(R0=>F0--T0);
 

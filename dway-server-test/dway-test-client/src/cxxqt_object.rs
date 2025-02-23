@@ -1,6 +1,4 @@
-use core::pin::Pin;
 use std::process::exit;
-use cxx_qt_lib::{QCoreApplication, QGuiApplication, QQmlApplicationEngine, QString};
 
 #[cxx_qt::bridge]
 pub mod qobject {
@@ -28,7 +26,7 @@ pub struct UiObjectRust {
 }
 
 impl qobject::UiObject {
-    pub fn button_exit(self: &Self) {
+    pub fn button_exit(&self) {
         exit(0);
     }
 }

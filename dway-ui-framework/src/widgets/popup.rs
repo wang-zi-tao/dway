@@ -1,22 +1,17 @@
 use bevy::{
-    ecs::{query, system::EntityCommands},
+    ecs::system::EntityCommands,
     ui::RelativeCursorPosition,
 };
 use derive_builder::Builder;
-use interpolation::EaseFunction;
 
 use crate::{
     animation::{
-        ui::{
-            despawn_recursive_on_animation_finish, popup_open_close_up, popup_open_drop_down,
-            UiAnimationConfig,
-        },
+        ui::UiAnimationConfig,
         AnimationEvent,
     },
     event::{make_callback, EventReceiver, UiNodeAppearEvent},
     make_bundle,
     prelude::*,
-    render::layer_manager::RenderToLayer,
     theme::{ThemeComponent, WidgetKind},
 };
 
@@ -131,10 +126,8 @@ pub fn update_popup(
                                 popup.state = PopupState::Closed;
                                 event_dispatcher.send(UiPopupEvent::Closed, &mut commands);
                             }
-                        } else {
-                            if popup.mouse_state_init {
-                                popup.mouse_state_init = false;
-                            }
+                        } else if popup.mouse_state_init {
+                            popup.mouse_state_init = false;
                         }
                     }
                     PopupClosePolicy::None => {}

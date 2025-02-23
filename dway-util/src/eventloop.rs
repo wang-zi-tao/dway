@@ -1,5 +1,5 @@
 use std::{
-    any::{type_name, TypeId},
+    any::type_name,
     num::NonZero,
     os::fd::{AsFd, AsRawFd, BorrowedFd, OwnedFd, RawFd},
     sync::{
@@ -10,22 +10,17 @@ use std::{
 };
 
 use anyhow::Result;
-use backtrace::Backtrace;
 use bevy::{
     app::{AppExit, MainScheduleOrder},
     ecs::schedule::{ExecutorKind, ScheduleLabel},
     prelude::*,
-    utils::HashMap,
-    window::RequestRedraw, winit::WakeUp,
+    utils::HashMap, winit::WakeUp,
 };
-use nix::{
-    libc::listen,
-    sys::{
+use nix::sys::{
         time::TimeSpec,
         timer::{Expiration, TimerSetTimeFlags},
         timerfd::{ClockId, TimerFd, TimerFlags},
-    },
-};
+    };
 pub use polling::AsSource;
 use polling::{Event, Events, PollMode};
 use smallvec::SmallVec;
@@ -105,6 +100,12 @@ impl<Fd: AsSource> std::ops::DerefMut for PollerGuard<Fd> {
 impl<Fd: AsSource> Drop for PollerGuard<Fd> {
     fn drop(&mut self) {
         let _ = self.poller.remove(self.fd.source());
+    }
+}
+
+impl Default for Poller {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

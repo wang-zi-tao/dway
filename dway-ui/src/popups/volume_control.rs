@@ -1,10 +1,6 @@
 use dway_client_core::controller::volume::VolumeController;
 use dway_ui_framework::{
-    animation::{
-        interpolation::EaseFunction,
-        translation::UiTranslationAnimationExt,
-        ui::{popup_open_close_up, popup_open_drop_down},
-    },
+    animation::translation::UiTranslationAnimationExt,
     widgets::checkbox::UiCheckBoxBundle,
 };
 use event::make_callback;

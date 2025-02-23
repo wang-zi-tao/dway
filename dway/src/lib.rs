@@ -4,10 +4,7 @@ pub mod keys;
 pub mod opttions;
 pub mod spawn_app;
 
-use std::{
-    path::{absolute, PathBuf},
-    time::Duration,
-};
+use std::time::Duration;
 
 use bevy::{
     app::PluginGroupBuilder,
@@ -20,15 +17,14 @@ use bevy::{
         settings::{Backends, RenderCreation, WgpuSettings},
         RenderPlugin,
     },
-    window::RequestRedraw,
-    winit::{UpdateMode, WakeUp, WinitPlugin, WinitSettings},
+    winit::{WakeUp, WinitPlugin},
 };
 use bevy_framepace::Limiter;
 use cfg_if::cfg_if;
 use clap::Parser;
 use dway_client_core::{
     layout::{
-        tile::{TileLayoutKind, TileLayoutSet, TileLayoutSetBuilder},
+        tile::{TileLayoutKind, TileLayoutSetBuilder},
         LayoutRect, LayoutStyle,
     },
     model::apps::{AppId, AppListModel},

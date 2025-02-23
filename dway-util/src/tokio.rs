@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use tokio::runtime::{EnterGuard, Runtime};
+use tokio::runtime::Runtime;
 
 pub struct TokioRuntime{
     runtime: Box<Runtime>,

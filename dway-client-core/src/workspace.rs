@@ -1,18 +1,12 @@
-use dway_server::{
-    geometry::{Geometry, GlobalGeometry},
-    util::rect::IRect,
-    xdg::{toplevel::DWayToplevel, DWayWindow},
-};
+use dway_server::geometry::{Geometry, GlobalGeometry};
 use dway_util::update;
 use smart_default::SmartDefault;
 
 use crate::{
     desktop::{CursorOnScreen, FocusedWindow},
-    layout::WorkspaceList,
     prelude::*,
     screen::{
-        create_screen, update_screen, Screen, ScreenContainsWindow, ScreenNotify, ScreenWindowList,
-        WindowScreenList,
+        Screen, ScreenNotify,
     },
     window::Hidden,
 };
@@ -80,7 +74,7 @@ pub fn on_focus_window(
             .entity(screen)
             .disconnect_all::<ScreenAttachWorkspace>()
             .connect_to::<ScreenAttachWorkspace>(workspace.0);
-        return ControlFlow::Return(());
+        ControlFlow::Return(())
     });
 }
 
@@ -95,7 +89,7 @@ pub enum WorkspaceRequest {
 
 pub fn resolve_workspace_request(
     trigger: Trigger<WorkspaceRequest>,
-    mut workspace_query: Query<&Workspace>,
+    workspace_query: Query<&Workspace>,
     screen_query: Query<&Screen>,
     mut geometry_query: Query<&mut Geometry>,
     mut commands: Commands,
@@ -237,7 +231,7 @@ mut workspaces=match
 
 pub fn update_workspace_system(
     mut graph: WorkspaceGraph,
-    mut workspace_manager: ResMut<WorkspaceManager>,
+    workspace_manager: ResMut<WorkspaceManager>,
 ) {
     graph.foreach_workspaces_mut(|(entity, workspace, screen_list)| {
         let no_screen = screen_list.map(|l| l.is_empty()).unwrap_or(true);

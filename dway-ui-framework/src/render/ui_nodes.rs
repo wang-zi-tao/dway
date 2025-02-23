@@ -1,13 +1,11 @@
 use std::{
-    any::{type_name, TypeId},
-    cell::Cell,
+    any::TypeId,
     hash::Hash,
     marker::PhantomData,
     ops::Range,
 };
 
 use bevy::{
-    app::DynEq,
     asset::UntypedAssetId,
     ecs::{
         entity::{EntityHashMap, EntityHashSet},
@@ -18,29 +16,27 @@ use bevy::{
     },
     math::FloatOrd,
     render::{
-        globals::{GlobalsBuffer, GlobalsUniform}, mesh::PrimitiveTopology, render_asset::{RenderAsset, RenderAssets}, render_phase::{
+        globals::{GlobalsBuffer, GlobalsUniform}, mesh::PrimitiveTopology, render_phase::{
             AddRenderCommand, DrawFunctionId, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
             RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
             ViewSortedRenderPhases,
         }, render_resource::{
             binding_types::uniform_buffer, AsBindGroupError, BindGroup, BindGroupEntries,
-            BindGroupLayout, BindGroupLayoutEntries, BlendState, BufferUsages, BufferVec,
+            BindGroupLayout, BindGroupLayoutEntries, BlendState, BufferUsages,
             ColorTargetState, ColorWrites, FragmentState, FrontFace, MultisampleState,
             OwnedBindingResource, PipelineCache, PolygonMode, PrimitiveState, RawBufferVec,
             RenderPipelineDescriptor, ShaderRef, ShaderStages, SpecializedRenderPipeline,
             SpecializedRenderPipelines, TextureFormat, VertexBufferLayout, VertexFormat,
             VertexState, VertexStepMode,
-        }, renderer::{RenderDevice, RenderQueue}, sync_world::MainEntity, texture::{FallbackImage, GpuImage}, view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms}, Extract, Render, RenderApp, RenderSet
+        }, renderer::{RenderDevice, RenderQueue}, sync_world::MainEntity, view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms}, Extract, Render, RenderApp, RenderSet
     },
-    ui::{ExtractedUiNode, ExtractedUiNodes, RenderUiSystem, TransparentUi, UiStack},
+    ui::{TransparentUi, UiStack},
     utils::{hashbrown::hash_map::Entry, HashMap, HashSet},
 };
-use bevy_relationship::reexport::SmallVec;
 use bytemuck::{Pod, Zeroable};
-use smallbox::{space::S2, SmallBox};
 
 use super::ui_material::{QUAD_INDICES, QUAD_VERTEX_POSITIONS, UI_MATERIAL_SHADER_HANDLE};
-use crate::{prelude::*, widgets::scroll::ui_scroll_render};
+use crate::prelude::*;
 
 pub struct UiNodeRenderPlugin;
 impl Plugin for UiNodeRenderPlugin {
@@ -489,7 +485,7 @@ pub fn prepare_ui_materials<M: UiMaterial>(
     mut extracted_assets: ResMut<ExtractedUiMaterials<M>>,
     mut render_materials: ResMut<RenderUiMaterialSet>,
     render_device: Res<RenderDevice>,
-    mut param: &mut StaticSystemParam<M::Param>,
+    param: &mut StaticSystemParam<M::Param>,
 ) {
     for removed in std::mem::take(&mut extracted_assets.removed) {
         render_materials.instantces.remove(&removed.untyped());
@@ -504,7 +500,7 @@ pub fn prepare_ui_materials<M: UiMaterial>(
             &material,
             &render_device,
             &render_materials,
-            &mut param,
+            param,
         ) {
             Ok(prepared_asset) => {
                 render_materials
@@ -528,7 +524,7 @@ fn prepare_ui_material<M: UiMaterial>(
     material: &M,
     render_device: &RenderDevice,
     render_materials: &RenderUiMaterialSet,
-    mut param: &mut StaticSystemParam<M::Param>,
+    param: &mut StaticSystemParam<M::Param>,
 ) -> Result<PreparedUiMaterialInstant, AsBindGroupError> {
     let prepared = material.as_bind_group(
         &render_materials.pipelines[&TypeId::of::<M>()].ui_layout,
@@ -614,7 +610,7 @@ pub fn prepare_ui_nodes(
         let mut pedding_batch: Option<(UntypedAssetId, Entity, UiBatch)> = Default::default();
         let mut index = 0;
 
-        for mut ui_phase in phases.values_mut() {
+        for ui_phase in phases.values_mut() {
             let mut batch_item_index = 0;
             let mut batch_shader_handle = AssetId::<Image>::invalid().untyped();
 
@@ -787,7 +783,7 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
     for SetUiMaterialBindGroup<M, I>
 {
     type ItemQuery = Read<UiBatch>;
-    type Param = (SRes<RenderUiMaterialSet>);
+    type Param = SRes<RenderUiMaterialSet>;
     type ViewQuery = ();
 
     fn render<'w>(

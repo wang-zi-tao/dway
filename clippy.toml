@@ -1,2 +1,2 @@
-too_many_arguments = false
-type_complexity = false
+too-many-arguments-threshold = 16
+type-complexity-threshold = 512

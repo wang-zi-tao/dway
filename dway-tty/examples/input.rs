@@ -7,7 +7,7 @@ use bevy::{
     log::LogPlugin,
     prelude::*,
 };
-use dway_tty::{libinput::LibInputPlugin, seat::{SeatPlugin, SeatState}};
+use dway_tty::{libinput::LibInputPlugin, seat::SeatPlugin};
 use dway_util::eventloop::{EventLoopPlugin, EventLoopPluginMode};
 use std::time::Duration;
 

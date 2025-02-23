@@ -4,13 +4,13 @@ use backtrace::Backtrace;
 use bevy::{
     app::{App, Update},
     ecs::system::{NonSendMut, Resource},
-    log::{error, warn, BoxedLayer, Level},
+    log::{error, warn, BoxedLayer},
     prelude::Plugin,
 };
 use nix::sys::{signal, signal::Signal};
 use smallvec::SmallVec;
 use tracing_subscriber::{
-    fmt::MakeWriter, prelude::__tracing_subscriber_SubscriberExt, EnvFilter, Layer,
+    fmt::MakeWriter, Layer,
 };
 
 #[derive(Debug)]
@@ -104,11 +104,11 @@ pub fn log_layer(app: &mut App) -> Option<BoxedLayer> {
     if let Some(mut cache) = app.world_mut().get_non_send_resource_mut::<LoggerCache>() {
         let (tx, rx) = mpsc::channel();
         cache.rx = Some(rx);
-        return Some(Box::new(layers.and_then(
+        Some(Box::new(layers.and_then(
             tracing_subscriber::fmt::Layer::new().with_writer(LoggerWritter { tx }),
-        )));
+        )))
     } else {
-        return Some(Box::new(layers));
+        Some(Box::new(layers))
     }
 }
 

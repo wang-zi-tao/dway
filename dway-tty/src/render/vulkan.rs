@@ -1,21 +1,14 @@
-use crate::{
-    drm::{surface::DrmSurface, DrmDevice},
-    gbm::{
+use crate::gbm::{
         buffer::{GbmBuffer},
         SUPPORTED_FORMATS,
-    },
-};
+    };
 use anyhow::{anyhow, bail, Result};
 use ash::{
     khr::external_memory_fd, vk::{self, *}
 };
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use smallvec::SmallVec;
-use std::{
-    ffi::CStr,
-    os::fd::{AsFd, AsRawFd, IntoRawFd},
-};
-use tracing::{error, trace};
+use std::os::fd::{AsFd, AsRawFd, IntoRawFd};
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 use wgpu_hal::{api::Vulkan, vulkan::Texture, MemoryFlags, TextureUses};
 
@@ -207,8 +200,7 @@ pub fn create_framebuffer_texture(
             let fd_mem_type = if instance
                 .get_device_proc_addr(
                     device.handle(),
-                    CStr::from_bytes_with_nul(b"vkGetMemoryFdPropertiesKHR\0")
-                        .unwrap()
+                    c"vkGetMemoryFdPropertiesKHR"
                         .as_ptr(),
                 )
                 .is_some()

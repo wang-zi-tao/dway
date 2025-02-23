@@ -2,7 +2,7 @@ use std::sync::{mpsc, Arc};
 
 use bevy::tasks::Task;
 use bevy_relationship::reexport::SmallVec;
-use tokio::{sync::oneshot, task::JoinHandle};
+use tokio::sync::oneshot;
 
 use crate::prelude::*;
 

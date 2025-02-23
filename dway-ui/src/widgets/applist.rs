@@ -5,10 +5,9 @@ use dway_server::apps::{
 use dway_ui_framework::{
     animation::translation::{UiTranslationAnimation, UiTranslationAnimationExt},
     util::DwayUiDirection,
-    widgets::button::UiRawButtonExt,
 };
 use event::make_callback;
-use indexmap::{IndexMap, IndexSet};
+use indexmap::IndexSet;
 use widgets::button::{UiButtonEventDispatcher, UiRawButtonBundle};
 
 use super::icon::{UiIcon, UiIconBundle};
@@ -66,7 +65,7 @@ fn click_app(
             .filter_map(|appid|desktop_entrys.by_id.get(&**appid).cloned()) );
         state.set_app_entitys(favorite_apps.iter().cloned()
             .chain(desktop_entrys.used_entries.iter().cloned()
-                .filter(|entity|!favorite_apps.contains(&*entity)))
+                .filter(|entity|!favorite_apps.contains(entity)))
             .collect());
     }
 }

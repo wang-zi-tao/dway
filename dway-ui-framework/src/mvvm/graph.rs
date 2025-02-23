@@ -2,8 +2,7 @@ use std::hash::Hash;
 
 use bevy::{ecs::system::EntityCommands, utils::HashSet};
 
-use super::{DataItem, DynEntityCommand, RangeModel, UpdateModelTrait, ViewFactory};
-use crate::prelude::*;
+use super::{DataItem, RangeModel, ViewFactory};
 
 pub struct GraphRangeModel<NodeId> {
     pub items: HashSet<NodeId>,

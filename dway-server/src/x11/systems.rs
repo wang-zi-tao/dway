@@ -1,10 +1,10 @@
-use self::{screen::XScreen, window::XWindowSurfaceRef};
+use self::window::XWindowSurfaceRef;
 use super::*;
 use crate::{
     geometry::{Geometry, GlobalGeometry},
     input::grab::{SurfaceGrabKind, WlSurfacePointerState},
     prelude::*,
-    wl::surface::{ClientHasSurface, WlSurface},
+    wl::surface::ClientHasSurface,
     xdg::{
         toplevel::{DWayToplevel, PinedWindow},
         DWayWindow,

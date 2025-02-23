@@ -14,21 +14,16 @@ use bevy::{render::camera::RenderTarget, window::WindowRef};
 use bevy_svg::SvgPlugin;
 pub use bitflags::bitflags as __bitflags;
 use dway_client_core::{
-    controller::systemcontroller::SystemControllRequest,
     layout::{LayoutRect, LayoutStyle},
     screen::Screen,
     UiAttachData,
 };
 use dway_server::geometry::GlobalGeometry;
-use dway_tty::{
-    drm::{camera::DrmCamera, surface::DrmSurface},
-    seat::SeatState,
-};
+use dway_tty::drm::surface::DrmSurface;
 use dway_ui_framework::{
     render::layer_manager::LayerManager,
     theme::{ThemeComponent, WidgetKind},
 };
-use shader::transform::Margins;
 use widgets::clock::ClockBundle;
 
 use crate::{
@@ -83,7 +78,7 @@ impl Plugin for DWayUiPlugin {
     }
 }
 
-fn setup(mut commands: Commands) {
+fn setup(commands: Commands) {
 }
 
 #[derive(Component, SmartDefault)]

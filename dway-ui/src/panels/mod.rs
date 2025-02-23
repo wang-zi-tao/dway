@@ -1,5 +1,3 @@
-use dway_client_core::navigation::windowstack::{WindowStack};
-use dway_server::xdg::toplevel::DWayToplevel;
 use dway_ui_framework::{make_bundle, theme::{ThemeComponent, WidgetKind}};
 
 use crate::prelude::*;

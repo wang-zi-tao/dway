@@ -9,27 +9,25 @@ use bevy::{
     render::{
         render_asset::RenderAssets,
         renderer::RenderDevice,
-        texture::{DefaultImageSampler, GpuImage},
+        texture::GpuImage,
         Extract, Render, RenderApp, RenderSet,
     },
     utils::{hashbrown::hash_map::Entry, HashMap},
 };
-use crossbeam::epoch::Pointable;
 use drm::control::framebuffer;
 use drm_fourcc::DrmFormat;
 use tracing::{span, Level};
-use wgpu::{core::hal_api::HalApi, Texture, TextureFormat, TextureViewDescriptor};
-use wgpu_hal::api::{Gles, Vulkan};
+use wgpu::core::hal_api::HalApi;
+use wgpu_hal::api::Gles;
 
 use self::gles::GlesRenderFunctions;
 use crate::{
     drm::{
         connectors::Connector,
-        surface::{drm_framebuffer_descriptor, DrmSurface},
+        surface::DrmSurface,
         DrmDevice,
     },
-    gbm::{buffer::GbmBuffer, GbmDevice},
-    schedule::DWayTTYRemderSet,
+    gbm::GbmDevice,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -197,7 +195,7 @@ pub fn commit_drm_surface<R: TtyRender>(
     drm_query: Query<(&DrmDevice, &GbmDevice)>,
     render_device: Res<RenderDevice>,
     mut state: ResMut<TtySwapchains<R>>,
-    mut render_images: ResMut<RenderAssets<GpuImage>>,
+    render_images: ResMut<RenderAssets<GpuImage>>,
 ) {
     //for entity in despawned_surface.read() {
     //    state.swapchains.remove(&entity);
@@ -214,7 +212,7 @@ pub fn commit_drm_surface<R: TtyRender>(
         let _span =
             span!(Level::ERROR,"commit drm buffer",device=%drm.path.to_string_lossy()).entered();
 
-        let mut swapchain = match swapchains.entry(entity) {
+        let swapchain = match swapchains.entry(entity) {
             Entry::Occupied(occupied_entry) => occupied_entry.into_mut(),
             Entry::Vacant(vacant_entry) => {
                 let result = unsafe {
@@ -223,7 +221,7 @@ pub fn commit_drm_surface<R: TtyRender>(
                         .as_hal::<R::Api, _, _>(|hal_device| {
                             let hal_device =
                                 hal_device.ok_or_else(|| TtyRenderError::BackendIsNotEGL)?;
-                            Ok(render.create_swapchain(hal_device, &drm_surface, &drm, gbm)?)
+                            Ok(render.create_swapchain(hal_device, drm_surface, drm, gbm)?)
                         })
                         .ok_or_else(|| TtyRenderError::WgpuAbiDisMatch)
                         .flatten()
@@ -244,7 +242,7 @@ pub fn commit_drm_surface<R: TtyRender>(
                 .wgpu_device()
                 .as_hal::<R::Api, _, _>(|hal_device| {
                     let hal_device = hal_device.ok_or_else(|| TtyRenderError::BackendIsNotEGL)?;
-                    let mut surface = render.acquire_surface(hal_device, &mut swapchain)?;
+                    let mut surface = render.acquire_surface(hal_device, swapchain)?;
 
                     let gpu_image = render_images
                         .get(drm_surface.image.id())
@@ -257,7 +255,7 @@ pub fn commit_drm_surface<R: TtyRender>(
                     })?;
                     debug!("copy image success");
 
-                    render.commit(&mut swapchain, &mut surface, &drm_surface, &drm)?;
+                    render.commit(swapchain, &mut surface, drm_surface, drm)?;
 
                     Ok(())
                 })

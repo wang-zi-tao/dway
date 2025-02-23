@@ -32,7 +32,7 @@ pub fn launch_xwayland(
     mut display_query: Query<&mut DWayServer>,
     mut events: EventReader<WaylandDisplayCreated>,
     client_events: Res<ClientEvents>,
-    mut poller: NonSendMut<Poller>,
+    poller: NonSendMut<Poller>,
     mut commands: Commands,
 ) {
     for WaylandDisplayCreated(entity, _) in events.read() {

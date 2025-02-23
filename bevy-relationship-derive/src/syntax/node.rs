@@ -169,21 +169,19 @@ impl NodeQuery {
                     #inner
                 }
             }
-        } else {
-            if mutable {
-                quote_spanned! {span=>
-                    let mut __bevy_relationship_iter_many = self.#query.iter_many_mut(__bevy_relationship_entitys);
-                    #[allow(unused_variables)]
-                    while let Some(#query_vars) = __bevy_relationship_iter_many.fetch_next() {
-                        #inner
-                    }
+        } else if mutable {
+            quote_spanned! {span=>
+                let mut __bevy_relationship_iter_many = self.#query.iter_many_mut(__bevy_relationship_entitys);
+                #[allow(unused_variables)]
+                while let Some(#query_vars) = __bevy_relationship_iter_many.fetch_next() {
+                    #inner
                 }
-            } else {
-                quote_spanned! {span=>
-                    #[allow(unused_variables)]
-                    for #query_vars in self.#query.iter_many(__bevy_relationship_entitys) {
-                        #inner
-                    }
+            }
+        } else {
+            quote_spanned! {span=>
+                #[allow(unused_variables)]
+                for #query_vars in self.#query.iter_many(__bevy_relationship_entitys) {
+                    #inner
                 }
             }
         };

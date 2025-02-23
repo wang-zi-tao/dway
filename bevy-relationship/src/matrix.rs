@@ -2,9 +2,8 @@ use bevy::{
     ecs::{component::Tick, entity::EntityHashMap},
     prelude::*,
 };
-use petgraph::{csr, Directed};
+use petgraph::csr;
 
-use crate::Relationship;
 
 pub trait MRelationship {
     type Weight;

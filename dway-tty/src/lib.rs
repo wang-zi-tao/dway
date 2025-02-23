@@ -5,11 +5,10 @@
 use std::time::{Duration, Instant};
 
 use bevy::{
-    app::{AppExit, PluginsState}, core::FrameCount, ecs::event::EventCursor, prelude::*, window::RequestRedraw
+    app::{AppExit, PluginsState}, ecs::event::EventCursor, prelude::*, window::RequestRedraw
 };
 use drm::DrmPlugin;
 use dway_util::eventloop::{EventLoopPlugin, EventLoopPluginMode, Poller, PollerRequest};
-use measure_time::debug_time;
 use render::TtyRenderPlugin;
 use schedule::DWayTtySchedulePlugin;
 use smart_default::SmartDefault;

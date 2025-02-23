@@ -82,9 +82,7 @@ impl Plugin for DWayClientPlugin {
         if !app.is_plugin_added::<TokioPlugin>() {
             app.add_plugins(TokioPlugin::default());
         }
-        app.configure_sets(FixedFirst, (
-            UpdateSystemInfo.after(TimeSystem)
-        ));
+        app.configure_sets(FixedFirst, UpdateSystemInfo.after(TimeSystem));
         app.configure_sets(
             PreUpdate,
             (

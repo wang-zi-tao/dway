@@ -22,11 +22,12 @@ impl Filter {
         arg: TokenStream,
         ty: TokenStream,
     ) -> TokenStream {
-        let filter_result = match self {
+        
+        match self {
             Filter::Expr(e) => quote!(#e),
             Filter::Lambda(t) => {
                 let lambda_name =
-                    builder.alloc_name(&format!("{}_filter", name.to_string()), t.span);
+                    builder.alloc_name(&format!("{}_filter", name), t.span);
                 builder.add_param(quote_spanned! {t.span=>
                     mut #lambda_name: impl FnMut(#ty) -> bool
                 });
@@ -34,8 +35,7 @@ impl Filter {
                     #lambda_name(#arg)
                 }
             }
-        };
-        filter_result
+        }
     }
     pub fn build_modify_iter(
         &self,

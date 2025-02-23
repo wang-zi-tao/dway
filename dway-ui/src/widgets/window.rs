@@ -11,7 +11,7 @@ use dway_server::{
 };
 use dway_ui_framework::widgets::{
     button::UiRawButtonExt,
-    drag::{UiDrag, UiDragEvent, UiDragExt},
+    drag::{UiDragEvent, UiDragExt},
 };
 
 use super::popupwindow::{PopupUI, PopupUIBundle, PopupUISystems};
@@ -112,7 +112,7 @@ WindowUI=>
         event: UiEvent<UiDragEvent>,
         this_query: Query<&WindowUI>,
         window_query: Query<&Geometry>,
-        mut events: EventWriter<WindowAction>,
+        events: EventWriter<WindowAction>,
     ) {
         let Ok(prop) = this_query.get(event.receiver()) else {return};
         if let UiDragEvent::Move(pos) = &*event{

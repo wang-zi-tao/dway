@@ -1,8 +1,8 @@
 use proc_macro::Ident;
 use std::{collections::HashMap, rc::Rc};
-use syn::{Expr, Type};
+use syn::Expr;
 
-use crate::syntax::{node::NodeQuery, path::EdgeDirection, query::GraphQuery};
+use crate::syntax::node::NodeQuery;
 
 structstruck::strike! {
     pub struct ComponentModel {

@@ -12,14 +12,13 @@ use dway_client_core::{
     layout::tile::{TileLayoutKind, TileLayoutSet},
     navigation::windowstack::WindowStack,
     workspace::{
-        ScreenAttachWorkspace, ScreenWorkspaceList, WindowOnWorkspace, WorkspaceManager,
-        WorkspaceRequest, WorkspaceSet,
+        ScreenAttachWorkspace, WorkspaceManager,
+        WorkspaceRequest,
     },
 };
 use dway_server::{
     apps::launchapp::{RunCommandRequest, RunCommandRequestBuilder},
     input::grab::ResizeEdges,
-    macros::{graph_query, EntityCommandsExt},
     prelude::WindowAction,
     xdg::toplevel::DWayToplevel,
 };

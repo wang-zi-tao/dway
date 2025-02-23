@@ -3,11 +3,10 @@ use std::{
     collections::BTreeSet,
 };
 
-use bevy::{input::keyboard::KeyboardInput, utils::hashbrown::HashSet};
 use bitflags::Flags;
 use petgraph::csr::IndexType;
 
-use super::{EntityWorldRef, IndexTrait};
+use super::IndexTrait;
 use crate::prelude::*;
 
 bitflags::bitflags! {

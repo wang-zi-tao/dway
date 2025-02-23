@@ -1,15 +1,13 @@
-use std::{collections::BTreeMap, marker::PhantomData, ops::Range};
+use std::marker::PhantomData;
 
-use bevy::{core::update_frame_count, ecs::system::EntityCommands, utils::HashMap};
-use derive_builder::Builder;
+use bevy::{ecs::system::EntityCommands, utils::HashMap};
 use slab_tree::Tree;
 
-use super::{list::ListViewModel, DataItem, EntityWorldRef};
 use crate::prelude::*;
 
 pub trait ViewLayouter<Index> {
     fn contains(&self, index: Index) -> bool;
-    fn add<'l>(&'l mut self, entity: EntityCommands, index: Index) -> ItemLayout;
+    fn add(&mut self, entity: EntityCommands, index: Index) -> ItemLayout;
     fn remove(&mut self, entity: EntityCommands, index: Index);
     fn get_item_layout(&self, index: Index) -> Option<&ItemLayout>;
     fn get_item_layout_mut(&mut self, index: Index) -> Option<&mut ItemLayout>;

@@ -1,9 +1,7 @@
 pub mod list;
 use bevy::ecs::system::EntityCommands;
 
-use super::{
-    layout::ContainerViewLayout, list::ListItemViewFactory, ContainerViewFactory, ViewFactory,
-};
+use super::ViewFactory;
 use crate::prelude::*;
 
 #[derive(Component, Default)]
@@ -20,7 +18,7 @@ impl TextViewFactory {
 impl ViewFactory<String> for TextViewFactory {
     fn create(&self, mut info: EntityCommands, item: String) {
         let font = self.font.clone();
-        let color = self.color.clone();
+        let color = self.color;
         info.queue(move |mut entity: EntityWorldMut| {
             if let Some(mut text) = entity.get_mut::<Text>() {
                 *text = Text::new(item);

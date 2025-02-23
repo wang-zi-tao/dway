@@ -28,7 +28,7 @@ use input::{
 use libseat::Seat;
 
 use crate::{
-    drm::surface::DrmSurface, libinput::convert::convert_keycode, schedule::DWayTTYSet,
+    libinput::convert::convert_keycode, schedule::DWayTTYSet,
     seat::SeatState, window::relative_to_window,
 };
 
@@ -159,29 +159,26 @@ pub fn receive_events(
             }
             input::Event::Keyboard(e) => {
                 e.device();
-                match e {
-                    KeyboardEvent::Key(k) => {
-                        let key = k.key();
-                        let state = k.key_state();
-                        let (key_code, logical_key) = convert_keycode(
-                            key,
-                            &keycode_state,
-                            state,
-                            &mut lock_state,
-                            &mut k.device(),
-                        );
-                        keyboard_events.send(KeyboardInput {
-                            logical_key,
-                            key_code,
-                            state: match state {
-                                tablet_pad::KeyState::Pressed => ButtonState::Pressed,
-                                tablet_pad::KeyState::Released => ButtonState::Released,
-                            },
-                            window: default_window_entity,
-                            repeat: false,
-                        });
-                    }
-                    _ => {}
+                if let KeyboardEvent::Key(k) = e {
+                    let key = k.key();
+                    let state = k.key_state();
+                    let (key_code, logical_key) = convert_keycode(
+                        key,
+                        &keycode_state,
+                        state,
+                        &mut lock_state,
+                        &mut k.device(),
+                    );
+                    keyboard_events.send(KeyboardInput {
+                        logical_key,
+                        key_code,
+                        state: match state {
+                            tablet_pad::KeyState::Pressed => ButtonState::Pressed,
+                            tablet_pad::KeyState::Released => ButtonState::Released,
+                        },
+                        window: default_window_entity,
+                        repeat: false,
+                    });
                 };
             }
             input::Event::Pointer(e) => {

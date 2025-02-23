@@ -3,7 +3,7 @@ use dway_server::{
     geometry::GlobalGeometry, util::rect::IRect, wl::surface::WlSurface,
     xdg::toplevel::DWayToplevel,
 };
-use dway_ui_framework::widgets::button::{UiRawButtonBundle, UiRawButtonExt};
+use dway_ui_framework::widgets::button::UiRawButtonBundle;
 use widgets::button::UiButtonEventDispatcher;
 
 use crate::{prelude::*, widgets::window::create_raw_window_material};
@@ -38,7 +38,7 @@ fn focus_window(
 @global(theme: Theme)
 @arg(asset_server: Res<AssetServer>)
 @use_state(windows: Vec<Entity>)
-@query(workspace_query: (window_list)<-Query<(Ref<WindowList>)>[prop.workspace]->{
+@query(workspace_query: (window_list)<-Query<Ref<WindowList>>[prop.workspace]->{
     if !widget.inited || window_list.is_changed() {
         state.set_windows(window_list.iter().collect());
     }

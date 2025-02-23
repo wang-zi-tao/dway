@@ -12,7 +12,7 @@ use self::{
     icon::LinuxIconLoader,
     launchapp::{launch_app_system, run_command_system, LaunchAppRequest, RunCommandRequest},
 };
-use crate::{apps::icon::LinuxIcon, prelude::*, xdg::toplevel::DWayToplevel};
+use crate::{apps::icon::LinuxIcon, prelude::*};
 
 #[derive(Resource, Default, Reflect)]
 pub struct DesktopEntriesSet {
@@ -168,17 +168,14 @@ pub fn start_scan_desktop_file(mut entries: ResMut<DesktopEntriesSet>) {
         let iter = freedesktop_desktop_entry::Iter::new(dirs);
         let mut entries = vec![];
         for path in iter {
-            match (|| {
+            if let Err(e) = (|| {
                 let data = std::fs::read_to_string(&path)?;
                 let raw_entry = freedesktop_desktop_entry::DesktopEntry::decode(&path, &data)?;
                 let entry = DesktopEntry::new(raw_entry);
                 entries.push(entry);
                 Result::<()>::Ok(())
             })() {
-                Err(e) => {
-                    error!("failed to load desktop entries from {:?}: {e}", path);
-                }
-                _ => {}
+                error!("failed to load desktop entries from {:?}: {e}", path);
             };
         }
         entries
@@ -194,10 +191,8 @@ pub fn update_app_entry_set(
     for (entity, window_list) in &entry_query {
         if window_list.len() == 0 {
             entries.used_entries.shift_remove(&entity);
-        } else {
-            if !entries.used_entries.contains(&entity) {
-                entries.used_entries.insert(entity);
-            }
+        } else if !entries.used_entries.contains(&entity) {
+            entries.used_entries.insert(entity);
         }
     }
 

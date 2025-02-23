@@ -568,11 +568,11 @@ pub fn all_gpus(seat: &SeatState) -> io::Result<Vec<PathBuf>> {
     Ok(enumerator
         .scan_devices()?
         .filter(|device| {
-            &device
+            device
                 .property_value("ID_SEAT")
                 .map(|x| x.to_string_lossy())
                 .unwrap_or_else(|| Cow::from("seat0"))
-                == &seat.name
+                == seat.name
         })
         .flat_map(|device| device.devnode().map(PathBuf::from))
         .collect())

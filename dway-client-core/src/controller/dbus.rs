@@ -1,9 +1,8 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use dbus::{
     arg::{AppendAll, ReadAll},
     ffidisp::Connection,
 };
-use dway_server::macros::Resource;
 use std::time::Duration;
 
 pub struct DBusController {

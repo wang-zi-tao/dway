@@ -120,11 +120,8 @@ impl ParseCodeResult {
 
 fn parse_expr_tokens(tokens: &TokenStream, output: &mut ParseCodeResult) {
     tokens.clone().into_iter().for_each(|token| {
-        match &token {
-            TokenTree::Group(g) => {
-                parse_expr_tokens(&g.stream(), output);
-            }
-            _ => {}
+        if let TokenTree::Group(g) = &token {
+            parse_expr_tokens(&g.stream(), output);
         };
     });
     tokens

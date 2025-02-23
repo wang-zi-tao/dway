@@ -1,8 +1,8 @@
 use std::{
     fs,
-    io::{self, IsTerminal, Read, Write},
+    io::{self, Read, Write},
     os::{
-        fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
+        fd::{AsRawFd, IntoRawFd, RawFd},
         unix::{net::{UnixListener, UnixStream}, process::CommandExt},
     },
     process::Child,
@@ -10,8 +10,8 @@ use std::{
 };
 
 use bevy::utils::{HashMap, HashSet};
-use dway_util::eventloop::{Poller, PollerGuard, PollerInner};
-use nix::{errno::Errno, sys::socket};
+use dway_util::eventloop::{PollerGuard, PollerInner};
+use nix::errno::Errno;
 pub use x11rb::protocol::xproto::Window as XWindowID;
 use x11rb::{
     connection::Connection,
@@ -195,11 +195,8 @@ impl XWaylandDisplay {
                         }
                     }
                 })();
-                match result {
-                    Err(e) => {
-                        error!("xwayland connection error: {}", e);
-                    }
-                    Ok(_) => {}
+                if let Err(e) = result {
+                    error!("xwayland connection error: {}", e);
                 }
             })
             .unwrap();
@@ -427,7 +424,7 @@ impl XWaylandDisplay {
         }
         let path = format!("/tmp/.X11-unix/X{}", display);
         let _ = ::std::fs::remove_file(&path);
-        let mut sockets = vec![UnixListener::bind(path)?];
+        let sockets = vec![UnixListener::bind(path)?];
         //if open_abstract_socket {
         //    let abs_addr = socket::UnixAddr::new_abstract(path.as_bytes()).unwrap();
         //    sockets.push(UnixListener::bind_addr(socket_addr)?);

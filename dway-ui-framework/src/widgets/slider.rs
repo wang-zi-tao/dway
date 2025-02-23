@@ -45,8 +45,6 @@ UiSlider=>
 @world_query(event_dispatcher: Ref<UiSliderEventDispatcher>)
 @world_query(node: &mut Node)
 @before{
-if !widget.inited {
-}
 if ( slider_interaction.is_changed() || mouse_position.is_changed() )
         && *slider_interaction == Interaction::Pressed{
     if let Some(relative) = mouse_position.normalized {

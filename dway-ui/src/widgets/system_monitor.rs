@@ -3,7 +3,6 @@ use std::f32::consts::PI;
 use dway_client_core::controller::systeminfo::{human_readable_byte, human_readable_fresequency, SystemInfo};
 use dway_ui_framework::widgets::shape::UiShapeBundle;
 use dway_ui_framework::reexport::shape::*;
-use widgets::text::UiTextExt;
 use crate::prelude::*;
 
 #[derive(Component, SmartDefault)]

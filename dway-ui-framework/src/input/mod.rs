@@ -1,8 +1,6 @@
-use std::ops::Deref;
 
 use bevy::{ecs::query::QueryData, input::keyboard::KeyboardInput, ui::RelativeCursorPosition};
 use bevy_relationship::reexport::SmallVec;
-use bevy_trait_query::{queryable, ReadTraits};
 
 use crate::{
     event::EventDispatcher,

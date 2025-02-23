@@ -1,4 +1,4 @@
-use crate::{input::grab::ResizeEdges, prelude::*, util::rect::IRect, x11::window::XWindowAttachSurface};
+use crate::{input::grab::ResizeEdges, prelude::*, util::rect::IRect};
 
 pub struct Bind<T: WlResource> {
     pub entity: Entity,

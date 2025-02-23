@@ -8,7 +8,6 @@ use bevy::{
         mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
         render_asset::RenderAssets,
         render_graph::{RenderGraphApp, RenderLabel, ViewNode, ViewNodeRunner},
-        render_phase::RenderCommandResult,
         render_resource::{
             binding_types::{sampler, texture_2d, uniform_buffer},
             AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
@@ -25,7 +24,6 @@ use bevy::{
         view::ViewTarget,
         Extract, RenderApp, RenderSet,
     },
-    utils::HashMap,
 };
 
 use super::layer_manager::{BlurMethod, BlurMethodKind, LayerCamera, LayerManager};

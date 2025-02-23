@@ -1,9 +1,5 @@
 use dway_client_core::controller::systemcontroller::SystemControllRequest;
-use dway_ui_framework::animation::{
-    interpolation::EaseFunction,
-    translation::{UiTranslationAnimationBundle, UiTranslationAnimationExt},
-    ui::{popup_open_close_up, popup_open_drop_down},
-};
+use dway_ui_framework::animation::translation::UiTranslationAnimationExt;
 
 use super::volume_control::VolumeControlBundle;
 use crate::{panels::PanelButtonBundle, prelude::*};
@@ -71,7 +67,7 @@ pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
                 },
             ))
             .with_children(|c| {
-                c.spawn(((PanelSettingsBundle::default(), style!("h-auto w-auto"))));
+                c.spawn((PanelSettingsBundle::default(), style!("h-auto w-auto")));
             })
             .set_parent(event.sender());
     }

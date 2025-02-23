@@ -1,13 +1,11 @@
-use std::{collections::BTreeMap, marker::PhantomData};
+use std::collections::BTreeMap;
 
-use bevy::{ecs::system::EntityCommands, reflect::Map, utils::tracing::Instrument};
+use bevy::{ecs::system::EntityCommands, reflect::Map};
 
 use crate::{
-    make_bundle,
     mvvm::{
         layout::ViewLayouter,
-        list::{ListItemViewFactory, ListViewLayout, ListViewModel, ListViewTrait},
-        DataItem, EntityWorldRef, ViewItem,
+        list::{ListViewLayout, ListViewTrait},
     },
     prelude::*,
     widgets::scroll::{UiScroll, UiScrollState},

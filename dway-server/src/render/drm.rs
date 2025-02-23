@@ -1,10 +1,6 @@
 use std::{
     ffi::{CStr, CString},
     fs::File,
-    sync::{
-        mpsc::{channel, Receiver, Sender},
-        Arc, Mutex,
-    },
 };
 
 use bevy::render::renderer::RenderDevice;
@@ -120,7 +116,7 @@ pub struct DrmInfo {
 }
 
 #[tracing::instrument(skip_all)]
-pub fn init_drm_state(device: Res<RenderDevice>, mut server: Res<DWayServerRenderServer>) {
+pub fn init_drm_state(device: Res<RenderDevice>, server: Res<DWayServerRenderServer>) {
     let Ok(mut guard) = server.drm_node.lock() else {
         return;
     };

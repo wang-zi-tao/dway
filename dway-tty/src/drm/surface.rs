@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Result};
-use bevy::{prelude::*, render::{camera::RenderTarget, render_asset::RenderAssetUsages}};
+use bevy::prelude::*;
 use drm::{
     control::{
         atomic::AtomicModeReq,
@@ -20,12 +20,12 @@ use tracing::{span, Level};
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 
 use super::{
-    camera::DrmCamera, connectors::Connector, planes::PlaneConfig, DrmDevice, DrmDeviceFd, PropMap,
+    connectors::Connector, planes::PlaneConfig, DrmDevice, DrmDeviceFd, PropMap,
 };
 use crate::{
     drm::{planes::Planes, DrmDeviceState},
     failure::DWayTTYError::*,
-    gbm::{buffer::GbmBuffer, GbmDevice},
+    gbm::buffer::GbmBuffer,
 };
 
 bitflags::bitflags! {
@@ -453,22 +453,16 @@ pub fn print_drm_info(drm: &DrmDeviceFd) -> Result<()> {
 
 #[cfg(test)]
 mod test {
-    use bevy::{
-        app::ScheduleRunnerPlugin, ecs::system::RunSystemOnce, log::LogPlugin, prelude::*,
-        winit::WinitPlugin,
-    };
+    use bevy::prelude::*;
     use drm_fourcc::DrmFormat;
-    use dway_util::{
-        eventloop::{EventLoopPlugin, EventLoopPluginMode},
-        logger::DWayLogPlugin,
-    };
-    use gbm::Format;
-    use tracing::Level;
+    use dway_util::eventloop::{EventLoopPlugin, EventLoopPluginMode};
+    
+    
 
     use super::DrmSurface;
     use crate::{
         drm::{DrmDevice, DrmPlugin},
-        gbm::{buffer::GbmBuffer, GbmDevice},
+        gbm::GbmDevice,
         schedule::DWayTtySchedulePlugin,
         seat::SeatPlugin,
         test::test_suite_plugins,

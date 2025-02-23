@@ -1,5 +1,5 @@
 use super::desktop::{CursorOnScreen, FocusedWindow};
-use crate::{desktop::CursorOnWindow, DWayClientSystem};
+use crate::desktop::CursorOnWindow;
 use bevy::{
     input::{
         keyboard::KeyboardInput,
@@ -33,7 +33,7 @@ pub struct DWayInputPlugin {
 impl Plugin for DWayInputPlugin {
     fn build(&self, app: &mut App) {
         // app.add_system(print_pick_events.label(WindowLabel::Input));
-        use DWayClientSystem::*;
+        
         app.add_systems(
             PreUpdate,
             (

@@ -94,17 +94,17 @@ pub fn calculate_geometry(
 }
 
 graph_query2! {GeometryGraph=>
-screen_workspace_path=match (screen: (Entity) filter With<Screen>)-[ScreenAttachWorkspace]->(workspace: Entity);
-slot_window_path=match (screen: (Entity) filter With<Slot>)<-[WindowInSlot]-(window: Entity filter With<DWayWindow>);
+screen_workspace_path=match (screen: Entity filter With<Screen>)-[ScreenAttachWorkspace]->(workspace: Entity);
+slot_window_path=match (screen: Entity filter With<Slot>)<-[WindowInSlot]-(window: Entity filter With<DWayWindow>);
 }
 
 pub fn update_geometry(
     graph: GeometryGraph,
     mut geometry_query: Query<(&mut Geometry, Option<&LayoutStyle>)>,
-    mut global_geometry_query: Query<(&mut GlobalGeometry, Option<&LayoutStyle>)>,
+    global_geometry_query: Query<(&mut GlobalGeometry, Option<&LayoutStyle>)>,
 ) {
     let mut do_update = |p, c| {
-        if let ((Ok((parent_geo, parent_layout)), Ok((mut geo, layout)))) =
+        if let (Ok((parent_geo, parent_layout)), Ok((mut geo, layout))) =
             (global_geometry_query.get(p), geometry_query.get_mut(c))
         {
             let calculated_geo = calculate_geometry(parent_geo.geometry, parent_layout, layout);
@@ -146,7 +146,7 @@ pub fn attach_window_to_slot(
         )>,
     >,
     slot_query: Query<&Geometry, With<Slot>>,
-    mut window_query: Query<
+    window_query: Query<
         &mut Geometry,
         (
             With<DWayWindow>,
@@ -156,7 +156,7 @@ pub fn attach_window_to_slot(
         ),
     >,
     mut commands: Commands,
-    mut window_actions: EventWriter<WindowAction>,
+    window_actions: EventWriter<WindowAction>,
 ) {
     for (slots, windows, layout_style, tile) in workspace_query.iter() {
         windows
@@ -167,13 +167,10 @@ pub fn attach_window_to_slot(
                 commands.entity(window).insert(PinedWindow);
             });
         if tile.is_changed() {
-            match &*tile {
-                TileLayoutKind::Float => {
-                    for window in windows.iter() {
-                        commands.entity(window).remove::<PinedWindow>();
-                    }
+            if let TileLayoutKind::Float = &*tile {
+                for window in windows.iter() {
+                    commands.entity(window).remove::<PinedWindow>();
                 }
-                _ => {}
             }
         }
     }

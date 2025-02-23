@@ -1,4 +1,4 @@
-use std::{sync::Arc, thread::spawn};
+use std::sync::Arc;
 
 use bevy::{prelude::*, ui::RelativeCursorPosition};
 use dway_ui_derive::{dway_widget, spawn, style};
@@ -21,7 +21,7 @@ use dway_ui_framework::{
         combobox::{StringItem, UiComboBox, UiComboBoxBundle},
         inputbox::UiInputBoxBundle,
         popup::{popup_animation_system, UiPopup, UiPopupExt},
-        slider::UiSliderBundle, text::{UiTextBundle, UiTextExt},
+        slider::UiSliderBundle, text::UiTextBundle,
     },
 };
 
@@ -122,30 +122,27 @@ pub fn open_menu(
     mut commands: Commands,
     node_query: Query<(&RelativeCursorPosition, &ComputedNode)>,
 ) {
-    match &*event {
-        UiInputEvent::MouseRelease(MouseButton::Left) => {
-            let Ok((relative_pos, computed_node)) = node_query.get(event.sender()) else {
-                return;
+    if let UiInputEvent::MouseRelease(MouseButton::Left) = &*event {
+        let Ok((relative_pos, computed_node)) = node_query.get(event.sender()) else {
+            return;
+        };
+        let Some(normalized) = relative_pos.normalized else {
+            return;
+        };
+        let delta = normalized * computed_node.size();
+        commands.entity(event.sender()).with_children(|c| {
+            spawn! {c=>
+                <UiBlockBundle @style="absolute flex-col p-8 left-{delta.x} top-{delta.y}"
+                    UiPopupExt=(UiPopup::default().with_auto_destroy().into())>
+                    <UiButtonBundle @style="m-4 p-4">
+                        <(UiTextBundle::new("item 1", 24, &theme))/>
+                    </UiButtonBundle>
+                    <UiButtonBundle @style="m-4 p-4">
+                        <(UiTextBundle::new("item 2", 24, &theme))/>
+                    </UiButtonBundle>
+                </UiBlockBundle>
             };
-            let Some(normalized) = relative_pos.normalized else {
-                return;
-            };
-            let delta = normalized * computed_node.size();
-            commands.entity(event.sender()).with_children(|c| {
-                spawn! {c=>
-                    <UiBlockBundle @style="absolute flex-col p-8 left-{delta.x} top-{delta.y}"
-                        UiPopupExt=(UiPopup::default().with_auto_destroy().into())>
-                        <UiButtonBundle @style="m-4 p-4">
-                            <(UiTextBundle::new("item 1", 24, &theme))/>
-                        </UiButtonBundle>
-                        <UiButtonBundle @style="m-4 p-4">
-                            <(UiTextBundle::new("item 2", 24, &theme))/>
-                        </UiButtonBundle>
-                    </UiBlockBundle>
-                };
-            });
-        }
-        _ => {}
+        });
     }
 }
 

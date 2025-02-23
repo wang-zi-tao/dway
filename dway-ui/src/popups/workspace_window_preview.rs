@@ -3,7 +3,7 @@ use dway_server::{
     geometry::GlobalGeometry, util::rect::IRect, wl::surface::WlSurface,
     xdg::toplevel::DWayToplevel,
 };
-use dway_ui_framework::widgets::button::{UiRawButtonBundle, UiRawButtonExt};
+use dway_ui_framework::widgets::button::UiRawButtonBundle;
 use event::make_callback;
 use widgets::button::UiButtonEventDispatcher;
 

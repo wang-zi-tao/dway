@@ -6,7 +6,6 @@ use std::{
 };
 
 use drm_fourcc::DrmModifier;
-use dway_util::formats::ImageFormat;
 use khronos_egl::EGLDisplay;
 use nix::sys::mman;
 use wayland_server::Resource;

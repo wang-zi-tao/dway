@@ -2,7 +2,7 @@ use std::{marker::PhantomData, ops::Range};
 
 use bevy::ecs::system::EntityCommands;
 
-use super::{ContainerViewModel, DataItem, RangeModel, ViewFactory};
+use super::{ContainerViewModel, DataItem, RangeModel};
 use crate::prelude::*;
 
 pub struct TableRangeModel {

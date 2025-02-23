@@ -28,7 +28,7 @@ impl From<Entity> for UiWidgetRoot {
 pub struct Callback(pub Option<SystemId>);
 
 pub mod bundles {
-    use bevy::ui::{ContentSize};
+    
 
     use crate::{
         prelude::*,

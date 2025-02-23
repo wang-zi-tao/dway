@@ -90,7 +90,7 @@ impl Plugin for UDevPlugin {
 #[cfg(test)]
 mod tests {
     use bevy::{log::LogPlugin, prelude::App};
-    use dway_util::eventloop::{EventLoopPlugin, Poller};
+    use dway_util::eventloop::Poller;
 
     use super::UDevPlugin;
 

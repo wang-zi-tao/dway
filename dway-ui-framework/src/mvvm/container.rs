@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use super::{DataItem, DynEntityCommand, EntityCommands, EntityWorldRef, ViewFactory, ViewModel};
+use super::{DataItem, EntityWorldRef, ViewFactory, ViewModel};
 use crate::prelude::*;
 
 #[derive(Component, Default)]

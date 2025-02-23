@@ -3,16 +3,12 @@ use bevy::{
 };
 use dway_ui_derive::spawn;
 use dway_ui_framework::{
-    render::mesh::{UiMeshBundle, UiMeshHandle},
     shader::{
-        fill::{BlurImage, GaussianBlur, KawaseBlur, KawaseLevel2Blur},
+        fill::{BlurImage, KawaseLevel2Blur},
         shape::{RoundedRect, Shape},
         ShaderAsset, ShaderPlugin, ShapeRender,
     },
-    widgets::{
-        bundles::{MiniNodeBundle},
-        shader::{rounded_ui_image, RoundedUiImageMaterial},
-    },
+    widgets::bundles::{MiniNodeBundle},
     UiFrameworkPlugin,
 };
 

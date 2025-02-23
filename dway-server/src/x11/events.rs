@@ -1,6 +1,5 @@
 use anyhow::anyhow;
 use bevy::ecs::{entity::EntityHashSet, event::EventCursor};
-use reexport::SmallVec;
 use scopeguard::defer;
 use thiserror::Error;
 use x11rb::{

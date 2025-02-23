@@ -1,15 +1,10 @@
-use std::{f32::consts::PI, time::Duration};
+use std::time::Duration;
 
-use anyhow::anyhow;
 use bevy::{
-    animation::{AnimationTarget, AnimationTargetId},
     app::AppExit,
     core::TaskPoolThreadAssignmentPolicy,
     core_pipeline::tonemapping::Tonemapping,
-    input::{
-        keyboard::KeyboardInput,
-        mouse::{MouseButtonInput, MouseMotion, MouseWheel},
-    },
+    input::keyboard::KeyboardInput,
     log::LogPlugin,
     prelude::*,
     render::{
@@ -17,11 +12,9 @@ use bevy::{
         settings::{RenderCreation, WgpuSettings},
         RenderPlugin,
     },
-    sprite::MaterialMesh2dBundle,
     winit::WinitPlugin,
 };
 use dway_tty::{drm::surface::DrmSurface, DWayTTYPlugin};
-use dway_util::logger::{log_layer, DWayLogPlugin};
 use tracing::Level;
 use wgpu::Backends;
 
@@ -71,7 +64,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    mut materials_2d: ResMut<Assets<ColorMaterial>>,
+    materials_2d: ResMut<Assets<ColorMaterial>>,
     surface_query: Query<&DrmSurface>,
 ) {
     info!("setup world");

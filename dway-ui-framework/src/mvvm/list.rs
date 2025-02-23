@@ -1,15 +1,13 @@
 use std::{collections::BTreeMap, marker::PhantomData, ops::Range};
 
-use bevy::ecs::{system::EntityCommands, world};
-use bevy_prototype_lyon::{entity, prelude::tess::path::commands};
+use bevy::ecs::system::EntityCommands;
 use derive_builder::Builder;
 use derive_more::From;
 
 use super::{
     layout::{ItemLayout, ViewAreaLayout, ViewLayouter},
-    viewmodel::SimpleListViewModel,
-    ContainerViewFactory, ContainerViewModel, DataItem, DynEntityCommand, EntityWorldRef,
-    RangeModel, UpdateModel, UpdateModelTrait, ViewFactory, ViewItem, ViewItemState,
+    ContainerViewFactory, ContainerViewModel, DataItem, EntityWorldRef,
+    RangeModel, UpdateModel, UpdateModelTrait,
 };
 use crate::prelude::*;
 
@@ -76,7 +74,7 @@ pub struct ListViewLayout {
 }
 
 impl ViewLayouter<usize> for ListViewLayout {
-    fn add<'l>(&'l mut self, entity: EntityCommands, index: usize) -> ItemLayout {
+    fn add(&mut self, entity: EntityCommands, index: usize) -> ItemLayout {
         if let Some(layout) = self.items.get(&index) {
             return layout.clone();
         }
@@ -130,7 +128,7 @@ impl ViewLayouter<usize> for ListViewLayout {
         self.view_area.rect = rect;
     }
 
-    fn truncate(&mut self, mut commands: Commands) -> Vec<usize> {
+    fn truncate(&mut self, commands: Commands) -> Vec<usize> {
         let mut removed_items = vec![];
         self.items.retain(|k, v| {
             let r = v.rect.intersect(self.view_area.rect).is_empty();

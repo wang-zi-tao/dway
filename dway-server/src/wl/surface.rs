@@ -1,16 +1,13 @@
-use std::{borrow::Cow, mem::replace};
+use std::borrow::Cow;
 
-use bevy::{core::FrameCount, tasks::IoTaskPool};
+use bevy::core::FrameCount;
 use bevy_relationship::relationship;
 use wayland_server::backend::smallvec::SmallVec;
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 
 use crate::{
-    client::ClientData,
-    display::DisplayListQuery,
     geometry::Geometry,
     prelude::*,
-    state::flush_display,
     util::rect::IRect,
     wl::buffer::{UninitedWlBuffer, WlShmBuffer},
     xdg::popup::XdgPopup,

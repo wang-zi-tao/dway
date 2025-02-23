@@ -1,9 +1,8 @@
 use convert_case::Casing;
-use derive_syn_parse::Parse;
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
+use quote::{format_ident, quote_spanned, ToTokens};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
-use syn::{punctuated::Punctuated, spanned::Spanned, Token, Type};
+use syn::{spanned::Spanned, Type};
 
 pub struct QuerySetBuilder {
     pub name: Ident,
@@ -136,7 +135,7 @@ impl QueryBuilder {
 
     pub fn add_edge_query(&mut self, ty: TokenStream) -> Ident {
         let node = self.node_stack.last_mut().unwrap();
-        let base_name = format!("edge_{}", node.name.to_string());
+        let base_name = format!("edge_{}", node.name);
         let span = node.name.span();
         let query_var = self.alloc_name(&base_name, span);
         let node = self.node_stack.last_mut().unwrap();

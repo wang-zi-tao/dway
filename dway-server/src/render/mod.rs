@@ -12,7 +12,7 @@ use bevy::{
 };
 use crossbeam_queue::SegQueue;
 use drm::DmaBackend;
-use importnode::{clean, ImoprtedBuffers, ImportedBuffer};
+use importnode::{clean, ImoprtedBuffers};
 use wayland_server::Client;
 
 use self::importnode::ImportSurfacePassNode;

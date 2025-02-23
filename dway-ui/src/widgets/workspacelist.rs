@@ -25,35 +25,32 @@ fn on_click(
     let Ok(widget) = query.get(event.receiver()) else {
         return;
     };
-    match event.kind {
-        UiButtonEventKind::Released => {
-            if let Some(screen) = focus_screen.get_screen() {
-                commands
-                    .entity(screen)
-                    .disconnect_all::<ScreenAttachWorkspace>()
-                    .connect_to::<ScreenAttachWorkspace>(widget.data_entity);
-            }
+    if event.kind == UiButtonEventKind::Released {
+        if let Some(screen) = focus_screen.get_screen() {
             commands
-                .spawn((
-                    UiPopupBundle::default(),
-                    UiTranslationAnimationExt {
-                        translation: UiTranslationAnimation::new(DwayUiDirection::TOP),
-                        target_style: style!("absolute top-42 align-self:center").clone().into(),
+                .entity(screen)
+                .disconnect_all::<ScreenAttachWorkspace>()
+                .connect_to::<ScreenAttachWorkspace>(widget.data_entity);
+        }
+        commands
+            .spawn((
+                UiPopupBundle::default(),
+                UiTranslationAnimationExt {
+                    translation: UiTranslationAnimation::new(DwayUiDirection::TOP),
+                    target_style: style!("absolute top-42 align-self:center").clone().into(),
+                    ..Default::default()
+                },
+            ))
+            .with_children(|c| {
+                c.spawn(( WorkspaceWindowPreviewPopupBundle {
+                    prop: WorkspaceWindowPreviewPopup {
+                        workspace: widget.data_entity,
                         ..Default::default()
                     },
-                ))
-                .with_children(|c| {
-                    c.spawn(( WorkspaceWindowPreviewPopupBundle {
-                        prop: WorkspaceWindowPreviewPopup {
-                            workspace: widget.data_entity,
-                            ..Default::default()
-                        },
-                        ..default()
-                    }, style!("h-auto w-auto")));
-                })
-                .set_parent(event.receiver());
-        }
-        _ => {}
+                    ..default()
+                }, style!("h-auto w-auto")));
+            })
+            .set_parent(event.receiver());
     }
 }
 

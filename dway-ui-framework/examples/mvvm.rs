@@ -1,15 +1,14 @@
-use bevy::{core::FrameCount, prelude::*, utils::tracing::instrument::WithSubscriber};
+use bevy::{core::FrameCount, prelude::*};
 use dway_ui_derive::style;
 use dway_ui_framework::{
     mvvm::{
         container::{ItemCell, ItemCellPlugin},
-        list::{ListViewLayout, ListViewModel, ListViewModelPlugin},
+        list::{ListViewLayout, ListViewModelPlugin},
         view::{
-            list::{ListView, ListViewBundle},
+            list::ListViewBundle,
             TextViewFactory,
         },
         viewmodel::{SimpleItemViewModel, SimpleListViewModel, ViewModelPlugin},
-        ContainerViewModel,
     },
     prelude::UiHollowBlockBundle,
     theme::Theme,

@@ -1,7 +1,7 @@
 pub mod flat;
 
 use std::{
-    any::{type_name, Any, TypeId},
+    any::TypeId,
     fmt::Debug,
     hash::Hash,
     sync::Arc,
@@ -10,7 +10,6 @@ use std::{
 use bevy::{
     app::DynEq,
     ecs::{label::DynHash, world::Command},
-    ui::UiSystem,
     utils::HashMap,
 };
 use bevy_svg::prelude::Svg;

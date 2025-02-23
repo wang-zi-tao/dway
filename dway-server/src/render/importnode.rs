@@ -1,8 +1,5 @@
 use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Mutex,
-    },
+    sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
 
@@ -24,12 +21,11 @@ use wgpu::{
     ImageCopyTexture, TextureAspect, TextureDimension,
 };
 use wgpu_hal::{
-    api::{Gles, Vulkan},
     MemoryFlags, TextureUses,
 };
 
 use super::{
-    gles::{self, DestroyBuffer, EglState},
+    gles::{self, EglState},
     util::DWayRenderError,
     vulkan::{self, VulkanState},
     DWayServerRenderServer, ImportDmaBufferRequest,
@@ -227,12 +223,11 @@ pub fn prepare_surfaces(
                     )?
             })
         })
-        .map(|buffer| {
+        .inspect(|buffer| {
             if request.buffer.is_none() {
-                request.params.created(&buffer);
+                request.params.created(buffer);
                 let _ = request.display.flush_clients();
             }
-            buffer
         })
         .map_err(|e| {
             error!("failed to create wl_buffer: {e}");

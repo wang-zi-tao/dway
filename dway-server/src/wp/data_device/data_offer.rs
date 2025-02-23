@@ -1,14 +1,11 @@
-use std::sync::Arc;
 
 use bevy::ecs::system::SystemState;
-use wayland_backend::server::ClientId;
 use wl_data_device_manager::DndAction;
 
-use super::WlDataDevice;
 use crate::{
     clipboard::{ClipboardManager, ClipboardRecord},
     prelude::*,
-    wp::data_device::data_source::{self, WlDataSource},
+    wp::data_device::data_source::{WlDataSource},
 };
 
 #[derive(Component, Reflect, Debug)]

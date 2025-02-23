@@ -29,7 +29,6 @@ use bevy::{
     winit::WinitPlugin,
 };
 use crossbeam_channel::{Receiver, Sender};
-use dway_ui_framework::prelude::*;
 use image::RgbaImage;
 
 pub fn image_diff(src_image: &RgbaImage, dest_image: &RgbaImage) -> RgbaImage {
@@ -71,7 +70,7 @@ pub fn compare_image(
             return Ok(None);
         }
     }
-    let diff_image = image_diff(&src_image, &dest_image);
+    let diff_image = image_diff(src_image, dest_image);
     Ok(Some(diff_image))
 }
 

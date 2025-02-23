@@ -1,14 +1,8 @@
-use bevy::{
-    ecs::{entity::EntityHashSet, world::DeferredWorld},
-    render::render_resource::{AsBindGroup, ShaderRef},
-    sprite::{Material2d, Mesh2dTransforms},
-    utils::HashSet,
-};
-use bevy_svg::prelude::{Svg, Svg2d};
+use bevy::ecs::{entity::EntityHashSet, world::DeferredWorld};
+use bevy_svg::prelude::Svg;
 use imports::ComponentId;
 
 use crate::{
-    make_bundle,
     prelude::*,
     render::mesh::{UiMeshHandle, UiMeshTransform},
 };
@@ -51,7 +45,7 @@ pub fn update_uisvg(
     assets: Res<Assets<Svg>>,
     mut padding_entity: Local<EntityHashSet>,
 ) {
-    for (entity, computed_ndoe, svg, mut mesh, mut material, mut  layout, mut transform) in &mut query {
+    for (entity, computed_ndoe, svg, mut mesh, mut material, layout, mut transform) in &mut query {
         let not_init = mesh.id() == Handle::<Mesh>::default().id();
         let padding = padding_entity.is_empty() && padding_entity.remove(&entity);
         if not_init || padding || svg.is_changed() {

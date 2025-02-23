@@ -4,7 +4,6 @@ use crate::{
     state::add_global_dispatch,
     util::rect::IRect,
 };
-use bevy::{ecs::entity::EntityHashSet, utils::HashSet};
 use bevy_relationship::{graph_query, relationship};
 use wayland_server::protocol::wl_output::Mode;
 

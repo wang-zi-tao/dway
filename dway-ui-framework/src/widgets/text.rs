@@ -1,6 +1,5 @@
-use bevy::{text::TextLayoutInfo, ui::ContentSize};
 
-use crate::{make_bundle, prelude::*};
+use crate::prelude::*;
 
 #[derive(Bundle, Debug)]
 pub struct UiTextExt {

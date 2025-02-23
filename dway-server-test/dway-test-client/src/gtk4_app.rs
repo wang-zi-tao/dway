@@ -1,7 +1,6 @@
 use std::time::Duration;
 
-use bevy::time::Timer;
-use gtk4::{gdk::ffi::{gdk_drag_begin, gdk_paintable_snapshot}, gio::Notification, glib::{self, ffi::{GTimer, _GTimer}, timeout_add, timeout_add_local}, prelude::*, Align, Application, ApplicationWindow, Button};
+use gtk4::{glib::{self, timeout_add_local}, prelude::*, Align, Application, ApplicationWindow, Button};
 
 use crate::ClientOption;
 

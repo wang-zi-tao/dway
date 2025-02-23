@@ -1,8 +1,7 @@
 use bevy::{
     prelude::*,
     render::{
-        camera::{CameraProjection, RenderTarget, ScalingMode},
-        primitives::Frustum,
+        camera::{RenderTarget, ScalingMode},
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
@@ -231,7 +230,7 @@ pub fn prepare_render_command(
                 });
             }
         };
-        if &ui_image.image != &canvas.image {
+        if ui_image.image != canvas.image {
             ui_image.image = canvas.image.clone();
         }
     }
