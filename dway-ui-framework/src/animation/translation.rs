@@ -2,7 +2,7 @@ use bevy::ecs::system::EntityCommands;
 
 use crate::{
     animation::{
-        ui::{move_rect_by_percent, TargetStyle},
+        ui::{move_rect_by_percent, AnimationTargetNodeState},
         AnimationDirection, AnimationEvent,
     },
     command::DestroyInterceptor,
@@ -50,7 +50,7 @@ impl EventReceiver<AnimationEvent> for UiTranslationAnimation {
         };
 
         let just_finish = event.just_finish;
-        commands.add(move |mut entity_mut: EntityWorldMut| {
+        commands.queue(move |mut entity_mut: EntityWorldMut| {
             let Some(child_entity) = entity_mut
                 .get::<Children>()
                 .and_then(|c| c.first().cloned())
@@ -58,7 +58,7 @@ impl EventReceiver<AnimationEvent> for UiTranslationAnimation {
                 return;
             };
             let Some(child_size) =
-                entity_mut.world_scope(|world| world.get::<Node>(child_entity).map(Node::size))
+                entity_mut.world_scope(|world| world.get::<ComputedNode>(child_entity).map(ComputedNode::size))
             else {
                 return;
             };
@@ -66,9 +66,9 @@ impl EventReceiver<AnimationEvent> for UiTranslationAnimation {
                 .get::<UiTranslationAnimation>()
                 .unwrap()
                 .direction;
-            let target_layout = entity_mut.get::<TargetStyle>().unwrap().0.clone();
+            let target_layout = entity_mut.get::<AnimationTargetNodeState>().unwrap().0.clone();
             {
-                let Some(mut layout) = entity_mut.get_mut::<Style>() else {
+                let Some(mut layout) = entity_mut.get_mut::<Node>() else {
                     return;
                 };
                 *layout = target_layout.clone();
@@ -98,7 +98,7 @@ impl EventReceiver<AnimationEvent> for UiTranslationAnimation {
 
 impl EventReceiver<UiNodeAppearEvent> for UiTranslationAnimation {
     fn on_event(&self, mut commands: EntityCommands, event: UiNodeAppearEvent) {
-        commands.add(move |mut entity_mut: EntityWorldMut| {
+        commands.queue(move |mut entity_mut: EntityWorldMut| {
             {
                 let mut this = entity_mut.get_mut::<Self>().unwrap();
                 this.appear = &event == &UiNodeAppearEvent::Appear;
@@ -124,6 +124,6 @@ make_bundle! {
         pub translation: UiTranslationAnimation,
         pub animation: Animation,
         pub event_dispatcher: EventDispatcher<AnimationEvent>,
-        pub target_style: TargetStyle,
+        pub target_style: AnimationTargetNodeState,
     }
 }

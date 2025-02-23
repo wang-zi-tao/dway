@@ -83,10 +83,10 @@ Cursor=>
 @use_state(pub cursor_image: Handle<Image>)
 @state_component(#[derive(Debug)])
 @bundle{{ theme: ThemeComponent = ThemeComponent::widget(WidgetKind::BlurBackground) }}
-<ImageBundle UiImage=(state.cursor_image().clone().into()) ZIndex=(ZIndex::Global(4096))
-    Style=({
+<ImageBundle ImageNode=(state.cursor_image().clone().into()) GlobalZIndex=(GlobalZIndex(4096))
+    Node=({
         let b = state.cursor_geo();
-        Style{
+        Node{
             top: Val::Px(b.y() as f32),
             left: Val::Px(b.x() as f32),
             width: Val::Px(b.width() as f32),

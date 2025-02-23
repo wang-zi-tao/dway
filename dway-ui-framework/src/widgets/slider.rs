@@ -7,6 +7,7 @@ use crate::{
 };
 
 #[derive(Component, SmartDefault, Reflect)]
+#[require(Node, UiSliderState, UiSliderWidget, RelativeCursorPosition, Interaction, UiSliderEventDispatcher)]
 pub struct UiSlider {
     #[default(1.0)]
     pub max: f32,
@@ -35,14 +36,17 @@ UiSlider=>
 @bundle({
     pub interaction: Interaction,
     pub focus_policy: FocusPolicy = FocusPolicy::Block,
-    pub style: Style = style!("items-center absolute full min-h-16 min-w-32"),
+    pub node: Node = style!("items-center absolute full min-h-16 min-w-32"),
     pub cursor_positon: RelativeCursorPosition, // TODO 优化
     pub event_dispatcher: UiSliderEventDispatcher,
 })
 @world_query(slider_interaction: Ref<Interaction>)
 @world_query(mouse_position: Ref<RelativeCursorPosition>)
 @world_query(event_dispatcher: Ref<UiSliderEventDispatcher>)
+@world_query(node: &mut Node)
 @before{
+if !widget.inited {
+}
 if ( slider_interaction.is_changed() || mouse_position.is_changed() )
         && *slider_interaction == Interaction::Pressed{
     if let Some(relative) = mouse_position.normalized {
@@ -60,12 +64,12 @@ if ( slider_interaction.is_changed() || mouse_position.is_changed() )
 >
     <MiniNodeBundle @id="bar_highlight"
         ThemeComponent=(ThemeComponent::new(StyleFlags::default(), WidgetKind::SliderHightlightBar))
-        Style=(Style{
+        Node=(Node{
         width: Val::Percent(100.0*((*state.value()-prop.min)/(prop.max-prop.min)).max(0.0).min(1.0)),
         ..style!("m-2")
     }) />
 </MiniNodeBundle>
-<MiniNodeBundle Style=(Style{
+<MiniNodeBundle Node=(Node{
     margin:UiRect::left(Val::Percent(100.0*((*state.value()-prop.min)/(prop.max-prop.min)).max(0.0).min(1.0))),
     ..style!("absolute w-0 h-full flex-col align-items:center justify-content:center align-self:center")
 }) >

@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use bevy::ecs::{entity::EntityHashSet, event::ManualEventReader};
+use bevy::ecs::{entity::EntityHashSet, event::EventCursor};
 use reexport::SmallVec;
 use scopeguard::defer;
 use thiserror::Error;
@@ -375,7 +375,7 @@ pub fn process_x11_event(
 
 pub fn dispatch_x11_events(
     world: &mut World,
-    mut event_reader: Local<ManualEventReader<DispatchXWaylandDisplay>>,
+    mut event_reader: Local<EventCursor<DispatchXWaylandDisplay>>,
 ) {
     let display_entity_list = event_reader
         .read(world.resource())

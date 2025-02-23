@@ -35,7 +35,7 @@ fn main() {
 pub struct Clock;
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2dBundle::default(), Msaa::Sample4));
 
     commands.spawn((
         Clock,
@@ -52,7 +52,7 @@ fn setup(mut commands: Commands) {
             color: Color::BLACK,
         },
         UiShapeBundle {
-            style: Style {
+            node: Node {
                 align_self: AlignSelf::Center,
                 justify_self: JustifySelf::Center,
                 width: Val::Px(256.0),

@@ -21,7 +21,7 @@ impl AsyncContextReceiver {
         for command in new_commands {
             command(world);
         }
-        world.flush_commands();
+        world.flush();
     }
 
     pub fn async_context(&self) -> Arc<AsyncContextReceiver> {

@@ -21,22 +21,17 @@ use dway_ui_framework::{
         combobox::{StringItem, UiComboBox, UiComboBoxBundle},
         inputbox::UiInputBoxBundle,
         popup::{popup_animation_system, UiPopup, UiPopupExt},
-        slider::UiSliderBundle,
-        text::UiTextBundle,
+        slider::UiSliderBundle, text::{UiTextBundle, UiTextExt},
     },
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins((
-            dway_ui_framework::UiFrameworkPlugin,
-            bevy_inspector_egui::quick::WorldInspectorPlugin::new(),
-        ))
+        .add_plugins(dway_ui_framework::UiFrameworkPlugin)
         .add_systems(Startup, setup)
         .add_plugins(CounterPlugin)
         .insert_resource(ClearColor(Color::rgb(0.8, 0.8, 0.8)))
-        .insert_resource(Msaa::Sample4)
         .register_callback(button_open_poppup)
         .register_callback(open_menu)
         .register_callback(popup_animation_system::<UiAnimationDropdownConfig>)
@@ -45,11 +40,11 @@ fn main() {
 
 fn setup(mut commands: Commands, theme: Res<Theme>, callbacks: Res<CallbackTypeRegister>) {
     // Camera so we can see UI
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2dBundle::default(), Msaa::Sample4));
 
     spawn! {&mut commands=>
         <UiBlockBundle Name=(Name::new("widgets"))
-            Style=(Style {
+            Node=(Node {
                 align_self: AlignSelf::Center,
                 justify_self: JustifySelf::Center,
                 flex_direction: FlexDirection::Column,
@@ -99,7 +94,7 @@ fn setup(mut commands: Commands, theme: Res<Theme>, callbacks: Res<CallbackTypeR
 }
 
 pub fn button_open_poppup(
-    In(event): In<UiEvent<UiButtonEvent>>,
+    event: UiEvent<UiButtonEvent>,
     mut commands: Commands,
     theme: Res<Theme>,
     callbacks: Res<CallbackTypeRegister>,
@@ -107,7 +102,7 @@ pub fn button_open_poppup(
     if event.kind == UiButtonEventKind::Released {
         commands.entity(event.sender()).with_children(|c| {
             spawn! {c=>
-                <UiBlockBundle ZIndex=(ZIndex::Global(1024)) @style="w-200 h-200 top-120% absolute align-self:center"
+                <UiBlockBundle GlobalZIndex=(GlobalZIndex(1024)) @style="w-200 h-200 top-120% absolute align-self:center"
                     UiPopupExt=(UiPopupExt{
                         event_dispatcher: make_callback(event.receiver(),
                             callbacks.system(popup_animation_system::<UiAnimationDropdownConfig>)),
@@ -122,20 +117,20 @@ pub fn button_open_poppup(
 }
 
 pub fn open_menu(
-    In(event): In<UiEvent<UiInputEvent>>,
+    event: UiEvent<UiInputEvent>,
     theme: Res<Theme>,
     mut commands: Commands,
-    node_query: Query<(&RelativeCursorPosition, &Node)>,
+    node_query: Query<(&RelativeCursorPosition, &ComputedNode)>,
 ) {
     match &*event {
         UiInputEvent::MouseRelease(MouseButton::Left) => {
-            let Ok((relative_pos, node)) = node_query.get(event.sender()) else {
+            let Ok((relative_pos, computed_node)) = node_query.get(event.sender()) else {
                 return;
             };
             let Some(normalized) = relative_pos.normalized else {
                 return;
             };
-            let delta = normalized * node.size();
+            let delta = normalized * computed_node.size();
             commands.entity(event.sender()).with_children(|c| {
                 spawn! {c=>
                     <UiBlockBundle @style="absolute flex-col p-8 left-{delta.x} top-{delta.y}"
@@ -161,7 +156,7 @@ Counter=>
 @global(theme: Theme)
 
 @callback{[UiEvent<UiButtonEvent>]
-    fn inc( In(event): In<UiEvent<UiButtonEvent>>, mut query: Query<&mut CounterState>) {
+    fn inc( event: UiEvent<UiButtonEvent>, mut query: Query<&mut CounterState>) {
         let Ok(mut state) = query.get_mut(event.receiver()) else {return};
         if event.kind == UiButtonEventKind::Released{
             *state.count_mut() += 1;
@@ -171,13 +166,12 @@ Counter=>
 
 @use_state(count: usize)
 <UiHollowBlockBundle @style="p-8">
-    <UiTextBundle @style="w-64"
-        Text=(Text::from_section(state.count().to_string(), TextStyle{ font_size: 32.0, ..theme.default_text_style() }))/>
+    <Node @style="w-64" Text=(Text::new(state.count().to_string())) TextFont=(theme.text_font(32.0))/>
     <UiHightlightButtonBundle @style="p-4 w-32 h-32 align-items:center justify-content:center"  @id="button"
         UiWidgetRoot=(this_entity.into())
         UiButtonEventDispatcher=(make_callback(this_entity, inc))
     >
-        <UiTextBundle Text=(Text::from_section("+", TextStyle{ font_size: 32.0, color: Color::WHITE, font:theme.default_font() }))/>
+        <Node Text=(Text::new("+")) TextFont=(theme.text_font(32.0)) TextColor=(TextColor::WHITE)/>
     </UiHightlightButtonBundle>
 </UiHollowBlockBundle>
 }

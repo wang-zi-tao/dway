@@ -14,7 +14,7 @@ pub fn destroy_ui(entity: Entity, world: &mut World) {
     let mut param = SystemState::<(Query<&dyn DestroyInterceptor>, Commands)>::new(world);
     let (query, mut commands) = param.get_manual(world);
 
-    let Some(entity_ref) = world.get_entity(entity) else {
+    let Ok(entity_ref) = world.get_entity(entity) else {
         return;
     };
 
@@ -26,7 +26,7 @@ pub fn destroy_ui(entity: Entity, world: &mut World) {
     }
 
     if despawn {
-        if let Some(entity_mut) = world.get_entity_mut(entity) {
+        if let Ok(entity_mut) = world.get_entity_mut(entity) {
             entity_mut.despawn_recursive();
         }
     }

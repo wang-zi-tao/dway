@@ -1,10 +1,11 @@
 use bevy::{
-    ecs::entity::EntityHashSet,
+    ecs::{entity::EntityHashSet, world::DeferredWorld},
     render::render_resource::{AsBindGroup, ShaderRef},
-    sprite::Material2d,
+    sprite::{Material2d, Mesh2dTransforms},
     utils::HashSet,
 };
-use bevy_svg::prelude::Svg;
+use bevy_svg::prelude::{Svg, Svg2d};
+use imports::ComponentId;
 
 use crate::{
     make_bundle,
@@ -12,22 +13,22 @@ use crate::{
     render::mesh::{UiMeshHandle, UiMeshTransform},
 };
 
-#[derive(Component, Default, Reflect, PartialEq, Eq, Hash)]
+fn svg_on_insert(mut world: DeferredWorld, entity: Entity, _component_id: ComponentId) {
+    let handle = world.get::<UiSvg>(entity).unwrap().handle.clone();
+    world.commands().entity(entity).insert(MeshMaterial2d(handle));
+}
+
+#[derive(Component, Default, Reflect, PartialEq, Eq, Hash, Deref, DerefMut)]
+#[require(UiMeshHandle, SvgLayout)]
+#[component(on_insert = svg_on_insert)]
 pub struct UiSvg {
+    #[deref]
     handle: Handle<Svg>,
 }
 
-impl std::ops::Deref for UiSvg {
-    type Target = Handle<Svg>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.handle
-    }
-}
-
 impl From<Handle<Svg>> for UiSvg {
-    fn from(value: Handle<Svg>) -> Self {
-        Self { handle: value }
+    fn from(handle: Handle<Svg>) -> Self {
+        Self { handle }
     }
 }
 
@@ -37,68 +38,31 @@ impl UiSvg {
     }
 }
 
-#[derive(AsBindGroup, Reflect, Debug, Clone, Asset)]
-pub struct SvgMagerial {
-    pub inner: Svg,
-}
-
-impl Material2d for SvgMagerial {
-    fn fragment_shader() -> ShaderRef {
-        Svg::fragment_shader()
-    }
-}
-
-make_bundle! {
-    @from svg: UiSvg,
-    @addon UiSvgExt,
-    UiSvgBundle{
-        pub mesh: UiMeshHandle,
-        pub material: Handle<SvgMagerial>,
-        pub svg: UiSvg,
-        pub layout: SvgLayout,
-        pub mesh_transform: UiMeshTransform,
-
-        pub focus_policy: FocusPolicy,
-    }
-}
-
-impl UiSvgBundle {
-    pub fn new(svg: Handle<Svg>) -> Self {
-        Self {
-            svg: UiSvg::new(svg),
-            ..Default::default()
-        }
-    }
-}
-
 pub fn update_uisvg(
     mut query: Query<(
         Entity,
-        Ref<Node>,
+        Ref<ComputedNode>,
         Ref<UiSvg>,
         &mut UiMeshHandle,
-        &mut Handle<SvgMagerial>,
+        &mut MeshMaterial2d<Svg>,
         Ref<SvgLayout>,
         &mut UiMeshTransform,
     )>,
     assets: Res<Assets<Svg>>,
-    mut materials: ResMut<Assets<SvgMagerial>>,
     mut padding_entity: Local<EntityHashSet>,
 ) {
-    for (entity, node, svg, mut mesh, mut material, layout, mut transform) in &mut query {
+    for (entity, computed_ndoe, svg, mut mesh, mut material, mut  layout, mut transform) in &mut query {
         let not_init = mesh.id() == Handle::<Mesh>::default().id();
         let padding = padding_entity.is_empty() && padding_entity.remove(&entity);
         if not_init || padding || svg.is_changed() {
             if let Some(asset) = assets.get(&svg.handle) {
                 *mesh = asset.mesh.clone().into();
-                *material = materials.add(SvgMagerial {
-                    inner: asset.clone(),
-                });
+                *material = MeshMaterial2d(svg.handle.clone())
             }
         }
-        if not_init || padding || layout.is_changed() || node.is_changed() {
+        if not_init || padding || layout.is_changed() || computed_ndoe.is_changed() {
             if let Some(asset) = assets.get(&svg.handle) {
-                let node_size = node.size();
+                let node_size = computed_ndoe.size();
                 let mut size = Vec2::new(asset.view_box.w as f32, asset.view_box.h as f32);
                 let mut pos = Vec2::ZERO;
                 if layout.scale {

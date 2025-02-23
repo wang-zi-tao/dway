@@ -168,7 +168,7 @@ impl Plugin for WindowStackPlugin {
             .init_resource::<WindowStackConfig>()
             .init_resource::<WindowStack>()
             .add_event::<SetWindowIndex>()
-            .observe(init_window_index)
+            .add_observer(init_window_index)
             .add_systems(
                 PreUpdate,
                 (
@@ -178,7 +178,7 @@ impl Plugin for WindowStackPlugin {
                         .before(update_window_index),
                     update_window_index
                         .run_if(
-                            on_event::<SetWindowIndex>().or_else(resource_changed::<WindowStack>),
+                            on_event::<SetWindowIndex>.or_else(resource_changed::<WindowStack>),
                         )
                         .in_set(DWayClientSystem::UpdateZIndex),
                 ),

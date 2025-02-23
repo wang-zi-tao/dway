@@ -27,7 +27,6 @@ fn main() {
             ViewModelPlugin::<String>::default(),
             ListViewModelPlugin::<String>::default(),
             ItemCellPlugin::<String>::default(),
-            bevy_inspector_egui::quick::WorldInspectorPlugin::new(),
         ))
         .add_systems(Update, update)
         .add_systems(Startup, setup);
@@ -35,39 +34,36 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, theme: Res<Theme>) {
-    commands.spawn(Camera2dBundle::default());
-    let section = TextStyle {
-        font: theme.default_font(),
-        font_size: 32.0,
-        color: Color::BLACK,
-    };
+    commands.spawn((Camera2dBundle::default(), Msaa::Sample4));
+    let text_font = theme.text_font(32.0);
+    let color = TextColor::BLACK;
     commands
         .spawn(UiBlockBundle {
-            style: style!("align-items:center justify-content:center p-8"),
+            node: style!("align-items:center justify-content:center p-8"),
             ..Default::default()
         })
         .with_children(|c| {
             c.spawn(UiHollowBlockBundle {
-                style: style!("w-256 h-128"),
+                node: style!("w-256 h-128"),
                 ..Default::default()
             })
             .with_children(|c| {
                 c.spawn((
                     MiniNodeBundle::default(),
-                    TextViewFactory::new(section.clone()),
+                    TextViewFactory::new(text_font.clone(), color),
                     SimpleItemViewModel("text view".to_string()),
                     ItemCell::<String>::default(),
                     UpdateText,
                 ));
             });
             c.spawn(UiHollowBlockBundle {
-                style: style!("w-256 h-256"),
+                node: style!("w-256 h-256"),
                 ..Default::default()
             })
             .with_children(|c| {
                 c.spawn((
                     ListViewBundle::default(),
-                    TextViewFactory::new(section),
+                    TextViewFactory::new(text_font.clone(), Color::BLACK.into()),
                     SimpleListViewModel(vec![
                         "text view 1".to_string(),
                         "text view 2".to_string(),

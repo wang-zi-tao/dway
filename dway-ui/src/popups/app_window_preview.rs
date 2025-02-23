@@ -27,7 +27,7 @@ dway_widget! {
 AppWindowPreviewPopup=>
 @callback{ [UiEvent<UiButtonEvent>]
 fn close_window(
-    In(event): In<UiEvent<UiButtonEvent>>,
+    event: UiEvent<UiButtonEvent>,
     prop_query: Query<&AppWindowPreviewPopupSubWidgetList>,
     mut events: EventWriter<WindowAction>,
 ){
@@ -38,7 +38,7 @@ fn close_window(
 }}
 @callback{ [UiEvent<UiButtonEvent>]
 fn focus_window(
-    In(event): In<UiEvent<UiButtonEvent>>,
+    event: UiEvent<UiButtonEvent>,
     prop_query: Query<&AppWindowPreviewPopupSubWidgetList>,
     mut focused: ResMut<FocusedWindow>,
 ){
@@ -76,17 +76,13 @@ fn focus_window(
             <NodeBundle @style="flex-row">
                 <MiniNodeBundle @id="close" @style="m-2 w-20 h-20"
                     UiRawButtonExt=(UiRawButtonExt::from_callback(node!(window_preview), close_window)) >
-                    <(UiSvgBundle::new(asset_server.load("embedded://dway_ui/icons/close.svg")))  @style="full"/>
+                    <(UiSvg::new(asset_server.load("embedded://dway_ui/icons/close.svg")))  @style="full"/>
                 </MiniNodeBundle>
-                <TextBundle @style="items-center justify-center m-auto"
-                    Text=(Text::from_section(
-                        state.title(),
-                        TextStyle {
-                            font_size: 16.0,
-                            color: theme.default_text_color,
-                            font: theme.default_font(),
-                        },
-                    ).with_justify(JustifyText::Center))
+                <Node @style="items-center justify-center m-auto"
+                    Text=(Text::new(state.title()))
+                    TextFont=(theme.text_font(16.0))
+                    TextColor=(theme.default_text_color.into())
+                    TextLayout=( TextLayout::new_with_justify(JustifyText::Left) )
                 />
             </NodeBundle>
             <UiRawButtonBundle

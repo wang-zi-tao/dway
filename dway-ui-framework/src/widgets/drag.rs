@@ -33,7 +33,7 @@ pub fn update_ui_drag(
         (
             Entity,
             &mut UiDrag,
-            &Node,
+            &ComputedNode,
             &RelativeCursorPosition,
             &Interaction,
             &UiDragEventDispatcher,
@@ -43,11 +43,11 @@ pub fn update_ui_drag(
     mut commands: Commands,
     mouse: Res<ButtonInput<MouseButton>>,
 ) {
-    for (entity, mut this, node, cursor, interaction, event_dispatcher) in &mut query {
+    for (entity, mut this, computed_node, cursor, interaction, event_dispatcher) in &mut query {
         if let Some(normalized_cursor_pos) = cursor.normalized {
             if let Some(state) = &mut this.state {
                 if mouse.pressed(MouseButton::Left) {
-                    let pos = normalized_cursor_pos * node.size();
+                    let pos = normalized_cursor_pos * computed_node.size();
                     if pos != state.delta {
                         state.move_vec = pos - state.delta;
                         event_dispatcher.send(UiDragEvent::Move(pos - state.delta), &mut commands);
@@ -59,7 +59,7 @@ pub fn update_ui_drag(
             } else if *interaction == Interaction::Pressed {
                 event_dispatcher.send(UiDragEvent::Start, &mut commands);
                 this.state = Some(UiDragState {
-                    delta: normalized_cursor_pos * node.size(),
+                    delta: normalized_cursor_pos * computed_node.size(),
                     move_vec: Vec2::ZERO,
                 });
             };

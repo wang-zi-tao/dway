@@ -19,6 +19,7 @@ use dway_ui_framework::{
     widgets::{
         inputbox::{UiInputBox, UiInputBoxBundle},
         shape::UiShapeBundle,
+        text::UiTextBundle,
     },
 };
 
@@ -74,13 +75,13 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2dBundle::default(), Msaa::Sample4));
 
     commands.spawn(GallaryBundle::default());
 }
 
-fn grid_style() -> Style {
-    Style {
+fn grid_style() -> Node {
+    Node {
         height: Val::Percent(100.0),
         aspect_ratio: Some(1.0),
         display: Display::Grid,
@@ -94,8 +95,8 @@ fn grid_style() -> Style {
     }
 }
 
-fn cell_style() -> Style {
-    Style {
+fn cell_style() -> Node {
+    Node {
         margin: UiRect::all(Val::Px(8.0)),
         min_width: Val::Px(128.0),
         min_height: Val::Px(64.0),
@@ -106,8 +107,8 @@ fn cell_style() -> Style {
     }
 }
 
-fn button_style() -> Style {
-    Style {
+fn button_style() -> Node {
+    Node {
         margin: UiRect::all(Val::Px(8.0)),
         min_width: Val::Px(64.0),
         min_height: Val::Px(32.0),
@@ -118,8 +119,8 @@ fn button_style() -> Style {
     }
 }
 
-fn checkbox_style() -> Style {
-    Style {
+fn checkbox_style() -> Node {
+    Node {
         margin: UiRect::all(Val::Px(8.0)),
         width: Val::Px(64.0),
         height: Val::Px(32.0),
@@ -136,70 +137,56 @@ Gallary=>
 @global(asset_server: AssetServer)
 @global(mut meshes: Assets<Mesh>)
 @global(mut mesh2d_materials: Assets<ColorMaterial>)
-<MiniNodeBundle Style=(grid_style())
+<MiniNodeBundle Node=(grid_style())
     @material(RoundedBlockMaterial=>rounded_block(color!("#dddddd"), 16.0, &theme))
 >
-    <MiniButtonBundle Style=(cell_style())
+    <MiniButtonBundle Node=(cell_style())
         @material(RoundedUiRectMaterial=>rounded_rect(color!("#ffffff"), 16.0)) >
         <(UiTextBundle::new("block", 24, &theme))/>
     </>
-    <MiniButtonBundle Style=(cell_style())
+    <MiniButtonBundle Node=(cell_style())
         @material(RoundedBlockMaterial=>rounded_block(color!("#ffffff"), 16.0, &theme)) >
         <(UiTextBundle::new("block with shadow", 24, &theme))/>
     </>
-    <MiniButtonBundle Style=(cell_style())
+    <MiniButtonBundle Node=(cell_style())
         @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
         <(UiTextBundle::new("hollow block", 24, &theme))/>
     </>
-    <MiniButtonBundle Style=(cell_style())
+    <MiniButtonBundle Node=(cell_style())
         @material(RoundedRainbowBlockMaterial=>rainbow_block(16.0, 2.0)) >
         <(UiTextBundle::new("rainbow block", 24, &theme))/>
     </>
-    <MiniNodeBundle Style=(cell_style())>
-        <MiniButtonBundle Style=(button_style())
+    <MiniNodeBundle Node=(cell_style())>
+        <MiniButtonBundle Node=(button_style())
             @material(RoundedBlockMaterial=>button_material(theme.color("blue"), 8.0, &theme)) >
-            <(UiTextBundle::from( Text::from_section(
-                    "button",
-                    TextStyle {
-                        font: theme.default_font(),
-                        font_size: 24_f32,
-                        color: Color::WHITE,
-                    },
-            ) ))/>
+            <((Text::new("button"), theme.text_font(24.0), TextColor(Color::WHITE)))/>
         </>
     </>
-    <MiniNodeBundle Style=(cell_style())>
-        <MiniButtonBundle Style=(button_style())
+    <MiniNodeBundle Node=(cell_style())>
+        <MiniButtonBundle Node=(button_style())
             @material(RoundedBlockMaterial=>button_material(color!("#ffffff"), 8.0, &theme)) >
-            <(UiTextBundle::from( Text::from_section(
-                    "button",
-                    TextStyle {
-                        font: theme.default_font(),
-                        font_size: 24_f32,
-                        color: color!("#0000ff"),
-                    },
-            ) ))/>
+            <((Text::new("button"), theme.text_font(24.0), TextColor(color!("#0000ff"))))/>
         </>
     </>
-    <MiniNodeBundle Style=(cell_style())>
-        <MiniButtonBundle Style=(button_style())
+    <MiniNodeBundle Node=(cell_style())>
+        <MiniButtonBundle Node=(button_style())
             @material(Fake3dButton=>fake3d_button_material(color!("#ffffff"), 4.0)) >
             <(UiTextBundle::new("3d button", 24, &theme))/>
         </>
     </>
-    <MiniNodeBundle Style=(cell_style())>
-        <MiniButtonBundle Style=(button_style())
+    <MiniNodeBundle Node=(cell_style())>
+        <MiniButtonBundle Node=(button_style())
             @material(Fake3dButton=>clicked_fake3d_button_material(color!("#ffffff"), 4.0)) >
             <(UiTextBundle::new("3d button", 24, &theme))/>
         </>
     </>
-    <MiniNodeBundle Style=(cell_style())>
-        <MiniButtonBundle Style=(checkbox_style())
+    <MiniNodeBundle Node=(cell_style())>
+        <MiniButtonBundle Node=(checkbox_style())
             @material(CheckboxMaterial=>checkbox_material(false, Vec2::new(64.0,32.0), &theme))
         >
         </>
     </MiniNodeBundle>
-    <MiniNodeBundle Style=(cell_style())>
+    <MiniNodeBundle Node=(cell_style())>
         <MiniButtonBundle @style="p-8 w-full m-8" @material(RoundedBorderBlockMaterial=>rounded_border_block(Color::WHITE,theme.color("blue"), 8.0, 2.0)) >
             <UiInputBoxBundle UiInputBox=(UiInputBox{
                 placeholder: "input box...".into(),
@@ -207,7 +194,7 @@ Gallary=>
             })/>
         </>
     </MiniNodeBundle>
-    <MiniNodeBundle Style=(cell_style())>
+    <MiniNodeBundle Node=(cell_style())>
         <MiniButtonBundle @style="p-8 w-full m-8" @material(RoundedInnerShadowBlockMaterial=>rounded_inner_shadow_block(Color::WHITE, 8.0, &theme)) >
             <UiInputBoxBundle UiInputBox=(UiInputBox{
                 placeholder: "input box...".into(),
@@ -215,33 +202,31 @@ Gallary=>
             })/>
         </>
     </MiniNodeBundle>
-    <MiniNodeBundle Style=(cell_style())>
+    <MiniNodeBundle Node=(cell_style())>
         <UiSliderBundle @style="w-full" />
     </MiniNodeBundle>
-    <MiniNodeBundle Style=(cell_style())>
+    <MiniNodeBundle Node=(cell_style())>
         <MiniButtonBundle @style="w-128 h-128 align-items:center justify-content:center"
             @material(ArcMaterial=>arc_material(color!("#00ff00"), Color::WHITE, 8.0, [0.0,5.28]))
         >
-            <( UiSvgBundle{
-                svg: UiSvg::from(asset_server.load("embedded://dway_ui_framework/examples/gallary/power.svg")),
-                mesh_transform: UiMeshTransform::new(Transform::default()
+            <(( UiSvg::from(asset_server.load("embedded://dway_ui_framework/examples/gallary/power.svg")),
+                UiMeshTransform::new(Transform::default()
                                                     .with_translation(Vec3::new(-24.0,-24.0,0.0))
                                                     .with_scale(Vec3::new(2.0,-2.0,1.0))),
-                style: style!("w-64 h-64"),
-                ..default()
-            })/>
+                style!("w-64 h-64"), )
+            )/>
         </>
     </MiniNodeBundle>
-    <MiniNodeBundle Style=(cell_style())
+    <MiniNodeBundle Node=(cell_style())
         @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
         <( UiMeshBundle{
             mesh: UiMeshHandle::from(meshes.add(RegularPolygon::new(48.0, 6))),
-            material: mesh2d_materials.add(color!("#ff0000")),
-            style: style!("w-64 h-64"),
+            material: mesh2d_materials.add(color!("#ff0000")).into(),
+            node: style!("w-64 h-64"),
             ..default()
         })/>
     </MiniNodeBundle>
-    <MiniNodeBundle Style=(cell_style())
+    <MiniNodeBundle Node=(cell_style())
         @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
         <UiShapeBundle Fill=(Fill::color(color!("#0000ff"))) Stroke=( Stroke::new(Color::BLACK, 8.0) )
         UiMeshTransform=(Transform::default().with_translation(Vec3::new(-64.0,-64.0,0.0)).with_scale(Vec3::splat(1.0/8.0)).into())
@@ -250,7 +235,7 @@ Gallary=>
             svg_path_string: "M280-240q-100 0-170-70T40-480q0-100 70-170t170-70h400q100 0 170 70t70 170q0 100-70 170t-170 70H280Zm0-80h400q66 0 113-47t47-113q0-66-47-113t-113-47H280q-66 0-113 47t-47 113q0 66 47 113t113 47Zm400-40q50 0 85-35t35-85q0-50-35-85t-85-35q-50 0-85 35t-35 85q0 50 35 85t85 35ZM480-480Z".to_string()
         }))  @style="w-120 h-120 m-8"/>
     </MiniNodeBundle>
-    <MiniNodeBundle Style=(cell_style())
+    <MiniNodeBundle Node=(cell_style())
         @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
         <UiShapeBundle Fill=(Fill::color(color!("#ffff00")))
         Stroke=(Stroke{
@@ -263,7 +248,7 @@ Gallary=>
             ..shapes::RegularPolygon::default()
         }))  @style="w-120 h-120 m-8"/>
     </MiniNodeBundle>
-    <MiniNodeBundle Style=(cell_style())
+    <MiniNodeBundle Node=(cell_style())
         @material(RoundedInnerShadowBlockMaterial=>rounded_inner_shadow_block(Color::WHITE, 8.0, &theme)) >
         <UiScrollBundle @style="w-120 h-120 m-8">
             <(UiTextBundle::new("scroll\nscroll\nscroll\nscroll\nscroll\nscroll\nscroll", 24, &theme)) @style="w-256 h-256 left-4"/>

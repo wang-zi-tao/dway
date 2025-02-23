@@ -1,4 +1,4 @@
-use bevy::{prelude::*, render::texture::TextureFormatPixelInfo};
+use bevy::prelude::*;
 use glow::{HasContext, NativeTexture, PixelPackData};
 use image::{ImageBuffer, Rgba, RgbaImage};
 use wgpu::Texture;

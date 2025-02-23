@@ -17,7 +17,7 @@ use bevy::{
         settings::{RenderCreation, WgpuSettings},
         RenderPlugin,
     },
-    sprite::MaterialMesh2dBundle,
+    sprite::{MaterialMesh2dBundle},
     winit::WinitPlugin,
 };
 use dway_tty::{drm::surface::DrmSurface, DWayTTYPlugin};
@@ -56,11 +56,10 @@ pub fn main() {
         })
         .insert_resource(ClearColor(Color::WHITE))
         .add_systems(Startup,setup)
-        .add_systems(Update,animate_cube)
         .add_systems(Update,input_event_system);
     app.finish();
     app.cleanup();
-    for i in 0..64 {
+    for i in 0.. {
         info!("frame {i}");
         app.update();
         std::thread::sleep(Duration::from_secs_f64(1.0 / 144.0));
@@ -69,15 +68,12 @@ pub fn main() {
 
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    mut materials_2d: ResMut<Assets<ColorMaterial>>,
     surface_query: Query<&DrmSurface>,
 ) {
     info!("setup world");
 
     if std::env::var("DISPLAY").is_ok() || std::env::var("WAYLAND_DISPLAY").is_ok() {
-        commands.spawn((Camera3dBundle {
+        commands.spawn((Camera2dBundle {
             transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             tonemapping: Tonemapping::None,
             ..default()
@@ -98,37 +94,6 @@ fn setup(
         info!("setup camera");
     }
 
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 36000.,
-            shadows_enabled: true,
-            ..default()
-        },
-        transform: Transform::from_xyz(0.0, 1.5, 0.0),
-        ..default()
-    });
-
-    commands.spawn(NodeBundle{
-        background_color: BackgroundColor(Color::rgb(0.8, 0.8, 0.8)),
-        node: Node {
-            width: Val::Px(64.),
-            height: Val::Px(64.),
-            ..Default::default()
-        },
-        ..Default::default()
-    });
-
-    commands.spawn(PbrBundle {
-        mesh: Mesh3d(meshes.add(Mesh::from(Sphere::default()))),
-        material: standard_materials.add(StandardMaterial::from_color( Color::rgb(0.8, 0.7, 0.6) )).into(),
-        ..default()
-    });
-}
-
-pub fn animate_cube(time: Res<Time>, mut query: Query<&mut Transform, With<Mesh3d>>) {
-    for mut transform in &mut query {
-        transform.rotate_local_z(time.delta_secs());
-    }
 }
 
 pub fn input_event_system(
@@ -142,3 +107,4 @@ pub fn input_event_system(
         dbg!(event);
     }
 }
+

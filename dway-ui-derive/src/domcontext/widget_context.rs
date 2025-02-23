@@ -422,14 +422,6 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
         }
     });
 
-    #[cfg(feature = "css")]
-    {
-        let css_name = name.to_string().to_case(convert_case::Case::Kebab);
-        context.plugin_builder.stmts.push(quote! {
-            bevy_ecss::RegisterComponentSelector::register_component_selector::<#prop_type>(app, #css_name);
-        });
-    }
-
     context.resources_builder.generate_init = true;
 
     let mut before_foreach = Vec::new();

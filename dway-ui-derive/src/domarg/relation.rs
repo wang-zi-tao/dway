@@ -84,12 +84,12 @@ impl DomDecorator for Connect {
         let stmts = match self {
             Connect::To { relation, .. } => {
                 quote! {
-                    commands.add(bevy_relationship::ConnectCommand::<#relation>::new(#entity_var,#target_entity));
+                    commands.queue(bevy_relationship::ConnectCommand::<#relation>::new(#entity_var,#target_entity));
                 }
             }
             Connect::From { relation, .. } => {
                 quote! {
-                    commands.add(bevy_relationship::ConnectCommand::<#relation>::new(#target_entity,#entity_var));
+                    commands.queue(bevy_relationship::ConnectCommand::<#relation>::new(#target_entity,#entity_var));
                 }
             }
         };
@@ -109,14 +109,14 @@ impl DomDecorator for Connect {
             let update = match self {
                 Connect::To { relation, .. } => {
                     quote! {
-                        commands.add(bevy_relationship::DisconnectCommand::<#relation>::new(#entity_var,#target_entity_var));
-                        commands.add(bevy_relationship::ConnectCommand::<#relation>::new(#entity_var,#target_entity_var));
+                        commands.queue(bevy_relationship::DisconnectCommand::<#relation>::new(#entity_var,#target_entity_var));
+                        commands.queue(bevy_relationship::ConnectCommand::<#relation>::new(#entity_var,#target_entity_var));
                     }
                 }
                 Connect::From { relation, .. } => {
                     quote! {
-                        commands.add(bevy_relationship::DisconnectCommand::<#relation>::new(#target_entity_var,#entity_var));
-                        commands.add(bevy_relationship::ConnectCommand::<#relation>::new(#target_entity_var,#entity_var));
+                        commands.queue(bevy_relationship::DisconnectCommand::<#relation>::new(#target_entity_var,#entity_var));
+                        commands.queue(bevy_relationship::ConnectCommand::<#relation>::new(#target_entity_var,#entity_var));
                     }
                 }
             };

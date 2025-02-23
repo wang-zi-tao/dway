@@ -12,8 +12,7 @@ use std::{
 };
 
 use bevy::{
-    asset::{io::embedded::EmbeddedAssetRegistry, load_internal_asset},
-    render::{
+    asset::{io::embedded::EmbeddedAssetRegistry, load_internal_asset}, ecs::system::{lifetimeless::SRes, SystemParamItem}, render::{
         render_asset::RenderAssets,
         render_resource::{
             encase::{
@@ -28,7 +27,7 @@ use bevy::{
         },
         renderer::RenderDevice,
         texture::{FallbackImage, GpuImage},
-    },
+    }
 };
 use dway_ui_derive::Interpolation;
 
@@ -745,6 +744,7 @@ impl<T: Material> ShaderType for ShaderAsset<T> {
 
 impl<T: Material> AsBindGroup for ShaderAsset<T> {
     type Data = ();
+    type Param = (SRes<RenderAssets<GpuImage>>, SRes<FallbackImage>);
 
     fn label() -> Option<&'static str> {
         Some(type_name::<Self>())
@@ -754,8 +754,7 @@ impl<T: Material> AsBindGroup for ShaderAsset<T> {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<GpuImage>,
-        fallback_image: &FallbackImage,
+        (images, fallback_image): &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> std::prelude::v1::Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         let mut builder = BindGroupBuilder::new(layout, render_device, images, fallback_image);
         builder.add_uniform_buffer(self)?;

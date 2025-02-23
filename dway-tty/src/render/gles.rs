@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail, Result};
 use bevy::{
     math::{IVec2, UVec2},
     prelude::Entity,
-    utils::{EntityHashMap, HashMap, HashSet},
+    utils::{HashMap, HashSet},
 };
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use dway_util::render::gles::debug_output_texture;

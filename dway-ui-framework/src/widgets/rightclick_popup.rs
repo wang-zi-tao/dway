@@ -8,7 +8,7 @@ pub trait RgithClickPopupConfig {
 }
 
 pub fn open_right_click_popup<C: RgithClickPopupConfig>(
-    In(event): In<UiEvent<UiInputEvent>>,
+    event: UiEvent<UiInputEvent>,
     mut commands: Commands,
 ) {
     match &*event {

@@ -93,7 +93,7 @@ impl Plugin for TtyRenderPlugin {
                 .add_systems(
                     Render,
                     (init_render, apply_deferred)
-                        .run_if(run_once())
+                        .run_if(run_once)
                         .in_set(RenderSet::PrepareResources),
                 )
                 .add_systems(

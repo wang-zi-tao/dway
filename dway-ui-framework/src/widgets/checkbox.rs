@@ -220,7 +220,7 @@ pub struct CheckBoxAddonBundle<M: UiMaterial> {
     pub checkbox: UiCheckBox,
     pub state: UiCheckBoxState,
     pub interaction: Interaction,
-    pub material: Handle<M>,
+    pub material: MaterialNode<M>,
     #[default(FocusPolicy::Block)]
     pub focus_policy: FocusPolicy,
 

@@ -74,7 +74,7 @@ impl DomDecorator for Handle {
             convert_type_name(&self.ty),
             span = self.ty.span()
         );
-        Some(quote!(#ident.add(#expr)))
+        Some(quote!(MaterialNode(#ident.add(#expr))))
     }
     fn generate_update(&self, context: &mut WidgetNodeContext) -> Option<TokenStream> {
         let Self { expr, .. } = self;
@@ -88,7 +88,7 @@ impl DomDecorator for Handle {
             );
             quote! {
                 if #check_changed {
-                    commands.entity(#entity).insert(#ident.add(#expr));
+                    commands.entity(#entity).insert(MaterialNode(#ident.add(#expr)));
                 }
             }
         })

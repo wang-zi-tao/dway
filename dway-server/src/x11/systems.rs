@@ -218,7 +218,7 @@ pub fn x11_window_attach_wl_surface(
             };
             let wl_surface_entity = DWay::get_entity(&wl_surface);
 
-            commands.add(ConnectCommand::<XWindowAttachSurface>::new(
+            commands.queue(ConnectCommand::<XWindowAttachSurface>::new(
                 xwindow_entity,
                 wl_surface_entity,
             ));

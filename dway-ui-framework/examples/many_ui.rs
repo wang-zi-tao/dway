@@ -47,14 +47,14 @@ fn setup(
     mut ui_material_checkbox: ResMut<Assets<ShaderAsset<CheckboxStyle>>>,
 ) {
     // Camera so we can see UI
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2dBundle::default(), Msaa::Sample4));
 
     let ui_color = color!("#484E5B");
     let shadow = Shadow::new(color!("#888888"), Vec2::ONE * 1.0, Vec2::ONE * 1.0, 2.0);
 
     commands
         .spawn(NodeBundle {
-            style: Style {
+            node: Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Row,
@@ -85,7 +85,7 @@ fn setup(
                 let handle = ui_material_checkbox.add(shader);
                 for _i in 0..200 {
                     c.spawn(NodeBundle {
-                        style: Style {
+                        node: Node {
                             flex_direction: FlexDirection::Column,
                             ..Default::default()
                         },
@@ -94,12 +94,12 @@ fn setup(
                     .with_children(|c| {
                         for _j in 0..NODE_COUNT / 200 {
                             c.spawn(MaterialNodeBundle {
-                                style: (Style {
+                                node: Node {
                                     width: Val::Px(8.0),
                                     height: Val::Px(4.0),
                                     ..default()
-                                }),
-                                material: handle.clone(),
+                                },
+                                material: handle.clone().into(),
                                 ..default()
                             });
                         }

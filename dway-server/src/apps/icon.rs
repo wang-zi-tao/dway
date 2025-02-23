@@ -1,17 +1,30 @@
-use crate::prelude::*;
-use bevy::asset::{
-    io::{AssetReader, AssetReaderError, AssetSource, AsyncReadAndSeek, Reader},
-    meta::{AssetAction, AssetMeta},
-    AssetLoader,
+use std::{
+    any::type_name,
+    io::{self, SeekFrom},
+    path::Path,
+    pin::Pin,
+    str::FromStr,
+    sync::Arc,
+    task::Poll,
+};
+
+use bevy::{
+    asset::{
+        io::{AssetReader, AssetReaderError, AssetSource, AsyncSeekForward, PathStream, Reader},
+        meta::{AssetAction, AssetMeta},
+        AssetLoader,
+    },
+    utils::{BoxedFuture, ConditionalSendFuture},
 };
 use bevy_svg::prelude::Svg;
 use dway_util::{asset_cache::AssetCachePlugin, try_or};
 use futures::{ready, AsyncSeek};
 use futures_lite::AsyncRead;
-use x11rb::protocol::xinput::HierarchyChangeDataRemoveMaster;
-use std::{any::type_name, io::{self, SeekFrom}, pin::Pin, str::FromStr, sync::Arc, task::Poll};
 use thiserror::Error;
 use winnow::{ascii::dec_uint, seq, token::take_while, PResult, Parser};
+use x11rb::protocol::xinput::HierarchyChangeDataRemoveMaster;
+
+use crate::prelude::*;
 
 #[derive(Error, Debug)]
 pub enum LinuxIconError {
@@ -89,15 +102,15 @@ impl Default for LinuxIconLoader {
 
 impl AssetLoader for LinuxIconLoader {
     type Asset = LinuxIcon;
-    type Settings = LinuxIconSettings;
     type Error = LinuxIconError;
+    type Settings = LinuxIconSettings;
 
-    fn load<'a>(
-        &'a self,
-        _reader: &'a mut bevy::asset::io::Reader,
-        settings: &'a LinuxIconSettings,
-        load_context: &'a mut bevy::asset::LoadContext,
-    ) -> bevy::utils::BoxedFuture<'a, std::prelude::v1::Result<Self::Asset, Self::Error>> {
+    fn load(
+        &self,
+        _reader: &mut dyn bevy::asset::io::Reader,
+        settings: &LinuxIconSettings,
+        load_context: &mut bevy::asset::LoadContext,
+    ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>> {
         Box::pin(async move {
             let name = &settings.icon.name;
             let raw_icon = self
@@ -152,6 +165,30 @@ impl AsyncRead for DataReader {
     }
 }
 
+impl AsyncSeekForward for DataReader {
+    fn poll_seek_forward(
+        mut self: Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+        offset: u64,
+    ) -> Poll<std::io::Result<u64>> {
+        let result = self
+            .bytes_read
+            .try_into()
+            .map(|bytes_read: u64| bytes_read + offset);
+
+        if let Ok(new_pos) = result {
+            self.bytes_read = new_pos as _;
+
+            Poll::Ready(Ok(new_pos as _))
+        } else {
+            Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "seek position is out of range",
+            )))
+        }
+    }
+}
+
 impl AsyncSeek for DataReader {
     fn poll_seek(
         mut self: Pin<&mut Self>,
@@ -160,11 +197,7 @@ impl AsyncSeek for DataReader {
     ) -> Poll<std::io::Result<u64>> {
         let result = match pos {
             SeekFrom::Start(offset) => offset.try_into(),
-            SeekFrom::End(offset) => self
-                .data
-                .len()
-                .try_into()
-                .map(|len: i64| len - offset),
+            SeekFrom::End(offset) => self.data.len().try_into().map(|len: i64| len - offset),
             SeekFrom::Current(offset) => self
                 .bytes_read
                 .try_into()
@@ -191,34 +224,23 @@ impl AsyncSeek for DataReader {
     }
 }
 
+impl Reader for DataReader {
+}
+
 pub struct LinuxIconReader;
 
 impl AssetReader for LinuxIconReader {
     fn read<'a>(
         &'a self,
-        _path: &'a std::path::Path,
-    ) -> bevy::utils::BoxedFuture<
-        'a,
-        std::prelude::v1::Result<
-            Box<bevy::asset::io::Reader<'a>>,
-            bevy::asset::io::AssetReaderError,
-        >,
-    > {
-        Box::pin(async move {
-            Ok(Box::<DataReader>::default() as Box<Reader>)
-        })
+        _path: &'a Path,
+    ) -> BoxedFuture<'a, Result<Box<dyn Reader>, AssetReaderError>> {
+        Box::pin(async move { Ok(Box::<DataReader>::default() as Box<dyn Reader>) })
     }
 
     fn read_meta<'a>(
         &'a self,
-        path: &'a std::path::Path,
-    ) -> bevy::utils::BoxedFuture<
-        'a,
-        std::prelude::v1::Result<
-            Box<bevy::asset::io::Reader<'a>>,
-            bevy::asset::io::AssetReaderError,
-        >,
-    > {
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<Box<dyn Reader>, AssetReaderError>> {
         Box::pin(async {
             use AssetReaderError::*;
             let icon_info = LinuxIconUrl::from_str(&path.to_string_lossy())
@@ -232,7 +254,7 @@ impl AssetReader for LinuxIconReader {
                 },
             })
             .map_err(|e| Io(Arc::new(io::Error::other(e))))?;
-            let reader: Box<Reader> = Box::new(DataReader {
+            let reader: Box<dyn Reader> = Box::new(DataReader {
                 data: data.into_bytes(),
                 bytes_read: 0,
             });
@@ -243,23 +265,14 @@ impl AssetReader for LinuxIconReader {
     fn read_directory<'a>(
         &'a self,
         path: &'a std::path::Path,
-    ) -> bevy::utils::BoxedFuture<
-        'a,
-        std::prelude::v1::Result<
-            Box<bevy::asset::io::PathStream>,
-            bevy::asset::io::AssetReaderError,
-        >,
-    > {
+    ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
         Box::pin(async { Err(AssetReaderError::NotFound(path.to_owned())) })
     }
 
     fn is_directory<'a>(
         &'a self,
-        _path: &'a std::path::Path,
-    ) -> bevy::utils::BoxedFuture<
-        'a,
-        std::prelude::v1::Result<bool, bevy::asset::io::AssetReaderError>,
-    > {
+        _path: &'a Path,
+    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
         Box::pin(async { Ok(false) })
     }
 }

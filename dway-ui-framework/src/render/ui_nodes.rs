@@ -13,21 +13,16 @@ use bevy::{
         entity::{EntityHashMap, EntityHashSet},
         query::ROQueryItem,
         system::{
-            lifetimeless::{Read, SRes},
-            SystemParamItem,
+            lifetimeless::{Read, SRes}, StaticSystemParam, SystemParamItem
         },
     },
     math::FloatOrd,
     render::{
-        globals::{GlobalsBuffer, GlobalsUniform},
-        mesh::PrimitiveTopology,
-        render_asset::RenderAssets,
-        render_phase::{
+        globals::{GlobalsBuffer, GlobalsUniform}, mesh::PrimitiveTopology, render_asset::{RenderAsset, RenderAssets}, render_phase::{
             AddRenderCommand, DrawFunctionId, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
             RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
             ViewSortedRenderPhases,
-        },
-        render_resource::{
+        }, render_resource::{
             binding_types::uniform_buffer, AsBindGroupError, BindGroup, BindGroupEntries,
             BindGroupLayout, BindGroupLayoutEntries, BlendState, BufferUsages, BufferVec,
             ColorTargetState, ColorWrites, FragmentState, FrontFace, MultisampleState,
@@ -35,11 +30,7 @@ use bevy::{
             RenderPipelineDescriptor, ShaderRef, ShaderStages, SpecializedRenderPipeline,
             SpecializedRenderPipelines, TextureFormat, VertexBufferLayout, VertexFormat,
             VertexState, VertexStepMode,
-        },
-        renderer::{RenderDevice, RenderQueue},
-        texture::{BevyDefault, FallbackImage, GpuImage},
-        view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
-        Extract, Render, RenderApp, RenderSet,
+        }, renderer::{RenderDevice, RenderQueue}, sync_world::MainEntity, texture::{FallbackImage, GpuImage}, view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms}, Extract, Render, RenderApp, RenderSet
     },
     ui::{ExtractedUiNode, ExtractedUiNodes, RenderUiSystem, TransparentUi, UiStack},
     utils::{hashbrown::hash_map::Entry, HashMap, HashSet},
@@ -92,10 +83,7 @@ impl<M: UiMaterial<Data = ()>> Plugin for UiMaterialPlugin<M> {
                     (extract_ui_materials::<M>, extract_ui_node_handle::<M>)
                         .after(extract_ui_nodes),
                 )
-                .add_systems(
-                    Render,
-                    prepare_ui_materials::<M>.in_set(RenderSet::PrepareAssets),
-                );
+                ;
         }
     }
 
@@ -320,6 +308,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("dway_untyped_ui_material_pipeline".into()),
+            zero_initialize_workgroup_memory: false,
         };
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
@@ -340,11 +329,11 @@ impl SpecializedRenderPipeline for UiPipeline {
 pub fn extract_ui_nodes(
     mut extracted: ResMut<ExtractedUiNodeSet>,
     ui_stack: Extract<Res<UiStack>>,
-    uinode_query: Extract<
+    node: Extract<
         Query<
             (
+                Ref<ComputedNode>,
                 Ref<Node>,
-                Ref<Style>,
                 Ref<GlobalTransform>,
                 Ref<ViewVisibility>,
                 Option<Ref<CalculatedClip>>,
@@ -371,8 +360,8 @@ pub fn extract_ui_nodes(
     }
 
     for (stack_index, &node_entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((node, style, transform, visibility, clip, camera)) =
-            uinode_query.get(node_entity)
+        if let Ok((computed_node, style, transform, visibility, clip, camera)) =
+            node.get(node_entity)
         {
             if !visibility.get() {
                 extracted.removed_nodes.push(node_entity);
@@ -392,10 +381,10 @@ pub fn extract_ui_nodes(
                     if transform.is_changed() {
                         extracted_node.transform = transform.compute_matrix();
                     }
-                    if node.is_changed() {
+                    if computed_node.is_changed() {
                         extracted_node.rect = Rect {
                             min: Vec2::ZERO,
-                            max: node.size(),
+                            max: computed_node.size(),
                         };
                     }
                     let entity_changed = entity_with_removed_component.contains(&node_entity);
@@ -412,7 +401,7 @@ pub fn extract_ui_nodes(
                         transform: transform.compute_matrix(),
                         rect: Rect {
                             min: Vec2::ZERO,
-                            max: node.size(),
+                            max: computed_node.size(),
                         },
                         clip: clip.map(|clip| clip.clip),
                         camera_entity,
@@ -424,8 +413,8 @@ pub fn extract_ui_nodes(
 }
 
 pub fn extract_ui_node_handle<M: UiMaterial>(
-    query: Extract<Query<(Entity, Ref<Handle<M>>, Ref<ViewVisibility>), With<Node>>>,
-    mut removed: Extract<RemovedComponents<Handle<M>>>,
+    query: Extract<Query<(Entity, Ref<MaterialNode<M>>, Ref<ViewVisibility>), With<ComputedNode>>>,
+    mut removed: Extract<RemovedComponents<MaterialNode<M>>>,
     mut extracted: ResMut<ExtractedUiNodeSet>,
 ) {
     let ExtractedUiNodeSet { node_materials, .. } = &mut *extracted;
@@ -500,8 +489,7 @@ pub fn prepare_ui_materials<M: UiMaterial>(
     mut extracted_assets: ResMut<ExtractedUiMaterials<M>>,
     mut render_materials: ResMut<RenderUiMaterialSet>,
     render_device: Res<RenderDevice>,
-    images: Res<RenderAssets<GpuImage>>,
-    fallback_image: Res<FallbackImage>,
+    mut param: &mut StaticSystemParam<M::Param>,
 ) {
     for removed in std::mem::take(&mut extracted_assets.removed) {
         render_materials.instantces.remove(&removed.untyped());
@@ -515,9 +503,8 @@ pub fn prepare_ui_materials<M: UiMaterial>(
         match prepare_ui_material(
             &material,
             &render_device,
-            &images,
-            &fallback_image,
             &render_materials,
+            &mut param,
         ) {
             Ok(prepared_asset) => {
                 render_materials
@@ -527,6 +514,12 @@ pub fn prepare_ui_materials<M: UiMaterial>(
             Err(AsBindGroupError::RetryNextUpdate) => {
                 prepare_next_frame.push((handle, material));
             }
+            Err(e)=>{
+                error!(
+                    "{} Bind group construction failed: {e}",
+                    core::any::type_name::<M>()
+                );
+            }
         }
     }
 }
@@ -534,15 +527,13 @@ pub fn prepare_ui_materials<M: UiMaterial>(
 fn prepare_ui_material<M: UiMaterial>(
     material: &M,
     render_device: &RenderDevice,
-    images: &RenderAssets<GpuImage>,
-    fallback_image: &Res<FallbackImage>,
     render_materials: &RenderUiMaterialSet,
+    mut param: &mut StaticSystemParam<M::Param>,
 ) -> Result<PreparedUiMaterialInstant, AsBindGroupError> {
     let prepared = material.as_bind_group(
         &render_materials.pipelines[&TypeId::of::<M>()].ui_layout,
         render_device,
-        images,
-        fallback_image,
+        param,
     )?;
     Ok(PreparedUiMaterialInstant {
         bindings: prepared.bindings,
@@ -557,12 +548,11 @@ pub fn queue_ui_nodes(
     pipeline_cache: Res<PipelineCache>,
     render_materials: Res<RenderUiMaterialSet>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView)>,
-    msaa: Res<Msaa>,
+    mut views: Query<(Entity, &ExtractedView, &Msaa)>,
 ) {
     for ((entity, _), asset_id) in extracted.node_materials.iter() {
         let extracted_uinode = &extracted.nodes[entity];
-        let Ok((view_entity, view)) = views.get_mut(extracted_uinode.camera_entity) else {
+        let Ok((view_entity, view, msaa)) = views.get_mut(extracted_uinode.camera_entity) else {
             continue;
         };
 
@@ -592,7 +582,7 @@ pub fn queue_ui_nodes(
         transparent_phase.add(TransparentUi {
             draw_function: ui_pipeline.draw_function,
             pipeline,
-            entity: *entity,
+            entity: ( *entity , MainEntity::from(*entity)),
             sort_key: (
                 FloatOrd(extracted_uinode.stack_index as f32),
                 entity.index(),
@@ -630,8 +620,8 @@ pub fn prepare_ui_nodes(
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                let entity = item.entity;
-                if let Some(extracted_uinode) = extracted_uinodes.nodes.get(&item.entity) {
+                let entity = item.entity.0;
+                if let Some(extracted_uinode) = extracted_uinodes.nodes.get(&entity) {
                     let Some(&asset_typeid) = render_materials
                         .draw_function_index
                         .get(&item.draw_function)
@@ -797,7 +787,7 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
     for SetUiMaterialBindGroup<M, I>
 {
     type ItemQuery = Read<UiBatch>;
-    type Param = SRes<RenderUiMaterialSet>;
+    type Param = (SRes<RenderUiMaterialSet>);
     type ViewQuery = ();
 
     fn render<'w>(
@@ -808,14 +798,14 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(material_handle) = material_handle else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(material) = materials
             .into_inner()
             .instantces
             .get(&material_handle.material)
         else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
@@ -837,7 +827,7 @@ impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(batch) = batch else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));

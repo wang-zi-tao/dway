@@ -148,9 +148,9 @@ pub fn generate(input: &LitStr) -> TokenStream {
         fields.push(tokens);
     }
     quote_spanned! {input.span()=>
-        Style {
+        Node {
             #(#fields,)*
-            ..Style::default()
+            ..Node::default()
         }
     }
 }

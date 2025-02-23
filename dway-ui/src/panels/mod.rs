@@ -7,7 +7,7 @@ use crate::prelude::*;
 make_bundle!{
     PanelButtonBundle {
         pub button: UiButtonExt,
-        pub material: Handle<RoundedUiRectMaterial>,
+        pub material: MaterialNode<RoundedUiRectMaterial>,
     }
 }
 
@@ -17,7 +17,7 @@ impl PanelButtonBundle {
         rect_material_set: &mut Assets<RoundedUiRectMaterial>,
     ) -> Self {
         Self {
-            style: Style {
+            node: Node {
                 margin: UiRect::axes(Val::Px(4.0), Val::Auto),
                 ..Default::default()
             },
@@ -26,7 +26,7 @@ impl PanelButtonBundle {
                 theme: ThemeComponent::widget(WidgetKind::None),
                 ..Default::default()
             },
-            material: rect_material_set.add(rounded_rect(theme.color("panel"), 8.0)),
+            material: rect_material_set.add(rounded_rect(theme.color("panel"), 8.0)).into(),
             ..Default::default()
         }
     }
@@ -36,7 +36,7 @@ impl PanelButtonBundle {
         callbacks: &[(Entity, SystemId<UiEvent<UiButtonEvent>>)],
     ) -> Self {
         Self {
-            style: Style {
+            node: Node {
                 margin: UiRect::axes(Val::Px(4.0), Val::Auto),
                 ..Default::default()
             },
@@ -45,7 +45,7 @@ impl PanelButtonBundle {
                 theme: ThemeComponent::widget(WidgetKind::None),
                 ..Default::default()
             },
-            material: rect_material_set.add(rounded_rect(theme.color("panel"), 8.0)),
+            material: rect_material_set.add(rounded_rect(theme.color("panel"), 8.0)).into(),
             ..Default::default()
         }
     }

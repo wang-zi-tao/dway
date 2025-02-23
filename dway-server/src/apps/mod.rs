@@ -262,14 +262,14 @@ impl Plugin for DesktopEntriesPlugin {
         app.add_systems(
             PreUpdate,
             attach_to_app
-                .run_if(on_event::<WindowAppIdChanged>())
+                .run_if(on_event::<WindowAppIdChanged>)
                 .in_set(DWayServerSet::UpdateAppInfo),
         );
         app.add_systems(
             PostUpdate,
             (
-                run_command_system.run_if(on_event::<RunCommandRequest>()),
-                launch_app_system.run_if(on_event::<LaunchAppRequest>()),
+                run_command_system.run_if(on_event::<RunCommandRequest>),
+                launch_app_system.run_if(on_event::<LaunchAppRequest>),
             ),
         );
     }

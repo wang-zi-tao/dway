@@ -3,6 +3,7 @@ use std::f32::consts::PI;
 use dway_client_core::controller::systeminfo::{human_readable_byte, human_readable_fresequency, SystemInfo};
 use dway_ui_framework::widgets::shape::UiShapeBundle;
 use dway_ui_framework::reexport::shape::*;
+use widgets::text::UiTextExt;
 use crate::prelude::*;
 
 #[derive(Component, SmartDefault)]
@@ -22,7 +23,7 @@ PanelSystemMonitor=>
 @use_state(cpu_usage: Vec<f32>)
 @use_state(upload: u64)
 @use_state(download: u64)
-@arg(mut shape_query: Query<(&Node, &mut Path)>)
+@arg(mut shape_query: Query<(&ComputedNode, &mut Path)>)
 @global(system_info: SystemInfo -> {
     state.set_memory_usage(1.0 - system_info.available_memory() as f32 / system_info.total_memory() as f32);
     state.set_global_cpu_usage(system_info.cpu_usage());
@@ -34,18 +35,26 @@ PanelSystemMonitor=>
 @global(theme:Theme)
 <MiniNodeBundle @style="h-full align-items:center">
     <MiniNodeBundle @style="flex-col">
-        <TextBundle Text=(Text::from_section(format!("CPU {:.0}%",state.global_cpu_usage() * 100.0), theme.text_style(12.0, "foreground"),).with_no_wrap())/>
-        <TextBundle Text=(Text::from_section(human_readable_fresequency(*state.global_cpu_frequency()), theme.text_style(12.0, "foreground"),).with_no_wrap())/>
+        <Node Text=(Text::new(format!("CPU {:.0}%",state.global_cpu_usage() * 100.0))) 
+            TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into()) 
+            TextLayout=(TextLayout::new_with_justify(JustifyText::Left) ) />
+        <Node Text=(Text::new(human_readable_fresequency(*state.global_cpu_frequency()))) 
+            TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into()) 
+            TextLayout=(TextLayout::new_with_justify(JustifyText::Left) ) />
     </MiniNodeBundle>
     <MiniNodeBundle @style="flex-col">
-        <TextBundle Text=(Text::from_section( format!("up {}",  human_readable_byte(*state.upload())), theme.text_style(12.0, "foreground"),).with_no_wrap())/>
-        <TextBundle Text=(Text::from_section( format!("down {}", human_readable_byte(*state.download())), theme.text_style(12.0, "foreground"),).with_no_wrap())/>
+        <Node Text=(Text::new(format!("up {}",  human_readable_byte(*state.upload())))) 
+            TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into()) 
+            TextLayout=(TextLayout::new_with_justify(JustifyText::Left) ) />
+        <Node Text=(Text::new( format!("down {}", human_readable_byte(*state.download())))) 
+            TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into()) 
+            TextLayout=(TextLayout::new_with_justify(JustifyText::Left) ) />
     </MiniNodeBundle>
     <MiniNodeBundle @style="h-full w-auto"
         @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 8.0))
     >
         <UiShapeBundle @id="cpu_shape"
-        Style=(Style{
+        Node=(Node{
             width: Val::Px(4.0 * state.cpu_usage().len() as f32),
             ..style!("h-full align-items:center")
         })
@@ -59,9 +68,9 @@ PanelSystemMonitor=>
                 else {color!("#6791C9")},
         })
         @after_update{if state.cpu_usage_is_changed(){
-            if let Ok((node,mut path)) = shape_query.get_mut(node!(cpu_shape)){
+            if let Ok((computed_node,mut path)) = shape_query.get_mut(node!(cpu_shape)){
                 let mut builder = PathBuilder::new();
-                let size = node.size();
+                let size = computed_node.size();
                 for (i,cpu) in state.cpu_usage().iter().enumerate() {
                     let w = 4.0;
                     let x = -0.5 * size.x + 0.5 * w + i as f32 * w;
@@ -90,7 +99,7 @@ PanelSystemMonitor=>
                 *path = builder.build();
             }
         }}>
-            <TextBundle Text=(Text::from_section( "mem", theme.text_style(12.0, "foreground"),))/>
+            <Node Text=(Text::new("mem")) TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into()) />
         </>
     </MiniNodeBundle>
 </MiniNodeBundle>

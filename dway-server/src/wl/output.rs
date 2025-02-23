@@ -141,7 +141,7 @@ pub fn surface_enter_output(graph: SurfaceToOutput, mut commands: Commands) {
                     .unwrap_or_default()
             {
                 surface.raw.enter(&output.raw);
-                commands.add(ConnectCommand::<SurfaceInOutput>::new(
+                commands.queue(ConnectCommand::<SurfaceInOutput>::new(
                     *surface_entity,
                     *output_entity,
                 ));
@@ -158,7 +158,7 @@ pub fn surface_enter_output(graph: SurfaceToOutput, mut commands: Commands) {
                     .unwrap_or_default()
             {
                 surface.raw.leave(&output.raw);
-                commands.add(DisconnectCommand::<SurfaceInOutput>::new(
+                commands.queue(DisconnectCommand::<SurfaceInOutput>::new(
                     *surface_entity,
                     *output_entity,
                 ));

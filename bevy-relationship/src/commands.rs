@@ -33,10 +33,10 @@ where
     R::To: ConnectableMut + Default,
 {
     fn apply(self, world: &mut World) {
-        if world.get_entity(self.to).is_none() {
+        if world.get_entity(self.to).is_err() {
             return;
         };
-        let Some(mut from_entity) = world.get_entity_mut(self.from) else {
+        let Ok(mut from_entity) = world.get_entity_mut(self.from) else {
             return;
         };
         let old = if let Some(mut peer) = from_entity.get_mut::<R::From>() {
@@ -53,7 +53,7 @@ where
             }
         }
 
-        let Some(mut to_entity) = world.get_entity_mut(self.to) else {
+        let Ok(mut to_entity) = world.get_entity_mut(self.to) else {
             return;
         };
         let old = if let Some(mut peer) = to_entity.get_mut::<R::To>() {
@@ -168,7 +168,7 @@ where
             Default::default()
         };
         for entity in target {
-            despawn_with_children_recursive(world, entity);
+            despawn_with_children_recursive(world, entity, true);
         }
     }
 }
@@ -221,7 +221,7 @@ impl<'w> EntityCommandsExt for EntityCommands<'w> {
         R::To: ConnectableMut + Default,
     {
         let entity = self.id();
-        self.commands().add(ConnectCommand::<R>::new(entity, peer));
+        self.commands().queue(ConnectCommand::<R>::new(entity, peer));
         self
     }
 
@@ -231,7 +231,7 @@ impl<'w> EntityCommandsExt for EntityCommands<'w> {
         R::To: ConnectableMut + Default,
     {
         let entity = self.id();
-        self.commands().add(ConnectCommand::<R>::new(peer, entity));
+        self.commands().queue(ConnectCommand::<R>::new(peer, entity));
         self
     }
 
@@ -242,7 +242,7 @@ impl<'w> EntityCommandsExt for EntityCommands<'w> {
     {
         let entity = self.id();
         self.commands()
-            .add(DisconnectCommand::<R>::new(entity, peer));
+            .queue(DisconnectCommand::<R>::new(entity, peer));
         self
     }
 
@@ -256,7 +256,7 @@ impl<'w> EntityCommandsExt for EntityCommands<'w> {
     {
         let entity = self.id();
         self.commands()
-            .add(DisconnectCommand::<R>::new(peer, entity));
+            .queue(DisconnectCommand::<R>::new(peer, entity));
         self
     }
 
@@ -266,7 +266,7 @@ impl<'w> EntityCommandsExt for EntityCommands<'w> {
         R::To: ConnectableMut + Default,
     {
         let entity = self.id();
-        self.commands().add(DisconnectAllCommand::<R>::new(entity));
+        self.commands().queue(DisconnectAllCommand::<R>::new(entity));
         self
     }
 
@@ -277,7 +277,7 @@ impl<'w> EntityCommandsExt for EntityCommands<'w> {
     {
         let entity = self.id();
         self.commands()
-            .add(DisconnectAllCommand::<ReserveRelationship<R>>::new(entity));
+            .queue(DisconnectAllCommand::<ReserveRelationship<R>>::new(entity));
         self
     }
 }

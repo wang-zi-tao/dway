@@ -9,7 +9,7 @@ pub fn create_window(conn: &Connector, surface: &DrmSurface) -> Window {
     let size = surface.size();
     Window {
         present_mode: PresentMode::AutoVsync,
-        mode: WindowMode::Fullscreen,
+        mode: WindowMode::Fullscreen(MonitorSelection::Current),
         position: WindowPosition::At(IVec2::default()),
         resolution: WindowResolution::new(size.x as f32, size.y as f32),
         title: conn.name.clone(),

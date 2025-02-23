@@ -335,7 +335,7 @@ impl FlatTheme {
         }
     }
 
-    fn apply_material_animation<M: Asset + Interpolation>(
+    fn apply_material_animation<M: UiMaterial + Asset + Interpolation>(
         &self,
         entity: Entity,
         commands: &mut Commands,
@@ -343,7 +343,7 @@ impl FlatTheme {
     ) {
         let duration = self.animation_duration;
         let ease = self.animation_ease.clone();
-        commands.add(move |world: &mut World| {
+        commands.queue(move |world: &mut World| {
             insert_material_tween(world, entity, material, duration, ease)
         });
     }
@@ -511,11 +511,11 @@ impl ThemeDispatch for FlatTheme {
             }
             super::WidgetKind::ComboBox(_) => {}
             super::WidgetKind::BlurBackground => {
-                commands.add(move |world: &mut World| {
+                commands.queue(move |world: &mut World| {
                     world.entity_mut(entity).insert((
                         FlatThemeComponent,
                         RenderToLayer::blur(),
-                        Handle::<ShaderAsset<BlurMaterial>>::default(),
+                        MaterialNode::<ShaderAsset<BlurMaterial>>::default(),
                     ));
                 });
             }
@@ -528,7 +528,7 @@ pub fn update_ui_material(
         (
             &RenderToLayer,
             &ThemeComponent,
-            &mut Handle<ShaderAsset<BlurMaterial>>,
+            &mut MaterialNode<ShaderAsset<BlurMaterial>>,
         ),
         (With<FlatThemeComponent>, Changed<RenderToLayer>),
     >,
@@ -553,7 +553,7 @@ pub fn update_ui_material(
             },
             theme.fill_color.with_alpha(1.0 - theme.blur_brightness),
         ));
-        *shader_handle = material_assets.add(material);
+        *shader_handle = material_assets.add(material).into();
     }
 }
 

@@ -24,7 +24,7 @@ use khronos_egl::{
 use scopeguard::defer;
 use wayland_backend::server::WeakHandle;
 use wgpu::{FilterMode, SamplerDescriptor, Texture, TextureAspect};
-use wgpu_hal::{api::Gles, gles, Api, MemoryFlags, TextureUses};
+use wgpu_hal::{api::Gles, gles, Api, DropCallback, MemoryFlags, TextureUses};
 use DWayRenderError::*;
 
 use super::{
@@ -252,6 +252,15 @@ unsafe impl Send for ImageGuard {
 }
 unsafe impl Sync for ImageGuard {
 }
+
+impl ImageGuard {
+    fn drop_callback(self) -> DropCallback {
+        Box::new(move || {
+            let _ = self;
+        })
+    }
+}
+
 impl Drop for ImageGuard {
     fn drop(&mut self) {
         self.destroy_queue.push(DestroyBuffer {
@@ -394,7 +403,7 @@ pub fn create_wgpu_dma_image(
                 let hal_texture = hal_device.texture_from_raw(
                     texture.0,
                     &hal_texture_descriptor(request.size, format)?,
-                    Some(Box::new(image_guard)),
+                    Some(image_guard.drop_callback()),
                 );
                 Result::<_, DWayRenderError>::Ok(hal_texture)
             })

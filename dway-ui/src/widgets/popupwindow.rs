@@ -46,12 +46,12 @@ PopupUI=>
     }
 })
 <MiniNodeBundle @style="absolute full">
-    <ImageBundle UiImage=(UiImage::new(state.image().clone())) @id="content"
-        Style=(irect_to_style(*state.bbox_rect())) FocusPolicy=(FocusPolicy::Block) >
+    <ImageBundle ImageNode=(ImageNode::new(state.image().clone())) @id="content"
+        Node=(irect_to_style(*state.bbox_rect())) FocusPolicy=(FocusPolicy::Block) >
     </ImageBundle>
-    <NodeBundle Style=(irect_to_style(*state.rect())) >
+    <NodeBundle Node=(irect_to_style(*state.rect())) >
         <MiniNodeBundle @id="mouse_area"
-            Style=({
+            Node=({
                 let distant = if *state.grab() { 16384.0 } else { 4.0 };
                 style!("absolute left-{-distant} top-{-distant} right-{-distant} bottom-{-distant}")
             })

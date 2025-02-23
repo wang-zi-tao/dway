@@ -199,7 +199,7 @@ pub fn list_bind_data<Item: DataItem>(
             } else {
                 let entity = commands
                     .spawn(MiniNodeBundle {
-                        style: Style {
+                        node: Node {
                             top: Val::Px(item_layout.rect.min.y),
                             height: Val::Px(item_layout.rect.height()),
                             position_type: PositionType::Absolute,

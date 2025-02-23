@@ -1,11 +1,12 @@
 use dway_ui_framework::{
     animation::translation::UiTranslationAnimationExt, widgets::button::UiRawButtonBundle,
 };
-use widgets::button::UiButtonEventDispatcher;
+use widgets::{button::UiButtonEventDispatcher, text::UiTextBundle};
 
 pub use crate::prelude::*;
 
 #[derive(Component)]
+#[require(UiPopup)]
 pub struct WindowMenu {
     pub window_entity: Entity,
 }
@@ -20,11 +21,10 @@ impl Default for WindowMenu {
 
 dway_widget! {
 WindowMenu=>
-@bundle{{ popup: UiPopupBundle }}
 @plugin{ app.register_callback(open_popup); }
 @callback{ [UiEvent<UiButtonEvent>]
     fn on_close_button_event(
-        In(event): In<UiEvent<UiButtonEvent>>,
+        event: UiEvent<UiButtonEvent>,
         mut events: EventWriter<WindowAction>,
     ) {
         if event.kind == UiButtonEventKind::Released{
@@ -34,7 +34,7 @@ WindowMenu=>
 }
 @callback{ [UiEvent<UiButtonEvent>]
     fn on_maximize_button_event(
-        In(event): In<UiEvent<UiButtonEvent>>,
+        event: UiEvent<UiButtonEvent>,
         mut events: EventWriter<WindowAction>,
     ) {
         if event.kind == UiButtonEventKind::Released{
@@ -44,7 +44,7 @@ WindowMenu=>
 }
 @callback{ [UiEvent<UiButtonEvent>]
     fn on_minimize_button_event(
-        In(event): In<UiEvent<UiButtonEvent>>,
+        event: UiEvent<UiButtonEvent>,
         mut events: EventWriter<WindowAction>,
     ) {
         if event.kind == UiButtonEventKind::Released{
@@ -66,7 +66,7 @@ WindowMenu=>
 </MiniNodeBundle>
 }
 
-pub fn open_popup(In(event): In<UiEvent<UiButtonEvent>>, mut commands: Commands) {
+pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         let style = style!("absolute justify-items:center top-36 align-self:end p-8");
         commands
@@ -78,10 +78,7 @@ pub fn open_popup(In(event): In<UiEvent<UiButtonEvent>>, mut commands: Commands)
                 },
             ))
             .with_children(|c| {
-                c.spawn(WindowMenuBundle {
-                    style: style!("h-auto w-auto"),
-                    ..Default::default()
-                });
+                c.spawn((WindowMenuBundle::default(), style!("h-auto w-auto")));
             })
             .set_parent(event.sender());
     }

@@ -1,7 +1,5 @@
 use bevy::{
     prelude::*,
-    render::texture::{ImageFilterMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
-    sprite::Mesh2dHandle,
 };
 use dway_ui_derive::spawn;
 use dway_ui_framework::{
@@ -12,7 +10,7 @@ use dway_ui_framework::{
         ShaderAsset, ShaderPlugin, ShapeRender,
     },
     widgets::{
-        bundles::{MiniNodeBundle, UiImageBundle},
+        bundles::{MiniNodeBundle},
         shader::{rounded_ui_image, RoundedUiImageMaterial},
     },
     UiFrameworkPlugin,
@@ -36,7 +34,7 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut assets_blur_image_material: ResMut<Assets<ShaderAsset<BlurImageMaterial>>>,
 ) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2dBundle::default(), Msaa::Sample4));
     let image = asset_server.load("../../dway/assets/background.jpg");
 
     spawn!(&mut commands=>

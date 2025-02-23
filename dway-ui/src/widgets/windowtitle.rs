@@ -21,8 +21,10 @@ WindowTitle=>
 @use_state(pub title: String)
 @global(theme: Theme)
 <MiniNodeBundle>
-    <TextBundle Text=(Text::from_section( state.title(),
-        TextStyle { font_size: 24.0, color: theme.color("foreground"), font: theme.default_font() },))/>
+    <Node Text=(Text::new(state.title()))
+        TextFont=(theme.text_font(24.0))
+        TextColor=(theme.color("foreground").into())
+    />
 </MiniNodeBundle>
 }
 

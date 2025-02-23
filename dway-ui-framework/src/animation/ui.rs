@@ -7,9 +7,9 @@ use crate::{
 };
 
 #[derive(Component, Debug, Clone, Default)]
-pub struct TargetStyle(pub Style);
-impl From<Style> for TargetStyle {
-    fn from(value: Style) -> Self {
+pub struct AnimationTargetNodeState(pub Node);
+impl From<Node> for AnimationTargetNodeState {
+    fn from(value: Node) -> Self {
         Self(value)
     }
 }
@@ -20,12 +20,12 @@ pub fn with_backup_style<R>(
     f: impl FnOnce(&mut EntityWorldMut) -> R,
 ) -> R {
     if event.just_start {
-        let style = entity.get::<Style>().unwrap();
-        entity.insert(TargetStyle(style.clone()));
+        let style = entity.get::<Node>().unwrap();
+        entity.insert(AnimationTargetNodeState(style.clone()));
     }
     let r = f(entity);
     if event.just_finish {
-        entity.remove::<TargetStyle>();
+        entity.remove::<AnimationTargetNodeState>();
     }
     r
 }
@@ -42,17 +42,17 @@ fn move_val_by_percent(dest: &mut Val, src: &Val, offset: f32, size: f32) {
     }
 }
 
-pub(crate) fn move_rect_by_percent(dest: &mut Style, src: &Style, offset: Vec2, size: Vec2) {
+pub(crate) fn move_rect_by_percent(dest: &mut Node, src: &Node, offset: Vec2, size: Vec2) {
     move_val_by_percent(&mut dest.top, &src.top, offset.y, size.y);
     move_val_by_percent(&mut dest.bottom, &src.bottom, -offset.y, size.y);
     move_val_by_percent(&mut dest.left, &src.left, offset.x, size.x);
     move_val_by_percent(&mut dest.right, &src.bottom, -offset.x, size.x);
 }
 
-pub fn popup_open_drop_down(In(event): In<UiEvent<AnimationEvent>>, world: &mut World) {
+pub fn popup_open_drop_down(event: UiEvent<AnimationEvent>, world: &mut World) {
     with_backup_style(&event, &mut world.entity_mut(event.receiver()), |e| {
-        let backup_style = e.get::<TargetStyle>().unwrap().clone();
-        let size = e.get::<Node>().unwrap().size();
+        let backup_style = e.get::<AnimationTargetNodeState>().unwrap().clone();
+        let size = e.get::<ComputedNode>().unwrap().size();
         move_rect_by_percent(
             &mut e.get_mut().unwrap(),
             &backup_style.0,
@@ -62,10 +62,10 @@ pub fn popup_open_drop_down(In(event): In<UiEvent<AnimationEvent>>, world: &mut 
     });
 }
 
-pub fn popup_open_close_up(In(event): In<UiEvent<AnimationEvent>>, world: &mut World) {
+pub fn popup_open_close_up(event: UiEvent<AnimationEvent>, world: &mut World) {
     with_backup_style(&event, &mut world.entity_mut(event.receiver()), |e| {
-        let backup_style = e.get::<TargetStyle>().unwrap().clone();
-        let size = e.get::<Node>().unwrap().size();
+        let backup_style = e.get::<AnimationTargetNodeState>().unwrap().clone();
+        let size = e.get::<ComputedNode>().unwrap().size();
         move_rect_by_percent(
             &mut e.get_mut().unwrap(),
             &backup_style.0,
@@ -79,7 +79,7 @@ pub fn popup_open_close_up(In(event): In<UiEvent<AnimationEvent>>, world: &mut W
 }
 
 pub fn despawn_recursive_on_animation_finish(
-    In(event): In<UiEvent<AnimationEvent>>,
+    event: UiEvent<AnimationEvent>,
     mut commands: Commands,
 ) {
     if event.just_finish {

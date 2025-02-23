@@ -12,11 +12,7 @@ use std::{
 use anyhow::anyhow;
 use bevy::{
     ecs::{
-        entity::EntityHashSet,
-        event::ManualEventReader,
-        query::{QueryData, QueryEntityError, WorldQuery},
-        system::SystemState,
-        world::Command as _,
+        entity::EntityHashSet, event::EventCursor, query::{QueryData, QueryEntityError, WorldQuery}, system::SystemState, world::Command as _
     },
     tasks::IoTaskPool,
     utils::HashMap,
@@ -488,14 +484,14 @@ impl DWay {
     }
 
     pub fn despawn_tree(&mut self, entity: Entity) {
-        if let Some(entity_mut) = self.get_entity_mut(entity) {
+        if let Ok(entity_mut) = self.get_entity_mut(entity) {
             trace!(?entity, "despawn recursive");
             entity_mut.despawn_recursive();
         }
     }
 
     pub fn despawn(&mut self, entity: Entity) {
-        if let Some(e) = self.world_mut().get_entity_mut(entity) {
+        if let Ok(e) = self.world_mut().get_entity_mut(entity) {
             if let Some(parent) = e.get::<Parent>() {
                 let parent = parent.get();
                 if let Some(children) = e.get::<Children>() {
@@ -508,7 +504,7 @@ impl DWay {
                 }
             }
         }
-        if let Some(e) = self.world_mut().get_entity_mut(entity) {
+        if let Ok(e) = self.world_mut().get_entity_mut(entity) {
             trace!(?entity, "despawn entity");
             EntityWorldMut::despawn(e)
         }
@@ -520,7 +516,7 @@ impl DWay {
         resource: &impl wayland_server::Resource,
     ) {
         trace!(entity=?entity,resource=%resource.id(),"remove object component: {}",type_name::<T>());
-        if let Some(mut e) = self.world_mut().get_entity_mut(entity) {
+        if let Ok(mut e) = self.world_mut().get_entity_mut(entity) {
             e.remove::<T>();
         }
     }
@@ -663,7 +659,7 @@ impl Plugin for DWayStatePlugin {
         app.add_systems(
             PreUpdate,
             (
-                on_create_display_event.run_if(on_event::<CreateDisplay>()),
+                on_create_display_event.run_if(on_event::<CreateDisplay>),
                 apply_deferred,
             )
                 .chain(),
@@ -671,7 +667,7 @@ impl Plugin for DWayStatePlugin {
         app.add_systems(
             PreUpdate,
             (dispatch_events, apply_deferred)
-                .run_if(on_event::<DispatchDisplay>())
+                .run_if(on_event::<DispatchDisplay>)
                 .in_set(DWayServerSet::Dispatch),
         );
         app.add_systems(Last, flush_display.in_set(DWayServerSet::Clean));
@@ -707,7 +703,7 @@ pub fn create_display(
 
 pub fn dispatch_events(
     world: &mut World,
-    mut event_reader: Local<ManualEventReader<DispatchDisplay>>,
+    mut event_reader: Local<EventCursor<DispatchDisplay>>,
 ) {
     let displays = event_reader
         .read(world.resource())
@@ -821,7 +817,7 @@ impl<T: Bundle> EntityFactory<(T,)> for T {
         world: &mut World,
         entity: Entity,
     ) -> Option<bevy::prelude::EntityWorldMut<'_>> {
-        let mut entity_mut = world.get_entity_mut(entity)?;
+        let mut entity_mut = world.get_entity_mut(entity).ok()?;
         entity_mut.insert(self);
         Some(entity_mut)
     }
@@ -836,7 +832,7 @@ impl<T: FnOnce() -> B, B: Bundle> EntityFactory<()> for T {
         world: &mut World,
         entity: Entity,
     ) -> Option<bevy::prelude::EntityWorldMut<'_>> {
-        let mut entity_mut = world.get_entity_mut(entity)?;
+        let mut entity_mut = world.get_entity_mut(entity).ok()?;
         entity_mut.insert(self());
         Some(entity_mut)
     }
@@ -853,7 +849,7 @@ impl<T: FnOnce(&mut World) -> B, B: Bundle> EntityFactory<(&mut World,)> for T {
         entity: Entity,
     ) -> Option<bevy::prelude::EntityWorldMut<'_>> {
         let bundle = self(world);
-        let mut entity_mut = world.get_entity_mut(entity)?;
+        let mut entity_mut = world.get_entity_mut(entity).ok()?;
         entity_mut.insert(bundle);
         Some(entity_mut)
     }
@@ -872,7 +868,7 @@ where
     ) -> Option<bevy::prelude::EntityWorldMut<'_>> {
         let (resource, data_init, f) = self;
         let object = data_init.init(resource, entity);
-        let mut entity_mut = world.get_entity_mut(entity)?;
+        let mut entity_mut = world.get_entity_mut(entity).ok()?;
         debug!(entity=?entity_mut.id(),object=%wayland_server::Resource::id(&object),"new wayland object");
         entity_mut.insert(f(object));
         Some(entity_mut)
@@ -906,7 +902,7 @@ where
         let object = data_init.init(resource, entity);
         debug!(entity=?entity,object=%wayland_server::Resource::id(&object),"new wayland object");
         let bundle: B = f(object, world);
-        let mut entity_mut = world.get_entity_mut(entity)?;
+        let mut entity_mut = world.get_entity_mut(entity).ok()?;
         entity_mut.insert(bundle);
         Some(entity_mut)
     }
@@ -1012,7 +1008,7 @@ where
             target
         );
         command.apply(world);
-        world.get_entity_mut(entity)
+        world.get_entity_mut(entity).ok()
     }
 
     fn spawn(self, world: &mut World) -> EntityWorldMut

@@ -128,7 +128,7 @@ pub trait Layer {
     fn update_background(
         &mut self,
         enable: bool,
-        background_query: &mut Query<(&mut UiImage, &mut Visibility)>,
+        background_query: &mut Query<(&mut ImageNode, &mut Visibility)>,
         background: &mut Handle<Image>,
     );
 
@@ -177,14 +177,12 @@ impl Layer for LayerRef {
             .id();
         let background_entity = world
             .spawn((
-                ImageBundle {
-                    style: Style {
+                ImageNode::default(),
+                Node{
                         position_type: PositionType::Absolute,
                         width: Val::Percent(100.0),
                         height: Val::Percent(100.0),
-                        ..Style::default()
-                    },
-                    ..Default::default()
+                        ..Node::default()
                 },
                 TargetCamera(camera_entity),
             ))
@@ -227,13 +225,13 @@ impl Layer for LayerRef {
     fn update_background(
         &mut self,
         enable: bool,
-        background_query: &mut Query<(&mut UiImage, &mut Visibility)>,
+        background_query: &mut Query<(&mut ImageNode, &mut Visibility)>,
         background: &mut Handle<Image>,
     ) {
         if enable {
             let (mut image, mut vis) = background_query.get_mut(self.background_entity).unwrap();
             *vis = visibility(enable);
-            image.texture = background.clone();
+            image.image = background.clone();
             self.background_image = background.clone();
             *background = self.surface.clone();
         }
@@ -348,7 +346,7 @@ impl Layer for BlurLayer {
     fn update_background(
         &mut self,
         enable: bool,
-        background_query: &mut Query<(&mut UiImage, &mut Visibility)>,
+        background_query: &mut Query<(&mut ImageNode, &mut Visibility)>,
         background: &mut Handle<Image>,
     ) {
         self.layer
@@ -571,10 +569,10 @@ pub fn update_ui_root(
 pub fn update_layers(
     mut layer_manager_query: Query<(Entity, &mut LayerManager)>,
     mut camera_query: Query<(&mut Camera, &mut SetWindowTarget)>,
-    mut background_query: Query<(&mut UiImage, &mut Visibility)>,
+    mut background_query: Query<(&mut ImageNode, &mut Visibility)>,
     window_query: Query<&Window>,
     ui_root_query: Query<
-        (&ViewVisibility, &RenderToLayer, &Node, &GlobalTransform),
+        (&ViewVisibility, &RenderToLayer, &ComputedNode, &GlobalTransform),
         With<RenderToLayer>,
     >,
     primary_window: Query<Entity, With<PrimaryWindow>>,
@@ -583,7 +581,7 @@ pub fn update_layers(
 ) {
     let primary_window = primary_window.iter().next();
     let mut layer_rects = HashMap::<Entity, Vec<Rect>>::new();
-    for (visibility, render_to_layer, node, global_transform) in &ui_root_query {
+    for (visibility, render_to_layer, computed_node, global_transform) in &ui_root_query {
         if !**visibility
             || render_to_layer.layer_kind == LayerKind::Normal
             || render_to_layer.layer_camera.is_none()
@@ -594,7 +592,7 @@ pub fn update_layers(
             continue;
         };
         let rects = layer_rects.entry(layer_camera).or_insert(vec![]);
-        let mut rect = node.logical_rect(global_transform);
+        let mut rect = Rect::from_center_size(global_transform.translation().xy(), computed_node.size());
         loop {
             let mut changed = false;
             for (i, r) in rects.iter().enumerate() {
@@ -774,7 +772,7 @@ pub fn update_ui_material(
     mut query: Query<
         (
             &RenderToLayer,
-            &mut Handle<ShaderAsset<FillWithLayerMaterial>>,
+            &mut MaterialNode<ShaderAsset<FillWithLayerMaterial>>,
         ),
         Changed<RenderToLayer>,
     >,
@@ -785,7 +783,7 @@ pub fn update_ui_material(
             texture: render_to_layer.ui_background.clone(),
             texture_size: render_to_layer.background_size,
         });
-        *shader_handle = material_assets.add(material);
+        shader_handle.0 = material_assets.add(material);
     }
 }
 

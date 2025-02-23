@@ -178,6 +178,7 @@ pub fn receive_events(
                                 tablet_pad::KeyState::Released => ButtonState::Released,
                             },
                             window: default_window_entity,
+                            repeat: false,
                         });
                     }
                     _ => {}

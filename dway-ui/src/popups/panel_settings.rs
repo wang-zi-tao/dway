@@ -16,21 +16,21 @@ PanelSettings=>
 @state_reflect()
 @plugin{ app.register_callback(open_popup); }
 @callback{[UiEvent<UiButtonEvent>]
-    fn do_logout( In(event): In<UiEvent<UiButtonEvent>>, mut event_writer: EventWriter<SystemControllRequest>) {
+    fn do_logout( event: UiEvent<UiButtonEvent>, mut event_writer: EventWriter<SystemControllRequest>) {
         if event.kind == UiButtonEventKind::Released {
             event_writer.send(SystemControllRequest::Logout);
         }
     }
 }
 @callback{[UiEvent<UiButtonEvent>]
-    fn do_reboot( In(event): In<UiEvent<UiButtonEvent>>, mut event_writer: EventWriter<SystemControllRequest>) {
+    fn do_reboot( event: UiEvent<UiButtonEvent>, mut event_writer: EventWriter<SystemControllRequest>) {
         if event.kind == UiButtonEventKind::Released {
             event_writer.send(SystemControllRequest::Reboot);
         }
     }
 }
 @callback{[UiEvent<UiButtonEvent>]
-    fn do_shutdown( In(event): In<UiEvent<UiButtonEvent>>, mut event_writer: EventWriter<SystemControllRequest>) {
+    fn do_shutdown( event: UiEvent<UiButtonEvent>, mut event_writer: EventWriter<SystemControllRequest>) {
         if event.kind == UiButtonEventKind::Released {
             event_writer.send(SystemControllRequest::Shutdown);
         }
@@ -46,21 +46,21 @@ PanelSettings=>
     >
         <( PanelButtonBundle::with_callback(&theme,&mut assets_rounded_ui_rect_material, &[(this_entity, do_logout)]) )
             @style="w-32 h-32" @id="logout_button">
-            <(UiSvgBundle::new(theme.icon("logout", &asset_server))) @style="w-32 h-32"/>
+            <(UiSvg::new(theme.icon("logout", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
         <( PanelButtonBundle::with_callback(&theme,&mut assets_rounded_ui_rect_material, &[(this_entity, do_reboot)]) )
             @style="w-32 h-32" @id="reboot_button">
-            <(UiSvgBundle::new(theme.icon("restart", &asset_server))) @style="w-32 h-32"/>
+            <(UiSvg::new(theme.icon("restart", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
         <( PanelButtonBundle::with_callback(&theme,&mut assets_rounded_ui_rect_material, &[(this_entity, do_shutdown)]) )
             @style="w-32 h-32" @id="poweroff_button">
-            <(UiSvgBundle::new(theme.icon("power", &asset_server))) @style="w-32 h-32"/>
+            <(UiSvg::new(theme.icon("power", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
     </MiniNodeBundle>
 </MiniNodeBundle>
 }
 
-pub fn open_popup(In(event): In<UiEvent<UiButtonEvent>>, mut commands: Commands) {
+pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         commands
             .spawn((
@@ -71,10 +71,7 @@ pub fn open_popup(In(event): In<UiEvent<UiButtonEvent>>, mut commands: Commands)
                 },
             ))
             .with_children(|c| {
-                c.spawn((PanelSettingsBundle {
-                    style: style!("h-auto w-auto"),
-                    ..default()
-                },));
+                c.spawn(((PanelSettingsBundle::default(), style!("h-auto w-auto"))));
             })
             .set_parent(event.sender());
     }

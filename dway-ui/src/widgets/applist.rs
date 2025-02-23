@@ -30,7 +30,7 @@ AppListUI=>
 }
 @callback{ [UiEvent<UiButtonEvent>]
 fn click_app(
-    In(event): In<UiEvent<UiButtonEvent>>,
+    event: UiEvent<UiButtonEvent>,
     query: Query<(&AppListUISubStateList,&AppListUISubWidgetList)>,
     mut commands: Commands,
     mut launch_event: EventWriter<LaunchAppRequest>,
@@ -49,11 +49,7 @@ fn click_app(
                     ..Default::default()
                 },
             )).with_children(|c|{
-                c.spawn(AppWindowPreviewPopupBundle{
-                    prop: AppWindowPreviewPopup{app:widget.data_entity},
-                    style: style!("h-auto w-auto"),
-                    ..default()
-                });
+                c.spawn(( AppWindowPreviewPopupBundle::from_prop(AppWindowPreviewPopup{app:widget.data_entity}), style!("h-auto w-auto") ));
             }).set_parent(widget.node_popup_entity);
         } else {
             launch_event.send(LaunchAppRequest::new(widget.data_entity));
@@ -93,7 +89,7 @@ fn click_app(
             <UiRawButtonBundle @id="button" @style="absolute full flex-col"
                 UiButtonEventDispatcher=(make_callback(node!(app_root), click_app)) >
                 <UiIconBundle @id="app_icon" @style="w-full h-full" UiIcon=(state.icon().clone().into()) @id="app_icon" />
-                <NodeBundle @id="focus_mark" Style=(Style{
+                <NodeBundle @id="focus_mark" Node=(Node{
                         width:Val::Percent(((*state.count() as f32)/4.0).min(1.0)*80.0),
                     ..style!("absolute bottom-0 h-2 align-center")})
                     BackgroundColor=((if *state.is_focused() {color!("#0000ff")} else {Color::WHITE} ).into())

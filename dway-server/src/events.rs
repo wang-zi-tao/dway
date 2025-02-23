@@ -10,6 +10,7 @@ pub struct Insert<T> {
     pub phase: std::marker::PhantomData<T>,
 }
 impl<T: Send + Sync + 'static> Event for Insert<T> {
+    type Traversal = ();
 }
 impl<T> Insert<T> {
     pub fn new(entity: Entity) -> Self {
@@ -26,6 +27,7 @@ pub struct Destroy<T> {
     pub phase: std::marker::PhantomData<T>,
 }
 impl<T: Send + Sync + 'static> Event for Destroy<T> {
+    type Traversal = ();
 }
 impl<T> Destroy<T> {
     pub fn new(entity: Entity) -> Self {

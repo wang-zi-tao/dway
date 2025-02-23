@@ -5,8 +5,8 @@ use crate::prelude::*;
 #[macro_use]
 pub mod create_widget;
 
-pub fn irect_to_style(rect: IRect) -> Style {
-    Style {
+pub fn irect_to_style(rect: IRect) -> Node {
+    Node {
         position_type: PositionType::Absolute,
         left: Val::Px(rect.x() as f32),
         top: Val::Px(rect.y() as f32),

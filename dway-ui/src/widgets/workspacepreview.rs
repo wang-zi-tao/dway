@@ -26,7 +26,7 @@ dway_widget! {
 WorkspacePreview=>
 @callback{ [UiEvent<UiButtonEvent>]
 fn focus_window(
-    In(event): In<UiEvent<UiButtonEvent>>,
+    event: UiEvent<UiButtonEvent>,
     prop_query: Query<&WorkspacePreviewSubWidgetList>,
     mut focused: ResMut<FocusedWindow>,
 ){

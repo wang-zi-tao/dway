@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use bevy::utils::EntityHashMap;
+use bevy::ecs::entity::EntityHashMap;
 use imports::{QueryData, QueryFilter};
 
 use crate::prelude::*;
@@ -12,7 +12,7 @@ pub struct SubWidgetEntity {
 
 #[derive(Resource)]
 pub struct WidgetQueryState<B: Bundle, Q: QueryData, F: QueryFilter> {
-    widget_data_map: EntityHashMap<Entity, Vec<SubWidgetEntity>>,
+    widget_data_map: EntityHashMap<Vec<SubWidgetEntity>>,
     phantom: PhantomData<(B, Q, F)>,
 }
 

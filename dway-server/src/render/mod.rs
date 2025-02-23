@@ -96,9 +96,9 @@ impl DWayServerRenderClient {
         while let Some(response) = render_client.response_rx.pop() {
             match response {
                 DWayRenderResponse::ImportDmaBuffer(entity, buffer) => {
-                    commands.add(move |world: &mut World| {
+                    commands.queue(move |world: &mut World| {
                         let Some(buffer) = buffer else {
-                            if let Some(e) = world.get_entity_mut(entity) {
+                            if let Ok(e) = world.get_entity_mut(entity) {
                                 e.despawn();
                             }
                             return;

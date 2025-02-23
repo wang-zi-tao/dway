@@ -199,13 +199,10 @@ pub fn tree_bind_data<NodeId: IndexTrait, Item: DataItem>(
                 item_entity
             } else {
                 let entity = commands
-                    .spawn(MiniNodeBundle {
-                        style: Style {
-                            top: Val::Px(item_layout.rect.min.y),
-                            height: Val::Px(item_layout.rect.height()),
-                            position_type: PositionType::Absolute,
-                            ..Default::default()
-                        },
+                    .spawn(Node {
+                        top: Val::Px(item_layout.rect.min.y),
+                        height: Val::Px(item_layout.rect.height()),
+                        position_type: PositionType::Absolute,
                         ..Default::default()
                     })
                     .id();

@@ -37,8 +37,8 @@ impl Plugin for DWayInputPlugin {
         app.add_systems(
             PreUpdate,
             (
-                mouse_move_on_window.run_if(on_event::<CursorMoved>()),
-                keyboard_input_system.run_if(on_event::<KeyboardInput>()),
+                mouse_move_on_window.run_if(on_event::<CursorMoved>),
+                keyboard_input_system.run_if(on_event::<KeyboardInput>),
                 on_input_event.before(mouse_move_on_window),
             )
                 .in_set(DWayServerSet::Input),
@@ -129,8 +129,8 @@ graph_query!(InputGraph=>[
 
 pub fn on_input_event(
     mut graph: InputGraph,
-    mut ui_query: Query<(&Interaction, &mut SurfaceUiNode, &mut Style)>,
-    window_root_ui_query: Query<(&Node, &GlobalTransform)>,
+    mut ui_query: Query<(&Interaction, &mut SurfaceUiNode, &mut Node)>,
+    window_root_ui_query: Query<(&ComputedNode, &GlobalTransform)>,
     cursor: Res<CursorOnScreen>,
     mut output_focus: ResMut<FocusedWindow>,
     mut cursor_on_window: ResMut<CursorOnWindow>,
@@ -148,7 +148,7 @@ pub fn on_input_event(
         .chain(button_events.read().map(MouseEvent::Button))
         .chain(wheel_events.read().map(MouseEvent::Wheel))
     {
-        for (interaction, content, mut style) in ui_query.iter_mut() {
+        for (interaction, content, mut node) in ui_query.iter_mut() {
             if *interaction == Interaction::None {
                 continue;
             }
@@ -229,7 +229,7 @@ pub fn on_input_event(
                             } else {
                                 4.0
                             };
-                            *style = Style {
+                            *node = Node {
                                 position_type: PositionType::Absolute,
                                 left: Val::Px(-distant),
                                 top: Val::Px(-distant),

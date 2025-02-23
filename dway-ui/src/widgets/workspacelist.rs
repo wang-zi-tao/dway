@@ -5,7 +5,6 @@ use dway_client_core::{
 };
 use dway_ui_framework::widgets::button::UiRawButtonBundle;
 use util::DwayUiDirection;
-use widgets::button::UiButtonEventDispatcher;
 
 use crate::{
     popups::workspace_window_preview::{
@@ -18,7 +17,7 @@ use crate::{
 pub struct WorkspaceListUI;
 
 fn on_click(
-    In(event): In<UiEvent<UiButtonEvent>>,
+    event: UiEvent<UiButtonEvent>,
     query: Query<&WorkspaceListUISubWidgetList>,
     focus_screen: Res<CursorOnScreen>,
     mut commands: Commands,
@@ -44,14 +43,13 @@ fn on_click(
                     },
                 ))
                 .with_children(|c| {
-                    c.spawn(WorkspaceWindowPreviewPopupBundle {
+                    c.spawn(( WorkspaceWindowPreviewPopupBundle {
                         prop: WorkspaceWindowPreviewPopup {
                             workspace: widget.data_entity,
                             ..Default::default()
                         },
-                        style: style!("h-auto w-auto"),
                         ..default()
-                    });
+                    }, style!("h-auto w-auto")));
                 })
                 .set_parent(event.receiver());
         }
@@ -79,11 +77,10 @@ WorkspaceListUI=>
         @use_state(pub is_focused:bool)
         @use_state(pub screen_list:Vec<Entity>)
     >
-        <UiRawButtonBundle UiButtonEventDispatcher=(make_callback(node!(ws),on_click)) 
-            @style="w-16 h-16 align-items:center justify-items:center" >
+        <(UiRawButtonBundle::from_callback(node!(ws),on_click)) @style="w-16 h-16 align-items:center justify-items:center" >
             <MiniNodeBundle
                 @material(UiCircleMaterial=>circle_material(theme.color("blue")))
-                Style=(Style{
+                Node=(Node{
                     width:Val::Px(if *state.is_focused() {12.0}else{8.0}),
                     height:Val::Px(if *state.is_focused() {12.0}else{8.0}),
                     ..default()

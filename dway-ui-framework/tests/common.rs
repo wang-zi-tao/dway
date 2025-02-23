@@ -22,7 +22,7 @@ use bevy::{
             TextureDimension, TextureFormat, TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        texture::{GpuImage, Image},
+        texture::{GpuImage},
         Render, RenderApp, RenderSet,
     },
     window::PresentMode,
@@ -207,7 +207,7 @@ pub struct UnitTest {
     pub name: String,
     pub image_path: PathBuf,
     pub image_size: Vec2,
-    pub setup: SystemId<UnitTestParams>,
+    pub setup: SystemId<In<UnitTestParams>>,
 }
 
 fn start_unit_test(

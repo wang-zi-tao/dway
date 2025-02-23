@@ -1,6 +1,6 @@
 use bevy::{ecs::entity::EntityHashSet};
 use dway_server::apps::icon::{LinuxIcon, LinuxIconKind};
-use dway_ui_framework::{make_bundle, render::mesh::UiMeshHandle, widgets::svg::UiSvgExt};
+use dway_ui_framework::{make_bundle, render::mesh::UiMeshHandle};
 
 use crate::prelude::*;
 
@@ -19,7 +19,7 @@ make_bundle! {
     @addon UiIconExt,
     UiIconBundle{
         pub icon: UiIcon,
-        pub svg: UiSvgExt,
+        pub svg: UiSvg,
     }
 }
 
@@ -28,7 +28,7 @@ pub fn uiicon_render(
     mut uiicon_query: Query<(
         Entity,
         Ref<UiIcon>,
-        Option<&mut UiImage>,
+        Option<&mut ImageNode>,
         &mut UiSvg,
         &mut UiMeshHandle,
     )>,
@@ -44,20 +44,20 @@ pub fn uiicon_render(
             match &linux_icon.handle {
                 LinuxIconKind::Image(h) => {
                     if let Some(mut image) = image {
-                        if &image.texture != h {
-                            image.texture = h.clone();
+                        if &image.image != h {
+                            image.image = h.clone();
                             svg.set_if_neq(Default::default());
                             mesh.set_if_neq(Default::default());
                         }
                     } else {
-                        commands.entity(e).insert(UiImage::new(h.clone()));
+                        commands.entity(e).insert(ImageNode::new(h.clone()));
                     }
                 }
                 LinuxIconKind::Svg(h) => {
                     if &**svg != h {
                         *svg = h.clone().into();
                         if image.is_some(){
-                            commands.entity(e).remove::<UiImage>();
+                            commands.entity(e).remove::<ImageNode>();
                         }
                     }
                 }

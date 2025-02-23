@@ -5,6 +5,7 @@ use bevy::{input::mouse::MouseWheel, ui::RelativeCursorPosition};
 use crate::{make_bundle, prelude::*};
 
 #[derive(Component, SmartDefault, Reflect, Debug)]
+#[require(Node, UiScrollState, UiScrollWidget, RelativeCursorPosition, Interaction)]
 #[cfg_attr(feature = "hot_reload", derive(Serialize, Deserialize))]
 pub struct UiScroll {
     pub horizontal: bool,
@@ -20,7 +21,7 @@ UiScroll=>
 @use_state(pub size: Vec2)
 @state_reflect()
 @prop_reflect()
-@arg(mut style_query:Query<(Ref<Node>,&mut Style)>)
+@arg(mut style_query:Query<(Ref<ComputedNode>,&mut Node)>)
 @world_query(focus_police: &mut FocusPolicy)
 @world_query(children: Option<&Children>)
 @arg(mut mouse_wheel: EventReader<MouseWheel>)
@@ -31,12 +32,7 @@ UiScroll=>
         wheel_move = Vec2::new(wheel_move.y, wheel_move.x);
     }
 }
-@bundle({
-    pub interaction: Interaction,
-    pub focus_policy: FocusPolicy = FocusPolicy::Block,
-    pub cursor_positon: RelativeCursorPosition, // TODO 优化
-})
-@world_query(node: &Node)
+@world_query(computed_node: &ComputedNode)
 @world_query(transform: &GlobalTransform)
 @world_query(mouse_position: Ref<RelativeCursorPosition>)
 @use_state(pub content: Option<Entity>)
@@ -50,19 +46,16 @@ UiScroll=>
         if let Some(content) = children.and_then(|c|c.first()) {
             state.set_content(Some(*content));
         } else if prop.create_viewport {
-            let content = commands.spawn(MiniNodeBundle{
-                style: Style{
-                    min_width: Val::Percent(100.0),
-                    min_height: Val::Percent(100.0),
-                    ..Default::default()
-                },
+            let content = commands.spawn(Node{
+                min_width: Val::Percent(100.0),
+                min_height: Val::Percent(100.0),
                 ..Default::default()
             }).set_parent(this_entity).id();
-            state.set_content(Some(content));
+        state.set_content(Some(content));
         }
     }
     (||{
-        let scroll_rect = Rect::from_center_size(transform.translation().xy(), node.size());
+        let scroll_rect = Rect::from_center_size(transform.translation().xy(), computed_node.size());
         let Some(content_entity) = *state.content() else {return};
         let Ok((content_node,mut content_style)) = style_query.get_mut(content_entity) else {return};
         let inside = mouse_position.mouse_over();
@@ -91,7 +84,7 @@ UiScroll=>
 @global(theme:Theme)
 <MiniNodeBundle @if(prop.vertical) @style="absolute full">
     <MiniNodeBundle @id="vertical_handle"
-        Style=(Style{
+        Node=(Node{
             top: Val::Percent(state.uv().min.y*100.0),
             height: Val::Px(state.uv().size().y*state.size().y),
             ..style!("right-1 w-4 absolute")})
@@ -100,7 +93,7 @@ UiScroll=>
 </MiniNodeBundle>
 <MiniNodeBundle @if(prop.horizontal) @style="absolute full">
     <MiniNodeBundle @id="vertical_handle"
-        Style=(Style{
+        Node=(Node{
             left: Val::Percent(state.uv().min.x*100.0),
             width: Val::Px(state.uv().size().x*state.size().x),
             ..style!("bottom-1 h-4 absolute")})

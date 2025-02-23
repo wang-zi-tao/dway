@@ -5,11 +5,7 @@
 use std::time::{Duration, Instant};
 
 use bevy::{
-    app::{AppExit, PluginsState},
-    core::FrameCount,
-    ecs::event::ManualEventReader,
-    prelude::*,
-    window::RequestRedraw,
+    app::{AppExit, PluginsState}, core::FrameCount, ecs::event::EventCursor, prelude::*, window::RequestRedraw
 };
 use drm::DrmPlugin;
 use dway_util::eventloop::{EventLoopPlugin, EventLoopPluginMode, Poller, PollerRequest};
@@ -68,8 +64,8 @@ fn runner(mut app: App) -> AppExit {
         app.cleanup();
     }
 
-    let mut redraw_events_reader = ManualEventReader::<RequestRedraw>::default();
-    let mut exit_events_reader = ManualEventReader::<AppExit>::default();
+    let mut redraw_events_reader = EventCursor::<RequestRedraw>::default();
+    let mut exit_events_reader = EventCursor::<AppExit>::default();
 
     let mut poller = app.world_mut().non_send_resource_mut::<Poller>().take();
 
@@ -149,7 +145,7 @@ mod test {
             .disable::<LogPlugin>()
             .disable::<WinitPlugin>()
             .add(ScheduleRunnerPlugin::run_once())
-            .add_before::<LogPlugin, _>(DWayLogPlugin)
+            .add_before::<LogPlugin>(DWayLogPlugin)
             .set(LogPlugin {
                 level: Level::INFO,
                 filter: "".to_string(),

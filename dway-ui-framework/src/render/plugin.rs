@@ -23,7 +23,6 @@ use bevy::{
         renderer::{RenderDevice, RenderQueue},
         texture::{
             BevyDefault, DefaultImageSampler, FallbackImage, GpuImage, Image, ImageSampler,
-            TextureFormatPixelInfo,
         },
         view::*,
         Extract, ExtractSchedule, RenderApp, RenderSet,

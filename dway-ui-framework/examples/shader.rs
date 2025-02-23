@@ -48,9 +48,9 @@ fn setup(
     mut ui_material_checkbox: ResMut<Assets<ShaderAsset<CheckboxStyle>>>,
 ) {
     // Camera so we can see UI
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2dBundle::default(), Msaa::Sample4));
 
-    let style = Style {
+    let node = Node {
         width: Val::Px(64.0),
         height: Val::Px(32.0),
         margin: UiRect::all(Val::Px(8.0)),
@@ -74,7 +74,7 @@ fn setup(
 
     commands
         .spawn(NodeBundle {
-            style: Style {
+            node: Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Row,
@@ -85,7 +85,7 @@ fn setup(
         .with_children(|commands| {
             commands
                 .spawn(NodeBundle {
-                    style: Style {
+                    node: Node {
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         flex_direction: FlexDirection::Column,
@@ -95,7 +95,7 @@ fn setup(
                 })
                 .with_children(|parent| {
                     parent.spawn(MaterialNodeBundle {
-                        style: Style {
+                        node: Node {
                             width: Val::Px(250.0),
                             height: Val::Px(250.0),
                             margin: UiRect::all(Val::Px(8.0)),
@@ -105,78 +105,68 @@ fn setup(
                             Border::new(Color::WHITE, 2.0),
                             gradient.clone(),
                             shadow.clone(),
-                        ))),
+                        ))).into(),
                         ..default()
                     });
                     parent
                         .spawn(MaterialNodeBundle {
-                            style: (Style {
+                            node: Node {
                                 margin: UiRect::all(Val::Px(8.0)),
                                 padding: UiRect::all(Val::Px(4.0)),
                                 ..default()
-                            }),
-                            material: ui_material_button.add(
-                                RoundedRect::new(8.0)
-                                    .with_effect(effect_border_fill_shadow.clone()),
-                            ),
+                            },
+                            material: ui_material_button
+                                .add(
+                                    RoundedRect::new(8.0)
+                                        .with_effect(effect_border_fill_shadow.clone()),
+                                )
+                                .into(),
                             ..default()
                         })
-                        .with_children(|c| {
-                            c.spawn(TextBundle {
-                                text: Text::from_section(
-                                    "Button",
-                                    TextStyle {
-                                        font: Default::default(),
-                                        font_size: 24.0,
-                                        color: ui_color,
-                                    },
-                                ),
-                                ..Default::default()
-                            });
-                        });
+                        .with_child((
+                            Text::new("Button"),
+                            TextFont::from_font_size(24.0),
+                            TextColor(ui_color),
+                        ));
                     parent
                         .spawn(MaterialNodeBundle {
-                            style: (Style {
+                            node: Node {
                                 margin: UiRect::all(Val::Px(8.0)),
                                 padding: UiRect::all(Val::Px(4.0)),
                                 ..default()
-                            }),
-                            material: ui_material_button.add(RoundedRect::new(8.0).with_effect((
-                                Border::new(Color::WHITE, 0.0),
-                                blue.into(),
-                                shadow.clone(),
-                            ))),
+                            },
+                            material: ui_material_button
+                                .add(RoundedRect::new(8.0).with_effect((
+                                    Border::new(Color::WHITE, 0.0),
+                                    blue.into(),
+                                    shadow.clone(),
+                                )))
+                                .into(),
                             ..default()
                         })
-                        .with_children(|c| {
-                            c.spawn(TextBundle {
-                                text: Text::from_section(
-                                    "Button",
-                                    TextStyle {
-                                        font: Default::default(),
-                                        font_size: 24.0,
-                                        color: Color::WHITE,
-                                    },
-                                ),
-                                ..Default::default()
-                            });
-                        });
+                        .with_child((
+                            Text::new("Button"),
+                            TextFont::from_font_size(24.0),
+                            TextColor(Color::WHITE),
+                        ));
                     parent.spawn(MaterialNodeBundle {
-                        style: style.clone(),
-                        material: ui_material_checkbox.add((
-                            Circle::default()
-                                .with_effect((
-                                    Border::new(ui_color, 2.0),
-                                    ui_color.into(),
+                        node: node.clone(),
+                        material: ui_material_checkbox
+                            .add((
+                                Circle::default()
+                                    .with_effect((
+                                        Border::new(ui_color, 2.0),
+                                        ui_color.into(),
+                                        shadow.clone(),
+                                    ))
+                                    .with_transform(Margins::new(5.0, 32.0 + 5.0, 5.0, 5.0)),
+                                RoundedBar::default().with_effect((
+                                    Border::new(ui_color, 3.0),
+                                    Color::WHITE.into(),
                                     shadow.clone(),
-                                ))
-                                .with_transform(Margins::new(5.0, 32.0 + 5.0, 5.0, 5.0)),
-                            RoundedBar::default().with_effect((
-                                Border::new(ui_color, 3.0),
-                                Color::WHITE.into(),
-                                shadow.clone(),
-                            )),
-                        )),
+                                )),
+                            ))
+                            .into(),
                         ..default()
                     });
                 });

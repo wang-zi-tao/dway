@@ -141,19 +141,19 @@ impl UiCanvasRenderCommand {
 
 pub fn prepare_render_command(
     mut canvas_query: Query<
-        (Entity, &mut UiCanvas, &mut UiImage, &Node),
-        Or<(Changed<UiCanvas>, Changed<UiImage>, Changed<Node>)>,
+        (Entity, &mut UiCanvas, &mut ImageNode, &ComputedNode),
+        Or<(Changed<UiCanvas>, Changed<ImageNode>, Changed<Node>)>,
     >,
     mut images: ResMut<Assets<Image>>,
     mut render_area: ResMut<UiCanvasRenderArea>,
     mut commands: Commands,
 ) {
-    for (entity, mut canvas, mut ui_image, node) in canvas_query.iter_mut() {
+    for (entity, mut canvas, mut ui_image, compulted_node) in canvas_query.iter_mut() {
         let _span = info_span!("prepare_canvas", ?entity).entered();
-        let node_size = node.size();
+        let node_size = compulted_node.size();
         if canvas.size != node_size || canvas.refresh || canvas.image.is_weak() {
             canvas.refresh = false;
-            canvas.size = node.size();
+            canvas.size = compulted_node.size();
             if node_size.x > 0.0 && node_size.y > 0.0 {
                 let handle = if node_size != canvas.size()
                     || !canvas.reuse_image
@@ -205,7 +205,7 @@ pub fn prepare_render_command(
                         width: node_size.x,
                         height: node_size.y,
                     },
-                    ..Default::default()
+                    ..OrthographicProjection::default_2d()
                 };
                 let camera_entity = commands
                     .spawn((
@@ -231,8 +231,8 @@ pub fn prepare_render_command(
                 });
             }
         };
-        if &ui_image.texture != &canvas.image {
-            ui_image.texture = canvas.image.clone();
+        if &ui_image.image != &canvas.image {
+            ui_image.image = canvas.image.clone();
         }
     }
 }
@@ -249,7 +249,7 @@ pub struct UiCanvasBundle {
 }
 
 pub fn cleanup_render_command(
-    mut render_stub_query: Query<(Entity, &mut UiCanvasRenderCommand, &mut UiImage)>,
+    mut render_stub_query: Query<(Entity, &mut UiCanvasRenderCommand, &mut ImageNode)>,
     camera_query: Query<(Entity, &CanvasCamera)>,
     mut commands: Commands,
 ) {

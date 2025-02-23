@@ -70,7 +70,7 @@ pub struct Theme {
     pub default_text_size: f32,
     pub default_text_color: Color,
     pub color_map: HashMap<String, Color>,
-    pub style_map: HashMap<String, Style>,
+    pub style_map: HashMap<String, Node>,
     #[reflect(ignore)]
     pub icons: HashMap<Box<str>, ThemeIcon>,
 
@@ -138,19 +138,33 @@ impl Theme {
         )
     }
 
-    pub fn default_text_style(&self) -> TextStyle {
-        TextStyle {
-            font: self.default_font(),
-            font_size: self.default_text_size,
-            color: self.default_text_color,
-        }
+    pub fn default_text_style(&self) -> (TextFont, TextColor) {
+        (
+            TextFont {
+                font: self.default_font(),
+                font_size: self.default_text_size,
+                ..Default::default()
+            },
+            TextColor(self.default_text_color),
+        )
     }
 
-    pub fn text_style(&self, size: f32, class_name: &str) -> TextStyle {
-        TextStyle {
+    pub fn text_style(&self, size: f32, class_name: &str) -> (TextFont, TextColor) {
+        (
+            TextFont {
+                font: self.default_font(),
+                font_size: size,
+                ..Default::default()
+            },
+            TextColor(self.color(class_name)),
+        )
+    }
+
+    pub fn text_font(&self, size: f32) -> TextFont {
+        TextFont {
             font: self.default_font(),
             font_size: size,
-            color: self.color(class_name),
+            ..Default::default()
         }
     }
 
@@ -304,7 +318,7 @@ bitflags! {
     }
 }
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Default)]
 pub struct ThemeComponent {
     pub theme: Option<Arc<dyn ThemeDispatch>>,
     pub style_flags: StyleFlags,
@@ -350,17 +364,17 @@ pub trait ThemeDispatch: Downcast + Debug + Sync + Send + 'static {
 }
 impl_downcast!(ThemeDispatch);
 
-pub fn insert_material_tween<M: Asset + Interpolation>(
+pub fn insert_material_tween<M: UiMaterial + Asset + Interpolation>(
     world: &mut World,
     entity: Entity,
     end_material: Handle<M>,
     duration: Duration,
     ease: AnimationEaseMethod,
 ) {
-    let current_material = world.get::<Handle<M>>(entity).cloned();
+    let current_material = world.get::<MaterialNode<M>>(entity).cloned();
     let mut entity_mut = world.entity_mut(entity);
     if let Some(current_material) = current_material {
-        entity_mut.insert(Tween::new(current_material.clone(), end_material));
+        entity_mut.insert(Tween::new(current_material.0, end_material));
         if let Some(mut animation) = entity_mut.get_mut::<Animation>() {
             animation.set_duration(duration);
             animation.set_ease_method(ease);
@@ -376,7 +390,7 @@ pub fn insert_material_tween<M: Asset + Interpolation>(
             world.entity_mut(entity).insert(animation);
         }
     } else {
-        entity_mut.insert(end_material);
+        entity_mut.insert(MaterialNode(end_material));
     }
 }
 
@@ -389,6 +403,6 @@ pub fn insert_material_command<M: Material>(entity: Entity, material: M) -> impl
     move |world: &mut World| {
         let mut assets = world.resource_mut::<Assets<ShaderAsset<M>>>();
         let handle = assets.add(ShaderAsset::new(material));
-        world.entity_mut(entity).insert(handle);
+        world.entity_mut(entity).insert(MaterialNode(handle));
     }
 }

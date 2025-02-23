@@ -20,7 +20,7 @@ VolumeControl=>
 @state_reflect()
 @callback{[UiEvent<UiSliderEvent>]
     fn on_slider_event(
-        In(event): In<UiEvent<UiSliderEvent>>,
+        event: UiEvent<UiSliderEvent>,
         mut volume_control: NonSendMut<VolumeController>,
     ) {
         if let Err(e) = volume_control.set_volume(event.value) {
@@ -30,7 +30,7 @@ VolumeControl=>
 }
 @callback{[UiEvent<UiCheckBoxEvent>]
     fn on_mute_event(
-        In(event): In<UiEvent<UiCheckBoxEvent>>,
+        event: UiEvent<UiCheckBoxEvent>,
         mut volume_control: NonSendMut<VolumeController>,
     ) {
         if let Err(e) = volume_control.set_mute(event.value) {
@@ -56,7 +56,7 @@ VolumeControl=>
     @style="p-4 align-self:center" @id="mute_checkbox"
     UiCheckBoxState=(UiCheckBoxState::new(*state.mute()))
 >
-    <UiSvgBundle @style="w-32 h-32" @id="mute_icon"
+    <UiSvg @style="w-32 h-32" @id="mute_icon"
         UiSvg=(UiSvg::from( if *state.mute() {
             asset_server.load("embedded://dway_ui/icons/volume_off.svg")
         } else {
@@ -68,7 +68,7 @@ VolumeControl=>
     UiSliderState=(UiSliderState{value: *state.volume(),..default()})/>
 }
 
-pub fn open_popup(In(event): In<UiEvent<UiButtonEvent>>, mut commands: Commands) {
+pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         let style = style!("absolute justify-items:center top-36 align-self:end p-8");
         commands
@@ -80,10 +80,7 @@ pub fn open_popup(In(event): In<UiEvent<UiButtonEvent>>, mut commands: Commands)
                 },
             ))
             .with_children(|c| {
-                c.spawn(VolumeControlBundle {
-                    style: style!("h-auto w-auto"),
-                    ..Default::default()
-                });
+                c.spawn(( VolumeControlBundle::default(), style!("h-auto w-auto")  ));
             })
             .set_parent(event.sender());
     }

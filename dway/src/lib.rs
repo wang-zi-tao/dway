@@ -116,7 +116,6 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     let opts = DWayOption::parse();
     app.insert_resource(opts.clone());
     app.insert_resource(ClearColor(Color::NONE));
-    app.insert_resource(Msaa::Sample4);
     app.insert_resource(Time::<Fixed>::from_hz(20.0));
 
     if cfg!(feature = "single_thread") {
@@ -136,7 +135,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
 
     if !enable_cpu_profile {
         default_plugins = default_plugins
-            .add_before::<LogPlugin, _>(DWayLogPlugin);
+            .add_before::<LogPlugin>(DWayLogPlugin);
     }
 
     default_plugins = default_plugins
@@ -157,7 +156,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             file_path: opts.assets.clone(),
             ..Default::default()
         })
-        .add_before::<AssetPlugin, _>(LinuxIconSourcePlugin)
+        .add_before::<AssetPlugin>(LinuxIconSourcePlugin)
         .disable::<WinitPlugin>()
         .disable::<AudioPlugin>();
 
@@ -223,7 +222,6 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     ));
 
     app.add_plugins((
-        ChangedDiagnosticPlugin::<Style>::default(),
         ChangedDiagnosticPlugin::<Transform>::default(),
         ChangedDiagnosticPlugin::<Node>::default(),
     ));

@@ -1,58 +1,26 @@
-use bevy::{
-    text::TextLayoutInfo,
-    ui::{widget::TextFlags, ContentSize},
-};
+use bevy::{text::TextLayoutInfo, ui::ContentSize};
 
 use crate::{make_bundle, prelude::*};
 
-make_bundle! {
-    @from text: Text,
-    @addon UiTextExt,
-    UiTextBundle {
-        pub text: Text,
-        pub text_layout_info: TextLayoutInfo,
-        pub text_flags: TextFlags,
-        pub calculated_size: ContentSize,
-
-        pub focus_policy: FocusPolicy,
-    }
+#[derive(Bundle, Debug)]
+pub struct UiTextExt {
+    pub text: Text,
+    pub text_font: TextFont,
 }
 
 impl UiTextExt {
-    pub fn new(string: &str, size: usize, theme: &Theme) -> Self {
-        Self {
-            text: Text::from_section(
-                string,
-                TextStyle {
-                    font: theme.default_font(),
-                    font_size: size as f32,
-                    color: theme.color("foreground"),
-                },
-            ),
-            ..default()
+    pub fn new(string: &str, size: usize, theme: &Theme) -> UiTextExt {
+        UiTextExt {
+            text: Text::new(string),
+            text_font: TextFont {
+                font: theme.default_font(),
+                font_size: size as f32,
+                ..default()
+            },
         }
     }
 }
-
-impl UiTextBundle {
-    pub fn new(string: &str, size: usize, theme: &Theme) -> Self {
-        let UiTextExt {
-            text,
-            text_layout_info,
-            text_flags,
-            calculated_size,
-            focus_policy,
-        } = UiTextExt::new(string, size, theme);
-        Self {
-            text,
-            text_flags,
-            text_layout_info,
-            calculated_size,
-            focus_policy,
-            ..Default::default()
-        }
-    }
-}
+pub type UiTextBundle = UiTextExt;
 
 pub fn ansi_to_sections(
     ansi: &str,
@@ -60,7 +28,7 @@ pub fn ansi_to_sections(
     default_color: Color,
     font_size: f32,
     font: &Handle<Font>,
-) -> Vec<TextSection> {
+) -> Vec<(Text, TextFont, TextColor)> {
     let mut section_list = vec![];
     for block in ansi_str::get_blocks(ansi) {
         let color = match block.style().foreground() {
@@ -347,14 +315,15 @@ pub fn ansi_to_sections(
             },
             None => default_color,
         };
-        section_list.push(TextSection {
-            value: block.text().to_string(),
-            style: TextStyle {
+        section_list.push((
+            Text::new(block.text()),
+            TextFont {
                 font: font.clone(),
                 font_size,
-                color,
+                ..default()
             },
-        });
+            TextColor(color),
+        ));
     }
     section_list
 }

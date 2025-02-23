@@ -5,7 +5,7 @@ use dway_server::apps::{
 use event::make_callback;
 use regex::{Regex, RegexBuilder};
 use util::DwayUiDirection;
-use widgets::inputbox::{UiInputBox, UiInputBoxBundle, UiInputBoxEventDispatcher, UiInputBoxState, UiInputboxEvent};
+use widgets::{inputbox::{UiInputBox, UiInputBoxBundle, UiInputBoxEventDispatcher, UiInputBoxState, UiInputboxEvent}, text::UiTextBundle};
 
 use crate::{
     panels::PanelButtonBundle,
@@ -14,7 +14,7 @@ use crate::{
 };
 
 fn on_launch(
-    In(event): In<UiEvent<UiButtonEvent>>,
+    event: UiEvent<UiButtonEvent>,
     widget_qeury: Query<(
         &DockLauncherUISubStateAppList,
         &DockLauncherUISubWidgetAppList,
@@ -32,12 +32,12 @@ fn on_launch(
     }
 }
 
-pub fn open_popup(In(event): In<UiEvent<UiButtonEvent>>, mut commands: Commands) {
+pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         commands
             .spawn((
                 UiPopupBundle {
-                    style: style!("full"),
+                    node: style!("full"),
                     ..Default::default()
                 },
                 DockLauncherUI::default(),
@@ -48,7 +48,7 @@ pub fn open_popup(In(event): In<UiEvent<UiButtonEvent>>, mut commands: Commands)
                         direction: DwayUiDirection::BOTTOM,
                         ..Default::default()
                     },
-                    target_style: Style {
+                    target_style: Node {
                         position_type: PositionType::Absolute,
                         left: Val::Percent(10.0),
                         right: Val::Percent(10.0),
@@ -65,7 +65,7 @@ pub fn open_popup(In(event): In<UiEvent<UiButtonEvent>>, mut commands: Commands)
 }
 
 fn on_text_changed(
-    In(event): In<UiEvent<UiInputboxEvent>>,
+    event: UiEvent<UiInputboxEvent>,
     mut widget_query: Query<&mut DockLauncherUIState>,
     inputbox_query: Query<&UiInputBoxState>,
 ) {

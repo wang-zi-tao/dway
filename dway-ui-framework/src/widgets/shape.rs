@@ -1,4 +1,3 @@
-use bevy::sprite::Mesh2dHandle;
 pub use bevy_prototype_lyon::{
     draw::*,
     entity::{Path, ShapeBundle},
@@ -13,7 +12,7 @@ use crate::{
 };
 
 pub fn after_process_shape(
-    mut query: Query<(&mut Mesh2dHandle, &mut UiMeshHandle), Changed<Mesh2dHandle>>,
+    mut query: Query<(&mut Mesh2d, &mut UiMeshHandle), Changed<Mesh2d>>,
 ) {
     for (mut mesh2d, mut ui_mesh) in &mut query {
         ui_mesh.set_if_neq(UiMeshHandle::from(mesh2d.0.clone()));
@@ -24,12 +23,12 @@ pub fn after_process_shape(
 make_bundle! {
     UiShapeBundle{
         pub path: Path,
-        pub mesh2d: Mesh2dHandle,
+        pub mesh2d: Mesh2d,
         pub mesh: UiMeshHandle,
         pub mesh_transform: UiMeshTransform,
         pub focus_policy: FocusPolicy,
         #[default(ShapeBundle::default().material)]
-        pub material: Handle<ColorMaterial>,
+        pub material: MeshMaterial2d<ColorMaterial>,
     }
 }
 

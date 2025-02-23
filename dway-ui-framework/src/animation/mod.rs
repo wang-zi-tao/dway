@@ -267,12 +267,12 @@ pub fn update_animation_system(
 }
 
 #[derive(Clone, Default, Component)]
-pub struct Tween<I: Interpolation + Asset> {
+pub struct Tween<I: UiMaterial + Interpolation + Asset> {
     pub begin: Handle<I>,
     pub end: Handle<I>,
 }
 
-impl<I: Interpolation + Asset> Tween<I> {
+impl<I: UiMaterial + Interpolation + Asset> Tween<I> {
     pub fn new(begin: Handle<I>, end: Handle<I>) -> Self {
         Self { begin, end }
     }
@@ -283,36 +283,36 @@ impl<I: Interpolation + Asset> Tween<I> {
     }
 }
 
-pub fn apply_tween_asset<I: Interpolation + Asset>(
-    In(event): In<UiEvent<AnimationEvent>>,
+pub fn apply_tween_asset<I: UiMaterial + Interpolation + Asset>(
+    event: UiEvent<AnimationEvent>,
     mut assets: ResMut<Assets<I>>,
-    mut query: Query<(&mut Handle<I>, &Tween<I>)>,
+    mut query: Query<(&mut MaterialNode<I>, &Tween<I>)>,
 ) {
     let entity = event.receiver();
     let AnimationEvent { value, .. } = *event;
-    let Ok((mut handle, tween)) = query.get_mut(entity) else {
+    let Ok((mut material, tween)) = query.get_mut(entity) else {
         return;
     };
     if value <= 0.0 {
-        *handle = tween.begin.clone();
+        material.0 = tween.begin.clone();
     } else if value >= 1.0 {
-        *handle = tween.end.clone();
+        material.0 = tween.end.clone();
     } else if let (Some(begin_asset), Some(end_asset)) =
         (assets.get(&tween.begin), assets.get(&tween.end))
     {
         let new_asset = Interpolation::interpolation(begin_asset, end_asset, value);
-        if &*handle == &tween.begin || &*handle == &tween.end {
-            *handle = assets.add(new_asset);
+        if &material.0 == &tween.begin || &material.0 == &tween.end {
+            material.0 = assets.add(new_asset);
         } else {
-            assets.insert(handle.id(), new_asset);
+            assets.insert(material.id(), new_asset);
         }
     }
 }
 
 #[derive(Default)]
-pub struct AssetAnimationPlugin<T: Interpolation + Asset>(PhantomData<T>);
+pub struct AssetAnimationPlugin<T: UiMaterial + Interpolation + Asset>(PhantomData<T>);
 
-impl<T: Interpolation + Asset> Plugin for AssetAnimationPlugin<T> {
+impl<T: UiMaterial + Interpolation + Asset> Plugin for AssetAnimationPlugin<T> {
     fn build(&self, app: &mut App) {
         app.register_callback(apply_tween_asset::<T>);
     }
@@ -323,13 +323,13 @@ impl<T: Interpolation + Asset> Plugin for AssetAnimationPlugin<T> {
 }
 
 #[derive(Bundle)]
-pub struct AssetTweenExt<T: Interpolation + Asset> {
+pub struct AssetTweenExt<T: UiMaterial + Interpolation + Asset> {
     pub animation: Animation,
     pub event_dispatcher: EventDispatcher<AnimationEvent>,
     pub tween: Tween<T>,
 }
 
-impl<T: Interpolation + Asset> AssetTweenExt<T> {
+impl<T: UiMaterial + Interpolation + Asset> AssetTweenExt<T> {
     pub fn new(animation: Animation, tween: Tween<T>, callbacks: &CallbackTypeRegister) -> Self {
         let event_dispatcher = EventDispatcher::default()
             .with_system_to_this(callbacks.system(apply_tween_asset::<T>));

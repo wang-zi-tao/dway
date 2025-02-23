@@ -40,7 +40,7 @@ use widgets::drag::UiDrag;
 use crate::{
     prelude::*,
     render::mesh::{UiMeshHandle, UiMeshMaterialPlugin, UiMeshTransform},
-    widgets::svg::{SvgLayout, SvgMagerial},
+    widgets::svg::{SvgLayout},
 };
 
 pub struct UiFrameworkPlugin;
@@ -73,12 +73,12 @@ impl Plugin for UiFrameworkPlugin {
             widgets::scroll::UiScrollPlugin,
             widgets::combobox::UiComboBoxPlugin,
             widgets::inputbox::UiInputBoxPlugin,
-            UiMeshMaterialPlugin::<SvgMagerial>::default(),
+            UiMeshMaterialPlugin::<Svg>::default(),
         ))
         .add_event::<event::DespawnLaterEvent>()
         .add_systems(
             Last,
-            event::on_despawn_later_event.run_if(on_event::<event::DespawnLaterEvent>()),
+            event::on_despawn_later_event.run_if(on_event::<event::DespawnLaterEvent>),
         )
         .register_type::<UiCheckBox>()
         .register_type::<UiCheckBoxState>()
@@ -91,7 +91,6 @@ impl Plugin for UiFrameworkPlugin {
         .register_type::<SvgLayout>()
         .register_type::<input::UiInput>()
         .register_type::<animation::Animation>()
-        .init_asset::<SvgMagerial>()
         .register_type::<input::MousePosition>()
         .init_resource::<input::MousePosition>()
         .register_type::<input::UiFocusState>()
@@ -105,7 +104,7 @@ impl Plugin for UiFrameworkPlugin {
             PreUpdate,
             (
                 input::update_mouse_position
-                    .run_if(on_event::<CursorMoved>())
+                    .run_if(on_event::<CursorMoved>)
                     .in_set(InputSystems),
                 update_ui_input.in_set(InputSystems).after(UiSystem::Focus),
                 widgets::button::update_ui_button.in_set(WidgetInputSystems),

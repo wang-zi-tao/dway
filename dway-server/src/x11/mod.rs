@@ -80,20 +80,20 @@ impl Plugin for DWayXWaylandPlugin {
             PreUpdate,
             (
                 (
-                    launch_xwayland.run_if(on_event::<WaylandDisplayCreated>()),
+                    launch_xwayland.run_if(on_event::<WaylandDisplayCreated>),
                     apply_deferred,
                 )
                     .chain()
                     .in_set(DWayServerSet::Create)
                     .after(on_create_display_event),
                 dispatch_x11_events
-                    .run_if(on_event::<DispatchXWaylandDisplay>())
+                    .run_if(on_event::<DispatchXWaylandDisplay>)
                     .in_set(DWayServerSet::Dispatch),
                 x11_window_attach_wl_surface
-                    .run_if(on_event::<XWindowAttachSurfaceRequest>())
+                    .run_if(on_event::<XWindowAttachSurfaceRequest>)
                     .in_set(DWayServerSet::UpdateXWayland),
                 update_xwindow_surface
-                    .run_if(on_event::<XWindowChanged>())
+                    .run_if(on_event::<XWindowChanged>)
                     .in_set(DWayServerSet::UpdateXWayland)
                     .after(x11_window_attach_wl_surface),
             ),
@@ -101,7 +101,7 @@ impl Plugin for DWayXWaylandPlugin {
         app.add_systems(
             Last,
             process_window_action_events
-                .run_if(on_event::<WindowAction>())
+                .run_if(on_event::<WindowAction>)
                 .in_set(DWayServerSet::ProcessWindowAction),
         );
         app.register_type::<XWindow>();

@@ -26,13 +26,10 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2dBundle::default(), Msaa::Sample4));
 
-    commands.spawn(UiSvgBundle {
-        svg: UiSvg::from(
-            asset_server.load("embedded://dway_ui_framework/examples/gallary/power.svg"),
-        ),
-        style: style!("w-96 h-96"),
-        ..default()
-    });
+    commands.spawn((
+        UiSvg::new(asset_server.load("embedded://dway_ui_framework/examples/gallary/power.svg")),
+        style!("w-96 h-96"),
+    ));
 }

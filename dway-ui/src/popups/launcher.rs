@@ -2,6 +2,7 @@ use dway_server::apps::{
     icon::LinuxIcon, launchapp::LaunchAppRequest, DesktopEntriesSet, DesktopEntry,
 };
 use dway_ui_framework::animation::translation::UiTranslationAnimationExt;
+use widgets::text::UiTextBundle;
 
 use crate::{
     panels::PanelButtonBundle,
@@ -16,7 +17,7 @@ dway_widget! {
 LauncherUI=>
 @callback{[UiEvent<UiButtonEvent>]
     fn on_launch(
-        In(event): In<UiEvent<UiButtonEvent>>,
+        event: UiEvent<UiButtonEvent>,
         mut event_writer: EventWriter<LaunchAppRequest>
     ) {
         if event.kind == UiButtonEventKind::Released {
@@ -67,25 +68,25 @@ LauncherUI=>
         @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 16.0))
     >
         <( PanelButtonBundle::new(&theme,&mut assets_rounded_ui_rect_material) ) @style="w-32 h-32" @id="user_icon">
-            <(UiSvgBundle::new(theme.icon("user", &asset_server))) @style="w-32 h-32"/>
+            <(UiSvg::new(theme.icon("user", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
         <( PanelButtonBundle::new(&theme,&mut assets_rounded_ui_rect_material) ) @style="w-32 h-32" @id="lock_button">
-            <(UiSvgBundle::new(theme.icon("lock", &asset_server))) @style="w-32 h-32"/>
+            <(UiSvg::new(theme.icon("lock", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
         <( PanelButtonBundle::new(&theme,&mut assets_rounded_ui_rect_material) ) @style="w-32 h-32" @id="logout_button">
-            <(UiSvgBundle::new(theme.icon("logout", &asset_server))) @style="w-32 h-32"/>
+            <(UiSvg::new(theme.icon("logout", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
         <( PanelButtonBundle::new(&theme,&mut assets_rounded_ui_rect_material) ) @style="w-32 h-32" @id="reboot_button">
-            <(UiSvgBundle::new(theme.icon("restart", &asset_server))) @style="w-32 h-32"/>
+            <(UiSvg::new(theme.icon("restart", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
         <( PanelButtonBundle::new(&theme,&mut assets_rounded_ui_rect_material) ) @style="w-32 h-32" @id="poweroff_button">
-            <(UiSvgBundle::new(theme.icon("power", &asset_server))) @style="w-32 h-32"/>
+            <(UiSvg::new(theme.icon("power", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
     </MiniNodeBundle>
 </MiniNodeBundle>
 }
 
-pub fn open_popup(In(event): In<UiEvent<UiButtonEvent>>, theme: Res<Theme>, mut commands: Commands) {
+pub fn open_popup(event: UiEvent<UiButtonEvent>, theme: Res<Theme>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         commands
             .spawn((
@@ -96,10 +97,7 @@ pub fn open_popup(In(event): In<UiEvent<UiButtonEvent>>, theme: Res<Theme>, mut 
                 },
             ))
             .with_children(|c| {
-                c.spawn(LauncherUIBundle {
-                    style: style!("h-auto w-auto"),
-                    ..default()
-                });
+                c.spawn((LauncherUIBundle::default(),style!("h-auto w-auto")));
             })
             .set_parent(event.sender());
     }

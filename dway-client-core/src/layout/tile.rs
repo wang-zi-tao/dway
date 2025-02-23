@@ -166,7 +166,7 @@ pub fn update_tile_layout(
     mut commands: Commands,
 ) {
     for (entity, geometry, global_geometry, windows, layout) in workspace.iter() {
-        commands.add(DespawnAllConnectedEntityCommand::<WorkspaceHasSlot>::new(
+        commands.queue(DespawnAllConnectedEntityCommand::<WorkspaceHasSlot>::new(
             entity,
         ));
         let count = windows
@@ -187,7 +187,7 @@ pub fn update_tile_layout(
                 .spawn((Slot, global_geometry.add(&slot_geo), slot_geo))
                 .set_parent(entity)
                 .id();
-            commands.add(ConnectCommand::<WorkspaceHasSlot>::new(entity, slot_entity));
+            commands.queue(ConnectCommand::<WorkspaceHasSlot>::new(entity, slot_entity));
         }
     }
 }

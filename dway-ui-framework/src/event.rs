@@ -94,6 +94,15 @@ impl<E> UiEvent<E> {
     }
 }
 
+impl<E> SystemInput for UiEvent<E> {
+    type Param<'i> = Self;
+    type Inner<'i> = Self;
+
+    fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
+        this
+    }
+}
+
 impl<E> std::ops::Deref for UiEvent<E> {
     type Target = E;
 
@@ -278,7 +287,7 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
                 trait_entitys.push(sender);
             }
             if !trait_entitys.is_empty() {
-                commands.add(move |world: &mut World| {
+                commands.queue(move |world: &mut World| {
                     let mut system_state =
                         SystemState::<(Query<All<&dyn EventReceiver<E>>>, Commands)>::new(world);
                     let (query, mut commands) = system_state.get(world);
@@ -393,13 +402,13 @@ pub trait CallbackRegisterAppExt {
     fn register_callback<F, I, M>(&mut self, system: F) -> &mut App
     where
         F: IntoSystem<I, (), M> + 'static,
-        I: 'static;
+        I: SystemInput + 'static;
 }
 impl CallbackRegisterAppExt for App {
     fn register_callback<F, I, M>(&mut self, system: F) -> &mut App
     where
         F: IntoSystem<I, (), M> + 'static,
-        I: 'static,
+        I: SystemInput + 'static,
     {
         let type_id = system.type_id();
         let system_id = self.world_mut().register_system(system);
@@ -419,13 +428,13 @@ impl CallbackTypeRegister {
     pub fn register_system<F, I, M>(&mut self, system: F, commands: &mut Commands) -> SystemId<I>
     where
         F: IntoSystem<I, (), M> + 'static,
-        I: Send + 'static,
+        I: SystemInput + Send + 'static,
     {
         let type_id = system.type_id();
         match self.systems.entry(type_id) {
             Entry::Occupied(o) => *o.get().downcast_ref().unwrap(),
             Entry::Vacant(v) => {
-                let system_id = commands.register_one_shot_system(system);
+                let system_id = commands.register_system(system);
                 v.insert(Box::new(system_id));
                 system_id
             }
@@ -443,8 +452,8 @@ impl CallbackTypeRegister {
         let type_id = system.type_id();
         match self.triggers.entry(type_id) {
             Entry::Occupied(o) => {
-                commands.entity(*o.get()).add(move |mut c: EntityWorldMut| {
-                    let mut observer = c.get_mut::<Observer<E, B>>().unwrap();
+                commands.entity(*o.get()).queue(move |mut c: EntityWorldMut| {
+                    let mut observer = c.get_mut::<Observer>().unwrap();
                     observer.watch_entity(entity);
                 });
             }
@@ -460,7 +469,7 @@ impl CallbackTypeRegister {
     pub fn get_system<F, I, M>(&self) -> SystemId<I, ()>
     where
         F: IntoSystem<I, (), M> + 'static,
-        I: 'static,
+        I: SystemInput + 'static,
     {
         let Some(callback) = self.systems.get(&TypeId::of::<F>()) else {
             panic!(
@@ -479,7 +488,7 @@ app.register_callback({system});
     pub fn system<F, I, M>(&self, system: F) -> SystemId<I, ()>
     where
         F: IntoSystem<I, (), M> + 'static,
-        I: 'static,
+        I: SystemInput + 'static,
     {
         let Some(callback) = self.systems.get(&system.type_id()) else {
             panic!(

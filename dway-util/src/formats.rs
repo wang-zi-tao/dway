@@ -1,6 +1,5 @@
 use anyhow::{bail, Result};
 use ash::vk;
-use bevy::render::texture::{TextureFormatPixelInfo};
 use drm_fourcc::DrmFourcc;
 use wayland_server::protocol::wl_shm;
 use wgpu::TextureFormat;

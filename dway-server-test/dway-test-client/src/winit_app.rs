@@ -7,7 +7,7 @@ use tokio::{
     sync::mpsc::{channel, Receiver, Sender},
 };
 use tracing::{debug, error, error_span, info, info_span, warn};
-use wgpu::SurfaceTargetUnsafe;
+use wgpu::{MemoryHints, SurfaceTargetUnsafe};
 use winit::{
     application::ApplicationHandler,
     event::{KeyEvent, WindowEvent},
@@ -51,6 +51,7 @@ async fn run_window(
                 required_features: wgpu::Features::empty(),
                 required_limits: wgpu::Limits::downlevel_webgl2_defaults()
                     .using_resolution(adapter.limits()),
+                memory_hints: MemoryHints::Performance,
             },
             None,
         )
@@ -75,13 +76,13 @@ async fn run_window(
         layout: Some(&pipeline_layout),
         vertex: wgpu::VertexState {
             module: &shader,
-            entry_point: "vs_main",
+            entry_point: Some("vs_main"),
             buffers: &[],
             compilation_options: Default::default(),
         },
         fragment: Some(wgpu::FragmentState {
             module: &shader,
-            entry_point: "fs_main",
+            entry_point: Some("fs_main"),
             targets: &[Some(swapchain_format.into())],
             compilation_options: Default::default(),
         }),
@@ -89,6 +90,7 @@ async fn run_window(
         depth_stencil: None,
         multisample: wgpu::MultisampleState::default(),
         multiview: None,
+        cache: None,
     });
 
     let mut config = surface

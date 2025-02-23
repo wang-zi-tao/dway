@@ -218,7 +218,7 @@ pub fn on_add_screen(
     if let Ok((screen_entity, screen_geo)) = screen_query.get(trigger.entity()) {
         for (workspace_entity, workspace, mut workspace_geo) in workspace_query.iter_mut() {
             if workspace.no_screen && !workspace.hide {
-                commands.add(ConnectCommand::<ScreenAttachWorkspace>::new(
+                commands.queue(ConnectCommand::<ScreenAttachWorkspace>::new(
                     screen_entity,
                     workspace_entity,
                 ));
@@ -269,11 +269,11 @@ impl Plugin for WorkspacePlugin {
         app.register_type::<WorkspaceManager>();
         app.register_type::<WorkspaceWindow>();
         app.init_resource::<WorkspaceManager>();
-        app.observe(on_add_screen);
-        app.observe(resolve_workspace_request);
-        app.observe(on_new_workspace);
-        app.observe(on_destroy_workspace);
-        app.observe(attach_window_to_workspace);
+        app.add_observer(on_add_screen);
+        app.add_observer(resolve_workspace_request);
+        app.add_observer(on_new_workspace);
+        app.add_observer(on_destroy_workspace);
+        app.add_observer(attach_window_to_workspace);
         app.add_systems(
             PreUpdate,
             (

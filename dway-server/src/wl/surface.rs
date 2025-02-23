@@ -476,7 +476,7 @@ impl Plugin for WlSurfacePlugin {
         app.add_systems(
             PreUpdate,
             update_buffer_size
-                .run_if(on_event::<BufferAttached>())
+                .run_if(on_event::<BufferAttached>)
                 .in_set(DWayServerSet::UpdateImage),
         );
         app.register_type::<WlSurface>();

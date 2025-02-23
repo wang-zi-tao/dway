@@ -163,7 +163,7 @@ pub fn attach_window_to_slot(
             .iter()
             .zip(slots.iter().cycle().take(windows.len()))
             .for_each(|(window, slot)| {
-                commands.add(ConnectCommand::<WindowInSlot>::new(window, slot));
+                commands.queue(ConnectCommand::<WindowInSlot>::new(window, slot));
                 commands.entity(window).insert(PinedWindow);
             });
         if tile.is_changed() {

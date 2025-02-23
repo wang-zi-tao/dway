@@ -63,7 +63,7 @@ impl DomDecorator for If {
             if #just_inited || #enable_expr_changed {
                 widget.#field = #expr;
                 if !#just_inited && !widget.#field {
-                    commands.entity(#entity_var).add(dway_ui_framework::command::destroy_children_ui);
+                    commands.entity(#entity_var).queue(dway_ui_framework::command::destroy_children_ui);
                 }
             };
             if widget.#field {
@@ -188,7 +188,7 @@ impl DomDecorator for For {
                 if #just_inited {
                     widget.#dom_entity_list_field.clear();
                 } else {
-                    commands.entity(#entity_var).add(dway_ui_framework::command::destroy_children_ui);
+                    commands.entity(#entity_var).queue(dway_ui_framework::command::destroy_children_ui);
                 }
                 for #item_var in #expr {
                     let #child_ident = #lambda_var(Entity::PLACEHOLDER,true,commands,Some(#item_var),&state,&widget);
@@ -334,7 +334,7 @@ impl DomDecorator for Map {
                     #child_list_var.push(#child_ident);
                 }
                 for removeed_children in widget.#dom_entity_list_field.values() {
-                    commands.entity(*removeed_children).add(dway_ui_framework::command::destroy_ui);
+                    commands.entity(*removeed_children).queue(dway_ui_framework::command::destroy_ui);
                 }
                 commands.entity(#entity_var).replace_children(&#child_list_var);
                 widget.#dom_entity_list_field = #child_entity_map_var;
@@ -504,7 +504,7 @@ impl DomDecorator for ForQuery {
                     #child_entity_map_var.insert(#data_entity_var,#child_ident);
                 }
                 for (_,removeed_children) in widget.#dom_entity_list_field.drain() {
-                    commands.entity(removeed_children).add(dway_ui_framework::command::destroy_ui);
+                    commands.entity(removeed_children).queue(dway_ui_framework::command::destroy_ui);
                 }
                 widget.#dom_entity_list_field = #child_entity_map_var;
             } else {
@@ -534,7 +534,7 @@ impl DomDecorator for Command{
         let command = &self.command;
         quote!{
             #inner
-            commands.entity(#entity).add(#command);
+            commands.entity(#entity).queue(#command);
         }
     }
     fn generate_update(&self, context: &mut WidgetNodeContext) -> Option<TokenStream> {
@@ -544,7 +544,7 @@ impl DomDecorator for Command{
         dependencies.is_changed().map(|check_changed| {
             quote! {
                 if #check_changed {
-                    commands.entity(#entity).add(#command);
+                    commands.entity(#entity).queue(#command);
                 }
             }
         })

@@ -7,8 +7,7 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Result};
 use ash::{
-    extensions::khr::ExternalMemoryFd,
-    vk::{self, *},
+    khr::external_memory_fd, vk::{self, *}
 };
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use smallvec::SmallVec;
@@ -78,7 +77,7 @@ pub fn get_formats(render_device: &wgpu::Device) -> Option<Result<Vec<DrmFormat>
 
                         let mut list = vk::DrmFormatModifierPropertiesListEXT::default();
                         let mut format_properties2 =
-                            vk::FormatProperties2::builder().push_next(&mut list);
+                            vk::FormatProperties2::default().push_next(&mut list);
                         instance.get_physical_device_format_properties2(
                             raw_phy,
                             vk_format,
@@ -93,7 +92,7 @@ pub fn get_formats(render_device: &wgpu::Device) -> Option<Result<Vec<DrmFormat>
                             ..Default::default()
                         };
                         let mut format_properties2 =
-                            vk::FormatProperties2::builder().push_next(&mut list);
+                            vk::FormatProperties2::default().push_next(&mut list);
                         instance.get_physical_device_format_properties2(
                             raw_phy,
                             vk_format,
@@ -146,23 +145,20 @@ pub fn create_framebuffer_texture(
             .planes
             .iter()
             .map(|plane| {
-                SubresourceLayout::builder()
+                SubresourceLayout::default()
                     .offset(plane.offset as u64)
                     .row_pitch(plane.stride as u64)
-                    .build()
             })
             .collect();
 
         let format = convert_format(buffer.format)?;
 
-        let mut drm_info = ash::vk::ImageDrmFormatModifierExplicitCreateInfoEXT::builder()
+        let mut drm_info = ash::vk::ImageDrmFormatModifierExplicitCreateInfoEXT::default()
             .drm_format_modifier(buffer.modifier.into())
-            .plane_layouts(&plane_layouts)
-            .build();
-        let mut dmabuf_info = ash::vk::ExternalMemoryImageCreateInfoKHR::builder()
-            .handle_types(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT)
-            .build();
-        let create_image_info = ash::vk::ImageCreateInfo::builder()
+            .plane_layouts(&plane_layouts);
+        let mut dmabuf_info = ash::vk::ExternalMemoryImageCreateInfoKHR::default()
+            .handle_types(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
+        let create_image_info = ash::vk::ImageCreateInfo::default()
             .sharing_mode(SharingMode::EXCLUSIVE)
             .image_type(ImageType::TYPE_2D)
             .extent(Extent3D {
@@ -184,8 +180,7 @@ pub fn create_framebuffer_texture(
                 flags
             })
             .push_next(&mut dmabuf_info)
-            .push_next(&mut drm_info)
-            .build();
+            .push_next(&mut drm_info);
         let image = device.create_image(&create_image_info, None)?;
 
         let mut plane_infos = Vec::with_capacity(buffer.planes.len());
@@ -193,19 +188,17 @@ pub fn create_framebuffer_texture(
         let mut memorys = SmallVec::<[vk::DeviceMemory; 4]>::default();
         for (i, plane) in buffer.planes.iter().enumerate() {
             let memory_requirement = {
-                let mut requirement_info = ash::vk::ImageMemoryRequirementsInfo2::builder()
-                    .image(image)
-                    .build();
+                let mut requirement_info = ash::vk::ImageMemoryRequirementsInfo2::default()
+                    .image(image);
                 let mut plane_requirement_info =
-                    ash::vk::ImagePlaneMemoryRequirementsInfo::builder()
-                        .plane_aspect(MEM_PLANE_ASCPECT[i])
-                        .build();
+                    ash::vk::ImagePlaneMemoryRequirementsInfo::default()
+                        .plane_aspect(MEM_PLANE_ASCPECT[i]);
                 if buffer.planes.len() > 1 {
                     requirement_info.p_next = &mut plane_requirement_info
                         as *mut ImagePlaneMemoryRequirementsInfo
                         as *mut _;
                 }
-                let mut memr = ash::vk::MemoryRequirements2::builder().build();
+                let mut memr = ash::vk::MemoryRequirements2::default();
                 device.get_image_memory_requirements2(&requirement_info, &mut memr);
                 memr
             };
@@ -220,26 +213,26 @@ pub fn create_framebuffer_texture(
                 )
                 .is_some()
             {
-                ExternalMemoryFd::new(instance, device)
+                let mut fd = MemoryFdPropertiesKHR::default();
+                external_memory_fd::Device::new(instance, device)
                     .get_memory_fd_properties(
                         ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
                         plane.fd.as_fd().as_raw_fd(),
-                    )?
-                    .memory_type_bits
+                        &mut fd,
+                    )?;
+                fd.memory_type_bits
             } else {
                 !0
             };
 
-            let mut fd_info = ash::vk::ImportMemoryFdInfoKHR::builder()
+            let mut fd_info = ash::vk::ImportMemoryFdInfoKHR::default()
                 .fd(plane.fd.try_clone()?.into_raw_fd())
-                .handle_type(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT)
-                .build();
+                .handle_type(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
 
-            let mut dedicated_info = ash::vk::MemoryDedicatedAllocateInfo::builder()
-                .image(image)
-                .build();
+            let mut dedicated_info = ash::vk::MemoryDedicatedAllocateInfo::default()
+                .image(image);
 
-            let alloc_info = ash::vk::MemoryAllocateInfo::builder()
+            let alloc_info = ash::vk::MemoryAllocateInfo::default()
                 .allocation_size(memory_requirement.memory_requirements.size.max(1))
                 .memory_type_index(
                     phy_mem_prop
@@ -255,22 +248,19 @@ pub fn create_framebuffer_texture(
                         .ok_or_else(|| anyhow!("no valid memory type index"))?,
                 )
                 .push_next(&mut fd_info)
-                .push_next(&mut dedicated_info)
-                .build();
+                .push_next(&mut dedicated_info);
             let memory = device.allocate_memory(&alloc_info, None).unwrap();
             memorys.push(memory);
 
-            let mut bind_info = BindImageMemoryInfo::builder()
+            let mut bind_info = BindImageMemoryInfo::default()
                 .image(image)
                 .memory(memory)
-                .memory_offset(0)
-                .build();
+                .memory_offset(0);
 
             if buffer.planes.len() > 1 {
                 let mut info = Box::new(
-                    vk::BindImagePlaneMemoryInfo::builder()
-                        .plane_aspect(MEM_PLANE_ASCPECT[i])
-                        .build(),
+                    vk::BindImagePlaneMemoryInfo::default()
+                        .plane_aspect(MEM_PLANE_ASCPECT[i]),
                 );
                 bind_info.p_next = info.as_mut() as *mut _ as *mut _;
                 plane_infos.push(info);
@@ -280,7 +270,7 @@ pub fn create_framebuffer_texture(
         }
         device.bind_image_memory2(&bind_infos)?;
 
-        let fence = device.create_fence(&FenceCreateInfo::builder().build(), None)?;
+        let fence = device.create_fence(&FenceCreateInfo::default(), None)?;
         //buffer.render_image = RenderImage::Vulkan(Image {
         //    device: device.clone(),
         //    image,

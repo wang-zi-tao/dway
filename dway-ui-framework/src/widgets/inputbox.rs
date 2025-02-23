@@ -3,11 +3,12 @@ use std::cmp::Ordering;
 use bevy::{
     ecs::system::{EntityCommands, RunSystemOnce},
     input::keyboard::Key,
-    text::{BreakLineOn, TextLayoutInfo},
+    text::TextLayoutInfo,
     ui::RelativeCursorPosition,
 };
 use bevy_trait_query::RegisterExt;
 use derive_builder::Builder;
+use unicode_segmentation::{GraphemeCursor, UnicodeSegmentation};
 
 use crate::{
     event::{EventReceiver, UiEvent},
@@ -30,13 +31,13 @@ pub enum UiInputCommand {
 }
 impl UiInputCommand {
     pub fn new_delete(input_box_state: &UiInputBoxState) -> Self {
-        let cursor = input_box_state.cursor_char_index();
+        let cursor = input_box_state.cursor_byte_index();
         let char = input_box_state
             .data()
             .char_indices()
             .find_map(|(pos, c)| (pos == *cursor).then(|| c.to_string()));
         Self::Delete(
-            *input_box_state.cursor_char_index(),
+            *input_box_state.cursor_byte_index(),
             char.unwrap_or_default(),
         )
     }
@@ -65,6 +66,7 @@ impl UiInputCommand {
 
 structstruck::strike! {
     #[derive(Component, SmartDefault, Builder)]
+    #[require(Node, UiInputBoxState, UiInputBoxWidget, RelativeCursorPosition, Interaction, UiInputBoxEventDispatcher, ThemeComponent)]
     #[strikethrough[derive(Debug, Clone, Reflect)]]
     pub struct UiInputBox{
         pub placeholder: String,
@@ -126,7 +128,10 @@ pub fn move_cursor(
                 .map(|last| (glyphs.len().saturating_sub(1), last))
         })
     {
-        let mut byte_index = glyph.byte_index;
+        let mut byte_index = UnicodeSegmentation::grapheme_indices(&**inputbox_state.data(), true)
+            .nth(index)
+            .map(|(i, _)| i)
+            .unwrap_or_else(|| inputbox_state.data().len());
         if glyphs.len() == index + 1 && position.x > glyph.position.x
             || line_start > glyph.position.y
         {
@@ -134,12 +139,12 @@ pub fn move_cursor(
                 .data()
                 .floor_char_boundary(byte_index.saturating_add(1));
         }
-        inputbox_state.set_cursor_char_index(byte_index);
+        inputbox_state.set_cursor_byte_index(byte_index);
     };
 }
 
 fn on_input_event(
-    In(event): In<UiEvent<UiInputEvent>>,
+    event: UiEvent<UiInputEvent>,
     mut query: Query<(
         Entity,
         Ref<Interaction>,
@@ -150,7 +155,7 @@ fn on_input_event(
         &RelativeCursorPosition,
         &UiInputBoxEventDispatcher,
     )>,
-    text_node_query: Query<(Ref<Node>, Ref<TextLayoutInfo>)>,
+    text_node_query: Query<(Ref<ComputedNode>, Ref<TextLayoutInfo>)>,
     mut input_focus_event: EventWriter<UiFocusEvent>,
     mut commands: Commands,
 ) {
@@ -180,7 +185,8 @@ fn on_input_event(
                 return;
             }
 
-            let Ok((node, text_layout)) = text_node_query.get(inputbox_widget.node_text_entity)
+            let Ok((computed_node, text_layout)) =
+                text_node_query.get(inputbox_widget.node_text_entity)
             else {
                 warn!(entity=?entity, "the UiInputBox has broken");
                 return;
@@ -189,7 +195,7 @@ fn on_input_event(
             if relative_pos.mouse_over() {
                 if let Some(normalized) = relative_pos.normalized {
                     move_cursor(
-                        normalized * node.size(),
+                        normalized * computed_node.size(),
                         inputbox,
                         &text_layout,
                         &mut inputbox_state,
@@ -229,12 +235,12 @@ fn on_input_event(
             match &key.logical_key {
                 Key::Character(s) => {
                     if !inputbox.readonly {
-                        UiInputCommand::Insert(*inputbox_state.cursor_char_index(), s.to_string())
+                        UiInputCommand::Insert(*inputbox_state.cursor_byte_index(), s.to_string())
                             .apply(&mut inputbox_state);
                         let position = inputbox_state
                             .data()
-                            .floor_char_boundary(inputbox_state.cursor_char_index() + s.len());
-                        inputbox_state.set_cursor_char_index(position);
+                            .floor_char_boundary(inputbox_state.cursor_byte_index() + s.len());
+                        inputbox_state.set_cursor_byte_index(position);
                         event_dispatcher.send(UiInputboxEvent::CursorMoved, &mut commands);
                         event_dispatcher.send(UiInputboxEvent::Changed, &mut commands);
                     }
@@ -242,14 +248,14 @@ fn on_input_event(
                 Key::Space => {
                     if !inputbox.readonly {
                         UiInputCommand::Insert(
-                            *inputbox_state.cursor_char_index(),
+                            *inputbox_state.cursor_byte_index(),
                             " ".to_string(),
                         )
                         .apply(&mut inputbox_state);
                         let position = inputbox_state
                             .data()
-                            .floor_char_boundary(inputbox_state.cursor_char_index() + " ".len());
-                        inputbox_state.set_cursor_char_index(position);
+                            .floor_char_boundary(inputbox_state.cursor_byte_index() + " ".len());
+                        inputbox_state.set_cursor_byte_index(position);
                         event_dispatcher.send(UiInputboxEvent::CursorMoved, &mut commands);
                         event_dispatcher.send(UiInputboxEvent::Changed, &mut commands);
                     }
@@ -257,14 +263,14 @@ fn on_input_event(
                 Key::Enter => {
                     if !inputbox.readonly && inputbox.multi_line {
                         UiInputCommand::Insert(
-                            *inputbox_state.cursor_char_index(),
+                            *inputbox_state.cursor_byte_index(),
                             "\n".to_string(),
                         )
                         .apply(&mut inputbox_state);
                         let position = inputbox_state
                             .data()
-                            .floor_char_boundary(inputbox_state.cursor_char_index() + "\n".len());
-                        inputbox_state.set_cursor_char_index(position);
+                            .floor_char_boundary(inputbox_state.cursor_byte_index() + "\n".len());
+                        inputbox_state.set_cursor_byte_index(position);
                     }
                     if !inputbox.readonly {
                         event_dispatcher.send(UiInputboxEvent::CursorMoved, &mut commands);
@@ -272,10 +278,10 @@ fn on_input_event(
                     }
                 }
                 Key::Backspace => {
-                    if !inputbox.readonly && *inputbox_state.cursor_char_index() != 0 {
-                        *inputbox_state.cursor_char_index_mut() =
+                    if !inputbox.readonly && *inputbox_state.cursor_byte_index() != 0 {
+                        *inputbox_state.cursor_byte_index_mut() =
                             inputbox_state.data().floor_char_boundary(
-                                inputbox_state.cursor_char_index().saturating_sub(1),
+                                inputbox_state.cursor_byte_index().saturating_sub(1),
                             );
                         UiInputCommand::new_delete(&inputbox_state).apply(&mut inputbox_state);
                         event_dispatcher.send(UiInputboxEvent::CursorMoved, &mut commands);
@@ -289,23 +295,23 @@ fn on_input_event(
                     }
                 }
                 Key::Home => {
-                    *inputbox_state.cursor_char_index_mut() = 0;
+                    *inputbox_state.cursor_byte_index_mut() = 0;
                     event_dispatcher.send(UiInputboxEvent::CursorMoved, &mut commands);
                 }
                 Key::End => {
-                    *inputbox_state.cursor_char_index_mut() = inputbox_state.data().len();
+                    *inputbox_state.cursor_byte_index_mut() = inputbox_state.data().len();
                     event_dispatcher.send(UiInputboxEvent::CursorMoved, &mut commands);
                 }
                 Key::ArrowRight => {
-                    *inputbox_state.cursor_char_index_mut() = inputbox_state
+                    *inputbox_state.cursor_byte_index_mut() = inputbox_state
                         .data()
-                        .floor_char_boundary(inputbox_state.cursor_char_index().saturating_add(1));
+                        .floor_char_boundary(inputbox_state.cursor_byte_index().saturating_add(1));
                     event_dispatcher.send(UiInputboxEvent::CursorMoved, &mut commands);
                 }
                 Key::ArrowLeft => {
-                    *inputbox_state.cursor_char_index_mut() = inputbox_state
+                    *inputbox_state.cursor_byte_index_mut() = inputbox_state
                         .data()
-                        .ceil_char_boundary(inputbox_state.cursor_char_index().saturating_sub(1));
+                        .ceil_char_boundary(inputbox_state.cursor_byte_index().saturating_sub(1));
                     event_dispatcher.send(UiInputboxEvent::CursorMoved, &mut commands);
                 }
                 Key::ArrowUp => {
@@ -336,8 +342,8 @@ fn on_input_event(
 
 impl EventReceiver<UiInputEvent> for UiInputBox {
     fn on_event(&self, mut commands: EntityCommands, event: UiInputEvent) {
-        commands.add(|entity: Entity, world: &mut World| {
-            world.run_system_once_with(UiEvent::new(entity, entity, event), on_input_event);
+        commands.queue(|entity: Entity, world: &mut World| {
+            world.run_system_cached_with(on_input_event, UiEvent::new(entity, entity, event));
         });
     }
 }
@@ -354,17 +360,10 @@ UiInputBox=>
 @state_reflect()
 @global(theme: Theme)
 @use_state(pub data: String)
-@use_state(pub cursor_char_index: usize)
+@use_state(pub cursor_byte_index: usize)
 @use_state(pub show_cursor: bool = true)
 @use_state(pub cursor_position: Vec2)
 @use_state(#[reflect(ignore)] pub undo: undo::history::History<UiInputCommand>)
-@bundle{{
-    pub ui_focus: UiInput,
-    pub relative_cursor_position: RelativeCursorPosition,
-    pub interaction: Interaction,
-    pub theme: ThemeComponent = ThemeComponent::widget(WidgetKind::Inputbox),
-    pub event_dispatcher: UiInputBoxEventDispatcher,
-}}
 @world_query(focus_policy: &mut FocusPolicy)
 @arg(text_node_query: Query<Ref<TextLayoutInfo>>)
 @before{{
@@ -376,58 +375,12 @@ UiInputBox=>
     }
 
     if let Ok(text_layout) = text_node_query.get(widget.node_text_entity) {
-        if text_layout.is_changed() || state.cursor_char_index_is_changed() {
-            let byte_index = *state.cursor_char_index();
-            let glyphs = &text_layout.glyphs;
-            let position = if let Ok(glyph_index) = glyphs
-                .as_slice()
-                .binary_search_by_key(&byte_index, |glyph| glyph.byte_index)
-            {
-                let glyph = &glyphs[glyph_index];
-                Vec2::new(
-                    glyph.position.x - 0.5 * glyph.size.x,
-                    glyph.position.y - glyph.position.y % prop.text_size,
-                )
-            } else if byte_index == state.data().len() {
-                glyphs.last().map(|glyph|{ Vec2::new(
-                    glyph.position.x + 0.5 * glyph.size.x,
-                    glyph.position.y - glyph.position.y % prop.text_size,
-                )}).unwrap_or_default()
-            } else {
-                Vec2::ZERO
-            };
-            state.set_cursor_position(position);
-        }
+        update_cursor(&prop, &mut state, text_layout);
     }
 }}
-<UiTextBundle @id="text" @style="full" Text=(Text{
-    sections: {
-        if state.data().is_empty() {
-            vec![TextSection{
-                value: prop.placeholder.clone(),
-                style: TextStyle {
-                    font: prop.font.clone().unwrap_or_else(||theme.default_font()),
-                    font_size: prop.text_size,
-                    color: theme.color("inputbox:placeholder"),
-                },
-            }]
-        } else {
-            vec![ TextSection{
-                value: state.data().clone(),
-                style: TextStyle {
-                    font: prop.font.clone().unwrap_or_else(||theme.default_font()),
-                    font_size: prop.text_size,
-                    color: theme.color("inputbox:text"),
-                },
-            } ]
-        }
-    },
-    justify: JustifyText::Left,
-    linebreak_behavior: BreakLineOn::AnyCharacter,
-}) >
-</>
+<MiniNodeBundle @id="text" @style="full" Text=(Text::new(state.data()))  />
 <MiniNodeBundle @style="absolute full" @if(*state.show_cursor())>
-    <MiniNodeBundle @id="cursor" Style=(Style{
+    <MiniNodeBundle @id="cursor" Node=(Node{
         left: Val::Px(state.cursor_position().x),
         top: Val::Px(state.cursor_position().y),
         height: Val::Px(prop.text_size),
@@ -435,4 +388,34 @@ UiInputBox=>
     })
     @material(RoundedUiRectMaterial=>rounded_rect(theme.color("inputbox:cursor"), 4.0)) />
 </MiniNodeBundle>
+}
+
+fn update_cursor(prop: &UiInputBox, state: &mut UiInputBoxState, text_layout: Ref<TextLayoutInfo>) {
+    if text_layout.is_changed() || state.cursor_byte_index_is_changed() {
+        let glyphs = &text_layout.glyphs;
+        let byte_index = *state.cursor_byte_index();
+
+        let gr_index = UnicodeSegmentation::grapheme_indices(&**state.data(), true)
+            .position(|(index, value)| index <= byte_index && index + value.len() >= byte_index);
+
+        let position = if let Some(glyph) = gr_index.and_then(|i| glyphs.get(i)) {
+            Vec2::new(
+                glyph.position.x - 0.5 * glyph.size.x,
+                glyph.position.y - glyph.position.y % prop.text_size,
+            )
+        } else if byte_index == state.data().len() {
+            glyphs
+                .last()
+                .map(|glyph| {
+                    Vec2::new(
+                        glyph.position.x + 0.5 * glyph.size.x,
+                        glyph.position.y - glyph.position.y % prop.text_size,
+                    )
+                })
+                .unwrap_or_default()
+        } else {
+            Vec2::ZERO
+        };
+        state.set_cursor_position(position);
+    }
 }

@@ -6,17 +6,14 @@ use bevy::{
         core_2d::graph::Node2d,
         msaa_writeback::MsaaWritebackNode,
         tonemapping::{DebandDither, Tonemapping},
-    },
-    ecs::{
+    }, ecs::{
         entity::EntityHashMap,
         query::ROQueryItem,
         system::{
             lifetimeless::{Read, SRes},
             *,
         },
-    },
-    math::{Affine3, FloatOrd},
-    render::{
+    }, image::{ImageSampler, TextureFormatPixelInfo}, math::{Affine3, FloatOrd}, render::{
         batching::{
             no_gpu_preprocessing::{
                 batch_and_prepare_sorted_render_phase, clear_batched_cpu_instance_buffers,
@@ -25,33 +22,28 @@ use bevy::{
             GetBatchData, GetFullBatchData, NoAutomaticBatching,
         },
         camera::{extract_cameras, ExtractedCamera},
-        extract_component::ExtractComponentPlugin,
+        extract_component::{ExtractComponent, ExtractComponentPlugin},
         globals::{GlobalsBuffer, GlobalsUniform},
-        mesh::{GpuBufferInfo, GpuMesh, MeshVertexBufferLayoutRef},
+        mesh::{allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo},
         render_asset::{prepare_assets, RenderAssetPlugin, RenderAssets},
-        render_graph::RenderGraphApp,
+        render_graph::{RenderGraphApp, ViewNodeRunner},
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
             RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewSortedRenderPhases,
         },
         render_resource::{binding_types::uniform_buffer, *},
         renderer::{RenderDevice, RenderQueue},
-        texture::{
-            BevyDefault, DefaultImageSampler, FallbackImage, GpuImage, ImageSampler,
-            TextureFormatPixelInfo,
-        },
+        sync_world::MainEntity,
+        texture::{DefaultImageSampler, FallbackImage, GpuImage},
         view::*,
         Extract, RenderApp, RenderSet,
-    },
-    sprite::{
+    }, sprite::{
         tonemapping_pipeline_key, Material2d, Material2dBindGroupId, Material2dKey,
         Material2dPipeline, Mesh2dPipelineKey, MeshFlags, PreparedMaterial2d, MESH2D_SHADER_HANDLE,
-    },
-    ui::{
+    }, ui::{
         graph::{NodeUi, SubGraphUi},
         TransparentUi, UiStack,
-    },
-    utils::{HashMap, HashSet},
+    }, utils::{HashMap, HashSet}
 };
 
 use self::graph::NodeUiExt;
@@ -122,7 +114,7 @@ impl Plugin for UiMeshPlugin {
                             .after(RenderSet::Render),
                     ),
                 )
-                .add_render_graph_node::<MsaaWritebackNode>(SubGraphUi, NodeUiExt::MsaaWriteback)
+                .add_render_graph_node::<ViewNodeRunner<MsaaWritebackNode>>(SubGraphUi, NodeUiExt::MsaaWriteback)
                 .add_render_graph_edge(
                     SubGraphUi,
                     Node2d::EndMainPassPostProcessing,
@@ -161,9 +153,6 @@ where
 {
     fn build(&self, app: &mut App) {
         if !app.world().contains_resource::<Assets<T>>() {}
-        if !app.is_plugin_added::<ExtractComponentPlugin<Handle<T>>>() {
-            app.add_plugins(ExtractComponentPlugin::<Handle<T>>::extract_visible());
-        }
         if !app.is_plugin_added::<RenderAssetPlugin<PreparedMaterial2d<T>>>() {
             app.add_plugins(RenderAssetPlugin::<PreparedMaterial2d<T>>::default());
         }
@@ -205,12 +194,12 @@ impl<M: Material2d> Default for RenderUiMeshMaterialInstances<M> {
 
 fn extract_ui_mesh_handle<M: Material2d>(
     mut material_instances: ResMut<RenderUiMeshMaterialInstances<M>>,
-    query: Extract<Query<(Entity, &ViewVisibility, &Handle<M>), With<UiMeshHandle>>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial2d<M>), With<UiMeshHandle>>>,
 ) {
     material_instances.clear();
     for (entity, view_visibility, handle) in &query {
         if view_visibility.get() {
-            material_instances.insert(entity, handle.id());
+            material_instances.insert(entity, handle.0.id());
         }
     }
 }
@@ -226,7 +215,7 @@ pub fn extract_ui_mesh_node(
     query: Extract<
         Query<(
             Entity,
-            &Node,
+            &ComputedNode,
             &ViewVisibility,
             &UiMeshTransform,
             &GlobalTransform,
@@ -245,7 +234,7 @@ pub fn extract_ui_mesh_node(
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((
             entity,
-            node,
+            computed_node,
             view_visibility,
             mesh_transform,
             transform,
@@ -265,7 +254,7 @@ pub fn extract_ui_mesh_node(
                 continue;
             };
             entities.push((entity, UiMesh));
-            let rect = node.logical_rect(transform);
+            let rect = Rect::from_center_size(transform.translation().xy(), computed_node.size());
             let clip_rect = clip.map(|clip| clip.clip).unwrap_or(rect).intersect(rect);
             let clip_offset = clip_rect.center() - rect.center();
 
@@ -425,7 +414,7 @@ impl GetBatchData for UiMesh2dPipeline {
 
     fn get_batch_data(
         mesh_instances: &SystemParamItem<Self::Param>,
-        entity: Entity,
+        (entity, _): (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let mesh_instance = mesh_instances.get(&entity)?;
         Some((
@@ -602,6 +591,7 @@ impl SpecializedMeshPipeline for UiMesh2dPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("ui_transparent_mesh2d_pipeline".into()),
+            zero_initialize_workgroup_memory: false,
         })
     }
 }
@@ -752,8 +742,7 @@ pub fn queue_ui_meshes<M: Material2d>(
     material2d_pipeline: Res<UiMeshMaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<UiMeshMaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<GpuMesh>>,
+    render_meshes: Res<RenderAssets<RenderMesh>>,
     render_materials: Res<RenderAssets<PreparedMaterial2d<M>>>,
     mut render_mesh_instances: ResMut<RenderUiMesh2dInstances>,
     render_material_instances: Res<RenderUiMeshMaterialInstances<M>>,
@@ -761,6 +750,7 @@ pub fn queue_ui_meshes<M: Material2d>(
     mut views: Query<(
         Entity,
         &ExtractedView,
+        &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
@@ -782,7 +772,8 @@ pub fn queue_ui_meshes<M: Material2d>(
             continue;
         };
 
-        let Ok((view_entity, view, tonemapping, dither)) = views.get_mut(mesh_instance.camera)
+        let Ok((view_entity, view, msaa, tonemapping, dither)) =
+            views.get_mut(mesh_instance.camera)
         else {
             continue;
         };
@@ -831,7 +822,7 @@ pub fn queue_ui_meshes<M: Material2d>(
 
         transparent_phase.add(TransparentUi {
             sort_key: (FloatOrd(mesh_instance.stack_index as f32), entity.index()),
-            entity: *entity,
+            entity: ( *entity, MainEntity::from(*entity) ),
             pipeline: pipeline_id,
             draw_function: draw_transparent_pbr,
             batch_range: 0..1,
@@ -917,10 +908,10 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P> for SetUiMesh
         let materials = materials.into_inner();
         let material_instances = material_instances.into_inner();
         let Some(material_instance) = material_instances.get(&item.entity()) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(material2d) = materials.get(*material_instance) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         pass.set_bind_group(I, &material2d.bind_group, &[]);
         RenderCommandResult::Success
@@ -930,7 +921,11 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P> for SetUiMesh
 pub struct DoDrawUiMesh;
 impl<P: PhaseItem> RenderCommand<P> for DoDrawUiMesh {
     type ItemQuery = ();
-    type Param = (SRes<RenderAssets<GpuMesh>>, SRes<RenderUiMesh2dInstances>);
+    type Param = (
+        SRes<RenderAssets<RenderMesh>>,
+        SRes<RenderUiMesh2dInstances>,
+        SRes<MeshAllocator>,
+    );
     type ViewQuery = &'static ExtractedView;
 
     #[inline]
@@ -938,11 +933,12 @@ impl<P: PhaseItem> RenderCommand<P> for DoDrawUiMesh {
         item: &P,
         view: &ExtractedView,
         _item_query: std::option::Option<()>,
-        (meshes, render_mesh2d_instances): SystemParamItem<'w, '_, Self::Param>,
+        (meshes, render_mesh2d_instances, mesh_allocator): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let meshes = meshes.into_inner();
         let render_mesh2d_instances = render_mesh2d_instances.into_inner();
+        let mesh_allocator = mesh_allocator.into_inner();
 
         let Some(RenderUiMeshInstance {
             mesh_asset_id,
@@ -950,13 +946,16 @@ impl<P: PhaseItem> RenderCommand<P> for DoDrawUiMesh {
             ..
         }) = render_mesh2d_instances.get(&item.entity())
         else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(gpu_mesh) = meshes.get(*mesh_asset_id) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
+        };
+        let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(mesh_asset_id) else {
+            return RenderCommandResult::Skip;
         };
 
-        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+        pass.set_vertex_buffer(0, vertex_buffer_slice.buffer.slice(..));
 
         let viewport = view.viewport;
         let rect = transforms.rect.intersect(Rect::new(
@@ -978,23 +977,26 @@ impl<P: PhaseItem> RenderCommand<P> for DoDrawUiMesh {
         );
 
         let batch_range = item.batch_range();
-        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-        pass.set_push_constants(
-            ShaderStages::VERTEX,
-            0,
-            &(batch_range.start as i32).to_le_bytes(),
-        );
         match &gpu_mesh.buffer_info {
-            GpuBufferInfo::Indexed {
-                buffer,
+            RenderMeshBufferInfo::Indexed {
                 index_format,
                 count,
             } => {
-                pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                pass.draw_indexed(0..*count, 0, batch_range.clone());
+                let Some(index_buffer_slice) = mesh_allocator.mesh_index_slice(mesh_asset_id)
+                else {
+                    return RenderCommandResult::Skip;
+                };
+
+                pass.set_index_buffer(index_buffer_slice.buffer.slice(..), 0, *index_format);
+
+                pass.draw_indexed(
+                    index_buffer_slice.range.start..(index_buffer_slice.range.start + count),
+                    vertex_buffer_slice.range.start as i32,
+                    batch_range.clone(),
+                );
             }
-            GpuBufferInfo::NonIndexed => {
-                pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
+            RenderMeshBufferInfo::NonIndexed => {
+                pass.draw(vertex_buffer_slice.range, batch_range.clone());
             }
         }
 

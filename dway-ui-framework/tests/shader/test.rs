@@ -21,9 +21,9 @@ pub fn unit_test<M: shader::Material + Clone>(app: &mut App, name: &str, materia
     let systemid = app.register_system(move|params: In<UnitTestParams>, mut commands: Commands, mut assets: ResMut<Assets<ShaderAsset< M >>>|{
         let handle = assets.add(ShaderAsset::new( material.clone() ));
         commands.spawn(( MiniNodeBundle{
-            style: style!("w-256 h-192 align-items:center justify-content:center align-self:center justify-self:center"),
+            node: style!("w-256 h-192 align-items:center justify-content:center align-self:center justify-self:center"),
             ..Default::default()
-        }, handle, TargetCamera(params.camera) ));
+        }, MaterialNode(handle), TargetCamera(params.camera) ));
     });
 
     app.world_mut().spawn(UnitTest {

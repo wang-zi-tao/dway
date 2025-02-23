@@ -170,7 +170,7 @@ impl EventReceiver<AnimationEvent> for UiPopup {
 }
 
 pub fn popup_animation_system<C: UiAnimationConfig>(
-    In(event): In<UiEvent<UiPopupEvent>>,
+    event: UiEvent<UiPopupEvent>,
     callbacks: Res<CallbackTypeRegister>,
     mut commands: Commands,
 ) {
@@ -190,7 +190,7 @@ pub fn popup_animation_system<C: UiAnimationConfig>(
     }
 }
 
-pub fn delay_destroy(In(event): In<UiEvent<UiPopupEvent>>, mut commands: Commands) {
+pub fn delay_destroy(event: UiEvent<UiPopupEvent>, mut commands: Commands) {
     if matches!(&*event, UiPopupEvent::Closed) {
         commands.entity(event.receiver()).despawn_recursive();
     }

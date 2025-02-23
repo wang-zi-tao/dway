@@ -38,7 +38,7 @@ fn test_unique_ref() {
     ConnectCommand::<UniqueReferenceRelationship>::new(e0, e1).apply(app.world_mut());
 
     app.world_mut().despawn(e0);
-    assert!(app.world().get_entity(e1).is_none());
+    assert!(app.world().get_entity(e1).is_err());
 
     app.run();
 }
@@ -58,7 +58,7 @@ fn test_shared_ref() {
     app.world_mut().despawn(e0);
     assert_eq!(app.world().get::<SharedReferenceFrom>(e2).unwrap().iter().len(), 1);
     app.world_mut().despawn(e1);
-    assert!(app.world().get_entity(e2).is_none());
+    assert!(app.world().get_entity(e2).is_err());
 
     app.run();
 }

@@ -3,7 +3,6 @@ use std::time::Duration;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    sprite::Mesh2dHandle,
 };
 use dway_ui_derive::color;
 use dway_ui_framework::render::mesh::{
@@ -17,7 +16,6 @@ fn main() {
             UiMeshPlugin,
             UiMeshMaterialPlugin::<ColorMaterial>::default(),
             FrameTimeDiagnosticsPlugin,
-            bevy_inspector_egui::quick::WorldInspectorPlugin::default(),
             LogDiagnosticsPlugin {
                 wait_duration: Duration::from_secs(4),
                 ..Default::default()
@@ -33,11 +31,11 @@ fn setup(
     mut mesh2d_materials: ResMut<Assets<ColorMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2dBundle::default(), Msaa::Sample4));
 
     commands
         .spawn(NodeBundle {
-            style: Style {
+            node: Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Row,
@@ -53,8 +51,8 @@ fn setup(
         .with_children(|commands| {
             commands.spawn(UiMeshBundle {
                 mesh: UiMeshHandle::from(meshes.add(RegularPolygon::new(128.0, 6))),
-                material: mesh2d_materials.add(color!("#0000ff")),
-                style: Style {
+                material: mesh2d_materials.add(color!("#0000ff")).into(),
+                node: Node {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     flex_direction: FlexDirection::Column,
@@ -65,8 +63,8 @@ fn setup(
         });
     commands.spawn(ColorMesh2dBundle {
         transform: Transform::default().with_translation(Vec3::new(100.0, 200.0, 0.0)),
-        mesh: Mesh2dHandle::from(meshes.add(RegularPolygon::new(128.0, 8))),
-        material: mesh2d_materials.add(color!("#ff0000")),
+        mesh: Mesh2d::from(meshes.add(RegularPolygon::new(128.0, 8))),
+        material: mesh2d_materials.add(color!("#ff0000")).into(),
         ..Default::default()
     });
 }

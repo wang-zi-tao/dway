@@ -5,9 +5,10 @@ use bevy::{
     ecs::{entity::EntityHashMap, query::QueryItem},
     render::{
         extract_component::ExtractComponent,
-        mesh::{GpuBufferInfo, GpuMesh},
+        mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
         render_asset::RenderAssets,
         render_graph::{RenderGraphApp, RenderLabel, ViewNode, ViewNodeRunner},
+        render_phase::RenderCommandResult,
         render_resource::{
             binding_types::{sampler, texture_2d, uniform_buffer},
             AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
@@ -20,7 +21,7 @@ use bevy::{
             TextureViewDescriptor, VertexState,
         },
         renderer::{RenderDevice, RenderQueue},
-        texture::{BevyDefault, GpuImage},
+        texture::GpuImage,
         view::ViewTarget,
         Extract, RenderApp, RenderSet,
     },
@@ -93,6 +94,7 @@ impl SpecializedRenderPipeline for BlurPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: vec![],
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -297,8 +299,9 @@ impl ViewNode for BlurNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let render_device = world.resource::<RenderDevice>();
         let render_queue = world.resource::<RenderQueue>();
-        let meshes = world.resource::<RenderAssets<GpuMesh>>();
+        let meshes = world.resource::<RenderAssets<RenderMesh>>();
         let blur_datas = world.resource::<PreparedBlurData>();
+        let mesh_allocator = world.resource::<MeshAllocator>();
 
         let Some((_, blur_data)) = blur_datas.get(&entity) else {
             return Ok(());
@@ -355,19 +358,40 @@ impl ViewNode for BlurNode {
 
                     render_pass.set_render_pipeline(pipeline);
                     render_pass.set_bind_group(0, &bind_group, &[]);
-                    render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+
+                    let mesh_asset_id = &blur.area.id();
+                    let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(mesh_asset_id)
+                    else {
+                        return;
+                    };
+                    render_pass.set_vertex_buffer(0, vertex_buffer_slice.buffer.slice(..));
 
                     match &mesh.buffer_info {
-                        GpuBufferInfo::Indexed {
-                            buffer,
+                        RenderMeshBufferInfo::Indexed {
                             index_format,
                             count,
                         } => {
-                            render_pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                            render_pass.draw_indexed(0..*count, 0, 0..1);
+                            let Some(index_buffer_slice) =
+                                mesh_allocator.mesh_index_slice(mesh_asset_id)
+                            else {
+                                return;
+                            };
+
+                            render_pass.set_index_buffer(
+                                index_buffer_slice.buffer.slice(..),
+                                0,
+                                *index_format,
+                            );
+
+                            render_pass.draw_indexed(
+                                index_buffer_slice.range.start
+                                    ..(index_buffer_slice.range.start + count),
+                                vertex_buffer_slice.range.start as i32,
+                                0..1,
+                            );
                         }
-                        GpuBufferInfo::NonIndexed => {
-                            render_pass.draw(0..mesh.vertex_count, 0..1);
+                        RenderMeshBufferInfo::NonIndexed => {
+                            render_pass.draw(vertex_buffer_slice.range, 0..1);
                         }
                     }
                 }

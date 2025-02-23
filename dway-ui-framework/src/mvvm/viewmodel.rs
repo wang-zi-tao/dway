@@ -25,7 +25,7 @@ impl<Item: DataItem + Clone> ViewModel<Item> for SimpleItemViewModel<Item> {
     }
 
     fn set(&self, mut commands: EntityCommands, item: Item) {
-        commands.add(move |mut entity: EntityWorldMut| {
+        commands.queue(move |mut entity: EntityWorldMut| {
             entity.get_mut::<Self>().unwrap().0 = item;
         });
     }
@@ -79,7 +79,7 @@ impl<Item: DataItem + Clone> ContainerViewModel<usize, Item> for SimpleListViewM
 
     fn set(&self, key: &usize, mut commands: EntityCommands, item: Item) {
         let key = *key;
-        commands.add(move |mut c: EntityWorldMut| {
+        commands.queue(move |mut c: EntityWorldMut| {
             if let Some(p) = c.get_mut::<Self>().unwrap().0.get_mut(key) {
                 *p = item;
             };
@@ -92,7 +92,7 @@ impl<Item: DataItem + Clone> ContainerViewModel<usize, Item> for SimpleListViewM
         items: &mut dyn Iterator<Item = (usize, Item)>,
     ) {
         let items = Vec::from_iter(items);
-        commands.add(|mut c: EntityWorldMut| {
+        commands.queue(|mut c: EntityWorldMut| {
             let mut this = c.get_mut::<Self>().unwrap();
             for (index, item) in items {
                 if let Some(p) = this.0.get_mut(index) {

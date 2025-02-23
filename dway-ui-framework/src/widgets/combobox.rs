@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
-use bevy::ui::widget::TextFlags;
-
 use super::{
     button::{UiButtonEventDispatcher, UiRawButtonBundle},
-    text::UiTextExt,
 };
 use crate::{
     event::{make_callback, UiEvent},
@@ -17,6 +14,7 @@ pub trait UiComboboxItem: 'static + Send + Sync {
 }
 
 #[derive(Component, SmartDefault)]
+#[require(Node, UiComboBoxState, UiComboBoxWidget, UiComboBoxSubStateList, ThemeComponent)]
 pub struct UiComboBox {
     pub items: Vec<Arc<dyn UiComboboxItem>>,
     pub default_index: Option<usize>,
@@ -30,7 +28,7 @@ UiComboBox=>
 }
 @callback{ [UiEvent<UiButtonEvent>]
     fn open_popup(
-        In(event): In<UiEvent<UiButtonEvent>>,
+        event: UiEvent<UiButtonEvent>,
         mut query: Query<&mut UiComboBoxState>,
     ){
         let Ok(mut state) = query.get_mut(event.receiver()) else {return};
@@ -41,7 +39,7 @@ UiComboBox=>
 }
 @callback{ [UiEvent<UiPopupEvent>]
     fn close_popup(
-        In(event): In<UiEvent<UiPopupEvent>>,
+        event: UiEvent<UiPopupEvent>,
         mut query: Query<&mut UiComboBoxState>,
     ){
         let Ok(mut state) = query.get_mut(event.receiver()) else {return};
@@ -52,7 +50,7 @@ UiComboBox=>
 }
 @callback{ [UiEvent<UiButtonEvent>]
     fn select(
-        In(event): In<UiEvent<UiButtonEvent>>,
+        event: UiEvent<UiButtonEvent>,
         mut item_query: Query<&mut UiComboBoxSubStateList>,
         mut combobox_query: Query<&mut UiComboBoxState>,
     ){
@@ -66,7 +64,6 @@ UiComboBox=>
         }
     }
 }
-@bundle{{ theme: ThemeComponent = ThemeComponent::widget(WidgetKind::ComboBox(ComboBoxNodeKind::Root)) }}
 @state_component(#[derive(Reflect)])
 @use_state(pub selected: Option<usize> @ prop.default_index)
 @use_state(pub open: bool)
@@ -82,7 +79,7 @@ UiComboBox=>
             state.set_item(Some(item.clone()));
             state.set_index(index);
         })
-        ZIndex=(ZIndex::Global(1024))
+        GlobalZIndex=(GlobalZIndex(1024))
         ThemeComponent=(ThemeComponent::widget(WidgetKind::ComboBox(ComboBoxNodeKind::Popup)))
     >
         <MiniNodeBundle @id="item" @style="full"
@@ -113,16 +110,12 @@ impl StringItem {
 
 impl UiComboboxItem for StringItem {
     fn spawn(&self, mut entity_mut: EntityWorldMut) {
-        entity_mut.insert(UiTextExt {
-            text: Text::from_section(
-                &self.data,
-                TextStyle {
-                    font_size: 32.0,
-                    color: Color::BLACK,
-                    ..Default::default()
-                },
-            ),
-            ..Default::default()
-        });
+        entity_mut.insert((
+            Text::new(&self.data),
+            TextFont {
+                font_size: 32.0,
+                ..Default::default()
+            },
+        ));
     }
 }

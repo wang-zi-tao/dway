@@ -36,7 +36,7 @@ impl Dispatch<wl_data_device_manager::WlDataDeviceManager, Entity> for DWay {
                 state.insert_object(DWay::get_entity(&seat), id, data_init, |o| {
                     WlDataDevice::new(o)
                 });
-                if let Some(mut entity_mut) = state.get_entity_mut(DWay::get_entity(&seat)) {
+                if let Ok(mut entity_mut) = state.get_entity_mut(DWay::get_entity(&seat)) {
                     let data_device_version =
                         entity_mut.get::<WlDataDevice>().unwrap().raw.version();
                     match WlDataOffer::create(dhandle, client, data_device_version, entity_mut.id())

@@ -51,10 +51,6 @@ impl Plugin for DWayUiPlugin {
         if !app.is_plugin_added::<SvgPlugin>() {
             app.add_plugins(SvgPlugin);
         }
-        #[cfg(feature = "css")]
-        {
-            app.add_plugins(bevy_ecss::EcssPlugin::with_hot_reload());
-        }
         app.add_plugins((
             dway_ui_framework::UiFrameworkPlugin,
             assets::DWayAssetsPlugin,
@@ -82,7 +78,7 @@ impl Plugin for DWayUiPlugin {
             popups::workspace_window_preview::WorkspaceWindowPreviewPopupPlugin,
             popups::dock_launcher::DockLauncherUIPlugin,
         ));
-        app.observe(init_screen_ui);
+        app.add_observer(init_screen_ui);
         app.add_systems(Startup, setup);
     }
 }
@@ -103,7 +99,7 @@ ScreenUI=>
 @bundle{{
     name:Name = Name::from("ScreenUI"),
 }}
-@world_query(style: &mut Style)
+@world_query(style: &mut Node)
 @query(screen_query: (_screen,global_geo)<-Query<(Ref<Screen>,Ref<GlobalGeometry>)>[prop.screen] -> {
     if !widget.inited || global_geo.is_changed() {
         style.position_type = PositionType::Absolute;
@@ -116,14 +112,14 @@ ScreenUI=>
     // StyleSheet=(StyleSheet::new(asset_server.load("style/style.css")))
     @style="absolute full">
     <MiniNodeBundle Name=(Name::new("background")) @style="absolute full" @id="background">
-        <ImageBundle UiImage=(asset_server.load("background.jpg").into()) ZIndex=(ZIndex::Global(-1024))/>
+        <ImageBundle ImageNode=(asset_server.load("background.jpg").into()) GlobalZIndex=(GlobalZIndex(-1024))/>
     </MiniNodeBundle>
     <ScreenWindowsBundle @style="absolute full" Name=(Name::new("windows")) @id="windows"
         ScreenWindows=(ScreenWindows{screen:prop.screen}) />
-    <MiniNodeBundle @style="full absolute" @id="popup_parent" ZIndex=(ZIndex::Global(1024)) />
+    <MiniNodeBundle @style="full absolute" @id="popup_parent" GlobalZIndex=(GlobalZIndex(1024)) />
     <MiniNodeBundle
         ThemeComponent=(ThemeComponent::widget(WidgetKind::BlurBackground))
-        ZIndex=(ZIndex::Global(1024))
+        GlobalZIndex=(GlobalZIndex(1024))
         @style="absolute top-4 left-4 right-4 h-32"
         // @material(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.5),8.0))
         Name=(Name::new("panel")) @id="panel">
@@ -131,7 +127,7 @@ ScreenUI=>
             <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
                 (prop.screen,callbacks.system(popups::launcher::open_popup))
             ])) @style="flex-col">
-                <(UiSvgBundle::new(theme.icon("dashboard", &asset_server))) @style="w-24 h-24" @id="dashboard"/>
+                <(UiSvg::new(theme.icon("dashboard", &asset_server))) @style="w-24 h-24" @id="dashboard"/>
             </PanelButtonBundle>
             <WindowTitleBundle/>
         </MiniNodeBundle>
@@ -143,12 +139,12 @@ ScreenUI=>
                 (prop.screen,callbacks.system(popups::volume_control::open_popup))
             ])) @style="flex-col m-4">
                 // <MiniNodeBundle @style="h-24 w-24" />
-                <(UiSvgBundle::new(theme.icon("volume_on", &asset_server))) @style="w-24 h-24" @id="volume"/>
+                <(UiSvg::new(theme.icon("volume_on", &asset_server))) @style="w-24 h-24" @id="volume"/>
             </PanelButtonBundle>
             <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
                 (prop.screen,callbacks.system(popups::panel_settings::open_popup))
             ])) @style="m-4">
-                <(UiSvgBundle::new(theme.icon("settings", &asset_server))) @style="w-24 h-24" @id="settings"/>
+                <(UiSvg::new(theme.icon("settings", &asset_server))) @style="w-24 h-24" @id="settings"/>
             </PanelButtonBundle>
         </MiniNodeBundle>
         <MiniNodeBundle @style="absolute w-full h-full justify-center items-center" @id="center">
@@ -157,8 +153,9 @@ ScreenUI=>
             </MiniNodeBundle>
         </MiniNodeBundle>
     </>
-    <(NodeBundle{style: style!("absolute bottom-4 w-full justify-center items-center"),
-        focus_policy: FocusPolicy::Pass, z_index: ZIndex::Global(1024),..default()})
+    <(NodeBundle{node: style!("absolute bottom-4 w-full justify-center items-center"),
+        focus_policy: FocusPolicy::Pass, ..default()})
+        GlobalZIndex=(GlobalZIndex(1024))
         // Class=(Class::new("dock"))
         Name=(Name::new("dock")) @id="dock" >
         <MiniNodeBundle
@@ -169,7 +166,7 @@ ScreenUI=>
             <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
                 (node!(popup_parent),callbacks.system(popups::dock_launcher::open_popup))
             ]))>
-                <(UiSvgBundle::new(theme.icon("apps", &asset_server))) @style="w-48 h-48" @id="apps"/>
+                <(UiSvg::new(theme.icon("apps", &asset_server))) @style="w-48 h-48" @id="apps"/>
             </PanelButtonBundle>
         </MiniNodeBundle>
     </NodeBundle>
@@ -193,6 +190,7 @@ fn init_screen_ui(
         };
         let mut camera_cmd = commands.spawn((
             Name::new("camera"),
+            Msaa::Sample4,
             Camera2dBundle {
                 camera: Camera {
                     target: target.clone(),
@@ -201,7 +199,7 @@ fn init_screen_ui(
                 ..Default::default()
             },
         ));
-        camera_cmd.add(LayerManager::with_window_target(RenderTarget::Window(
+        camera_cmd.queue(LayerManager::with_window_target(RenderTarget::Window(
             WindowRef::Entity(entity),
         )));
         let camera = camera_cmd.id();

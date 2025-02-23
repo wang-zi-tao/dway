@@ -55,7 +55,7 @@ impl Plugin for ControllerPlugin {
                 Last,
                 (
                     systemcontroller::receive_system_controll_request
-                        .run_if(on_event::<SystemControllRequest>()),
+                        .run_if(on_event::<SystemControllRequest>),
                     notify::do_receive_notify,
                 ),
             );

@@ -4,29 +4,28 @@ use bevy::ecs::system::EntityCommands;
 use super::{
     layout::ContainerViewLayout, list::ListItemViewFactory, ContainerViewFactory, ViewFactory,
 };
-use crate::{prelude::*, widgets::text::UiTextExt};
+use crate::prelude::*;
 
 #[derive(Component, Default)]
 pub struct TextViewFactory {
-    pub style: TextStyle,
+    pub font: TextFont,
+    pub color: TextColor,
 }
 
 impl TextViewFactory {
-    pub fn new(style: TextStyle) -> Self {
-        Self { style }
+    pub fn new(font: TextFont, color: TextColor) -> Self {
+        Self { font, color }
     }
 }
 impl ViewFactory<String> for TextViewFactory {
     fn create(&self, mut info: EntityCommands, item: String) {
-        let style = self.style.clone();
-        info.add(move |mut entity: EntityWorldMut| {
+        let font = self.font.clone();
+        let color = self.color.clone();
+        info.queue(move |mut entity: EntityWorldMut| {
             if let Some(mut text) = entity.get_mut::<Text>() {
-                *text = Text::from_section(item, style);
+                *text = Text::new(item);
             } else {
-                entity.insert(UiTextExt {
-                    text: Text::from_section(item, style),
-                    ..Default::default()
-                });
+                entity.insert((Text::new(item), font, color));
             }
         });
     }

@@ -28,7 +28,7 @@ impl From<Entity> for UiWidgetRoot {
 pub struct Callback(pub Option<SystemId>);
 
 pub mod bundles {
-    use bevy::ui::{widget::UiImageSize, ContentSize};
+    use bevy::ui::{ContentSize};
 
     use crate::{
         prelude::*,
@@ -42,7 +42,7 @@ pub mod bundles {
             #[derive(Bundle, SmartDefault)]
             pub struct $name {
                 pub node: Node,
-                pub style: Style,
+                pub computed_node: ComputedNode,
                 pub transform: Transform,
                 pub global_transform: GlobalTransform,
                 pub visibility: Visibility,
@@ -81,8 +81,8 @@ pub mod bundles {
             #[derive(Bundle, SmartDefault)]
             pub struct $name<M: Material2d = ColorMaterial> {
                 pub node: Node,
-                pub material: Handle<M>,
-                pub style: Style,
+                pub material: MeshMaterial2d<M>,
+                pub computed_node: ComputedNode,
                 pub transform: Transform,
                 pub global_transform: GlobalTransform,
                 pub visibility: Visibility,
@@ -96,8 +96,8 @@ pub mod bundles {
             #[derive(Bundle, SmartDefault)]
             pub struct $name<M: UiMaterial> {
                 pub node: Node,
-                pub material: Handle<M>,
-                pub style: Style,
+                pub material: MaterialNode<M>,
+                pub computed_node: ComputedNode,
                 pub transform: Transform,
                 pub global_transform: GlobalTransform,
                 pub visibility: Visibility,
@@ -109,17 +109,6 @@ pub mod bundles {
         };
     }
 
-    make_bundle!(
-        @from image: UiImage,
-        @addon UiImageExt,
-        UiImageBundle {
-            pub image: UiImage,
-            pub image_size: UiImageSize,
-            pub focus_policy: FocusPolicy,
-            pub calculated_size: ContentSize,
-            pub background_color: BackgroundColor,
-        }
-    );
     make_bundle!(UiNodeBundle {
         pub focus_policy: FocusPolicy,
     });

@@ -16,12 +16,9 @@ Clock=>
     if state.text() != &date_string{ state.set_text(date_string); }
 }
 @global(theme:Theme)
-<TextBundle Text=(Text::from_section(
-    state.text(),
-    TextStyle {
-        font_size: 24.0,
-        color: theme.color("panel-foreground"),
-        ..default()
-    },
-)) /> 
+<Node
+    Text=(Text::new(state.text()))
+    TextFont=(theme.text_font(24.0))
+    TextColor=(theme.color("panel-foreground").into())
+/> 
 }

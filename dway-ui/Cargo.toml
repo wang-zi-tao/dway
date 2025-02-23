@@ -27,7 +27,6 @@ dexterous_developer = {  workspace = true, optional=true }
 serde = { workspace = true }
 measure_time = {workspace = true}
 smart-default = {workspace = true}
-bevy_ecss = { version="0.6.0",optional=true }
 ansi-str = "0.8.0"
 structstruck = {workspace=true}
 indexmap = {workspace=true}
@@ -40,7 +39,6 @@ pretty_assertions = "1.4.0"
 
 [features]
 hot_reload = ["dep:dexterous_developer", "dway-ui-framework/hot_reload"]
-css = ["dep:bevy_ecss"]
 
 [profile.dev]
 opt-level = 1
