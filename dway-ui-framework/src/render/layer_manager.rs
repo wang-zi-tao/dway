@@ -1,6 +1,8 @@
 use bevy::{
     asset::load_internal_asset,
-    ecs::{entity::EntityHashSet, system::EntityCommand},
+    ecs::{
+        component::ComponentId, entity::EntityHashSet, system::EntityCommand, world::DeferredWorld,
+    },
     render::{
         camera::{NormalizedRenderTarget, RenderTarget},
         mesh::{Indices, PrimitiveTopology},
@@ -87,6 +89,13 @@ pub(crate) struct BaseLayerRef {
     surface: Handle<Image>,
 }
 impl BaseLayerRef {
+    fn placeholder() -> Self {
+        BaseLayerRef {
+            camera: Entity::PLACEHOLDER,
+            surface: default(),
+        }
+    }
+
     fn update_camera(
         &self,
         camera_query: &mut Query<(&mut Camera, &mut SetWindowTarget)>,
@@ -109,7 +118,7 @@ impl BaseLayerRef {
 
 pub trait Layer {
     fn new(
-        world: &mut World,
+        world: &mut DeferredWorld,
         order: isize,
         render_target: &RenderTarget,
         manager_entity: Entity,
@@ -144,9 +153,21 @@ pub(crate) struct LayerRef {
     pub(crate) area: Handle<Mesh>,
 }
 
+impl LayerRef {
+    fn placeholder() -> Self {
+        LayerRef {
+            camera: Entity::PLACEHOLDER,
+            background_entity: Entity::PLACEHOLDER,
+            background_image: default(),
+            surface: default(),
+            area: default(),
+        }
+    }
+}
+
 impl Layer for LayerRef {
     fn new(
-        world: &mut World,
+        world: &mut DeferredWorld,
         order: isize,
         render_target: &RenderTarget,
         manager_entity: Entity,
@@ -156,6 +177,7 @@ impl Layer for LayerRef {
         let surface = create_image(size, &mut image_assets);
         let transform = Transform::from_xyz(0.0, 0.0, order as f32 * 8192.0);
         let camera_entity = world
+            .commands()
             .spawn((
                 Camera2dBundle {
                     camera: Camera {
@@ -176,13 +198,14 @@ impl Layer for LayerRef {
             .set_parent(manager_entity)
             .id();
         let background_entity = world
+            .commands()
             .spawn((
                 ImageNode::default(),
-                Node{
-                        position_type: PositionType::Absolute,
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        ..Node::default()
+                Node {
+                    position_type: PositionType::Absolute,
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..Node::default()
                 },
                 TargetCamera(camera_entity),
             ))
@@ -310,7 +333,7 @@ impl BlurMethod {
 
 impl Layer for BlurLayer {
     fn new(
-        world: &mut World,
+        world: &mut DeferredWorld,
         order: isize,
         render_target: &RenderTarget,
         manager_entity: Entity,
@@ -372,9 +395,21 @@ impl BlurLayer {
         };
         self.shader = shader_handle;
     }
+
+    fn placeholder() -> Self {
+        BlurLayer {
+            blur_method: BlurMethod::dual(),
+            blur_image: default(),
+            layer: LayerRef::placeholder(),
+            shader: default(),
+        }
+    }
 }
 
 #[derive(Component, Debug, Reflect, Clone)]
+#[require(SetWindowTarget(||SetWindowTarget(None)))]
+#[component(on_insert=on_insert_layer_manager)]
+#[component(on_replace=on_replace_layer_manager)]
 pub struct LayerManager {
     pub(crate) base_layer: BaseLayerRef,
     pub(crate) canvas_layer: LayerRef,
@@ -430,7 +465,27 @@ fn create_image(size: UVec2, images: &mut Assets<Image>) -> Handle<Image> {
     images.add(image)
 }
 
+impl Default for LayerManager {
+    fn default() -> Self {
+        Self {
+            base_layer: BaseLayerRef::placeholder(),
+            canvas_layer: LayerRef::placeholder(),
+            blur_layer: BlurLayer::placeholder(),
+            size: UVec2::ONE,
+            canvas_enable: Default::default(),
+            blur_enable: Default::default(),
+            window_target: Default::default(),
+            render_target: Default::default(),
+        }
+    }
+}
+
 impl LayerManager {
+    pub fn with_render_target(mut self, render_target: RenderTarget) -> Self {
+        self.render_target = render_target;
+        self
+    }
+
     pub fn get_ui_background(&self, kind: LayerKind) -> Handle<Image> {
         match kind {
             LayerKind::Normal => Default::default(),
@@ -446,57 +501,39 @@ impl LayerManager {
             LayerKind::Canvas => self.canvas_layer.camera,
         }
     }
+}
 
-    pub fn create(entity: Entity, world: &mut World) {
-        let camera = world.get::<Camera>(entity).unwrap();
-        let render_target = camera.target.clone();
+fn on_insert_layer_manager(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+    let camera = world.get::<Camera>(entity).unwrap();
+    let render_target = camera.target.clone();
 
-        let canvas_layer = LayerRef::new(world, 10, &render_target, entity);
-        let blur_layer = BlurLayer::new(world, 20, &render_target, entity);
+    let canvas_layer = LayerRef::new(&mut world, 10, &render_target, entity);
+    let blur_layer = BlurLayer::new(&mut world, 20, &render_target, entity);
 
-        world.entity_mut(entity).insert((
-            SetWindowTarget(None),
-            LayerManager {
-                base_layer: BaseLayerRef {
-                    surface: Default::default(),
-                    camera: entity,
-                },
-                canvas_layer,
-                blur_layer,
-                size: UVec2::ONE,
-                canvas_enable: false,
-                blur_enable: false,
-                window_target: render_target.clone(),
-                render_target,
-            },
-        ));
-    }
+    let mut layer_manager = world.get_mut::<LayerManager>(entity).unwrap();
+    layer_manager.base_layer.camera = entity;
+    layer_manager.canvas_layer = canvas_layer;
+    layer_manager.blur_layer = blur_layer;
+}
 
-    pub fn with_window_target(window_target: RenderTarget) -> impl EntityCommand {
-        move |entity: Entity, world: &mut World| {
-            let camera = world.get::<Camera>(entity).unwrap();
-            let render_target = camera.target.clone();
+fn on_replace_layer_manager(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+    let layer_manager = std::mem::take(&mut *world.get_mut::<LayerManager>(entity).unwrap());
 
-            let canvas_layer = LayerRef::new(world, 10, &render_target, entity);
-            let blur_layer = BlurLayer::new(world, 20, &render_target, entity);
+    let mut commands = world.commands();
 
-            world.entity_mut(entity).insert((
-                SetWindowTarget(None),
-                LayerManager {
-                    base_layer: BaseLayerRef {
-                        surface: Default::default(),
-                        camera: entity,
-                    },
-                    canvas_layer,
-                    blur_layer,
-                    size: UVec2::ONE,
-                    canvas_enable: false,
-                    blur_enable: false,
-                    window_target: window_target.clone(),
-                    render_target,
-                },
-            ));
+    let mut despawn = |entity: Entity| {
+        if let Some(c) = commands.get_entity(entity) {
+            c.despawn_recursive();
         }
+    };
+    despawn(layer_manager.base_layer.camera);
+    despawn(layer_manager.canvas_layer.camera);
+    despawn(layer_manager.canvas_layer.background_entity);
+    despawn(layer_manager.blur_layer.layer.camera);
+    despawn(layer_manager.blur_layer.layer.background_entity);
+
+    if let Some(mut camera) = world.get_mut::<Camera>(entity) {
+        camera.target = layer_manager.render_target;
     }
 }
 
@@ -572,7 +609,12 @@ pub fn update_layers(
     mut background_query: Query<(&mut ImageNode, &mut Visibility)>,
     window_query: Query<&Window>,
     ui_root_query: Query<
-        (&ViewVisibility, &RenderToLayer, &ComputedNode, &GlobalTransform),
+        (
+            &ViewVisibility,
+            &RenderToLayer,
+            &ComputedNode,
+            &GlobalTransform,
+        ),
         With<RenderToLayer>,
     >,
     primary_window: Query<Entity, With<PrimaryWindow>>,
@@ -592,7 +634,8 @@ pub fn update_layers(
             continue;
         };
         let rects = layer_rects.entry(layer_camera).or_insert(vec![]);
-        let mut rect = Rect::from_center_size(global_transform.translation().xy(), computed_node.size());
+        let mut rect =
+            Rect::from_center_size(global_transform.translation().xy(), computed_node.size());
         loop {
             let mut changed = false;
             for (i, r) in rects.iter().enumerate() {

@@ -48,7 +48,7 @@ fn click_app(
                     ..Default::default()
                 },
             )).with_children(|c|{
-                c.spawn(( AppWindowPreviewPopupBundle::from_prop(AppWindowPreviewPopup{app:widget.data_entity}), style!("h-auto w-auto") ));
+                c.spawn(( AppWindowPreviewPopup{app:widget.data_entity}, style!("h-auto w-auto") ));
             }).set_parent(widget.node_popup_entity);
         } else {
             launch_event.send(LaunchAppRequest::new(widget.data_entity));

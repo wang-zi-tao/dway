@@ -4,11 +4,7 @@ use bevy::{
     core_pipeline::core_2d::graph::{Core2d, Node2d},
     ecs::{entity::EntityHashMap, query::QueryItem},
     render::{
-        extract_component::ExtractComponent,
-        mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
-        render_asset::RenderAssets,
-        render_graph::{RenderGraphApp, RenderLabel, ViewNode, ViewNodeRunner},
-        render_resource::{
+        extract_component::ExtractComponent, mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo}, render_asset::RenderAssets, render_graph::{RenderGraphApp, RenderLabel, ViewNode, ViewNodeRunner}, render_resource::{
             binding_types::{sampler, texture_2d, uniform_buffer},
             AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
             CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d,
@@ -18,11 +14,7 @@ use bevy::{
             SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
             TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
             TextureViewDescriptor, VertexState,
-        },
-        renderer::{RenderDevice, RenderQueue},
-        texture::GpuImage,
-        view::ViewTarget,
-        Extract, RenderApp, RenderSet,
+        }, renderer::{RenderDevice, RenderQueue}, sync_world::{MainEntity, TemporaryRenderEntity}, texture::GpuImage, view::ViewTarget, Extract, RenderApp, RenderSet
     },
 };
 
@@ -30,7 +22,7 @@ use super::layer_manager::{BlurMethod, BlurMethodKind, LayerCamera, LayerManager
 use crate::prelude::*;
 
 structstruck::strike! {
-    #[strikethrough[derive(Debug, Clone, Reflect)]]
+    #[strikethrough[derive(Debug, Clone)]]
     #[derive(Component, PartialEq)]
     pub struct Blur{
         area: Handle<Mesh>,
@@ -39,6 +31,7 @@ structstruck::strike! {
         size: UVec2,
         blur_input: Handle<Image>,
         blur_output: Handle<Image>,
+        main_entity: MainEntity,
     }
 }
 impl ExtractComponent for Blur {
@@ -171,12 +164,11 @@ pub fn extract_layer_manager(
                 blur_output: layer_manager.blur_layer.blur_image.clone(),
                 shader: layer_manager.blur_layer.shader.clone(),
                 blur_input: layer_manager.blur_layer.layer.background_image.clone(),
+                main_entity: MainEntity::from(layer_manager.base_layer.camera),
             };
-            commands
-                .get_or_spawn(layer_manager.base_layer.camera)
-                .insert(blur);
+            let entity = commands.spawn((blur, TemporaryRenderEntity)).id();
             if layer_manager.is_changed() {
-                extracted.changed.push(layer_manager.base_layer.camera);
+                extracted.changed.push(entity);
             }
         } else if layer_manager.is_changed() {
             extracted.removed.push(layer_manager.base_layer.camera);
@@ -201,7 +193,7 @@ pub fn prepare_blur_pipeline(
         datas.remove(removed_entity);
     }
     for (entity, blur) in query.iter_many(&extracted.changed) {
-        if let Some((cached_blue, _)) = datas.get(&entity) {
+        if let Some((cached_blue, _)) = datas.get(&*blur.main_entity) {
             if cached_blue == blur {
                 continue;
             }
@@ -263,7 +255,7 @@ pub fn prepare_blur_pipeline(
             continue;
         };
         datas.insert(
-            entity,
+            *blur.main_entity,
             (
                 blur.clone(),
                 BlurData {

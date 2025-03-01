@@ -42,13 +42,13 @@ fn on_click(
                 },
             ))
             .with_children(|c| {
-                c.spawn(( WorkspaceWindowPreviewPopupBundle {
-                    prop: WorkspaceWindowPreviewPopup {
+                c.spawn((
+                    WorkspaceWindowPreviewPopup {
                         workspace: widget.data_entity,
                         ..Default::default()
                     },
-                    ..default()
-                }, style!("h-auto w-auto")));
+                    style!("h-auto w-auto"),
+                ));
             })
             .set_parent(event.receiver());
     }

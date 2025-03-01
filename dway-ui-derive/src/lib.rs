@@ -116,7 +116,15 @@ pub fn auto_expand(input: TokenStream) -> TokenStream {
 /// generate a bevy plugin to expand the ui component.
 #[proc_macro]
 pub fn dway_widget(input: TokenStream) -> TokenStream {
-    auto_expand(input)
+    let mut input = parse_macro_input!(input as WidgetDeclare);
+    input.args.push(parse_quote!(@bundle{{
+        pub node: Node,
+    }}));
+    let plugin = domcontext::widget_context::generate(&input);
+    let output = quote! {
+        #plugin
+    };
+    TokenStream::from(output)
 }
 
 #[proc_macro_derive(Interpolation)]
@@ -140,6 +148,20 @@ pub fn interpolation(input: TokenStream) -> TokenStream {
                 }
             }
         }
+    };
+    TokenStream::from(output)
+}
+
+#[proc_macro_attribute]
+pub fn dway_widget_prop(_attr: TokenStream, input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as ItemStruct);
+
+    let state_name = format_ident!("{}State", input.ident, span=input.ident.span());
+    let widget_name = format_ident!("{}Widget", input.ident, span=input.ident.span());
+    let output = quote_spanned! {input.span()=>
+        #[derive(Component)]
+        #[require(Node, #state_name, #widget_name)]
+        #input
     };
     TokenStream::from(output)
 }

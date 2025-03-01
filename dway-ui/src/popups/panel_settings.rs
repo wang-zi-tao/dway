@@ -4,7 +4,8 @@ use dway_ui_framework::animation::translation::UiTranslationAnimationExt;
 use super::volume_control::VolumeControlBundle;
 use crate::{panels::PanelButtonBundle, prelude::*};
 
-#[derive(Component, Default)]
+#[derive(Default)]
+#[dway_widget_prop]
 pub struct PanelSettings {}
 
 dway_widget! {
@@ -67,7 +68,7 @@ pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
                 },
             ))
             .with_children(|c| {
-                c.spawn((PanelSettingsBundle::default(), style!("h-auto w-auto")));
+                c.spawn((PanelSettings::default(), style!("h-auto w-auto")));
             })
             .set_parent(event.sender());
     }

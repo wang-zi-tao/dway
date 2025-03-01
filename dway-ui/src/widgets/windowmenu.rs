@@ -5,7 +5,7 @@ use widgets::{button::UiButtonEventDispatcher, text::UiTextBundle};
 
 pub use crate::prelude::*;
 
-#[derive(Component)]
+#[dway_widget_prop]
 #[require(UiPopup)]
 pub struct WindowMenu {
     pub window_entity: Entity,
@@ -78,7 +78,7 @@ pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
                 },
             ))
             .with_children(|c| {
-                c.spawn((WindowMenuBundle::default(), style!("h-auto w-auto")));
+                c.spawn((WindowMenu::default(), style!("h-auto w-auto")));
             })
             .set_parent(event.sender());
     }

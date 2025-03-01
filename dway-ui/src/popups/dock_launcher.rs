@@ -36,13 +36,9 @@ pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         commands
             .spawn((
-                UiPopupBundle {
-                    node: style!("full"),
-                    ..Default::default()
-                },
+                UiPopup::default(),
+                style!("full"),
                 DockLauncherUI,
-                DockLauncherUIState::default(),
-                DockLauncherUIWidget::default(),
                 UiTranslationAnimationExt {
                     translation: UiTranslationAnimation {
                         direction: DwayUiDirection::BOTTOM,
@@ -92,7 +88,8 @@ fn on_text_changed(
     }
 }
 
-#[derive(Component, Default)]
+#[dway_widget_prop]
+#[derive(Default)]
 pub struct DockLauncherUI;
 
 dway_widget! {

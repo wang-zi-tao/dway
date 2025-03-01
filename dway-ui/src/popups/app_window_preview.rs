@@ -9,7 +9,8 @@ use widgets::button::UiButtonEventDispatcher;
 
 use crate::{prelude::*, widgets::window::create_raw_window_material};
 
-#[derive(Component, Reflect)]
+#[dway_widget_prop]
+#[derive(Reflect)]
 pub struct AppWindowPreviewPopup {
     pub app: Entity,
 }

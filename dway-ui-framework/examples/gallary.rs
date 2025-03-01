@@ -77,8 +77,7 @@ fn main() {
 
 fn setup(mut commands: Commands) {
     commands.spawn((Camera2d::default(), Msaa::Sample4));
-
-    commands.spawn((Node::default(), GallaryBundle::default() ));
+    commands.spawn(Gallary);
 }
 
 fn grid_style() -> Node {
@@ -129,7 +128,8 @@ fn checkbox_style() -> Node {
     }
 }
 
-#[derive(Component, Default)]
+#[derive(Default)]
+#[dway_widget_prop]
 pub struct Gallary;
 
 dway_widget! {

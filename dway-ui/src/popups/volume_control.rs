@@ -8,7 +8,8 @@ use widgets::{checkbox::UiCheckBoxEventDispatcher, slider::UiSliderEventDispatch
 
 use crate::prelude::*;
 
-#[derive(Component, Default)]
+#[dway_widget_prop]
+#[derive(Default)]
 pub struct VolumeControl;
 
 dway_widget! {
@@ -76,7 +77,7 @@ pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
                 },
             ))
             .with_children(|c| {
-                c.spawn(( VolumeControlBundle::default(), style!("h-auto w-auto")  ));
+                c.spawn(( VolumeControl::default(), style!("h-auto w-auto")  ));
             })
             .set_parent(event.sender());
     }

@@ -10,7 +10,8 @@ use crate::{
     widgets::icon::{UiIcon, UiIconBundle},
 };
 
-#[derive(Component, Default)]
+#[dway_widget_prop]
+#[derive(Default)]
 pub struct LauncherUI;
 
 dway_widget! {
@@ -97,7 +98,7 @@ pub fn open_popup(event: UiEvent<UiButtonEvent>, theme: Res<Theme>, mut commands
                 },
             ))
             .with_children(|c| {
-                c.spawn((LauncherUIBundle::default(),style!("h-auto w-auto")));
+                c.spawn((LauncherUI::default(),style!("h-auto w-auto")));
             })
             .set_parent(event.sender());
     }

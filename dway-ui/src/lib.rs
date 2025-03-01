@@ -183,21 +183,17 @@ fn init_screen_ui(
         } else {
             RenderTarget::Window(WindowRef::Entity(entity))
         };
-        let mut camera_cmd = commands.spawn((
+        let camera = commands.spawn((
             Name::new("camera"),
             Msaa::Sample4,
-            Camera2dBundle {
-                camera: Camera {
-                    target: target.clone(),
-                    ..default()
-                },
-                ..Default::default()
+            Camera2d,
+            Camera {
+                target: target.clone(),
+                ..default()
             },
-        ));
-        camera_cmd.queue(LayerManager::with_window_target(RenderTarget::Window(
-            WindowRef::Entity(entity),
-        )));
-        let camera = camera_cmd.id();
+            LayerManager::default()
+                .with_render_target(RenderTarget::Window(WindowRef::Entity(entity))),
+        )).id();
 
         commands.entity(entity).insert(LayoutStyle {
             padding: LayoutRect {
