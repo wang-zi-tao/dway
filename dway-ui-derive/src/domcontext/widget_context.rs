@@ -192,11 +192,13 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                 .insert("__dway_changed_flags".to_string(), quote!(!0));
             state_builder.attributes.push(quote! {
                 #[derive(Component)]
+                #[require(Node)]
                 #[dway_ui_framework::prelude::change_detact]
             });
             let mut widget_builder = ComponentBuilder::new(sub_widget_type.clone());
             widget_builder.attributes.push(quote!(
                 #[derive(Component, Reflect, Debug)]
+                #[require(Node)]
             ));
             widget_builder.generate_init = true;
 

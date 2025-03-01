@@ -31,7 +31,7 @@ fn setup(
     mut mesh2d_materials: ResMut<Assets<ColorMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    commands.spawn((Camera2dBundle::default(), Msaa::Sample4));
+    commands.spawn((Camera2d::default(), Msaa::Sample4));
 
     commands
         .spawn(NodeBundle {
@@ -56,15 +56,11 @@ fn setup(
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     flex_direction: FlexDirection::Column,
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
                     ..default()
                 },
                 ..default()
             });
         });
-    commands.spawn(ColorMesh2dBundle {
-        transform: Transform::default().with_translation(Vec3::new(100.0, 200.0, 0.0)),
-        mesh: Mesh2d::from(meshes.add(RegularPolygon::new(128.0, 8))),
-        material: mesh2d_materials.add(color!("#ff0000")).into(),
-        ..Default::default()
-    });
 }

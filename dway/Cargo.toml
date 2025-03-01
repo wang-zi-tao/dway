@@ -27,11 +27,6 @@ pprof = {version="0.13", optional=true, features = ["flamegraph"]}
 features = ["jpeg", "wayland", "serialize", "default_font", "embedded_watcher"]
 workspace = true
 
-[dependencies.bevy-inspector-egui]
-optional = true
-version = "0.28"
-features = ["highlight_changes"]
-
 [dependencies.clap]
 features = ["derive"]
 version = "4.4.7"
@@ -67,7 +62,7 @@ default = [
     "dway_log",
     # "hot_reload",
 ]
-inspector = [ "dep:bevy-inspector-egui"]
+inspector = []
 dump_system_graph = ["dep:bevy_mod_debugdump"]
 debug = [ "inspector", "dump_system_graph", "dep:dway-test-client"]
 dway_log = []

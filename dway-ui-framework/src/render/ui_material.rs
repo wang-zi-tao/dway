@@ -369,7 +369,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(item.entity.0) {
+                if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(item.entity()) {
                     let mut existing_batch = batches
                         .last_mut()
                         .filter(|_| batch_shader_handle == extracted_uinode.material);
@@ -387,7 +387,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                             camera: extracted_uinode.camera_entity,
                         };
 
-                        batches.push((item.entity.0, new_batch));
+                        batches.push((item.entity(), new_batch));
 
                         existing_batch = batches.last_mut();
                     }

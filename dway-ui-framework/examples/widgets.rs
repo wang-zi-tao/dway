@@ -60,12 +60,12 @@ fn setup(mut commands: Commands, theme: Res<Theme>, callbacks: Res<CallbackTypeR
             <UiInputBoxBundle @style="w-128 h-32 p-4"/>
             <CounterBundle/>
             <UiButtonBundle  @style="flex-col p-4 m-4 justify-content:center"
-                UiButtonEventDispatcher=( make_callback( Entity::PLACEHOLDER, callbacks.system(button_open_poppup),) )>
+                UiButtonEventDispatcher=(EventDispatcher::default().with_system_to_this( callbacks.system(button_open_poppup),) )>
                 <(UiTextBundle::new("open popup", 32, &theme))/>
             </UiButtonBundle>
             <UiHollowBlockBundle  @style="flex-col p-4 m-4 justify-content:center"
                 UiInputExt=(UiInputExt{
-                    event_dispatcher: make_callback(Entity::PLACEHOLDER, callbacks.system(open_menu)),
+                    event_dispatcher: EventDispatcher::default().with_system_to_this(callbacks.system(open_menu)),
                     ..default()
                 })
             >

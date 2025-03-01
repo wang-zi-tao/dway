@@ -33,7 +33,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, theme: Res<Theme>) {
-    commands.spawn((Camera2dBundle::default(), Msaa::Sample4));
+    commands.spawn((Camera2d::default(), Msaa::Sample4));
     let text_font = theme.text_font(32.0);
     let color = TextColor::BLACK;
     commands

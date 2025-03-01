@@ -137,6 +137,7 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
     }
 
     pub fn add_system(&mut self, receiver: Entity, system: SystemId<UiEvent<E>>) -> &mut Self {
+        assert!(receiver != Entity::PLACEHOLDER);
         self.callbacks
             .push(EventReceiverKind::SystemId(Some(receiver), system));
         self
@@ -150,6 +151,7 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
 
     pub fn add_systems(&mut self, systems: &[(Entity, SystemId<UiEvent<E>>)]) -> &mut Self {
         for (receiver, system) in systems {
+            assert!(*receiver != Entity::PLACEHOLDER);
             self.callbacks
                 .push(EventReceiverKind::SystemId(Some(*receiver), *system));
         }
@@ -157,11 +159,13 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
     }
 
     pub fn add_trigger(&mut self, receiver: Entity) -> &mut Self {
+        assert!(receiver != Entity::PLACEHOLDER);
         self.callbacks.push(EventReceiverKind::Trigger(receiver));
         self
     }
 
     pub fn add_trait_callback(&mut self, receiver: Entity) -> &mut Self {
+        assert!(receiver != Entity::PLACEHOLDER);
         self.callbacks.push(EventReceiverKind::Trait(receiver));
         self
     }
@@ -173,6 +177,7 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
     }
 
     pub fn with_system(mut self, receiver: Entity, system: SystemId<UiEvent<E>>) -> Self {
+        assert!(receiver != Entity::PLACEHOLDER);
         self.callbacks
             .push(EventReceiverKind::SystemId(Some(receiver), system));
         self
@@ -180,6 +185,7 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
 
     pub fn with_systems(mut self, systems: &[(Entity, SystemId<UiEvent<E>>)]) -> Self {
         for (receiver, system) in systems {
+            assert!(*receiver != Entity::PLACEHOLDER);
             self.callbacks
                 .push(EventReceiverKind::SystemId(Some(*receiver), *system));
         }
@@ -187,11 +193,13 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
     }
 
     pub fn with_trigger(mut self, receiver: Entity) -> Self {
+        assert!(receiver != Entity::PLACEHOLDER);
         self.callbacks.push(EventReceiverKind::Trigger(receiver));
         self
     }
 
     pub fn with_trait(mut self, receiver: Entity) -> Self {
+        assert!(receiver != Entity::PLACEHOLDER);
         self.callbacks.push(EventReceiverKind::Trait(receiver));
         self
     }

@@ -30,7 +30,7 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut assets_blur_image_material: ResMut<Assets<ShaderAsset<BlurImageMaterial>>>,
 ) {
-    commands.spawn((Camera2dBundle::default(), Msaa::Sample4));
+    commands.spawn((Camera2d::default(), Msaa::Sample4));
     let image = asset_server.load("../../dway/assets/background.jpg");
 
     spawn!(&mut commands=>

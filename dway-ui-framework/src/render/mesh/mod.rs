@@ -32,7 +32,7 @@ use bevy::{
         },
         render_resource::{binding_types::uniform_buffer, *},
         renderer::{RenderDevice, RenderQueue},
-        sync_world::MainEntity,
+        sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
         texture::{DefaultImageSampler, GpuImage},
         view::*,
         Extract, RenderApp, RenderSet,
@@ -59,6 +59,7 @@ pub mod graph {
 
 #[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq, Deref, DerefMut)]
 #[reflect(Component)]
+#[require(UiMeshTransform, Node)]
 pub struct UiMeshHandle(Handle<Mesh>);
 
 #[derive(Component, Deref, DerefMut, Debug, Clone, Reflect)]
@@ -196,24 +197,19 @@ fn extract_ui_mesh_handle<M: Material2d>(
     query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial2d<M>), With<UiMeshHandle>>>,
 ) {
     material_instances.clear();
-    for (entity, view_visibility, handle) in &query {
+    for (main_entity, view_visibility, handle) in &query {
         if view_visibility.get() {
-            material_instances.insert(entity, handle.0.id());
+            material_instances.insert(main_entity, handle.0.id());
         }
     }
 }
 
-#[derive(Component)]
-pub struct UiMesh;
-
 pub fn extract_ui_mesh_node(
     mut commands: Commands,
-    mut previous_len: Local<usize>,
     mut render_mesh_instances: ResMut<RenderUiMesh2dInstances>,
     ui_stack: Extract<Res<UiStack>>,
     query: Extract<
         Query<(
-            Entity,
             &ComputedNode,
             &ViewVisibility,
             &UiMeshTransform,
@@ -226,13 +222,11 @@ pub fn extract_ui_mesh_node(
     >,
     view_query: Query<&ExtractedView>,
     default_ui_camera: Extract<DefaultUiCamera>,
+    render_entity_lookup: Extract<Query<RenderEntity>>,
 ) {
     render_mesh_instances.clear();
-    let mut entities = Vec::with_capacity(*previous_len);
-
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
+    for (stack_index, main_entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((
-            entity,
             computed_node,
             view_visibility,
             mesh_transform,
@@ -241,18 +235,22 @@ pub fn extract_ui_mesh_node(
             target_camera,
             no_automatic_batching,
             clip,
-        )) = query.get(*entity)
+        )) = query.get(*main_entity)
         {
             if !view_visibility.get() {
                 continue;
             }
+
             let Some(camera_entity) = target_camera
                 .map(TargetCamera::entity)
                 .or(default_ui_camera.get())
             else {
                 continue;
             };
-            entities.push((entity, UiMesh));
+            let Ok(camera_entity) = render_entity_lookup.get(camera_entity) else {
+                continue;
+            };
+
             let rect = Rect::from_center_size(transform.translation().xy(), computed_node.size());
             let clip_rect = clip.map(|clip| clip.clip).unwrap_or(rect).intersect(rect);
             let clip_offset = clip_rect.center() - rect.center();
@@ -264,7 +262,7 @@ pub fn extract_ui_mesh_node(
 
             if clip_rect.width() > 0.0 && clip_rect.height() > 0.0 {
                 render_mesh_instances.insert(
-                    entity,
+                    commands.spawn(TemporaryRenderEntity).id(),
                     RenderUiMeshInstance {
                         transforms: Mesh2dTransforms {
                             transform: (&GlobalTransform::default()
@@ -288,13 +286,12 @@ pub fn extract_ui_mesh_node(
                         automatic_batching: !no_automatic_batching,
                         stack_index,
                         camera: camera_entity,
+                        main_entity: *main_entity,
                     },
                 );
             }
         }
     }
-    *previous_len = entities.len();
-    commands.insert_or_spawn_batch(entities);
 }
 
 #[derive(Resource, Clone)]
@@ -730,6 +727,7 @@ pub struct RenderUiMeshInstance {
     pub material_bind_group_id: Material2dBindGroupId,
     pub automatic_batching: bool,
     pub camera: Entity,
+    pub main_entity: Entity,
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
@@ -747,7 +745,6 @@ pub fn queue_ui_meshes<M: Material2d>(
     render_material_instances: Res<RenderUiMeshMaterialInstances<M>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut views: Query<(
-        Entity,
         &ExtractedView,
         &Msaa,
         Option<&Tonemapping>,
@@ -756,12 +753,8 @@ pub fn queue_ui_meshes<M: Material2d>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    if render_material_instances.is_empty() {
-        return;
-    }
-
     for (entity, mesh_instance) in render_mesh_instances.iter_mut() {
-        let Some(material_asset_id) = render_material_instances.get(entity) else {
+        let Some(material_asset_id) = render_material_instances.get(&mesh_instance.main_entity) else {
             continue;
         };
         let Some(material2d) = render_materials.get(*material_asset_id) else {
@@ -771,13 +764,13 @@ pub fn queue_ui_meshes<M: Material2d>(
             continue;
         };
 
-        let Ok((view_entity, view, msaa, tonemapping, dither)) =
+        let Ok((view, msaa, tonemapping, dither)) =
             views.get_mut(mesh_instance.camera)
         else {
             continue;
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&mesh_instance.camera) else {
             continue;
         };
 
@@ -821,7 +814,7 @@ pub fn queue_ui_meshes<M: Material2d>(
 
         transparent_phase.add(TransparentUi {
             sort_key: (FloatOrd(mesh_instance.stack_index as f32), entity.index()),
-            entity: ( *entity, MainEntity::from(*entity) ),
+            entity: ( *entity, MainEntity::from(mesh_instance.main_entity) ),
             pipeline: pipeline_id,
             draw_function: draw_transparent_pbr,
             batch_range: 0..1,
@@ -906,7 +899,7 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P> for SetUiMesh
     ) -> RenderCommandResult {
         let materials = materials.into_inner();
         let material_instances = material_instances.into_inner();
-        let Some(material_instance) = material_instances.get(&item.entity()) else {
+        let Some(material_instance) = material_instances.get(&*item.main_entity()) else {
             return RenderCommandResult::Skip;
         };
         let Some(material2d) = materials.get(*material_instance) else {

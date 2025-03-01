@@ -52,6 +52,7 @@ pretty_assertions = "1.4.0"
 image = {workspace=true}
 image-diff = "0.1"
 tempdir = "0.3.7"
+bevy-inspector-egui = "0.29"
 
 [features]
 hot_reload = [

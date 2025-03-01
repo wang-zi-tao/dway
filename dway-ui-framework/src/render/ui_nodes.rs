@@ -618,7 +618,7 @@ pub fn prepare_ui_nodes(
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 let entity = item.entity();
-                let main_entity = item.entity.1.id();
+                let main_entity = *item.main_entity();
                 if let Some(extracted_uinode) = extracted_uinodes.nodes.get(&main_entity) {
                     let Some(&asset_typeid) = render_materials
                         .draw_function_index
@@ -804,7 +804,7 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
             .get(&material_handle.material)
         else {
             debug!(material_type=%type_name::<M>(), "the ui material is not prepared");
-            return RenderCommandResult::Failure("the ui material is not prepared");
+            return RenderCommandResult::Skip;
         };
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success

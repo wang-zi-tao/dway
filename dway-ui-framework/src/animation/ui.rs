@@ -50,7 +50,10 @@ pub(crate) fn move_rect_by_percent(dest: &mut Node, src: &Node, offset: Vec2, si
 }
 
 pub fn popup_open_drop_down(event: UiEvent<AnimationEvent>, world: &mut World) {
-    with_backup_style(&event, &mut world.entity_mut(event.receiver()), |e| {
+    let Ok(mut entity_mut) = world.get_entity_mut(event.receiver()) else {
+        return;
+    };
+    with_backup_style(&event, &mut entity_mut, |e| {
         let backup_style = e.get::<AnimationTargetNodeState>().unwrap().clone();
         let size = e.get::<ComputedNode>().unwrap().size();
         move_rect_by_percent(
@@ -63,7 +66,10 @@ pub fn popup_open_drop_down(event: UiEvent<AnimationEvent>, world: &mut World) {
 }
 
 pub fn popup_open_close_up(event: UiEvent<AnimationEvent>, world: &mut World) {
-    with_backup_style(&event, &mut world.entity_mut(event.receiver()), |e| {
+    let Ok(mut entity_mut) = world.get_entity_mut(event.receiver()) else {
+        return;
+    };
+    with_backup_style(&event, &mut entity_mut, |e| {
         let backup_style = e.get::<AnimationTargetNodeState>().unwrap().clone();
         let size = e.get::<ComputedNode>().unwrap().size();
         move_rect_by_percent(
@@ -74,7 +80,7 @@ pub fn popup_open_close_up(event: UiEvent<AnimationEvent>, world: &mut World) {
         );
     });
     if event.just_finish {
-        world.entity_mut(event.receiver()).despawn_recursive();
+        entity_mut.despawn_recursive();
     }
 }
 

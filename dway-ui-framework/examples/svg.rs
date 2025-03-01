@@ -26,7 +26,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn((Camera2dBundle::default(), Msaa::Sample4));
+    commands.spawn((Camera2d::default(), Msaa::Sample4));
 
     commands.spawn((
         UiSvg::new(asset_server.load("embedded://dway_ui_framework/examples/gallary/power.svg")),

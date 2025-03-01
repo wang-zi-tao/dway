@@ -48,7 +48,7 @@ fn setup(
     mut ui_material_checkbox: ResMut<Assets<ShaderAsset<CheckboxStyle>>>,
 ) {
     // Camera so we can see UI
-    commands.spawn((Camera2dBundle::default(), Msaa::Sample4));
+    commands.spawn((Camera2d::default(), Msaa::Sample4));
 
     let node = Node {
         width: Val::Px(64.0),

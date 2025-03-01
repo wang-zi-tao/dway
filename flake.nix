@@ -40,7 +40,7 @@
             libudev-zero
             meson
             pixman
-            (enableDebugging xwayland)
+            (xwayland)
             xorg.libX11
             xorg.xcbutilimage
             xorg.xcbutilwm
@@ -87,7 +87,7 @@
             seatd
             mesa
             udev
-            alsaLib
+            alsa-lib
             vulkan-loader
             xorg.libXcursor
             xorg.libXrandr
@@ -100,15 +100,12 @@
             freetype
             libglvnd
             (glib)
-            (enableDebugging gtk4)
+            (gtk4)
             gtk3.debug
             gnome2.pango
             gdk-pixbuf
             remarkable-toolchain
             xorg.libX11
-            (enableDebugging cairo)
-            (enableDebugging (gnome.gnome-calculator.override
-              (attr: { gtk4 = enableDebugging gtk4; })))
             graphene
             xorg.libxcb
             # libsForQt5.qt5.qtbase
@@ -116,16 +113,14 @@
             (buildEnv {
                 name = "qt6";
                 paths = with pkgs;[
-                    (enableDebugging qt6.qtbase )
-                    (enableDebugging qt6.qtdeclarative )
+                    (qt6.qtbase )
+                    (qt6.qtdeclarative )
                 ];
              })
             harfbuzz
             gvfs
             openssl
             pulseaudio
-
-            # (gtk3)
 
             # lldb
             clang

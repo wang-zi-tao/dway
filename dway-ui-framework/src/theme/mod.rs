@@ -64,6 +64,9 @@ impl ThemeIcon {
     }
 }
 
+#[derive(Component)]
+pub struct NoTheme;
+
 #[derive(Resource, Reflect)]
 pub struct Theme {
     pub default_font: Handle<Font>,
@@ -387,7 +390,7 @@ pub fn insert_material_tween<M: UiMaterial + Asset + Interpolation>(
                 EventDispatcher::<AnimationEvent>::default().with_system_to_this(system)
             };
             animation.replay();
-            world.entity_mut(entity).insert(animation);
+            world.entity_mut(entity).insert(( animation, event_dispatcher ));
         }
     } else {
         entity_mut.insert(MaterialNode(end_material));

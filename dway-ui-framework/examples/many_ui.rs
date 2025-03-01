@@ -47,7 +47,7 @@ fn setup(
     mut ui_material_checkbox: ResMut<Assets<ShaderAsset<CheckboxStyle>>>,
 ) {
     // Camera so we can see UI
-    commands.spawn((Camera2dBundle::default(), Msaa::Sample4));
+    commands.spawn((Camera2d::default(), Msaa::Sample4));
 
     let ui_color = color!("#484E5B");
     let shadow = Shadow::new(color!("#888888"), Vec2::ONE * 1.0, Vec2::ONE * 1.0, 2.0);

@@ -35,6 +35,7 @@ fn main() {
             dway_ui_framework::UiFrameworkPlugin,
             GallaryPlugin,
         ))
+        .add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new())
         .add_plugins((
             RoundedUiRectMaterial::plugin(),
             UiCircleMaterial::plugin(),
@@ -75,9 +76,9 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn((Camera2dBundle::default(), Msaa::Sample4));
+    commands.spawn((Camera2d::default(), Msaa::Sample4));
 
-    commands.spawn(GallaryBundle::default());
+    commands.spawn((Node::default(), GallaryBundle::default() ));
 }
 
 fn grid_style() -> Node {
