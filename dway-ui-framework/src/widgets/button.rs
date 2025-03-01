@@ -26,6 +26,9 @@ pub struct UiButtonEvent {
 }
 
 #[derive(Component, Default, Clone, Reflect)]
+#[require(Node, Interaction)]
+#[require(FocusPolicy(||FocusPolicy::Block))]
+#[require(ThemeComponent(||ThemeComponent::widget(WidgetKind::Button)))]
 pub struct UiButton {
     pub state: Interaction,
 }

@@ -11,7 +11,9 @@ use std::{
 };
 
 use bevy::{
-    asset::{io::embedded::EmbeddedAssetRegistry, load_internal_asset}, ecs::system::{lifetimeless::SRes, SystemParamItem}, render::{
+    asset::{io::embedded::EmbeddedAssetRegistry, load_internal_asset},
+    ecs::system::{lifetimeless::SRes, SystemParamItem},
+    render::{
         render_asset::RenderAssets,
         render_resource::{
             encase::{
@@ -26,7 +28,7 @@ use bevy::{
         },
         renderer::RenderDevice,
         texture::{FallbackImage, GpuImage},
-    }
+    },
 };
 use dway_ui_derive::Interpolation;
 
@@ -814,7 +816,10 @@ impl<T: Material> Plugin for ShaderPlugin<T> {
             let wgsl = ShaderAsset::<T>::to_wgsl();
             trace!("add shader: {path:?}\n{wgsl}");
             embedded.insert_asset(std::path::PathBuf::new(), &path, wgsl.into_bytes());
-            app.add_plugins(UiMaterialPlugin::<ShaderAsset<T>>::default());
+            use dway_ui_framework::render::ui_nodes::UiMaterialPlugin;
+            if !app.is_plugin_added::<UiMaterialPlugin<ShaderAsset<T>>>() {
+                app.add_plugins(UiMaterialPlugin::<ShaderAsset<T>>::default());
+            }
         }
     }
 

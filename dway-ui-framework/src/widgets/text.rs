@@ -5,6 +5,7 @@ use crate::prelude::*;
 pub struct UiTextExt {
     pub text: Text,
     pub text_font: TextFont,
+    pub text_color: TextColor,
 }
 
 impl UiTextExt {
@@ -16,6 +17,7 @@ impl UiTextExt {
                 font_size: size as f32,
                 ..default()
             },
+            text_color: TextColor(theme.default_text_color),
         }
     }
 }

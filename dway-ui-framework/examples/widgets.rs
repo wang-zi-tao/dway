@@ -40,7 +40,7 @@ fn main() {
 
 fn setup(mut commands: Commands, theme: Res<Theme>, callbacks: Res<CallbackTypeRegister>) {
     // Camera so we can see UI
-    commands.spawn((Camera2dBundle::default(), Msaa::Sample4));
+    commands.spawn((Camera2d::default(), Msaa::Sample4));
 
     spawn! {&mut commands=>
         <UiBlockBundle Name=(Name::new("widgets"))

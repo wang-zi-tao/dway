@@ -11,18 +11,23 @@ use bevy::{
     },
     math::FloatOrd,
     render::{
-        extract_component::ExtractComponentPlugin, globals::GlobalsBuffer, render_asset::{RenderAssetPlugin, RenderAssets}, render_phase::{
+        extract_component::ExtractComponentPlugin,
+        globals::GlobalsBuffer,
+        render_asset::{RenderAssetPlugin, RenderAssets},
+        render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
             RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewSortedRenderPhases,
-        }, render_resource::{
-            BindGroup, BindGroupEntries, BufferUsages, PipelineCache, RawBufferVec, SpecializedRenderPipeline,
-            SpecializedRenderPipelines,
-        }, renderer::{RenderDevice, RenderQueue}, sync_world::MainEntity, view::{ExtractedView, ViewUniformOffset, ViewUniforms}, Extract, Render, RenderApp, RenderSet
+        },
+        render_resource::{
+            BindGroup, BindGroupEntries, BufferUsages, PipelineCache, RawBufferVec,
+            SpecializedRenderPipeline, SpecializedRenderPipelines,
+        },
+        renderer::{RenderDevice, RenderQueue},
+        sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
+        view::{ExtractedView, ViewUniformOffset, ViewUniforms},
+        Extract, Render, RenderApp, RenderSet,
     },
-    ui::{
-        PreparedUiMaterial, TransparentUi, UiMaterialPipeline, UiMaterialVertex,
-        UiStack,
-    },
+    ui::{stack_z_offsets, PreparedUiMaterial, TransparentUi, UiMaterialPipeline, UiMaterialVertex, UiStack},
     utils::HashSet,
     window::PrimaryWindow,
 };
@@ -211,6 +216,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     pub material: AssetId<M>,
     pub clip: Option<Rect>,
     pub camera_entity: Entity,
+    pub main_entity: Entity,
 }
 
 #[derive(Resource)]
@@ -231,24 +237,25 @@ pub fn extract_ui_nodes<M: UiMaterial>(
     materials: Extract<Res<Assets<M>>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
-        Query<
-            (
-                Entity,
-                &ComputedNode,
-                &Node,
-                &GlobalTransform,
-                &MaterialNode<M>,
-                &ViewVisibility,
-                Option<&CalculatedClip>,
-                Option<&TargetCamera>,
-            ),
-            Without<BackgroundColor>,
-        >,
+        Query<(
+            Entity,
+            &ComputedNode,
+            &Node,
+            &GlobalTransform,
+            &MaterialNode<M>,
+            &ViewVisibility,
+            Option<&CalculatedClip>,
+            Option<&TargetCamera>,
+        )>,
     >,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_scale: Extract<Res<UiScale>>,
     default_ui_camera: Extract<DefaultUiCamera>,
+    render_entity_lookup: Extract<Query<RenderEntity>>,
+    mut commands: Commands,
 ) {
+    let default_single_camera = default_ui_camera.get();
+
     let ui_logical_viewport_size = windows
         .get_single()
         .map(|window| Vec2::new(window.resolution.width(), window.resolution.height()))
@@ -257,13 +264,26 @@ pub fn extract_ui_nodes<M: UiMaterial>(
         // so we have to divide by `UiScale` to get the size of the UI viewport.
         / ui_scale.0;
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((entity, computed_node, uinode, transform, handle, view_visibility, clip, camera)) =
-            uinode_query.get(*entity)
+        if let Ok((
+            entity,
+            computed_node,
+            uinode,
+            transform,
+            handle,
+            view_visibility,
+            clip,
+            camera,
+        )) = uinode_query.get(*entity)
         {
-            let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+            let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera)
             else {
                 continue;
             };
+
+            let Ok(camera_entity) = render_entity_lookup.get(camera_entity) else {
+                continue;
+            };
+
             // skip invisible nodes
             if !view_visibility.get() {
                 continue;
@@ -277,9 +297,11 @@ pub fn extract_ui_nodes<M: UiMaterial>(
             // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
             // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
             let parent_width = computed_node.size().x;
-            let left =
-                resolve_border_thickness(uinode.border.left, parent_width, ui_logical_viewport_size)
-                    / computed_node.size().x;
+            let left = resolve_border_thickness(
+                uinode.border.left,
+                parent_width,
+                ui_logical_viewport_size,
+            ) / computed_node.size().x;
             let right = resolve_border_thickness(
                 uinode.border.right,
                 parent_width,
@@ -295,7 +317,7 @@ pub fn extract_ui_nodes<M: UiMaterial>(
             ) / computed_node.size().y;
 
             extracted_uinodes.uinodes.insert(
-                entity,
+            commands.spawn(TemporaryRenderEntity).id(),
                 ExtractedUiMaterialNode {
                     stack_index,
                     transform: transform.compute_matrix(),
@@ -307,6 +329,7 @@ pub fn extract_ui_nodes<M: UiMaterial>(
                     border: [left, right, top, bottom],
                     clip: clip.map(|clip| clip.clip),
                     camera_entity,
+                main_entity: entity.into(),
                 },
             );
         };
@@ -520,18 +543,6 @@ pub fn extract_ui_materials<M: UiMaterial>(
     });
 }
 
-pub struct PrepareNextFrameMaterials<M: UiMaterial> {
-    assets: Vec<(AssetId<M>, M)>,
-}
-
-impl<M: UiMaterial> Default for PrepareNextFrameMaterials<M> {
-    fn default() -> Self {
-        Self {
-            assets: Default::default(),
-        }
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn queue_ui_material_nodes<M: UiMaterial>(
     extracted_uinodes: Res<ExtractedUiMaterialNodes<M>>,
@@ -541,18 +552,20 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     pipeline_cache: Res<PipelineCache>,
     render_materials: Res<RenderAssets<PreparedUiMaterial<M>>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView, &Msaa)>,
+    mut views: Query<(&ExtractedView, &Msaa)>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     let draw_function = draw_functions.read().id::<DrawUiMaterial<M>>();
 
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let Ok((view_entity, view, msaa)) = views.get_mut(extracted_uinode.camera_entity) else {
+        let Ok((view, msaa)) = views.get_mut(extracted_uinode.camera_entity) else {
             continue;
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Some(transparent_phase) =
+            transparent_render_phases.get_mut(&extracted_uinode.camera_entity)
+        else {
             continue;
         };
 
@@ -575,9 +588,9 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,
-            entity: ( *entity, MainEntity::from(*entity) ),
+            entity: (*entity, MainEntity::from(*entity)),
             sort_key: (
-                FloatOrd(extracted_uinode.stack_index as f32),
+                FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
                 entity.index(),
             ),
             batch_range: 0..0,

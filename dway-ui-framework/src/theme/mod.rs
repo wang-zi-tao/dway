@@ -1,4 +1,5 @@
 pub mod flat;
+pub mod adapter;
 
 use std::{
     any::TypeId,
