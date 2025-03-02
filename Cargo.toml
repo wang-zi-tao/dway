@@ -73,7 +73,7 @@ bevy_framepace = "0.18"
 bevy_mod_debugdump = { version="0.12" }
 bevy_prototype_lyon = "0.13"
 bevy-trait-query = {version="0.7", features=[]}
-bevy_svg = {version="0.15.1", features=["2d"]}
+bevy_svg = {version="0.15", features=["2d"]}
 
 wgpu={version="23",features=["angle"]}
 wgpu-hal={version="23",features=["gles"]}
@@ -124,6 +124,7 @@ features = [
 ]
 
 [patch.crates-io]
+bevy_svg = { git="git@20.205.243.166:wang-zi-tao/bevy_svg.git", branch = "main" }
 bevy = {git="https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2"}
 bevy_log = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
 bevy_pbr = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }

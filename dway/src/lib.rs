@@ -14,8 +14,7 @@ use bevy::{
     log::{Level, LogPlugin},
     prelude::*,
     render::{
-        settings::{Backends, RenderCreation, WgpuSettings},
-        RenderPlugin,
+        settings::{Backends, RenderCreation, WgpuSettings}, RenderPlugin
     },
     winit::{WakeUp, WinitPlugin},
 };
@@ -185,6 +184,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             }
         }
 
+        app.add_event::<WakeUp>();
         app.add_plugins((
             WinitPlugin::<WakeUp>::default(),
             dway_util::eventloop::EventLoopPlugin::default(),
@@ -235,8 +235,8 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     if cfg!(feature = "single_thread") {
         app.edit_schedule(First, |schedule| {
             schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
-        });
-        app.edit_schedule(PreUpdate, |schedule| {
+        })
+        .edit_schedule(PreUpdate, |schedule| {
             schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
         })
         .edit_schedule(Update, |schedule| {
@@ -244,10 +244,20 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         })
         .edit_schedule(PostUpdate, |schedule| {
             schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
-        });
-        app.edit_schedule(Last, |schedule| {
+        })
+        .edit_schedule(Last, |schedule| {
             schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
         });
+        if let Some(extract_app) = app.get_sub_app_mut(bevy::render::pipelined_rendering::RenderExtractApp){
+            extract_app.edit_schedule(ExtractSchedule, |schedule| {
+                schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+            });
+        };
+        if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp){
+            render_app.edit_schedule(bevy::render::Render, |schedule| {
+                schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
+            });
+        };
     }
     app.edit_schedule(First, |schedule| {
         schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);

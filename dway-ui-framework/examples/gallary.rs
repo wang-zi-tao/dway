@@ -35,6 +35,7 @@ fn main() {
             dway_ui_framework::UiFrameworkPlugin,
             GallaryPlugin,
         ))
+        .add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new())
         .add_plugins((
             RoundedUiRectMaterial::plugin(),
             UiCircleMaterial::plugin(),
