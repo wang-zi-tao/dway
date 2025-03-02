@@ -124,7 +124,7 @@ features = [
 ]
 
 [patch.crates-io]
-bevy_svg = { git="git@20.205.243.166:wang-zi-tao/bevy_svg.git", branch = "main" }
+bevy_svg = { git="https://github.com/wang-zi-tao/bevy_svg.git", branch = "main" }
 bevy = {git="https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2"}
 bevy_log = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
 bevy_pbr = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }

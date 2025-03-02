@@ -2179,6 +2179,7 @@ dependencies = [
 [[package]]
 name = "bevy_svg"
 version = "0.15.0"
+source = "git+https://github.com/wang-zi-tao/bevy_svg.git?branch=main#57aa80f359299298d2ba4db1b941e78b78b0e5ee"
 dependencies = [
  "anyhow",
  "bevy 0.15.2",
@@ -2529,7 +2530,7 @@ dependencies = [
  "bitflags 2.9.0",
  "cexpr",
  "clang-sys",
- "itertools 0.11.0",
+ "itertools 0.13.0",
  "log",
  "prettyplease 0.2.29",
  "proc-macro2",
