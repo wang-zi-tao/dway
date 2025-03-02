@@ -19,7 +19,7 @@ use dway_ui_framework::{
         },
         checkbox::UiCheckBoxBundle,
         combobox::{StringItem, UiComboBox, UiComboBoxBundle},
-        inputbox::UiInputBoxBundle,
+        inputbox::{UiInputBox, UiInputBoxBundle},
         popup::{popup_animation_system, UiPopup, UiPopupExt},
         slider::UiSliderBundle, text::UiTextBundle,
     },
@@ -35,6 +35,7 @@ fn main() {
         .register_callback(button_open_poppup)
         .register_callback(open_menu)
         .register_callback(popup_animation_system::<UiAnimationDropdownConfig>)
+        .add_plugins(bevy_inspector_egui::quick::FilterQueryInspectorPlugin::<With<UiInputBox>>::default())
         .run();
 }
 
@@ -163,7 +164,11 @@ Counter=>
 
 @use_state(count: usize)
 <UiHollowBlockBundle @style="p-8">
-    <Node @style="w-64" Text=(Text::new(state.count().to_string())) TextFont=(theme.text_font(32.0))/>
+    <Node @style="w-64" 
+        Text=(Text::new(state.count().to_string())) 
+        TextFont=(theme.text_font(32.0)) 
+        TextColor=(TextColor::BLACK)
+    />
     <UiHightlightButtonBundle @style="p-4 w-32 h-32 align-items:center justify-content:center"  @id="button"
         UiWidgetRoot=(this_entity.into())
         UiButtonEventDispatcher=(make_callback(this_entity, inc))

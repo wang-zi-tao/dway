@@ -89,6 +89,12 @@ structstruck::strike! {
     }
 }
 
+impl UiInputBox {
+    pub fn line_height(&self) -> f32 {
+        self.text_size * 1.2
+    }
+}
+
 pub fn move_cursor(
     position: Vec2,
     inputbox: &UiInputBox,
@@ -96,7 +102,7 @@ pub fn move_cursor(
     inputbox_state: &mut UiInputBoxState,
 ) {
     let line_start = position.y - position.y % inputbox.text_size;
-    let line_end = line_start + inputbox.text_size;
+    let line_end = line_start + inputbox.line_height();
     let glyphs = &text_layout.glyphs;
     if let Some((index, glyph)) = glyphs
         .binary_search_by(|glyph| {
@@ -318,7 +324,7 @@ fn on_input_event(
                 }
                 Key::ArrowUp => {
                     move_cursor(
-                        *inputbox_state.cursor_position() - inputbox.text_size * Vec2::Y,
+                        *inputbox_state.cursor_position() - inputbox.line_height() * Vec2::Y,
                         inputbox,
                         &text_layout,
                         &mut inputbox_state,
@@ -326,7 +332,7 @@ fn on_input_event(
                 }
                 Key::ArrowDown => {
                     move_cursor(
-                        *inputbox_state.cursor_position() + inputbox.text_size * Vec2::Y,
+                        *inputbox_state.cursor_position() + inputbox.line_height() * Vec2::Y,
                         inputbox,
                         &text_layout,
                         &mut inputbox_state,
@@ -384,12 +390,13 @@ UiInputBox=>
     Text=(Text::new(state.data()))
     TextFont=(theme.text_font(prop.text_size))
     TextColor=(theme.default_text_color())
+    TextLayout=( TextLayout::new(JustifyText::Left, LineBreak::WordOrCharacter) )
 />
 <MiniNodeBundle @style="absolute full" @if(*state.show_cursor())>
     <MiniNodeBundle @id="cursor" Node=(Node{
         left: Val::Px(state.cursor_position().x),
         top: Val::Px(state.cursor_position().y),
-        height: Val::Px(prop.text_size),
+        height: Val::Px(prop.line_height()),
         ..style!("w-2")
     })
     @material(RoundedUiRectMaterial=>rounded_rect(theme.color("inputbox:cursor"), 4.0)) />
@@ -402,12 +409,12 @@ fn update_cursor(prop: &UiInputBox, state: &mut UiInputBoxState, text_layout: Re
         let byte_index = *state.cursor_byte_index();
 
         let gr_index = UnicodeSegmentation::grapheme_indices(&**state.data(), true)
-            .position(|(index, value)| index <= byte_index && index + value.len() >= byte_index);
+            .position(|(index, value)| index <= byte_index && index + value.len() > byte_index);
 
         let position = if let Some(glyph) = gr_index.and_then(|i| glyphs.get(i)) {
             Vec2::new(
                 glyph.position.x - 0.5 * glyph.size.x,
-                glyph.position.y - glyph.position.y % prop.text_size,
+                glyph.position.y - glyph.position.y % prop.line_height(),
             )
         } else if byte_index == state.data().len() {
             glyphs
@@ -415,7 +422,7 @@ fn update_cursor(prop: &UiInputBox, state: &mut UiInputBoxState, text_layout: Re
                 .map(|glyph| {
                     Vec2::new(
                         glyph.position.x + 0.5 * glyph.size.x,
-                        glyph.position.y - glyph.position.y % prop.text_size,
+                        glyph.position.y - glyph.position.y % prop.line_height(),
                     )
                 })
                 .unwrap_or_default()
