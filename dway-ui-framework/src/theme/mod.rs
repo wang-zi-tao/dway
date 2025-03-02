@@ -141,6 +141,10 @@ impl Theme {
         )
     }
 
+    pub fn default_text_color(&self) -> TextColor {
+        TextColor(self.default_text_color)
+    }
+
     pub fn default_text_style(&self) -> (TextFont, TextColor) {
         (
             TextFont {

@@ -13,7 +13,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::{
     event::{EventReceiver, UiEvent},
     prelude::*,
-    theme::ThemeComponent,
+    theme::{ThemeComponent, WidgetKind},
 };
 
 #[derive(Debug, Clone, Reflect, PartialEq, Eq)]
@@ -65,8 +65,10 @@ impl UiInputCommand {
 }
 
 structstruck::strike! {
-    #[derive(Component, SmartDefault, Builder)]
-    #[require(Node, UiInputBoxState, UiInputBoxWidget, RelativeCursorPosition, Interaction, UiInputBoxEventDispatcher, ThemeComponent)]
+    #[dway_widget_prop]
+    #[derive(SmartDefault, Builder)]
+    #[require(RelativeCursorPosition, Interaction, UiInputBoxEventDispatcher, UiInput)]
+    #[require(ThemeComponent(||ThemeComponent::widget(WidgetKind::Inputbox)))]
     #[strikethrough[derive(Debug, Clone, Reflect)]]
     pub struct UiInputBox{
         pub placeholder: String,
@@ -378,7 +380,11 @@ UiInputBox=>
         update_cursor(&prop, &mut state, text_layout);
     }
 }}
-<MiniNodeBundle @id="text" @style="full" Text=(Text::new(state.data()))  />
+<MiniNodeBundle @id="text" @style="full"
+    Text=(Text::new(state.data()))
+    TextFont=(theme.text_font(prop.text_size))
+    TextColor=(theme.default_text_color())
+/>
 <MiniNodeBundle @style="absolute full" @if(*state.show_cursor())>
     <MiniNodeBundle @id="cursor" Node=(Node{
         left: Val::Px(state.cursor_position().x),

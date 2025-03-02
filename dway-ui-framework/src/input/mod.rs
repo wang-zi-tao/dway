@@ -42,6 +42,7 @@ pub enum UiInputEvent {
 }
 
 #[derive(Component, Debug, SmartDefault, Reflect)]
+#[require(Interaction, UiInputEventDispatcher)]
 pub struct UiInput {
     pub mouse_focused: bool,
     pub input_focused: bool,
