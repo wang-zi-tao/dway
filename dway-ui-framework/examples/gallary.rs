@@ -35,7 +35,6 @@ fn main() {
             dway_ui_framework::UiFrameworkPlugin,
             GallaryPlugin,
         ))
-        .add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new())
         .add_plugins((
             RoundedUiRectMaterial::plugin(),
             UiCircleMaterial::plugin(),
@@ -141,19 +140,19 @@ Gallary=>
 <MiniNodeBundle Node=(grid_style())
     @material(RoundedBlockMaterial=>rounded_block(color!("#dddddd"), 16.0, &theme))
 >
-    <MiniButtonBundle Node=(cell_style())
+    <MiniNodeBundle Node=(cell_style())
         @material(RoundedUiRectMaterial=>rounded_rect(color!("#ffffff"), 16.0)) >
         <(UiTextBundle::new("block", 24, &theme))/>
     </>
-    <MiniButtonBundle Node=(cell_style())
+    <MiniNodeBundle Node=(cell_style())
         @material(RoundedBlockMaterial=>rounded_block(color!("#ffffff"), 16.0, &theme)) >
         <(UiTextBundle::new("block with shadow", 24, &theme))/>
     </>
-    <MiniButtonBundle Node=(cell_style())
+    <MiniNodeBundle Node=(cell_style())
         @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
         <(UiTextBundle::new("hollow block", 24, &theme))/>
     </>
-    <MiniButtonBundle Node=(cell_style())
+    <MiniNodeBundle Node=(cell_style())
         @material(RoundedRainbowBlockMaterial=>rainbow_block(16.0, 2.0)) >
         <(UiTextBundle::new("rainbow block", 24, &theme))/>
     </>
@@ -188,7 +187,7 @@ Gallary=>
         </>
     </MiniNodeBundle>
     <MiniNodeBundle Node=(cell_style())>
-        <MiniButtonBundle @style="p-8 w-full m-8" @material(RoundedBorderBlockMaterial=>rounded_border_block(Color::WHITE,theme.color("blue"), 8.0, 2.0)) >
+        <Node @style="p-8 w-full m-8" @material(RoundedBorderBlockMaterial=>rounded_border_block(Color::WHITE,theme.color("blue"), 8.0, 2.0)) >
             <UiInputBoxBundle UiInputBox=(UiInputBox{
                 placeholder: "input box...".into(),
                 ..Default::default()
@@ -196,7 +195,7 @@ Gallary=>
         </>
     </MiniNodeBundle>
     <MiniNodeBundle Node=(cell_style())>
-        <MiniButtonBundle @style="p-8 w-full m-8" @material(RoundedInnerShadowBlockMaterial=>rounded_inner_shadow_block(Color::WHITE, 8.0, &theme)) >
+        <Node @style="p-8 w-full m-8" @material(RoundedInnerShadowBlockMaterial=>rounded_inner_shadow_block(Color::WHITE, 8.0, &theme)) >
             <UiInputBoxBundle UiInputBox=(UiInputBox{
                 placeholder: "input box...".into(),
                 ..Default::default()
@@ -207,7 +206,7 @@ Gallary=>
         <UiSliderBundle @style="w-full" />
     </MiniNodeBundle>
     <MiniNodeBundle Node=(cell_style())>
-        <MiniButtonBundle @style="w-128 h-128 align-items:center justify-content:center"
+        <Node @style="w-128 h-128 align-items:center justify-content:center"
             @material(ArcMaterial=>arc_material(color!("#00ff00"), Color::WHITE, 8.0, [0.0,5.28]))
         >
             <(( UiSvg::from(asset_server.load("embedded://dway_ui_framework/examples/gallary/power.svg")),

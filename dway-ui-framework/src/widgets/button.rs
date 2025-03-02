@@ -105,6 +105,8 @@ make_bundle! {
         #[default(FocusPolicy::Block)]
         pub focus_policy: FocusPolicy,
         pub event_dispatch: UiButtonEventDispatcher,
+        #[default(ThemeComponent::default())]
+        pub theme_component: ThemeComponent,
     }
 }
 make_bundle! {
