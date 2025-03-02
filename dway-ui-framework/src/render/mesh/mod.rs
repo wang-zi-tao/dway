@@ -207,9 +207,9 @@ fn extract_ui_mesh_handle<M: Material2d>(
 pub fn extract_ui_mesh_node(
     mut commands: Commands,
     mut render_mesh_instances: ResMut<RenderUiMesh2dInstances>,
-    ui_stack: Extract<Res<UiStack>>,
     query: Extract<
         Query<(
+        Entity,
             &ComputedNode,
             &ViewVisibility,
             &UiMeshTransform,
@@ -225,8 +225,8 @@ pub fn extract_ui_mesh_node(
     render_entity_lookup: Extract<Query<RenderEntity>>,
 ) {
     render_mesh_instances.clear();
-    for (stack_index, main_entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((
+    for (
+        main_entity,
             computed_node,
             view_visibility,
             mesh_transform,
@@ -235,9 +235,8 @@ pub fn extract_ui_mesh_node(
             target_camera,
             no_automatic_batching,
             clip,
-        )) = query.get(*main_entity)
-        {
-            if !view_visibility.get() {
+        ) in query.iter(){
+        if !view_visibility.get() {
                 continue;
             }
 
@@ -284,13 +283,12 @@ pub fn extract_ui_mesh_node(
                         mesh_asset_id: handle.0.id(),
                         material_bind_group_id: Material2dBindGroupId::default(),
                         automatic_batching: !no_automatic_batching,
-                        stack_index,
+                        stack_index: computed_node.stack_index(),
                         camera: camera_entity,
-                        main_entity: *main_entity,
+                        main_entity,
                     },
                 );
             }
-        }
     }
 }
 
@@ -721,7 +719,7 @@ pub fn prepare_mesh2d_view_bind_groups(
 }
 
 pub struct RenderUiMeshInstance {
-    pub stack_index: usize,
+    pub stack_index: u32,
     pub transforms: Mesh2dTransforms,
     pub mesh_asset_id: AssetId<Mesh>,
     pub material_bind_group_id: Material2dBindGroupId,

@@ -121,7 +121,7 @@ structstruck::strike! {
     pub struct ExtractedUiNodeSet{
         pub nodes: EntityHashMap<
             pub struct ExtractedNode{
-                pub stack_index: usize,
+                pub stack_index: u32,
                 pub transform: Mat4,
                 pub rect: Rect,
                 pub clip: Option<Rect>,
@@ -334,9 +334,9 @@ impl SpecializedRenderPipeline for UiPipeline {
 
 pub fn extract_ui_nodes(
     mut extracted: ResMut<ExtractedUiNodeSet>,
-    ui_stack: Extract<Res<UiStack>>,
     node: Extract<
         Query<(
+            Entity,
             Ref<ComputedNode>,
             Ref<Node>,
             Ref<GlobalTransform>,
@@ -363,57 +363,53 @@ pub fn extract_ui_nodes(
         extracted.removed_nodes.push(node_entity);
     }
 
-    for (stack_index, &node_entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((computed_node, style, transform, visibility, clip, camera)) =
-            node.get(node_entity)
-        {
-            if !visibility.get() {
-                extracted.removed_nodes.push(node_entity);
-                extracted.nodes.remove(&node_entity);
-                continue;
+    for (node_entity, computed_node, style, transform, visibility, clip, camera) in node.iter() {
+        let stack_index = computed_node.stack_index();
+        if !visibility.get() {
+            extracted.removed_nodes.push(node_entity);
+            extracted.nodes.remove(&node_entity);
+            continue;
+        }
+
+        let Some(camera_entity) = camera.as_ref().map(|x| x.entity()).or(default_ui_camera) else {
+            continue;
+        };
+        let Ok(camera_entity) = render_entity_lookup.get(camera_entity) else {
+            continue;
+        };
+
+        match extracted.nodes.entry(node_entity) {
+            Entry::Occupied(mut o) => {
+                let extracted_node = o.get_mut();
+                extracted_node.stack_index = stack_index;
+                if transform.is_changed() {
+                    extracted_node.transform = transform.compute_matrix();
+                }
+                if computed_node.is_changed() {
+                    extracted_node.rect = Rect {
+                        min: Vec2::ZERO,
+                        max: computed_node.size(),
+                    };
+                }
+                let entity_changed = entity_with_removed_component.contains(&node_entity);
+                if entity_changed || clip.as_ref().map(|c| c.is_changed()).unwrap_or(false) {
+                    extracted_node.clip = clip.map(|c| c.clip);
+                }
+                if entity_changed || camera.as_ref().map(|c| c.is_changed()).unwrap_or(false) {
+                    extracted_node.camera_entity = camera_entity;
+                }
             }
-
-            let Some(camera_entity) = camera.as_ref().map(|x| x.entity()).or(default_ui_camera)
-            else {
-                continue;
-            };
-            let Ok(camera_entity) = render_entity_lookup.get(camera_entity) else {
-                continue;
-            };
-
-            match extracted.nodes.entry(node_entity) {
-                Entry::Occupied(mut o) => {
-                    let extracted_node = o.get_mut();
-                    extracted_node.stack_index = stack_index;
-                    if transform.is_changed() {
-                        extracted_node.transform = transform.compute_matrix();
-                    }
-                    if computed_node.is_changed() {
-                        extracted_node.rect = Rect {
-                            min: Vec2::ZERO,
-                            max: computed_node.size(),
-                        };
-                    }
-                    let entity_changed = entity_with_removed_component.contains(&node_entity);
-                    if entity_changed || clip.as_ref().map(|c| c.is_changed()).unwrap_or(false) {
-                        extracted_node.clip = clip.map(|c| c.clip);
-                    }
-                    if entity_changed || camera.as_ref().map(|c| c.is_changed()).unwrap_or(false) {
-                        extracted_node.camera_entity = camera_entity;
-                    }
-                }
-                Entry::Vacant(v) => {
-                    v.insert(ExtractedNode {
-                        stack_index,
-                        transform: transform.compute_matrix(),
-                        rect: Rect {
-                            min: Vec2::ZERO,
-                            max: computed_node.size(),
-                        },
-                        clip: clip.map(|clip| clip.clip),
-                        camera_entity,
-                    });
-                }
+            Entry::Vacant(v) => {
+                v.insert(ExtractedNode {
+                    stack_index,
+                    transform: transform.compute_matrix(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: computed_node.size(),
+                    },
+                    clip: clip.map(|clip| clip.clip),
+                    camera_entity,
+                });
             }
         }
     }
@@ -466,8 +462,8 @@ pub fn extract_ui_materials<M: UiMaterial>(
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                 changed_assets.insert(*id);
             }
-            AssetEvent::Removed { .. } => { }
-            AssetEvent::Unused { id} => {
+            AssetEvent::Removed { .. } => {}
+            AssetEvent::Unused { id } => {
                 changed_assets.remove(id);
                 extracted.removed.push(*id);
             }

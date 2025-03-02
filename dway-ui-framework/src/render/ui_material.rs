@@ -27,7 +27,10 @@ use bevy::{
         view::{ExtractedView, ViewUniformOffset, ViewUniforms},
         Extract, Render, RenderApp, RenderSet,
     },
-    ui::{stack_z_offsets, PreparedUiMaterial, TransparentUi, UiMaterialPipeline, UiMaterialVertex, UiStack},
+    ui::{
+        stack_z_offsets, PreparedUiMaterial, TransparentUi, UiMaterialPipeline, UiMaterialVertex,
+        UiStack,
+    },
     utils::HashSet,
     window::PrimaryWindow,
 };
@@ -209,7 +212,7 @@ impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
 }
 
 pub struct ExtractedUiMaterialNode<M: UiMaterial> {
-    pub stack_index: usize,
+    pub stack_index: u32,
     pub transform: Mat4,
     pub rect: Rect,
     pub border: [f32; 4],
@@ -235,7 +238,6 @@ impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
 pub fn extract_ui_nodes<M: UiMaterial>(
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
-    ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -263,76 +265,60 @@ pub fn extract_ui_nodes<M: UiMaterial>(
         // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
         // so we have to divide by `UiScale` to get the size of the UI viewport.
         / ui_scale.0;
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((
-            entity,
-            computed_node,
-            uinode,
-            transform,
-            handle,
-            view_visibility,
-            clip,
-            camera,
-        )) = uinode_query.get(*entity)
-        {
-            let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera)
-            else {
-                continue;
-            };
-
-            let Ok(camera_entity) = render_entity_lookup.get(camera_entity) else {
-                continue;
-            };
-
-            // skip invisible nodes
-            if !view_visibility.get() {
-                continue;
-            }
-
-            // Skip loading materials
-            if !materials.contains(handle) {
-                continue;
-            }
-
-            // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
-            // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-            let parent_width = computed_node.size().x;
-            let left = resolve_border_thickness(
-                uinode.border.left,
-                parent_width,
-                ui_logical_viewport_size,
-            ) / computed_node.size().x;
-            let right = resolve_border_thickness(
-                uinode.border.right,
-                parent_width,
-                ui_logical_viewport_size,
-            ) / computed_node.size().x;
-            let top =
-                resolve_border_thickness(uinode.border.top, parent_width, ui_logical_viewport_size)
-                    / computed_node.size().y;
-            let bottom = resolve_border_thickness(
-                uinode.border.bottom,
-                parent_width,
-                ui_logical_viewport_size,
-            ) / computed_node.size().y;
-
-            extracted_uinodes.uinodes.insert(
-            commands.spawn(TemporaryRenderEntity).id(),
-                ExtractedUiMaterialNode {
-                    stack_index,
-                    transform: transform.compute_matrix(),
-                    material: handle.id(),
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: computed_node.size(),
-                    },
-                    border: [left, right, top, bottom],
-                    clip: clip.map(|clip| clip.clip),
-                    camera_entity,
-                main_entity: entity.into(),
-                },
-            );
+    for (entity, computed_node, uinode, transform, handle, view_visibility, clip, camera) in
+        uinode_query.iter()
+    {
+        let stack_index = computed_node.stack_index();
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
+            continue;
         };
+
+        let Ok(camera_entity) = render_entity_lookup.get(camera_entity) else {
+            continue;
+        };
+
+        // skip invisible nodes
+        if !view_visibility.get() {
+            continue;
+        }
+
+        // Skip loading materials
+        if !materials.contains(handle) {
+            continue;
+        }
+
+        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+        let parent_width = computed_node.size().x;
+        let left =
+            resolve_border_thickness(uinode.border.left, parent_width, ui_logical_viewport_size)
+                / computed_node.size().x;
+        let right =
+            resolve_border_thickness(uinode.border.right, parent_width, ui_logical_viewport_size)
+                / computed_node.size().x;
+        let top =
+            resolve_border_thickness(uinode.border.top, parent_width, ui_logical_viewport_size)
+                / computed_node.size().y;
+        let bottom =
+            resolve_border_thickness(uinode.border.bottom, parent_width, ui_logical_viewport_size)
+                / computed_node.size().y;
+
+        extracted_uinodes.uinodes.insert(
+            commands.spawn(TemporaryRenderEntity).id(),
+            ExtractedUiMaterialNode {
+                stack_index,
+                transform: transform.compute_matrix(),
+                material: handle.id(),
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: computed_node.size(),
+                },
+                border: [left, right, top, bottom],
+                clip: clip.map(|clip| clip.clip),
+                camera_entity,
+                main_entity: entity.into(),
+            },
+        );
     }
 }
 
