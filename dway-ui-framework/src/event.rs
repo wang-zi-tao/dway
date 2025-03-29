@@ -449,7 +449,7 @@ impl CallbackTypeRegister {
         }
     }
 
-    pub fn add_trigger<F, E: Event, B: Bundle, M>(
+    pub fn add_to_observer<F, E: Event, B: Bundle, M>(
         &mut self,
         system: F,
         commands: &mut Commands,

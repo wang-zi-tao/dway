@@ -5,7 +5,7 @@ use crate::{
     event::{make_callback, EventDispatcher},
     make_bundle,
     prelude::*,
-    theme::{StyleFlags, ThemeComponent, WidgetKind},
+    theme::{adapter::NoWidgetTheme, StyleFlags, ThemeComponent, WidgetKind},
 };
 
 #[derive(Event, Debug, Clone, PartialEq, Eq)]
@@ -18,7 +18,7 @@ pub enum UiButtonEventKind {
 
 pub type UiButtonEventDispatcher = EventDispatcher<UiButtonEvent>;
 
-#[derive(Debug, Clone, Event)]
+#[derive(Debug, Clone)]
 pub struct UiButtonEvent {
     pub kind: UiButtonEventKind,
     pub state: Interaction,
@@ -107,6 +107,7 @@ make_bundle! {
         pub event_dispatch: UiButtonEventDispatcher,
         #[default(ThemeComponent::default())]
         pub theme_component: ThemeComponent,
+        pub no_button_theme: NoWidgetTheme<UiButton>,
     }
 }
 make_bundle! {

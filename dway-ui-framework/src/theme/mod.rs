@@ -1,16 +1,13 @@
-pub mod flat;
 pub mod adapter;
+pub mod flat;
 
-use std::{
-    any::TypeId,
-    fmt::Debug,
-    hash::Hash,
-    sync::Arc,
-};
+use std::{any::TypeId, fmt::Debug, hash::Hash, sync::Arc};
 
 use bevy::{
     app::DynEq,
-    ecs::{label::DynHash, world::Command},
+    ecs::{
+        component::ComponentId, label::DynHash, query::QueryData, world::{Command, DeferredWorld}
+    },
     utils::HashMap,
 };
 use bevy_svg::prelude::Svg;
@@ -19,14 +16,14 @@ use derive_more::From;
 use downcast_rs::{impl_downcast, Downcast};
 
 use crate::{
-    animation::{apply_tween_asset, ease::AnimationEaseMethod, AnimationEvent},
+    animation::{apply_tween_asset, ease::AnimationEaseMethod, AnimationEvent, AnimationEventDispatcher},
     event::{CallbackTypeRegister, EventDispatcher},
     prelude::*,
     shader::{
         effect::{InnerShadow, Shadow},
         fill::Fill,
         Material, ShaderAsset,
-    },
+    }, util::modify_component_or_insert,
 };
 
 pub mod classname {
@@ -66,6 +63,9 @@ impl ThemeIcon {
 
 #[derive(Component)]
 pub struct NoTheme;
+
+#[derive(Component)]
+pub struct HightlightTheme;
 
 #[derive(Resource, Reflect)]
 pub struct Theme {
@@ -156,17 +156,6 @@ impl Theme {
         )
     }
 
-    pub fn text_style(&self, size: f32, class_name: &str) -> (TextFont, TextColor) {
-        (
-            TextFont {
-                font: self.default_font(),
-                font_size: size,
-                ..Default::default()
-            },
-            TextColor(self.color(class_name)),
-        )
-    }
-
     pub fn text_font(&self, size: f32) -> TextFont {
         TextFont {
             font: self.default_font(),
@@ -185,6 +174,7 @@ impl Theme {
             style_flags: flag,
             old_style_flags: flag,
             widget_kind,
+            theme_entity: Entity::PLACEHOLDER,
         }
     }
 
@@ -325,9 +315,11 @@ bitflags! {
     }
 }
 
-#[derive(Component, Debug, Clone, Default)]
+#[derive(Component, Debug, Clone, SmartDefault)]
 pub struct ThemeComponent {
     pub theme: Option<Arc<dyn ThemeDispatch>>,
+    #[default(Entity::PLACEHOLDER)]
+    pub theme_entity: Entity,
     pub style_flags: StyleFlags,
     pub old_style_flags: StyleFlags,
     pub widget_kind: WidgetKind,
@@ -340,6 +332,7 @@ impl ThemeComponent {
             style_flags,
             old_style_flags: style_flags,
             widget_kind,
+            theme_entity: Entity::PLACEHOLDER,
         }
     }
 
@@ -394,7 +387,9 @@ pub fn insert_material_tween<M: UiMaterial + Asset + Interpolation>(
                 EventDispatcher::<AnimationEvent>::default().with_system_to_this(system)
             };
             animation.replay();
-            world.entity_mut(entity).insert(( animation, event_dispatcher ));
+            world
+                .entity_mut(entity)
+                .insert((animation, event_dispatcher));
         }
     } else {
         entity_mut.insert(MaterialNode(end_material));
@@ -413,3 +408,34 @@ pub fn insert_material_command<M: Material>(entity: Entity, material: M) -> impl
         world.entity_mut(entity).insert(MaterialNode(handle));
     }
 }
+
+#[derive(Component, Reflect)]
+#[require(TextFont, TextColor)]
+#[component(on_insert=DefaultTextTheme::on_insert_text)]
+pub struct DefaultTextTheme {
+    pub size: f32,
+}
+
+impl DefaultTextTheme {
+    pub fn new(size: f32) -> Self {
+        Self { size }
+    }
+
+    fn on_insert_text(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+        let theme = world.resource::<Theme>();
+        let font = theme.default_font();
+        let color = theme.default_text_color();
+
+        let this = world.get::<DefaultTextTheme>(entity).unwrap();
+        let size = this.size;
+
+        let mut text_font = world.get_mut::<TextFont>(entity).unwrap();
+        text_font.font = font;
+        text_font.font_size = size;
+
+        let mut text_color = world.get_mut::<TextColor>(entity).unwrap();
+        text_color.0 = *color;
+    }
+}
+
+

@@ -1,9 +1,21 @@
-
 use std::any::type_name;
 
-use super::{insert_material_tween, StyleFlags, ThemeComponent, ThemeDispatch};
+use bevy::ecs::{
+    query::{QueryData, QueryItem},
+    system::{
+        lifetimeless::{SRes, SResMut},
+        SystemParamItem,
+    },
+};
+
+use super::{
+    adapter::{EventObserver, WidgetInsertObserver}, insert_material_tween, DefaultTextTheme, HightlightTheme, StyleFlags, ThemeComponent, ThemeDispatch
+};
 use crate::{
-    animation::ease::AnimationEaseMethod,
+    animation::{
+        apply_tween_asset, ease::AnimationEaseMethod, play_asset_animation,
+        AnimationEventDispatcher, MaterialAnimationQueryData,
+    },
     prelude::*,
     render::layer_manager::{FillWithLayer, RenderToLayer},
     shader::{
@@ -13,6 +25,8 @@ use crate::{
         transform::Margins,
         ShaderAsset, ShaderPlugin, ShapeRender, Transformed,
     },
+    util::{modify_component_or_insert, set_component_or_insert},
+    widgets::{button::UiButtonEventDispatcher, checkbox::UiCheckBoxEventDispatcher},
 };
 
 type BlockMaterial = ShapeRender<RoundedRect, (FillColor, Shadow)>;
@@ -35,7 +49,7 @@ type BlurMaterial = ShapeRender<RoundedRect, AddColor<FillWithLayer>>;
 #[derive(Component)]
 pub struct FlatThemeComponent;
 
-#[derive(SmartDefault, Clone, Debug)]
+#[derive(SmartDefault, Clone, Debug, Component)]
 pub struct FlatTheme {
     #[default(color!("#2777ff"))]
     pub main_color: Color,
@@ -555,6 +569,218 @@ pub fn update_ui_material(
             theme.fill_color.with_alpha(1.0 - theme.blur_brightness),
         ));
         *shader_handle = material_assets.add(material).into();
+    }
+}
+
+impl WidgetInsertObserver<Text> for FlatTheme {
+    type Filter = Without<DefaultTextTheme>;
+    type ItemQuery = (&'static mut TextFont,);
+    type Params = (SRes<Theme>,);
+
+    fn on_widget_insert(
+        &self,
+        theme_entity: Entity,
+        (mut text_font,): QueryItem<Self::ItemQuery>,
+        (theme,): SystemParamItem<Self::Params>,
+        _: EntityCommands,
+    ) {
+        if text_font.font == Handle::default() {
+            text_font.font = theme.default_font();
+        }
+    }
+}
+
+impl WidgetInsertObserver<UiButton> for FlatTheme {
+    type Filter = ();
+    type ItemQuery = ( &'static mut UiButtonEventDispatcher, Has<HightlightTheme> );
+    type Params = SResMut<CallbackTypeRegister>;
+
+    fn on_widget_insert(
+        &self,
+        theme_entity: Entity,
+        ( mut event_dispatcher, hightlight ): QueryItem<Self::ItemQuery>,
+        mut callback_register: SystemParamItem<Self::Params>,
+        mut commands: EntityCommands,
+    ) {
+        event_dispatcher.run_sender_trigger = true;
+
+        if hightlight {
+            commands.insert(MaterialNode(self.hightlight_button_material.clone()));
+            let widget_entity = commands.id();
+            callback_register.add_to_observer(
+                <Self as EventObserver<UiButtonEvent, HightlightTheme>>::trigger,
+                commands.commands_mut(),
+                widget_entity,
+            );
+
+        }else{
+            commands.insert(MaterialNode(self.button_material.clone()));
+            let widget_entity = commands.id();
+            callback_register.add_to_observer(
+                <Self as EventObserver<UiButtonEvent>>::trigger,
+                commands.commands_mut(),
+                widget_entity,
+            );
+        }
+
+    }
+}
+
+impl EventObserver<UiButtonEvent> for FlatTheme {
+    type ItemQuery = MaterialAnimationQueryData<ShaderAsset<ButtonMaterial>>;
+    type Params = SResMut<CallbackTypeRegister>;
+
+    fn on_event(
+        &self,
+        event: Trigger<UiEvent<UiButtonEvent>>,
+        theme_entity: Entity,
+        query_items: QueryItem<Self::ItemQuery>,
+        mut callback_register: SystemParamItem<Self::Params>,
+        commands: EntityCommands,
+    ) {
+        match event.kind{
+            UiButtonEventKind::Pressed => {
+                play_asset_animation(
+                    query_items,
+                    &mut callback_register,
+                    self.button_material_clicked.clone(),
+                    self.animation_duration,
+                    self.animation_ease.clone(),
+                    commands,
+                );
+            },
+            UiButtonEventKind::Released |
+            UiButtonEventKind::Hovered => {
+                play_asset_animation(
+                    query_items,
+                    &mut callback_register,
+                    self.button_material_hover.clone(),
+                    self.animation_duration,
+                    self.animation_ease.clone(),
+                    commands,
+                );
+            },
+            UiButtonEventKind::Leaved => {
+                play_asset_animation(
+                    query_items,
+                    &mut callback_register,
+                    self.button_material.clone(),
+                    self.animation_duration,
+                    self.animation_ease.clone(),
+                    commands,
+                );
+            },
+        }
+    }
+}
+
+impl EventObserver<UiButtonEvent, HightlightTheme> for FlatTheme {
+    type ItemQuery = MaterialAnimationQueryData<ShaderAsset<HightlightButtonMaterial>>;
+    type Params = SResMut<CallbackTypeRegister>;
+
+    fn on_event(
+        &self,
+        event: Trigger<UiEvent<UiButtonEvent>>,
+        theme_entity: Entity,
+        query_items: QueryItem<Self::ItemQuery>,
+        mut callback_register: SystemParamItem<Self::Params>,
+        commands: EntityCommands,
+    ) {
+        match event.kind{
+            UiButtonEventKind::Pressed => {
+                play_asset_animation(
+                    query_items,
+                    &mut callback_register,
+                    self.hightlight_button_material_clicked.clone(),
+                    self.animation_duration,
+                    self.animation_ease.clone(),
+                    commands,
+                );
+            },
+            UiButtonEventKind::Released |
+            UiButtonEventKind::Hovered => {
+                play_asset_animation(
+                    query_items,
+                    &mut callback_register,
+                    self.hightlight_button_material_hover.clone(),
+                    self.animation_duration,
+                    self.animation_ease.clone(),
+                    commands,
+                );
+            },
+            UiButtonEventKind::Leaved => {
+                play_asset_animation(
+                    query_items,
+                    &mut callback_register,
+                    self.hightlight_button_material.clone(),
+                    self.animation_duration,
+                    self.animation_ease.clone(),
+                    commands,
+                );
+            },
+        }
+    }
+}
+
+impl WidgetInsertObserver<UiCheckBox> for FlatTheme {
+    type Filter = ();
+    type ItemQuery = &'static mut UiCheckBoxEventDispatcher;
+    type Params = SResMut<CallbackTypeRegister>;
+
+    fn on_widget_insert(
+        &self,
+        theme_entity: Entity,
+        mut event_dispatcher: QueryItem<Self::ItemQuery>,
+        mut callback_register: SystemParamItem<Self::Params>,
+        mut commands: EntityCommands,
+    ) {
+        event_dispatcher.run_sender_trigger = true;
+        commands.insert(MaterialNode(self.checkbox_material.clone()));
+        let widget_entity = commands.id();
+        callback_register.add_to_observer(
+            <Self as EventObserver<UiCheckBoxEvent>>::trigger,
+            commands.commands_mut(),
+            widget_entity,
+        );
+    }
+}
+
+
+impl EventObserver<UiCheckBoxEvent> for FlatTheme {
+    type ItemQuery = MaterialAnimationQueryData<ShaderAsset<CheckboxMaterial>>;
+    type Params = SResMut<CallbackTypeRegister>;
+
+    fn on_event(
+        &self,
+        event: Trigger<UiEvent<UiCheckBoxEvent>>,
+        theme_entity: Entity,
+        query_items: QueryItem<Self::ItemQuery>,
+        mut callback_register: SystemParamItem<Self::Params>,
+        commands: EntityCommands,
+    ) {
+        match event.kind{
+            crate::widgets::checkbox::UiCheckBoxEventKind::Down => {
+                play_asset_animation(
+                    query_items,
+                    &mut callback_register,
+                    self.checkbox_material_down.clone(),
+                    self.animation_duration,
+                    self.animation_ease.clone(),
+                    commands,
+                );
+            },
+            crate::widgets::checkbox::UiCheckBoxEventKind::Up => {
+                play_asset_animation(
+                    query_items,
+                    &mut callback_register,
+                    self.checkbox_material.clone(),
+                    self.animation_duration,
+                    self.animation_ease.clone(),
+                    commands,
+                );
+            },
+            _=>{}
+        }
     }
 }
 
