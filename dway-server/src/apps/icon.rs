@@ -1,7 +1,7 @@
 use std::{
     any::type_name,
     io::{self, SeekFrom},
-    path::Path,
+    path::{Path, PathBuf},
     pin::Pin,
     str::FromStr,
     sync::Arc,
@@ -18,7 +18,7 @@ use bevy::{
 };
 use bevy_svg::prelude::Svg;
 use dway_util::{asset_cache::AssetCachePlugin, try_or};
-use futures::{ready, AsyncSeek};
+use futures::{ready, AsyncSeek, Stream};
 use futures_lite::AsyncRead;
 use thiserror::Error;
 use winnow::{ascii::dec_uint, seq, token::take_while, PResult, Parser};
@@ -264,14 +264,14 @@ impl AssetReader for LinuxIconReader {
     fn read_directory<'a>(
         &'a self,
         path: &'a std::path::Path,
-    ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
+    ) -> impl ConditionalSendFuture<Output = Result<Box<PathStream>, AssetReaderError>> {
         Box::pin(async { Err(AssetReaderError::NotFound(path.to_owned())) })
     }
 
     fn is_directory<'a>(
         &'a self,
         _path: &'a Path,
-    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
+    ) -> impl ConditionalSendFuture<Output = Result<bool, AssetReaderError>> {
         Box::pin(async { Ok(false) })
     }
 }
