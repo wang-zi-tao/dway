@@ -1,4 +1,3 @@
-
 use bevy::{ecs::query::QueryData, input::keyboard::KeyboardInput, ui::RelativeCursorPosition};
 use bevy_relationship::reexport::SmallVec;
 
@@ -49,13 +48,26 @@ pub struct UiInput {
     pub input_grabed: bool,
     #[default(true)]
     pub grab_mouse_when_focused: bool,
-    pub self_interaction: Interaction,
+    pub prev_mouse_state: Interaction,
     pub mouse_state: Interaction,
 }
 
 impl UiInput {
     pub fn can_receive_keyboard_input(&self) -> bool {
         self.input_focused || self.input_grabed
+    }
+
+    pub fn set_mouse_state(&mut self, intereaction: Interaction) {
+        self.prev_mouse_state = self.mouse_state;
+        self.mouse_state = intereaction;
+    }
+
+    pub fn just_pressed(&self) -> bool {
+        self.mouse_state == Interaction::Pressed && self.prev_mouse_state != Interaction::Pressed
+    }
+
+    pub fn pressed(&self) -> bool {
+        self.mouse_state == Interaction::Pressed
     }
 }
 
@@ -152,7 +164,7 @@ pub fn update_ui_input(
             }
             _ => {}
         };
-        ui_focus.mouse_state = *interaction;
+        ui_focus.set_mouse_state(*interaction);
     }
     for key in keyboard_event.read() {
         for UiInputQueryItem {

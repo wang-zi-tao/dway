@@ -23,6 +23,14 @@ impl From<Entity> for UiWidgetRoot {
     }
 }
 
+pub mod zoffset{
+    pub const TEXT_SELECTION: f32 = -1.1;
+}
+
+pub mod zindex {
+    pub const TEXT_SELECTION: i32 = -8;
+}
+
 #[deprecated]
 #[derive(Component, Default)]
 pub struct Callback(pub Option<SystemId>);

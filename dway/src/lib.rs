@@ -143,6 +143,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             render_creation: RenderCreation::Automatic(WgpuSettings {
                 backends: Some(Backends::GL),
                 priority: bevy::render::settings::WgpuSettingsPriority::Functionality,
+                memory_hints: bevy::render::settings::MemoryHints::MemoryUsage,
                 ..Default::default()
             }),
             ..Default::default()

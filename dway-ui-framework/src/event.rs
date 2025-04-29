@@ -7,18 +7,38 @@ use std::{
 use bevy::{
     ecs::{
         system::{EntityCommand, EntityCommands, IntoObserverSystem, SystemState},
-        world::{Command},
+        world::Command,
     },
     reflect::List,
     utils::{hashbrown::hash_map::Entry, HashMap},
 };
-use bevy_relationship::reexport::{SmallVec, StorageType};
+use bevy_relationship::{
+    reexport::{SmallVec, StorageType},
+    EntityCommandsExt,
+};
 
 use crate::prelude::*;
 
 #[bevy_trait_query::queryable]
 pub trait EventReceiver<E> {
     fn on_event(&self, commands: EntityCommands, event: E);
+}
+
+#[macro_export]
+macro_rules! impl_event_receiver {
+    (impl EventReceiver<$event:ty> for $receiver:ty => $system:ident) => {
+        impl dway_ui_framework::event::EventReceiver<$event> for $receiver {
+            fn on_event(&self, mut commands: EntityCommands, event: $event) {
+                let entity = commands.id();
+                let system = $system;
+                commands.queue(move |entity_world_mut: EntityWorldMut<'_>| {
+                    let _ = entity_world_mut
+                        .into_world_mut()
+                        .run_system_cached_with(system, UiEvent::new(entity, entity, event));
+                });
+            }
+        }
+    };
 }
 
 #[derive(Clone, Debug, Event)]
@@ -95,8 +115,8 @@ impl<E> UiEvent<E> {
 }
 
 impl<E> SystemInput for UiEvent<E> {
-    type Param<'i> = Self;
     type Inner<'i> = Self;
+    type Param<'i> = Self;
 
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         this
@@ -243,6 +263,22 @@ impl<E: Clone + Send + Sync + 'static> Component for EventDispatcher<E> {
     }
 }
 
+pub fn send_trait_event<E: Clone + Send + Sync + 'static>(mut commands: EntityCommands, event: E) {
+    commands.queue(move |entity: Entity, world: &mut World, | {
+        let mut system_state =
+            SystemState::<(Query<All<&dyn EventReceiver<E>>>, Commands)>::new(world);
+        let (query, mut commands) = system_state.get(world);
+        if let Ok(trait_impls) = query.get(entity) {
+            let mut entity_commands = commands.entity(entity);
+            for impl_component in trait_impls {
+                impl_component.on_event(entity_commands.reborrow(), event.clone());
+            }
+        }
+
+        system_state.apply(world);
+    });
+}
+
 impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
     pub fn send(&self, event: E, commands: &mut Commands) {
         let sender = self.this_entity;
@@ -328,6 +364,18 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
                 event: event.clone(),
                 sender,
             });
+        }
+    }
+
+    pub fn try_send(this: Option<&Self>, event: E, sender: Entity, commands: &mut Commands){
+        if let Some(this) = this {
+            this.send(event, commands);
+        }else{
+            let this = Self{
+                this_entity: sender,
+                ..Default::default()
+            };
+            this.send(event, commands);
         }
     }
 }
@@ -460,10 +508,12 @@ impl CallbackTypeRegister {
         let type_id = system.type_id();
         match self.triggers.entry(type_id) {
             Entry::Occupied(o) => {
-                commands.entity(*o.get()).queue(move |mut c: EntityWorldMut| {
-                    let mut observer = c.get_mut::<Observer>().unwrap();
-                    observer.watch_entity(entity);
-                });
+                commands
+                    .entity(*o.get())
+                    .queue(move |mut c: EntityWorldMut| {
+                        let mut observer = c.get_mut::<Observer>().unwrap();
+                        observer.watch_entity(entity);
+                    });
             }
             Entry::Vacant(v) => {
                 let trigger = commands

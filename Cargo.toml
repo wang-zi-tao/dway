@@ -117,7 +117,7 @@ features = [
   # "tonemapping_luts",
   "default_font",
   "webgl2",
-  "bevy_debug_stepping",
+  # "bevy_debug_stepping",
 
   "async-io",
   "wayland",

@@ -6,14 +6,18 @@ use bevy::{
         core_2d::graph::Node2d,
         msaa_writeback::MsaaWritebackNode,
         tonemapping::{DebandDither, Tonemapping},
-    }, ecs::{
+    },
+    ecs::{
         entity::EntityHashMap,
         query::ROQueryItem,
         system::{
             lifetimeless::{Read, SRes},
             *,
         },
-    }, image::{ImageSampler, TextureFormatPixelInfo}, math::{Affine3, FloatOrd}, render::{
+    },
+    image::{ImageSampler, TextureFormatPixelInfo},
+    math::{Affine3, FloatOrd},
+    render::{
         batching::{
             no_gpu_preprocessing::{
                 batch_and_prepare_sorted_render_phase, clear_batched_cpu_instance_buffers,
@@ -23,7 +27,9 @@ use bevy::{
         },
         camera::extract_cameras,
         globals::{GlobalsBuffer, GlobalsUniform},
-        mesh::{allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo},
+        mesh::{
+            allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo,
+        },
         render_asset::{RenderAssetPlugin, RenderAssets},
         render_graph::{RenderGraphApp, ViewNodeRunner},
         render_phase::{
@@ -36,17 +42,21 @@ use bevy::{
         texture::{DefaultImageSampler, GpuImage},
         view::*,
         Extract, RenderApp, RenderSet,
-    }, sprite::{
+    },
+    sprite::{
         tonemapping_pipeline_key, Material2d, Material2dBindGroupId, Material2dKey,
         Material2dPipeline, Mesh2dPipelineKey, MeshFlags, PreparedMaterial2d, MESH2D_SHADER_HANDLE,
-    }, ui::{
+    },
+    ui::{
         graph::{NodeUi, SubGraphUi},
-        TransparentUi, UiStack,
-    }
+        TransparentUi,
+    },
 };
 
 use self::graph::NodeUiExt;
 use crate::{make_bundle, prelude::*};
+
+use super::UiRenderOffset;
 
 pub mod graph {
     use bevy::render::render_graph::RenderLabel;
@@ -59,7 +69,7 @@ pub mod graph {
 
 #[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq, Deref, DerefMut)]
 #[reflect(Component)]
-#[require(UiMeshTransform, Node)]
+#[require(UiMeshTransform, Node, Mesh2d)]
 pub struct UiMeshHandle(Handle<Mesh>);
 
 #[derive(Component, Deref, DerefMut, Debug, Clone, Reflect)]
@@ -78,6 +88,9 @@ impl UiMeshTransform {
     pub fn new(transform: Transform) -> Self {
         Self(transform)
     }
+    pub fn new_ui_transform() -> Self {
+        Self(Transform::default())
+    }
 }
 
 impl From<Handle<Mesh>> for UiMeshHandle {
@@ -90,6 +103,8 @@ impl From<Handle<Mesh>> for UiMeshHandle {
 pub struct UiMeshPlugin;
 impl Plugin for UiMeshPlugin {
     fn build(&self, app: &mut App) {
+        app.register_type::<UiMeshTransform>()
+            .register_type::<UiMeshHandle>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<RenderUiMesh2dInstances>()
@@ -114,7 +129,10 @@ impl Plugin for UiMeshPlugin {
                             .after(RenderSet::Render),
                     ),
                 )
-                .add_render_graph_node::<ViewNodeRunner<MsaaWritebackNode>>(SubGraphUi, NodeUiExt::MsaaWriteback)
+                .add_render_graph_node::<ViewNodeRunner<MsaaWritebackNode>>(
+                    SubGraphUi,
+                    NodeUiExt::MsaaWriteback,
+                )
                 .add_render_graph_edge(
                     SubGraphUi,
                     Node2d::EndMainPassPostProcessing,
@@ -209,12 +227,13 @@ pub fn extract_ui_mesh_node(
     mut render_mesh_instances: ResMut<RenderUiMesh2dInstances>,
     query: Extract<
         Query<(
-        Entity,
+            Entity,
             &ComputedNode,
             &ViewVisibility,
             &UiMeshTransform,
             &GlobalTransform,
             &UiMeshHandle,
+            Option<&UiRenderOffset>,
             Option<&TargetCamera>,
             Has<NoAutomaticBatching>,
             Option<&CalculatedClip>,
@@ -227,68 +246,70 @@ pub fn extract_ui_mesh_node(
     render_mesh_instances.clear();
     for (
         main_entity,
-            computed_node,
-            view_visibility,
-            mesh_transform,
-            transform,
-            handle,
-            target_camera,
-            no_automatic_batching,
-            clip,
-        ) in query.iter(){
+        computed_node,
+        view_visibility,
+        mesh_transform,
+        transform,
+        handle,
+        zoffset,
+        target_camera,
+        no_automatic_batching,
+        clip,
+    ) in query.iter()
+    {
         if !view_visibility.get() {
-                continue;
-            }
+            continue;
+        }
 
-            let Some(camera_entity) = target_camera
-                .map(TargetCamera::entity)
-                .or(default_ui_camera.get())
-            else {
-                continue;
-            };
-            let Ok(camera_entity) = render_entity_lookup.get(camera_entity) else {
-                continue;
-            };
+        let Some(camera_entity) = target_camera
+            .map(TargetCamera::entity)
+            .or(default_ui_camera.get())
+        else {
+            continue;
+        };
+        let Ok(camera_entity) = render_entity_lookup.get(camera_entity) else {
+            continue;
+        };
 
-            let rect = Rect::from_center_size(transform.translation().xy(), computed_node.size());
-            let clip_rect = clip.map(|clip| clip.clip).unwrap_or(rect).intersect(rect);
-            let clip_offset = clip_rect.center() - rect.center();
+        let rect = Rect::from_center_size(transform.translation().xy(), computed_node.size());
+        let clip_rect = clip.map(|clip| clip.clip).unwrap_or(rect).intersect(rect);
+        let clip_offset = clip_rect.center() - rect.center();
 
-            let Ok(extracted_view) = view_query.get(camera_entity) else {
-                continue;
-            };
-            let viewport_size = extracted_view.viewport.zw().as_vec2();
+        let Ok(extracted_view) = view_query.get(camera_entity) else {
+            continue;
+        };
+        let viewport_size = extracted_view.viewport.zw().as_vec2();
+        let zoffset = zoffset.map(|z| z.0).unwrap_or_default();
 
-            if clip_rect.width() > 0.0 && clip_rect.height() > 0.0 {
-                render_mesh_instances.insert(
-                    commands.spawn(TemporaryRenderEntity).id(),
-                    RenderUiMeshInstance {
-                        transforms: Mesh2dTransforms {
-                            transform: (&GlobalTransform::default()
-                                .mul_transform(
-                                    Transform::from_scale(
-                                        ((viewport_size) / clip_rect.size()).extend(1.0),
-                                    )
-                                    .with_translation(viewport_size.extend(0.0) * 0.5),
+        if clip_rect.width() > 0.0 && clip_rect.height() > 0.0 {
+            render_mesh_instances.insert(
+                commands.spawn(TemporaryRenderEntity).id(),
+                RenderUiMeshInstance {
+                    transforms: Mesh2dTransforms {
+                        transform: (&GlobalTransform::default()
+                            .mul_transform(
+                                Transform::from_scale(
+                                    ((viewport_size) / clip_rect.size()).extend(1.0),
                                 )
-                                .mul_transform(Transform::from_translation(
-                                    -clip_offset.extend(0.0),
-                                ))
-                                .mul_transform(**mesh_transform)
-                                .affine())
-                                .into(),
-                            flags: MeshFlags::empty().bits(),
-                            rect: clip_rect,
-                        },
-                        mesh_asset_id: handle.0.id(),
-                        material_bind_group_id: Material2dBindGroupId::default(),
-                        automatic_batching: !no_automatic_batching,
-                        stack_index: computed_node.stack_index(),
-                        camera: camera_entity,
-                        main_entity,
+                                .with_translation(viewport_size.extend(0.0) * 0.5),
+                            )
+                            .mul_transform(Transform::from_translation(-clip_offset.extend(0.0)))
+                            .mul_transform(**mesh_transform)
+                            .affine())
+                            .into(),
+                        flags: MeshFlags::empty().bits(),
+                        rect: clip_rect,
                     },
-                );
-            }
+                    mesh_asset_id: handle.0.id(),
+                    material_bind_group_id: Material2dBindGroupId::default(),
+                    automatic_batching: !no_automatic_batching,
+                    stack_index: computed_node.stack_index(),
+                    camera: camera_entity,
+                    main_entity,
+                    zoffset,
+                },
+            );
+        }
     }
 }
 
@@ -726,6 +747,7 @@ pub struct RenderUiMeshInstance {
     pub automatic_batching: bool,
     pub camera: Entity,
     pub main_entity: Entity,
+    pub zoffset: f32,
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
@@ -752,7 +774,8 @@ pub fn queue_ui_meshes<M: Material2d>(
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     for (entity, mesh_instance) in render_mesh_instances.iter_mut() {
-        let Some(material_asset_id) = render_material_instances.get(&mesh_instance.main_entity) else {
+        let Some(material_asset_id) = render_material_instances.get(&mesh_instance.main_entity)
+        else {
             continue;
         };
         let Some(material2d) = render_materials.get(*material_asset_id) else {
@@ -762,13 +785,12 @@ pub fn queue_ui_meshes<M: Material2d>(
             continue;
         };
 
-        let Ok((view, msaa, tonemapping, dither)) =
-            views.get_mut(mesh_instance.camera)
-        else {
+        let Ok((view, msaa, tonemapping, dither)) = views.get_mut(mesh_instance.camera) else {
             continue;
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&mesh_instance.camera) else {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&mesh_instance.camera)
+        else {
             continue;
         };
 
@@ -811,8 +833,11 @@ pub fn queue_ui_meshes<M: Material2d>(
         mesh_instance.material_bind_group_id = material2d.get_bind_group_id();
 
         transparent_phase.add(TransparentUi {
-            sort_key: (FloatOrd(mesh_instance.stack_index as f32), entity.index()),
-            entity: ( *entity, MainEntity::from(mesh_instance.main_entity) ),
+            sort_key: (
+                FloatOrd(mesh_instance.stack_index as f32 + mesh_instance.zoffset),
+                entity.index(),
+            ),
+            entity: (*entity, MainEntity::from(mesh_instance.main_entity)),
             pipeline: pipeline_id,
             draw_function: draw_transparent_pbr,
             batch_range: 0..1,

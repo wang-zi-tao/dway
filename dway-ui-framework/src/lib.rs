@@ -16,6 +16,7 @@ pub mod theme;
 pub mod util;
 pub mod widget;
 pub mod widgets;
+pub mod text;
 
 pub mod reexport {
     #[cfg(feature = "hot_reload")]
@@ -69,6 +70,7 @@ impl Plugin for UiFrameworkPlugin {
             AssetCachePlugin::<Svg>::default(),
         ))
         .add_plugins((
+            text::UiTextPlugin::default(),
             widgets::slider::UiSliderPlugin,
             widgets::scroll::UiScrollPlugin,
             widgets::combobox::UiComboBoxPlugin,
@@ -86,8 +88,6 @@ impl Plugin for UiFrameworkPlugin {
         .register_type::<UiButton>()
         .register_type::<UiSvg>()
         .register_type::<UiPopup>()
-        .register_type::<UiMeshHandle>()
-        .register_type::<UiMeshTransform>()
         .register_type::<SvgLayout>()
         .register_type::<input::UiInput>()
         .register_type::<animation::Animation>()

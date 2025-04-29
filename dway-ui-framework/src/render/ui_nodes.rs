@@ -8,7 +8,7 @@ use std::{
 use bevy::{
     asset::UntypedAssetId,
     ecs::{
-        entity::EntityHashSet,
+        entity::{EntityHashMap, EntityHashSet, EntityHasher},
         query::ROQueryItem,
         system::{
             lifetimeless::{Read, SRes},
@@ -25,8 +25,8 @@ use bevy::{
             ViewSortedRenderPhases,
         },
         render_resource::{
-            BindGroup, BindGroupEntries, BindGroupLayout,
-            BufferUsages, PipelineCache, RawBufferVec, SpecializedRenderPipelines,
+            BindGroup, BindGroupEntries, BindGroupLayout, BufferUsages, PipelineCache,
+            RawBufferVec, SpecializedRenderPipelines,
         },
         renderer::{RenderDevice, RenderQueue},
         sync_world::{MainEntity, RenderEntity},
@@ -48,7 +48,8 @@ impl Plugin for UiNodeRenderPlugin {
             render_app
                 .init_resource::<NodeIndex>()
                 .init_resource::<UnTypedUiMaterialPipeline>()
-                .init_resource::<RenderUiNodeSet>()
+                .init_resource::<UiBufferSet>()
+                .init_resource::<UiBatchMap>()
                 // .add_systems(ExtractSchedule, extract_ui_nodes)
                 .add_systems(
                     Render,
@@ -70,9 +71,7 @@ impl<M: UiMaterial<Data = ()>> Plugin for UiMaterialPlugin<M> {
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
             .register_type::<MaterialNode<M>>()
-            .add_plugins((
-                RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),
-            ));
+            .add_plugins((RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -97,7 +96,7 @@ impl<M: UiMaterial<Data = ()>> Plugin for UiMaterialPlugin<M> {
                     .insert(TypeId::of::<M>(), pipeline);
             }
             {
-                let mut node_set = render_app.world_mut().resource_mut::<RenderUiNodeSet>();
+                let mut node_set = render_app.world_mut().resource_mut::<UiBufferSet>();
                 node_set.vertex_buffer.insert(
                     TypeId::of::<M>(),
                     UiVertexList {
@@ -253,15 +252,17 @@ pub struct UiMaterialVertex {
     pub border_widths: [f32; 4],
 }
 
-#[derive(Component)]
 pub struct UiBatch {
     pub range: Range<u32>,
     pub material: UntypedAssetId,
 }
 
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct UiBatchMap(pub EntityHashMap<UiBatch>);
+
 structstruck::strike! {
     #[derive(Resource, SmartDefault)]
-    pub struct RenderUiNodeSet{
+    pub struct UiBufferSet{
         #[default(RawBufferVec::new(BufferUsages::VERTEX))]
         pub vertices: RawBufferVec<UiMaterialVertex>,
         pub vertex_buffer: HashMap<TypeId,
@@ -339,23 +340,22 @@ pub fn queue_ui_nodes<M: UiMaterial<Data = ()>>(
 }
 
 pub fn prepare_ui_nodes(
-    mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     extracted_uinodes: Query<(&ExtractedNode, &ExtractedUntypedMaterial)>,
     pipelines: Res<UnTypedUiMaterialPipeline>,
-    mut render_ui_nodes: ResMut<RenderUiNodeSet>,
+    mut render_ui_nodes: ResMut<UiBufferSet>,
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut previous_len: Local<usize>,
+    mut batches: ResMut<UiBatchMap>,
 ) {
     render_ui_nodes.vertices.clear();
+    batches.clear();
     if let (Some(view_binding), Some(globals_binding)) = (
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
     ) {
-        let mut batches: Vec<(Entity, UiBatch)> = Vec::with_capacity(*previous_len);
         let mut pedding_batch: Option<(UntypedAssetId, Entity, UiBatch)> = Default::default();
         let mut index = 0;
 
@@ -383,7 +383,7 @@ pub fn prepare_ui_nodes(
                     let pedding_batch = pedding_batch.get_or_insert_with(&mut create_batch);
                     if pedding_batch.0 != asset_id {
                         let finished_batch = std::mem::replace(pedding_batch, create_batch());
-                        batches.push((finished_batch.1, finished_batch.2));
+                        batches.insert(finished_batch.1, finished_batch.2);
                     }
 
                     let uinode_rect = extracted_uinode.rect;
@@ -463,13 +463,13 @@ pub fn prepare_ui_nodes(
                     pedding_batch.2.range.end = index;
                     ui_phase.items[batch_item_index].batch_range_mut().end += 1;
                 } else if let Some(pedding_batch) = pedding_batch.take() {
-                    batches.push((pedding_batch.1, pedding_batch.2));
+                    batches.insert(pedding_batch.1, pedding_batch.2);
                 }
             }
         }
 
         if let Some(pedding_batch) = pedding_batch {
-            batches.push((pedding_batch.1, pedding_batch.2));
+            batches.insert(pedding_batch.1, pedding_batch.2);
         }
 
         for (type_id, ui_meta) in &mut render_ui_nodes.vertex_buffer {
@@ -484,8 +484,6 @@ pub fn prepare_ui_nodes(
         render_ui_nodes
             .vertices
             .write_buffer(&render_device, &render_queue);
-        *previous_len = batches.len();
-        commands.insert_or_spawn_batch(batches);
     }
 }
 
@@ -499,16 +497,19 @@ pub type DrawUiMaterial<M> = (
 pub struct SetMatUiViewBindGroup<M: UiMaterial, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P> for SetMatUiViewBindGroup<M, I> {
     type ItemQuery = ();
-    type Param = SRes<RenderUiNodeSet>;
+    type Param = (SRes<UiBufferSet>, SRes<UiBatchMap>);
     type ViewQuery = Read<ViewUniformOffset>;
 
     fn render<'w>(
-        _item: &P,
+        item: &P,
         view_uniform: &'w ViewUniformOffset,
         _entity: Option<()>,
-        render_ui_nodes: SystemParamItem<'w, '_, Self::Param>,
+        (render_ui_nodes, batches): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(batch) = batches.get(&item.entity()) else {
+            return RenderCommandResult::Skip;
+        };
         pass.set_bind_group(
             I,
             render_ui_nodes.into_inner().vertex_buffer[&TypeId::of::<M>()]
@@ -525,21 +526,21 @@ pub struct SetUiMaterialBindGroup<M: UiMaterial, const I: usize>(PhantomData<M>)
 impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
     for SetUiMaterialBindGroup<M, I>
 {
-    type ItemQuery = Read<UiBatch>;
-    type Param = SRes<RenderAssets<PreparedUiMaterial<M>>>;
+    type ItemQuery = ();
+    type Param = (SRes<RenderAssets<PreparedUiMaterial<M>>>, SRes<UiBatchMap>);
     type ViewQuery = ();
 
     fn render<'w>(
-        _item: &P,
+        item: &P,
         _view: (),
-        material_handle: Option<ROQueryItem<'_, Self::ItemQuery>>,
-        materials: SystemParamItem<'w, '_, Self::Param>,
+        _: Option<ROQueryItem<'_, Self::ItemQuery>>,
+        (materials, batches): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(material_handle) = material_handle else {
+        let Some(batch) = batches.get(&item.entity()) else {
             return RenderCommandResult::Skip;
         };
-        let Some(material) = materials.into_inner().get(material_handle.material.typed()) else {
+        let Some(material) = materials.into_inner().get(batch.material.typed()) else {
             debug!(material_type=%type_name::<M>(), "the ui material is not prepared");
             return RenderCommandResult::Skip;
         };
@@ -550,21 +551,20 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
 
 pub struct DrawUiMaterialNode<M>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
-    type ItemQuery = Read<UiBatch>;
-    type Param = SRes<RenderUiNodeSet>;
+    type ItemQuery = ();
+    type Param = (SRes<UiBufferSet>, SRes<UiBatchMap>);
     type ViewQuery = ();
 
     #[inline]
     fn render<'w>(
-        _item: &P,
+        item: &P,
         _view: (),
-        batch: Option<&'w UiBatch>,
-        ui_meta: SystemParamItem<'w, '_, Self::Param>,
+        _: Option<()>,
+        (ui_meta, batches): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(batch) = batch else {
-            debug!(material_type=%type_name::<M>(), "the entity has no UiBatch");
-            return RenderCommandResult::Failure("the entity has no UiBatch");
+        let Some(batch) = batches.get(&item.entity()) else {
+            return RenderCommandResult::Skip;
         };
 
         pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
