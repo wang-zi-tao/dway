@@ -50,13 +50,7 @@ pub fn main() {
         .insert_resource(ClearColor(Color::WHITE))
         .add_systems(Startup,setup)
         .add_systems(Update,input_event_system);
-    app.finish();
-    app.cleanup();
-    for i in 0.. {
-        info!("frame {i}");
-        app.update();
-        std::thread::sleep(Duration::from_secs_f64(1.0 / 144.0));
-    }
+    app.run();
 }
 
 fn setup(

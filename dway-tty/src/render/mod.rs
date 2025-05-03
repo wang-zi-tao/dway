@@ -7,26 +7,27 @@ use bevy::{
     ecs::entity::EntityHashMap,
     prelude::*,
     render::{
+        extract_component::{ExtractComponent, ExtractComponentPlugin},
         render_asset::RenderAssets,
         renderer::RenderDevice,
+        sync_component::SyncComponentPlugin,
+        sync_world::{MainEntity, RenderEntity, SyncToRenderWorld, TemporaryRenderEntity},
         texture::GpuImage,
         Extract, Render, RenderApp, RenderSet,
     },
+    ui::ExtractedUiItem,
     utils::{hashbrown::hash_map::Entry, HashMap},
 };
 use drm::control::framebuffer;
 use drm_fourcc::DrmFormat;
+use dway_util::temporary::TemporaryEntity;
 use tracing::{span, Level};
 use wgpu::core::hal_api::HalApi;
 use wgpu_hal::api::Gles;
 
 use self::gles::GlesRenderFunctions;
 use crate::{
-    drm::{
-        connectors::Connector,
-        surface::DrmSurface,
-        DrmDevice,
-    },
+    drm::{connectors::Connector, surface::DrmSurface, DrmDevice, ExtractedDrmDevice},
     gbm::GbmDevice,
 };
 
@@ -43,6 +44,10 @@ pub enum TtyRenderError {
     #[error("the hal texture is invalid")]
     EglInstanceIsNotInitialized,
     #[error("egl instance is not initialized")]
+    TextureIsNotValid,
+    #[error("texture is not valid")]
+    FrameBufferIsNotValid,
+    #[error("frame buffer is not valid")]
     HalTextureIsInvalid,
     #[error("failed to create swapchain: {0}")]
     CreateSwapchain(Error),
@@ -69,7 +74,6 @@ pub enum TtyRenderError {
 #[derive(Resource, Default)]
 pub struct TtyRenderState {
     pub buffers: HashMap<framebuffer::Handle, GpuImage>,
-    pub entity_map: EntityHashMap<Entity>,
     pub formats: Option<Vec<DrmFormat>>,
     pub cache: RenderCache,
 }
@@ -84,6 +88,7 @@ pub enum RenderCache {
 pub struct TtyRenderPlugin;
 impl Plugin for TtyRenderPlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugins(SyncComponentPlugin::<DrmSurface>::default());
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<TtyRenderState>()
@@ -99,8 +104,7 @@ impl Plugin for TtyRenderPlugin {
                     commit_drm_surface::<gles::GlTtyRender>
                         .run_if(resource_exists::<TtySwapchains<gles::GlTtyRender>>)
                         .in_set(RenderSet::Cleanup),
-                )
-            ;
+                );
         }
     }
 }
@@ -110,7 +114,7 @@ pub trait TtyRender: Send + Sync + 'static {
     type Surface: Send + Sync;
     type Api: HalApi;
 
-    fn new(device: &<Self::Api as wgpu_hal::Api>::Device) -> Result<Self>
+    fn new(device: &<Self::Api as wgpu_hal::Api>::Device) -> Result<Self, TtyRenderError>
     where
         Self: Sized;
 
@@ -120,26 +124,26 @@ pub trait TtyRender: Send + Sync + 'static {
         drm_surface: &DrmSurface,
         drm: &DrmDevice,
         gbm: &GbmDevice,
-    ) -> Result<Self::Swapchain>;
+    ) -> Result<Self::Swapchain, TtyRenderError>;
 
     unsafe fn acquire_surface(
         &mut self,
         device: &<Self::Api as wgpu_hal::Api>::Device,
         swapchain: &mut Self::Swapchain,
-    ) -> Result<Self::Surface>;
+    ) -> Result<Self::Surface, TtyRenderError>;
 
     unsafe fn discard_surface(
         &mut self,
         device: &<Self::Api as wgpu_hal::Api>::Device,
         surface: Self::Surface,
-    ) -> Result<()>;
+    ) -> Result<(), TtyRenderError>;
 
     unsafe fn copy_image(
         &mut self,
         device: &<Self::Api as wgpu_hal::Api>::Device,
         surface: &mut Self::Surface,
         image: &<Self::Api as wgpu_hal::Api>::Texture,
-    ) -> Result<()>;
+    ) -> Result<(), TtyRenderError>;
 
     unsafe fn commit(
         &mut self,
@@ -191,8 +195,8 @@ pub fn init_render(render_device: Res<RenderDevice>, mut commands: Commands) {
 }
 
 pub fn commit_drm_surface<R: TtyRender>(
-    surface_query: Query<(Entity, &DrmSurface, &Parent)>,
-    drm_query: Query<(&DrmDevice, &GbmDevice)>,
+    surface_query: Query<(Entity, &ExtractedDrmSurface)>,
+    drm_query: Query<&ExtractedDrmDevice>,
     render_device: Res<RenderDevice>,
     mut state: ResMut<TtySwapchains<R>>,
     render_images: ResMut<RenderAssets<GpuImage>>,
@@ -204,8 +208,13 @@ pub fn commit_drm_surface<R: TtyRender>(
         swapchains, render, ..
     } = &mut *state;
 
-    for (entity, drm_surface, drm_entity) in surface_query.iter() {
-        let Ok((drm, gbm)) = drm_query.get(drm_entity.get()) else {
+    for (entity, extracted_drm_surface) in surface_query.iter() {
+        let ExtractedDrmSurface {
+            surface: drm_surface,
+            device_entity: drm_entity,
+            ..
+        } = extracted_drm_surface;
+        let Ok(ExtractedDrmDevice { device: drm, gbm }) = drm_query.get(*drm_entity) else {
             error!("drm or gbm device not found");
             continue;
         };
@@ -253,9 +262,10 @@ pub fn commit_drm_surface<R: TtyRender>(
                             hal_texture.ok_or_else(|| TtyRenderError::HalTextureIsInvalid)?;
                         render.copy_image(hal_device, &mut surface, hal_texture)
                     })?;
-                    debug!("copy image success");
 
                     render.commit(swapchain, &mut surface, drm_surface, drm)?;
+
+                    render.discard_surface(hal_device, surface)?;
 
                     Ok(())
                 })
@@ -268,27 +278,32 @@ pub fn commit_drm_surface<R: TtyRender>(
     }
 }
 
+#[derive(Component)]
+pub struct ExtractedDrmSurface {
+    pub surface: DrmSurface,
+    pub connector: Connector,
+    pub device_entity: Entity,
+}
+
 #[tracing::instrument(skip_all)]
 pub fn extract_drm_surfaces(
-    surface_query: Extract<Query<(&DrmSurface, &Connector, &Parent)>>,
-    drm_query: Extract<Query<(Entity, &DrmDevice, &GbmDevice)>>,
-    mut state: ResMut<TtyRenderState>,
+    surface_query: Extract<
+        Query<(&DrmSurface, &Connector, &Parent, RenderEntity)>,
+    >,
+    drm_query: Extract<Query<RenderEntity>>,
     mut commands: Commands,
 ) {
-    drm_query
+    surface_query
         .iter()
-        .for_each(|(entity, drm_device, gbm_device)| {
-            let render_entity = commands
-                .spawn((drm_device.clone(), gbm_device.clone()))
-                .id();
-            state.entity_map.insert(entity, render_entity);
+        .for_each(|(surface, conn, parent, render_entity)| {
+            let Ok(drm_device_entity) = drm_query.get(parent.get()) else {
+                todo!();//TODO
+                return;
+            };
+            commands.entity(render_entity).insert(ExtractedDrmSurface {
+                surface: surface.clone(),
+                connector: conn.clone(),
+                device_entity: drm_device_entity,
+            });
         });
-    surface_query.iter().for_each(|(surface, conn, parent)| {
-        let mut entity_command = commands.spawn((surface.clone(), conn.clone()));
-        if let Some(parent_entity) = state.entity_map.get(&parent.get()) {
-            entity_command.set_parent(*parent_entity);
-        } else {
-            error!("parent entity is not extracted");
-        }
-    });
 }

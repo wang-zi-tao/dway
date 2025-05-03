@@ -18,12 +18,6 @@ use dway_tty::{drm::surface::DrmSurface, DWayTTYPlugin};
 use tracing::Level;
 use wgpu::Backends;
 
-const THREAD_POOL_CONFIG: TaskPoolThreadAssignmentPolicy = TaskPoolThreadAssignmentPolicy {
-    min_threads: 1,
-    max_threads: 1,
-    percent: 0.25,
-};
-
 pub fn main() {
     let mut app = App::new();
     app.add_plugins({
@@ -51,76 +45,95 @@ pub fn main() {
         .add_systems(Startup,setup)
         .add_systems(Update,animate_cube)
         .add_systems(Update,input_event_system);
-    app.finish();
-    app.cleanup();
-    for i in 0..64 {
-        info!("frame {i}");
-        app.update();
-        std::thread::sleep(Duration::from_secs_f64(1.0 / 144.0));
-    }
+    app.run();
 }
 
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    materials_2d: ResMut<Assets<ColorMaterial>>,
     surface_query: Query<&DrmSurface>,
 ) {
     info!("setup world");
 
     if std::env::var("DISPLAY").is_ok() || std::env::var("WAYLAND_DISPLAY").is_ok() {
-        commands.spawn((Camera3dBundle {
-            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            tonemapping: Tonemapping::None,
-            ..default()
-        },));
+        commands.spawn((
+            Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Camera3d::default(),
+            IsDefaultUiCamera,
+        ));
         info!("setup camera");
     }
-    for surface in surface_query.iter() {
+
+    for (i, surface) in surface_query.iter().enumerate() {
         let image_handle = surface.image();
-        commands.spawn((Camera2dBundle {
-            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            camera: Camera {
-                target: RenderTarget::Image(image_handle),
+        let mut entity_command = commands.spawn((
+            Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Camera3d::default(),
+            Camera {
+                target: RenderTarget::Image(image_handle.clone()),
                 ..default()
             },
-            tonemapping: Tonemapping::None,
-            ..default()
-        },));
+        ));
+        if i == 0 {
+            entity_command.insert(IsDefaultUiCamera);
+        }
         info!("setup camera");
     }
 
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 36000.,
-            shadows_enabled: true,
-            ..default()
+    commands.spawn((
+        Text::new("drm3d"),
+        TextFont {
+            font_size: 24.0,
+            ..Default::default()
         },
-        transform: Transform::from_xyz(0.0, 1.5, 0.0),
-        ..default()
-    });
+        TextColor(Color::rgba(1.0, 0.0, 0.0, 1.0)),
+        Node {
+            left: Val::Px(64.0),
+            top: Val::Px(64.0),
+            ..Default::default()
+        },
+    ));
 
-    commands.spawn(NodeBundle{
-        background_color: BackgroundColor(Color::rgb(0.8, 0.8, 0.8)),
-        node: Node {
+    commands.spawn((
+        BackgroundColor(Color::rgb(0.8, 0.8, 0.8)),
+        Node {
             width: Val::Px(64.),
             height: Val::Px(64.),
             ..Default::default()
         },
-        ..Default::default()
-    });
+    ));
 
-    commands.spawn(PbrBundle {
-        mesh: Mesh3d(meshes.add(Mesh::from(Sphere::default()))),
-        material: standard_materials.add(StandardMaterial::from_color( Color::rgb(0.8, 0.7, 0.6) )).into(),
-        ..default()
-    });
+    commands.spawn((
+        PointLight {
+            intensity: 10_000_000.,
+            shadows_enabled: true,
+            ..default()
+        },
+        Transform::from_xyz(2.0, 2.5, 2.0),
+    ));
+
+    commands.spawn((
+        Mesh3d(meshes.add(Mesh::from(Cuboid::default()))),
+        MeshMaterial3d(
+            standard_materials.add(StandardMaterial::from_color(Color::linear_rgb(
+                0.0, 0.0, 1.0,
+            ))),
+        ),
+    ));
+
+    commands.spawn((
+        Mesh3d(meshes.add(Mesh::from(Plane3d::new(Vec3::Y, Vec2::splat(16.0))))),
+        MeshMaterial3d(
+            standard_materials.add(StandardMaterial::from_color(Color::rgb(0.5, 0.5, 0.5))),
+        ),
+        Transform::from_xyz(0.0, -1.0, 0.0),
+    ));
 }
 
 pub fn animate_cube(time: Res<Time>, mut query: Query<&mut Transform, With<Mesh3d>>) {
     for mut transform in &mut query {
-        transform.rotate_local_z(time.delta_secs());
+        transform.rotate_local_y(time.delta_secs());
     }
 }
 
@@ -132,6 +145,6 @@ pub fn input_event_system(
         if event.key_code == KeyCode::Escape {
             exit.send(AppExit::Success);
         }
-        dbg!(event);
+        info!("receive keyboard input: {:?}", event);
     }
 }

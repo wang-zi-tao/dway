@@ -10,6 +10,8 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
 use bevy::prelude::*;
+use bevy::render::extract_component::ExtractComponent;
+use bevy::render::extract_component::ExtractComponentPlugin;
 use bevy::render::Render;
 use bevy::render::RenderApp;
 use bevy::ui::ui_focus_system;
@@ -459,6 +461,29 @@ impl std::ops::Deref for DrmDevice {
         &self.fd
     }
 }
+
+#[derive(Component)]
+pub struct ExtractedDrmDevice {
+    pub device: DrmDevice,
+    pub gbm: GbmDevice,
+}
+
+impl ExtractComponent for DrmDevice {
+    type Out = ExtractedDrmDevice;
+    type QueryData = (&'static DrmDevice, &'static GbmDevice);
+    type QueryFilter = ();
+
+    fn extract_component(
+        (drm, gbm): bevy::ecs::query::QueryItem<'_, Self::QueryData>,
+    ) -> Option<Self::Out> {
+        Some(ExtractedDrmDevice {
+            device: drm.clone(),
+            gbm: gbm.clone(),
+        })
+    }
+}
+
+
 pub enum DrmConnectorEvent {
     Added(connector::Info),
     Removed(connector::Info, Option<Entity>),
@@ -802,6 +827,7 @@ pub struct DrmPlugin;
 impl Plugin for DrmPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PreStartup, setup)
+            .add_plugins(ExtractComponentPlugin::<DrmDevice>::default())
             .add_systems(First, on_udev_event.in_set(DWayTTYSet::UdevSystem))
             .add_systems(
                 PreUpdate,

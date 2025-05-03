@@ -19,9 +19,7 @@ use measure_time::debug_time;
 use tracing::{span, Level};
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 
-use super::{
-    connectors::Connector, planes::PlaneConfig, DrmDevice, DrmDeviceFd, PropMap,
-};
+use super::{connectors::Connector, planes::PlaneConfig, DrmDevice, DrmDeviceFd, PropMap};
 use crate::{
     drm::{planes::Planes, DrmDeviceState},
     failure::DWayTTYError::*,
@@ -177,12 +175,7 @@ impl DrmSurface {
         self.inner.lock().unwrap().size()
     }
 
-    pub fn commit_buffer(
-        &self,
-        conn: connector::Handle,
-        drm: &DrmDevice,
-        buffer: &GbmBuffer,
-    ) -> Result<()> {
+    pub fn commit_buffer(&self, drm: &DrmDevice, buffer: &GbmBuffer) -> Result<()> {
         let self_guard = self.inner.lock().unwrap();
         let drm_guard = drm.inner.lock().unwrap();
 
@@ -196,7 +189,7 @@ impl DrmSurface {
                 let size = self_guard.size();
                 let req = create_request(
                     &self_guard,
-                    conn,
+                    self_guard.connector,
                     &[(
                         self_guard.planes.primary.handle,
                         Some(PlaneConfig {
@@ -225,9 +218,15 @@ impl DrmSurface {
                     debug_time!("atomic_commit");
                     drm.atomic_commit(
                         AtomicCommitFlags::ALLOW_MODESET | AtomicCommitFlags::NONBLOCK,
-                        req,
+                        req.clone(),
                     )
                     .map_err(|e| anyhow!("failed to commit drm atomic request: {e}"))?;
+
+                    drm.atomic_commit(
+                        AtomicCommitFlags::ALLOW_MODESET | AtomicCommitFlags::NONBLOCK,
+                        req,
+                    )
+                    .map_err(|e| anyhow!("failed to commit drm atomic request: {e}"))?; // TODO
 
                     debug!("commmit drm render buffer");
                 }
@@ -242,6 +241,10 @@ impl DrmSurface {
 
     pub fn image(&self) -> Handle<Image> {
         self.image.clone()
+    }
+
+    pub fn handle(&self) -> drm::control::connector::Handle {
+        self.inner.lock().unwrap().connector
     }
 }
 
@@ -456,8 +459,6 @@ mod test {
     use bevy::prelude::*;
     use drm_fourcc::DrmFormat;
     use dway_util::eventloop::{EventLoopPlugin, EventLoopPluginMode};
-    
-    
 
     use super::DrmSurface;
     use crate::{

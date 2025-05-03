@@ -1,23 +1,31 @@
 use std::{os::fd::AsRawFd, ptr::null_mut};
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use bevy::utils::HashSet;
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use gbm::EGLImage;
 use glow::HasContext;
 use khronos_egl::{Boolean, EGLClientBuffer, EGLContext, EGLDisplay, Enum, Int};
+use measure_time::debug_time;
+use scopeguard::defer;
 use tracing::{debug, trace};
 use wgpu_hal::{
     api::Gles,
     gles::{Device, Texture, TextureInner},
 };
 
+pub fn call_gl<R>(gl: &glow::Context, f: impl FnOnce() -> R) -> Result<R, TtyRenderError> {
+    let r = f();
+    let err = unsafe { gl.get_error() };
+    if err != 0 {
+        return Err(TtyRenderError::GLError(err));
+    }
+    Ok(r)
+}
+
 use super::{TtyRender, TtyRenderError};
 use crate::{
-    drm::{
-        surface::DrmSurface,
-        DrmDevice,
-    },
+    drm::{surface::DrmSurface, DrmDevice},
     gbm::{buffer::GbmBuffer, GbmDevice},
 };
 pub type EGLInstance = khronos_egl::DynamicInstance<khronos_egl::EGL1_4>;
@@ -108,7 +116,7 @@ impl TtyRender for GlTtyRender {
         drm_surface: &DrmSurface,
         drm: &DrmDevice,
         gbm: &GbmDevice,
-    ) -> Result<Self::Swapchain> {
+    ) -> Result<Self::Swapchain, TtyRenderError> {
         let egl_context = device.context();
         let gl = &egl_context.lock();
         let egl_display = egl_context
@@ -139,7 +147,7 @@ impl TtyRender for GlTtyRender {
         &mut self,
         device: &Device,
         swapchain: &mut Self::Swapchain,
-    ) -> Result<Self::Surface> {
+    ) -> Result<Self::Surface, TtyRenderError> {
         let egl_context = device.context();
         let gl = &egl_context.lock();
 
@@ -155,7 +163,11 @@ impl TtyRender for GlTtyRender {
         })
     }
 
-    unsafe fn discard_surface(&mut self, device: &Device, surface: Self::Surface) -> Result<()> {
+    unsafe fn discard_surface(
+        &mut self,
+        device: &Device,
+        surface: Self::Surface,
+    ) -> Result<(), TtyRenderError> {
         let egl_context = device.context();
         let gl = &egl_context.lock();
 
@@ -169,44 +181,57 @@ impl TtyRender for GlTtyRender {
         device: &Device,
         surface: &mut Self::Surface,
         image: &Texture,
-    ) -> Result<()> {
+    ) -> Result<(), TtyRenderError> {
+        let width = image.copy_size.width as i32;
+        let height = image.copy_size.height as i32;
         let egl_context = device.context();
         let gl = &egl_context.lock();
 
-        let TextureInner::Texture { raw: src_raw, .. } = &image.inner else {
-            bail!("input image is not a renderbuffer!");
+        let TextureInner::Texture {
+            raw: src_raw,
+            target: src_target,
+        } = &image.inner
+        else {
+            return Err(TtyRenderError::TextureIsNotValid);
         };
 
-        gl.bind_framebuffer(glow::FRAMEBUFFER, Some(surface.frame_buffer));
-        gl.bind_texture(glow::TEXTURE_2D, Some(*src_raw));
-        gl.framebuffer_renderbuffer(
-            glow::FRAMEBUFFER,
+
+        gl.bind_framebuffer(glow::DRAW_FRAMEBUFFER, Some(surface.frame_buffer));
+        defer! {gl.bind_framebuffer(glow::DRAW_FRAMEBUFFER, None);};
+
+        call_gl(gl, || {
+            gl.framebuffer_renderbuffer(
+                glow::DRAW_FRAMEBUFFER,
+                glow::COLOR_ATTACHMENT0,
+                glow::RENDERBUFFER,
+                Some(surface.render_buffer),
+            )
+        })?;
+
+        let texture_framebuffer = gl.create_framebuffer().unwrap();
+        gl.bind_framebuffer(glow::READ_FRAMEBUFFER, Some(texture_framebuffer));
+        defer! {
+            gl.bind_framebuffer(glow::READ_FRAMEBUFFER, None);
+            gl.delete_framebuffer(texture_framebuffer);
+        };
+        gl.bind_texture(*src_target, Some(*src_raw));
+        gl.framebuffer_texture_2d(
+            glow::READ_FRAMEBUFFER,
             glow::COLOR_ATTACHMENT0,
-            glow::RENDERBUFFER,
-            Some(surface.render_buffer),
-        );
-
-        gl.clear_color(0.0, 0.0, 1.0, 0.0); // TODO
-        gl.clear(glow::COLOR_BUFFER_BIT);
-
-        gl.copy_tex_sub_image_2d(
             glow::TEXTURE_2D,
+            Some(*src_raw),
             0,
-            0,
-            0,
-            0,
-            0,
-            ( image.copy_size.width /2 ) as i32,
-            ( image.copy_size.height /2 ) as i32,
         );
-        gl.generate_mipmap(glow::TEXTURE_2D);
-        gl.bind_framebuffer(glow::FRAMEBUFFER, None);
-        gl.bind_texture(glow::TEXTURE_2D, None);
 
-        // debug_output_texture("copy_to_drm", gl, *src_raw, UVec2::new(image.copy_size.width, image.copy_size.height).as_ivec2()); // TODO
+        call_gl(gl, || {
+            gl.blit_framebuffer(0, 0, width, height, 0, 0, width, height, glow::COLOR_BUFFER_BIT, glow::LINEAR)
+        })?;
 
-        gl.finish();
-        gl.flush();
+        {
+            debug_time!("wait gl operation");
+            gl.flush();
+            gl.finish();
+        }
 
         debug!("copy image to surface");
 
@@ -214,7 +239,7 @@ impl TtyRender for GlTtyRender {
     }
 
     #[tracing::instrument(skip_all)]
-    fn new(device: &<Self::Api as wgpu_hal::Api>::Device) -> Result<Self>
+    fn new(device: &<Self::Api as wgpu_hal::Api>::Device) -> Result<Self, TtyRenderError>
     where
         Self: Sized,
     {
@@ -236,8 +261,7 @@ impl TtyRender for GlTtyRender {
         drm_surface: &DrmSurface,
         drm: &DrmDevice,
     ) -> Result<()> {
-        let conn = { drm_surface.inner.lock().unwrap().connector };
-        drm_surface.commit_buffer(conn, drm, &swapchain.buffer)
+        drm_surface.commit_buffer(drm, &swapchain.buffer)
     }
 }
 
@@ -484,12 +508,11 @@ unsafe fn do_create_renderbuffer(
         .create_renderbuffer()
         .map_err(|e| anyhow!("failed to create gl renderbuffer: {}", e))?;
     gl.bind_renderbuffer(glow::RENDERBUFFER, Some(renderbuffer));
-    (functions.gl_eglimage_target_renderbuffer_storage_oes)(glow::RENDERBUFFER, image);
+    call_gl(gl, || {
+        (functions.gl_eglimage_target_renderbuffer_storage_oes)(glow::RENDERBUFFER, image)
+    })
+    .with_context(|| "EGLImageTargetRenderbufferStorageOES")?;
     gl.bind_renderbuffer(glow::RENDERBUFFER, None);
 
-    let error = gl.get_error();
-    if error != 0 {
-        bail!("gl error: EGLImageTargetRenderbufferStorageOES: {error}");
-    }
     Ok(renderbuffer)
 }

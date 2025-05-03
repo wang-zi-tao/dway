@@ -46,4 +46,4 @@ smol_str = {workspace=true}
 derive_more = {workspace=true}
 
 [dev-dependencies]
-bevy = {workspace=true, features=["bevy_pbr","animation"]}
+bevy = {workspace=true, default-features=true, features=["bevy_pbr","animation"]}

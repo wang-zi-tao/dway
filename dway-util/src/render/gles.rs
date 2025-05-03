@@ -61,7 +61,7 @@ pub fn debug_output_texture(name: &str, gl: &glow::Context, texture: NativeTextu
             ImageBuffer::from_vec(size.x as u32, size.y as u32, buffer).unwrap();
         let snapshtip_count = std::fs::read_dir(".snapshot").unwrap().count();
         let path = format!(".snapshot/{name}_{}.png", snapshtip_count + 1);
-        info!("take snapshot, save at ${path}");
+        info!("take snapshot, save at {path}");
         image.save(&path).unwrap();
     }
 }
