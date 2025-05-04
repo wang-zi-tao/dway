@@ -3992,6 +3992,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bevy 0.15.2",
+ "bevy-inspector-egui",
  "bevy-relationship",
  "bevy-relationship-derive",
  "bevy_dexterous_developer",

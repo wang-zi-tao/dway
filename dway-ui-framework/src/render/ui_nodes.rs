@@ -156,9 +156,9 @@ pub fn extract_ui_nodes<M: UiMaterial>(
     >,
     mut extracted_node_query: Query<(&mut ExtractedNode, &mut ExtractedUntypedMaterial)>,
     mut node_index: ResMut<NodeIndex>,
-    mut removed_node: RemovedComponents<Node>,
-    mut removed_clip: RemovedComponents<CalculatedClip>,
-    mut removed_target_camera: RemovedComponents<TargetCamera>,
+    mut removed_node: Extract<RemovedComponents<Node>>,
+    mut removed_clip: Extract<RemovedComponents<CalculatedClip>>,
+    mut removed_target_camera: Extract<RemovedComponents<TargetCamera>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     render_entity_lookup: Extract<Query<RenderEntity>>,
     mut commands: Commands,
@@ -170,8 +170,8 @@ pub fn extract_ui_nodes<M: UiMaterial>(
         .collect::<EntityHashSet>();
 
     for node_entity in removed_node.read() {
-        if let Some(node) = node_index.get(&(TypeId::of::<M>(), MainEntity::from(node_entity))) {
-            commands.get_entity(*node).map(|mut c| c.despawn());
+        if let Some(node) = node_index.remove(&(TypeId::of::<M>(), MainEntity::from(node_entity))) {
+            commands.get_entity(node).map(|mut c| c.despawn());
         }
     }
 
