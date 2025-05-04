@@ -9,9 +9,7 @@ use bevy::{
 };
 use nix::sys::{signal, signal::Signal};
 use smallvec::SmallVec;
-use tracing_subscriber::{
-    fmt::MakeWriter, Layer,
-};
+use tracing_subscriber::{fmt::MakeWriter, Layer};
 
 #[derive(Debug)]
 pub struct LogLine {
@@ -97,8 +95,7 @@ pub fn log_layer(app: &mut App) -> Option<BoxedLayer> {
     let (log_file, log_file_guard) = tracing_appender::non_blocking(file_appender);
     app.insert_non_send_resource(log_file_guard);
 
-    let layers = (tracing_subscriber::fmt::Layer::new().with_writer(std::io::stderr))
-        .and_then(tracing_subscriber::fmt::Layer::new().with_writer(log_file))
+    let layers = (tracing_subscriber::fmt::Layer::new().with_writer(log_file))
         .and_then(tracing_journald::Layer::new().unwrap());
 
     if let Some(mut cache) = app.world_mut().get_non_send_resource_mut::<LoggerCache>() {

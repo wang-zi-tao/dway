@@ -478,6 +478,7 @@ mod test {
             DWayTtySchedulePlugin,
             EventLoopPlugin {
                 mode: EventLoopPluginMode::ManualMode,
+                ..Default::default()
             },
             SeatPlugin,
             UDevPlugin {

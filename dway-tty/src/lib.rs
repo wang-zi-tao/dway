@@ -5,7 +5,10 @@
 use std::time::{Duration, Instant};
 
 use bevy::{
-    app::{AppExit, PluginsState}, ecs::event::EventCursor, prelude::*, window::RequestRedraw
+    app::{AppExit, PluginsState},
+    ecs::event::EventCursor,
+    prelude::*,
+    window::RequestRedraw,
 };
 use drm::DrmPlugin;
 use dway_util::eventloop::{EventLoopPlugin, EventLoopPluginMode, Poller, PollerRequest};
@@ -24,10 +27,14 @@ pub mod udev;
 pub mod util;
 pub mod window;
 
-#[derive(Resource, Debug, SmartDefault)]
+#[derive(Resource, Debug, Clone, SmartDefault)]
 pub struct DWayTTYSettings {
     #[default(Duration::from_secs_f32(1.0/144.0))]
     pub frame_duration: Duration,
+    #[default(EventLoopPluginMode::ManualMode)]
+    pub update_mode: EventLoopPluginMode,
+    #[default(Duration::from_secs(0))]
+    pub max_frame_duration: Duration,
 }
 
 #[derive(Default)]
@@ -35,10 +42,13 @@ pub struct DWayTTYPlugin {}
 
 impl Plugin for DWayTTYPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<DWayTTYSettings>();
+        let settings = app.world().resource::<DWayTTYSettings>().clone();
         app.add_plugins((
             DWayTtySchedulePlugin,
             EventLoopPlugin {
-                mode: EventLoopPluginMode::ManualMode,
+                mode: settings.update_mode.clone(),
+                timeout: settings.max_frame_duration,
             },
             seat::SeatPlugin,
             libinput::LibInputPlugin,

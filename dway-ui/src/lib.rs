@@ -19,7 +19,7 @@ use dway_client_core::{
     UiAttachData,
 };
 use dway_server::geometry::GlobalGeometry;
-use dway_tty::drm::surface::DrmSurface;
+use dway_tty::drm::{connectors::Connector, surface::DrmSurface};
 use dway_ui_framework::{
     render::layer_manager::LayerManager,
     theme::{ThemeComponent, WidgetKind},
@@ -172,43 +172,58 @@ ScreenUI=>
 
 fn init_screen_ui(
     trigger: Trigger<OnAdd, Screen>,
-    screen_query: Query<(Entity, Option<&DrmSurface>)>,
+    screen_query: Query<(&DrmSurface, &Connector)>,
+    window_query: Query<&Window>,
     mut commands: Commands,
-    mut camera_count: Local<usize>,
 ) {
-    if let Ok((entity, drm_surface)) = screen_query.get(trigger.entity()) {
-        let target = if let Some(drm_surface) = drm_surface {
-            let image_handle = drm_surface.image();
-            RenderTarget::Image(image_handle)
-        } else {
-            RenderTarget::Window(WindowRef::Entity(entity))
-        };
-        let camera = commands.spawn((
-            Name::new("camera"),
+    let entity = trigger.entity();
+    let (name, target) = if let Ok((drm_surface, connector)) = screen_query.get(entity) {
+        let image_handle = drm_surface.image();
+        (
+            connector.name().to_string(),
+            RenderTarget::Image(image_handle),
+        )
+    } else if let Ok(window) = window_query.get(entity) {
+        (
+            window
+                .name
+                .clone()
+                .unwrap_or_else(|| "winit_screen_monitor".to_string()),
+            RenderTarget::Window(WindowRef::Entity(entity)),
+        )
+    } else {
+        error!(
+            ?entity,
+            "the screen entity has neigher a DrmSurface component nor a Window component"
+        );
+        return;
+    };
+
+    let camera = commands
+        .spawn((
+            Name::new(name),
             Msaa::Sample4,
             Camera2d,
             Camera {
                 target: target.clone(),
                 ..default()
             },
-            LayerManager::default()
-                .with_render_target(RenderTarget::Window(WindowRef::Entity(entity))),
-        )).id();
+            LayerManager::default().with_window_target(entity),
+        ))
+        .id();
 
-        commands.entity(entity).insert(LayoutStyle {
-            padding: LayoutRect {
-                top: 160,
-                ..Default::default()
-            },
+    commands.entity(entity).insert(LayoutStyle {
+        padding: LayoutRect {
+            top: 160,
             ..Default::default()
-        });
+        },
+        ..Default::default()
+    });
 
-        commands
-            .spawn((
-                TargetCamera(camera),
-                ScreenUIBundle::from(ScreenUI { screen: entity }),
-            ))
-            .connect_to::<UiAttachData>(entity);
-        *camera_count += 1;
-    }
+    commands
+        .spawn((
+            TargetCamera(camera),
+            ScreenUIBundle::from(ScreenUI { screen: entity }),
+        ))
+        .connect_to::<UiAttachData>(entity);
 }

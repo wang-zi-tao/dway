@@ -56,7 +56,7 @@ dway_server::render::importnode=debug,\
 dway_server::zxdg::decoration=debug,\
 dway_client_core=info,\
 dway_util::eventloop=info,\
-dway_tty=info,\
+dway_tty=trace,\
 nega::front=info,\
 naga=warn,\
 wgpu=info,\
@@ -171,6 +171,8 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     if use_tty {
         app.insert_resource(DWayTTYSettings {
             frame_duration: Duration::from_secs_f32(1.0 / opts.frame_rate),
+            max_frame_duration: Duration::from_secs(1),
+            ..Default::default()
         });
         app.add_plugins((DWayTTYPlugin::default(),));
     } else {

@@ -14,13 +14,14 @@ use bevy::{
     app::{AppExit, MainScheduleOrder},
     ecs::schedule::{ExecutorKind, ScheduleLabel},
     prelude::*,
-    utils::HashMap, winit::WakeUp,
+    utils::HashMap,
+    winit::WakeUp,
 };
 use nix::sys::{
-        time::TimeSpec,
-        timer::{Expiration, TimerSetTimeFlags},
-        timerfd::{ClockId, TimerFd, TimerFlags},
-    };
+    time::TimeSpec,
+    timer::{Expiration, TimerSetTimeFlags},
+    timerfd::{ClockId, TimerFd, TimerFlags},
+};
 pub use polling::AsSource;
 use polling::{Event, Events, PollMode};
 use smallvec::SmallVec;
@@ -103,14 +104,8 @@ impl<Fd: AsSource> Drop for PollerGuard<Fd> {
     }
 }
 
-impl Default for Poller {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Poller {
-    pub fn new() -> Self {
+    pub fn new(timeout: Duration) -> Self {
         let poller = polling::Poller::new().unwrap();
         let timer = TimerFd::new(ClockId::CLOCK_REALTIME, TimerFlags::TFD_CLOEXEC).unwrap();
         unsafe {
@@ -127,7 +122,7 @@ impl Poller {
                 raw: poller,
                 timer,
                 fds: Default::default(),
-                timeout: Duration::from_secs(1),
+                timeout,
             }),
             tx: None,
             rx: None,
@@ -400,13 +395,15 @@ fn on_frame_finish(mut poller: NonSendMut<Poller>, exit: EventReader<AppExit>) {
 }
 
 structstruck::strike! {
-    #[derive(SmartDefault)]
+    #[derive(SmartDefault, Debug)]
     pub struct EventLoopPlugin {
-        pub mode: #[derive(Default,Clone)] enum EventLoopPluginMode {
+        pub mode: #[derive(Default,Debug,Clone)] enum EventLoopPluginMode {
             #[default]
             WinitMode,
             ManualMode,
-        }
+        },
+        #[default(Duration::from_secs(1))]
+        pub timeout: Duration,
     }
 }
 
@@ -418,7 +415,7 @@ pub enum PollerSystems {
 
 impl Plugin for EventLoopPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.insert_non_send_resource(Poller::new());
+        app.insert_non_send_resource(Poller::new(self.timeout));
         match &self.mode {
             EventLoopPluginMode::WinitMode => {
                 let mut poller_schedule = Schedule::new(PollerSchedule);

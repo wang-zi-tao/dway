@@ -16,7 +16,7 @@ use bevy::{
     transform::components::Transform,
     ui::{ui_focus_system, UiSystem},
     utils::HashMap,
-    window::PrimaryWindow,
+    window::{PrimaryWindow, WindowRef},
 };
 use bevy_relationship::reexport::Entity;
 
@@ -407,7 +407,7 @@ impl BlurLayer {
 }
 
 #[derive(Component, Debug, Reflect, Clone)]
-#[require(SetWindowTarget(||SetWindowTarget(None)))]
+#[require(SetWindowTarget(||SetWindowTarget(None)), Camera)]
 #[component(on_insert=on_insert_layer_manager)]
 #[component(on_replace=on_replace_layer_manager)]
 pub struct LayerManager {
@@ -486,6 +486,11 @@ impl LayerManager {
         self
     }
 
+    pub fn with_window_target(mut self, entity: Entity) -> Self {
+        self.window_target = RenderTarget::Window(WindowRef::Entity(entity));
+        self
+    }
+
     pub fn get_ui_background(&self, kind: LayerKind) -> Handle<Image> {
         match kind {
             LayerKind::Normal => Default::default(),
@@ -514,6 +519,7 @@ fn on_insert_layer_manager(mut world: DeferredWorld, entity: Entity, _: Componen
     layer_manager.base_layer.camera = entity;
     layer_manager.canvas_layer = canvas_layer;
     layer_manager.blur_layer = blur_layer;
+    layer_manager.render_target = render_target;
 }
 
 fn on_replace_layer_manager(mut world: DeferredWorld, entity: Entity, _: ComponentId) {

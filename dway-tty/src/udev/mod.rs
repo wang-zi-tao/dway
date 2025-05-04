@@ -89,6 +89,8 @@ impl Plugin for UDevPlugin {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use bevy::{log::LogPlugin, prelude::App};
     use dway_util::eventloop::Poller;
 
@@ -97,7 +99,7 @@ mod tests {
     #[test]
     pub fn test_udev_plugin() {
         App::new()
-            .insert_non_send_resource(Poller::new())
+            .insert_non_send_resource(Poller::new(Duration::from_secs(1)))
             .add_plugins((
                 LogPlugin::default(),
                 UDevPlugin {

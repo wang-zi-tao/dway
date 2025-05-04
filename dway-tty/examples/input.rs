@@ -19,6 +19,7 @@ pub fn main() {
         .add_plugins((
             EventLoopPlugin {
                 mode: EventLoopPluginMode::ManualMode,
+                ..Default::default()
             },
             LogPlugin {
                 level: Level::DEBUG,

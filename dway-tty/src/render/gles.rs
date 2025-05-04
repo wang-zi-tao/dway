@@ -223,9 +223,11 @@ impl TtyRender for GlTtyRender {
             0,
         );
 
+        gl.disable(glow::FRAMEBUFFER_SRGB);
         call_gl(gl, || {
             gl.blit_framebuffer(0, 0, width, height, 0, 0, width, height, glow::COLOR_BUFFER_BIT, glow::LINEAR)
         })?;
+        gl.enable(glow::FRAMEBUFFER_SRGB);
 
         {
             debug_time!("wait gl operation");
