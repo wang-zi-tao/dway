@@ -218,12 +218,6 @@ impl DrmSurface {
                     debug_time!("atomic_commit");
                     drm.atomic_commit(
                         AtomicCommitFlags::ALLOW_MODESET | AtomicCommitFlags::NONBLOCK,
-                        req.clone(),
-                    )
-                    .map_err(|e| anyhow!("failed to commit drm atomic request: {e}"))?;
-
-                    drm.atomic_commit(
-                        AtomicCommitFlags::ALLOW_MODESET | AtomicCommitFlags::NONBLOCK,
                         req,
                     )
                     .map_err(|e| anyhow!("failed to commit drm atomic request: {e}"))?; // TODO
