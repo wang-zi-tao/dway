@@ -124,7 +124,7 @@ impl WlSurface {
         }
     }
 
-    pub fn resize(&mut self, assets: &mut Assets<Image>, size: IVec2) {
+    pub fn resize(&mut self, size: IVec2) -> Image {
         let image_size = Extent3d {
             width: size.x as u32,
             height: size.y as u32,
@@ -135,20 +135,39 @@ impl WlSurface {
             ..default()
         };
         image.resize(image_size);
-        assets.insert(self.image.id(), image);
+
         debug!(resource=%self.raw.id(), origin_size = ?self.size, "resize image to {:?}", size);
         self.size = Some(size);
         self.commited
             .damages
             .push(IRect::from_pos_size((0, 0).into(), size));
         self.just_commit = true;
+
+        image
+    }
+
+    fn window_area_in_image(&self) -> IRect {
+        let image_rect = IRect::from_pos_size(IVec2::ZERO, self.size.unwrap_or_default());
+        let window_geometry = self
+            .commited
+            .window_geometry
+            .unwrap_or(image_rect)
+            .intersection(image_rect);
+        window_geometry
     }
 
     pub fn image_rect(&self) -> IRect {
-        IRect::from_pos_size(
-            -self.commited.window_geometry.unwrap_or_default().pos(),
-            self.size.unwrap_or_default(),
-        )
+        let window_area = self.window_area_in_image();
+        IRect::from_pos_size(-window_area.pos(), self.size.unwrap_or_default())
+    }
+
+    pub fn calculate_toplevel_size(&self, size: IVec2) -> IVec2 {
+        let window_area = self.window_area_in_image();
+        if let Some(window_geometry) = self.commited.window_geometry {
+            size + (window_geometry.size() - window_area.size())
+        } else {
+            size
+        }
     }
 }
 #[derive(Component)]
@@ -261,78 +280,74 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 let _enterd = span!(Level::DEBUG, "commit").entered();
                 let frame_count = state.world().resource::<FrameCount>().0;
                 let _system = || {};
-                let Some(( old_buffer_entity, buffer_entity, input_region_entity, opaque_region_entity )) =
-                    state.query_object::<(
-                        &mut WlSurface,
-                        Option<&mut Geometry>,
-                        Option<&mut XdgPopup>,
-                    ), _, _>(
-                        resource,
-                        |(mut surface, geometry, popup)| {
-                            let old_buffer_entity = surface.commited.buffer;
-                            if let Some(v) = surface.pending.buffer.take() {
-                                surface.commited.buffer = v;
-                            }
-                            if let Some(v) = surface.pending.position.take() {
-                                let _ = surface.commited.position.insert(v);
-                            }
-                            if let Some(v) = surface.pending.opaque_region.take() {
-                                let _ = surface.commited.opaque_region.insert(v);
-                            }
-                            if let Some(v) = surface.pending.input_region.take() {
-                                let _ = surface.commited.input_region.insert(v);
-                            }
-                            if let Some(v) = surface.pending.scale.take() {
-                                let _ = surface.commited.scale.insert(v);
-                            }
-                            if let Some(offset) = surface.pending.offset.take() {
-                                *surface.commited.offset.get_or_insert_default() += offset;
-                            }
-                            if let Some(window_geometry) = surface.pending.window_geometry.take() {
-                                let _ = *surface.commited.window_geometry.insert(window_geometry);
-                                if let Some(mut geometry) = geometry {
-                                    geometry.geometry.set_size(window_geometry.size());
+                let Some((
+                    old_buffer_entity,
+                    buffer_entity,
+                    input_region_entity,
+                    opaque_region_entity,
+                )) = state.query_object::<(&mut WlSurface, Option<&mut XdgPopup>), _, _>(
+                    resource,
+                    |(mut surface, popup)| {
+                        let old_buffer_entity = surface.commited.buffer;
+                        if let Some(v) = surface.pending.buffer.take() {
+                            surface.commited.buffer = v;
+                        }
+                        if let Some(v) = surface.pending.position.take() {
+                            let _ = surface.commited.position.insert(v);
+                        }
+                        if let Some(v) = surface.pending.opaque_region.take() {
+                            let _ = surface.commited.opaque_region.insert(v);
+                        }
+                        if let Some(v) = surface.pending.input_region.take() {
+                            let _ = surface.commited.input_region.insert(v);
+                        }
+                        if let Some(v) = surface.pending.scale.take() {
+                            let _ = surface.commited.scale.insert(v);
+                        }
+                        if let Some(offset) = surface.pending.offset.take() {
+                            *surface.commited.offset.get_or_insert_default() += offset;
+                        }
+
+                        if let Some(wl_buffer) = surface.pending.wl_buffer.take() {
+                            surface.commited.wl_buffer.as_ref().map(|b| {
+                                if b.is_alive() {
+                                    b.release()
                                 }
-                            }
-                            if let Some(wl_buffer) = surface.pending.wl_buffer.take() {
-                                surface.commited.wl_buffer.as_ref().map(|b| {
-                                    if b.is_alive() {
-                                        b.release()
-                                    }
-                                });
-                                surface.commited.wl_buffer = wl_buffer;
-                            }
-                            let damages = surface.pending.damages.drain(..).collect::<Vec<_>>();
-                            surface.commited.damages.extend(damages);
-                            let callbacks = surface.pending.callbacks.drain(..).collect::<Vec<_>>();
-                            surface.commited.callbacks.extend(callbacks);
+                            });
+                            surface.commited.wl_buffer = wl_buffer;
+                        }
+                        let damages = surface.pending.damages.drain(..).collect::<Vec<_>>();
+                        surface.commited.damages.extend(damages);
+                        let callbacks = surface.pending.callbacks.drain(..).collect::<Vec<_>>();
+                        surface.commited.callbacks.extend(callbacks);
 
-                            surface.just_commit = true;
-                            surface.commit_time = frame_count;
-                            surface.commit_count += 1;
+                        surface.just_commit = true;
+                        surface.commit_time = frame_count;
+                        surface.commit_count += 1;
 
-                            if let Some(mut popup) = popup {
-                                if !popup.send_configure {
-                                    let size = surface.size.unwrap_or_default();
-                                    popup.raw.configure(0, 0, size.x, size.y);
-                                    popup.send_configure = true;
-                                }
+                        if let Some(mut popup) = popup {
+                            if !popup.send_configure {
+                                let size = surface.size.unwrap_or_default();
+                                popup.raw.configure(0, 0, size.x, size.y);
+                                popup.send_configure = true;
                             }
+                        }
 
-                            (
-                                old_buffer_entity,
-                                surface.commited.buffer,
-                                surface.commited.input_region,
-                                surface.commited.opaque_region,
-                            )
-                        },
-                    )else{return};
+                        (
+                            old_buffer_entity,
+                            surface.commited.buffer,
+                            surface.commited.input_region,
+                            surface.commited.opaque_region,
+                        )
+                    },
+                )
+                else {
+                    return;
+                };
                 if let Some(buffer_entity) = buffer_entity {
                     state.connect::<AttachmentRelationship>(*data, buffer_entity);
-                    state.send_event(BufferAttached {
-                        surface_entity: *data,
-                        buffer_entity,
-                    });
+
+                    update_buffer_size(state, *data, buffer_entity);
                 } else if let Some(old_buffer_entity) = old_buffer_entity {
                     state.disconnect::<AttachmentRelationship>(*data, old_buffer_entity);
                 }
@@ -342,6 +357,23 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 if let Some(e) = opaque_region_entity {
                     state.connect::<SurfaceHasOpaqueRegion>(*data, e)
                 }
+
+                state.query_object::<(&mut WlSurface, Option<&mut Geometry>), _, _>(
+                    resource,
+                    |(mut surface, geometry)| {
+                        if let Some(window_geometry) = surface.pending.window_geometry.take() {
+                            let _ = *surface.commited.window_geometry.insert(window_geometry);
+                            if let Some(mut geometry) = geometry {
+                                let window_geometry = surface.window_area_in_image();
+                                geometry.geometry.set_size(window_geometry.size());
+                            }
+                        } else if surface.commited.window_geometry.is_none() {
+                            if let Some(mut geometry) = geometry {
+                                geometry.geometry.set_size(surface.size.unwrap_or_default());
+                            }
+                        }
+                    },
+                );
             }
             wl_surface::Request::SetBufferTransform { transform: _ } => todo!(),
             wl_surface::Request::SetBufferScale { scale } => {
@@ -470,12 +502,6 @@ pub struct WlSurfacePlugin;
 impl Plugin for WlSurfacePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(First, cleanup_surface);
-        app.add_systems(
-            PreUpdate,
-            update_buffer_size
-                .run_if(on_event::<BufferAttached>)
-                .in_set(DWayServerSet::UpdateImage),
-        );
         app.register_type::<WlSurface>();
         app.register_relation::<AttachmentRelationship>();
         app.register_relation::<ClientHasSurface>();
@@ -483,34 +509,23 @@ impl Plugin for WlSurfacePlugin {
         app.register_relation::<SurfaceHasOpaqueRegion>();
     }
 }
-pub fn update_buffer_size(
-    mut events: EventReader<BufferAttached>,
-    buffer_query: Query<(Option<&WlShmBuffer>, Option<&DmaBuffer>)>,
-    mut surface_query: Query<&mut WlSurface>,
-    mut assets: ResMut<Assets<Image>>,
-) {
-    for BufferAttached {
-        surface_entity,
-        buffer_entity,
-    } in events.read()
-    {
-        let Ok((shm_buffer, dma_buffer)) = buffer_query.get(*buffer_entity) else {
-            continue;
-        };
-        let Ok(mut surface) = surface_query.get_mut(*surface_entity) else {
-            continue;
-        };
 
-        let size = if let Some(shm_buffer) = shm_buffer {
-            shm_buffer.size
-        } else if let Some(dma_buffer) = dma_buffer {
-            dma_buffer.size
-        } else {
-            continue;
-        };
+pub fn update_buffer_size(state: &mut DWay, surface_entity: Entity, buffer_entity: Entity) {
+    let entity_ref = state.entity(buffer_entity);
+    let size = if let Some(shm_buffer) = entity_ref.get::<WlShmBuffer>() {
+        shm_buffer.size
+    } else if let Some(dma_buffer) = entity_ref.get::<DmaBuffer>() {
+        dma_buffer.size
+    } else {
+        return;
+    };
 
-        if surface.size != Some(size) {
-            surface.resize(&mut assets, size);
-        }
+    let mut surface = state.get_mut::<WlSurface>(surface_entity).unwrap();
+    if surface.size != Some(size) {
+        let image = surface.resize(size);
+        let handle = surface.image.clone();
+
+        let mut assets = state.resource_mut::<Assets<Image>>();
+        assets.insert(&handle, image);
     }
 }

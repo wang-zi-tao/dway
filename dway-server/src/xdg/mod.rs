@@ -173,7 +173,7 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                 height,
             } => {
                 if let Some(mut c) = state.get_mut::<WlSurface>(*data) {
-                    let rect = IRect::from_pos_size(IVec2::new(x, y), IVec2::new(width, height));
+                    let mut rect = IRect::from_pos_size(IVec2::new(x, y), IVec2::new(width, height));
                     if c.pending.window_geometry != Some(rect) {
                         c.pending.window_geometry = Some(rect);
                     }

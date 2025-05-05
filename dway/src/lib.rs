@@ -31,7 +31,7 @@ use dway_client_core::{
     workspace::{Workspace, WorkspaceBundle, WorkspaceSet},
     DWayClientSetting, OutputType,
 };
-use dway_server::apps::{icon::LinuxIconSourcePlugin, launchapp::RunCommandRequest};
+use dway_server::{apps::{icon::LinuxIconSourcePlugin, launchapp::RunCommandRequest}, xdg::DWayWindow};
 use dway_tty::{DWayTTYPlugin, DWayTTYSettings};
 use dway_ui_framework::diagnostics::UiDiagnosticsPlugin;
 use dway_util::{
@@ -181,7 +181,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         {
             app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
             app.add_plugins(bevy_inspector_egui::quick::FilterQueryInspectorPlugin::<
-                With<dway_ui_framework::render::mesh::UiMeshTransform>,
+                With<DWayWindow>,
             >::default());
         }
     }

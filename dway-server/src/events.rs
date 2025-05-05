@@ -84,12 +84,6 @@ pub struct WindowAppIdChanged {
 }
 
 #[derive(Event)]
-pub struct BufferAttached{
-    pub surface_entity: Entity,
-    pub buffer_entity: Entity,
-}
-
-#[derive(Event)]
 pub struct WindowAttachedToApp{
     pub app_entity: Entity,
     pub window_entity: Entity,
@@ -117,7 +111,6 @@ impl Plugin for EventPlugin {
         app.add_event::<DispatchDisplay>();
         app.add_event::<DispatchXWaylandDisplay>();
         app.add_event::<WindowAppIdChanged>();
-        app.add_event::<BufferAttached>();
         app.add_event::<WindowAttachedToApp>();
         app.add_event::<XWindowChanged>();
         app.add_event::<XWindowAttachSurfaceRequest>();

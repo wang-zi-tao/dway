@@ -17,7 +17,7 @@ impl Dispatch<zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDevice
     fn request(
         state: &mut Self,
         _client: &wayland_server::Client,
-        _resource: &zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1,
+        resource: &zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1,
         request: <zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1 as WlResource>::Request,
         data: &Entity,
         _dhandle: &DisplayHandle,
@@ -30,9 +30,20 @@ impl Dispatch<zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDevice
             zwp_primary_selection_device_manager_v1::Request::GetDevice { id, seat: _ } => {
                 state.spawn_child_object(*data, id, data_init, PrimarySelectionDevice::new);
             }
-            zwp_primary_selection_device_manager_v1::Request::Destroy => todo!(),
+            zwp_primary_selection_device_manager_v1::Request::Destroy => {
+                state.despawn_object(*data, resource);
+            },
             _ => todo!(),
         }
+    }
+
+    fn destroyed(
+        state: &mut DWay,
+        _client: wayland_backend::server::ClientId,
+        resource: &zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1,
+        data: &bevy::prelude::Entity,
+    ) {
+        state.despawn_object(*data, resource);
     }
 }
 

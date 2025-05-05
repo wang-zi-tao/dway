@@ -10,7 +10,7 @@ use crate::{
     },
     prelude::*,
     resource::ResourceWrapper,
-    wl::surface::ClientHasSurface,
+    wl::surface::{ClientHasSurface, WlSurface},
 };
 
 #[derive(Component)]
@@ -52,7 +52,7 @@ impl XdgToplevel {
         }
     }
 
-    pub fn configure(&self, data: &DWayToplevel) {
+    pub fn configure(&self, surface: &WlSurface, data: &DWayToplevel) {
         let mut states = vec![];
 
         states.extend((xdg_toplevel::State::Activated as u32).to_le_bytes());
@@ -63,18 +63,13 @@ impl XdgToplevel {
             states.extend((xdg_toplevel::State::Fullscreen as u32).to_le_bytes());
         }
 
+        let size = surface.calculate_toplevel_size(data.size.unwrap_or_default());
+
         if self.raw.version() >= xdg_toplevel::EVT_CONFIGURE_BOUNDS_SINCE {
-            self.raw.configure_bounds(
-                data.size.unwrap_or_default().x,
-                data.size.unwrap_or_default().y,
-            );
+            self.raw.configure_bounds(size.x, size.y);
         }
 
-        self.raw.configure(
-            data.size.unwrap_or_default().x,
-            data.size.unwrap_or_default().y,
-            states,
-        );
+        self.raw.configure(size.x, size.y, states);
     }
 }
 
@@ -250,7 +245,8 @@ graph_query!(InputGraph=>[
 pub struct ToplevelWorldQuery {
     xdg_obj: &'static mut XdgToplevel,
     data: &'static mut DWayToplevel,
-    surface: &'static XdgSurface,
+    xdg_surface: &'static XdgSurface,
+    wl_surface: &'static WlSurface,
     geo: &'static mut Geometry,
     global_geo: &'static mut GlobalGeometry,
     pinned: Option<&'static PinedWindow>,
@@ -258,12 +254,18 @@ pub struct ToplevelWorldQuery {
 }
 
 pub fn update_window(
-    mut windows: Query<(&XdgToplevel, &XdgSurface, &mut DWayToplevel, Ref<Geometry>)>,
+    mut windows: Query<(
+        &XdgToplevel,
+        &XdgSurface,
+        &WlSurface,
+        &mut DWayToplevel,
+        Ref<Geometry>,
+    )>,
 ) {
-    for (toplevel, xdg_surface, mut data, geometry) in &mut windows {
+    for (toplevel, xdg_surface, wl_surface, mut data, geometry) in &mut windows {
         if geometry.is_changed() && Some(geometry.size()) != data.size {
             data.size = Some(geometry.size());
-            toplevel.configure(&mut data);
+            toplevel.configure(&wl_surface, &mut data);
             xdg_surface.configure();
         }
     }
@@ -279,35 +281,43 @@ pub fn receive_window_action_event(
             WindowAction::Close(e) => {
                 if let Ok(toplevel) = window_query.get_mut(*e) {
                     toplevel.xdg_obj.raw.close();
-                    toplevel.surface.configure();
+                    toplevel.xdg_surface.configure();
                 }
             }
             WindowAction::Maximize(e) => {
                 if let Ok(mut toplevel) = window_query.get_mut(*e) {
                     toplevel.data.max = true;
-                    toplevel.xdg_obj.configure(&mut toplevel.data);
-                    toplevel.surface.configure();
+                    toplevel
+                        .xdg_obj
+                        .configure(&toplevel.wl_surface, &mut toplevel.data);
+                    toplevel.xdg_surface.configure();
                 }
             }
             WindowAction::UnMaximize(e) => {
                 if let Ok(mut toplevel) = window_query.get_mut(*e) {
                     toplevel.data.max = true;
-                    toplevel.xdg_obj.configure(&mut toplevel.data);
-                    toplevel.surface.configure();
+                    toplevel
+                        .xdg_obj
+                        .configure(&toplevel.wl_surface, &mut toplevel.data);
+                    toplevel.xdg_surface.configure();
                 }
             }
             WindowAction::Fullscreen(e) => {
                 if let Ok(mut toplevel) = window_query.get_mut(*e) {
                     toplevel.data.fullscreen = true;
-                    toplevel.xdg_obj.configure(&mut toplevel.data);
-                    toplevel.surface.configure();
+                    toplevel
+                        .xdg_obj
+                        .configure(&toplevel.wl_surface, &mut toplevel.data);
+                    toplevel.xdg_surface.configure();
                 }
             }
             WindowAction::UnFullscreen(e) => {
                 if let Ok(mut toplevel) = window_query.get_mut(*e) {
                     toplevel.data.fullscreen = false;
-                    toplevel.xdg_obj.configure(&mut toplevel.data);
-                    toplevel.surface.configure();
+                    toplevel
+                        .xdg_obj
+                        .configure(&toplevel.wl_surface, &mut toplevel.data);
+                    toplevel.xdg_surface.configure();
                 }
             }
             WindowAction::Minimize(_) => {}
@@ -316,8 +326,10 @@ pub fn receive_window_action_event(
                 if let Ok(mut toplevel) = window_query.get_mut(*e) {
                     set_geometry(&mut toplevel.geo, &mut toplevel.global_geo, *rect);
                     toplevel.data.size = Some(rect.size());
-                    toplevel.xdg_obj.configure(&mut toplevel.data);
-                    toplevel.surface.configure();
+                    toplevel
+                        .xdg_obj
+                        .configure(&toplevel.wl_surface, &mut toplevel.data);
+                    toplevel.xdg_surface.configure();
                 }
             }
             WindowAction::RequestMove(e) => {

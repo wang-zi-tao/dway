@@ -47,7 +47,7 @@ impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
                 }
             }
             wl_data_device::Request::Release => {
-                state.entity_mut(*data).remove::<WlDataDevice>();
+                state.despawn_object(*data, resource);
             }
             _ => todo!(),
         }

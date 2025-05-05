@@ -66,13 +66,13 @@ impl Plugin for DWayServerSchedulePlugin {
         app.configure_sets(
             PreUpdate,
             (
-                UpdateGeometry,
+                UpdateImage,
+                UpdateGeometry.after(UpdateImage),
                 UpdateXWayland.after(UpdateGeometry),
                 InitDmaBufFeedback,
                 UpdateJoin.after(UpdateGeometry),
                 UpdateAppInfo,
                 UpdateSurface.after(UpdateGeometry),
-                UpdateImage,
             )
                 .before(EndPreUpdate)
                 .after(Dispatch)
