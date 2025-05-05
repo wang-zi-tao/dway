@@ -168,7 +168,7 @@ WindowUI=>
     FocusPolicy=(FocusPolicy::Block)
 >
     <MiniNodeBundle @style="full absolute" @id="mouse_area"
-        SurfaceUiNode=(SurfaceUiNode::new(prop.window_entity,widget.node_content_entity))
+        SurfaceUiNode=(SurfaceUiNode::new(prop.window_entity,node!(content)))
         Interaction=(default()) FocusPolicy=(FocusPolicy::Pass)
     />
 </MiniNodeBundle>

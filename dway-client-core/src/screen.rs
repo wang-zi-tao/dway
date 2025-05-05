@@ -34,8 +34,8 @@ pub fn create_screen(
             continue;
         };
         let rect = IRect::new(
-            window_position.x,
-            window_position.y,
+            0,
+            0,
             window.resolution.width() as i32,
             window.resolution.height() as i32,
         );

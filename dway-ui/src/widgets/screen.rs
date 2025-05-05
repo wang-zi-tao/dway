@@ -4,7 +4,7 @@ use dway_server::{geometry::GlobalGeometry, util::rect::IRect};
 use super::window::{WindowUI, WindowUIBundle};
 use crate::prelude::*;
 
-#[derive(Component)]
+#[derive(Component, Reflect)]
 pub struct ScreenWindows {
     pub screen: Entity,
 }
@@ -19,6 +19,7 @@ impl Default for ScreenWindows {
 dway_widget! {
 ScreenWindows=>
 @plugin{
+    app.register_type::<ScreenWindows>();
     app.register_type::<ScreenWindowsState>();
     app.register_type::<ScreenWindowsSubStateWindows>();
 }
