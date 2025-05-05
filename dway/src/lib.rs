@@ -14,7 +14,8 @@ use bevy::{
     log::{Level, LogPlugin},
     prelude::*,
     render::{
-        settings::{Backends, RenderCreation, WgpuSettings}, RenderPlugin
+        settings::{Backends, RenderCreation, WgpuSettings},
+        RenderPlugin,
     },
     winit::{WakeUp, WinitPlugin},
 };
@@ -30,10 +31,13 @@ use dway_client_core::{
     workspace::{Workspace, WorkspaceBundle, WorkspaceSet},
     DWayClientSetting, OutputType,
 };
-use dway_server::apps::icon::LinuxIconSourcePlugin;
+use dway_server::apps::{icon::LinuxIconSourcePlugin, launchapp::RunCommandRequest};
 use dway_tty::{DWayTTYPlugin, DWayTTYSettings};
 use dway_ui_framework::diagnostics::UiDiagnosticsPlugin;
-use dway_util::{diagnostic::ChangedDiagnosticPlugin, logger::{log_layer, DWayLogPlugin}};
+use dway_util::{
+    diagnostic::ChangedDiagnosticPlugin,
+    logger::{log_layer, DWayLogPlugin},
+};
 use keys::*;
 use opttions::DWayOption;
 
@@ -77,6 +81,7 @@ pub fn bevy_main() {
 
 #[cfg(feature = "hot_reload")]
 use bevy_dexterous_developer::{self, *};
+use spawn_app::spawn_apps_on_launch;
 
 #[cfg(feature = "hot_reload")]
 bevy_dexterous_developer::reloadable_main!(bevy_main(initial_plugins) {
@@ -127,18 +132,21 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         });
     }
 
-    let enable_cpu_profile = cfg!(any(feature="trace_tracy", feature="trace_chrome")); 
+    let enable_cpu_profile = cfg!(any(feature = "trace_tracy", feature = "trace_chrome"));
 
     if !enable_cpu_profile {
-        default_plugins = default_plugins
-            .add_before::<LogPlugin>(DWayLogPlugin);
+        default_plugins = default_plugins.add_before::<LogPlugin>(DWayLogPlugin);
     }
 
     default_plugins = default_plugins
         .set(LogPlugin {
             level: LOG_LEVEL,
             filter: std::env::var("RUST_LOG").unwrap_or_else(|_| LOG.to_string()),
-            custom_layer: if !enable_cpu_profile{ log_layer }else{ |_|None },
+            custom_layer: if !enable_cpu_profile {
+                log_layer
+            } else {
+                |_| None
+            },
         })
         .set(RenderPlugin {
             render_creation: RenderCreation::Automatic(WgpuSettings {
@@ -252,12 +260,14 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         .edit_schedule(Last, |schedule| {
             schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
         });
-        if let Some(extract_app) = app.get_sub_app_mut(bevy::render::pipelined_rendering::RenderExtractApp){
+        if let Some(extract_app) =
+            app.get_sub_app_mut(bevy::render::pipelined_rendering::RenderExtractApp)
+        {
             extract_app.edit_schedule(ExtractSchedule, |schedule| {
                 schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
             });
         };
-        if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp){
+        if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp) {
             render_app.edit_schedule(bevy::render::Render, |schedule| {
                 schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
             });
@@ -292,7 +302,12 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     info!("exit");
 }
 
-pub fn setup(mut commands: Commands, mut app_model: ResMut<AppListModel>) {
+pub fn setup(
+    mut commands: Commands,
+    mut app_model: ResMut<AppListModel>,
+    opts: Res<DWayOption>,
+    mut run_command_request_sender: EventWriter<RunCommandRequest>,
+) {
     commands
         .spawn((WorkspaceSet, Name::from("WorkspaceSet")))
         .with_children(|c| {
@@ -335,6 +350,8 @@ pub fn setup(mut commands: Commands, mut app_model: ResMut<AppListModel>) {
     ] {
         app_model.favorite_apps.insert(AppId::from(app.to_string()));
     }
+
+    spawn_apps_on_launch(&opts, &mut run_command_request_sender);
 }
 
 pub fn update(_query: Query<&Window>) {

@@ -13,6 +13,6 @@ pub struct DWayOption {
     pub frame_rate: f32,
     #[arg(long, default_value_t = String::from("../dway/assets"))]
     pub assets: String,
+    #[arg(long, allow_hyphen_values = true, num_args = 0..)]
+    pub exec: Vec<String>,
 }
-
-impl DWayOption {}
