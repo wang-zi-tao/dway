@@ -9,6 +9,7 @@ use bevy::{
         render_asset::RenderAssets,
         render_graph::Node,
         renderer::{RenderDevice, RenderQueue},
+        sync_world::TemporaryRenderEntity,
         texture::GpuImage,
         Extract,
     },
@@ -20,9 +21,7 @@ use wgpu::{
     core::hal_api, CommandEncoder, CommandEncoderDescriptor, Extent3d, FilterMode,
     ImageCopyTexture, TextureAspect, TextureDimension,
 };
-use wgpu_hal::{
-    MemoryFlags, TextureUses,
-};
+use wgpu_hal::{MemoryFlags, TextureUses};
 
 use super::{
     gles::{self, EglState},
@@ -51,17 +50,9 @@ pub mod graph {
     }
 }
 
-#[derive(Default, Debug)]
-pub enum RenderImage {
-    #[default]
-    None,
-    Gl(),
-    Vulkan(crate::render::vulkan::ImageDropGuard),
-}
-
 pub enum ImportedBuffer {
     GL(gles::ImageGuard),
-    VULKAN(),
+    VULKAN,
 }
 
 #[derive(Resource, Default)]
@@ -71,7 +62,8 @@ pub struct ImportState {
     pub finished: AtomicBool,
     pub callbacks: Vec<wl_callback::WlCallback>,
     pub elapsed: Duration,
-    pub imported_image: EntityHashMap<(ImportedBuffer, GpuImage)>,
+    pub imported_buffer: EntityHashMap<ImportedBuffer>,
+    pub destroyed_buffers: Vec<Entity>,
 }
 
 #[derive(Resource, Default, Deref, DerefMut)]
@@ -136,6 +128,7 @@ pub fn extract_surface(
     mut importd_buffer: ResMut<ImoprtedBuffers>,
     mut commands: Commands,
 ) {
+    state.destroyed_buffers.clear();
     state.elapsed = time.elapsed();
     state.callbacks.clear();
     for surface in surface_query.iter() {
@@ -154,13 +147,13 @@ pub fn extract_surface(
         if let Ok((shm_buffer, dma_buffer, egl_buffer)) = buffer_query.get(buffer_entity) {
             if let Some(buffer) = shm_buffer {
                 debug!("use shared memory buffer");
-                commands.spawn((surface.clone(), buffer.clone()));
+                commands.spawn((surface.clone(), buffer.clone(), TemporaryRenderEntity));
             } else if let Some(dma_buffer) = dma_buffer {
                 debug!("use dma buffer");
-                commands.spawn((surface.clone(), dma_buffer.clone()));
+                commands.spawn((surface.clone(), dma_buffer.clone(), TemporaryRenderEntity));
             } else if let Some(egl_buffer) = egl_buffer {
                 debug!("use egl buffer");
-                commands.spawn((surface.clone(), egl_buffer.clone()));
+                commands.spawn((surface.clone(), egl_buffer.clone(), TemporaryRenderEntity));
             } else {
                 error!(entity=?buffer_entity,"buffer not found");
             };
@@ -178,7 +171,9 @@ pub fn extract_surface(
         wayland_map.map.remove(entity);
     }
     for entity in removed_buffer.read() {
+        debug!(?entity, "wayland buffer texture removed");
         importd_buffer.remove(&entity);
+        state.destroyed_buffers.push(entity);
     }
 }
 
@@ -209,7 +204,10 @@ pub fn prepare_surfaces(
                 vulkan::create_wgpu_dma_image(render_device.wgpu_device(), &mut request)
             }
         }
-        .and_then(|gpu_image| {
+        .and_then(|(gpu_image, imported_buffer)| {
+            import_state
+                .imported_buffer
+                .insert(request.buffer_entity, imported_buffer);
             imported_images.insert(request.buffer_entity, gpu_image);
             Ok(if let Some(buffer) = request.buffer.take() {
                 buffer
@@ -240,13 +238,7 @@ pub fn prepare_surfaces(
 }
 
 pub struct ImportSurfacePassNode {
-    surface_query: QueryState<(
-        Entity,
-        &'static WlSurface,
-        Option<&'static WlShmBuffer>,
-        Option<&'static DmaBuffer>,
-        Option<&'static UninitedWlBuffer>,
-    )>,
+    surface_query: QueryState<(Entity, &'static WlSurface, Option<&'static WlShmBuffer>)>,
 }
 impl FromWorld for ImportSurfacePassNode {
     fn from_world(world: &mut World) -> Self {
@@ -283,9 +275,7 @@ impl Node for ImportSurfacePassNode {
         let mut command_encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("import_wayland_buffer_command_encoder"),
         });
-        for (entity, surface, shm_buffer, dma_buffer, egl_buffer) in
-            self.surface_query.iter_manual(world)
-        {
+        for (entity, surface, shm_buffer) in self.surface_query.iter_manual(world) {
             let texture: &GpuImage = textures.get(&surface.image).unwrap();
 
             let result = if let Some(shm_buffer) = shm_buffer {
@@ -345,7 +335,7 @@ pub fn clean(
         let _ = display.flush_clients();
     }
     if let Some(ImportStateKind::Egl(s)) = &state.inner {
-        gles::clean(s, &render_device);
+        gles::clean(s, &*state, &render_device);
     }
 }
 

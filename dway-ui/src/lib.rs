@@ -214,7 +214,7 @@ fn init_screen_ui(
 
     commands.entity(entity).insert(LayoutStyle {
         padding: LayoutRect {
-            top: 160,
+            top: 48,
             ..Default::default()
         },
         ..Default::default()

@@ -64,6 +64,7 @@ wgpu-hal=info,\
 wgpu_core=info,\
 dexterous_developer_internal=debug,\
 bevy_ecss=info,\
+dway_ui_framework::render::mesh=info,\
 ";
 
 #[cfg(not(feature = "hot_reload"))]

@@ -6,7 +6,8 @@ use std::{
 
 use anyhow::{anyhow, bail, Result};
 use ash::{
-    khr::external_memory_fd, vk::{self, *}
+    khr::external_memory_fd,
+    vk::{self, *},
 };
 use bevy::render::texture::GpuImage;
 use bevy_relationship::reexport::SmallVec;
@@ -14,12 +15,16 @@ use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use dway_util::formats::ImageFormat;
 use nix::{libc::makedev, sys::stat::fstat};
 use wgpu::{Extent3d, ImageCopyTexture, TextureAspect};
-use wgpu_hal::{vulkan::{self, Api as Vulkan}, DropCallback};
+use wgpu_hal::{
+    vulkan::{self, Api as Vulkan},
+    DropCallback,
+};
 
 use super::{
     drm::{DrmInfo, DrmNode},
     importnode::{
         drm_fourcc_to_wgpu_format, hal_texture_descriptor, hal_texture_to_gpuimage, merge_damage,
+        ImportedBuffer,
     },
     util::DWayRenderError::{self, *},
     ImportDmaBufferRequest,
@@ -132,7 +137,10 @@ pub fn drm_info(render_device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError
 
                 let mut drm_prop = PhysicalDeviceDrmPropertiesEXT::default();
                 let mut device_prop = PhysicalDeviceProperties2::default().push_next(&mut drm_prop);
-                (instance.fp_v1_1().get_physical_device_properties2)(hal_device.raw_physical_device(), &mut device_prop);
+                (instance.fp_v1_1().get_physical_device_properties2)(
+                    hal_device.raw_physical_device(),
+                    &mut device_prop,
+                );
 
                 let drm_node = DrmNode::from_device_id(makedev(
                     drm_prop.render_major as _,
@@ -231,8 +239,8 @@ pub fn create_vulkan_dma_image(
         let mut memorys = SmallVec::<[_; 4]>::new();
         for (i, plane) in planes.into_iter().enumerate().take(plane_count) {
             let memory_requirement = {
-                let mut requirement_info = ash::vk::ImageMemoryRequirementsInfo2::default()
-                    .image(image);
+                let mut requirement_info =
+                    ash::vk::ImageMemoryRequirementsInfo2::default().image(image);
                 let mut plane_requirement_info =
                     ash::vk::ImagePlaneMemoryRequirementsInfo::default()
                         .plane_aspect(MEM_PLANE_ASCPECT[i]);
@@ -248,20 +256,15 @@ pub fn create_vulkan_dma_image(
             let phy_mem_prop = instance.get_physical_device_memory_properties(physical);
 
             let fd_mem_type = if instance
-                .get_device_proc_addr(
-                    device.handle(),
-                    c"vkGetMemoryFdPropertiesKHR"
-                        .as_ptr(),
-                )
+                .get_device_proc_addr(device.handle(), c"vkGetMemoryFdPropertiesKHR".as_ptr())
                 .is_some()
             {
                 let mut properties = MemoryFdPropertiesKHR::default();
-                external_memory_fd::Device::new(instance, device)
-                    .get_memory_fd_properties(
-                        ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
-                        plane.fd.as_fd().as_raw_fd(),
-                        &mut properties
-                    )?;
+                external_memory_fd::Device::new(instance, device).get_memory_fd_properties(
+                    ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
+                    plane.fd.as_fd().as_raw_fd(),
+                    &mut properties,
+                )?;
                 properties.memory_type_bits
             } else {
                 !0
@@ -298,8 +301,7 @@ pub fn create_vulkan_dma_image(
 
             if is_disjoint {
                 let mut info = Box::new(
-                    vk::BindImagePlaneMemoryInfo::default()
-                        .plane_aspect(MEM_PLANE_ASCPECT[i]),
+                    vk::BindImagePlaneMemoryInfo::default().plane_aspect(MEM_PLANE_ASCPECT[i]),
                 );
                 bind_info.p_next = info.as_mut() as *mut _ as *mut _;
                 plane_infos.push(info);
@@ -385,7 +387,7 @@ pub unsafe fn import_shm(
 pub fn create_wgpu_dma_image(
     device: &wgpu::Device,
     request: &mut ImportDmaBufferRequest,
-) -> Result<GpuImage, DWayRenderError> {
+) -> Result<(GpuImage, ImportedBuffer), DWayRenderError> {
     unsafe {
         let image_guard = device
             .as_hal::<Vulkan, _, _>(|hal_device| {
@@ -399,10 +401,10 @@ pub fn create_wgpu_dma_image(
         let hal_texture = vulkan::Device::texture_from_raw(
             image,
             &hal_texture_descriptor(request.size, format)?,
-            Some(image_guard.drop_callback()),
+            None,
         );
         let gpu_image =
             hal_texture_to_gpuimage::<Vulkan>(device, request.size, format, hal_texture)?;
-        Ok(gpu_image)
+        Ok((gpu_image, ImportedBuffer::VULKAN))
     }
 }

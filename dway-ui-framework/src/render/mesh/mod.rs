@@ -54,9 +54,8 @@ use bevy::{
 };
 
 use self::graph::NodeUiExt;
-use crate::{make_bundle, prelude::*};
-
 use super::UiRenderOffset;
+use crate::{make_bundle, prelude::*};
 
 pub mod graph {
     use bevy::render::render_graph::RenderLabel;
@@ -88,6 +87,7 @@ impl UiMeshTransform {
     pub fn new(transform: Transform) -> Self {
         Self(transform)
     }
+
     pub fn new_ui_transform() -> Self {
         Self(Transform::default())
     }
@@ -776,16 +776,20 @@ pub fn queue_ui_meshes<M: Material2d>(
     for (entity, mesh_instance) in render_mesh_instances.iter_mut() {
         let Some(material_asset_id) = render_material_instances.get(&mesh_instance.main_entity)
         else {
+            debug!(entity =?mesh_instance.main_entity, "material is not prepared");
             continue;
         };
         let Some(material2d) = render_materials.get(*material_asset_id) else {
+            debug!(entity =?mesh_instance.main_entity, "material is not prepared");
             continue;
         };
         let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            debug!(mesh=?mesh_instance.mesh_asset_id,"mesh is not prepared");
             continue;
         };
 
         let Ok((view, msaa, tonemapping, dither)) = views.get_mut(mesh_instance.camera) else {
+            debug!(entity =?mesh_instance.camera ,"camera is not valid");
             continue;
         };
 
@@ -922,10 +926,9 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P> for SetUiMesh
     ) -> RenderCommandResult {
         let materials = materials.into_inner();
         let material_instances = material_instances.into_inner();
-        let Some(material_instance) = material_instances.get(&*item.main_entity()) else {
-            return RenderCommandResult::Skip;
-        };
+        let material_instance = material_instances.get(&*item.main_entity()).unwrap();
         let Some(material2d) = materials.get(*material_instance) else {
+            debug!(material=?material_instance,"material is not prepared");
             return RenderCommandResult::Skip;
         };
         pass.set_bind_group(I, &material2d.bind_group, &[]);
@@ -955,18 +958,17 @@ impl<P: PhaseItem> RenderCommand<P> for DoDrawUiMesh {
         let render_mesh2d_instances = render_mesh2d_instances.into_inner();
         let mesh_allocator = mesh_allocator.into_inner();
 
-        let Some(RenderUiMeshInstance {
+        let RenderUiMeshInstance {
             mesh_asset_id,
             transforms,
             ..
-        }) = render_mesh2d_instances.get(&item.entity())
-        else {
-            return RenderCommandResult::Skip;
-        };
+        } = render_mesh2d_instances.get(&item.entity()).unwrap();
         let Some(gpu_mesh) = meshes.get(*mesh_asset_id) else {
+            debug!("mesh is not prepared");
             return RenderCommandResult::Skip;
         };
         let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(mesh_asset_id) else {
+            debug!("vertex buffer is not prepared");
             return RenderCommandResult::Skip;
         };
 
@@ -999,6 +1001,7 @@ impl<P: PhaseItem> RenderCommand<P> for DoDrawUiMesh {
             } => {
                 let Some(index_buffer_slice) = mesh_allocator.mesh_index_slice(mesh_asset_id)
                 else {
+                    debug!("index buffer is not prepared");
                     return RenderCommandResult::Skip;
                 };
 

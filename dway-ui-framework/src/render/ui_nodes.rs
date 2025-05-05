@@ -50,7 +50,6 @@ impl Plugin for UiNodeRenderPlugin {
                 .init_resource::<UnTypedUiMaterialPipeline>()
                 .init_resource::<UiBufferSet>()
                 .init_resource::<UiBatchMap>()
-                // .add_systems(ExtractSchedule, extract_ui_nodes)
                 .add_systems(
                     Render,
                     (prepare_ui_nodes.in_set(RenderSet::PrepareBindGroups),),

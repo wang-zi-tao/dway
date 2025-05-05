@@ -27,7 +27,7 @@ use super::{
     drm::{DrmInfo, DrmNode},
     importnode::{
         drm_fourcc_to_wgpu_format, hal_texture_descriptor, hal_texture_to_gpuimage,
-        DWayDisplayHandles,
+        DWayDisplayHandles, ImportState, ImportedBuffer,
     },
     util::*,
     ImportDmaBufferRequest,
@@ -61,7 +61,6 @@ pub struct EglState {
     pub egl_unbind_wayland_display_wl: unsafe extern "system" fn(EGLDisplay, EGLImage) -> Boolean,
     pub extensions: HashSet<String>,
     pub wayland_map: EntityHashMap<WeakHandle>,
-    pub destroy_queue: Arc<SegQueue<DestroyBuffer>>,
 }
 impl EglState {
     pub fn bind_wayland(
@@ -121,7 +120,6 @@ impl EglState {
                 egl_unbind_wayland_display_wl,
                 extensions,
                 wayland_map: Default::default(),
-                destroy_queue: Arc::new(Default::default()),
             })
         }
     }
@@ -242,28 +240,10 @@ pub type TextureId = (NativeTexture, u32);
 pub struct ImageGuard {
     pub egl_image: EGLImage,
     pub texture: NativeTexture,
-    pub destroy_queue: Arc<SegQueue<DestroyBuffer>>,
 }
 unsafe impl Send for ImageGuard {
 }
 unsafe impl Sync for ImageGuard {
-}
-
-impl ImageGuard {
-    fn drop_callback(self) -> DropCallback {
-        Box::new(move || {
-            let _ = self;
-        })
-    }
-}
-
-impl Drop for ImageGuard {
-    fn drop(&mut self) {
-        self.destroy_queue.push(DestroyBuffer {
-            egl_image: self.egl_image,
-            texture: self.texture,
-        });
-    }
 }
 
 #[tracing::instrument(skip_all)]
@@ -353,11 +333,9 @@ pub unsafe fn create_gles_dma_image(
 
     let texture = image_bind_texture(gl, egl_image, egl_state)?;
 
-    Ok(ImageGuard {
-        egl_image,
-        texture,
-        destroy_queue: egl_state.destroy_queue.clone(),
-    })
+    debug!(buffer_entity=?buffer_info.buffer_entity,?texture,"wayland surface bind gles texture");
+
+    Ok(ImageGuard { egl_image, texture })
 }
 
 #[tracing::instrument(skip_all)]
@@ -382,10 +360,10 @@ pub fn create_wgpu_dma_image(
     device: &wgpu::Device,
     request: &mut ImportDmaBufferRequest,
     egl_state: &EglState,
-) -> Result<GpuImage, DWayRenderError> {
+) -> Result<(GpuImage, ImportedBuffer), DWayRenderError> {
     unsafe {
         let format = drm_fourcc_to_wgpu_format(request)?;
-        let hal_texture = device
+        let (hal_texture, image_guard) = device
             .as_hal::<Gles, _, _>(|hal_device| {
                 let hal_device = hal_device.ok_or_else(|| BackendIsNotEGL)?;
                 let egl_context = hal_device.context();
@@ -399,13 +377,13 @@ pub fn create_wgpu_dma_image(
                 let hal_texture = hal_device.texture_from_raw(
                     texture.0,
                     &hal_texture_descriptor(request.size, format)?,
-                    Some(image_guard.drop_callback()),
+                    None,
                 );
-                Result::<_, DWayRenderError>::Ok(hal_texture)
+                Result::<_, DWayRenderError>::Ok((hal_texture, image_guard))
             })
             .ok_or(DWayRenderError::BackendIsIsInvalid)??;
         let gpu_image = hal_texture_to_gpuimage::<Gles>(device, request.size, format, hal_texture)?;
-        Ok(gpu_image)
+        Ok((gpu_image, ImportedBuffer::GL(image_guard)))
     }
 }
 
@@ -579,8 +557,8 @@ pub fn import_shm(
     }
 }
 
-pub fn clean(state: &EglState, render_device: &RenderDevice) {
-    if state.destroy_queue.len() > 0 {
+pub fn clean(egl_state: &EglState, state: &ImportState, render_device: &RenderDevice) {
+    if state.destroyed_buffers.len() > 0 {
         unsafe {
             render_device
                 .wgpu_device()
@@ -591,10 +569,17 @@ pub fn clean(state: &EglState, render_device: &RenderDevice) {
                     let Some(display) = egl_context.raw_display() else {
                         return;
                     };
-                    while let Some(DestroyBuffer { egl_image, texture }) = state.destroy_queue.pop()
-                    {
-                        gl.delete_texture(texture);
-                        (state.egl_unbind_wayland_display_wl)(display.as_ptr(), egl_image);
+                    for &buffer_entity in &state.destroyed_buffers {
+                        if let Some(ImportedBuffer::GL(image_guard)) =
+                            state.imported_buffer.get(&buffer_entity)
+                        {
+                            debug!(texture=?image_guard.texture,"delete texture");
+                            gl.delete_texture(image_guard.texture);
+                            (egl_state.egl_unbind_wayland_display_wl)(
+                                display.as_ptr(),
+                                image_guard.egl_image,
+                            );
+                        }
                     }
                 });
         }
