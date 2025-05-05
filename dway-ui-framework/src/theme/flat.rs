@@ -9,7 +9,9 @@ use bevy::ecs::{
 };
 
 use super::{
-    adapter::{EventObserver, WidgetInsertObserver}, insert_material_tween, DefaultTextTheme, HightlightTheme, StyleFlags, ThemeComponent, ThemeDispatch
+    adapter::{EventObserver, GlobalThemePlugin, ThemeTrait, WidgetInsertObserver},
+    insert_material_tween, BlockStyle, DefaultTextTheme, StyleFlags, ThemeComponent, ThemeDispatch,
+    ThemeHightlight,
 };
 use crate::{
     animation::{
@@ -26,7 +28,12 @@ use crate::{
         ShaderAsset, ShaderPlugin, ShapeRender, Transformed,
     },
     util::{modify_component_or_insert, set_component_or_insert},
-    widgets::{button::UiButtonEventDispatcher, checkbox::UiCheckBoxEventDispatcher},
+    widgets::{
+        button::UiButtonEventDispatcher,
+        checkbox::UiCheckBoxEventDispatcher,
+        inputbox::{UiInputBox, UiInputBoxEventDispatcher, UiInputBoxWidget},
+        slider::{UiSliderEventDispatcher, UiSliderInited, UiSliderWidget},
+    },
 };
 
 type BlockMaterial = ShapeRender<RoundedRect, (FillColor, Shadow)>;
@@ -109,7 +116,7 @@ pub struct FlatTheme {
     pub slider_material: Handle<ShaderAsset<SliderMaterial>>,
     pub slider_hightlight_bar_material: Handle<ShaderAsset<SliderHightlightBarMaterial>>,
     pub slider_handler_material: Handle<ShaderAsset<SliderHandlerMaterial>>,
-    pub slider_handler_material_clicked: Handle<ShaderAsset<SliderHandlerMaterial>>,
+    pub slider_handler_material_hoverd: Handle<ShaderAsset<SliderHandlerMaterial>>,
     pub inputbox_material: Handle<ShaderAsset<InputboxMaterial>>,
     pub inputbox_material_focused: Handle<ShaderAsset<InputboxMaterial>>,
     pub scroll_bar_material: Handle<ShaderAsset<ScrollBarMaterial>>,
@@ -120,8 +127,14 @@ impl FlatTheme {
     fn init(&mut self, world: &mut World) {
         {
             self.block_material = world.resource_mut::<Assets<_>>().add(ShaderAsset::new(
-                self.block_rounded_rect()
-                    .with_effect((self.fill_color(), self.shadow())),
+                self.block_rounded_rect().with_effect((self.fill_color(), {
+                    Shadow::new(
+                        self.shadow_color,
+                        self.shadow_offset,
+                        self.shadow_margin,
+                        self.shadow_radius * 2.0,
+                    )
+                })),
             ));
             self.popup_block_material = world.resource_mut::<Assets<_>>().add(ShaderAsset::new(
                 self.popup_block_rounded_rect()
@@ -225,7 +238,7 @@ impl FlatTheme {
                     .with_effect(self.fill_color())
                     .with_transform(Margins::new(1.0, 32.0, 1.0, 1.0)),
                 RoundedBar::new().with_effect((
-                    FillColor::new((self.fill_color.to_srgba() * 0.9).into()),
+                    FillColor::new(self.fill_color2.into()),
                     self.invisible_shadow(),
                 )),
             )));
@@ -234,8 +247,8 @@ impl FlatTheme {
                     .with_effect(self.fill_color())
                     .with_transform(Margins::new(1.0, 32.0, 1.0, 1.0)),
                 RoundedBar::new().with_effect((
-                    FillColor::new((self.fill_color.to_srgba() * 0.93).into()),
-                    self.invisible_shadow(),
+                    FillColor::new(self.fill_color2.into()),
+                    self.highlight_shadow(),
                 )),
             )));
             self.checkbox_material_down = checkbox_material_assets.add(ShaderAsset::new((
@@ -249,8 +262,8 @@ impl FlatTheme {
                     .with_effect(self.fill_color())
                     .with_transform(Margins::new(32.0, 1.0, 1.0, 1.0)),
                 RoundedBar::new().with_effect((
-                    FillColor::new((self.main_color.to_srgba() * 1.1).into()),
-                    self.shadow(),
+                    FillColor::new(self.main_color.into()),
+                    self.highlight_shadow(),
                 )),
             )));
         }
@@ -273,13 +286,13 @@ impl FlatTheme {
                     self.fill_color(),
                     self.shadow(),
                 ))));
-        self.slider_handler_material_clicked =
+        self.slider_handler_material_hoverd =
             world
                 .resource_mut::<Assets<_>>()
                 .add(ShaderAsset::new(Circle::new().with_effect((
                     self.border(),
                     self.fill_color(),
-                    self.shadow(),
+                    self.highlight_shadow(),
                 ))));
 
         self.inputbox_material = world.resource_mut::<Assets<_>>().add(ShaderAsset::new(
@@ -310,6 +323,15 @@ impl FlatTheme {
     fn shadow(&self) -> Shadow {
         Shadow::new(
             self.shadow_color,
+            self.shadow_offset,
+            self.shadow_margin,
+            self.shadow_radius,
+        )
+    }
+
+    fn highlight_shadow(&self) -> Shadow {
+        Shadow::new(
+            self.main_color,
             self.shadow_offset,
             self.shadow_margin,
             self.shadow_radius,
@@ -363,214 +385,9 @@ impl FlatTheme {
         });
     }
 }
-impl ThemeDispatch for FlatTheme {
-    fn apply(&self, entity: Entity, theme: &super::ThemeComponent, commands: &mut Commands) {
-        let flag = theme.style_flags;
-        let hover = flag.contains(StyleFlags::HOVERED);
-        let clicked = flag.contains(StyleFlags::CLICKED);
-        match &theme.widget_kind {
-            super::WidgetKind::None => {}
-            super::WidgetKind::Block => {
-                if flag.contains(StyleFlags::HIGHLIGHT) {
-                    self.apply_material_animation(
-                        entity,
-                        commands,
-                        self.hightlight_hollow_block_material.clone(),
-                    );
-                } else if flag.contains(StyleFlags::HOLLOW) {
-                    self.apply_material_animation(
-                        entity,
-                        commands,
-                        self.hollow_block_material.clone(),
-                    );
-                } else if flag.contains(StyleFlags::SUNKEN) {
-                    self.apply_material_animation(
-                        entity,
-                        commands,
-                        self.sunken_block_material.clone(),
-                    );
-                } else {
-                    self.apply_material_animation(entity, commands, self.block_material.clone());
-                }
-            }
-            super::WidgetKind::Button => {
-                if flag.contains(StyleFlags::HIGHLIGHT) {
-                    if hover {
-                        self.apply_material_animation(
-                            entity,
-                            commands,
-                            self.hightlight_button_material_hover.clone(),
-                        );
-                    } else if clicked {
-                        self.apply_material_animation(
-                            entity,
-                            commands,
-                            self.hightlight_button_material_clicked.clone(),
-                        );
-                    } else {
-                        self.apply_material_animation(
-                            entity,
-                            commands,
-                            self.hightlight_button_material.clone(),
-                        );
-                    }
-                } else if hover {
-                    self.apply_material_animation(
-                        entity,
-                        commands,
-                        self.button_material_hover.clone(),
-                    );
-                } else if clicked {
-                    self.apply_material_animation(
-                        entity,
-                        commands,
-                        self.button_material_clicked.clone(),
-                    );
-                } else {
-                    self.apply_material_animation(entity, commands, self.button_material.clone());
-                }
-            }
-            super::WidgetKind::Checkbox => match (flag.contains(StyleFlags::DOWNED), hover) {
-                (true, true) => {
-                    self.apply_material_animation(
-                        entity,
-                        commands,
-                        self.checkbox_material_down_hover.clone(),
-                    );
-                }
-                (true, false) => {
-                    self.apply_material_animation(
-                        entity,
-                        commands,
-                        self.checkbox_material_down.clone(),
-                    );
-                }
-                (false, true) => {
-                    self.apply_material_animation(
-                        entity,
-                        commands,
-                        self.checkbox_material_hover.clone(),
-                    );
-                }
-                (false, false) => {
-                    self.apply_material_animation(entity, commands, self.checkbox_material.clone());
-                }
-            },
-            super::WidgetKind::Inputbox => {
-                if flag.contains(StyleFlags::FOCUSED) {
-                    self.apply_material_animation(
-                        entity,
-                        commands,
-                        self.inputbox_material_focused.clone(),
-                    );
-                } else {
-                    self.apply_material_animation(entity, commands, self.inputbox_material.clone());
-                }
-            }
-            super::WidgetKind::Slider => {
-                self.apply_material_animation(entity, commands, self.slider_material.clone());
-            }
-            super::WidgetKind::SliderHandle => {
-                if clicked {
-                    self.apply_material_animation(
-                        entity,
-                        commands,
-                        self.slider_handler_material_clicked.clone(),
-                    );
-                } else {
-                    self.apply_material_animation(
-                        entity,
-                        commands,
-                        self.slider_handler_material.clone(),
-                    );
-                }
-            }
-            super::WidgetKind::SliderHightlightBar => {
-                self.apply_material_animation(
-                    entity,
-                    commands,
-                    self.slider_hightlight_bar_material.clone(),
-                );
-            }
-            super::WidgetKind::Other(_) => {}
-            super::WidgetKind::ComboBox(super::ComboBoxNodeKind::Root) => {
-                if clicked {
-                    self.apply_material_animation(
-                        entity,
-                        commands,
-                        self.hightlight_hollow_block_material.clone(),
-                    );
-                } else {
-                    self.apply_material_animation(
-                        entity,
-                        commands,
-                        self.hollow_block_material.clone(),
-                    );
-                }
-            }
-            super::WidgetKind::ComboBox(super::ComboBoxNodeKind::Popup) => {
-                self.apply_material_animation(entity, commands, self.popup_block_material.clone());
-            }
-            super::WidgetKind::ComboBox(super::ComboBoxNodeKind::Item) => {
-                if flag.contains(StyleFlags::HIGHLIGHT) {
-                    self.apply_material_animation(
-                        entity,
-                        commands,
-                        self.list_item_hightlight.clone(),
-                    );
-                } else if hover || clicked {
-                    self.apply_material_animation(entity, commands, self.list_item_hover.clone());
-                } else {
-                    self.apply_material_animation(entity, commands, self.list_item.clone());
-                }
-            }
-            super::WidgetKind::ComboBox(_) => {}
-            super::WidgetKind::BlurBackground => {
-                commands.queue(move |world: &mut World| {
-                    world.entity_mut(entity).insert((
-                        FlatThemeComponent,
-                        RenderToLayer::blur(),
-                        MaterialNode::<ShaderAsset<BlurMaterial>>::default(),
-                    ));
-                });
-            }
-        }
-    }
-}
 
-pub fn update_ui_material(
-    mut query: Query<
-        (
-            &RenderToLayer,
-            &ThemeComponent,
-            &mut MaterialNode<ShaderAsset<BlurMaterial>>,
-        ),
-        (With<FlatThemeComponent>, Changed<RenderToLayer>),
-    >,
-    global_theme: Res<Theme>,
-    mut material_assets: ResMut<Assets<ShaderAsset<BlurMaterial>>>,
-) {
-    for (render_to_layer, theme_component, mut shader_handle) in &mut query {
-        let Some(theme_object) = theme_component
-            .theme
-            .as_ref()
-            .or_else(|| global_theme.theme_dispatch.as_ref())
-        else {
-            continue;
-        };
-        let Some(theme) = theme_object.downcast_ref::<FlatTheme>() else {
-            continue;
-        };
-        let material = RoundedRect::new(theme.block_cornor).with_effect(AddColor::new(
-            FillWithLayer {
-                texture: render_to_layer.ui_background.clone(),
-                texture_size: render_to_layer.background_size,
-            },
-            theme.fill_color.with_alpha(1.0 - theme.blur_brightness),
-        ));
-        *shader_handle = material_assets.add(material).into();
-    }
-}
+// TODO blur theme
+
 
 impl WidgetInsertObserver<Text> for FlatTheme {
     type Filter = Without<DefaultTextTheme>;
@@ -590,30 +407,57 @@ impl WidgetInsertObserver<Text> for FlatTheme {
     }
 }
 
+impl WidgetInsertObserver<BlockStyle> for FlatTheme {
+    type Filter = ();
+    type ItemQuery = (&'static BlockStyle, Has<ThemeHightlight>);
+    type Params = ();
+
+    fn on_widget_insert(
+        &self,
+        theme_entity: Entity,
+        (block_style, hightlight): QueryItem<Self::ItemQuery>,
+        _: SystemParamItem<Self::Params>,
+        mut commands: EntityCommands,
+    ) {
+        if hightlight {
+            commands.insert(MaterialNode(self.hightlight_hollow_block_material.clone()));
+        } else {
+            match block_style {
+                BlockStyle::Normal => {
+                    commands.insert(MaterialNode(self.block_material.clone()));
+                }
+                BlockStyle::Hollow => {
+                    commands.insert(MaterialNode(self.hollow_block_material.clone()));
+                }
+                BlockStyle::Sunken => {
+                    commands.insert(MaterialNode(self.sunken_block_material.clone()));
+                }
+            }
+        }
+    }
+}
+
 impl WidgetInsertObserver<UiButton> for FlatTheme {
     type Filter = ();
-    type ItemQuery = ( &'static mut UiButtonEventDispatcher, Has<HightlightTheme> );
+    type ItemQuery = (&'static mut UiButtonEventDispatcher, Has<ThemeHightlight>);
     type Params = SResMut<CallbackTypeRegister>;
 
     fn on_widget_insert(
         &self,
         theme_entity: Entity,
-        ( mut event_dispatcher, hightlight ): QueryItem<Self::ItemQuery>,
+        (mut event_dispatcher, hightlight): QueryItem<Self::ItemQuery>,
         mut callback_register: SystemParamItem<Self::Params>,
         mut commands: EntityCommands,
     ) {
-        event_dispatcher.run_sender_trigger = true;
-
         if hightlight {
             commands.insert(MaterialNode(self.hightlight_button_material.clone()));
             let widget_entity = commands.id();
             callback_register.add_to_observer(
-                <Self as EventObserver<UiButtonEvent, HightlightTheme>>::trigger,
+                <Self as EventObserver<UiButtonEvent, ThemeHightlight>>::trigger,
                 commands.commands_mut(),
                 widget_entity,
             );
-
-        }else{
+        } else {
             commands.insert(MaterialNode(self.button_material.clone()));
             let widget_entity = commands.id();
             callback_register.add_to_observer(
@@ -622,7 +466,6 @@ impl WidgetInsertObserver<UiButton> for FlatTheme {
                 widget_entity,
             );
         }
-
     }
 }
 
@@ -638,19 +481,18 @@ impl EventObserver<UiButtonEvent> for FlatTheme {
         mut callback_register: SystemParamItem<Self::Params>,
         commands: EntityCommands,
     ) {
-        match event.kind{
+        match event.kind {
             UiButtonEventKind::Pressed => {
                 play_asset_animation(
                     query_items,
                     &mut callback_register,
                     self.button_material_clicked.clone(),
-                    self.animation_duration,
+                    self.animation_duration.mul_f32(0.5),
                     self.animation_ease.clone(),
                     commands,
                 );
-            },
-            UiButtonEventKind::Released |
-            UiButtonEventKind::Hovered => {
+            }
+            UiButtonEventKind::Released | UiButtonEventKind::Hovered => {
                 play_asset_animation(
                     query_items,
                     &mut callback_register,
@@ -659,7 +501,7 @@ impl EventObserver<UiButtonEvent> for FlatTheme {
                     self.animation_ease.clone(),
                     commands,
                 );
-            },
+            }
             UiButtonEventKind::Leaved => {
                 play_asset_animation(
                     query_items,
@@ -669,12 +511,12 @@ impl EventObserver<UiButtonEvent> for FlatTheme {
                     self.animation_ease.clone(),
                     commands,
                 );
-            },
+            }
         }
     }
 }
 
-impl EventObserver<UiButtonEvent, HightlightTheme> for FlatTheme {
+impl EventObserver<UiButtonEvent, ThemeHightlight> for FlatTheme {
     type ItemQuery = MaterialAnimationQueryData<ShaderAsset<HightlightButtonMaterial>>;
     type Params = SResMut<CallbackTypeRegister>;
 
@@ -686,7 +528,7 @@ impl EventObserver<UiButtonEvent, HightlightTheme> for FlatTheme {
         mut callback_register: SystemParamItem<Self::Params>,
         commands: EntityCommands,
     ) {
-        match event.kind{
+        match event.kind {
             UiButtonEventKind::Pressed => {
                 play_asset_animation(
                     query_items,
@@ -696,9 +538,8 @@ impl EventObserver<UiButtonEvent, HightlightTheme> for FlatTheme {
                     self.animation_ease.clone(),
                     commands,
                 );
-            },
-            UiButtonEventKind::Released |
-            UiButtonEventKind::Hovered => {
+            }
+            UiButtonEventKind::Released | UiButtonEventKind::Hovered => {
                 play_asset_animation(
                     query_items,
                     &mut callback_register,
@@ -707,7 +548,7 @@ impl EventObserver<UiButtonEvent, HightlightTheme> for FlatTheme {
                     self.animation_ease.clone(),
                     commands,
                 );
-            },
+            }
             UiButtonEventKind::Leaved => {
                 play_asset_animation(
                     query_items,
@@ -717,7 +558,7 @@ impl EventObserver<UiButtonEvent, HightlightTheme> for FlatTheme {
                     self.animation_ease.clone(),
                     commands,
                 );
-            },
+            }
         }
     }
 }
@@ -734,7 +575,6 @@ impl WidgetInsertObserver<UiCheckBox> for FlatTheme {
         mut callback_register: SystemParamItem<Self::Params>,
         mut commands: EntityCommands,
     ) {
-        event_dispatcher.run_sender_trigger = true;
         commands.insert(MaterialNode(self.checkbox_material.clone()));
         let widget_entity = commands.id();
         callback_register.add_to_observer(
@@ -745,31 +585,33 @@ impl WidgetInsertObserver<UiCheckBox> for FlatTheme {
     }
 }
 
-
 impl EventObserver<UiCheckBoxEvent> for FlatTheme {
-    type ItemQuery = MaterialAnimationQueryData<ShaderAsset<CheckboxMaterial>>;
+    type ItemQuery = (
+        &'static UiCheckBox,
+        MaterialAnimationQueryData<ShaderAsset<CheckboxMaterial>>,
+    );
     type Params = SResMut<CallbackTypeRegister>;
 
     fn on_event(
         &self,
         event: Trigger<UiEvent<UiCheckBoxEvent>>,
         theme_entity: Entity,
-        query_items: QueryItem<Self::ItemQuery>,
+        (checkbox, query_items): QueryItem<Self::ItemQuery>,
         mut callback_register: SystemParamItem<Self::Params>,
         commands: EntityCommands,
     ) {
-        match event.kind{
-            crate::widgets::checkbox::UiCheckBoxEventKind::Down => {
+        match (event.value, checkbox.state) {
+            (true, Interaction::Hovered | Interaction::Pressed) => {
                 play_asset_animation(
                     query_items,
                     &mut callback_register,
-                    self.checkbox_material_down.clone(),
+                    self.checkbox_material_down_hover.clone(),
                     self.animation_duration,
                     self.animation_ease.clone(),
                     commands,
                 );
-            },
-            crate::widgets::checkbox::UiCheckBoxEventKind::Up => {
+            }
+            (false, Interaction::None) => {
                 play_asset_animation(
                     query_items,
                     &mut callback_register,
@@ -778,15 +620,200 @@ impl EventObserver<UiCheckBoxEvent> for FlatTheme {
                     self.animation_ease.clone(),
                     commands,
                 );
-            },
-            _=>{}
+            }
+            (false, Interaction::Hovered | Interaction::Pressed) => {
+                play_asset_animation(
+                    query_items,
+                    &mut callback_register,
+                    self.checkbox_material_hover.clone(),
+                    self.animation_duration,
+                    self.animation_ease.clone(),
+                    commands,
+                );
+            }
+            (true, Interaction::None) => {
+                play_asset_animation(
+                    query_items,
+                    &mut callback_register,
+                    self.checkbox_material_down.clone(),
+                    self.animation_duration,
+                    self.animation_ease.clone(),
+                    commands,
+                );
+            }
         }
     }
 }
 
-#[derive(Default)]
+impl WidgetInsertObserver<UiSliderInited> for FlatTheme {
+    type Filter = ();
+    type ItemQuery = (
+        &'static UiSlider,
+        &'static UiSliderWidget,
+        &'static mut UiSliderEventDispatcher,
+    );
+    type Params = SResMut<CallbackTypeRegister>;
+
+    fn on_widget_insert(
+        &self,
+        theme_entity: Entity,
+        (prop, widget, mut event_dispatcher): QueryItem<Self::ItemQuery>,
+        mut callback_register: SystemParamItem<Self::Params>,
+        mut commands: EntityCommands,
+    ) {
+        commands
+            .commands()
+            .entity(widget.node_bar_entity)
+            .insert(MaterialNode(self.slider_material.clone()));
+        commands
+            .commands()
+            .entity(widget.node_bar_highlight_entity)
+            .insert(MaterialNode(self.slider_hightlight_bar_material.clone()));
+
+        let mut commands = commands.commands();
+        let mut handle_entity_commands = commands.entity(widget.node_handle_entity);
+        handle_entity_commands.insert((MaterialNode(self.slider_handler_material.clone()),));
+        handle_entity_commands.entry::<UiInput>().or_default();
+        handle_entity_commands
+            .entry::<ThemeComponent>()
+            .or_default()
+            .and_modify(move |mut t| {
+                t.theme_entity = theme_entity;
+            });
+
+        let handle_entity = widget.node_handle_entity;
+        callback_register.add_to_observer(
+            <Self as EventObserver<UiInputEvent, UiSliderHandle>>::trigger,
+            &mut commands,
+            handle_entity,
+        );
+    }
+}
+
+pub struct UiSliderHandle;
+
+impl EventObserver<UiInputEvent, UiSliderHandle> for FlatTheme {
+    type ItemQuery = MaterialAnimationQueryData<ShaderAsset<SliderHandlerMaterial>>;
+    type Params = SResMut<CallbackTypeRegister>;
+
+    fn on_event(
+        &self,
+        event: Trigger<UiEvent<UiInputEvent>>,
+        theme_entity: Entity,
+        query_items: QueryItem<Self::ItemQuery>,
+        mut callback_register: SystemParamItem<Self::Params>,
+        commands: EntityCommands,
+    ) {
+        match &**event {
+            UiInputEvent::MouseEnter => {
+                play_asset_animation(
+                    query_items,
+                    &mut callback_register,
+                    self.slider_handler_material_hoverd.clone(),
+                    self.animation_duration,
+                    self.animation_ease.clone(),
+                    commands,
+                );
+            }
+            UiInputEvent::MouseLeave => {
+                play_asset_animation(
+                    query_items,
+                    &mut callback_register,
+                    self.slider_handler_material.clone(),
+                    self.animation_duration,
+                    self.animation_ease.clone(),
+                    commands,
+                );
+            }
+            _ => {}
+        }
+    }
+}
+
+impl WidgetInsertObserver<UiInputBox> for FlatTheme {
+    type Filter = ();
+    type ItemQuery = (
+        &'static UiInputBox,
+        &'static UiInputBoxWidget,
+        &'static mut UiInputBoxEventDispatcher,
+    );
+    type Params = SResMut<CallbackTypeRegister>;
+
+    fn on_widget_insert(
+        &self,
+        theme_entity: Entity,
+        (prop, widget, mut event_dispatcher): QueryItem<Self::ItemQuery>,
+        mut callback_register: SystemParamItem<Self::Params>,
+        mut commands: EntityCommands,
+    ) {
+        commands.insert(MaterialNode(self.inputbox_material.clone()));
+        let widget_entity = commands.id();
+        callback_register.add_to_observer(
+            <Self as EventObserver<UiInputEvent, UiInputBox>>::trigger,
+            commands.commands_mut(),
+            widget_entity,
+        );
+    }
+}
+
+impl EventObserver<UiInputEvent, UiInputBox> for FlatTheme {
+    type ItemQuery = MaterialAnimationQueryData<ShaderAsset<InputboxMaterial>>;
+    type Params = SResMut<CallbackTypeRegister>;
+
+    fn on_event(
+        &self,
+        event: Trigger<UiEvent<UiInputEvent>>,
+        theme_entity: Entity,
+        query_items: QueryItem<Self::ItemQuery>,
+        mut callback_register: SystemParamItem<Self::Params>,
+        commands: EntityCommands,
+    ) {
+        match &**event {
+            UiInputEvent::KeyboardEnter => {
+                play_asset_animation(
+                    query_items,
+                    &mut callback_register,
+                    self.inputbox_material_focused.clone(),
+                    self.animation_duration,
+                    self.animation_ease.clone(),
+                    commands,
+                );
+            }
+            UiInputEvent::KeyboardLeave => {
+                play_asset_animation(
+                    query_items,
+                    &mut callback_register,
+                    self.inputbox_material.clone(),
+                    self.animation_duration,
+                    self.animation_ease.clone(),
+                    commands,
+                );
+            }
+            _ => {}
+        }
+    }
+}
+
+impl ThemeTrait for FlatTheme {
+    fn register_to_global(theme_entity: Entity, world: &mut World) {
+        <FlatTheme as WidgetInsertObserver<Text>>::register(theme_entity, world);
+        <FlatTheme as WidgetInsertObserver<BlockStyle>>::register(theme_entity, world);
+        <FlatTheme as WidgetInsertObserver<UiButton>>::register(theme_entity, world);
+        <FlatTheme as WidgetInsertObserver<UiCheckBox>>::register(theme_entity, world);
+        <FlatTheme as WidgetInsertObserver<UiSliderInited>>::register(theme_entity, world);
+        <FlatTheme as WidgetInsertObserver<UiInputBox>>::register(theme_entity, world);
+    }
+
+    fn unregister(&self, theme_entity: Entity, world: &mut World) {
+        todo!()
+    }
+}
+
+#[derive(SmartDefault)]
 pub struct FlatThemePlugin {
     theme: FlatTheme,
+    #[default(true)]
+    register_to_global: bool,
 }
 impl Plugin for FlatThemePlugin {
     fn build(&self, app: &mut App) {
@@ -819,13 +846,12 @@ impl Plugin for FlatThemePlugin {
             AssetAnimationPlugin::<ShaderAsset<InputboxMaterial>>::default(),
             AssetAnimationPlugin::<ShaderAsset<ScrollBarMaterial>>::default(),
         ));
-        app.add_systems(
-            Last,
-            update_ui_material.in_set(UiFrameworkSystems::UpdateLayersMaterial),
-        );
-        let mut flat_theme = self.theme.clone();
-        flat_theme.init(app.world_mut());
-        let mut theme = app.world_mut().resource_mut::<Theme>();
-        theme.set_theme_dispatch(Some(std::sync::Arc::new(flat_theme)));
+        if self.register_to_global {
+            let mut flat_theme = self.theme.clone();
+            flat_theme.init(app.world_mut());
+            app.add_plugins(GlobalThemePlugin::new(flat_theme));
+            // let mut theme = app.world_mut().resource_mut::<Theme>();
+            // theme.set_theme_dispatch(Some(std::sync::Arc::new(flat_theme)));
+        }
     }
 }

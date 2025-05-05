@@ -35,7 +35,7 @@ fn main() {
         .register_callback(button_open_poppup)
         .register_callback(open_menu)
         .register_callback(popup_animation_system::<UiAnimationDropdownConfig>)
-        // .add_plugins(bevy_inspector_egui::quick::FilterQueryInspectorPlugin::<With<UiInputBox>>::default())
+        .add_plugins(bevy_inspector_egui::quick::FilterQueryInspectorPlugin::<With<UiSlider>>::default())
         .run();
 }
 
@@ -110,7 +110,9 @@ pub fn button_open_poppup(
                         ..default()
                     })
                 >
-                    <(UiTextBundle::new("popup inner", 32, &theme))/>
+                    <UiHollowBlockBundle @style="full">
+                        <(UiTextBundle::new("popup inner", 32, &theme))/>
+                    </UiHollowBlockBundle>
                 </UiBlockBundle>
             }
         });

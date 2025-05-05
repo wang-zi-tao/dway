@@ -40,7 +40,7 @@ pub mod bundles {
 
     use crate::{
         prelude::*,
-        theme::{StyleFlags, ThemeComponent, WidgetKind},
+        theme::{BlockStyle, StyleFlags, ThemeComponent, ThemeHightlight, WidgetKind},
     };
 
     #[macro_export]
@@ -124,21 +124,30 @@ pub mod bundles {
         pub focus_policy: FocusPolicy,
         #[default(ThemeComponent::new(StyleFlags::default(), WidgetKind::Block))]
         pub theme: ThemeComponent,
+        #[default(BlockStyle::Normal)]
+        pub block_style: BlockStyle,
     });
     make_bundle!(UiHollowBlockBundle {
         pub focus_policy: FocusPolicy,
         #[default(ThemeComponent::new(StyleFlags::HOLLOW, WidgetKind::Block))]
         pub theme: ThemeComponent,
+        #[default(BlockStyle::Hollow)]
+        pub block_style: BlockStyle,
     });
     make_bundle!(UiSunkenBlockBundle {
         pub focus_policy: FocusPolicy,
         #[default(ThemeComponent::new(StyleFlags::SUNKEN, WidgetKind::Block))]
         pub theme: ThemeComponent,
+        #[default(BlockStyle::Sunken)]
+        pub block_style: BlockStyle,
     });
     make_bundle!(UiHighlightBlockBundle {
         pub focus_policy: FocusPolicy,
         #[default(ThemeComponent::new(StyleFlags::HIGHLIGHT, WidgetKind::Block))]
         pub theme: ThemeComponent,
+        #[default(BlockStyle::Normal)]
+        pub block_style: BlockStyle,
+        pub hightlight_theme: ThemeHightlight,
     });
 
     make_bundle!(MiniNodeBundle {

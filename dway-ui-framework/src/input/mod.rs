@@ -34,7 +34,7 @@ pub enum UiInputEvent {
     MouseLeave,
     MousePress(MouseButton),
     MouseRelease(MouseButton),
-    KeybordEnter,
+    KeyboardEnter,
     KeyboardLeave,
     MouseMove(Vec2),
     KeyboardInput(KeyboardInput),
@@ -43,7 +43,6 @@ pub enum UiInputEvent {
 #[derive(Component, Debug, SmartDefault, Reflect)]
 #[require(Interaction, UiInputEventDispatcher)]
 pub struct UiInput {
-    pub mouse_focused: bool,
     pub input_focused: bool,
     pub input_grabed: bool,
     #[default(true)]
@@ -225,7 +224,7 @@ pub fn update_ui_input(
                 }) = query.get_mut(*e)
                 {
                     ui_focus.input_focused = true;
-                    event_dispatcher.send(UiInputEvent::KeybordEnter, &mut commands);
+                    event_dispatcher.send(UiInputEvent::KeyboardEnter, &mut commands);
                     set_theme_focused(theme, true);
                 } else {
                     warn!(entity=?e, "can not enter input focus of node");

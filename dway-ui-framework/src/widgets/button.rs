@@ -5,7 +5,7 @@ use crate::{
     event::{make_callback, EventDispatcher},
     make_bundle,
     prelude::*,
-    theme::{adapter::NoWidgetTheme, StyleFlags, ThemeComponent, WidgetKind},
+    theme::{adapter::NoWidgetTheme, ThemeHightlight, StyleFlags, ThemeComponent, WidgetKind},
 };
 
 #[derive(Event, Debug, Clone, PartialEq, Eq)]
@@ -129,6 +129,7 @@ make_bundle! {
     UiHightlightButtonBundle {
         pub button: UiButton,
         pub interaction: Interaction,
+        pub hightlight_theme: ThemeHightlight,
         #[default(ThemeComponent::new(StyleFlags::HIGHLIGHT, WidgetKind::Button))]
         pub theme: ThemeComponent,
         #[default(FocusPolicy::Block)]

@@ -18,6 +18,14 @@ pub struct ClassName(pub String);
 #[derive(Component, Default)]
 pub struct NoWidgetTheme<T>(PhantomData<T>);
 
+#[derive(Event)]
+pub enum ThemeRequestEvent {
+    Apply(Entity),
+    UnApply(Entity),
+    RegisterToGlobal,
+    UnRegisterToGlobal,
+}
+
 pub trait WidgetInsertObserver<Widget: Component>: Component {
     type Params: SystemParam + 'static;
     type ItemQuery: QueryData + 'static;
@@ -31,7 +39,7 @@ pub trait WidgetInsertObserver<Widget: Component>: Component {
         commands: EntityCommands,
     );
 
-    fn register(&self, theme_entity: Entity, commands: &mut Commands) -> WidgetThemeAdapter<Widget>
+    fn register(theme_entity: Entity, world: &mut World) -> WidgetThemeAdapter<Widget>
     where
         Self: Sized,
     {
@@ -41,7 +49,7 @@ pub trait WidgetInsertObserver<Widget: Component>: Component {
                   params: StaticSystemParam<Self::Params>,
                   mut widget_query: ParamSet<(
                 Query<
-                    (Self::ItemQuery),
+                    Self::ItemQuery,
                     (
                         Without<NoTheme>,
                         Without<NoWidgetTheme<Widget>>,
@@ -87,7 +95,7 @@ pub trait WidgetInsertObserver<Widget: Component>: Component {
                 );
             },
         );
-        let entity = commands.spawn(observer).set_parent(theme_entity).id();
+        let entity = world.spawn(observer).set_parent(theme_entity).id();
         WidgetThemeAdapter {
             phantom: std::marker::PhantomData,
             observer: entity,
@@ -149,4 +157,27 @@ pub trait EventObserver<E, Marker = ()>: Component {
 pub struct WidgetThemeAdapter<Widget: Component> {
     phantom: std::marker::PhantomData<Widget>,
     pub observer: Entity,
+}
+
+pub trait ThemeTrait: Component {
+    fn register_to_global(theme_entity: Entity, world: &mut World);
+    fn unregister(&self, theme_entity: Entity, world: &mut World);
+}
+
+#[derive(Default)]
+pub struct GlobalThemePlugin<T: ThemeTrait + Clone> {
+    theme: T,
+}
+
+impl<T: ThemeTrait + Clone> Plugin for GlobalThemePlugin<T> {
+    fn build(&self, app: &mut App) {
+        let theme_entity = app.world_mut().spawn(self.theme.clone()).id();
+        T::register_to_global(theme_entity, app.world_mut());
+    }
+}
+
+impl<T: ThemeTrait + Clone> GlobalThemePlugin<T> {
+    pub fn new(theme: T) -> Self {
+        Self { theme }
+    }
 }

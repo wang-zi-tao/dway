@@ -6,6 +6,9 @@ use crate::{
     theme::{StyleFlags, ThemeComponent, WidgetKind},
 };
 
+#[derive(Component)]
+pub struct UiSliderInited;
+
 #[derive(Component, SmartDefault, Reflect)]
 #[require(Node, UiSliderState, UiSliderWidget, RelativeCursorPosition, Interaction, UiSliderEventDispatcher)]
 pub struct UiSlider {
@@ -39,12 +42,16 @@ UiSlider=>
     pub node: Node = style!("items-center absolute full min-h-16 min-w-32"),
     pub cursor_positon: RelativeCursorPosition, // TODO 优化
     pub event_dispatcher: UiSliderEventDispatcher,
+    pub theme: ThemeComponent,
 })
 @world_query(slider_interaction: Ref<Interaction>)
 @world_query(mouse_position: Ref<RelativeCursorPosition>)
 @world_query(event_dispatcher: Ref<UiSliderEventDispatcher>)
 @world_query(node: &mut Node)
 @before{
+if !widget.inited{
+    commands.entity(this_entity).insert(UiSliderInited);
+}
 if ( slider_interaction.is_changed() || mouse_position.is_changed() )
         && *slider_interaction == Interaction::Pressed{
     if let Some(relative) = mouse_position.normalized {
@@ -57,11 +64,8 @@ if ( slider_interaction.is_changed() || mouse_position.is_changed() )
         }, commands);
     }
 } }
-<MiniNodeBundle @id="bar" @style="absolute h-8 w-full min-h-8 align-self:center"
-    ThemeComponent=(ThemeComponent::new(StyleFlags::default(), WidgetKind::Slider))
->
+<MiniNodeBundle @id="bar" @style="absolute h-8 w-full min-h-8 align-self:center" >
     <MiniNodeBundle @id="bar_highlight"
-        ThemeComponent=(ThemeComponent::new(StyleFlags::default(), WidgetKind::SliderHightlightBar))
         Node=(Node{
         width: Val::Percent(100.0*((*state.value()-prop.min)/(prop.max-prop.min)).max(0.0).min(1.0)),
         ..style!("m-2")
@@ -71,7 +75,6 @@ if ( slider_interaction.is_changed() || mouse_position.is_changed() )
     margin:UiRect::left(Val::Percent(100.0*((*state.value()-prop.min)/(prop.max-prop.min)).max(0.0).min(1.0))),
     ..style!("absolute w-0 h-full flex-col align-items:center justify-content:center align-self:center")
 }) >
-    <MiniNodeBundle @id="handle" @style="absolute align-self:center w/h-1.0 h-80% min-w-16 min-h-16"
-        ThemeComponent=(ThemeComponent::new(StyleFlags::default(), WidgetKind::SliderHandle)) />
+    <MiniNodeBundle @id="handle" @style="absolute align-self:center w/h-1.0 h-80% min-w-16 min-h-16" />
 </MiniNodeBundle>
 }

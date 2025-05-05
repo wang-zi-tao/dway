@@ -61,11 +61,19 @@ impl ThemeIcon {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct NoTheme;
 
-#[derive(Component)]
-pub struct HightlightTheme;
+#[derive(Component, Default)]
+pub struct ThemeHightlight;
+
+#[derive(Component, Default)]
+pub enum BlockStyle {
+    #[default]
+    Normal,
+    Hollow,
+    Sunken,
+}
 
 #[derive(Resource, Reflect)]
 pub struct Theme {
