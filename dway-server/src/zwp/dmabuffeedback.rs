@@ -44,7 +44,7 @@ impl Dispatch<zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1, Entity> fo
         debug!("request {:?}", &request);
         match request {
             zwp_linux_dmabuf_feedback_v1::Request::Destroy => {
-                state.entity_mut(*data).remove::<DmabufFeedback>();
+                state.despawn_object_component::<DmabufFeedback>(*data, resource);
             }
             _ => todo!(),
         }

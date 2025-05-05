@@ -41,34 +41,9 @@ use dway_util::{
 use keys::*;
 use opttions::DWayOption;
 
-cfg_if! {if #[cfg(feature="debug")]{
-    const LOG_LEVEL: Level = Level::DEBUG;
-}else{
-    const LOG_LEVEL: Level = Level::INFO;
-}}
+const LOG_LEVEL: Level = Level::INFO;
 
 const LOG: &str = "\
-bevy_ecs=info,\
-bevy_render=debug,\
-bevy_ui=trace,\
-bevy_time=info,\
-dway=debug,\
-polling=info,\
-bevy_relationship=info,\
-dway_server=debug,\
-dway_server::render::importnode=debug,\
-dway_server::zxdg::decoration=debug,\
-dway_client_core=info,\
-dway_util::eventloop=info,\
-dway_tty=info,\
-nega::front=info,\
-naga=warn,\
-wgpu=info,\
-wgpu-hal=info,\
-wgpu_core=info,\
-dexterous_developer_internal=debug,\
-bevy_ecss=info,\
-dway_ui_framework::render::mesh=info,\
 ";
 
 #[cfg(not(feature = "hot_reload"))]

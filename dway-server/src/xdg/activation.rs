@@ -44,7 +44,7 @@ impl Dispatch<xdg_activation_v1::XdgActivationV1, Entity> for DWay {
         debug!("request {:?}", &request);
         match request {
             xdg_activation_v1::Request::Destroy => {
-                state.entity_mut(*data).remove::<XdgActivation>();
+                state.despawn_object_component::<XdgActivation>(*data, resource);
             }
             xdg_activation_v1::Request::GetActivationToken { id } => {
                 state.insert_object(*data, id, data_init, XdgActivationToken::new);
