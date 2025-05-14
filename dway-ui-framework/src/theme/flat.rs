@@ -9,7 +9,10 @@ use bevy::ecs::{
 };
 
 use super::{
-    adapter::{EventObserver, GlobalThemePlugin, ThemeTrait, WidgetInsertObserver},
+    adapter::{
+        ApplyMaterialAnimation, EventObserver, FocusMaterialSet, GlobalThemePlugin,
+        InteractionMaterialSet, MaterialApplyMethod, ThemeTrait, WidgetInsertObserver,
+    },
     insert_material_tween, BlockStyle, DefaultTextTheme, StyleFlags, ThemeComponent, ThemeDispatch,
     ThemeHightlight,
 };
@@ -94,34 +97,26 @@ pub struct FlatTheme {
     #[default(AnimationEaseMethod::Linear)]
     pub animation_ease: AnimationEaseMethod,
 
+    #[default(ApplyMaterialAnimation{duration:Duration::from_secs_f32(0.2),ease:AnimationEaseMethod::Linear})]
+    pub animation_player: ApplyMaterialAnimation,
+    pub button_material_set: InteractionMaterialSet<ShaderAsset<ButtonMaterial>>,
+    pub hightlight_button_material_set:
+        InteractionMaterialSet<ShaderAsset<HightlightButtonMaterial>>,
+    pub checkbox_material_set: InteractionMaterialSet<ShaderAsset<CheckboxMaterial>>,
+    pub checkbox_material_down_set: InteractionMaterialSet<ShaderAsset<CheckboxMaterial>>,
+    pub slider_handler_material_set: InteractionMaterialSet<ShaderAsset<SliderHandlerMaterial>>,
+    pub scroll_bar_material_set: InteractionMaterialSet<ShaderAsset<ScrollBarMaterial>>,
+    pub inputbox_material_set: FocusMaterialSet<ShaderAsset<InputboxMaterial>>,
+    pub list_item_hightlight_set: InteractionMaterialSet<ShaderAsset<ListItemMaterial>>,
+
     pub block_material: Handle<ShaderAsset<BlockMaterial>>,
     pub popup_block_material: Handle<ShaderAsset<BlockMaterial>>,
     pub hollow_block_material: Handle<ShaderAsset<HollowBlockMaterial>>,
     pub hightlight_hollow_block_material: Handle<ShaderAsset<HollowBlockMaterial>>,
     pub sunken_block_material: Handle<ShaderAsset<SunkenBlockMaterial>>,
     pub hightlight_block_material: Handle<ShaderAsset<HollowBlockMaterial>>,
-    pub button_material: Handle<ShaderAsset<ButtonMaterial>>,
-    pub button_material_hover: Handle<ShaderAsset<ButtonMaterial>>,
-    pub button_material_clicked: Handle<ShaderAsset<ButtonMaterial>>,
-    pub hightlight_button_material: Handle<ShaderAsset<HightlightButtonMaterial>>,
-    pub hightlight_button_material_hover: Handle<ShaderAsset<HightlightButtonMaterial>>,
-    pub hightlight_button_material_clicked: Handle<ShaderAsset<HightlightButtonMaterial>>,
-    pub list_item_hightlight: Handle<ShaderAsset<ListItemMaterial>>,
-    pub list_item_hover: Handle<ShaderAsset<ListItemMaterial>>,
-    pub list_item: Handle<ShaderAsset<ListItemMaterial>>,
-    pub checkbox_material: Handle<ShaderAsset<CheckboxMaterial>>,
-    pub checkbox_material_down: Handle<ShaderAsset<CheckboxMaterial>>,
-    pub checkbox_material_hover: Handle<ShaderAsset<CheckboxMaterial>>,
-    pub checkbox_material_down_hover: Handle<ShaderAsset<CheckboxMaterial>>,
     pub slider_material: Handle<ShaderAsset<SliderMaterial>>,
     pub slider_hightlight_bar_material: Handle<ShaderAsset<SliderHightlightBarMaterial>>,
-    pub slider_handler_material: Handle<ShaderAsset<SliderHandlerMaterial>>,
-    pub slider_handler_material_hoverd: Handle<ShaderAsset<SliderHandlerMaterial>>,
-    pub inputbox_material: Handle<ShaderAsset<InputboxMaterial>>,
-    pub inputbox_material_focused: Handle<ShaderAsset<InputboxMaterial>>,
-    pub scroll_bar_material: Handle<ShaderAsset<ScrollBarMaterial>>,
-    pub scroll_bar_material_hover: Handle<ShaderAsset<ScrollBarMaterial>>,
-    pub scroll_bar_material_click: Handle<ShaderAsset<ScrollBarMaterial>>,
 }
 impl FlatTheme {
     fn init(&mut self, world: &mut World) {
@@ -170,104 +165,111 @@ impl FlatTheme {
                     )));
         }
 
-        {
-            let mut button_material_assets = world.resource_mut::<Assets<_>>();
-            self.button_material =
-                button_material_assets.add(ShaderAsset::new(self.rounded_rect().with_effect((
-                    self.invisible_inner_shadow(self.fill_color()),
-                    self.fill_color(),
-                    self.shadow(),
-                ))));
-            self.button_material_hover =
-                button_material_assets.add(ShaderAsset::new(self.rounded_rect().with_effect((
-                    self.invisible_inner_shadow(FillColor::new(
-                        (self.fill_color.to_srgba() * 0.95).into(),
-                    )),
-                    FillColor::new((self.fill_color.to_srgba() * 0.95).into()),
-                    self.shadow(),
-                ))));
-            self.button_material_clicked =
-                button_material_assets.add(ShaderAsset::new(self.rounded_rect().with_effect((
-                    self.inner_shadow(FillColor::new((self.fill_color.to_srgba() * 0.95).into())),
-                    FillColor::new((self.fill_color.to_srgba() * 0.95).into()),
-                    self.invisible_shadow(),
-                ))));
-        }
-
-        {
-            let mut hightlight_button_material = world.resource_mut::<Assets<_>>();
-            self.hightlight_button_material_hover = hightlight_button_material.add(
-                ShaderAsset::new(self.rounded_rect().with_effect((
-                    self.border(),
-                    self.main_color.into(),
-                    self.shadow(),
-                ))),
-            );
-            self.hightlight_button_material = hightlight_button_material.add(ShaderAsset::new(
-                self.rounded_rect().with_effect((
-                    self.border(),
-                    self.main_color.into(),
-                    self.shadow(),
+        self.button_material_set = InteractionMaterialSet::new(
+            &mut world.resource_mut::<Assets<_>>(),
+            ShaderAsset::new(self.rounded_rect().with_effect((
+                self.invisible_inner_shadow(self.fill_color()),
+                self.fill_color(),
+                self.shadow(),
+            ))),
+            Some(ShaderAsset::new(self.rounded_rect().with_effect((
+                self.invisible_inner_shadow(FillColor::new(
+                    (self.fill_color.to_srgba() * 0.95).into(),
                 )),
-            ));
-            self.hightlight_button_material_clicked = hightlight_button_material.add(
-                ShaderAsset::new(self.rounded_rect().with_effect((
-                    self.border(),
-                    self.main_color.into(),
-                    self.invisible_shadow(),
-                ))),
-            );
-        }
-        {
-            let mut list_item_materials = world.resource_mut::<Assets<_>>();
-            self.list_item_hightlight = list_item_materials.add(ShaderAsset::new(
-                self.rounded_rect().with_effect(self.main_color.into()),
-            ));
-            self.list_item_hover = list_item_materials.add(ShaderAsset::new(
+                FillColor::new((self.fill_color.to_srgba() * 0.95).into()),
+                self.shadow(),
+            )))),
+            ShaderAsset::new(self.rounded_rect().with_effect((
+                self.inner_shadow(FillColor::new((self.fill_color.to_srgba() * 0.95).into())),
+                FillColor::new((self.fill_color.to_srgba() * 0.95).into()),
+                self.invisible_shadow(),
+            ))),
+        );
+
+        self.hightlight_button_material_set = InteractionMaterialSet::new(
+            &mut world.resource_mut::<Assets<_>>(),
+            ShaderAsset::new(self.rounded_rect().with_effect((
+                self.border(),
+                self.main_color.into(),
+                self.shadow(),
+            ))),
+            Some(ShaderAsset::new(self.rounded_rect().with_effect((
+                self.border(),
+                self.main_color.into(),
+                self.shadow(),
+            )))),
+            ShaderAsset::new(self.rounded_rect().with_effect((
+                self.border(),
+                self.main_color.into(),
+                self.invisible_shadow(),
+            ))),
+        );
+
+        self.list_item_hightlight_set = InteractionMaterialSet::new(
+            &mut world.resource_mut(),
+            ShaderAsset::new(self.rounded_rect().with_effect(self.main_color.into())),
+            Some(ShaderAsset::new(
                 self.rounded_rect().with_effect(self.fill_color3.into()),
-            ));
-            self.list_item = list_item_materials.add(ShaderAsset::new(
-                self.rounded_rect().with_effect(self.fill_color2.into()),
-            ));
-        }
+            )),
+            ShaderAsset::new(self.rounded_rect().with_effect(self.fill_color2.into())),
+        );
 
         {
-            let mut checkbox_material_assets = world.resource_mut::<Assets<_>>();
-            self.checkbox_material = checkbox_material_assets.add(ShaderAsset::new((
-                Circle::new()
-                    .with_effect(self.fill_color())
-                    .with_transform(Margins::new(1.0, 32.0, 1.0, 1.0)),
-                RoundedBar::new().with_effect((
-                    FillColor::new(self.fill_color2.into()),
-                    self.invisible_shadow(),
+            let up_inner = Circle::new()
+                .with_effect(self.fill_color())
+                .with_transform(Margins::new(1.0, 32.0, 1.0, 1.0));
+            let down_inner = Circle::new()
+                .with_effect(self.fill_color())
+                .with_transform(Margins::new(32.0, 1.0, 1.0, 1.0));
+            self.checkbox_material_set = InteractionMaterialSet::new(
+                &mut world.resource_mut::<Assets<_>>(),
+                ShaderAsset::new((
+                    up_inner.clone(),
+                    RoundedBar::new().with_effect((
+                        FillColor::new(self.fill_color2.into()),
+                        self.invisible_shadow(),
+                    )),
                 )),
-            )));
-            self.checkbox_material_hover = checkbox_material_assets.add(ShaderAsset::new((
-                Circle::new()
-                    .with_effect(self.fill_color())
-                    .with_transform(Margins::new(1.0, 32.0, 1.0, 1.0)),
-                RoundedBar::new().with_effect((
-                    FillColor::new(self.fill_color2.into()),
-                    self.highlight_shadow(),
+                None,
+                ShaderAsset::new((
+                    up_inner,
+                    RoundedBar::new().with_effect((
+                        FillColor::new(self.fill_color2.into()),
+                        self.highlight_shadow(),
+                    )),
                 )),
-            )));
-            self.checkbox_material_down = checkbox_material_assets.add(ShaderAsset::new((
-                Circle::new()
-                    .with_effect(self.fill_color())
-                    .with_transform(Margins::new(32.0, 1.0, 1.0, 1.0)),
-                RoundedBar::new().with_effect((self.main_color.into(), self.shadow())),
-            )));
-            self.checkbox_material_down_hover = checkbox_material_assets.add(ShaderAsset::new((
-                Circle::new()
-                    .with_effect(self.fill_color())
-                    .with_transform(Margins::new(32.0, 1.0, 1.0, 1.0)),
-                RoundedBar::new().with_effect((
-                    FillColor::new(self.main_color.into()),
-                    self.highlight_shadow(),
+            );
+            self.checkbox_material_down_set = InteractionMaterialSet::new(
+                &mut world.resource_mut::<Assets<_>>(),
+                ShaderAsset::new((
+                    down_inner.clone(),
+                    RoundedBar::new().with_effect((self.main_color.into(), self.shadow())),
                 )),
-            )));
+                None,
+                ShaderAsset::new((
+                    down_inner,
+                    RoundedBar::new().with_effect((
+                        FillColor::new(self.main_color.into()),
+                        self.highlight_shadow(),
+                    )),
+                )),
+            );
         }
 
+        self.slider_handler_material_set = InteractionMaterialSet::new(
+            &mut world.resource_mut(),
+            ShaderAsset::new(Circle::new().with_effect((
+                self.border(),
+                self.fill_color(),
+                self.shadow(),
+            ))),
+            None,
+            ShaderAsset::new(Circle::new().with_effect((
+                self.border(),
+                self.fill_color(),
+                self.highlight_shadow(),
+            ))),
+        );
         self.slider_material =
             world
                 .resource_mut::<Assets<_>>()
@@ -278,30 +280,17 @@ impl FlatTheme {
         self.slider_hightlight_bar_material = world.resource_mut::<Assets<_>>().add(
             ShaderAsset::new(RoundedBar::new().with_effect(FillColor::new(self.main_color))),
         );
-        self.slider_handler_material =
-            world
-                .resource_mut::<Assets<_>>()
-                .add(ShaderAsset::new(Circle::new().with_effect((
-                    self.border(),
-                    self.fill_color(),
-                    self.shadow(),
-                ))));
-        self.slider_handler_material_hoverd =
-            world
-                .resource_mut::<Assets<_>>()
-                .add(ShaderAsset::new(Circle::new().with_effect((
-                    self.border(),
-                    self.fill_color(),
-                    self.highlight_shadow(),
-                ))));
 
-        self.inputbox_material = world.resource_mut::<Assets<_>>().add(ShaderAsset::new(
-            RoundedRect::new(0.5 * self.cornor)
-                .with_effect((self.inactive_border(), self.fill_color())),
-        ));
-        self.inputbox_material_focused = world.resource_mut::<Assets<_>>().add(ShaderAsset::new(
-            RoundedRect::new(0.5 * self.cornor).with_effect((self.border(), self.fill_color())),
-        ));
+        self.inputbox_material_set = FocusMaterialSet::new(
+            &mut world.resource_mut(),
+            ShaderAsset::new(
+                RoundedRect::new(0.5 * self.cornor)
+                    .with_effect((self.inactive_border(), self.fill_color())),
+            ),
+            ShaderAsset::new(
+                RoundedRect::new(0.5 * self.cornor).with_effect((self.border(), self.fill_color())),
+            ),
+        );
     }
 
     fn inactive_border(&self) -> Border<FillColor> {
@@ -388,7 +377,6 @@ impl FlatTheme {
 
 // TODO blur theme
 
-
 impl WidgetInsertObserver<Text> for FlatTheme {
     type Filter = Without<DefaultTextTheme>;
     type ItemQuery = (&'static mut TextFont,);
@@ -450,7 +438,7 @@ impl WidgetInsertObserver<UiButton> for FlatTheme {
         mut commands: EntityCommands,
     ) {
         if hightlight {
-            commands.insert(MaterialNode(self.hightlight_button_material.clone()));
+            commands.insert(self.hightlight_button_material_set.normal.clone());
             let widget_entity = commands.id();
             callback_register.add_to_observer(
                 <Self as EventObserver<UiButtonEvent, ThemeHightlight>>::trigger,
@@ -458,7 +446,7 @@ impl WidgetInsertObserver<UiButton> for FlatTheme {
                 widget_entity,
             );
         } else {
-            commands.insert(MaterialNode(self.button_material.clone()));
+            commands.insert(self.button_material_set.normal.clone());
             let widget_entity = commands.id();
             callback_register.add_to_observer(
                 <Self as EventObserver<UiButtonEvent>>::trigger,
@@ -476,43 +464,22 @@ impl EventObserver<UiButtonEvent> for FlatTheme {
     fn on_event(
         &self,
         event: Trigger<UiEvent<UiButtonEvent>>,
-        theme_entity: Entity,
+        _theme_entity: Entity,
         query_items: QueryItem<Self::ItemQuery>,
-        mut callback_register: SystemParamItem<Self::Params>,
+        callback_register: SystemParamItem<Self::Params>,
         commands: EntityCommands,
     ) {
-        match event.kind {
-            UiButtonEventKind::Pressed => {
-                play_asset_animation(
-                    query_items,
-                    &mut callback_register,
-                    self.button_material_clicked.clone(),
-                    self.animation_duration.mul_f32(0.5),
-                    self.animation_ease.clone(),
-                    commands,
-                );
-            }
-            UiButtonEventKind::Released | UiButtonEventKind::Hovered => {
-                play_asset_animation(
-                    query_items,
-                    &mut callback_register,
-                    self.button_material_hover.clone(),
-                    self.animation_duration,
-                    self.animation_ease.clone(),
-                    commands,
-                );
-            }
-            UiButtonEventKind::Leaved => {
-                play_asset_animation(
-                    query_items,
-                    &mut callback_register,
-                    self.button_material.clone(),
-                    self.animation_duration,
-                    self.animation_ease.clone(),
-                    commands,
-                );
-            }
-        }
+        let interaction = match event.kind {
+            UiButtonEventKind::Pressed => Interaction::Pressed,
+            UiButtonEventKind::Released | UiButtonEventKind::Hovered => Interaction::Hovered,
+            UiButtonEventKind::Leaved => Interaction::None,
+        };
+        self.animation_player.apply(
+            self.button_material_set.get_material(interaction).clone(),
+            commands,
+            query_items,
+            callback_register,
+        );
     }
 }
 
@@ -523,43 +490,24 @@ impl EventObserver<UiButtonEvent, ThemeHightlight> for FlatTheme {
     fn on_event(
         &self,
         event: Trigger<UiEvent<UiButtonEvent>>,
-        theme_entity: Entity,
+        _theme_entity: Entity,
         query_items: QueryItem<Self::ItemQuery>,
-        mut callback_register: SystemParamItem<Self::Params>,
+        callback_register: SystemParamItem<Self::Params>,
         commands: EntityCommands,
     ) {
-        match event.kind {
-            UiButtonEventKind::Pressed => {
-                play_asset_animation(
-                    query_items,
-                    &mut callback_register,
-                    self.hightlight_button_material_clicked.clone(),
-                    self.animation_duration,
-                    self.animation_ease.clone(),
-                    commands,
-                );
-            }
-            UiButtonEventKind::Released | UiButtonEventKind::Hovered => {
-                play_asset_animation(
-                    query_items,
-                    &mut callback_register,
-                    self.hightlight_button_material_hover.clone(),
-                    self.animation_duration,
-                    self.animation_ease.clone(),
-                    commands,
-                );
-            }
-            UiButtonEventKind::Leaved => {
-                play_asset_animation(
-                    query_items,
-                    &mut callback_register,
-                    self.hightlight_button_material.clone(),
-                    self.animation_duration,
-                    self.animation_ease.clone(),
-                    commands,
-                );
-            }
-        }
+        let interaction = match event.kind {
+            UiButtonEventKind::Pressed => Interaction::Pressed,
+            UiButtonEventKind::Released | UiButtonEventKind::Hovered => Interaction::Hovered,
+            UiButtonEventKind::Leaved => Interaction::None,
+        };
+        self.animation_player.apply(
+            self.hightlight_button_material_set
+                .get_material(interaction)
+                .clone(),
+            commands,
+            query_items,
+            callback_register,
+        );
     }
 }
 
@@ -570,12 +518,12 @@ impl WidgetInsertObserver<UiCheckBox> for FlatTheme {
 
     fn on_widget_insert(
         &self,
-        theme_entity: Entity,
-        mut event_dispatcher: QueryItem<Self::ItemQuery>,
+        _theme_entity: Entity,
+        _: QueryItem<Self::ItemQuery>,
         mut callback_register: SystemParamItem<Self::Params>,
         mut commands: EntityCommands,
     ) {
-        commands.insert(MaterialNode(self.checkbox_material.clone()));
+        commands.insert(self.checkbox_material_set.normal.clone());
         let widget_entity = commands.id();
         callback_register.add_to_observer(
             <Self as EventObserver<UiCheckBoxEvent>>::trigger,
@@ -595,53 +543,22 @@ impl EventObserver<UiCheckBoxEvent> for FlatTheme {
     fn on_event(
         &self,
         event: Trigger<UiEvent<UiCheckBoxEvent>>,
-        theme_entity: Entity,
+        _theme_entity: Entity,
         (checkbox, query_items): QueryItem<Self::ItemQuery>,
         mut callback_register: SystemParamItem<Self::Params>,
         commands: EntityCommands,
     ) {
-        match (event.value, checkbox.state) {
-            (true, Interaction::Hovered | Interaction::Pressed) => {
-                play_asset_animation(
-                    query_items,
-                    &mut callback_register,
-                    self.checkbox_material_down_hover.clone(),
-                    self.animation_duration,
-                    self.animation_ease.clone(),
-                    commands,
-                );
-            }
-            (false, Interaction::None) => {
-                play_asset_animation(
-                    query_items,
-                    &mut callback_register,
-                    self.checkbox_material.clone(),
-                    self.animation_duration,
-                    self.animation_ease.clone(),
-                    commands,
-                );
-            }
-            (false, Interaction::Hovered | Interaction::Pressed) => {
-                play_asset_animation(
-                    query_items,
-                    &mut callback_register,
-                    self.checkbox_material_hover.clone(),
-                    self.animation_duration,
-                    self.animation_ease.clone(),
-                    commands,
-                );
-            }
-            (true, Interaction::None) => {
-                play_asset_animation(
-                    query_items,
-                    &mut callback_register,
-                    self.checkbox_material_down.clone(),
-                    self.animation_duration,
-                    self.animation_ease.clone(),
-                    commands,
-                );
-            }
-        }
+        let material_set = if event.value {
+            &self.checkbox_material_down_set
+        } else {
+            &self.checkbox_material_set
+        };
+        self.animation_player.apply(
+            material_set.get_material(checkbox.state).clone(),
+            commands,
+            query_items,
+            callback_register,
+        );
     }
 }
 
@@ -672,7 +589,7 @@ impl WidgetInsertObserver<UiSliderInited> for FlatTheme {
 
         let mut commands = commands.commands();
         let mut handle_entity_commands = commands.entity(widget.node_handle_entity);
-        handle_entity_commands.insert((MaterialNode(self.slider_handler_material.clone()),));
+        handle_entity_commands.insert(self.slider_handler_material_set.normal.clone());
         handle_entity_commands.entry::<UiInput>().or_default();
         handle_entity_commands
             .entry::<ThemeComponent>()
@@ -699,33 +616,20 @@ impl EventObserver<UiInputEvent, UiSliderHandle> for FlatTheme {
     fn on_event(
         &self,
         event: Trigger<UiEvent<UiInputEvent>>,
-        theme_entity: Entity,
+        _theme_entity: Entity,
         query_items: QueryItem<Self::ItemQuery>,
-        mut callback_register: SystemParamItem<Self::Params>,
+        callback_register: SystemParamItem<Self::Params>,
         commands: EntityCommands,
     ) {
-        match &**event {
-            UiInputEvent::MouseEnter => {
-                play_asset_animation(
-                    query_items,
-                    &mut callback_register,
-                    self.slider_handler_material_hoverd.clone(),
-                    self.animation_duration,
-                    self.animation_ease.clone(),
-                    commands,
-                );
-            }
-            UiInputEvent::MouseLeave => {
-                play_asset_animation(
-                    query_items,
-                    &mut callback_register,
-                    self.slider_handler_material.clone(),
-                    self.animation_duration,
-                    self.animation_ease.clone(),
-                    commands,
-                );
-            }
-            _ => {}
+        if let Some(interaction) = event.interaction() {
+            self.animation_player.apply(
+                self.slider_handler_material_set
+                    .get_material(interaction)
+                    .clone(),
+                commands,
+                query_items,
+                callback_register,
+            );
         }
     }
 }
@@ -746,7 +650,7 @@ impl WidgetInsertObserver<UiInputBox> for FlatTheme {
         mut callback_register: SystemParamItem<Self::Params>,
         mut commands: EntityCommands,
     ) {
-        commands.insert(MaterialNode(self.inputbox_material.clone()));
+        commands.insert(self.inputbox_material_set.normal.clone());
         let widget_entity = commands.id();
         callback_register.add_to_observer(
             <Self as EventObserver<UiInputEvent, UiInputBox>>::trigger,
@@ -763,33 +667,18 @@ impl EventObserver<UiInputEvent, UiInputBox> for FlatTheme {
     fn on_event(
         &self,
         event: Trigger<UiEvent<UiInputEvent>>,
-        theme_entity: Entity,
+        _theme_entity: Entity,
         query_items: QueryItem<Self::ItemQuery>,
-        mut callback_register: SystemParamItem<Self::Params>,
+        callback_register: SystemParamItem<Self::Params>,
         commands: EntityCommands,
     ) {
-        match &**event {
-            UiInputEvent::KeyboardEnter => {
-                play_asset_animation(
-                    query_items,
-                    &mut callback_register,
-                    self.inputbox_material_focused.clone(),
-                    self.animation_duration,
-                    self.animation_ease.clone(),
-                    commands,
-                );
-            }
-            UiInputEvent::KeyboardLeave => {
-                play_asset_animation(
-                    query_items,
-                    &mut callback_register,
-                    self.inputbox_material.clone(),
-                    self.animation_duration,
-                    self.animation_ease.clone(),
-                    commands,
-                );
-            }
-            _ => {}
+        if let Some(focus) = event.key_focus() {
+            self.animation_player.apply(
+                self.inputbox_material_set.get_material(focus).clone(),
+                commands,
+                query_items,
+                callback_register,
+            );
         }
     }
 }

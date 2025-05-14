@@ -40,6 +40,29 @@ pub enum UiInputEvent {
     KeyboardInput(KeyboardInput),
 }
 
+impl UiInputEvent {
+    pub fn interaction(&self) -> Option<Interaction> {
+        match self {
+            UiInputEvent::MouseEnter => Some(Interaction::Hovered),
+            UiInputEvent::MouseLeave => Some(Interaction::None),
+            UiInputEvent::MousePress(_) => Some(Interaction::Pressed),
+            UiInputEvent::MouseRelease(_) => Some(Interaction::Hovered),
+            UiInputEvent::KeyboardEnter => None,
+            UiInputEvent::KeyboardLeave => None,
+            UiInputEvent::MouseMove(_) => None,
+            UiInputEvent::KeyboardInput(_) => None,
+        }
+    }
+
+    pub fn key_focus(&self) -> Option<bool> {
+        match self {
+            UiInputEvent::KeyboardEnter => Some(true),
+            UiInputEvent::KeyboardLeave => Some(false),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Component, Debug, SmartDefault, Reflect)]
 #[require(Interaction, UiInputEventDispatcher)]
 pub struct UiInput {

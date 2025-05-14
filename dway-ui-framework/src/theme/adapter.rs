@@ -4,13 +4,20 @@ use bevy::{
     core::FrameCount,
     ecs::{
         query::{QueryFilter, WorldQuery},
-        system::{lifetimeless::SRes, StaticSystemParam, SystemParam, SystemParamItem},
+        system::{
+            lifetimeless::{SRes, SResMut},
+            StaticSystemParam, SystemParam, SystemParamItem,
+        },
     },
 };
 use imports::{QueryData, QueryItem};
 
 use super::{NoTheme, ThemeComponent, ThemeDispatch};
-use crate::prelude::*;
+use crate::{
+    animation::{ease::AnimationEaseMethod, play_asset_animation, MaterialAnimationQueryData},
+    prelude::*,
+    util::set_component_or_insert,
+};
 
 #[derive(Component, Default, Debug, Reflect)]
 pub struct ClassName(pub String);
@@ -179,5 +186,133 @@ impl<T: ThemeTrait + Clone> Plugin for GlobalThemePlugin<T> {
 impl<T: ThemeTrait + Clone> GlobalThemePlugin<T> {
     pub fn new(theme: T) -> Self {
         Self { theme }
+    }
+}
+
+pub trait MaterialApplyMethod<M> {
+    type ItemQuery: QueryData + 'static;
+    type Params: SystemParam + 'static;
+
+    fn apply(
+        &self,
+        material: M,
+        commands: EntityCommands,
+        query_items: QueryItem<Self::ItemQuery>,
+        params: SystemParamItem<Self::Params>,
+    );
+}
+
+#[derive(Default)]
+pub struct SetMaterial;
+
+impl<M: Component> MaterialApplyMethod<M> for SetMaterial {
+    type ItemQuery = Option<&'static mut M>;
+    type Params = ();
+
+    fn apply(
+        &self,
+        material: M,
+        commands: EntityCommands,
+        mut query_items: QueryItem<Self::ItemQuery>,
+        _params: SystemParamItem<Self::Params>,
+    ) {
+        set_component_or_insert(query_items.as_deref_mut(), commands, material);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ApplyMaterialAnimation {
+    pub duration: Duration,
+    pub ease: AnimationEaseMethod,
+}
+
+impl<M: UiMaterial + Asset + Interpolation> MaterialApplyMethod<MaterialNode<M>>
+    for ApplyMaterialAnimation
+{
+    type ItemQuery = MaterialAnimationQueryData<M>;
+    type Params = SResMut<CallbackTypeRegister>;
+
+    fn apply(
+        &self,
+        material: MaterialNode<M>,
+        commands: EntityCommands,
+        query_items: QueryItem<Self::ItemQuery>,
+        mut callback_register: SystemParamItem<Self::Params>,
+    ) {
+        play_asset_animation(
+            query_items,
+            &mut callback_register,
+            material.0,
+            self.duration,
+            self.ease.clone(),
+            commands,
+        );
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct InteractionMaterialSet<M: UiMaterial> {
+    pub normal: MaterialNode<M>,
+    pub hover: Option<MaterialNode<M>>,
+    pub pressed: MaterialNode<M>,
+}
+
+impl<M: UiMaterial> Default for InteractionMaterialSet<M> {
+    fn default() -> Self {
+        Self {
+            normal: Default::default(),
+            hover: Default::default(),
+            pressed: Default::default(),
+        }
+    }
+}
+
+impl<M: UiMaterial> InteractionMaterialSet<M> {
+    pub fn new(assets: &mut Assets<M>, normal: M, hover: Option<M>, pressed: M) -> Self {
+        Self {
+            normal: assets.add(normal).into(),
+            hover: hover.map(|hover| assets.add(hover).into()),
+            pressed: assets.add(pressed).into(),
+        }
+    }
+
+    pub fn get_material(&self, interaction: Interaction) -> &MaterialNode<M> {
+        match interaction {
+            Interaction::Pressed => &self.pressed,
+            Interaction::Hovered => self.hover.as_ref().unwrap_or(&self.normal),
+            Interaction::None => &self.normal,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FocusMaterialSet<M: UiMaterial> {
+    pub normal: MaterialNode<M>,
+    pub focused: MaterialNode<M>,
+}
+
+impl<M: UiMaterial> Default for FocusMaterialSet<M> {
+    fn default() -> Self {
+        Self {
+            normal: Default::default(),
+            focused: Default::default(),
+        }
+    }
+}
+
+impl<M: UiMaterial> FocusMaterialSet<M> {
+    pub fn new(assets: &mut Assets<M>, normal: M, focused: M) -> Self {
+        Self {
+            normal: assets.add(normal).into(),
+            focused: assets.add(focused).into(),
+        }
+    }
+
+    pub fn get_material(&self, focus: bool) -> &MaterialNode<M> {
+        if focus {
+            &self.focused
+        } else {
+            &self.normal
+        }
     }
 }
