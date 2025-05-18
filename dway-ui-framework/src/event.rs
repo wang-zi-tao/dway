@@ -264,7 +264,7 @@ impl<E: Clone + Send + Sync + 'static> Component for EventDispatcher<E> {
 }
 
 pub fn send_trait_event<E: Clone + Send + Sync + 'static>(mut commands: EntityCommands, event: E) {
-    commands.queue(move |entity: Entity, world: &mut World, | {
+    commands.queue(move |entity: Entity, world: &mut World| {
         let mut system_state =
             SystemState::<(Query<All<&dyn EventReceiver<E>>>, Commands)>::new(world);
         let (query, mut commands) = system_state.get(world);
@@ -367,11 +367,11 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
         }
     }
 
-    pub fn try_send(this: Option<&Self>, event: E, sender: Entity, commands: &mut Commands){
+    pub fn try_send(this: Option<&Self>, event: E, sender: Entity, commands: &mut Commands) {
         if let Some(this) = this {
             this.send(event, commands);
-        }else{
-            let this = Self{
+        } else {
+            let this = Self {
                 this_entity: sender,
                 ..Default::default()
             };
@@ -508,12 +508,11 @@ impl CallbackTypeRegister {
         let type_id = system.type_id();
         match self.triggers.entry(type_id) {
             Entry::Occupied(o) => {
-                commands
-                    .entity(*o.get())
-                    .queue(move |mut c: EntityWorldMut| {
-                        let mut observer = c.get_mut::<Observer>().unwrap();
+                commands.queue(move |world: &mut World| {
+                    if let Some(mut observer) = world.get_mut::<Observer>(entity) {
                         observer.watch_entity(entity);
-                    });
+                    };
+                });
             }
             Entry::Vacant(v) => {
                 let trigger = commands

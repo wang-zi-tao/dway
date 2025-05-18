@@ -272,6 +272,7 @@ impl Plugin for ThemePlugin {
         };
         app.insert_resource(theme)
             .insert_resource(systems)
+            .register_type::<ThemeComponent>()
             .add_systems(
                 PostUpdate,
                 apply_theme_system.in_set(UiFrameworkSystems::UpdateTheme),
@@ -323,13 +324,17 @@ bitflags! {
     }
 }
 
-#[derive(Component, Debug, Clone, SmartDefault)]
+#[derive(Component, Debug, Clone, SmartDefault, Reflect)]
 pub struct ThemeComponent {
+    #[reflect(ignore)]
     pub theme: Option<Arc<dyn ThemeDispatch>>,
     #[default(Entity::PLACEHOLDER)]
     pub theme_entity: Entity,
+    #[reflect(ignore)]
     pub style_flags: StyleFlags,
+    #[reflect(ignore)]
     pub old_style_flags: StyleFlags,
+    #[reflect(ignore)]
     pub widget_kind: WidgetKind,
 }
 

@@ -22,7 +22,7 @@ use crate::{
         AnimationEventDispatcher, MaterialAnimationQueryData,
     },
     prelude::*,
-    render::layer_manager::{FillWithLayer, RenderToLayer},
+    render::layer_manager::{FillWithLayer, LayerKind, RenderToLayer},
     shader::{
         effect::{Border, InnerShadow, Shadow},
         fill::{AddColor, Fill, FillColor},
@@ -57,6 +57,7 @@ type ScrollBarMaterial = ShapeRender<RoundedRect, FillColor>;
 type BlurMaterial = ShapeRender<RoundedRect, AddColor<FillWithLayer>>;
 
 #[derive(Component)]
+#[require(ThemeComponent)]
 pub struct FlatThemeComponent;
 
 #[derive(SmartDefault, Clone, Debug, Component)]
@@ -97,7 +98,7 @@ pub struct FlatTheme {
     #[default(AnimationEaseMethod::Linear)]
     pub animation_ease: AnimationEaseMethod,
 
-    #[default(ApplyMaterialAnimation{duration:Duration::from_secs_f32(0.2),ease:AnimationEaseMethod::Linear})]
+    #[default(ApplyMaterialAnimation{duration:Duration::from_secs_f32(0.1),ease:AnimationEaseMethod::Linear})]
     pub animation_player: ApplyMaterialAnimation,
     pub button_material_set: InteractionMaterialSet<ShaderAsset<ButtonMaterial>>,
     pub hightlight_button_material_set:
@@ -683,6 +684,78 @@ impl EventObserver<UiInputEvent, UiInputBox> for FlatTheme {
     }
 }
 
+impl WidgetInsertObserver<RenderToLayer> for FlatTheme {
+    type Filter = ();
+    type ItemQuery = &'static RenderToLayer;
+    type Params = ();
+
+    fn on_widget_insert(
+        &self,
+        theme_entity: Entity,
+        layer: QueryItem<Self::ItemQuery>,
+        _: SystemParamItem<Self::Params>,
+        mut commands: EntityCommands,
+    ) {
+        match layer.layer_kind {
+            LayerKind::Normal => {}
+            LayerKind::Blur => {
+                commands.insert((
+                    FlatThemeComponent,
+                    MaterialNode::<ShaderAsset<BlurMaterial>>::default(),
+                ));
+            }
+            LayerKind::Canvas => {}
+        }
+    }
+}
+
+impl WidgetInsertObserver<UiPopup> for FlatTheme {
+    type Filter = ();
+    type ItemQuery = ();
+    type Params = ();
+
+    fn on_widget_insert(
+        &self,
+        _theme_entity: Entity,
+        _: QueryItem<Self::ItemQuery>,
+        _: SystemParamItem<Self::Params>,
+        mut commands: EntityCommands,
+    ) {
+        commands.insert((
+            FlatThemeComponent,
+            RenderToLayer::blur(),
+            MaterialNode::<ShaderAsset<BlurMaterial>>::default(),
+        ));
+    }
+}
+
+pub fn update_ui_material(
+    mut query: Query<
+        (
+            &RenderToLayer,
+            &ThemeComponent,
+            &mut MaterialNode<ShaderAsset<BlurMaterial>>,
+        ),
+        (With<FlatThemeComponent>, Changed<RenderToLayer>),
+    >,
+    theme_query: Query<&FlatTheme>,
+    mut material_assets: ResMut<Assets<ShaderAsset<BlurMaterial>>>,
+) {
+    for (render_to_layer, theme_component, mut shader_handle) in &mut query {
+        let Ok(theme) = theme_query.get(theme_component.theme_entity) else {
+            continue;
+        };
+        let material = RoundedRect::new(theme.block_cornor).with_effect(AddColor::new(
+            FillWithLayer {
+                texture: render_to_layer.ui_background.clone(),
+                texture_size: render_to_layer.background_size,
+            },
+            theme.fill_color.with_alpha(1.0 - theme.blur_brightness),
+        ));
+        *shader_handle = material_assets.add(material).into();
+    }
+}
+
 impl ThemeTrait for FlatTheme {
     fn register_to_global(theme_entity: Entity, world: &mut World) {
         <FlatTheme as WidgetInsertObserver<Text>>::register(theme_entity, world);
@@ -691,6 +764,8 @@ impl ThemeTrait for FlatTheme {
         <FlatTheme as WidgetInsertObserver<UiCheckBox>>::register(theme_entity, world);
         <FlatTheme as WidgetInsertObserver<UiSliderInited>>::register(theme_entity, world);
         <FlatTheme as WidgetInsertObserver<UiInputBox>>::register(theme_entity, world);
+        <FlatTheme as WidgetInsertObserver<UiPopup>>::register(theme_entity, world);
+        <FlatTheme as WidgetInsertObserver<RenderToLayer>>::register(theme_entity, world);
     }
 
     fn unregister(&self, theme_entity: Entity, world: &mut World) {
@@ -742,5 +817,10 @@ impl Plugin for FlatThemePlugin {
             // let mut theme = app.world_mut().resource_mut::<Theme>();
             // theme.set_theme_dispatch(Some(std::sync::Arc::new(flat_theme)));
         }
+
+        app.add_systems(
+            Last,
+            update_ui_material.in_set(UiFrameworkSystems::UpdateLayersMaterial),
+        );
     }
 }

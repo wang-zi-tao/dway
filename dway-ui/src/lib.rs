@@ -21,7 +21,7 @@ use dway_client_core::{
 use dway_server::geometry::GlobalGeometry;
 use dway_tty::drm::{connectors::Connector, surface::DrmSurface};
 use dway_ui_framework::{
-    render::layer_manager::LayerManager,
+    render::layer_manager::{LayerManager, RenderToLayer},
     theme::{ThemeComponent, WidgetKind},
 };
 use widgets::clock::ClockBundle;
@@ -113,7 +113,8 @@ ScreenUI=>
         ScreenWindows=(ScreenWindows{screen:prop.screen}) />
     <MiniNodeBundle @style="full absolute" @id="popup_parent" GlobalZIndex=(GlobalZIndex(1024)) />
     <MiniNodeBundle
-        ThemeComponent=(ThemeComponent::widget(WidgetKind::BlurBackground))
+        ThemeComponent=(default())
+        RenderToLayer=(RenderToLayer::blur())
         GlobalZIndex=(GlobalZIndex(1024))
         @style="absolute top-4 left-4 right-4 h-32"
         // @material(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.5),8.0))
@@ -154,7 +155,8 @@ ScreenUI=>
         // Class=(Class::new("dock"))
         Name=(Name::new("dock")) @id="dock" >
         <MiniNodeBundle
-            ThemeComponent=(ThemeComponent::widget(WidgetKind::BlurBackground))
+            ThemeComponent=(default())
+            RenderToLayer=(RenderToLayer::blur())
             // @material(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.5), 16.0))
             >
             <AppListUIBundle/>
