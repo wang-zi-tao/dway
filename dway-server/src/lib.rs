@@ -59,7 +59,7 @@ impl Plugin for DWayServerPlugin {
             xdg::popup::XdgPopupPlugin,
             zxdg::outputmanager::XdgOutputManagerPlugin,
             zxdg::decoration::DecorationPlugin,
-            zwlr::data_control_manager::DataControlPlugin,
+            zwlr::data_control::DataControlPlugin,
             input::seat::WlSeatPlugin,
         ));
         app.add_plugins((

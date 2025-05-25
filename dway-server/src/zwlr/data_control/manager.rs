@@ -1,15 +1,12 @@
-use wayland_protocols_wlr::data_control::v1::server::{
-    zwlr_data_control_manager_v1::*, zwlr_data_control_offer_v1::ZwlrDataControlOfferV1,
-    zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
-};
+use wayland_protocols_wlr::data_control::v1::server::zwlr_data_control_manager_v1::*;
 
 use crate::{
     clipboard::ClipboardManager,
     prelude::*,
     state::add_global_dispatch,
-    zwlr::{
-        data_control::ZwlrDataControlSource, data_control_device::ZwlrDataControlDevice,
-        data_control_offer::ZwlrDataControlOffer,
+    zwlr::data_control::{
+        source::ZwlrDataControlSource, device::ZwlrDataControlDevice,
+        offer::ZwlrDataControlOffer,
     },
 };
 
@@ -112,13 +109,5 @@ impl GlobalDispatch<ZwlrDataControlManagerV1, Entity> for DWay {
         state.bind(client, resource, data_init, |o| {
             ZwlrDataControlManager::new(o)
         });
-    }
-}
-
-pub struct DataControlPlugin;
-
-impl Plugin for DataControlPlugin {
-    fn build(&self, app: &mut App) {
-        add_global_dispatch::<ZwlrDataControlManagerV1, 2>(app);
     }
 }

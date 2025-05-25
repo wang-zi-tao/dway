@@ -52,7 +52,7 @@ impl Dispatch<wl_data_device_manager::WlDataDeviceManager, Entity> for DWay {
                             for mime_type in mime_types {
                                 raw.offer(mime_type);
                             }
-                            data_device.selection(Some(&raw)); // TODO lifetime
+                            data_device.selection(Some(&raw));
                         }
                         Err(e) => {
                             error!("failed to create WlDataOffer: {e}");

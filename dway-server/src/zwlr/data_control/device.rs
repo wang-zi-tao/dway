@@ -4,7 +4,7 @@ use crate::{
     clipboard::{ClipboardManager, ClipboardSource},
     prelude::*,
     wp::primary_selection::SourceOfSelection,
-    zwlr::data_control::ZwlrDataControlSource,
+    zwlr::data_control::source::ZwlrDataControlSource,
 };
 
 #[derive(Component, Reflect, Debug)]

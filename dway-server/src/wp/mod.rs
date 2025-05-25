@@ -12,7 +12,7 @@ impl Plugin for PrimarySelectionPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_plugins((
             data_device::DataDevicePlugin,
-            primary_selection::PrimarySelectionDevicePlugin,
+            primary_selection::PrimarySelectionPlugin,
             drmlease::DrmLeasePlugin,
         ));
         add_global_dispatch::<zwp_text_input_manager_v3::ZwpTextInputManagerV3, 1>(app);

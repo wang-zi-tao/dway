@@ -1,5 +1,5 @@
 use super::{
-    offer::ZwpPrimarySelectionOffer, source::PrimarySelectionSource, PrimarySelectionDevice,
+    device::PrimarySelectionDevice, offer::ZwpPrimarySelectionOffer, source::PrimarySelectionSource,
 };
 use crate::{clipboard::ClipboardManager, prelude::*};
 
