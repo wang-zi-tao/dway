@@ -1,7 +1,10 @@
 use super::{
     device::PrimarySelectionDevice, offer::ZwpPrimarySelectionOffer, source::PrimarySelectionSource,
 };
-use crate::{clipboard::ClipboardManager, prelude::*};
+use crate::{
+    clipboard::{ClipboardDataDevice, ClipboardManager},
+    prelude::*,
+};
 
 #[derive(Component)]
 pub struct PrimarySelectionDeviceManager {
@@ -29,38 +32,11 @@ impl Dispatch<zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDevice
                 state.spawn_child_object(*data, id, data_init, PrimarySelectionSource::new);
             }
             zwp_primary_selection_device_manager_v1::Request::GetDevice { id, seat } => {
-                let device_entity =
-                    state.spawn_child_object(*data, id, data_init, PrimarySelectionDevice::new);
+                let device_entity = state.spawn_child_object(*data, id, data_init, |o| {
+                    PrimarySelectionDevice::new(o, dhandle.clone())
+                });
 
-                let mime_types =
-                    ClipboardManager::get_mime_types(state.world()).unwrap_or_default();
-                if let Ok(mut entity_mut) = state.get_entity_mut(device_entity) {
-                    let primary_selection_device = entity_mut
-                        .get::<PrimarySelectionDevice>()
-                        .unwrap()
-                        .raw
-                        .clone();
-                    match ZwpPrimarySelectionOffer::create(
-                        dhandle,
-                        client,
-                        primary_selection_device.version(),
-                        entity_mut.id(),
-                    ) {
-                        Ok(data_offer) => {
-                            let raw = data_offer.raw.clone();
-                            entity_mut.insert(data_offer);
-
-                            primary_selection_device.data_offer(&raw);
-                            for mime_type in mime_types {
-                                raw.offer(mime_type);
-                            }
-                            primary_selection_device.selection(Some(&raw)); // TODO lifetime
-                        }
-                        Err(e) => {
-                            error!("failed to create WlDataOffer: {e}");
-                        }
-                    };
-                }
+                PrimarySelectionDevice::init_data_device(device_entity, state.world_mut());
             }
             zwp_primary_selection_device_manager_v1::Request::Destroy => {
                 state.despawn_object_component::<PrimarySelectionDeviceManager>(*data, resource);

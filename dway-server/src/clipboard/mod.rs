@@ -5,6 +5,7 @@ use std::{
 };
 
 use bevy::{
+    ecs::world::CommandQueue,
     tasks::{IoTaskPool, Task},
     utils::HashSet,
 };
@@ -24,7 +25,11 @@ use wayland_server::{
     Client,
 };
 
-use crate::prelude::*;
+use crate::{
+    prelude::*,
+    wp::{data_device::WlDataDevice, primary_selection::device::PrimarySelectionDevice},
+    zwlr::data_control::device::ZwlrDataControlDevice,
+};
 
 #[derive(Event, Debug)]
 pub enum ClipboardEvent {
@@ -404,6 +409,75 @@ impl ClipboardManager {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+pub trait ClipboardDataDevice: Component + Sized {
+    fn create_offer(&self, mime_types: &Vec<String>, commands: Commands);
+
+    fn init_data_device(self_entity: Entity, world: &mut World) {
+        let Some(mime_types) = ClipboardManager::get_mime_types(world) else {
+            return;
+        };
+        let mut command_queue = CommandQueue::default();
+        let commands = Commands::new(&mut command_queue, world);
+        let Some(this) = world.get::<Self>(self_entity) else {
+            return;
+        };
+        Self::create_offer(&this, &mime_types, commands);
+        command_queue.apply(world);
+    }
+}
+
+pub fn send_selection_system(
+    mut event_reader: EventReader<ClipboardEvent>,
+    record_query: Query<&ClipboardRecord>,
+    device_query: Query<
+        (
+            Entity,
+            Option<&WlDataDevice>,
+            Option<&PrimarySelectionDevice>,
+            Option<&ZwlrDataControlDevice>,
+        ),
+        Or<(
+            With<WlDataDevice>,
+            With<PrimarySelectionDevice>,
+            With<ZwlrDataControlDevice>,
+        )>,
+    >,
+    mut commands: Commands,
+) {
+    for event in event_reader.read() {
+        let ClipboardEvent::SourceAdded(entity) = event else {
+            continue;
+        };
+        let Ok(record) = record_query.get(*entity) else {
+            continue;
+        };
+        let mime_types = record
+            .mime_types
+            .iter()
+            .filter(|(k, v)| !matches!(v, MimeTypeState::Error))
+            .map(|(k, v)| k.clone())
+            .collect();
+
+        for (entity, wl_data_device, primiry_selection_device, zwlr_data_control_device) in
+            device_query.iter()
+        {
+            debug!(?entity, "set selection");
+
+            if let Some(wl_data_device) = wl_data_device {
+                wl_data_device.create_offer(&mime_types, commands.reborrow());
+            }
+
+            if let Some(primiry_selection_device) = primiry_selection_device {
+                primiry_selection_device.create_offer(&mime_types, commands.reborrow());
+            }
+
+            if let Some(zwlr_data_control_device) = zwlr_data_control_device {
+                zwlr_data_control_device.create_offer(&mime_types, commands.reborrow());
             }
         }
     }

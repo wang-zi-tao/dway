@@ -3,21 +3,29 @@ use wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection
 };
 
 use crate::{
-    clipboard::{ClipboardManager, ClipboardSource},
+    clipboard::{ClipboardDataDevice, ClipboardManager, ClipboardSource},
     prelude::*,
     wp::primary_selection::{source::PrimarySelectionSource, SourceOfSelection},
 };
+
+use super::offer::ZwpPrimarySelectionOffer;
 
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct PrimarySelectionDevice {
     #[reflect(ignore, default = "unimplemented")]
     pub raw: ZwpPrimarySelectionDeviceV1,
+    #[reflect(ignore, default = "unimplemented")]
+    pub dhandle: DisplayHandle,
     pub serial: Option<u32>,
 }
 impl PrimarySelectionDevice {
-    pub fn new(raw: ZwpPrimarySelectionDeviceV1) -> Self {
-        Self { raw, serial: None }
+    pub fn new(raw: ZwpPrimarySelectionDeviceV1, dhandle: DisplayHandle) -> Self {
+        Self {
+            raw,
+            dhandle,
+            serial: None,
+        }
     }
 }
 impl Dispatch<ZwpPrimarySelectionDeviceV1, Entity> for DWay {
@@ -72,5 +80,35 @@ impl Dispatch<ZwpPrimarySelectionDeviceV1, Entity> for DWay {
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);
+    }
+}
+
+impl ClipboardDataDevice for PrimarySelectionDevice {
+    fn create_offer(&self, mime_types: &Vec<String>, mut commands: Commands) {
+        let self_entity = DWay::get_entity(&self.raw);
+        let Some(client) = self.raw.client() else {
+            return;
+        };
+
+        match ZwpPrimarySelectionOffer::create(
+            &self.dhandle,
+            &client,
+            self.raw.version(),
+            self_entity,
+        ) {
+            Ok(data_offer) => {
+                let raw = data_offer.raw.clone();
+                commands.entity(self_entity).insert(data_offer);
+
+                self.raw.data_offer(&raw);
+                for mime_type in mime_types {
+                    raw.offer(mime_type.clone());
+                }
+                self.raw.selection(Some(&raw));
+            }
+            Err(e) => {
+                error!("failed to create WlDataOffer: {e}");
+            }
+        };
     }
 }

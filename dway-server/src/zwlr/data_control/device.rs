@@ -1,7 +1,8 @@
 use wayland_protocols_wlr::data_control::v1::server::zwlr_data_control_device_v1::*;
 
+use super::offer::ZwlrDataControlOffer;
 use crate::{
-    clipboard::{ClipboardManager, ClipboardSource},
+    clipboard::{ClipboardDataDevice, ClipboardManager, ClipboardSource},
     prelude::*,
     wp::primary_selection::SourceOfSelection,
     zwlr::data_control::source::ZwlrDataControlSource,
@@ -12,10 +13,12 @@ use crate::{
 pub struct ZwlrDataControlDevice {
     #[reflect(ignore, default = "unimplemented")]
     pub raw: ZwlrDataControlDeviceV1,
+    #[reflect(ignore, default = "unimplemented")]
+    pub dhandle: DisplayHandle,
 }
 impl ZwlrDataControlDevice {
-    pub fn new(raw: ZwlrDataControlDeviceV1) -> Self {
-        Self { raw }
+    pub fn new(raw: ZwlrDataControlDeviceV1, dhandle: DisplayHandle) -> Self {
+        Self { raw, dhandle }
     }
 }
 impl Drop for ZwlrDataControlDevice {
@@ -70,5 +73,30 @@ impl Dispatch<ZwlrDataControlDeviceV1, Entity> for DWay {
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);
+    }
+}
+
+impl ClipboardDataDevice for ZwlrDataControlDevice {
+    fn create_offer(&self, mime_types: &Vec<String>, mut commands: Commands) {
+        let self_entity = DWay::get_entity(&self.raw);
+        let Some(client) = self.raw.client() else {
+            return;
+        };
+        match ZwlrDataControlOffer::create(&self.dhandle, &client, self.raw.version(), self_entity)
+        {
+            Ok(data_offer) => {
+                let data_offer_raw = data_offer.raw.clone();
+                commands.entity(self_entity).insert(data_offer);
+
+                self.raw.data_offer(&data_offer_raw);
+                for mime_type in mime_types {
+                    data_offer_raw.offer(mime_type.clone());
+                }
+                self.raw.selection(Some(&data_offer_raw));
+            }
+            Err(e) => {
+                error!("failed to create WlDataOffer: {e}");
+            }
+        };
     }
 }

@@ -1,5 +1,5 @@
 use crate::{
-    clipboard::ClipboardManager,
+    clipboard::{ClipboardDataDevice, ClipboardManager},
     prelude::*,
     wp::data_device::{data_offer::WlDataOffer, data_source::WlDataSource, WlDataDevice},
 };
@@ -35,30 +35,11 @@ impl Dispatch<wl_data_device_manager::WlDataDeviceManager, Entity> for DWay {
             }
             wl_data_device_manager::Request::GetDataDevice { id, seat } => {
                 let seat_entity = DWay::get_entity(&seat);
+                let device_entity = state.spawn_child_object(seat_entity, id, data_init, |o| {
+                    WlDataDevice::new(o, dhandle.clone())
+                });
 
-                state.insert_object(seat_entity, id, data_init, |o| WlDataDevice::new(o));
-                let mime_types =
-                    ClipboardManager::get_mime_types(state.world()).unwrap_or_default();
-                if let Ok(mut entity_mut) = state.get_entity_mut(seat_entity) {
-                    let data_device =
-                        entity_mut.get::<WlDataDevice>().unwrap().raw.clone();
-                    match WlDataOffer::create(dhandle, client, data_device.version(), entity_mut.id())
-                    {
-                        Ok(data_offer) => {
-                            let raw = data_offer.raw.clone();
-                            entity_mut.insert(data_offer);
-
-                            data_device.data_offer(&raw);
-                            for mime_type in mime_types {
-                                raw.offer(mime_type);
-                            }
-                            data_device.selection(Some(&raw));
-                        }
-                        Err(e) => {
-                            error!("failed to create WlDataOffer: {e}");
-                        }
-                    };
-                }
+                WlDataDevice::init_data_device(device_entity, state.world_mut());
             }
             _ => todo!(),
         }

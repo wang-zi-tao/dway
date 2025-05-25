@@ -6,7 +6,10 @@ use data_offer::WlDataOffer;
 use data_source::WlDataSource;
 
 use crate::{
-    clipboard::{ClipboardEvent, ClipboardManager, ClipboardSource},
+    clipboard::{
+        send_selection_system, ClipboardDataDevice, ClipboardEvent, ClipboardManager,
+        ClipboardSource, MimeTypeSet,
+    },
     prelude::*,
     schedule::DWayServerSchedule,
     state::add_global_dispatch,
@@ -17,10 +20,12 @@ use crate::{
 pub struct WlDataDevice {
     #[reflect(ignore, default = "unimplemented")]
     pub raw: wl_data_device::WlDataDevice,
+    #[reflect(ignore, default = "unimplemented")]
+    pub dhandle: DisplayHandle,
 }
 impl WlDataDevice {
-    pub fn new(raw: wl_data_device::WlDataDevice) -> Self {
-        Self { raw }
+    pub fn new(raw: wl_data_device::WlDataDevice, dhandle: DisplayHandle) -> Self {
+        Self { raw, dhandle }
     }
 }
 relationship!(SelectionOfDataDevice=>SelectionSource--SeatRef);
@@ -81,6 +86,30 @@ impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
     }
 }
 
+impl ClipboardDataDevice for WlDataDevice {
+    fn create_offer(&self, mime_types: &Vec<String>, mut commands: Commands) {
+        let self_entity = DWay::get_entity(&self.raw);
+        let Some(client) = self.raw.client() else {
+            return;
+        };
+        match WlDataOffer::create(&self.dhandle, &client, self.raw.version(), self_entity) {
+            Ok(data_offer) => {
+                let raw = data_offer.raw.clone();
+                commands.entity(self_entity).insert(data_offer);
+
+                self.raw.data_offer(&raw);
+                for mime_type in mime_types.iter() {
+                    raw.offer(mime_type.clone());
+                }
+                self.raw.selection(Some(&raw));
+            }
+            Err(e) => {
+                error!("failed to create WlDataOffer: {e}");
+            }
+        };
+    }
+}
+
 pub struct DataDevicePlugin;
 impl Plugin for DataDevicePlugin {
     fn build(&self, app: &mut App) {
@@ -89,7 +118,8 @@ impl Plugin for DataDevicePlugin {
         app.init_resource::<ClipboardManager>();
         app.add_systems(
             PreUpdate,
-            ClipboardManager::receive_data_system.in_set(DWayServerSet::UpdateClipboard),
+            (ClipboardManager::receive_data_system, send_selection_system)
+                .in_set(DWayServerSet::UpdateClipboard),
         );
         app.add_event::<ClipboardEvent>();
     }
