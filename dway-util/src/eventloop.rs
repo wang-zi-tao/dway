@@ -40,6 +40,7 @@ structstruck::strike! {
         #[derive(Debug, Default, Clone)]
         pub struct PollerRequest{
             pub quit: bool,
+            pub wakeup: bool,
             pub add_timer: Option<Instant>,
         }>>,
         rx: Option<mpsc::Receiver<
@@ -133,7 +134,7 @@ impl Poller {
         &self.poller
     }
 
-    pub fn handle(&mut self) -> Self {
+    pub fn handle(&self) -> Self {
         Self {
             poller: self.poller.clone(),
             tx: self.tx.clone(),
@@ -208,6 +209,13 @@ impl Poller {
         if let Some(tx) = &self.tx {
             let _ = tx.send(event);
         }
+    }
+
+    pub fn wakeup(&mut self) {
+        self.send(PollerRequest {
+            wakeup: true,
+            ..Default::default()
+        });
     }
 }
 
@@ -364,6 +372,9 @@ impl PollerInner {
                 } else {
                     self.raw.notify()?;
                 };
+            }
+            if message.wakeup {
+                self.raw.notify()?;
             }
         }
         Ok(())

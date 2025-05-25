@@ -12,7 +12,10 @@ use std::{
 use anyhow::anyhow;
 use bevy::{
     ecs::{
-        entity::EntityHashSet, event::EventCursor, query::{QueryData, QueryEntityError, WorldQuery}, world::Command as _
+        entity::EntityHashSet,
+        event::EventCursor,
+        query::{QueryData, QueryEntityError, WorldQuery},
+        world::Command as _,
     },
     tasks::IoTaskPool,
     utils::HashMap,
@@ -467,13 +470,18 @@ impl DWay {
     }
 
     pub fn component<T: Component>(&self, entity: Entity) -> &T {
-        self.world().entity(entity).get::<T>().unwrap()
+        self.world().get::<T>(entity).unwrap()
     }
 
     pub fn object_component<T: Component>(&self, object: &impl wayland_server::Resource) -> &T {
         self.world()
-            .entity(DWay::get_entity(object))
-            .get::<T>()
+            .get::<T>(DWay::get_entity(object))
+            .unwrap()
+    }
+
+    pub fn object_component_mut<T: Component>(&mut self, object: &impl wayland_server::Resource) -> Mut<T> {
+        self.world_mut()
+            .get_mut::<T>(DWay::get_entity(object))
             .unwrap()
     }
 
@@ -553,6 +561,18 @@ impl DWay {
         let world = self.world_mut();
         let mut query = world.query::<B>();
         f(query.get_mut(world, entity).unwrap())
+    }
+
+    pub fn query_foreach<B, F>(&mut self, f: F)
+    where
+        B: QueryData,
+        F: Fn(<B as WorldQuery>::Item<'_>),
+    {
+        let world = self.world_mut();
+        let mut query = world.query::<B>();
+        for item in query.iter_mut(world) {
+            f(item);
+        }
     }
 
     pub fn try_query<B, F, R>(&mut self, entity: Entity, f: F) -> Result<R, QueryEntityError>
@@ -695,10 +715,7 @@ pub fn create_display(
     entity
 }
 
-pub fn dispatch_events(
-    world: &mut World,
-    mut event_reader: Local<EventCursor<DispatchDisplay>>,
-) {
+pub fn dispatch_events(world: &mut World, mut event_reader: Local<EventCursor<DispatchDisplay>>) {
     let displays = event_reader
         .read(world.resource())
         .map(|e| e.0)

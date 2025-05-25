@@ -3,6 +3,7 @@
 #![feature(ptr_metadata)]
 #![feature(trivial_bounds)]
 #![feature(iterator_try_collect)]
+#![feature(anonymous_pipe)]
 
 use bevy::prelude::*;
 // use bevy_tokio_tasks::TokioTasksRuntime;
@@ -31,6 +32,7 @@ pub mod x11;
 pub mod xdg;
 pub mod zwp;
 pub mod zxdg;
+pub mod zwlr;
 pub mod clipboard;
 
 #[derive(Default)]
@@ -57,6 +59,7 @@ impl Plugin for DWayServerPlugin {
             xdg::popup::XdgPopupPlugin,
             zxdg::outputmanager::XdgOutputManagerPlugin,
             zxdg::decoration::DecorationPlugin,
+            zwlr::data_control_manager::DataControlPlugin,
             input::seat::WlSeatPlugin,
         ));
         app.add_plugins((

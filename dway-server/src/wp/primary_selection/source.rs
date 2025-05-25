@@ -1,18 +1,23 @@
+use bevy::utils::HashSet;
 use wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection_source_v1::{
     self, ZwpPrimarySelectionSourceV1,
 };
 
-use crate::prelude::*;
+use crate::{clipboard::MimeTypeSet, prelude::*};
 
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct PrimarySelectionSource {
     #[reflect(ignore, default = "unimplemented")]
     pub raw: ZwpPrimarySelectionSourceV1,
+    pub mime_types: MimeTypeSet,
 }
 impl PrimarySelectionSource {
     pub fn new(raw: ZwpPrimarySelectionSourceV1) -> Self {
-        Self { raw }
+        Self {
+            raw,
+            mime_types: default(),
+        }
     }
 }
 impl Dispatch<ZwpPrimarySelectionSourceV1, Entity> for DWay {
@@ -31,7 +36,9 @@ impl Dispatch<ZwpPrimarySelectionSourceV1, Entity> for DWay {
         debug!("request {:?}", &request);
         match request {
             zwp_primary_selection_source_v1::Request::Offer { mime_type } => {
-                warn!(" TODO: select {:?}", &mime_type);
+                state.with_component(resource, |c: &mut PrimarySelectionSource| {
+                    c.mime_types.insert(mime_type);
+                });
             }
             zwp_primary_selection_source_v1::Request::Destroy => {
                 state.despawn(*data);
@@ -39,6 +46,7 @@ impl Dispatch<ZwpPrimarySelectionSourceV1, Entity> for DWay {
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

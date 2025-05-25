@@ -22,6 +22,7 @@ pub enum DWayServerSet {
     UpdateSurface,
     UpdateAppInfo,
     UpdateImage,
+    UpdateClipboard,
 
     Input,
     GrabInput,
@@ -73,6 +74,7 @@ impl Plugin for DWayServerSchedulePlugin {
                 UpdateJoin.after(UpdateGeometry),
                 UpdateAppInfo,
                 UpdateSurface.after(UpdateGeometry),
+                UpdateClipboard,
             )
                 .before(EndPreUpdate)
                 .after(Dispatch)

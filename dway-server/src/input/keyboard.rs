@@ -1,8 +1,10 @@
-use crate::{input::time, prelude::*, util::serial::next_serial, wl::surface::WlSurface};
+use std::{fs::File, io::Write, os::fd::AsFd, path::PathBuf};
+
 use bevy::input::keyboard::{KeyboardInput, NativeKeyCode};
 use dway_util::keys::*;
-use std::{fs::File, io::Write, os::fd::AsFd, path::PathBuf};
 use xkbcommon::xkb::{self};
+
+use crate::{input::time, prelude::*, util::serial::next_serial, wl::surface::WlSurface};
 
 fn get_key_code(key: &KeyCode) -> u32 {
     // TODO: check all unwupported key
@@ -364,7 +366,8 @@ impl WlKeyboard {
     }
 }
 
-pub fn update_keymap() {} // TODO
+pub fn update_keymap() {
+} // TODO
 
 #[derive(Resource)]
 pub struct SeatDelegate(pub GlobalId);
@@ -392,6 +395,7 @@ impl
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

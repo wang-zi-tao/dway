@@ -3,10 +3,10 @@ pub use crate::prelude::*;
 #[macro_export]
 macro_rules! create_dispatch {
     (@global $resource:ty:$version:literal=>$name:ident) => {
-        create_dispatch!($resource=>$name)
+        create_dispatch!($resource=>$name);
         impl GlobalDispatch< $resource, Entity, > for DWay {
             fn bind(
-                state: &mut World,
+                state: &mut DWay,
                 handle: &DisplayHandle,
                 client: &wayland_server::Client,
                 resource: wayland_server::New<$resource>,
@@ -23,7 +23,7 @@ macro_rules! create_dispatch {
         #[derive(Component,Reflect,Debug)]
         #[reflect(Debug)]
         pub struct $name {
-            #[reflect(ignore)]
+            #[reflect(ignore, default = "unimplemented")]
             pub raw: $resource,
         }
 
@@ -43,7 +43,7 @@ macro_rules! create_dispatch {
 
         impl Dispatch<$resource, Entity> for DWay {
             fn request(
-                state: &mut World,
+                state: &mut Self,
                 client: &wayland_server::Client,
                 resource: &$resource,
                 request: <$resource as WlResource>::Request,
@@ -60,7 +60,7 @@ macro_rules! create_dispatch {
             fn destroyed(
                 state: &mut DWay,
                 _client: wayland_backend::server::ClientId,
-                resource: wayland_backend::server::ObjectId,
+                resource: &$resource,
                 data: &bevy::prelude::Entity,
             ) {
                 state.despawn_object_component::<$name>(*data, resource);

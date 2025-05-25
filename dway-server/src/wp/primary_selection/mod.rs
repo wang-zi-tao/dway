@@ -1,9 +1,18 @@
-use crate::{prelude::*, state::add_global_dispatch};
 use bevy_relationship::relationship;
-use wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
+use source::PrimarySelectionSource;
+use wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection_device_v1::{
+    self, ZwpPrimarySelectionDeviceV1,
+};
+use crate::{
+    clipboard::{ClipboardManager, ClipboardSource},
+    prelude::*,
+    state::add_global_dispatch,
+    wp::data_device::data_source::WlDataSource,
+};
 
 pub mod manager;
 pub mod source;
+pub mod offer;
 
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
@@ -33,19 +42,36 @@ impl Dispatch<ZwpPrimarySelectionDeviceV1, Entity> for DWay {
         let _enter = span.enter();
         debug!("request {:?}", &request);
         match request {
-            wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection_device_v1::Request::SetSelection { source, serial } => {
-                if let Some(source)=source{
+            zwp_primary_selection_device_v1::Request::SetSelection { source, serial } => {
+                if let Some(source) = source {
                     state.connect::<SourceOfSelection>(*data, DWay::get_entity(&source));
-                    state.with_component(resource, |c:&mut PrimarySelectionDevice|{c.serial=Some(serial);});
-                }else{
+                    state.with_component(resource, |c: &mut PrimarySelectionDevice| {
+                        c.serial = Some(serial);
+                    });
+
+                    let mime_types = state
+                        .object_component::<PrimarySelectionSource>(&source)
+                        .mime_types
+                        .clone();
+                    ClipboardManager::add_source(
+                        state.world_mut(),
+                        ClipboardSource::PrimarySelectionSource(source.clone()),
+                        mime_types,
+                    );
+                } else {
                     state.disconnect_all::<SourceOfSelection>(*data);
-                    state.with_component(resource, |c:&mut PrimarySelectionDevice|{c.serial=None;});
+                    state.with_component(resource, |c: &mut PrimarySelectionDevice| {
+                        c.serial = None;
+                    });
                 }
-            },
-            wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection_device_v1::Request::Destroy => todo!(),
+            }
+            zwp_primary_selection_device_v1::Request::Destroy => {
+                state.despawn_object(*data, resource);
+            }
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

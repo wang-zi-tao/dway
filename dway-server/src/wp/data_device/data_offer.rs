@@ -1,11 +1,10 @@
-
 use bevy::ecs::system::SystemState;
 use wl_data_device_manager::DndAction;
 
 use crate::{
-    clipboard::{ClipboardManager, ClipboardRecord},
+    clipboard::{ClipboardManager, ClipboardRecord, DataOffer, MimeTypeSet, PasteRequest},
     prelude::*,
-    wp::data_device::data_source::{WlDataSource},
+    wp::data_device::data_source::WlDataSource,
 };
 
 #[derive(Component, Reflect, Debug)]
@@ -80,13 +79,14 @@ impl Dispatch<wl_data_offer::WlDataOffer, Entity> for DWay {
                 }
             }
             wl_data_offer::Request::Receive { mime_type, fd } => {
-                if data_source.mime_types.contains(&mime_type) && data_offer.active {
-                    clipboard_manager.push(ClipboardRecord {
+                ClipboardManager::require_last_record(
+                    state.world_mut(),
+                    PasteRequest {
                         mime_type,
                         fd,
-                        client: client.id(),
-                    });
-                }
+                        data_offer: DataOffer::WlDataOffer(resource.clone()),
+                    },
+                );
             }
             wl_data_offer::Request::Destroy => {
                 state.destroy_object(resource);

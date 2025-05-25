@@ -1,8 +1,16 @@
+pub mod data_offer;
 pub mod data_source;
 pub mod manager;
-pub mod data_offer;
 
-use crate::{prelude::*, state::add_global_dispatch};
+use data_offer::WlDataOffer;
+use data_source::WlDataSource;
+
+use crate::{
+    clipboard::{ClipboardEvent, ClipboardManager, ClipboardSource},
+    prelude::*,
+    schedule::DWayServerSchedule,
+    state::add_global_dispatch,
+};
 
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
@@ -40,8 +48,18 @@ impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
                 warn!("TODO: wl_data_device::Request::StartDrag");
             }
             wl_data_device::Request::SetSelection { source, serial: _ } => {
-                if let Some(source) = source {
-                    state.connect::<SelectionOfDataDevice>(*data, DWay::get_entity(&source));
+                if let Some(source) = &source {
+                    state.connect::<SelectionOfDataDevice>(*data, DWay::get_entity(source));
+
+                    let mime_types = state
+                        .object_component::<WlDataSource>(source)
+                        .mime_types
+                        .clone();
+                    ClipboardManager::add_source(
+                        state.world_mut(),
+                        ClipboardSource::DataDevice(source.clone()),
+                        mime_types,
+                    );
                 } else {
                     state.disconnect_all::<SelectionOfDataDevice>(*data);
                 }
@@ -52,6 +70,7 @@ impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
@@ -67,5 +86,11 @@ impl Plugin for DataDevicePlugin {
     fn build(&self, app: &mut App) {
         add_global_dispatch::<wl_data_device_manager::WlDataDeviceManager, 3>(app);
         app.register_relation::<SelectionOfDataDevice>();
+        app.init_resource::<ClipboardManager>();
+        app.add_systems(
+            PreUpdate,
+            ClipboardManager::receive_data_system.in_set(DWayServerSet::UpdateClipboard),
+        );
+        app.add_event::<ClipboardEvent>();
     }
 }

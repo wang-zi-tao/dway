@@ -1,14 +1,16 @@
+use std::collections::HashSet;
+
 use bevy_relationship::reexport::SmallVec;
 use wayland_server::protocol::wl_data_device_manager::DndAction;
 
-use crate::prelude::*;
+use crate::{clipboard::MimeTypeSet, prelude::*};
 
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct WlDataSource {
     #[reflect(ignore, default = "unimplemented")]
     pub raw: wl_data_source::WlDataSource,
-    pub mime_types: SmallVec<[String; 1]>,
+    pub mime_types: MimeTypeSet,
     pub dnd_action: DndAction,
 }
 impl WlDataSource {
@@ -37,7 +39,7 @@ impl Dispatch<wl_data_source::WlDataSource, Entity> for DWay {
         match request {
             wl_data_source::Request::Offer { mime_type } => {
                 state.with_component(resource, |c: &mut WlDataSource| {
-                    c.mime_types.push(mime_type);
+                    c.mime_types.insert(mime_type);
                 });
             }
             wl_data_source::Request::Destroy => {

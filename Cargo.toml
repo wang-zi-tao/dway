@@ -73,7 +73,7 @@ bevy_framepace = "0.18"
 bevy_mod_debugdump = { version="0.12" }
 bevy_prototype_lyon = "0.13"
 bevy-trait-query = {version="0.7", features=[]}
-bevy_svg = {version="0.15", features=["2d"]}
+bevy_svg = {version="0.15", default-features = false, features=["2d"]}
 
 wgpu={version="23",features=["angle"]}
 wgpu-hal={version="23",features=["gles"]}
@@ -81,11 +81,14 @@ glow = {version="0.14"}
 khronos-egl = { version="6",features= ["dynamic","static"] }
 ash = { version = "0.38", features = [] }
 drm-fourcc = "2.2.0"
-
-wayland-server = { version="0.31.0",features = [] }
-wayland-backend = { version="0.3.2", features = ["server_system"] }
-wayland-protocols = { version = "0.31.0", features = ["unstable", "staging", "server", "wayland-server"]}
 image = "0.25"
+
+wayland-server = { version="0.31.9",features = [] }
+wayland-backend = { version="0.3.10", features = ["server_system"] }
+wayland-protocols = { version = "0.32.8", features = ["unstable", "staging", "server", "wayland-server", "client"]}
+wayland-protocols-wlr = { version = "0.3.8", features = ["server"]}
+
+bevy-inspector-egui = { version="0.29", default-features=false, features = ["bevy_render", "highlight_changes"]}
 
 [workspace.dependencies.bevy]
 version = "0.15.2"

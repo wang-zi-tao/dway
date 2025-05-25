@@ -29,6 +29,7 @@ send_wrapper = "0.6.0"
 wayland-server = { workspace = true }
 wayland-backend = { workspace = true }
 wayland-protocols = { workspace = true }
+wayland-protocols-wlr = { workspace = true }
 inlinable_string = "0.1.15"
 nix = {workspace=true}
 phf = { version = "0.11", features = ["macros"] }
@@ -61,6 +62,7 @@ structstruck = {workspace=true}
 x11rb = { version="0.13", default-features=false, features = ["composite"] }
 smart-default = {workspace=true}
 indexmap = {workspace=true}
+tokio = {workspace=true}
 
 [profile.dev]
 opt-level = 1

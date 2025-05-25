@@ -1,4 +1,4 @@
-use wayland_protocols::xdg::shell::server::xdg_positioner::{Anchor, Gravity};
+use wayland_protocols::xdg::shell::server::xdg_positioner::{Anchor, ConstraintAdjustment, Gravity};
 
 use crate::{
     geometry::{Geometry, GlobalGeometry},
@@ -9,7 +9,8 @@ use crate::{
 #[derive(Default, Reflect, Debug, Clone)]
 pub struct Positioner {
     pub anchor_rect: Option<IRect>,
-    pub constraint_adjustment: Option<u32>,
+    #[reflect(ignore)]
+    pub constraint_adjustment: Option<WEnum<ConstraintAdjustment>>,
     #[reflect(ignore)]
     pub anchor_kind: Option<Anchor>,
     #[reflect(ignore)]

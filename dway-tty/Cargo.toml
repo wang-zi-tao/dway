@@ -45,5 +45,12 @@ input = "0.9"
 smol_str = {workspace=true}
 derive_more = {workspace=true}
 
-[dev-dependencies]
-bevy = {workspace=true, default-features=true, features=["bevy_pbr","animation"]}
+[[example]]
+name = "drm3d"
+required-features = ["bevy/bevy_pbr", "bevy/animation"]
+
+[[example]]
+name = "drm_render"
+
+[[example]]
+name = "input"
