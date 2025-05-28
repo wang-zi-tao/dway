@@ -2,9 +2,13 @@ use std::borrow::Cow;
 
 use bevy::{
     core_pipeline::core_2d::graph::{Core2d, Node2d},
-    ecs::{entity::EntityHashMap, query::QueryItem},
+    ecs::query::QueryItem,
     render::{
-        extract_component::ExtractComponent, mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo}, render_asset::RenderAssets, render_graph::{RenderGraphApp, RenderLabel, ViewNode, ViewNodeRunner}, render_resource::{
+        extract_component::ExtractComponent,
+        mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
+        render_asset::RenderAssets,
+        render_graph::{RenderGraphApp, RenderLabel, ViewNode, ViewNodeRunner},
+        render_resource::{
             binding_types::{sampler, texture_2d, uniform_buffer},
             AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
             CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d,
@@ -14,7 +18,11 @@ use bevy::{
             SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
             TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
             TextureViewDescriptor, VertexState,
-        }, renderer::{RenderDevice, RenderQueue}, sync_world::{MainEntity, TemporaryRenderEntity}, texture::GpuImage, view::ViewTarget, Extract, RenderApp, RenderSet
+        },
+        renderer::{RenderDevice, RenderQueue},
+        sync_world::{MainEntity, RenderEntity},
+        texture::GpuImage,
+        Extract, RenderApp, RenderSet,
     },
 };
 
@@ -61,7 +69,7 @@ pub struct BlurPipeline {
 impl SpecializedRenderPipeline for BlurPipeline {
     type Key = BlurMethodKind;
 
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, _key: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("blur".into()),
             layout: vec![self.layout.clone()],
@@ -142,61 +150,60 @@ struct BlurUniform {
     size: Vec2,
 }
 
-#[derive(Resource, Default)]
-pub struct ExtractedBlurCamera {
-    changed: Vec<Entity>,
-    removed: Vec<Entity>,
-}
-
 pub fn extract_layer_manager(
-    layer_manager_query: Extract<Query<Ref<LayerManager>>>,
+    layer_manager_query: Extract<Query<(Ref<LayerManager>, RenderEntity)>>,
     mut removed: Extract<RemovedComponents<LayerCamera>>,
-    mut extracted: ResMut<ExtractedBlurCamera>,
+    mut camera_query: Query<&mut Blur>,
     mut commands: Commands,
 ) {
-    extracted.removed.clear();
-    for layer_manager in layer_manager_query.iter() {
+    for (layer_manager, render_entity) in layer_manager_query.iter() {
         if layer_manager.blur_enable {
-            let blur = Blur {
-                size: layer_manager.size,
-                area: layer_manager.blur_layer.layer.area.clone(),
-                blur_method: layer_manager.blur_layer.blur_method,
-                blur_output: layer_manager.blur_layer.blur_image.clone(),
-                shader: layer_manager.blur_layer.shader.clone(),
-                blur_input: layer_manager.blur_layer.layer.background_image.clone(),
-                main_entity: MainEntity::from(layer_manager.base_layer.camera),
-            };
-            let entity = commands.spawn((blur, TemporaryRenderEntity)).id();
             if layer_manager.is_changed() {
-                extracted.changed.push(entity);
+                let blur = Blur {
+                    size: layer_manager.size,
+                    area: layer_manager.blur_layer.layer.area.clone(),
+                    blur_method: layer_manager.blur_layer.blur_method,
+                    blur_output: layer_manager.blur_layer.blur_image.clone(),
+                    shader: layer_manager.blur_layer.shader.clone(),
+                    blur_input: layer_manager.blur_layer.layer.background_image.clone(),
+                    main_entity: MainEntity::from(layer_manager.base_layer.camera),
+                };
+                if let Ok(mut old_value) = camera_query.get_mut(render_entity) {
+                    old_value.set_if_neq(blur);
+                } else {
+                    commands.entity(render_entity).insert(blur);
+                }
             }
         } else if layer_manager.is_changed() {
-            extracted.removed.push(layer_manager.base_layer.camera);
+            if let Some(mut e) = commands.get_entity(render_entity) {
+                e.remove::<Blur>();
+            }
         }
     }
-    extracted.removed.extend(removed.read());
+    for render_entity in removed.read() {
+        if let Some(mut e) = commands.get_entity(render_entity) {
+            e.remove::<Blur>();
+        }
+    }
 }
 
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct PreparedBlurData(pub EntityHashMap<(Blur, BlurData)>);
-
 pub fn prepare_blur_pipeline(
-    query: Query<(Entity, &Blur)>,
-    extracted: Res<ExtractedBlurCamera>,
-    mut datas: ResMut<PreparedBlurData>,
+    mut query: Query<(Entity, Ref<Blur>, Option<&mut BlurData>)>,
+    mut removed: RemovedComponents<Blur>,
     render_device: Res<RenderDevice>,
     pipeline_cache: ResMut<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlurPipeline>>,
     gpu_images: Res<RenderAssets<GpuImage>>,
+    mut commands: Commands,
 ) {
-    for removed_entity in &extracted.removed {
-        datas.remove(removed_entity);
+    for removed_entity in removed.read() {
+        if let Some(mut e) = commands.get_entity(removed_entity) {
+            e.remove::<BlurData>();
+        }
     }
-    for (entity, blur) in query.iter_many(&extracted.changed) {
-        if let Some((cached_blue, _)) = datas.get(&*blur.main_entity) {
-            if cached_blue == blur {
-                continue;
-            }
+    for (entity, blur, blur_data) in query.iter_mut() {
+        if blur_data.is_some() && !blur.is_changed() {
+            continue;
         }
         let layout = render_device.create_bind_group_layout(
             "blur",
@@ -254,19 +261,18 @@ pub fn prepare_blur_pipeline(
         let Some(input_image) = gpu_images.get(blur.blur_input.id()) else {
             continue;
         };
-        datas.insert(
-            *blur.main_entity,
-            (
-                blur.clone(),
-                BlurData {
-                    input: input_image.texture_view.clone(),
-                    textures,
-                    layout,
-                    sampler,
-                    pipeline_id,
-                },
-            ),
-        );
+        let new_data = BlurData {
+            input: input_image.texture_view.clone(),
+            textures,
+            layout,
+            sampler,
+            pipeline_id,
+        };
+        if let Some(mut blur_data) = blur_data {
+            *blur_data = new_data;
+        } else {
+            commands.entity(entity).insert(new_data);
+        }
     }
 }
 
@@ -277,25 +283,21 @@ struct BlurLabel;
 struct BlurNode;
 
 impl ViewNode for BlurNode {
-    type ViewQuery = (Entity, &'static ViewTarget, &'static Blur);
+    type ViewQuery = (&'static Blur, &'static BlurData);
 
     fn run<'w>(
         &self,
         _graph: &mut bevy::render::render_graph::RenderGraphContext,
         render_context: &mut bevy::render::renderer::RenderContext<'w>,
-        (entity, view_target, blur): bevy::ecs::query::QueryItem<'w, Self::ViewQuery>,
+        (blur, blur_data): bevy::ecs::query::QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), bevy::render::render_graph::NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
         let render_device = world.resource::<RenderDevice>();
         let render_queue = world.resource::<RenderQueue>();
         let meshes = world.resource::<RenderAssets<RenderMesh>>();
-        let blur_datas = world.resource::<PreparedBlurData>();
         let mesh_allocator = world.resource::<MeshAllocator>();
 
-        let Some((_, blur_data)) = blur_datas.get(&entity) else {
-            return Ok(());
-        };
         let Some(pipeline) = pipeline_cache.get_render_pipeline(blur_data.pipeline_id) else {
             return Ok(());
         };
@@ -397,8 +399,6 @@ impl Plugin for PostProcessingPlugin {
     fn build(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<ExtractedBlurCamera>()
-                .init_resource::<PreparedBlurData>()
                 .init_resource::<SpecializedRenderPipelines<BlurPipeline>>()
                 .add_systems(ExtractSchedule, extract_layer_manager)
                 .add_systems(
