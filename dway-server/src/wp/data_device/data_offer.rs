@@ -9,6 +9,15 @@ use crate::{
 
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
+pub struct ServerDndData{
+    pub active: bool,
+    pub dropped: bool,
+    pub accepted: bool,
+    pub chosen_action: DndAction,
+}
+
+#[derive(Component, Reflect, Debug)]
+#[reflect(Debug)]
 pub struct WlDataOffer {
     #[reflect(ignore, default = "unimplemented")]
     pub raw: wl_data_offer::WlDataOffer,
@@ -62,21 +71,18 @@ impl Dispatch<wl_data_offer::WlDataOffer, Entity> for DWay {
             span!(Level::ERROR,"request",entity = ?data,resource = %WlResource::id(resource));
         let _enter = span.enter();
         debug!("request {:?}", &request);
-        let mut system_state = SystemState::<(
-            Query<(&mut WlDataOffer, &mut WlDataSource)>,
-            ResMut<ClipboardManager>,
-        )>::from_world(state.world_mut());
-        let (mut query, mut clipboard_manager) = system_state.get_manual_mut(state.world_mut());
-        let Ok((mut data_offer, data_source)) = query.get_mut(*data) else {
-            return;
-        };
         match request {
             wl_data_offer::Request::Accept { serial, mime_type } => {
-                if let Some(mtype) = &mime_type {
-                    data_offer.accepted = data_source.mime_types.contains(mtype);
-                } else {
-                    data_offer.accepted = false;
-                }
+                let _ = state.try_query::<(&mut WlDataOffer, &mut WlDataSource), _, ()>(
+                    *data,
+                    |(mut data_offer, data_source)| {
+                        if let Some(mtype) = &mime_type {
+                            data_offer.accepted = data_source.mime_types.contains(mtype);
+                        } else {
+                            data_offer.accepted = false;
+                        }
+                    },
+                );
             }
             wl_data_offer::Request::Receive { mime_type, fd } => {
                 ClipboardManager::require_last_record(
@@ -92,6 +98,9 @@ impl Dispatch<wl_data_offer::WlDataOffer, Entity> for DWay {
                 state.destroy_object(resource);
             }
             wl_data_offer::Request::Finish => {
+                let Some(mut data_offer) = state.get_mut::<WlDataOffer>(*data) else {
+                    return;
+                };
                 data_offer.active = false;
             }
             wl_data_offer::Request::SetActions {

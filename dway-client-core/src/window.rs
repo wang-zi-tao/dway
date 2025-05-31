@@ -40,9 +40,12 @@ pub struct WindowStatistics {
 
 pub fn on_window_created(mut new_windows: EventReader<Insert<DWayWindow>>, mut commands: Commands) {
     for new_window in new_windows.read() {
-        commands
-            .entity(new_window.entity)
-            .insert(WindowClientInfo::default());
+        let entity = new_window.entity;
+        commands.queue(move |world: &mut World| {
+            if let Ok(mut e) = world.get_entity_mut(entity) {
+                e.insert(WindowClientInfo::default());
+            }
+        })
     }
 }
 

@@ -87,6 +87,7 @@ wayland-server = { version="0.31.9",features = [] }
 wayland-backend = { version="0.3.10", features = ["server_system"] }
 wayland-protocols = { version = "0.32.8", features = ["unstable", "staging", "server", "wayland-server", "client"]}
 wayland-protocols-wlr = { version = "0.3.8", features = ["server"]}
+wayland-protocols-misc = { version="0.3.8", features = ["server"]}
 
 bevy-inspector-egui = { version="0.29", default-features=false, features = ["bevy_render", "highlight_changes"]}
 

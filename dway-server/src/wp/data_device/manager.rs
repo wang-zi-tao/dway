@@ -9,10 +9,14 @@ use crate::{
 pub struct WlDataDeviceManager {
     #[reflect(ignore, default = "unimplemented")]
     pub raw: wl_data_device_manager::WlDataDeviceManager,
+    pub focused_data_device: Option<Entity>,
 }
 impl WlDataDeviceManager {
     pub fn new(raw: wl_data_device_manager::WlDataDeviceManager) -> Self {
-        Self { raw }
+        Self {
+            raw,
+            focused_data_device: None,
+        }
     }
 }
 impl Dispatch<wl_data_device_manager::WlDataDeviceManager, Entity> for DWay {

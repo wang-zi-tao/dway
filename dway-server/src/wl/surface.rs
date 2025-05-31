@@ -142,6 +142,7 @@ impl WlSurface {
             .damages
             .push(IRect::from_pos_size((0, 0).into(), size));
         self.just_commit = true;
+        self.commit_count = 0;
 
         image
     }
@@ -387,6 +388,7 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                 width,
                 height,
             } => {
+                // TODO transformation changes
                 if let Some(mut c) = state.get_mut::<WlSurface>(*data) {
                     c.pending.damages.push(IRect::new(x, y, width, height));
                 }

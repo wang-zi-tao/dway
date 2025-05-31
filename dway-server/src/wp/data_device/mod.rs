@@ -62,7 +62,7 @@ impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
                         .clone();
                     ClipboardManager::add_source(
                         state.world_mut(),
-                        ClipboardSource::DataDevice(source.clone()),
+                        ClipboardSource::DataSource(source.clone()),
                         mime_types,
                     );
                 } else {

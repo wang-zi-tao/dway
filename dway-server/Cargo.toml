@@ -30,6 +30,7 @@ wayland-server = { workspace = true }
 wayland-backend = { workspace = true }
 wayland-protocols = { workspace = true }
 wayland-protocols-wlr = { workspace = true }
+wayland-protocols-misc = { workspace = true }
 inlinable_string = "0.1.15"
 nix = {workspace=true}
 phf = { version = "0.11", features = ["macros"] }

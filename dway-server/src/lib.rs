@@ -33,6 +33,7 @@ pub mod xdg;
 pub mod zwp;
 pub mod zxdg;
 pub mod zwlr;
+pub mod misc;
 pub mod clipboard;
 
 #[derive(Default)]
@@ -60,6 +61,7 @@ impl Plugin for DWayServerPlugin {
             zxdg::outputmanager::XdgOutputManagerPlugin,
             zxdg::decoration::DecorationPlugin,
             zwlr::data_control::DataControlPlugin,
+            misc::gtk_primary_selection::GtkPrimarySelectionPlugin,
             input::seat::WlSeatPlugin,
         ));
         app.add_plugins((

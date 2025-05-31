@@ -12,6 +12,7 @@ use std::{
 use anyhow::anyhow;
 use bevy::{
     ecs::{
+        component::ComponentId,
         entity::EntityHashSet,
         event::EventCursor,
         query::{QueryData, QueryEntityError, WorldQuery},
@@ -474,12 +475,13 @@ impl DWay {
     }
 
     pub fn object_component<T: Component>(&self, object: &impl wayland_server::Resource) -> &T {
-        self.world()
-            .get::<T>(DWay::get_entity(object))
-            .unwrap()
+        self.world().get::<T>(DWay::get_entity(object)).unwrap()
     }
 
-    pub fn object_component_mut<T: Component>(&mut self, object: &impl wayland_server::Resource) -> Mut<T> {
+    pub fn object_component_mut<T: Component>(
+        &mut self,
+        object: &impl wayland_server::Resource,
+    ) -> Mut<T> {
         self.world_mut()
             .get_mut::<T>(DWay::get_entity(object))
             .unwrap()

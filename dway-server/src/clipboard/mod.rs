@@ -15,6 +15,11 @@ use wayland_protocols::wp::primary_selection::zv1::server::{
     zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1,
     zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
 };
+use wayland_protocols_misc::gtk_primary_selection::server::{
+    gtk_primary_selection_device,
+    gtk_primary_selection_offer::{self, GtkPrimarySelectionOffer},
+    gtk_primary_selection_source::{self, GtkPrimarySelectionSource},
+};
 use wayland_protocols_wlr::data_control::v1::server::{
     zwlr_data_control_device_v1::ZwlrDataControlDeviceV1,
     zwlr_data_control_offer_v1::ZwlrDataControlOfferV1,
@@ -26,6 +31,7 @@ use wayland_server::{
 };
 
 use crate::{
+    misc::gtk_primary_selection::device::GtkPrimarySelectionDevice,
     prelude::*,
     wp::{data_device::WlDataDevice, primary_selection::device::PrimarySelectionDevice},
     zwlr::data_control::device::ZwlrDataControlDevice,
@@ -56,10 +62,12 @@ impl MimeTypeSet {
     }
 }
 
+#[derive(Debug)]
 pub enum DataOffer {
     WlDataOffer(wl_data_offer::WlDataOffer),
     ZwpPrimarySelectionOffer(ZwpPrimarySelectionOfferV1),
     ZwlrDataControlOffer(ZwlrDataControlOfferV1),
+    GtkPrimarySelectionOffer(gtk_primary_selection_offer::GtkPrimarySelectionOffer),
 }
 
 impl DataOffer {
@@ -71,6 +79,9 @@ impl DataOffer {
             }
             DataOffer::ZwpPrimarySelectionOffer(zwp_primary_selection_offer_v1) => {
                 zwp_primary_selection_offer_v1.is_alive()
+            }
+            DataOffer::GtkPrimarySelectionOffer(gtk_primary_selection_offer) => {
+                gtk_primary_selection_offer.is_alive()
             }
         }
     }
@@ -103,20 +114,24 @@ structstruck::strike! {
 
 #[derive(Component, Clone)]
 pub enum ClipboardSource {
-    DataDevice(WlDataSource),
+    DataSource(WlDataSource),
     PrimarySelectionSource(ZwpPrimarySelectionSourceV1),
     DataControlSource(ZwlrDataControlSourceV1),
+    GtkPrimarySelectionSource(gtk_primary_selection_source::GtkPrimarySelectionSource),
 }
 
 impl Drop for ClipboardSource {
     fn drop(&mut self) {
         match self {
-            ClipboardSource::DataDevice(wl_data_source) => wl_data_source.cancelled(),
+            ClipboardSource::DataSource(wl_data_source) => wl_data_source.cancelled(),
             ClipboardSource::PrimarySelectionSource(zwp_primary_selection_source_v1) => {
                 zwp_primary_selection_source_v1.cancelled()
             }
             ClipboardSource::DataControlSource(zwlr_data_control_source_v1) => {
                 zwlr_data_control_source_v1.cancelled()
+            }
+            ClipboardSource::GtkPrimarySelectionSource(gtk_primary_selection_source) => {
+                gtk_primary_selection_source.cancelled()
             }
         }
     }
@@ -125,48 +140,60 @@ impl Drop for ClipboardSource {
 impl ClipboardSource {
     pub fn is_alive(&self) -> bool {
         match self {
-            ClipboardSource::DataDevice(wl_data_source) => wl_data_source.is_alive(),
+            ClipboardSource::DataSource(wl_data_source) => wl_data_source.is_alive(),
             ClipboardSource::PrimarySelectionSource(zwp_primary_selection_source_v1) => {
                 zwp_primary_selection_source_v1.is_alive()
             }
             ClipboardSource::DataControlSource(zwlr_data_control_source_v1) => {
                 zwlr_data_control_source_v1.is_alive()
             }
+            ClipboardSource::GtkPrimarySelectionSource(gtk_primary_selection_source) => {
+                gtk_primary_selection_source.is_alive()
+            }
         }
     }
 
     pub fn handle(&self) -> &WeakHandle {
         match self {
-            ClipboardSource::DataDevice(wl_data_source) => wl_data_source.handle(),
+            ClipboardSource::DataSource(wl_data_source) => wl_data_source.handle(),
             ClipboardSource::PrimarySelectionSource(zwp_primary_selection_source_v1) => {
                 zwp_primary_selection_source_v1.handle()
             }
             ClipboardSource::DataControlSource(zwlr_data_control_source_v1) => {
                 zwlr_data_control_source_v1.handle()
             }
+            ClipboardSource::GtkPrimarySelectionSource(gtk_primary_selection_source) => {
+                gtk_primary_selection_source.handle()
+            }
         }
     }
 
     pub fn client(&self) -> Option<Client> {
         match self {
-            ClipboardSource::DataDevice(wl_data_source) => wl_data_source.client(),
+            ClipboardSource::DataSource(wl_data_source) => wl_data_source.client(),
             ClipboardSource::PrimarySelectionSource(zwp_primary_selection_source_v1) => {
                 zwp_primary_selection_source_v1.client()
             }
             ClipboardSource::DataControlSource(zwlr_data_control_source_v1) => {
                 zwlr_data_control_source_v1.client()
             }
+            ClipboardSource::GtkPrimarySelectionSource(gtk_primary_selection_source) => {
+                gtk_primary_selection_source.client()
+            }
         }
     }
 
     pub fn send(&self, mime_type: String, fd: BorrowedFd) {
         match self {
-            ClipboardSource::DataDevice(wl_data_source) => wl_data_source.send(mime_type, fd),
+            ClipboardSource::DataSource(wl_data_source) => wl_data_source.send(mime_type, fd),
             ClipboardSource::PrimarySelectionSource(zwp_primary_selection_source_v1) => {
                 zwp_primary_selection_source_v1.send(mime_type, fd)
             }
             ClipboardSource::DataControlSource(zwlr_data_control_source_v1) => {
                 zwlr_data_control_source_v1.send(mime_type, fd)
+            }
+            ClipboardSource::GtkPrimarySelectionSource(gtk_primary_selection_source) => {
+                gtk_primary_selection_source.send(mime_type, fd)
             }
         }
     }
@@ -189,9 +216,8 @@ pub fn read_clipboard(
     drop(tx);
 
     let mut buf = vec![];
-    debug!("read clipboard from pipe");
     rx.read_to_end(&mut buf)?;
-    debug!("read clipboard from pipe finished");
+    debug!("read {} bytes", buf.len());
     poller.wakeup();
 
     Ok(buf)
@@ -202,6 +228,7 @@ pub fn write_clipboard(data: Data, request: PasteRequest) -> Result<()> {
         bail!("data offset is destroyed");
     }
 
+    debug!(target=?request.data_offer, mime_type=%request.mime_type, "send {} bytes", data.len());
     let mut file = unsafe { PipeWriter::from_raw_fd(request.fd.into_raw_fd()) };
     file.write_all(&data)?;
     Ok(())
@@ -262,6 +289,7 @@ impl ClipboardManager {
             }
             Some(MimeTypeState::Reading) => {
                 let mut paste_requests = world.get_mut::<PasteRequests>(record_entity).unwrap();
+                debug!("clipboard is pedding");
                 paste_requests.push(paste_request);
                 return Ok(());
             }
@@ -304,6 +332,7 @@ impl ClipboardManager {
 
                 let mut paste_requests = world.get_mut::<PasteRequests>(record_entity).unwrap();
                 paste_requests.push(paste_request);
+                debug!("clipboard is pedding");
                 return Ok(());
             }
             None => {
@@ -398,7 +427,7 @@ impl ClipboardManager {
                                 IoTaskPool::get()
                                     .spawn(async move {
                                         if let Err(e) = write_clipboard(bytes, paste_request) {
-                                            error!("failed to write clipboard: {e:?}");
+                                            error!("failed to write clipboard: {e}");
                                         };
                                     })
                                     .detach();
@@ -440,11 +469,13 @@ pub fn send_selection_system(
             Option<&WlDataDevice>,
             Option<&PrimarySelectionDevice>,
             Option<&ZwlrDataControlDevice>,
+            Option<&GtkPrimarySelectionDevice>,
         ),
         Or<(
             With<WlDataDevice>,
             With<PrimarySelectionDevice>,
             With<ZwlrDataControlDevice>,
+            With<GtkPrimarySelectionDevice>,
         )>,
     >,
     mut commands: Commands,
@@ -463,8 +494,13 @@ pub fn send_selection_system(
             .map(|(k, v)| k.clone())
             .collect();
 
-        for (entity, wl_data_device, primiry_selection_device, zwlr_data_control_device) in
-            device_query.iter()
+        for (
+            entity,
+            wl_data_device,
+            primiry_selection_device,
+            zwlr_data_control_device,
+            gtk_primary_selection_device,
+        ) in device_query.iter()
         {
             debug!(?entity, "set selection");
 
@@ -478,6 +514,10 @@ pub fn send_selection_system(
 
             if let Some(zwlr_data_control_device) = zwlr_data_control_device {
                 zwlr_data_control_device.create_offer(&mime_types, commands.reborrow());
+            }
+
+            if let Some(gtk_primary_selection_device) = gtk_primary_selection_device {
+                gtk_primary_selection_device.create_offer(&mime_types, commands.reborrow());
             }
         }
     }
