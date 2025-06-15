@@ -2,7 +2,7 @@ use bevy::{ecs::world::DeferredWorld, prelude::*};
 use smallvec::SmallVec;
 
 use crate::ConnectableMut;
-fn disconnect<ThisPeer: ConnectableMut, TargetPeer: ConnectableMut>(
+pub fn disconnect_all_owned<ThisPeer: ConnectableMut, TargetPeer: ConnectableMut>(
     mut world: DeferredWorld,
     this_entity: Entity,
 ) {
@@ -24,8 +24,8 @@ fn disconnect<ThisPeer: ConnectableMut, TargetPeer: ConnectableMut>(
 pub mod n_to_n {
     use bevy::{ecs::component::StorageType, prelude::*};
 
-    use super::disconnect;
-    use crate::{disconnect_all, relationship, Peer, Relationship};
+    use super::disconnect_all_owned;
+    use crate::{relationship, Peer, Relationship};
 
     #[derive(Clone, Default, Debug, crate::reexport::Reflect)]
     pub struct Reference(pub crate::RelationshipToManyEntity);
@@ -51,7 +51,7 @@ pub mod n_to_n {
 
         fn register_component_hooks(hooks: &mut bevy::ecs::component::ComponentHooks) {
             hooks.on_remove(|world, entity, _componentid| {
-                disconnect::<Reference, ReferenceFrom>(world, entity);
+                disconnect_all_owned::<Reference, ReferenceFrom>(world, entity);
             });
         }
     }
@@ -60,7 +60,7 @@ pub mod n_to_n {
 
         fn register_component_hooks(hooks: &mut bevy::ecs::component::ComponentHooks) {
             hooks.on_remove(|world, entity, _componentid| {
-                disconnect_all::<ReferenceFrom, Reference>(world, entity);
+                crate::disconnect_all::<ReferenceFrom, Reference>(world, entity);
             });
         }
     }
@@ -72,7 +72,7 @@ pub mod n_to_one {
         prelude::*,
     };
 
-    use super::disconnect;
+    use super::disconnect_all_owned;
     use crate::relationship;
 
     #[derive(Clone, Default, Debug, crate::reexport::Reflect)]
@@ -99,7 +99,7 @@ pub mod n_to_one {
 
         fn register_component_hooks(hooks: &mut ComponentHooks) {
             hooks.on_remove(|world, entity, _componentid| {
-                disconnect::<SharedRefreence, SharedReferenceFrom>(world, entity);
+                disconnect_all_owned::<SharedRefreence, SharedReferenceFrom>(world, entity);
             });
         }
     }
@@ -122,7 +122,7 @@ pub mod one_to_one {
         prelude::*,
     };
 
-    use super::disconnect;
+    use super::disconnect_all_owned;
     use crate::relationship;
 
     #[derive(Clone, Default, Debug, crate::reexport::Reflect)]
@@ -149,7 +149,7 @@ pub mod one_to_one {
 
         fn register_component_hooks(hooks: &mut ComponentHooks) {
             hooks.on_remove(|world, entity, _componentid| {
-                disconnect::<UniqueRefreence, UniqueReferenceFrom>(world, entity);
+                disconnect_all_owned::<UniqueRefreence, UniqueReferenceFrom>(world, entity);
             });
         }
     }

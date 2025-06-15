@@ -1,3 +1,5 @@
+use bevy::{input::mouse::MouseButtonInput, math::DVec2};
+
 use super::seat::WlSeat;
 use crate::{
     geometry::{Geometry, GlobalGeometry},
@@ -10,7 +12,6 @@ use crate::{
         surface::WlSurface,
     },
 };
-use bevy::{input::mouse::MouseButtonInput, math::DVec2};
 
 #[derive(Component, Reflect)]
 pub struct WlPointer {
@@ -40,12 +41,19 @@ impl WlPointer {
     pub fn new(raw: wl_pointer::WlPointer) -> Self {
         Self { raw, focus: None }
     }
+
     pub fn frame(&self) {
         if self.raw.version() >= 5 {
             self.raw.frame();
         }
     }
-    pub fn set_focus(
+
+    pub fn enter(&mut self, seat: &mut WlSeat, surface: &WlSurface, position: Vec2) {
+        let offset_base_on_surface = position.as_dvec2() - surface.image_rect().pos().as_dvec2();
+        self.set_focus(seat, surface, offset_base_on_surface, next_serial());
+    }
+
+    fn set_focus(
         &mut self,
         seat: &mut WlSeat,
         surface: &WlSurface,
@@ -97,19 +105,21 @@ impl WlPointer {
         }
         true
     }
+
     pub fn button(
         &mut self,
         seat: &mut WlSeat,
         input: &MouseButtonInput,
         surface: &WlSurface,
-        pos: DVec2,
+        position: Vec2,
     ) {
+        let position_base_on_surface = position.as_dvec2() - surface.image_rect().pos().as_dvec2();
         let serial = next_serial();
-        if !self.set_focus(seat, surface, pos, serial) {
+        if !self.set_focus(seat, surface, position_base_on_surface, serial) {
             debug!(serial,surface=%WlResource::id( &surface.raw ),"cannot set focus");
             return;
         }
-        debug!(serial,surface=%WlResource::id( &surface.raw ),"mouse button: {:?} at {:?}", input, pos);
+        debug!(serial,surface=%WlResource::id( &surface.raw ),"mouse button: {:?} at {:?}", input, position);
         self.raw.button(
             next_serial(),
             time(),
@@ -128,16 +138,23 @@ impl WlPointer {
         );
         self.frame();
     }
-    pub fn move_cursor(&mut self, seat: &mut WlSeat, surface: &WlSurface, delta: Vec2) {
+
+    pub fn move_cursor(&mut self, seat: &mut WlSeat, surface: &WlSurface, position: Vec2) {
+        let position_base_on_surface = position.as_dvec2() - surface.image_rect().pos().as_dvec2();
         let serial = next_serial();
-        if !self.set_focus(seat, surface, delta.as_dvec2(), serial) {
+        if !self.set_focus(seat, surface, position_base_on_surface, serial) {
             debug!(serial,surface=%WlResource::id( &surface.raw ),"cannot set focus");
             return;
         }
-        trace!("mouse move: {}", delta);
-        self.raw.motion(time(), delta.x as f64, delta.y as f64);
+        trace!("mouse move: {}", position);
+        self.raw.motion(
+            time(),
+            position_base_on_surface.x,
+            position_base_on_surface.y,
+        );
         self.frame();
     }
+
     pub fn leave(&mut self) {
         let serial = next_serial();
         if let Some(focus) = &self.focus {
@@ -148,13 +165,15 @@ impl WlPointer {
             self.focus = None;
         }
     }
-    pub fn asix(&mut self, seat: &mut WlSeat, value: DVec2, surface: &WlSurface, pos: DVec2) {
+
+    pub fn asix(&mut self, seat: &mut WlSeat, value: DVec2, surface: &WlSurface, position: Vec2) {
+        let offset_base_on_surface = position.as_dvec2() - surface.image_rect().pos().as_dvec2();
         let serial = next_serial();
-        if !self.set_focus(seat, surface, pos, serial) {
+        if !self.set_focus(seat, surface, offset_base_on_surface, serial) {
             debug!(serial,surface=%WlResource::id( &surface.raw ),"cannot set focus");
             return;
         }
-        trace!("axis: {}", pos);
+        trace!("axis: {}", position);
         if value.x != 0.0 {
             self.raw
                 .axis(time(), wl_pointer::Axis::HorizontalScroll, value.x);
@@ -218,6 +237,7 @@ impl
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

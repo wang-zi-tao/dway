@@ -1,4 +1,8 @@
-use bevy::{ecs::query::QueryData, input::keyboard::KeyboardInput, ui::RelativeCursorPosition};
+use bevy::{
+    ecs::{event::EventCursor, query::QueryData},
+    input::{keyboard::KeyboardInput, mouse::{MouseButtonInput, MouseWheel}},
+    ui::RelativeCursorPosition,
+};
 use bevy_relationship::reexport::SmallVec;
 
 use crate::{
@@ -38,6 +42,8 @@ pub enum UiInputEvent {
     KeyboardLeave,
     MouseMove(Vec2),
     KeyboardInput(KeyboardInput),
+    Wheel(MouseWheel),
+    RawMouseButton(MouseButtonInput),
 }
 
 impl UiInputEvent {
@@ -51,6 +57,8 @@ impl UiInputEvent {
             UiInputEvent::KeyboardLeave => None,
             UiInputEvent::MouseMove(_) => None,
             UiInputEvent::KeyboardInput(_) => None,
+            UiInputEvent::Wheel(_) => None,
+            UiInputEvent::RawMouseButton(_) => None,
         }
     }
 
@@ -123,6 +131,10 @@ pub fn update_ui_input(
     mouse_button_state: Res<ButtonInput<MouseButton>>,
     mut ui_focus_event: EventReader<UiFocusEvent>,
     mut ui_focus_state: ResMut<UiFocusState>,
+    mut wheel_event_cursor: Local<EventCursor<MouseWheel>>,
+    mut button_event_cursor: Local<EventCursor<MouseButtonInput>>,
+    mut wheel_events: Res<Events<MouseWheel>>,
+    mut mouse_button_events: Res<Events<MouseButtonInput>>,
 ) {
     for UiInputQueryItem {
         entity,
@@ -144,6 +156,18 @@ pub fn update_ui_input(
             }
             for button in mouse_button_state.get_just_released() {
                 event_dispatcher.send(MouseRelease(*button), &mut commands);
+            }
+        }
+
+        if *interaction != Interaction::None {
+            let mut wheel_event_cursor_clone = wheel_event_cursor.clone();
+            for event in wheel_event_cursor_clone.read(&wheel_events) {
+                event_dispatcher.send(Wheel(event.clone()), &mut commands);
+            }
+
+            let mut button_event_cursor_clone = button_event_cursor.clone();
+            for event in button_event_cursor_clone.read(&mouse_button_events) {
+                event_dispatcher.send(RawMouseButton(event.clone()), &mut commands);
             }
         }
 
@@ -256,6 +280,8 @@ pub fn update_ui_input(
             }
         }
     }
+    wheel_event_cursor.clear(&wheel_events);
+    button_event_cursor.clear(&mouse_button_events);
 }
 
 pub type UiInputEventDispatcher = EventDispatcher<UiInputEvent>;

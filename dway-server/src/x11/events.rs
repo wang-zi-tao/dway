@@ -15,7 +15,7 @@ use x11rb::{
 use super::{DWayHasXWayland, DWayXWaylandReady, XWaylandDisplay, XWaylandDisplayWrapper};
 use crate::{
     geometry::{Geometry, GlobalGeometry},
-    input::grab::{ResizeEdges, SurfaceGrabKind, WlSurfacePointerState},
+    input::grab::{ResizeEdges, StartGrab, WlSurfacePointerState},
     prelude::*,
     util::rect::IRect,
     x11::{
@@ -79,9 +79,7 @@ pub fn process_x11_event(
                     xwindow.surface_id = Some(wid);
                     world.entity_mut(xwindow_entity).insert(MappedXWindow);
 
-                    world.send_event(XWindowAttachSurfaceRequest{
-                        xwindow_entity,
-                    });
+                    world.send_event(XWindowAttachSurfaceRequest { xwindow_entity });
                 }
                 t if t == atoms.WM_CHANGE_STATE => {
                     todo!()
@@ -100,7 +98,7 @@ pub fn process_x11_event(
                         warn!(?xwindow_entity, "surface entity has no XWindowSurfaceRef");
                         return Ok(());
                     };
-                    let Some(geo) = dway.get::<Geometry>(surface_entity).map(|g| g.geometry) else {
+                    let Some(geo) = dway.get::<Geometry>(surface_entity).map(|g| g.clone()) else {
                         warn!(?surface_entity, "surface entity has no Geometry");
                         return Ok(());
                     };
@@ -121,20 +119,23 @@ pub fn process_x11_event(
                                     7 => ResizeEdges::LEFT,
                                     _ => unreachable!(),
                                 };
-                                window_pointer.set_grab(SurfaceGrabKind::Resizing {
+                                dway.send_event(StartGrab::Resizing {
+                                    surface: surface_entity,
                                     seat: display_entity,
-                                    serial: Some(0),
                                     edges,
-                                    geo,
+                                    serial: None,
+                                    geometry: geo.clone(),
                                 });
                                 debug!("xwindow start resizing");
                             }
                             8 => {
                                 let mouse_pos = window_pointer.mouse_pos;
-                                window_pointer.set_grab(SurfaceGrabKind::Move {
-                                    mouse_pos,
+                                dway.send_event(StartGrab::Move {
+                                    surface: surface_entity,
                                     seat: display_entity,
-                                    serial: Some(0),
+                                    serial: None,
+                                    mouse_pos,
+                                    geometry: geo.clone(),
                                 });
                                 debug!("xwindow start moving");
                             }

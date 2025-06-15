@@ -74,7 +74,7 @@ impl WlSeatBundle {
         }
     }
 }
-relationship!(SeatHasPointer=>PointerList-<SeatOfPoint);
+relationship!(SeatHasPointer=>PointerList :own --SeatOfPoint);
 relationship!(SeatHasKeyboard=>KeyboardList-<SeatOfKeyboard);
 relationship!(SeatHasTouch=>TouchList-<SeatOfTouch);
 relationship!(FocusOnSurface=>FoucsOn--FocusBy);
@@ -163,7 +163,6 @@ pub struct WlSeatPlugin;
 impl Plugin for WlSeatPlugin {
     fn build(&self, app: &mut App) {
         add_global_dispatch::<wl_seat::WlSeat, 9>(app);
-        app.add_plugins(super::keyboard::WlKeyboardPlugin);
         app.register_relation::<SeatHasPointer>();
         app.register_relation::<PointerHasSurface>();
         app.register_relation::<SeatHasKeyboard>();
@@ -172,6 +171,5 @@ impl Plugin for WlSeatPlugin {
         app.register_relation::<ActivePopup>();
         app.register_type::<WlPointer>();
         app.register_type::<WlSeat>();
-        app.register_type::<super::grab::WlSurfacePointerState>();
     }
 }

@@ -22,7 +22,7 @@ pub use crate::{
     builtins::*,
     commands::*,
     graph::*,
-    lifetime::{n_to_n::*, n_to_one::*, one_to_one::*},
+    lifetime::{disconnect_all_owned, n_to_n::*, n_to_one::*, one_to_one::*},
     macros::*,
 };
 

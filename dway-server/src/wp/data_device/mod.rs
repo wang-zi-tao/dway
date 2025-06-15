@@ -1,14 +1,20 @@
 pub mod data_offer;
 pub mod data_source;
+pub mod dnd;
 pub mod manager;
 
 use data_offer::WlDataOffer;
 use data_source::WlDataSource;
+use dnd::{DragAndDrop, DragIcon};
 
 use crate::{
     clipboard::{
         send_selection_system, ClipboardDataDevice, ClipboardEvent, ClipboardManager,
         ClipboardSource, MimeTypeSet,
+    },
+    input::{
+        grab::{StartGrab, WlSurfacePointerState},
+        seat::{PointerList, SeatHasPointer},
     },
     prelude::*,
     schedule::DWayServerSchedule,
@@ -45,12 +51,42 @@ impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
         debug!("request {:?}", &request);
         match request {
             wl_data_device::Request::StartDrag {
-                source: _,
-                origin: _,
-                icon: _,
-                serial: _,
+                source,
+                origin,
+                icon,
+                serial,
             } => {
-                warn!("TODO: wl_data_device::Request::StartDrag");
+                let icon_surface_entity = icon.as_ref().map(|icon| DWay::get_entity(icon));
+                let origin_entity = DWay::get_entity(&origin);
+                state.insert(
+                    *data,
+                    DragAndDrop {
+                        data_source: source.as_ref().map(|source| DWay::get_entity(source)),
+                        origin_surface: origin_entity,
+                        icon_surface: icon_surface_entity,
+                        serial,
+                    },
+                );
+
+                if let Some(mut icon_emtity_mut) =
+                    icon.map(|icon| state.entity_mut(DWay::get_entity(&icon)))
+                {
+                    icon_emtity_mut.insert(DragIcon);
+                }
+
+                let seat_entity = state.get::<Parent>(*data).unwrap().get();
+
+                let surface_entity = DWay::get_entity(&origin);
+                if let Some(mut surface_grab) =
+                    state.get_mut::<WlSurfacePointerState>(DWay::get_entity(&origin))
+                {
+                    state.send_event(StartGrab::Drag {
+                        surface: surface_entity,
+                        seat: seat_entity,
+                        data_device: *data,
+                        icon: icon_surface_entity,
+                    });
+                }
             }
             wl_data_device::Request::SetSelection { source, serial: _ } => {
                 if let Some(source) = &source {

@@ -1,5 +1,6 @@
+use bevy::ui::RelativeCursorPosition;
 use dway_client_core::{
-    input::SurfaceUiNode,
+    input::{GrabRequestKind, SurfaceInputEvent, SurfaceUiNode},
     navigation::windowstack::{WindowIndex, WindowStack},
     UiAttachData,
 };
@@ -22,6 +23,70 @@ pub const WINDEOW_POPUP_BASE_ZINDEX: i32 = WINDEOW_BASE_ZINDEX + 256;
 pub const WINDEOW_MAX_STEP: i32 = 16;
 pub const DECORATION_HEIGHT: f32 = 24.0;
 pub const DECORATION_MARGIN: f32 = 2.0;
+
+pub fn ui_input_event_to_surface_input_event(
+    surface_entity: Entity,
+    computed_node: &ComputedNode,
+    relative_cursor_position: &RelativeCursorPosition,
+    global_transform: &GlobalTransform,
+    event: &UiInputEvent,
+) -> Option<SurfaceInputEvent> {
+    let mouse_position =
+        relative_cursor_position.normalized.unwrap_or_default() * computed_node.size();
+    let surface_rect = Rect::from_center_size(
+        global_transform.translation().truncate(),
+        computed_node.size(),
+    );
+
+    let surface_input_event_kind = match &*event {
+        UiInputEvent::MouseEnter => Some(GrabRequestKind::Enter()),
+        UiInputEvent::MouseLeave => Some(GrabRequestKind::Leave()),
+        UiInputEvent::MousePress(_) => None,
+        UiInputEvent::MouseRelease(_) => None,
+        UiInputEvent::KeyboardEnter => None,
+        UiInputEvent::KeyboardLeave => None,
+        UiInputEvent::MouseMove(vec2) => Some(GrabRequestKind::Move(vec2 * surface_rect.size())),
+        UiInputEvent::KeyboardInput(keyboard_input) => {
+            Some(GrabRequestKind::KeyboardInput(keyboard_input.clone()))
+        }
+        UiInputEvent::Wheel(mouse_wheel) => Some(GrabRequestKind::Asix(mouse_wheel.clone())),
+        UiInputEvent::RawMouseButton(mouse_button_input) => {
+            Some(GrabRequestKind::Button(mouse_button_input.clone()))
+        }
+    };
+    surface_input_event_kind.map(|kind| SurfaceInputEvent {
+        surface_entity: Some(surface_entity),
+        mouse_position,
+        surface_rect,
+        kind,
+    })
+}
+
+pub fn on_window_ui_input(
+    event: UiEvent<UiInputEvent>,
+    query: Query<(&WindowUI, &WindowUIWidget)>,
+    contents_query: Query<(&ComputedNode, &RelativeCursorPosition, &GlobalTransform)>,
+    mut surface_input_events: EventWriter<SurfaceInputEvent>,
+) {
+    let Ok((prop, widget)) = query.get(event.receiver()) else {
+        return;
+    };
+    let Ok((computed_node, relative_cursor_position, global_transform)) =
+        contents_query.get(widget.node_content_entity)
+    else {
+        return;
+    };
+
+    if let Some(surface_input_event) = ui_input_event_to_surface_input_event(
+        prop.window_entity,
+        computed_node,
+        relative_cursor_position,
+        global_transform,
+        &event,
+    ) {
+        surface_input_events.send(surface_input_event);
+    }
+}
 
 pub fn create_raw_window_material(
     image_rect: IRect,
@@ -121,6 +186,7 @@ WindowUI=>
         }
     }
 }
+@add_callback{ [UiEvent<UiInputEvent>] on_window_ui_input}
 @arg(asset_server: Res<AssetServer>)
 @arg(window_stack: Res<WindowStack>)
 @state_component(#[derive(Reflect)])
@@ -165,13 +231,10 @@ WindowUI=>
 <MiniNodeBundle @id="content"
     Node=(irect_to_style(*state.rect()))
     ZIndex=(ZIndex(4))
+    UiInput=(default()) RelativeCursorPosition=(default())
     FocusPolicy=(FocusPolicy::Block)
->
-    <MiniNodeBundle @style="full absolute" @id="mouse_area"
-        SurfaceUiNode=(SurfaceUiNode::new(prop.window_entity,node!(content)))
-        Interaction=(default()) FocusPolicy=(FocusPolicy::Pass)
-    />
-</MiniNodeBundle>
+    UiInputEventDispatcher=(make_callback(this_entity, on_window_ui_input))
+/>
 <UiNodeBundle Node=(irect_to_style(*state.bbox_rect())) @if(!*state.decorated()) @id="without_decorated">
     <ImageBundle @id="image" @style="full" ImageNode=(state.image().clone().into()) />
 </UiNodeBundle>

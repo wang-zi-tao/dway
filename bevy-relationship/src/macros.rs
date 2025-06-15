@@ -66,17 +66,6 @@ macro_rules! relationship {
             type From = $type1;
             type To = $type1;
         }
-
-        impl $crate::reexport::Component for $type1{
-            const STORAGE_TYPE: $crate::reexport::StorageType= $crate::reexport::StorageType::Table;
-
-            fn register_component_hooks(hooks: &mut bevy::ecs::component::ComponentHooks) {
-                hooks.on_remove(|world, entity, _componentid|{
-                    $crate::disconnect_all::<$type1, $type1>(world, entity);
-                });
-            }
-        }
-
     };
     (@Relationship $relationship:ident => $type1:ident - $type2:ident) => {
         impl $crate::Peer for $type1{
@@ -93,53 +82,65 @@ macro_rules! relationship {
             type From = $type1;
             type To = $type2;
         }
-
-        impl $crate::reexport::Component for $type1{
+    };
+    (@Component: $type:ident $peer:ident) => {
+        impl $crate::reexport::Component for $type{
             const STORAGE_TYPE: $crate::reexport::StorageType= $crate::reexport::StorageType::Table;
 
             fn register_component_hooks(hooks: &mut $crate::reexport::ComponentHooks) {
                 hooks.on_remove(|world, entity, _componentid|{
-                    $crate::disconnect_all::<$type1, $type2>(world, entity);
+                    $crate::disconnect_all::<$type, $peer>(world, entity);
                 });
             }
         }
-
-        impl $crate::reexport::Component for $type2{
+    };
+    (@Component own: $type:ident $peer:ident) => {
+        impl $crate::reexport::Component for $type{
             const STORAGE_TYPE: $crate::reexport::StorageType= $crate::reexport::StorageType::Table;
 
             fn register_component_hooks(hooks: &mut $crate::reexport::ComponentHooks) {
                 hooks.on_remove(|world, entity, _componentid|{
-                    $crate::disconnect_all::<$type2, $type1>(world, entity);
+                    $crate::disconnect_all_owned::<$type, $peer>(world, entity);
                 });
             }
         }
     };
-    ($relationship:ident => $type1:ident -- $type2:ident) => {
+    ($relationship:ident => $type1:ident $(:$lifetime:ident)? -- $type2:ident) => {
         relationship!(-- $type1 @peer($type2));
         relationship!(-- $type2 @peer($type1));
         relationship!(@Relationship $relationship => $type1 - $type2);
+        relationship!(@Component $($lifetime)?: $type1 $type2);
+        relationship!(@Component: $type2 $type1);
     };
-    ($relationship:ident => $type1:ident -< $type2:ident) => {
+    ($relationship:ident => $type1:ident $(:$lifetime:ident)? -< $type2:ident) => {
         relationship!(>- $type1 @peer($type2));
         relationship!(-- $type2 @peer($type1));
         relationship!(@Relationship $relationship => $type1 - $type2);
+        relationship!(@Component $($lifetime)?: $type1 $type2);
+        relationship!(@Component: $type2 $type1);
     };
-    ($relationship:ident => $type1:ident >- $type2:ident) => {
+    ($relationship:ident => $type1:ident $(:$lifetime:ident)? >- $type2:ident) => {
         relationship!(-- $type1 @peer($type2));
         relationship!(>- $type2 @peer($type1));
         relationship!(@Relationship $relationship => $type1 - $type2);
+        relationship!(@Component $($lifetime)?: $type1 $type2);
+        relationship!(@Component: $type2 $type1);
     };
-    ($relationship:ident => $type1:ident >-< $type2:ident) => {
+    ($relationship:ident => $type1:ident $(:$lifetime:ident)? >-< $type2:ident) => {
         relationship!(>- $type1 @peer($type2));
         relationship!(>- $type2 @peer($type1));
         relationship!(@Relationship $relationship => $type1 - $type2);
+        relationship!(@Component $($lifetime)?: $type1 $type2);
+        relationship!(@Component: $type2 $type1);
     };
     ($relationship:ident => @both -- $type1:ident) => {
         relationship!(-- $type1 @peer($type1));
         relationship!(@Relationship $relationship => $type1);
+        relationship!(@Component: $type1 $type1);
     };
     ($relationship:ident => @both -< $type1:ident) => {
         relationship!(>- $type1 @peer($type1));
         relationship!(@Relationship $relationship => $type1);
+        relationship!(@Component: $type1 $type1);
     };
 }

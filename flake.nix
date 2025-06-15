@@ -86,6 +86,7 @@
             libinput
             seatd
             mesa
+            libgbm
             udev
             alsa-lib
             vulkan-loader
@@ -102,9 +103,8 @@
             (glib)
             (gtk4)
             gtk3.debug
-            gnome2.pango
+            pango
             gdk-pixbuf
-            remarkable-toolchain
             xorg.libX11
             graphene
             xorg.libxcb

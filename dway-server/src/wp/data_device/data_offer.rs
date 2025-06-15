@@ -4,12 +4,15 @@ use wl_data_device_manager::DndAction;
 use crate::{
     clipboard::{ClipboardManager, ClipboardRecord, DataOffer, MimeTypeSet, PasteRequest},
     prelude::*,
-    wp::data_device::data_source::WlDataSource,
+    wp::data_device::{
+        data_source::WlDataSource,
+        dnd::{DragAndDrop, DropFrom},
+    },
 };
 
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]
-pub struct ServerDndData{
+pub struct DropData {
     pub active: bool,
     pub dropped: bool,
     pub accepted: bool,
@@ -73,16 +76,22 @@ impl Dispatch<wl_data_offer::WlDataOffer, Entity> for DWay {
         debug!("request {:?}", &request);
         match request {
             wl_data_offer::Request::Accept { serial, mime_type } => {
-                let _ = state.try_query::<(&mut WlDataOffer, &mut WlDataSource), _, ()>(
-                    *data,
-                    |(mut data_offer, data_source)| {
-                        if let Some(mtype) = &mime_type {
-                            data_offer.accepted = data_source.mime_types.contains(mtype);
-                        } else {
-                            data_offer.accepted = false;
-                        }
-                    },
-                );
+                let accepted = if let Some(source) = state
+                    .get::<DropFrom>(*data)
+                    .and_then(|d| d.get())
+                    .and_then(|dnd_entity| state.get::<DragAndDrop>(dnd_entity))
+                    .and_then(|dnd| dnd.data_source)
+                    .and_then(|source_entity| state.get::<WlDataSource>(source_entity))
+                {
+                    mime_type
+                        .map(|mime_type| source.mime_types.contains(&*mime_type))
+                        .unwrap_or(false)
+                } else {
+                    false
+                };
+                if let Some(mut drop_data) = state.get_mut::<DropData>(*data) {
+                    drop_data.accepted = accepted;
+                }
             }
             wl_data_offer::Request::Receive { mime_type, fd } => {
                 ClipboardManager::require_last_record(
@@ -107,7 +116,32 @@ impl Dispatch<wl_data_offer::WlDataOffer, Entity> for DWay {
                 dnd_actions,
                 preferred_action,
             } => {
-                todo!()
+                let dnd_actions = dnd_actions.into_result().unwrap_or(DndAction::None);
+                let preferred_action = preferred_action.into_result().unwrap_or(DndAction::None);
+
+                if let Some(source) = state
+                    .get::<DropFrom>(*data)
+                    .and_then(|d| d.get())
+                    .and_then(|dnd_entity| state.get::<DragAndDrop>(dnd_entity))
+                    .and_then(|dnd| dnd.data_source)
+                    .and_then(|source_entity| state.get::<WlDataSource>(source_entity))
+                {
+                    let sourcec_action = source.dnd_action;
+                    let data_source = source.raw.clone();
+
+                    let chosen_action =
+                        DragAndDrop::choise_action(sourcec_action & dnd_actions, preferred_action);
+
+                    debug!("choise action {:?}", chosen_action);
+
+                    if let Some(mut drop_data) = state.get_mut::<DropData>(*data) {
+                        if drop_data.chosen_action != chosen_action {
+                            drop_data.chosen_action = chosen_action;
+                            data_source.action(chosen_action);
+                            resource.action(chosen_action);
+                        }
+                    }
+                }
             }
             _ => todo!(),
         }

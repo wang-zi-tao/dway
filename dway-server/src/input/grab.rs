@@ -1,6 +1,6 @@
 use bitflags::bitflags;
-use crate::util::rect::IRect;
-use crate::prelude::*;
+
+use crate::{geometry::Geometry, prelude::*, util::rect::IRect};
 
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash)]
@@ -12,41 +12,44 @@ bitflags! {
     }
 }
 
-#[derive(Component, Debug, Reflect)]
-pub enum SurfaceGrabKind {
+#[derive(Event, Debug, Reflect)]
+pub enum StartGrab {
     Move {
+        surface: Entity,
         seat: Entity,
         serial: Option<u32>,
         mouse_pos: IVec2,
+        geometry: Geometry,
     },
     Resizing {
+        surface: Entity,
         seat: Entity,
         #[reflect(ignore)]
         edges: ResizeEdges,
         serial: Option<u32>,
-        geo: IRect,
+        geometry: Geometry,
+    },
+    Drag {
+        surface: Entity,
+        seat: Entity,
+        data_device: Entity,
+        icon: Option<Entity>,
     },
 }
 
 #[derive(Component, Debug, Default, Reflect)]
 pub struct WlSurfacePointerState {
-    pub is_clicked: bool,
     pub mouse_pos: IVec2,
-    pub grab: Option<SurfaceGrabKind>,
 }
 
 impl WlSurfacePointerState {
-    pub fn is_grabed(&self) -> bool {
-        self.is_clicked || self.grab.is_some()
-    }
-    pub fn enabled(&self) -> bool {
-        self.grab.is_none()
-    }
+}
 
-    pub fn set_grab(&mut self, grab: SurfaceGrabKind) {
-        self.grab = Some(grab);
-    }
-    pub fn clean_grab(&mut self) {
-        self.grab = None;
+pub struct GrabPlugin;
+
+impl Plugin for GrabPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_event::<StartGrab>();
+        app.register_type::<WlSurfacePointerState>();
     }
 }

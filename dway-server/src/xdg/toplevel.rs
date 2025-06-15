@@ -5,7 +5,7 @@ use super::{DWayWindow, XdgSurface};
 use crate::{
     geometry::{set_geometry, Geometry, GlobalGeometry},
     input::{
-        grab::{ResizeEdges, SurfaceGrabKind, WlSurfacePointerState},
+        grab::{ResizeEdges, StartGrab, WlSurfacePointerState},
         seat::WlSeat,
     },
     prelude::*,
@@ -131,14 +131,19 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 if state.entity(*data).contains::<PinedWindow>() {
                     return;
                 }
-                if let Some(mut pointer_state) = state.get_mut::<WlSurfacePointerState>(*data) {
-                    let mouse_pos = pointer_state.mouse_pos;
-                    pointer_state.set_grab(SurfaceGrabKind::Move {
-                        mouse_pos,
-                        seat: DWay::get_entity(&seat),
-                        serial: Some(serial),
-                    });
-                }
+                let mouse_pos = state
+                    .get_mut::<WlSurfacePointerState>(*data)
+                    .unwrap()
+                    .mouse_pos;
+                let geometry = state.get_mut::<Geometry>(*data).unwrap().clone();
+
+                state.send_event(StartGrab::Move {
+                    mouse_pos,
+                    seat: DWay::get_entity(&seat),
+                    serial: Some(serial),
+                    surface: *data,
+                    geometry,
+                });
             }
             xdg_toplevel::Request::Resize {
                 seat,
@@ -167,17 +172,14 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                     }
                     _ => return,
                 };
-                if let Some(geo) = state.get_mut::<Geometry>(*data) {
-                    let geo = geo.geometry;
-                    if let Some(mut pointer_state) = state.get_mut::<WlSurfacePointerState>(*data) {
-                        pointer_state.set_grab(SurfaceGrabKind::Resizing {
-                            seat: DWay::get_entity(&seat),
-                            serial: None,
-                            edges,
-                            geo,
-                        });
-                    }
-                }
+                let geometry = state.get_mut::<Geometry>(*data).unwrap().clone();
+                state.send_event(StartGrab::Resizing {
+                    seat: DWay::get_entity(&seat),
+                    serial: None,
+                    edges,
+                    geometry,
+                    surface: *data,
+                });
             }
             xdg_toplevel::Request::SetMaxSize { width, height } => {
                 if let Some(mut c) = state.get_mut::<DWayToplevel>(*data) {
@@ -275,6 +277,7 @@ pub fn receive_window_action_event(
     mut graph: InputGraph,
     mut events: EventReader<WindowAction>,
     mut window_query: Query<ToplevelWorldQuery, With<DWayWindow>>,
+    mut start_grab_events: EventWriter<StartGrab>,
 ) {
     for e in events.read() {
         match e {
@@ -338,11 +341,12 @@ pub fn receive_window_action_event(
                         return;
                     }
                     graph.for_each_pointer_mut_from(*e, |_, (seat_entity, _)| {
-                        let mouse_pos = toplevel.pointer_state.mouse_pos;
-                        toplevel.pointer_state.set_grab(SurfaceGrabKind::Move {
-                            mouse_pos,
+                        start_grab_events.send(StartGrab::Move {
+                            surface: *e,
                             seat: *seat_entity,
                             serial: None,
+                            mouse_pos: toplevel.pointer_state.mouse_pos,
+                            geometry: toplevel.geo.clone(),
                         });
                         ControlFlow::<()>::default()
                     });
@@ -355,11 +359,12 @@ pub fn receive_window_action_event(
                     }
                     graph.for_each_pointer_mut_from(*e, |_, (seat_entity, _)| {
                         debug!(entity=?e, "begin resizing {edges:?}");
-                        toplevel.pointer_state.set_grab(SurfaceGrabKind::Resizing {
+                        start_grab_events.send(StartGrab::Resizing {
+                            surface: *e,
                             seat: *seat_entity,
                             serial: None,
                             edges: *edges,
-                            geo: toplevel.geo.geometry,
+                            geometry: toplevel.geo.clone(),
                         });
                         ControlFlow::<()>::default()
                     });

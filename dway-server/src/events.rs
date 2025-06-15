@@ -45,13 +45,13 @@ pub struct ResizeWindow {
     pub size: IVec2,
 }
 
-#[derive(Event)]
+#[derive(Event, Debug)]
 pub struct MoveWindow {
     pub entity: Entity,
     pub delta: IVec2,
 }
 
-#[derive(Event)]
+#[derive(Event, Debug, Clone)]
 pub enum WindowAction {
     Close(Entity),
     Maximize(Entity),

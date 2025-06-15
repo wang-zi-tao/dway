@@ -88,8 +88,7 @@ impl Plugin for DWayClientPlugin {
             (
                 InsertWindowComponent,
                 CreateScreen,
-                Input,
-                UpdateWindowStack.after(Input),
+                UpdateWindowStack,
                 UpdateFocus,
                 UpdateZIndex
                     .after(InsertWindowComponent)
@@ -112,6 +111,7 @@ impl Plugin for DWayClientPlugin {
         app.configure_sets(
             PostUpdate,
             (
+                Input,
                 DestroyComponent,
                 Destroy,
                 DestroyFlush,

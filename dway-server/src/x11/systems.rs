@@ -2,7 +2,7 @@ use self::window::XWindowSurfaceRef;
 use super::*;
 use crate::{
     geometry::{Geometry, GlobalGeometry},
-    input::grab::{SurfaceGrabKind, WlSurfacePointerState},
+    input::grab::{StartGrab, WlSurfacePointerState},
     prelude::*,
     wl::surface::ClientHasSurface,
     xdg::{
@@ -24,6 +24,7 @@ XWindowGraph=>[
 pub fn process_window_action_events(
     mut events: EventReader<WindowAction>,
     mut query_graph: XWindowGraph,
+    mut start_grab_events: EventWriter<StartGrab>,
 ) {
     for event in events.read() {
         match (|| {
@@ -101,15 +102,17 @@ pub fn process_window_action_events(
                 WindowAction::RequestMove(e) => {
                     query_graph.for_each_seat_path_mut_from(
                         *e,
-                        |(_geo, surface_pointer_state, pinned), seat_entity| {
+                        |(geo, surface_pointer_state, pinned), seat_entity| {
                             if pinned.is_some() {
                                 return ControlFlow::<()>::default();
                             }
                             let mouse_pos = surface_pointer_state.mouse_pos;
-                            surface_pointer_state.set_grab(SurfaceGrabKind::Move {
-                                mouse_pos,
+                            start_grab_events.send(StartGrab::Move {
+                                surface: *e,
                                 seat: *seat_entity,
                                 serial: None,
+                                mouse_pos,
+                                geometry: geo.clone(),
                             });
                             ControlFlow::<()>::default()
                         },
@@ -122,11 +125,12 @@ pub fn process_window_action_events(
                             if pinned.is_some() {
                                 return ControlFlow::<()>::default();
                             }
-                            surface_pointer_state.set_grab(SurfaceGrabKind::Resizing {
+                            start_grab_events.send(StartGrab::Resizing {
+                                surface: *e,
                                 seat: *seat_entity,
-                                serial: None,
                                 edges: *edges,
-                                geo: geo.geometry,
+                                serial: None,
+                                geometry: geo.clone(),
                             });
                             ControlFlow::<()>::default()
                         },

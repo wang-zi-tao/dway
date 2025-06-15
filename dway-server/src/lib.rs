@@ -48,6 +48,7 @@ impl Plugin for DWayServerPlugin {
             schedule::DWayServerSchedulePlugin,
             events::EventPlugin,
             render::DWayServerRenderPlugin,
+            input::grab::GrabPlugin,
         ));
         app.add_plugins((
             wl::output::WlOutputPlugin,
@@ -63,6 +64,7 @@ impl Plugin for DWayServerPlugin {
             zwlr::data_control::DataControlPlugin,
             misc::gtk_primary_selection::GtkPrimarySelectionPlugin,
             input::seat::WlSeatPlugin,
+            input::keyboard::WlKeyboardPlugin,
         ));
         app.add_plugins((
             wp::PrimarySelectionPlugin,
