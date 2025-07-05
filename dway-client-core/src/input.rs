@@ -42,10 +42,10 @@ impl Plugin for DWayInputPlugin {
         app.init_resource::<GrabManagerSystems>();
         app.init_resource::<GrabManager>();
         app.add_systems(
-            PostUpdate,
+            PreUpdate,
             (
                 on_start_grab_event.run_if(on_event::<StartGrab>),
-                on_input_event
+                on_surface_input_event
                     .run_if(on_event::<SurfaceInputEvent>)
                     .before(mouse_move_on_window),
                 mouse_move_on_window.run_if(on_event::<CursorMoved>),
@@ -130,6 +130,7 @@ structstruck::strike! {
         pub surface_entity: Option<Entity>,
         pub mouse_position: Vec2,
         pub surface_rect: Rect,
+        pub window_geometry: Geometry,
         pub kind: #[derive(Debug,Clone)] enum GrabRequestKind {
             Move(Vec2),
             Button(MouseButtonInput),
@@ -268,7 +269,6 @@ pub struct GrabMoveWindow {
 
 pub fn move_grab(
     In(request): In<GrabRequest>,
-    mut surface_query: Query<(&Geometry,)>,
     mut window_action: EventWriter<WindowAction>,
     grab_query: Query<&GrabMoveWindow>,
 ) -> GrabResponse {
@@ -276,6 +276,7 @@ pub fn move_grab(
     let Some(surface_entity) = event.surface_entity else {
         return default();
     };
+    let window_geometry = event.window_geometry.clone();
     let Ok(GrabMoveWindow {
         mouse_offset,
         begin_position,
@@ -289,26 +290,24 @@ pub fn move_grab(
         ..Default::default()
     };
 
-    let _ = surface_query
-        .get_mut(surface_entity)
-        .map(|(window_geometry,)| match &event.kind {
-            GrabRequestKind::Move(cursor_position) => {
-                let pos = (cursor_position - mouse_offset + window_geometry.pos().as_vec2()).as_ivec2();
-                window_action.send(WindowAction::SetRect(
-                    surface_entity,
-                    IRect {
-                        min: pos,
-                        max: pos + window_geometry.size(),
-                    },
-                ));
+    match &event.kind {
+        GrabRequestKind::Move(cursor_position) => {
+            let pos = (cursor_position - mouse_offset + window_geometry.pos().as_vec2()).as_ivec2();
+            window_action.send(WindowAction::SetRect(
+                surface_entity,
+                IRect {
+                    min: pos,
+                    max: pos + window_geometry.size(),
+                },
+            ));
+        }
+        GrabRequestKind::Button(mouse_button_input) => {
+            if mouse_button_input.state == ButtonState::Released {
+                response.finish = true;
             }
-            GrabRequestKind::Button(mouse_button_input) => {
-                if mouse_button_input.state == ButtonState::Released {
-                    response.finish = true;
-                }
-            }
-            _ => {}
-        });
+        }
+        _ => {}
+    }
     response
 }
 
@@ -321,16 +320,11 @@ pub struct GrabResizeWindow {
 
 pub fn resize_grab(
     In(request): In<GrabRequest>,
-    mut surface_query: Query<(
-        &WlSurface,
-        &mut WlSurfacePointerState,
-        &Geometry,
-        Option<&XdgPopup>,
-    )>,
     mut window_action: EventWriter<WindowAction>,
     grab_query: Query<&GrabResizeWindow>,
 ) -> GrabResponse {
     let event = &request.event;
+    let window_geometry = event.window_geometry.clone();
     let Some(surface_entity) = event.surface_entity else {
         return default();
     };
@@ -348,37 +342,38 @@ pub fn resize_grab(
         ..Default::default()
     };
 
-    let _ = surface_query.get_mut(surface_entity).map(
-        |(surface, mut window_pointer, window_geometry, popup)| match &event.kind {
-            GrabRequestKind::Move(cursor_position) => {
-                let mut geo = begin_geometry.geometry;
-                let pos = cursor_position + event.surface_rect.min - window_geometry.pos().as_vec2();
-                if edges.contains(ResizeEdges::LEFT) {
-                    geo.min.x = pos.x as i32;
-                }
-                if edges.contains(ResizeEdges::TOP) {
-                    geo.min.y = pos.y as i32;
-                }
-                if edges.contains(ResizeEdges::RIGHT) {
-                    geo.max.x = pos.x as i32;
-                }
-                if edges.contains(ResizeEdges::BUTTOM) {
-                    geo.max.y = pos.y as i32;
-                }
-                window_action.send(WindowAction::SetRect(surface_entity, geo));
+    match &event.kind {
+        GrabRequestKind::Move(cursor_position) => {
+            let mut geo = begin_geometry.geometry;
+            let pos = cursor_position + event.surface_rect.min - window_geometry.pos().as_vec2();
+            if edges.contains(ResizeEdges::LEFT) {
+                geo.min.x = pos.x as i32;
             }
-            GrabRequestKind::Button(mouse_button_input) => {
-                if mouse_button_input.state == ButtonState::Released {
-                    response.finish = true;
-                }
+            if edges.contains(ResizeEdges::TOP) {
+                geo.min.y = pos.y as i32;
             }
-            _ => {}
-        },
-    );
+            if edges.contains(ResizeEdges::RIGHT) {
+                geo.max.x = pos.x as i32;
+            }
+            if edges.contains(ResizeEdges::BUTTOM) {
+                geo.max.y = pos.y as i32;
+            }
+            window_action.send(WindowAction::SetRect(surface_entity, geo));
+        }
+        GrabRequestKind::Button(mouse_button_input) => {
+            if mouse_button_input.state == ButtonState::Released {
+                response.finish = true;
+            }
+        }
+        _ => {}
+    }
     response
 }
 
-pub fn on_input_event(world: &mut World, mut events_cursor: Local<EventCursor<SurfaceInputEvent>>) {
+pub fn on_surface_input_event(
+    world: &mut World,
+    mut events_cursor: Local<EventCursor<SurfaceInputEvent>>,
+) {
     let events_resource = world.resource::<Events<_>>();
     let events: Vec<_> = events_cursor.read(events_resource).cloned().collect();
     for event in events {

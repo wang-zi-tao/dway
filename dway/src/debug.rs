@@ -1,10 +1,12 @@
-
 use bevy::prelude::*;
-#[cfg(feature = "dump_system_graph")]
-use bevy_mod_debugdump::schedule_graph;
 
 #[cfg(feature = "dump_system_graph")]
-pub fn dump_schedule(app: &mut App, schedule_label: impl ScheduleLabel) -> Result<()> {
+pub fn dump_schedule(
+    app: &mut App,
+    schedule_label: impl bevy::ecs::schedule::ScheduleLabel,
+) -> anyhow::Result<()> {
+    use std::path::PathBuf;
+
     let mut path = PathBuf::from(".output/schedule");
     path.push(&format!("{schedule_label:?}"));
     path.set_extension("dot");
@@ -12,7 +14,7 @@ pub fn dump_schedule(app: &mut App, schedule_label: impl ScheduleLabel) -> Resul
     let dot = bevy_mod_debugdump::schedule_graph_dot(
         app,
         schedule_label,
-        &schedule_graph::Settings::default(),
+        &bevy_mod_debugdump::schedule_graph::Settings::default(),
     );
     std::fs::write(&path, dot)?;
 
@@ -32,7 +34,9 @@ pub fn dump_schedule(app: &mut App, schedule_label: impl ScheduleLabel) -> Resul
 }
 
 #[cfg(feature = "dump_system_graph")]
-pub fn dump_schedules_system_graph(app: &mut App) -> Result<()> {
+pub fn dump_schedules_system_graph(app: &mut App) -> anyhow::Result<()> {
+    use std::path::Path;
+
     info!("dumping system graph at .output/schedule");
     if !Path::new(".output/schedule").exists() {
         std::fs::create_dir(".output/schedule")?;
@@ -69,15 +73,6 @@ pub fn print_resources(world: &mut World) {
             info.is_send_and_sync(),
         );
     });
-}
-
-pub fn print_debug_info(query: Query<(Entity, &Node, &Interaction)>, commands: Commands) {
-    // for (entity, node, interaction) in &query {
-    //     if *interaction == Interaction::Pressed {
-    //         debug!(?node,?interaction,"mouse press on {entity:?}");
-    //         commands.entity(entity).log_components();
-    //     }
-    // }
 }
 
 #[cfg(feature = "dhat-heap")]

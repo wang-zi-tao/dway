@@ -1,8 +1,6 @@
 use bevy::ui::RelativeCursorPosition;
 use dway_client_core::{
-    input::{GrabRequestKind, SurfaceInputEvent, SurfaceUiNode},
-    navigation::windowstack::{WindowIndex, WindowStack},
-    UiAttachData,
+    input::{GrabRequestKind, SurfaceInputEvent, SurfaceUiNode}, navigation::windowstack::{WindowIndex, WindowStack}, DWayClientPlugin, UiAttachData
 };
 use dway_server::{
     geometry::{Geometry, GlobalGeometry},
@@ -12,7 +10,7 @@ use dway_server::{
 };
 use dway_ui_framework::widgets::{
     button::UiRawButtonExt,
-    drag::{UiDragEvent, UiDragExt},
+    drag::{UiDrag, UiDragEvent, UiDragExt},
 };
 
 use super::popupwindow::{PopupUI, PopupUIBundle, PopupUISystems};
@@ -30,9 +28,11 @@ pub fn ui_input_event_to_surface_input_event(
     relative_cursor_position: &RelativeCursorPosition,
     global_transform: &GlobalTransform,
     event: &UiInputEvent,
+    window_geometry: Geometry,
 ) -> Option<SurfaceInputEvent> {
     let mouse_position =
         relative_cursor_position.normalized.unwrap_or_default() * computed_node.size();
+
     let surface_rect = Rect::from_center_size(
         global_transform.translation().truncate(),
         computed_node.size(),
@@ -59,16 +59,17 @@ pub fn ui_input_event_to_surface_input_event(
         mouse_position,
         surface_rect,
         kind,
+        window_geometry,
     })
 }
 
 pub fn on_window_ui_input(
     event: UiEvent<UiInputEvent>,
-    query: Query<(&WindowUI, &WindowUIWidget)>,
+    query: Query<(&WindowUI, &WindowUIState, &WindowUIWidget)>,
     contents_query: Query<(&ComputedNode, &RelativeCursorPosition, &GlobalTransform)>,
     mut surface_input_events: EventWriter<SurfaceInputEvent>,
 ) {
-    let Ok((prop, widget)) = query.get(event.receiver()) else {
+    let Ok((prop, state, widget)) = query.get(event.receiver()) else {
         return;
     };
     let Ok((computed_node, relative_cursor_position, global_transform)) =
@@ -83,6 +84,7 @@ pub fn on_window_ui_input(
         relative_cursor_position,
         global_transform,
         &event,
+        Geometry::new(*state.rect()),
     ) {
         surface_input_events.send(surface_input_event);
     }
@@ -127,6 +129,7 @@ WindowUI=>
     app.register_type::<WindowUI>();
     app.register_type::<WindowUIState>();
     app.add_systems(Update, apply_deferred.after(WindowUISystems::Render).before(PopupUISystems::Render));
+    app.configure_sets(PreUpdate, DWayClientSystem::Input.after(UiFrameworkSystems::InputSystems));
 }
 @callback{ [UiEvent<UiButtonEvent>]
     fn on_close_button_event(
@@ -166,9 +169,9 @@ WindowUI=>
         mut events: EventWriter<WindowAction>,
     ) {
         let Ok(prop) = this_query.get(event.receiver()) else {return};
-        if let UiDragEvent::Move(alpha) = &*event{
+        if let UiDragEvent::Move{ delta: delta, .. } = &*event{
             let Ok(geo) = window_query.get(prop.window_entity) else{ return};
-            events.send(WindowAction::SetRect(prop.window_entity, IRect::from_pos_size(geo.pos() + ( *alpha*0.5 ).as_ivec2(), geo.size())));
+            events.send(WindowAction::SetRect(prop.window_entity, IRect::from_pos_size(geo.pos() + delta.as_ivec2(), geo.size())));
         }
     }
 }
@@ -180,7 +183,7 @@ WindowUI=>
         events: EventWriter<WindowAction>,
     ) {
         let Ok(prop) = this_query.get(event.receiver()) else {return};
-        if let UiDragEvent::Move(pos) = &*event{
+        if let UiDragEvent::Move{ delta: delta, .. } = &*event{
             let Ok(geo) = window_query.get(prop.window_entity) else{ return};
             // TODO
         }
@@ -228,10 +231,10 @@ WindowUI=>
         }
     }
 })
-<MiniNodeBundle @id="content"
+<UiInput @id="content"
     Node=(irect_to_style(*state.rect()))
     ZIndex=(ZIndex(4))
-    UiInput=(default()) RelativeCursorPosition=(default())
+    RelativeCursorPosition=(default())
     FocusPolicy=(FocusPolicy::Block)
     UiInputEventDispatcher=(make_callback(this_entity, on_window_ui_input))
 />
@@ -257,6 +260,10 @@ WindowUI=>
     <NodeBundle @id="title_bar"
         UiDragExt=(UiDragExt{
             event_dispatcher: make_callback(this_entity, on_title_bar_mouse_event),
+            drag: UiDrag{
+                auto_move: false,
+                ..Default::default()
+            },
             ..default()
         })
         @style="absolute left-0 right-0 top-{-DECORATION_HEIGHT} height-{DECORATION_HEIGHT}" >

@@ -503,7 +503,7 @@ pub fn cleanup_surface(mut surface_query: Query<&mut WlSurface>) {
 pub struct WlSurfacePlugin;
 impl Plugin for WlSurfacePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(First, cleanup_surface);
+        app.add_systems(First, cleanup_surface.ambiguous_with_all());
         app.register_type::<WlSurface>();
         app.register_relation::<AttachmentRelationship>();
         app.register_relation::<ClientHasSurface>();

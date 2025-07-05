@@ -1,4 +1,4 @@
-use dway_client_core::screen::ScreenWindowList;
+use dway_client_core::{screen::ScreenWindowList, UiAttachData};
 use dway_server::{geometry::GlobalGeometry, util::rect::IRect};
 
 use super::window::{WindowUI, WindowUIBundle};
@@ -27,7 +27,11 @@ ScreenWindows=>
 @use_state(pub window_list: Vec<Entity>)
 @use_state(pub screen_geometry: IRect)
 @query(screen_query: (global_geo, window_list )<-Query<(Ref<GlobalGeometry>, Option<Ref<ScreenWindowList>>)>[prop.screen]->{
-    if !widget.inited || window_list.as_ref().map(|l|l.is_changed()).unwrap_or(false) {
+    let init = !widget.inited || prop.is_changed();
+    if !init {
+        commands.queue(ConnectCommand::<UiAttachData>::new(this_entity, prop.screen));
+    }
+    if !init || window_list.as_ref().map(|l|l.is_changed()).unwrap_or(false) {
         state.set_window_list(window_list.iter().flat_map(|l|l.iter()).collect());
     }
     if !widget.inited || global_geo.is_changed(){

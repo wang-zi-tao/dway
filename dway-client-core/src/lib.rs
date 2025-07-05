@@ -2,7 +2,7 @@
 
 use bevy::{prelude::*, time::TimeSystem};
 use bevy_relationship::{relationship, AppExt};
-use dway_server::schedule::DWayServerSet;
+use dway_server::{macros::DWayServerSet::UpdateGeometry, schedule::DWayServerSet};
 use dway_util::tokio::TokioPlugin;
 use log::info;
 use smart_default::SmartDefault;
@@ -108,10 +108,10 @@ impl Plugin for DWayClientPlugin {
                 .before(UpdateUI)
                 .after(DWayServerSet::UpdateGeometry),
         );
+        app.configure_sets(PreUpdate, Input.before(UpdateGeometry));
         app.configure_sets(
             PostUpdate,
             (
-                Input,
                 DestroyComponent,
                 Destroy,
                 DestroyFlush,
@@ -140,7 +140,7 @@ impl Plugin for DWayClientPlugin {
     }
 }
 
-relationship!(UiAttachData=>DataRef>-<UiList);
+relationship!(UiAttachData=>DataRef>-UiList);
 
 pub fn debug_info(cameras: Query<&Camera>, cameras2d: Query<&Camera2d>) {
     info!("cameras : {:?}", cameras.iter().collect::<Vec<_>>());

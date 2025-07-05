@@ -83,8 +83,8 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     let _pprof_profiler = debug::pprof_profiler();
 
     app.configure_schedules(ScheduleBuildSettings {
-        ambiguity_detection: LogLevel::Warn,
-        hierarchy_detection: LogLevel::Warn,
+        ambiguity_detection: LogLevel::Error,
+        hierarchy_detection: LogLevel::Error,
         report_sets: true,
         ..Default::default()
     });
@@ -248,28 +248,13 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             });
         };
     }
-    app.edit_schedule(First, |schedule| {
-        schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
-    });
-    app.edit_schedule(Last, |schedule| {
-        schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
-    });
 
     #[cfg(feature = "dump_system_graph")]
-    if opts.debug_schedule {
+    {
         debug::print_resources(app.world_mut());
         if let Err(e) = debug::dump_schedules_system_graph(app) {
             error!("failed to dump system graph: {e}");
         }
-    }
-    #[cfg(feature = "debug")]
-    {
-        app.add_systems(
-            PreUpdate,
-            debug::print_debug_info
-                .after(bevy::ui::UiSystem::Focus)
-                .before(dway_client_core::input::on_input_event),
-        );
     }
 
     app.run();

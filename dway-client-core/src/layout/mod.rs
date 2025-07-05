@@ -98,10 +98,10 @@ screen_workspace_path=match (screen: Entity filter With<Screen>)-[ScreenAttachWo
 slot_window_path=match (screen: Entity filter With<Slot>)<-[WindowInSlot]-(window: Entity filter With<DWayWindow>);
 }
 
-pub fn update_geometry(
+pub fn update_desktop_geometry(
     graph: GeometryGraph,
     mut geometry_query: Query<(&mut Geometry, Option<&LayoutStyle>)>,
-    global_geometry_query: Query<(&mut GlobalGeometry, Option<&LayoutStyle>)>,
+    global_geometry_query: Query<(&GlobalGeometry, Option<&LayoutStyle>)>,
 ) {
     let mut do_update = |p, c| {
         if let (Ok((parent_geo, parent_layout)), Ok((mut geo, layout))) =
@@ -187,7 +187,7 @@ impl Plugin for LayoutPlugin {
             PreUpdate,
             (
                 attach_window_to_slot.in_set(DWayClientSystem::UpdateWindowGeometry),
-                update_geometry.in_set(DWayClientSystem::UpdateLayout),
+                update_desktop_geometry.in_set(DWayClientSystem::UpdateLayout),
             ),
         );
         app.add_plugins(tile::TileLayoutPlugin);

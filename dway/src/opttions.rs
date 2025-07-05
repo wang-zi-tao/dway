@@ -7,12 +7,10 @@ use clap::Parser;
 #[command(author, version, about)]
 pub struct DWayOption {
     /// output system graph
-    #[arg(long)]
-    pub debug_schedule: bool,
     #[arg(long, default_value_t = 60.0)]
     pub frame_rate: f32,
     #[arg(long, default_value_t = String::from("../dway/assets"))]
     pub assets: String,
-    #[arg(long, allow_hyphen_values = true, num_args = 0..)]
+    #[arg(short, long, allow_hyphen_values = true, num_args = 0..)]
     pub exec: Vec<String>,
 }
