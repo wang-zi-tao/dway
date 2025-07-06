@@ -21,7 +21,7 @@ impl DomDecorator for InsertComponent {
     fn get_component(&self) -> Option<TokenStream> {
         let Self { component, expr } = self;
         if let Some(component) = component {
-            Some(quote! {
+            Some(quote_spanned! { expr.span()=>
                 {let value: #component = #expr;value}
             })
         } else {
@@ -36,7 +36,7 @@ impl DomDecorator for InsertComponent {
         let dependencies = ParseCodeResult::from_expr(expr);
         let component = self.get_component();
         dependencies.is_changed().map(|check_changed| {
-            quote! {
+            quote_spanned! {entity.span()=>
                 if #check_changed {
                     commands.entity(#entity).insert(#component);
                 }
@@ -74,7 +74,7 @@ impl DomDecorator for Argument {
             parent_just_inited, ..
         } = context;
         let chech_change = block.as_ref().map(|b| {
-            quote! {
+            quote_spanned! {name.span()=>
                 if #parent_just_inited || #name.is_changed() {
                     #b
                 }
@@ -168,7 +168,7 @@ impl DomDecorator for QueryComponent {
             quote!(#arg_name.get_mut(#entity))
         };
         let parent_just_inited = &context.parent_just_inited;
-        quote! {
+        quote_spanned! {query_name.span()=>
             let mut #query_name = #query;
             if let Ok(#query_name) = &mut #query_name {
                 if #parent_just_inited || #query_name.is_changed() {
@@ -217,7 +217,7 @@ impl DomDecorator for Res {
         } = self;
         if on_change.is_some() {
             let just_inited = &context.just_inited;
-            quote! {
+            quote_spanned! {name.span()=>
                 if #just_inited || #name.is_changed() {
                     #on_change
                 }
@@ -274,7 +274,7 @@ impl DomDecorator for QueryMany {
             quote!(#arg_name.iter_many_mut(#entity))
         };
         let parent_just_inited = &context.parent_just_inited;
-        quote! {
+        quote_spanned! {query_name.span()=>
             let mut #query_name = #query;
             if let Ok(#query_name) = &mut #query_name {
                 if #parent_just_inited || #query_name.is_changed() {
@@ -339,7 +339,7 @@ impl DomDecorator for Query {
             quote!(#arg_name.get_mut(#entity))
         };
         let idents = idents.iter();
-        quote! {
+        quote_spanned! {query_name.span()=>
             if let Ok((#(mut #idents),*)) = #query {
                 #block
             }

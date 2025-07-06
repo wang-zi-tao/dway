@@ -1,21 +1,24 @@
 pub mod spawn_context;
 pub mod widget_context;
 
+use std::any::Any;
+
+use convert_case::Casing;
+use quote::format_ident;
+use syn::*;
+
 use crate::{
     dom::Dom,
     domarg::{control, DomArgKey},
 };
-use convert_case::Casing;
-use quote::format_ident;
-use std::any::Any;
-use syn::*;
 
 #[derive(Default)]
 pub struct Context {
     pub namespace: String,
 }
 
-impl Context {}
+impl Context {
+}
 
 pub struct NodeContext<'l> {
     pub dom: &'l Dom,
@@ -25,9 +28,11 @@ impl<'l> NodeContext<'l> {
     pub fn get_var(&self, name: &str) -> Ident {
         DomContext::wrap_dom_id("__dway_ui_node_", &self.dom_id, name)
     }
+
     pub fn get_field(&self, name: &str) -> Ident {
         DomContext::wrap_dom_id("node_", &self.dom_id, name)
     }
+
     pub fn get_node_entity(&self) -> Ident {
         self.get_var("_entity")
     }
@@ -94,12 +99,14 @@ impl<'l> DomContext<'l> {
             format_ident!("n{}", self.dom_list.len(), span = dom.span())
         }
     }
+
     pub fn wrap_dom_id(prefix: &str, ident: &Ident, suffix: &str) -> Ident {
         format_ident!(
             "{}{}{}",
             prefix,
             ident.to_string().to_case(convert_case::Case::Snake),
-            suffix
+            suffix,
+            span = ident.span()
         )
     }
 }

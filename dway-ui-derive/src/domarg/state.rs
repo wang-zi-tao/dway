@@ -37,7 +37,7 @@ impl DomDecorator for UseState {
         let init = init
             .as_ref()
             .map(|e| e.to_token_stream())
-            .unwrap_or_else(|| quote!(Default::default()));
+            .unwrap_or_else(|| quote_spanned!(name.span()=> Default::default()));
         context.tree_context.state_builder.add_field_with_initer(
             name,
             quote! {#(#attrs)* #vis #name: #ty},
@@ -55,7 +55,7 @@ impl DomDecorator for UseState {
         let check_change = check_change.as_ref().map(|check_change| {
             let is_change = ParseCodeResult::from_expr(check_change).changed_bool();
             let field_mut = format_ident!("{}_mut", name, span = name.span());
-            quote! {
+            quote_spanned! {name.span()=>
                 if #just_inited ||#is_change {
                     *state.#field_mut() = #check_change;
                 }
@@ -63,7 +63,7 @@ impl DomDecorator for UseState {
         });
         let field_changed = format_ident!("{}_is_changed", name, span = name.span());
         let on_change = on_change.as_ref().map(|on_change| {
-            quote! {
+            quote_spanned! {on_change.span()=>
                 if #just_inited || state.#field_changed() {
                     #on_change
                 }
@@ -127,7 +127,7 @@ impl DomDecorator for StateComponent {
                         .init
                         .as_ref()
                         .map(|e| e.to_token_stream())
-                        .unwrap_or_else(|| quote!(Default::default())),
+                        .unwrap_or_else(|| quote_spanned!(raw_field.span()=> Default::default())),
                 );
             }
         }
@@ -139,13 +139,14 @@ pub struct StateReflect {}
 
 impl DomDecorator for StateReflect {
     fn update_context(&self, context: &mut WidgetNodeContext) {
+        let span = context.dom_id.span();
         context
             .tree_context
             .state_builder
             .attributes
-            .push(quote! {#[derive(Reflect)]});
+            .push(quote_spanned! {span=> #[derive(Reflect)]});
         let state_name = context.tree_context.state_builder.name.clone();
-        context.tree_context.plugin_builder.stmts.push(quote! {
+        context.tree_context.plugin_builder.stmts.push(quote_spanned! {state_name.span()=>
             app.register_type::<#state_name>();
         });
     }
@@ -157,7 +158,7 @@ pub struct PropReflect {}
 impl DomDecorator for PropReflect {
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let prop_name = format_ident!("{}", &context.tree_context.context.namespace);
-        context.tree_context.plugin_builder.stmts.push(quote! {
+        context.tree_context.plugin_builder.stmts.push(quote_spanned! {prop_name.span()=>
             app.register_type::<#prop_name>();
         });
     }

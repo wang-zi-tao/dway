@@ -55,7 +55,7 @@ impl DomDecorator for Handle {
         );
         context.tree_context.system_querys.insert(
             ident.to_string(),
-            quote! {
+            quote_spanned! {ident.span()=>
             #[allow(non_snake_case)]
             mut #ident: ResMut<Assets<#ty>>
             },
@@ -74,7 +74,7 @@ impl DomDecorator for Handle {
             convert_type_name(&self.ty),
             span = self.ty.span()
         );
-        Some(quote!(MaterialNode(#ident.add(#expr))))
+        Some(quote_spanned!(self._col.span()=> MaterialNode(#ident.add(#expr))))
     }
     fn generate_update(&self, context: &mut WidgetNodeContext) -> Option<TokenStream> {
         let Self { expr, .. } = self;
@@ -86,7 +86,7 @@ impl DomDecorator for Handle {
                 convert_type_name(&self.ty),
                 span = self.ty.span()
             );
-            quote! {
+            quote_spanned! {expr.span()=>
                 if #check_changed {
                     commands.entity(#entity).insert(MaterialNode(#ident.add(#expr)));
                 }

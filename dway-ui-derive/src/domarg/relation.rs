@@ -77,18 +77,18 @@ impl DomDecorator for Connect {
         let expr = self.expr();
         let target_entity = if need_update && self.need_node_entity_field() {
             let field = DomContext::wrap_dom_id("node_", &context.top().dom_id, "_conntcetion");
-            quote! {{widget.#field = #expr; widget.#field}}
+            quote_spanned! {field.span()=>{widget.#field = #expr; widget.#field}}
         } else {
             quote!(#expr)
         };
         let stmts = match self {
             Connect::To { relation, .. } => {
-                quote! {
+                quote_spanned! {relation.span()=>
                     commands.queue(bevy_relationship::ConnectCommand::<#relation>::new(#entity_var,#target_entity));
                 }
             }
             Connect::From { relation, .. } => {
-                quote! {
+                quote_spanned! {relation.span()=>
                     commands.queue(bevy_relationship::ConnectCommand::<#relation>::new(#target_entity,#entity_var));
                 }
             }
@@ -108,19 +108,19 @@ impl DomDecorator for Connect {
             let target_entity_var = DomContext::wrap_dom_id("__dway_ui_", &context.dom_id, "_target_entity");
             let update = match self {
                 Connect::To { relation, .. } => {
-                    quote! {
+                    quote_spanned! {relation.span()=>
                         commands.queue(bevy_relationship::DisconnectCommand::<#relation>::new(#entity_var,#target_entity_var));
                         commands.queue(bevy_relationship::ConnectCommand::<#relation>::new(#entity_var,#target_entity_var));
                     }
                 }
                 Connect::From { relation, .. } => {
-                    quote! {
+                    quote_spanned! {relation.span()=>
                         commands.queue(bevy_relationship::DisconnectCommand::<#relation>::new(#target_entity_var,#entity_var));
                         commands.queue(bevy_relationship::ConnectCommand::<#relation>::new(#target_entity_var,#entity_var));
                     }
                 }
             };
-            quote!{
+            quote_spanned!{expr.span()=>
                 if #check_changed {
                     let #target_entity_var = #expr;
                     if #target_entity_var != widget.#field{

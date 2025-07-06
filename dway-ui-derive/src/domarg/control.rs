@@ -29,7 +29,7 @@ impl DomDecorator for If {
     }
     fn wrap_spawn_children(&self, inner: TokenStream, _context: &mut DomContext) -> TokenStream {
         let expr = &self.expr;
-        quote! {
+        quote_spanned! {expr.span()=>
             if #expr {
                 #inner
             }
@@ -58,7 +58,7 @@ impl DomDecorator for If {
             quote!(pub #field: bool),
             quote!(false),
         );
-        quote! {
+        quote_spanned! {expr.span()=>
             let #old_value = widget.#field;
             if #just_inited || #enable_expr_changed {
                 widget.#field = #expr;
@@ -128,7 +128,7 @@ impl DomDecorator for For {
     }
     fn wrap_spawn_children(&self, inner: TokenStream, _context: &mut DomContext) -> TokenStream {
         let Self { pat, expr, .. } = self;
-        quote! {
+        quote_spanned! {pat.span()=>
             for #pat in #expr{
                  #inner
             }
@@ -137,7 +137,7 @@ impl DomDecorator for For {
     fn wrap_sub_widget(&self, inner: TokenStream, context: &mut WidgetNodeContext) -> TokenStream {
         let Self { pat, update, .. } = self;
         let item_var = DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_item");
-        quote! {
+        quote_spanned! {pat.span()=>
             if let Some(#pat) = #item_var {
                 #update
             }
@@ -167,7 +167,7 @@ impl DomDecorator for For {
         let state_name = &context.tree_context.state_builder.name;
         let widget_name = &context.tree_context.widget_builder.name;
 
-        quote! {
+        quote_spanned! {self.pat.span()=>
             let mut #lambda_var = |
                 #child_ident,
                 #just_inited,
@@ -238,8 +238,8 @@ impl DomDecorator for Map {
         let dom_entity_list_field = DomContext::wrap_dom_id("node_", dom_id, "_child_map");
         tree_context.widget_builder.add_field_with_initer(
             &dom_entity_list_field,
-            quote!(#[reflect(ignore)]pub #dom_entity_list_field: std::collections::BTreeMap<#ty,Entity>),
-            quote!(std::collections::BTreeMap::new()),
+            quote_spanned!(ty.span()=> #[reflect(ignore)]pub #dom_entity_list_field: std::collections::BTreeMap<#ty,Entity>),
+            quote_spanned!(ty.span()=> std::collections::BTreeMap::new()),
         );
     }
     fn wrap_spawn_children(&self, inner: TokenStream, context: &mut DomContext) -> TokenStream {
@@ -250,7 +250,7 @@ impl DomDecorator for Map {
         let child_entity_map_var =
             DomContext::wrap_dom_id("__dway_ui_node_", dom_id, "_child_entity_map");
         let item_var = DomContext::wrap_dom_id("__dway_ui_node_", dom_id, "_item");
-        quote! {
+        quote_spanned! {pat.span()=>
             let #child_entity_map_var = std::collections::BTreeMap::<#ty,Entity>::new();
             for #item_var @ #pat in #expr{
                  #child_entity_map_var.insert(#key, #item_var);
@@ -263,7 +263,7 @@ impl DomDecorator for Map {
     fn wrap_sub_widget(&self, inner: TokenStream, context: &mut WidgetNodeContext) -> TokenStream {
         let Self { pat, update, .. } = self;
         let item_var = DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_child_item");
-        quote! {
+        quote_spanned! {pat.span()=>
             if let Some(#pat) = #item_var {
                 #update
             }
@@ -279,7 +279,7 @@ impl DomDecorator for Map {
         let entity_var = &context.entity_var;
         let just_inited = &context.just_inited;
         let Self {
-            key, ty, pat, expr, ..
+            key, ty, pat, _in, expr, ..
         } = self;
         let child_entity_map_var =
             DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_child_entity_map");
@@ -296,7 +296,7 @@ impl DomDecorator for Map {
         let state_name = &context.tree_context.state_builder.name;
         let widget_name = &context.tree_context.widget_builder.name;
 
-        quote! {
+        quote_spanned! {_in.span()=>
             let mut #lambda_var = |
                 #child_ident,
                 #just_inited,
@@ -417,13 +417,13 @@ impl DomDecorator for ForQuery {
             DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_data_entity");
         let update_componets = update.pats.iter().map(|p| {
             let DomPat { name, block } = p;
-            quote! {
+            quote_spanned! {name.span()=>
                 if #just_inited || #name.is_changed() {
                     #block
                 }
             }
         });
-        quote! {
+        quote_spanned! {pat.span()=>
             {
                 if #just_inited {
                     widget.data_entity = #data_entity_var;
@@ -532,7 +532,7 @@ impl DomDecorator for Command{
         ) -> TokenStream {
         let entity = context.top().get_node_entity();
         let command = &self.command;
-        quote!{
+        quote_spanned!{entity.span()=>
             #inner
             commands.entity(#entity).queue(#command);
         }
@@ -542,7 +542,7 @@ impl DomDecorator for Command{
         let entity = &context.entity_var;
         let dependencies = ParseCodeResult::from_expr(command);
         dependencies.is_changed().map(|check_changed| {
-            quote! {
+            quote_spanned! {entity.span()=>
                 if #check_changed {
                     commands.entity(#entity).queue(#command);
                 }

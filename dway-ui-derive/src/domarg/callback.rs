@@ -53,7 +53,7 @@ impl DomDecorator for AddCallback{
     }
     fn wrap_update(&self, inner: TokenStream, _context: &mut WidgetNodeContext) -> TokenStream {
         let name = &self.func;
-        quote! {
+        quote_spanned! {name.span()=>
             let #name = resources.#name;
             #inner
         }
