@@ -51,7 +51,7 @@ impl Dispatch<gtk_primary_selection_device::GtkPrimarySelectionDevice, Entity> f
         let _enter = span.enter();
         debug!("request {:?}", &request);
 
-        state.with_component(resource, |c: &mut GtkPrimarySelectionDevice| {
+        state.with_component_mut(resource, |c: &mut GtkPrimarySelectionDevice| {
             c.serial = None;
         });
 

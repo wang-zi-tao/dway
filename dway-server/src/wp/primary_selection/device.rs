@@ -46,7 +46,7 @@ impl Dispatch<ZwpPrimarySelectionDeviceV1, Entity> for DWay {
             zwp_primary_selection_device_v1::Request::SetSelection { source, serial } => {
                 if let Some(source) = source {
                     state.connect::<SourceOfSelection>(*data, DWay::get_entity(&source));
-                    state.with_component(resource, |c: &mut PrimarySelectionDevice| {
+                    state.with_component_mut(resource, |c: &mut PrimarySelectionDevice| {
                         c.serial = Some(serial);
                     });
 
@@ -61,7 +61,7 @@ impl Dispatch<ZwpPrimarySelectionDeviceV1, Entity> for DWay {
                     );
                 } else {
                     state.disconnect_all::<SourceOfSelection>(*data);
-                    state.with_component(resource, |c: &mut PrimarySelectionDevice| {
+                    state.with_component_mut(resource, |c: &mut PrimarySelectionDevice| {
                         c.serial = None;
                     });
                 }

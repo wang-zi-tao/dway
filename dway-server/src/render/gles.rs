@@ -363,25 +363,23 @@ pub fn create_wgpu_dma_image(
 ) -> Result<(GpuImage, ImportedBuffer), DWayRenderError> {
     unsafe {
         let format = drm_fourcc_to_wgpu_format(request)?;
-        let (hal_texture, image_guard) = device
-            .as_hal::<Gles, _, _>(|hal_device| {
-                let hal_device = hal_device.ok_or_else(|| BackendIsNotEGL)?;
-                let egl_context = hal_device.context();
-                let gl: &glow::Context = &egl_context.lock();
-                let display = egl_context
-                    .raw_display()
-                    .ok_or_else(|| DisplayNotAvailable)?;
-                debug!(size=?request.size, ?format, "create dma image");
-                let image_guard = create_gles_dma_image(gl, display.as_ptr(), egl_state, request)?;
-                let texture = image_guard.texture;
-                let hal_texture = hal_device.texture_from_raw(
-                    texture.0,
-                    &hal_texture_descriptor(request.size, format)?,
-                    None,
-                );
-                Result::<_, DWayRenderError>::Ok((hal_texture, image_guard))
-            })
-            .ok_or(DWayRenderError::BackendIsIsInvalid)??;
+        let (hal_texture, image_guard) = device.as_hal::<Gles, _, _>(|hal_device| {
+            let hal_device = hal_device.ok_or_else(|| BackendIsNotEGL)?;
+            let egl_context = hal_device.context();
+            let gl: &glow::Context = &egl_context.lock();
+            let display = egl_context
+                .raw_display()
+                .ok_or_else(|| DisplayNotAvailable)?;
+            debug!(size=?request.size, ?format, "create dma image");
+            let image_guard = create_gles_dma_image(gl, display.as_ptr(), egl_state, request)?;
+            let texture = image_guard.texture;
+            let hal_texture = hal_device.texture_from_raw(
+                texture.0,
+                &hal_texture_descriptor(request.size, format)?,
+                None,
+            );
+            Result::<_, DWayRenderError>::Ok((hal_texture, image_guard))
+        })?;
         let gpu_image = hal_texture_to_gpuimage::<Gles>(device, request.size, format, hal_texture)?;
         Ok((gpu_image, ImportedBuffer::GL(image_guard)))
     }
@@ -443,7 +441,7 @@ pub unsafe fn import_raw_shm_buffer(
             height,
             gl_format,
             glow::UNSIGNED_BYTE,
-            glow::PixelUnpackData::Slice(slice),
+            glow::PixelUnpackData::Slice(Some(slice)),
         );
         gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, 0);
         gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);
@@ -461,7 +459,7 @@ pub unsafe fn import_raw_shm_buffer(
                 region.size().y.min(height),
                 gl_format,
                 glow::UNSIGNED_BYTE,
-                glow::PixelUnpackData::Slice(slice),
+                glow::PixelUnpackData::Slice(Some(slice)),
             );
             gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, 0);
             gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);
@@ -482,13 +480,6 @@ pub unsafe fn import_egl(
 ) -> Result<(), DWayRenderError> {
     let egl_surface: khronos_egl::Surface =
         khronos_egl::Surface::from_ptr(buffer.id().as_ptr() as _);
-
-    let width = egl
-        .query_surface(display, egl_surface, khronos_egl::WIDTH)
-        .map_err(|_| FailedToImportEglBuffer)?;
-    let height = egl
-        .query_surface(display, egl_surface, khronos_egl::HEIGHT)
-        .map_err(|_| FailedToImportEglBuffer)?;
 
     let out = [WAYLAND_PLANE_WL as i32, 0_i32, khronos_egl::NONE];
     let egl_image = (egl_state.egl_create_image_khr)(
@@ -540,20 +531,18 @@ pub fn import_shm(
     device: &wgpu::Device,
 ) -> Result<(), DWayRenderError> {
     unsafe {
-        device
-            .as_hal::<Gles, _, _>(|hal_device| {
-                let hal_device = hal_device.ok_or_else(|| BackendIsNotEGL)?;
-                let egl_context = hal_device.context();
-                let gl: &glow::Context = &egl_context.lock();
-                texture.as_hal::<Gles, _, _>(|texture| {
-                    let texture = texture.unwrap();
-                    if let wgpu_hal::gles::TextureInner::Texture { raw, target } = &texture.inner {
-                        import_raw_shm_buffer(surface, shm_buffer, gl, (*raw, *target))?;
-                    }
-                    Ok(())
-                })
+        device.as_hal::<Gles, _, _>(|hal_device| {
+            let hal_device = hal_device.ok_or_else(|| BackendIsNotEGL)?;
+            let egl_context = hal_device.context();
+            let gl: &glow::Context = &egl_context.lock();
+            texture.as_hal::<Gles, _, _>(|texture| {
+                let texture = texture.unwrap();
+                if let wgpu_hal::gles::TextureInner::Texture { raw, target } = &texture.inner {
+                    import_raw_shm_buffer(surface, shm_buffer, gl, (*raw, *target))?;
+                }
+                Ok(())
             })
-            .ok_or(BackendIsIsInvalid)?
+        })
     }
 }
 

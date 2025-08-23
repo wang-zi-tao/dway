@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bevy::utils::HashSet;
+use bevy::platform::collections::HashSet;
 use encoding::{types::DecoderTrap, Encoding};
 use scopeguard::defer;
 use x11rb::{

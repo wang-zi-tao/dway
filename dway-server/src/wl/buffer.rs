@@ -273,7 +273,7 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                 format,
             } => {
                 let size = state
-                    .with_component(resource, |c: &mut WlShmPool| c.inner.read().unwrap().size)
+                    .with_component(resource, |c: &WlShmPool| c.inner.read().unwrap().size)
                     .unwrap_or_default();
                 let message = if offset < 0 {
                     Some("offset must not be negative".to_string())
@@ -324,11 +324,11 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                     }
                 };
                 let Some(pool) =
-                    state.with_component(resource, |pool: &mut WlShmPool| pool.inner.clone())
+                    state.with_component(resource, |pool: &WlShmPool| pool.inner.clone())
                 else {
                     return;
                 };
-                let Some(parent) = state.with_component(resource, |p: &mut Parent| p.get()) else {
+                let Some(parent) = state.with_component(resource, |p: &ChildOf| p.get()) else {
                     return;
                 };
                 state.spawn(
@@ -350,7 +350,7 @@ impl wayland_server::Dispatch<wl_shm_pool::WlShmPool, bevy::prelude::Entity, DWa
                 state.despawn_tree(*data);
             }
             wl_shm_pool::Request::Resize { size } => {
-                state.with_component(resource, |c: &mut WlShmPool| {
+                state.with_component(resource, |c: &WlShmPool| {
                     if size <= 0 {
                         resource.post_error(wl_shm::Error::InvalidFd, "invalid wl_shm_pool size");
                         return;

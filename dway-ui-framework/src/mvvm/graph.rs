@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use bevy::{ecs::system::EntityCommands, utils::HashSet};
+use bevy::{ecs::system::EntityCommands, platform::collections::HashSet};
 
 use super::{DataItem, RangeModel, ViewFactory};
 

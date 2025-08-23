@@ -1,10 +1,15 @@
 use bevy::{
     asset::load_internal_asset,
     ecs::{
-        component::ComponentId, entity::EntityHashSet, system::EntityCommand, world::DeferredWorld,
+        component::{ComponentId, HookContext},
+        entity::EntityHashSet,
+        system::EntityCommand,
+        world::DeferredWorld,
     },
+    math::FloatOrd,
+    platform::collections::HashMap,
     render::{
-        camera::{NormalizedRenderTarget, RenderTarget},
+        camera::{ImageRenderTarget, NormalizedRenderTarget, RenderTarget},
         mesh::{Indices, PrimitiveTopology},
         render_asset::RenderAssetUsages,
         render_resource::{
@@ -15,7 +20,6 @@ use bevy::{
     },
     transform::components::Transform,
     ui::{ui_focus_system, UiSystem},
-    utils::HashMap,
     window::{PrimaryWindow, WindowRef},
 };
 use bevy_relationship::reexport::Entity;
@@ -107,7 +111,10 @@ impl BaseLayerRef {
             camera.target = render_target.clone();
             backup.0 = None;
         } else {
-            camera.target = RenderTarget::Image(self.surface.clone());
+            camera.target = RenderTarget::Image(ImageRenderTarget {
+                handle: self.surface.clone(),
+                scale_factor: FloatOrd(1.0),
+            });
             backup.0 = Some(BackupRenderTargetInner {
                 window_target: window_target.clone(),
                 layer: camera.target.clone(),
@@ -179,16 +186,14 @@ impl Layer for LayerRef {
         let camera_entity = world
             .commands()
             .spawn((
-                Camera2dBundle {
-                    camera: Camera {
-                        clear_color: Color::BLACK.into(),
-                        target: render_target.clone(),
-                        order,
-                        ..Default::default()
-                    },
-                    transform,
+                Camera2d::default(),
+                Camera {
+                    clear_color: Color::BLACK.into(),
+                    target: render_target.clone(),
+                    order,
                     ..Default::default()
                 },
+                transform,
                 LayerCamera {
                     layer_manager: manager_entity,
                     layer_kind: LayerKind::Blur,
@@ -207,7 +212,7 @@ impl Layer for LayerRef {
                     height: Val::Percent(100.0),
                     ..Node::default()
                 },
-                TargetCamera(camera_entity),
+                UiTargetCamera(camera_entity),
             ))
             .id();
         LayerRef {
@@ -235,11 +240,17 @@ impl Layer for LayerRef {
                 });
                 camera.target = render_target;
             } else {
-                camera.target = RenderTarget::Image(self.surface.clone());
+                camera.target = RenderTarget::Image(ImageRenderTarget {
+                    handle: self.surface.clone(),
+                    scale_factor: FloatOrd(1.0),
+                });
                 backup.0 = None;
             }
         } else {
-            camera.target = RenderTarget::Image(self.surface.clone());
+            camera.target = RenderTarget::Image(ImageRenderTarget {
+                handle: self.surface.clone(),
+                scale_factor: FloatOrd(1.0),
+            });
             backup.0 = None;
         }
         camera.is_active = enable;
@@ -407,7 +418,7 @@ impl BlurLayer {
 }
 
 #[derive(Component, Debug, Reflect, Clone)]
-#[require(SetWindowTarget(||SetWindowTarget(None)), Camera)]
+#[require(SetWindowTarget=SetWindowTarget(None), Camera)]
 #[component(on_insert=on_insert_layer_manager)]
 #[component(on_replace=on_replace_layer_manager)]
 pub struct LayerManager {
@@ -508,7 +519,8 @@ impl LayerManager {
     }
 }
 
-fn on_insert_layer_manager(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+fn on_insert_layer_manager(mut world: DeferredWorld, context: HookContext) {
+    let entity = context.entity;
     let camera = world.get::<Camera>(entity).unwrap();
     let render_target = camera.target.clone();
 
@@ -522,14 +534,15 @@ fn on_insert_layer_manager(mut world: DeferredWorld, entity: Entity, _: Componen
     layer_manager.render_target = render_target;
 }
 
-fn on_replace_layer_manager(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+fn on_replace_layer_manager(mut world: DeferredWorld, context: HookContext) {
+    let entity = context.entity;
     let layer_manager = std::mem::take(&mut *world.get_mut::<LayerManager>(entity).unwrap());
 
     let mut commands = world.commands();
 
     let mut despawn = |entity: Entity| {
-        if let Some(c) = commands.get_entity(entity) {
-            c.despawn_recursive();
+        if let Ok(mut c) = commands.get_entity(entity) {
+            c.despawn();
         }
     };
     despawn(layer_manager.base_layer.camera);
@@ -546,12 +559,14 @@ fn on_replace_layer_manager(mut world: DeferredWorld, entity: Entity, _: Compone
 fn update_children_target_camera(
     entity: Entity,
     camera_to_set: Entity,
-    node_query: &Query<Option<&TargetCamera>, With<Node>>,
+    node_query: &Query<Option<&UiTargetCamera>, With<Node>>,
     children_query: &Query<&Children, With<Node>>,
     commands: &mut Commands,
 ) {
-    commands.entity(entity).insert(TargetCamera(camera_to_set));
-    for &child in children_query
+    commands
+        .entity(entity)
+        .insert(UiTargetCamera(camera_to_set));
+    for child in children_query
         .get(entity)
         .into_iter()
         .flat_map(|x| x.iter())
@@ -561,9 +576,9 @@ fn update_children_target_camera(
 }
 
 pub fn update_ui_root(
-    mut query: Query<(Entity, &mut RenderToLayer, &TargetCamera)>,
+    mut query: Query<(Entity, &mut RenderToLayer, &UiTargetCamera)>,
     children_query: Query<&Children, With<Node>>,
-    node_query: Query<Option<&TargetCamera>, With<Node>>,
+    node_query: Query<Option<&UiTargetCamera>, With<Node>>,
     layer_manager_query: Query<Ref<LayerManager>>,
     layer_camera_query: Query<Ref<LayerCamera>>,
     mut commands: Commands,
@@ -673,7 +688,7 @@ pub fn update_layers(
                     .map(|w| UVec2::new(w.physical_width(), w.physical_height()))
                     .unwrap_or(UVec2::ONE),
                 Some(NormalizedRenderTarget::Image(image)) => images
-                    .get(image.id())
+                    .get(image.handle.id())
                     .map(Image::size)
                     .unwrap_or(UVec2::ONE),
                 _ => UVec2::ONE,

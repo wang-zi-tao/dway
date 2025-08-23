@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::Result;
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{prelude::*, platform::collections::HashMap};
 use dway_util::eventloop::{Poller, PollerGuard};
 use udev::{Device, MonitorBuilder, MonitorSocket};
 

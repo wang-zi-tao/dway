@@ -1,4 +1,3 @@
-use bevy::utils::HashSet;
 use wayland_protocols_wlr::data_control::v1::server::zwlr_data_control_source_v1::*;
 
 use crate::{clipboard::MimeTypeSet, prelude::*};

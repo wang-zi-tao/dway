@@ -278,6 +278,8 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                     let mut __dway_ui_state_changed = bevy::ecs::component::Tick::new(0);
                     let mut __dway_ui_widget_added = bevy::ecs::component::Tick::new(0);
                     let mut __dway_ui_widget_changed = bevy::ecs::component::Tick::new(0);
+                    let mut __dway_ui_caller = bevy::ecs::change_detection::MaybeLocation::caller();
+                    let mut __dway_ui_caller2 = bevy::ecs::change_detection::MaybeLocation::caller();
                     let #ident = #lambda_var(
                         #ident,
                         bevy::prelude::Mut::new(
@@ -285,14 +287,16 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                             &mut __dway_ui_widget_added,
                             &mut __dway_ui_widget_changed,
                             __dway_ui_last_run,
-                            __dway_ui_this_run
+                            __dway_ui_this_run,
+                            __dway_ui_caller.as_mut()
                         ),
                         bevy::prelude::Mut::new(
                             &mut state,
                             &mut __dway_ui_state_added,
                             &mut __dway_ui_state_changed,
                             __dway_ui_last_run,
-                            __dway_ui_this_run
+                            __dway_ui_this_run,
+                            __dway_ui_caller2.as_mut()
                         ),
                     );
                     state.clear_marks();

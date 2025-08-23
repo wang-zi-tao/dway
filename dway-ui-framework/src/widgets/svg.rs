@@ -1,15 +1,17 @@
-use bevy::ecs::{entity::EntityHashSet, world::DeferredWorld};
+use bevy::ecs::{component::HookContext, entity::EntityHashSet, world::DeferredWorld};
 use bevy_svg::prelude::Svg;
-use imports::ComponentId;
 
 use crate::{
     prelude::*,
     render::mesh::{UiMeshHandle, UiMeshTransform},
 };
 
-fn svg_on_insert(mut world: DeferredWorld, entity: Entity, _component_id: ComponentId) {
-    let handle = world.get::<UiSvg>(entity).unwrap().handle.clone();
-    world.commands().entity(entity).insert(MeshMaterial2d(handle));
+fn svg_on_insert(mut world: DeferredWorld, context: HookContext) {
+    let handle = world.get::<UiSvg>(context.entity).unwrap().handle.clone();
+    world
+        .commands()
+        .entity(context.entity)
+        .insert(MeshMaterial2d(handle));
 }
 
 #[derive(Component, Default, Reflect, PartialEq, Eq, Hash, Deref, DerefMut)]

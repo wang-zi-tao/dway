@@ -6,14 +6,14 @@ use std::{
 
 use bevy::{
     ecs::{
+        component::HookContext,
         system::{EntityCommand, EntityCommands, IntoObserverSystem, SystemState},
-        world::Command,
     },
+    platform::collections::{hash_map::Entry, HashMap},
     reflect::List,
-    utils::{hashbrown::hash_map::Entry, HashMap},
 };
 use bevy_relationship::{
-    reexport::{SmallVec, StorageType},
+    reexport::{Mutable, SmallVec, StorageType},
     EntityCommandsExt,
 };
 
@@ -253,10 +253,13 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
 }
 
 impl<E: Clone + Send + Sync + 'static> Component for EventDispatcher<E> {
+    type Mutability = Mutable;
+
     const STORAGE_TYPE: StorageType = StorageType::Table;
 
     fn register_component_hooks(hooks: &mut bevy_relationship::reexport::ComponentHooks) {
-        hooks.on_insert(|mut world, entity, _componentId| {
+        hooks.on_insert(|mut world, context: HookContext| {
+            let entity = context.entity;
             let mut dispatcher = world.get_mut::<EventDispatcher<E>>(entity).unwrap();
             dispatcher.this_entity = entity;
         });
@@ -264,12 +267,14 @@ impl<E: Clone + Send + Sync + 'static> Component for EventDispatcher<E> {
 }
 
 pub fn send_trait_event<E: Clone + Send + Sync + 'static>(mut commands: EntityCommands, event: E) {
-    commands.queue(move |entity: Entity, world: &mut World| {
+    commands.queue(move |entity: EntityWorldMut| {
+        let entity_id = entity.id();
+        let world = entity.into_world_mut();
         let mut system_state =
             SystemState::<(Query<All<&dyn EventReceiver<E>>>, Commands)>::new(world);
         let (query, mut commands) = system_state.get(world);
-        if let Ok(trait_impls) = query.get(entity) {
-            let mut entity_commands = commands.entity(entity);
+        if let Ok(trait_impls) = query.get(entity_id) {
+            let mut entity_commands = commands.entity(entity_id);
             for impl_component in trait_impls {
                 impl_component.on_event(entity_commands.reborrow(), event.clone());
             }
@@ -287,7 +292,7 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
             match receiver {
                 EventReceiverKind::SystemId(receiver, system) => {
                     if let Some(receiver) = receiver {
-                        commands.run_system_with_input(
+                        commands.run_system_with(
                             *system,
                             UiEvent {
                                 receiver: *receiver,
@@ -296,7 +301,7 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
                             },
                         );
                     } else {
-                        commands.run_system_with_input(
+                        commands.run_system_with(
                             *system,
                             UiEvent {
                                 receiver: sender,
@@ -412,15 +417,17 @@ impl<E: Send + Sync + 'static + Clone, S: Send + Sync + 'static + Clone> EntityC
 where
     S: IntoSystem<UiEvent<E>, (), ()> + 'static,
 {
-    fn apply(self, entity: Entity, world: &mut World) {
+    fn apply(self, entity: EntityWorldMut) {
+        let entity_id = entity.id();
+        let world = entity.into_world_mut();
         let systemid = world
             .get_resource::<CallbackTypeRegister>()
             .unwrap()
             .get_system::<S, UiEvent<E>, ()>();
-        if let Some(mut dispatcher) = world.get_mut::<EventDispatcher<E>>(entity) {
-            dispatcher.add_system(entity, systemid);
+        if let Some(mut dispatcher) = world.get_mut::<EventDispatcher<E>>(entity_id) {
+            dispatcher.add_system(entity_id, systemid);
         } else {
-            error!("EventDispatcher not found for entity: {:?}", entity);
+            error!("EventDispatcher not found for entity: {:?}", entity_id);
         }
     }
 }
@@ -429,10 +436,13 @@ impl<E: Send + Sync + 'static + Clone, S: Send + Sync + 'static + Clone> Compone
 where
     S: IntoSystem<UiEvent<E>, (), ()> + 'static,
 {
+    type Mutability = Mutable;
+
     const STORAGE_TYPE: StorageType = StorageType::Table;
 
     fn register_component_hooks(hooks: &mut bevy_relationship::reexport::ComponentHooks) {
-        hooks.on_insert(|mut world, entity, _componentId| {
+        hooks.on_insert(|mut world, context: HookContext| {
+            let entity = context.entity;
             let systemid = world
                 .get_resource::<CallbackTypeRegister>()
                 .unwrap()

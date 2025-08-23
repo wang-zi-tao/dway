@@ -108,10 +108,10 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                     resource.id(),
                     title
                 )));
-                state.with_component(resource, |c: &mut DWayToplevel| c.title = Some(title));
+                state.with_component_mut(resource, |c: &mut DWayToplevel| c.title = Some(title));
             }
             xdg_toplevel::Request::SetAppId { app_id } => {
-                state.with_component(resource, |c: &mut DWayToplevel| {
+                state.with_component_mut(resource, |c: &mut DWayToplevel| {
                     c.app_id = Some(app_id.clone())
                 });
                 state.send_event(WindowAppIdChanged {
@@ -196,27 +196,27 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 }
             }
             xdg_toplevel::Request::SetMaximized => {
-                state.with_component(resource, |c: &mut DWayToplevel| {
+                state.with_component_mut(resource, |c: &mut DWayToplevel| {
                     c.max = true;
                 });
             }
             xdg_toplevel::Request::UnsetMaximized => {
-                state.with_component(resource, |c: &mut DWayToplevel| {
+                state.with_component_mut(resource, |c: &mut DWayToplevel| {
                     c.max = false;
                 });
             }
             xdg_toplevel::Request::SetFullscreen { output: _ } => {
-                state.with_component(resource, |c: &mut DWayToplevel| {
+                state.with_component_mut(resource, |c: &mut DWayToplevel| {
                     c.fullscreen = true;
                 });
             }
             xdg_toplevel::Request::UnsetFullscreen => {
-                state.with_component(resource, |c: &mut DWayToplevel| {
+                state.with_component_mut(resource, |c: &mut DWayToplevel| {
                     c.fullscreen = false;
                 });
             }
             xdg_toplevel::Request::SetMinimized => {
-                state.with_component(resource, |c: &mut DWayToplevel| {
+                state.with_component_mut(resource, |c: &mut DWayToplevel| {
                     c.min = true;
                 });
             }

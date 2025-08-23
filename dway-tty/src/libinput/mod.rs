@@ -10,13 +10,10 @@ use std::{
 use anyhow::Result;
 use bevy::{
     input::{
-        keyboard::KeyboardInput,
+        keyboard::{Key, KeyboardInput},
         mouse::{MouseButtonInput, MouseMotion, MouseWheel},
         ButtonState,
-    },
-    math::DVec2,
-    prelude::*,
-    utils::HashMap,
+    }, math::DVec2, platform::collections::HashMap, prelude::*
 };
 use input::{
     event::{
@@ -169,6 +166,10 @@ pub fn receive_events(
                         &mut lock_state,
                         &mut k.device(),
                     );
+                    let text = match &logical_key {
+                        Key::Character(smol_str) => Some(smol_str.clone()),
+                        _ => None,
+                    };
                     keyboard_events.send(KeyboardInput {
                         logical_key,
                         key_code,
@@ -177,6 +178,7 @@ pub fn receive_events(
                             tablet_pad::KeyState::Released => ButtonState::Released,
                         },
                         window: default_window_entity,
+                        text,
                         repeat: false,
                     });
                 };

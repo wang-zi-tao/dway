@@ -3,9 +3,9 @@ use std::marker::PhantomData;
 use bevy::{
     ecs::{
         system::EntityCommands,
-        world::{Command, DeferredWorld},
+        world::{DeferredWorld},
     },
-    prelude::{despawn_with_children_recursive, Entity, World},
+    prelude::{Entity, World, Command},
 };
 use smallvec::SmallVec;
 
@@ -168,7 +168,7 @@ where
             Default::default()
         };
         for entity in target {
-            despawn_with_children_recursive(world, entity, true);
+            world.despawn(entity);
         }
     }
 }

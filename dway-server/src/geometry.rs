@@ -73,7 +73,7 @@ fn do_update_node(
             Option<&Geometry>,
             Option<&Children>,
         ),
-        With<Parent>,
+        With<ChildOf>,
     >,
 ) {
     context_rect += relative.pos();
@@ -84,7 +84,7 @@ fn do_update_node(
         }
     }
     if let Some(c) = children {
-        for &child in c.iter() {
+        for child in c.iter() {
             if let Ok((global, child_relative, children)) =
                 unsafe { children_query.get_unchecked(child) }
             {
@@ -109,7 +109,7 @@ pub fn update_global_physical_rect(
             Option<&Geometry>,
             Option<&Children>,
         ),
-        Without<Parent>,
+        Without<ChildOf>,
     >,
     children_query: Query<
         (
@@ -117,7 +117,7 @@ pub fn update_global_physical_rect(
             Option<&Geometry>,
             Option<&Children>,
         ),
-        With<Parent>,
+        With<ChildOf>,
     >,
 ) {
     root_query

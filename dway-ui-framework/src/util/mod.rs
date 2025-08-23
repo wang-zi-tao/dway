@@ -1,4 +1,5 @@
 pub mod nodes;
+use bevy_relationship::reexport::Mutable;
 use bitflags::bitflags;
 
 use crate::prelude::*;
@@ -13,23 +14,31 @@ bitflags! {
     }
 }
 
-pub(crate) fn set_component_or_insert<C: Component>(component: Option<&mut C>, mut commands: EntityCommands, value: C){
+pub(crate) fn set_component_or_insert<C: Component>(
+    component: Option<&mut C>,
+    mut commands: EntityCommands,
+    value: C,
+) {
     if let Some(c) = component {
         *c = value;
-    }else {
-        commands.queue(move|mut entity_mut: EntityWorldMut<'_>|{
+    } else {
+        commands.queue(move |mut entity_mut: EntityWorldMut<'_>| {
             entity_mut.insert(value);
         });
     }
 }
 
-pub(crate) fn modify_component_or_insert<C: Component + Default>(component: Option<&mut C>, mut commands: EntityCommands, f: impl FnOnce(&mut C) + Send + 'static){
+pub(crate) fn modify_component_or_insert<C: Component<Mutability = Mutable> + Default>(
+    component: Option<&mut C>,
+    mut commands: EntityCommands,
+    f: impl FnOnce(&mut C) + Send + 'static,
+) {
     if let Some(c) = component {
         f(c);
-    }else {
-        commands.queue(move|mut entity_mut: EntityWorldMut<'_>|{
-            let mut c= entity_mut.entry::<C>().or_default();
-            f(&mut c);
+    } else {
+        commands.queue(move |mut entity_mut: EntityWorldMut<'_>| {
+            let mut c = entity_mut.entry::<C>().or_default();
+            f(&mut c.get_mut());
         });
     }
 }

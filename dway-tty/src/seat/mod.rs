@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::Result;
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{prelude::*, platform::collections::HashMap};
 use crossbeam::queue::ArrayQueue;
 use getset::Getters;
 use libseat::{Seat, SeatEvent};

@@ -1,8 +1,10 @@
 
+use bevy::ecs::relationship::RelatedSpawnerCommands;
+
 use crate::{event::UiEvent, prelude::*};
 
 pub trait RgithClickPopupConfig {
-    fn on_open(node: Entity, commands: &mut ChildBuilder) {
+    fn on_open(node: Entity, commands: &mut RelatedSpawnerCommands<'_, ChildOf>) {
     }
 }
 

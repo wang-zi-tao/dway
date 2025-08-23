@@ -25,10 +25,10 @@ impl<B: Bundle, Q: QueryData, F: QueryFilter> WidgetQueryState<B, Q, F> {
     }
 
     pub fn on_insert(trigger: Trigger<OnInsert, B>, query: Query<(Entity, Q), F>) {
-        Self::check_entity(trigger.entity(), query);
+        Self::check_entity(trigger.target(), query);
     }
 
     pub fn on_remove(trigger: Trigger<OnRemove, B>, query: Query<(Entity, Q), F>) {
-        Self::check_entity(trigger.entity(), query);
+        Self::check_entity(trigger.target(), query);
     }
 }

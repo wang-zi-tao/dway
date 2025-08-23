@@ -1,7 +1,7 @@
 use std::{os::fd::AsRawFd, ptr::null_mut};
 
 use anyhow::{anyhow, bail, Context, Result};
-use bevy::utils::HashSet;
+use bevy::platform::collections::HashSet;
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use gbm::EGLImage;
 use glow::HasContext;

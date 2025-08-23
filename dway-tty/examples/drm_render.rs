@@ -1,14 +1,12 @@
-use std::time::Duration;
-
 use bevy::{
     app::AppExit,
-    core::TaskPoolThreadAssignmentPolicy,
     core_pipeline::tonemapping::Tonemapping,
     input::keyboard::KeyboardInput,
     log::LogPlugin,
+    math::FloatOrd,
     prelude::*,
     render::{
-        camera::RenderTarget,
+        camera::{ImageRenderTarget, RenderTarget},
         settings::{RenderCreation, WgpuSettings},
         RenderPlugin,
     },
@@ -17,12 +15,6 @@ use bevy::{
 use dway_tty::{drm::surface::DrmSurface, DWayTTYPlugin};
 use tracing::Level;
 use wgpu::Backends;
-
-const THREAD_POOL_CONFIG: TaskPoolThreadAssignmentPolicy = TaskPoolThreadAssignmentPolicy {
-    min_threads: 1,
-    max_threads: 1,
-    percent: 0.25,
-};
 
 pub fn main() {
     let mut app = App::new();
@@ -53,34 +45,32 @@ pub fn main() {
     app.run();
 }
 
-fn setup(
-    mut commands: Commands,
-    surface_query: Query<&DrmSurface>,
-) {
+fn setup(mut commands: Commands, surface_query: Query<&DrmSurface>) {
     info!("setup world");
 
     if std::env::var("DISPLAY").is_ok() || std::env::var("WAYLAND_DISPLAY").is_ok() {
-        commands.spawn((Camera2dBundle {
-            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            tonemapping: Tonemapping::None,
-            ..default()
-        },));
+        commands.spawn((
+            Camera2d::default(),
+            Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Tonemapping::None,
+        ));
         info!("setup camera");
     }
     for surface in surface_query.iter() {
-        let image_handle = surface.image();
-        commands.spawn((Camera2dBundle {
-            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            camera: Camera {
-                target: RenderTarget::Image(image_handle),
+        commands.spawn((
+            Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Camera2d::default(),
+            Camera {
+                target: RenderTarget::Image(ImageRenderTarget {
+                    handle: surface.image(),
+                    scale_factor: FloatOrd(1.0),
+                }),
                 ..default()
             },
-            tonemapping: Tonemapping::None,
-            ..default()
-        },));
+            Tonemapping::None,
+        ));
         info!("setup camera");
     }
-
 }
 
 pub fn input_event_system(
@@ -94,4 +84,3 @@ pub fn input_event_system(
         dbg!(event);
     }
 }
-

@@ -21,10 +21,10 @@ use bevy::{
                 private::Metadata,
                 UniformBuffer,
             },
-            AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindingType,
-            BufferBindingType, BufferInitDescriptor, BufferUsages, OwnedBindingResource,
-            RenderPipelineDescriptor, SamplerBindingType, ShaderRef, ShaderStages, ShaderType,
-            TextureSampleType, TextureViewDimension, UnpreparedBindGroup,
+            AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindingResources,
+            BindingType, BufferBindingType, BufferInitDescriptor, BufferUsages,
+            OwnedBindingResource, RenderPipelineDescriptor, SamplerBindingType, ShaderRef,
+            ShaderStages, ShaderType, TextureSampleType, TextureViewDimension, UnpreparedBindGroup,
         },
         renderer::RenderDevice,
         texture::{FallbackImage, GpuImage},
@@ -269,7 +269,7 @@ impl<'l> BindGroupBuilder<'l> {
 
     pub fn build(self) -> UnpreparedBindGroup<()> {
         UnpreparedBindGroup {
-            bindings: self.output,
+            bindings: BindingResources(self.output),
             data: (),
         }
     }
@@ -281,11 +281,11 @@ impl<'l> BindGroupBuilder<'l> {
             .ok_or(AsBindGroupError::RetryNextUpdate)?;
         self.output.push((
             self.binding_number(),
-            OwnedBindingResource::TextureView(image.texture_view.clone()),
+            OwnedBindingResource::TextureView(TextureViewDimension::D2, image.texture_view.clone()),
         ));
         self.output.push((
             self.binding_number(),
-            OwnedBindingResource::Sampler(image.sampler.clone()),
+            OwnedBindingResource::Sampler(SamplerBindingType::NonFiltering, image.sampler.clone()),
         ));
         Ok(())
     }
@@ -756,6 +756,7 @@ impl<T: Material> AsBindGroup for ShaderAsset<T> {
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
         (images, fallback_image): &mut SystemParamItem<'_, '_, Self::Param>,
+        force_no_bindless: bool,
     ) -> std::prelude::v1::Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         let mut builder = BindGroupBuilder::new(layout, render_device, images, fallback_image);
         builder.add_uniform_buffer(self)?;
@@ -763,7 +764,10 @@ impl<T: Material> AsBindGroup for ShaderAsset<T> {
         Ok(builder.build())
     }
 
-    fn bind_group_layout_entries(render_device: &RenderDevice) -> Vec<BindGroupLayoutEntry>
+    fn bind_group_layout_entries(
+        render_device: &RenderDevice,
+        force_no_bindless: bool,
+    ) -> Vec<BindGroupLayoutEntry>
     where
         Self: Sized,
     {

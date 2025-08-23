@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
 use bevy::{
-    ecs::{component::ComponentId, world::DeferredWorld},
+    ecs::{component::{ComponentId, HookContext}, world::DeferredWorld},
     input::keyboard::Key,
     text::TextLayoutInfo,
     ui::RelativeCursorPosition,
@@ -28,7 +28,8 @@ pub struct UiTextCursor {
     pub cursor_entity: Entity,
 }
 
-pub fn on_insert_text_cursor(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+pub fn on_insert_text_cursor(mut world: DeferredWorld, context: HookContext) {
+    let entity = context.entity;
     let textarea = world.get_mut::<UiTextArea>(entity).unwrap();
     let font_size = textarea.font_size;
     let mut textcursor = world.get_mut::<UiTextCursor>(entity).unwrap();
@@ -58,7 +59,8 @@ pub fn on_insert_text_cursor(mut world: DeferredWorld, entity: Entity, _: Compon
     }
 }
 
-pub fn on_replace_text_cursor(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+pub fn on_replace_text_cursor(mut world: DeferredWorld, context: HookContext) {
+    let entity = context.entity;
     let textcursor = world.get::<UiTextCursor>(entity).unwrap();
     let cursor_entity = textcursor.cursor_entity;
     world.commands().queue(move |world: &mut World| {

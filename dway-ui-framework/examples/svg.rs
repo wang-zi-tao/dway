@@ -10,7 +10,7 @@ fn main() {
     app.add_plugins(DefaultPlugins)
         .add_plugins((
             dway_ui_framework::UiFrameworkPlugin,
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
         ))
         .add_systems(Startup, setup)
         .insert_resource(ClearColor(Color::WHITE));

@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use bevy::core::FrameCount;
+use bevy::diagnostic::FrameCount;
 use bevy_relationship::relationship;
 use wayland_server::backend::smallvec::SmallVec;
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};

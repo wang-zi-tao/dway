@@ -22,7 +22,7 @@ pub fn unit_test<M: shader::Material + Clone>(app: &mut App, name: &str, materia
         commands.spawn(( MiniNodeBundle{
             node: style!("w-256 h-192 align-items:center justify-content:center align-self:center justify-self:center"),
             ..Default::default()
-        }, MaterialNode(handle), TargetCamera(params.camera) ));
+        }, MaterialNode(handle), UiTargetCamera(params.camera) ));
     });
 
     app.world_mut().spawn(UnitTest {

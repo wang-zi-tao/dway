@@ -1,4 +1,4 @@
-use bevy::utils::HashMap;
+use bevy::platform::collections::HashMap;
 use indexmap::{IndexMap, IndexSet};
 
 use crate::prelude::*;

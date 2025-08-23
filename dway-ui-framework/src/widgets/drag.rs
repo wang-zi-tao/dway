@@ -37,7 +37,7 @@ pub type UiDragEventDispatcher = EventDispatcher<UiDragEvent>;
 pub fn update_ui_drag(
     mut query: Query<
         (
-            &Parent,
+            &ChildOf,
             &mut UiDrag,
             &RelativeCursorPosition,
             &Interaction,

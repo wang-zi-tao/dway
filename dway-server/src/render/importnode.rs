@@ -5,6 +5,7 @@ use std::{
 
 use bevy::{
     ecs::entity::EntityHashMap,
+    platform::collections::HashSet,
     render::{
         render_asset::RenderAssets,
         render_graph::Node,
@@ -13,13 +14,12 @@ use bevy::{
         texture::GpuImage,
         Extract,
     },
-    utils::HashSet,
 };
 use drm_fourcc::DrmFourcc;
 use dway_util::formats::ImageFormat;
 use wgpu::{
     core::hal_api, CommandEncoder, CommandEncoderDescriptor, Extent3d, FilterMode,
-    ImageCopyTexture, TextureAspect, TextureDimension,
+    ImageCopyTexture, TextureAspect, TextureDimension, TextureUsages,
 };
 use wgpu_hal::{MemoryFlags, TextureUses};
 
@@ -81,7 +81,6 @@ impl ImportStateKind {
                 .as_hal::<wgpu_hal::api::Vulkan, _, _>(|hal_device| {
                     hal_device.map(|_| Self::Vulkan(VulkanState::default()))
                 })
-                .flatten()
             {
                 return Ok(o);
             };
@@ -95,7 +94,6 @@ impl ImportStateKind {
                         Ok(Self::Egl(EglState::new(gl, egl)?))
                     })
                 })
-                .flatten()
             {
                 return o;
             };
@@ -449,24 +447,26 @@ pub(crate) unsafe fn hal_texture_to_gpuimage<A>(
 where
     A: hal_api::HalApi,
 {
+    let usage = wgpu::TextureUsages::RENDER_ATTACHMENT
+        | wgpu::TextureUsages::TEXTURE_BINDING
+        | wgpu::TextureUsages::STORAGE_BINDING
+        | wgpu::TextureUsages::COPY_SRC
+        | wgpu::TextureUsages::COPY_DST;
+    let extent3d = wgpu::Extent3d {
+        width: size.x,
+        height: size.y,
+        depth_or_array_layers: 1,
+    };
     let wgpu_texture = device.create_texture_from_hal::<A>(
         hal_texture,
         &wgpu::TextureDescriptor {
             label: None,
-            size: wgpu::Extent3d {
-                width: size.x,
-                height: size.y,
-                depth_or_array_layers: 1,
-            },
+            size: extent3d,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: texture_format,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                | wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::STORAGE_BINDING
-                | wgpu::TextureUsages::COPY_SRC
-                | wgpu::TextureUsages::COPY_DST,
+            usage,
             view_formats: &[texture_format],
         },
     );
@@ -480,6 +480,7 @@ where
         mip_level_count: Some(1.try_into().unwrap()),
         base_array_layer: 0,
         array_layer_count: None,
+        usage: Some(usage),
     });
     let sampler: wgpu::Sampler = device.create_sampler(&wgpu::SamplerDescriptor {
         label: None,
@@ -500,7 +501,7 @@ where
         texture_view: texture_view.into(),
         texture_format,
         sampler: sampler.into(),
-        size,
+        size: extent3d,
         mip_level_count: 1,
     })
 }

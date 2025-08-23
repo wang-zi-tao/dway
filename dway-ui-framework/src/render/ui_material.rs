@@ -31,7 +31,7 @@ use bevy::{
         stack_z_offsets, PreparedUiMaterial, TransparentUi, UiMaterialPipeline, UiMaterialVertex,
         UiStack,
     },
-    utils::HashSet,
+    platform::collections::HashSet,
     window::PrimaryWindow,
 };
 
@@ -247,7 +247,7 @@ pub fn extract_ui_nodes<M: UiMaterial>(
             &MaterialNode<M>,
             &ViewVisibility,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
         )>,
     >,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
@@ -269,7 +269,7 @@ pub fn extract_ui_nodes<M: UiMaterial>(
         uinode_query.iter()
     {
         let stack_index = computed_node.stack_index();
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
+        let Some(camera_entity) = camera.map(UiTargetCamera::entity).or(default_single_camera) else {
             continue;
         };
 
@@ -458,7 +458,8 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                             position: positions_clipped[i].into(),
                             uv: uvs[i].into(),
                             size: extracted_uinode.rect.size().into(),
-                            border_widths: extracted_uinode.border,
+                            border: extracted_uinode.border,
+                            radius: Default::default(),
                         });
                     }
 
@@ -497,7 +498,7 @@ pub fn extract_ui_materials<M: UiMaterial>(
     mut events: Extract<EventReader<AssetEvent<M>>>,
     assets: Extract<Res<Assets<M>>>,
 ) {
-    let mut changed_assets = HashSet::default();
+    let mut changed_assets = HashSet::<AssetId<M>>::default();
     let mut removed = Vec::new();
     for event in events.read() {
         #[allow(clippy::match_same_arms)]
@@ -544,13 +545,13 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
 {
     let draw_function = draw_functions.read().id::<DrawUiMaterial<M>>();
 
-    for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
+    for (index, (entity, extracted_uinode) ) in extracted_uinodes.uinodes.iter().enumerate() {
         let Ok((view, msaa)) = views.get_mut(extracted_uinode.camera_entity) else {
             continue;
         };
 
         let Some(transparent_phase) =
-            transparent_render_phases.get_mut(&extracted_uinode.camera_entity)
+            transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
         };
@@ -565,7 +566,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             UiMaterialKey {
                 hdr: view.hdr,
                 bind_group_data: material.key.clone(),
-                sample_count: msaa.samples() as i8,
+                // sample_count: msaa.samples() as i8,
             },
         );
         transparent_phase
@@ -575,12 +576,11 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             draw_function,
             pipeline,
             entity: (*entity, MainEntity::from(*entity)),
-            sort_key: (
-                FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
-                entity.index(),
-            ),
+            sort_key: FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::maybe_dynamic_offset(None),
+            indexed: true,
+            index,
         });
     }
 }

@@ -12,7 +12,7 @@ pub mod reexport;
 use std::{iter::Cloned, marker::PhantomData};
 
 pub use app::AppExt;
-use bevy::prelude::*;
+use bevy::{ecs::component::Mutable, prelude::*};
 pub use bevy_relationship_derive::*;
 use smallvec::SmallVec;
 
@@ -155,7 +155,7 @@ pub trait Connectable: Component {
         self.iter().any(|e| e == entity)
     }
 }
-pub trait ConnectableMut: Connectable {
+pub trait ConnectableMut: Connectable + Component<Mutability = Mutable> {
     type Drain<'l>: Iterator<Item = Entity>;
     fn connect(&mut self, target: Entity) -> Option<Entity>;
     fn disconnect(&mut self, target: Entity) -> bool;

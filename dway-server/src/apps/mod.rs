@@ -206,8 +206,8 @@ pub fn update_app_entry_set(
         entries.scan_task = None;
         entries.list.clear();
         entries.by_id.clear();
-        let root_entity = root_query.single();
-        commands.entity(root_entity).despawn_descendants();
+        let root_entity = root_query.single().unwrap();
+        commands.entity(root_entity).despawn();
         for entry in entry_list {
             let mut entity_mut = commands.spawn_empty();
             entity_mut.set_parent(root_entity);

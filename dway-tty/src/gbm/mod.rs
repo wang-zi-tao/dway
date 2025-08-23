@@ -4,7 +4,7 @@ use crate::drm::{DrmDevice, DrmDeviceFd};
 use anyhow::anyhow;
 use anyhow::Result;
 use bevy::prelude::*;
-use bevy::utils::HashSet;
+use bevy::platform::collections::HashSet;
 use drm_fourcc::DrmModifier;
 use drm_fourcc::{DrmFormat, DrmFourcc};
 use gbm::BufferObjectFlags;

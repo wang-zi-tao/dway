@@ -71,7 +71,7 @@ pub fn init_window_index(
     config: Res<WindowStackConfig>,
     mut stack: ResMut<WindowStack>,
 ) {
-    let new_window = trigger.entity();
+    let new_window = trigger.target();
     match config.default_position {
         WindowIndexDefaultPosition::Top => {
             stack.list.push_front(new_window);
@@ -178,7 +178,7 @@ impl Plugin for WindowStackPlugin {
                         .before(update_window_index),
                     update_window_index
                         .run_if(
-                            on_event::<SetWindowIndex>.or_else(resource_changed::<WindowStack>),
+                            on_event::<SetWindowIndex>.or(resource_changed::<WindowStack>),
                         )
                         .in_set(DWayClientSystem::UpdateZIndex),
                 ),

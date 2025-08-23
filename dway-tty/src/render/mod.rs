@@ -5,6 +5,7 @@ use anyhow::{anyhow, Error, Result};
 use ash::vk;
 use bevy::{
     ecs::entity::EntityHashMap,
+    platform::collections::{hash_map::Entry, HashMap},
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -16,7 +17,6 @@ use bevy::{
         Extract, Render, RenderApp, RenderSet,
     },
     ui::ExtractedUiItem,
-    utils::{hashbrown::hash_map::Entry, HashMap},
 };
 use drm::control::framebuffer;
 use drm_fourcc::DrmFormat;
@@ -186,8 +186,7 @@ pub fn init_render(render_device: Res<RenderDevice>, mut commands: Commands) {
                         true
                     }
                 }
-            })
-            .unwrap_or(false);
+            });
         if !finish {
             panic!("failed to create tty render");
         }
@@ -230,10 +229,8 @@ pub fn commit_drm_surface<R: TtyRender>(
                         .as_hal::<R::Api, _, _>(|hal_device| {
                             let hal_device =
                                 hal_device.ok_or_else(|| TtyRenderError::BackendIsNotEGL)?;
-                            Ok(render.create_swapchain(hal_device, drm_surface, drm, gbm)?)
+                            render.create_swapchain(hal_device, drm_surface, drm, gbm)
                         })
-                        .ok_or_else(|| TtyRenderError::WgpuAbiDisMatch)
-                        .flatten()
                 };
 
                 match result {
@@ -265,12 +262,8 @@ pub fn commit_drm_surface<R: TtyRender>(
 
                     render.commit(swapchain, &mut surface, drm_surface, drm)?;
 
-                    render.discard_surface(hal_device, surface)?;
-
-                    Ok(())
+                    render.discard_surface(hal_device, surface)
                 })
-                .ok_or_else(|| TtyRenderError::WgpuAbiDisMatch)
-                .flatten()
         } {
             error!("failed to commit drm surface: {e}");
             continue;
@@ -287,9 +280,7 @@ pub struct ExtractedDrmSurface {
 
 #[tracing::instrument(skip_all)]
 pub fn extract_drm_surfaces(
-    surface_query: Extract<
-        Query<(&DrmSurface, &Connector, &Parent, RenderEntity)>,
-    >,
+    surface_query: Extract<Query<(&DrmSurface, &Connector, &ChildOf, RenderEntity)>>,
     drm_query: Extract<Query<RenderEntity>>,
     mut commands: Commands,
 ) {
@@ -297,7 +288,7 @@ pub fn extract_drm_surfaces(
         .iter()
         .for_each(|(surface, conn, parent, render_entity)| {
             let Ok(drm_device_entity) = drm_query.get(parent.get()) else {
-                todo!();//TODO
+                todo!(); //TODO
                 return;
             };
             commands.entity(render_entity).insert(ExtractedDrmSurface {

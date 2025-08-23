@@ -16,7 +16,7 @@ use bevy::render::Render;
 use bevy::render::RenderApp;
 use bevy::ui::ui_focus_system;
 use bevy::ui::UiSystem;
-use bevy::utils::HashMap;
+use bevy::platform::collections::HashMap;
 use double_map::DHashMap;
 use drm::control::FbCmd2Flags;
 use drm::{
@@ -805,7 +805,7 @@ pub fn recevie_drm_events(
                     );
                     if let Some(children) = children {
                         for entity in children.iter() {
-                            if let Ok(surface) = surface_query.get(*entity) {
+                            if let Ok(surface) = surface_query.get(entity) {
                                 let mut surface_guard = surface.inner.lock().unwrap();
                                 if surface_guard.crtc == e.crtc {
                                     surface_guard.on_page_flip(e);

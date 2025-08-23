@@ -175,13 +175,13 @@ pub fn extract_layer_manager(
                 }
             }
         } else if layer_manager.is_changed() {
-            if let Some(mut e) = commands.get_entity(render_entity) {
+            if let Ok(mut e) = commands.get_entity(render_entity) {
                 e.remove::<Blur>();
             }
         }
     }
     for render_entity in removed.read() {
-        if let Some(mut e) = commands.get_entity(render_entity) {
+        if let Ok(mut e) = commands.get_entity(render_entity) {
             e.remove::<Blur>();
         }
     }
@@ -197,7 +197,7 @@ pub fn prepare_blur_pipeline(
     mut commands: Commands,
 ) {
     for removed_entity in removed.read() {
-        if let Some(mut e) = commands.get_entity(removed_entity) {
+        if let Ok(mut e) = commands.get_entity(removed_entity) {
             e.remove::<BlurData>();
         }
     }

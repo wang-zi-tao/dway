@@ -1,6 +1,6 @@
 use bevy::{
     app::ScheduleRunnerPlugin,
-    ecs::world::Command,
+    ecs::prelude::Command,
     prelude::*,
 };
 use bevy_relationship::{

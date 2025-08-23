@@ -9,7 +9,7 @@ use std::{
     sync::{Arc, Mutex, Weak},
 };
 
-use bevy::utils::{HashMap, HashSet};
+use bevy::platform::collections::{HashMap, HashSet};
 use dway_util::eventloop::{PollerGuard, PollerInner};
 use nix::errno::Errno;
 pub use x11rb::protocol::xproto::Window as XWindowID;

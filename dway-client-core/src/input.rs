@@ -167,7 +167,7 @@ impl GrabManager {
         let this = world.resource::<Self>();
         if let Some((grab_entity, grab_system)) = this.grab {
             let response = world
-                .run_system_with_input(grab_system, GrabRequest { grab_entity, event })
+                .run_system_with(grab_system, GrabRequest { grab_entity, event })
                 .unwrap();
             if response.finish {
                 world.despawn(grab_entity);

@@ -3,7 +3,7 @@ use std::{borrow::Cow, collections::VecDeque, sync::mpsc};
 use backtrace::Backtrace;
 use bevy::{
     app::{App, Update},
-    ecs::system::{NonSendMut, Resource},
+    ecs::{system::NonSendMut, prelude::Resource},
     log::{error, warn, BoxedLayer},
     prelude::Plugin,
 };

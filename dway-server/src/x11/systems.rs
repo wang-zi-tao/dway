@@ -185,7 +185,7 @@ pub fn x11_window_attach_wl_surface(
         &GlobalGeometry,
         Option<&XWindowSurfaceRef>,
     )>,
-    xdisplay_query: Query<(&XWaylandDisplayWrapper, &Parent)>,
+    xdisplay_query: Query<(&XWaylandDisplayWrapper, &ChildOf)>,
     wl_query: Query<&DWayServer>,
     mut event_writter: EventWriter<Insert<DWayWindow>>,
     mut commands: Commands,

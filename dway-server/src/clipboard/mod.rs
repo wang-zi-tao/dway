@@ -7,7 +7,7 @@ use std::{
 use bevy::{
     ecs::world::CommandQueue,
     tasks::{IoTaskPool, Task},
-    utils::HashSet,
+    platform::collections::HashSet,
 };
 use dway_util::eventloop::Poller;
 use wayland_backend::server::WeakHandle;

@@ -312,7 +312,7 @@ pub fn ansi_to_sections(
                     014 => color!("#00ffff"),
                     015 => color!("#ffffff"),
                 },
-                ansi_str::Color::Rgb(r, g, b) => Color::rgb_u8(r, g, b),
+                ansi_str::Color::Rgb(r, g, b) => Color::srgb_u8(r, g, b),
             },
             None => default_color,
         };

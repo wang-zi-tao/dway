@@ -1,15 +1,13 @@
 use std::marker::PhantomData;
 
-use bevy::{
-    core::FrameCount,
-    ecs::{
-        query::{QueryFilter, WorldQuery},
-        system::{
-            lifetimeless::{SRes, SResMut},
-            StaticSystemParam, SystemParam, SystemParamItem,
-        },
+use bevy::ecs::{
+    query::{QueryFilter, WorldQuery},
+    system::{
+        lifetimeless::{SRes, SResMut},
+        StaticSystemParam, SystemParam, SystemParamItem,
     },
 };
+use bevy_relationship::reexport::Mutable;
 use imports::{QueryData, QueryItem};
 
 use super::{NoTheme, ThemeComponent, ThemeDispatch};
@@ -78,7 +76,7 @@ pub trait WidgetInsertObserver<Widget: Component>: Component {
                 };
                 {
                     let mut query = widget_query.p1();
-                    let Ok(mut theme_component) = query.get_mut(event.entity()) else {
+                    let Ok(mut theme_component) = query.get_mut(event.target()) else {
                         return;
                     };
 
@@ -89,11 +87,11 @@ pub trait WidgetInsertObserver<Widget: Component>: Component {
                 }
 
                 let mut query = widget_query.p0();
-                let Ok(query_item) = query.get_mut(event.entity()) else {
+                let Ok(query_item) = query.get_mut(event.target()) else {
                     return;
                 };
 
-                let entity_commands = commands.entity(event.entity());
+                let entity_commands = commands.entity(event.target());
                 this.on_widget_insert(
                     theme_entity,
                     query_item,
@@ -134,7 +132,7 @@ pub trait EventObserver<E, Marker = ()>: Component {
     {
         let theme_entity = {
             let query = widget_query.p0();
-            let Ok(theme_component) = query.get(event.entity()) else {
+            let Ok(theme_component) = query.get(event.target()) else {
                 return;
             };
             theme_component.theme_entity
@@ -145,11 +143,11 @@ pub trait EventObserver<E, Marker = ()>: Component {
         };
 
         let mut query = widget_query.p1();
-        let Ok(query_item) = query.get_mut(event.entity()) else {
+        let Ok(query_item) = query.get_mut(event.target()) else {
             return;
         };
 
-        let entity_commands = commands.entity(event.entity());
+        let entity_commands = commands.entity(event.target());
         Self::on_event(
             &this,
             event,
@@ -205,7 +203,7 @@ pub trait MaterialApplyMethod<M> {
 #[derive(Default)]
 pub struct SetMaterial;
 
-impl<M: Component> MaterialApplyMethod<M> for SetMaterial {
+impl<M: Component<Mutability = Mutable>> MaterialApplyMethod<M> for SetMaterial {
     type ItemQuery = Option<&'static mut M>;
     type Params = ();
 

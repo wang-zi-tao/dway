@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use bevy::{ecs::system::EntityCommands, utils::HashMap};
+use bevy::{ecs::system::EntityCommands, platform::collections::HashMap};
 use slab_tree::Tree;
 
 use crate::prelude::*;

@@ -38,7 +38,7 @@ impl Dispatch<wl_data_source::WlDataSource, Entity> for DWay {
         debug!("request {:?}", &request);
         match request {
             wl_data_source::Request::Offer { mime_type } => {
-                state.with_component(resource, |c: &mut WlDataSource| {
+                state.with_component_mut(resource, |c: &mut WlDataSource| {
                     c.mime_types.insert(mime_type);
                 });
             }
@@ -48,7 +48,7 @@ impl Dispatch<wl_data_source::WlDataSource, Entity> for DWay {
             wl_data_source::Request::SetActions { dnd_actions } => {
                 match dnd_actions {
                     WEnum::Value(action) => {
-                        state.with_component(resource, |c: &mut WlDataSource| {
+                        state.with_component_mut(resource, |c: &mut WlDataSource| {
                             c.dnd_action = action;
                         });
                     }

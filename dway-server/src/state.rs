@@ -12,16 +12,14 @@ use std::{
 use anyhow::anyhow;
 use bevy::{
     ecs::{
-        component::ComponentId,
         entity::EntityHashSet,
         event::EventCursor,
-        query::{QueryData, QueryEntityError, WorldQuery},
-        world::Command as _,
+        query::{QueryData, QueryEntityError, QueryItem, WorldQuery},
     },
+    platform::collections::HashMap,
     tasks::IoTaskPool,
-    utils::HashMap,
 };
-use bevy_relationship::reexport::SmallVec;
+use bevy_relationship::reexport::{Mutable, SmallVec};
 use dway_util::eventloop::{Poller, PollerGuard};
 use futures::{io::BufReader, AsyncBufReadExt, FutureExt, StreamExt};
 use wayland_backend::server::{ClientId, ObjectId};
@@ -478,7 +476,7 @@ impl DWay {
         self.world().get::<T>(DWay::get_entity(object)).unwrap()
     }
 
-    pub fn object_component_mut<T: Component>(
+    pub fn object_component_mut<T: Component<Mutability = Mutable>>(
         &mut self,
         object: &impl wayland_server::Resource,
     ) -> Mut<T> {
@@ -496,10 +494,10 @@ impl DWay {
 
     pub fn despawn(&mut self, entity: Entity) {
         if let Ok(e) = self.world_mut().get_entity_mut(entity) {
-            if let Some(parent) = e.get::<Parent>() {
+            if let Some(parent) = e.get::<ChildOf>() {
                 let parent = parent.get();
                 if let Some(children) = e.get::<Children>() {
-                    let children = children.iter().cloned().collect::<SmallVec<[Entity; 7]>>();
+                    let children = children.iter().collect::<SmallVec<[Entity; 7]>>();
                     let mut parent_entity = self.world_mut().get_entity_mut(parent).unwrap();
                     parent_entity.remove_children(&[entity]);
                     for child in children.iter() {
@@ -531,12 +529,37 @@ impl DWay {
     }
 
     pub fn with_component<T, F, R>(
-        &mut self,
+        &self,
         object: &impl wayland_server::Resource,
         f: F,
     ) -> Option<R>
     where
         T: Component,
+        F: FnOnce(&T) -> R,
+    {
+        let world = self.world();
+        let entity = Self::get_entity(object);
+        let component = world
+            .get::<T>(entity)
+            .ok_or_else(|| {
+                anyhow!(
+                    "failed to query component {} of entity {:?} ({})",
+                    type_name::<T>(),
+                    entity,
+                    object.id()
+                )
+            })
+            .ok()?;
+        Some(f(&component))
+    }
+
+    pub fn with_component_mut<T, F, R>(
+        &mut self,
+        object: &impl wayland_server::Resource,
+        f: F,
+    ) -> Option<R>
+    where
+        T: Component<Mutability = Mutable>,
         F: FnOnce(&mut T) -> R,
     {
         let world = self.world_mut();
@@ -558,7 +581,7 @@ impl DWay {
     pub fn query<B, F, R>(&mut self, entity: Entity, f: F) -> R
     where
         B: QueryData,
-        F: FnOnce(<B as WorldQuery>::Item<'_>) -> R,
+        F: FnOnce(QueryItem<'_, B>) -> R,
     {
         let world = self.world_mut();
         let mut query = world.query::<B>();
@@ -568,7 +591,7 @@ impl DWay {
     pub fn query_foreach<B, F>(&mut self, f: F)
     where
         B: QueryData,
-        F: Fn(<B as WorldQuery>::Item<'_>),
+        F: Fn(QueryItem<'_, B>),
     {
         let world = self.world_mut();
         let mut query = world.query::<B>();
@@ -580,7 +603,7 @@ impl DWay {
     pub fn try_query<B, F, R>(&mut self, entity: Entity, f: F) -> Result<R, QueryEntityError>
     where
         B: QueryData,
-        F: FnOnce(<B as WorldQuery>::Item<'_>) -> R,
+        F: FnOnce(QueryItem<'_, B>) -> R,
     {
         let world = self.world_mut();
         let mut query = world.query::<B>();
@@ -593,7 +616,7 @@ impl DWay {
         f: F,
     ) -> R
     where
-        C: Component,
+        C: Component<Mutability = Mutable>,
         F: FnOnce(&mut C) -> R,
     {
         let world = self.world_mut();
@@ -608,7 +631,7 @@ impl DWay {
     ) -> Option<R>
     where
         B: QueryData,
-        F: FnOnce(<B as WorldQuery>::Item<'_>) -> R,
+        F: FnOnce(QueryItem<'_, B>) -> R,
     {
         let world = self.world_mut();
         let entity = Self::get_entity(object);

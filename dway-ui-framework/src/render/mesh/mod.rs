@@ -234,7 +234,7 @@ pub fn extract_ui_mesh_node(
             &GlobalTransform,
             &UiMeshHandle,
             Option<&UiRenderOffset>,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
             Has<NoAutomaticBatching>,
             Option<&CalculatedClip>,
         )>,
@@ -262,7 +262,7 @@ pub fn extract_ui_mesh_node(
         }
 
         let Some(camera_entity) = target_camera
-            .map(TargetCamera::entity)
+            .map(UiTargetCamera::entity)
             .or(default_ui_camera.get())
         else {
             continue;
@@ -371,24 +371,31 @@ impl FromWorld for UiMesh2dPipeline {
             };
 
             let format_size = image.texture_descriptor.format.pixel_size();
-            render_queue.write_texture(
-                texture.as_image_copy(),
-                &image.data,
-                ImageDataLayout {
-                    offset: 0,
-                    bytes_per_row: Some(image.width() * format_size as u32),
-                    rows_per_image: None,
-                },
-                image.texture_descriptor.size,
-            );
+            if let Some(data) = &image.data {
+                render_queue.write_texture(
+                    texture.as_image_copy(),
+                    &data,
+                    TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(image.width() * format_size as u32),
+                        rows_per_image: None,
+                    },
+                    image.texture_descriptor.size,
+                );
+            }
 
+            let size = image.size();
             let texture_view = texture.create_view(&TextureViewDescriptor::default());
             GpuImage {
                 texture,
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: image.size(),
+                size: Extent3d {
+                    width: image.width() as u32,
+                    height: image.height() as u32,
+                    depth_or_array_layers: 1,
+                },
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
@@ -773,7 +780,7 @@ pub fn queue_ui_meshes<M: Material2d>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    for (entity, mesh_instance) in render_mesh_instances.iter_mut() {
+    for (index, (entity, mesh_instance)) in render_mesh_instances.iter_mut().enumerate() {
         let Some(material_asset_id) = render_material_instances.get(&mesh_instance.main_entity)
         else {
             debug!(entity =?mesh_instance.main_entity, "material is not prepared");
@@ -793,7 +800,7 @@ pub fn queue_ui_meshes<M: Material2d>(
             continue;
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&mesh_instance.camera)
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
         };
@@ -837,15 +844,14 @@ pub fn queue_ui_meshes<M: Material2d>(
         mesh_instance.material_bind_group_id = material2d.get_bind_group_id();
 
         transparent_phase.add(TransparentUi {
-            sort_key: (
-                FloatOrd(mesh_instance.stack_index as f32 + mesh_instance.zoffset),
-                entity.index(),
-            ),
+            sort_key: FloatOrd(mesh_instance.stack_index as f32 + mesh_instance.zoffset),
             entity: (*entity, MainEntity::from(mesh_instance.main_entity)),
             pipeline: pipeline_id,
             draw_function: draw_transparent_pbr,
             batch_range: 0..1,
-            extra_index: PhaseItemExtraIndex::NONE,
+            extra_index: PhaseItemExtraIndex::None,
+            index,
+            indexed: true,
         });
     }
 }
@@ -894,8 +900,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
     ) -> RenderCommandResult {
         let mut dynamic_offsets: [u32; 1] = Default::default();
         let mut offset_count = 0;
-        if let Some(dynamic_offset) = item.extra_index().as_dynamic_offset() {
-            dynamic_offsets[offset_count] = dynamic_offset.get();
+        if let PhaseItemExtraIndex::DynamicOffset(dynamic_offset) = item.extra_index() {
+            dynamic_offsets[offset_count] = dynamic_offset;
             offset_count += 1;
         }
         pass.set_bind_group(

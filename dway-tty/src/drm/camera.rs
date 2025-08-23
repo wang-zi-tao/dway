@@ -1,4 +1,9 @@
-use bevy::{prelude::*, render::camera::RenderTarget, window::WindowRef};
+use bevy::{
+    math::FloatOrd,
+    prelude::*,
+    render::camera::{ImageRenderTarget, RenderTarget},
+    window::WindowRef,
+};
 
 use super::surface::DrmSurface;
 
@@ -9,8 +14,8 @@ pub struct DrmCamera {
 }
 
 impl DrmCamera {
-    pub fn new(drm_surface_entity:Entity,drm_surface:&DrmSurface)->Self{
-        Self{
+    pub fn new(drm_surface_entity: Entity, drm_surface: &DrmSurface) -> Self {
+        Self {
             image_handle: drm_surface.image(),
             drm_surface: drm_surface_entity,
         }
@@ -25,6 +30,9 @@ pub fn before_ui_focus(mut query: Query<(&DrmCamera, &mut Camera)>) {
 
 pub fn after_ui_focus(mut query: Query<(&DrmCamera, &mut Camera)>) {
     for (drm_info, mut camera) in &mut query {
-        camera.target = RenderTarget::Image(drm_info.image_handle.clone());
+        camera.target = RenderTarget::Image(ImageRenderTarget {
+            handle: drm_info.image_handle.clone(),
+            scale_factor: FloatOrd(1.0),
+        });
     }
 }

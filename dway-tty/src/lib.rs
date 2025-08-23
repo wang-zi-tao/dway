@@ -122,7 +122,7 @@ mod test {
 
     use bevy::{
         app::{AppExit, ScheduleRunnerPlugin},
-        core::FrameCount,
+        diagnostic::FrameCount,
         log::LogPlugin,
         prelude::*,
         winit::WinitPlugin,

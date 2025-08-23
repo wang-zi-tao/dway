@@ -1,6 +1,6 @@
 use super::DesktopEntry;
 use crate::prelude::*;
-use bevy::utils::HashMap;
+use bevy::platform::collections::HashMap;
 use derive_builder::Builder;
 use std::process::{self, Command};
 

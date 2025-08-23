@@ -101,7 +101,6 @@ pub fn get_formats(render_device: &wgpu::Device) -> Option<Result<Vec<DrmFormat>
                     Ok(formats)
                 })
             })
-            .flatten()
     }
 }
 

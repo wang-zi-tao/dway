@@ -1,4 +1,4 @@
-use bevy::utils::HashMap;
+use bevy::platform::collections::HashMap;
 use smart_default::SmartDefault;
 
 structstruck::strike! {

@@ -1,4 +1,4 @@
-use bevy::{ecs::world::DeferredWorld, prelude::*};
+use bevy::{ecs::{component::Mutable, world::DeferredWorld}, prelude::*};
 use smallvec::SmallVec;
 
 use crate::ConnectableMut;
@@ -22,7 +22,7 @@ pub fn disconnect_all_owned<ThisPeer: ConnectableMut, TargetPeer: ConnectableMut
 }
 
 pub mod n_to_n {
-    use bevy::{ecs::component::StorageType, prelude::*};
+    use bevy::{ecs::component::{Mutable, StorageType}, prelude::*};
 
     use super::disconnect_all_owned;
     use crate::{relationship, Peer, Relationship};
@@ -47,20 +47,22 @@ pub mod n_to_n {
         type To = ReferenceFrom;
     }
     impl Component for Reference {
+        type Mutability = Mutable;
         const STORAGE_TYPE: StorageType = StorageType::Table;
 
         fn register_component_hooks(hooks: &mut bevy::ecs::component::ComponentHooks) {
-            hooks.on_remove(|world, entity, _componentid| {
-                disconnect_all_owned::<Reference, ReferenceFrom>(world, entity);
+            hooks.on_remove(|world, context| {
+                disconnect_all_owned::<Reference, ReferenceFrom>(world, context.entity);
             });
         }
     }
     impl Component for ReferenceFrom {
+        type Mutability = Mutable;
         const STORAGE_TYPE: StorageType = StorageType::Table;
 
         fn register_component_hooks(hooks: &mut bevy::ecs::component::ComponentHooks) {
-            hooks.on_remove(|world, entity, _componentid| {
-                crate::disconnect_all::<ReferenceFrom, Reference>(world, entity);
+            hooks.on_remove(|world, context| {
+                crate::disconnect_all::<ReferenceFrom, Reference>(world, context.entity);
             });
         }
     }
@@ -68,7 +70,7 @@ pub mod n_to_n {
 
 pub mod n_to_one {
     use bevy::{
-        ecs::component::{ComponentHooks, StorageType},
+        ecs::component::{ComponentHooks, Mutable, StorageType},
         prelude::*,
     };
 
@@ -95,21 +97,23 @@ pub mod n_to_one {
         type To = SharedReferenceFrom;
     }
     impl Component for SharedRefreence {
+        type Mutability = Mutable;
         const STORAGE_TYPE: StorageType = StorageType::Table;
 
         fn register_component_hooks(hooks: &mut ComponentHooks) {
-            hooks.on_remove(|world, entity, _componentid| {
-                disconnect_all_owned::<SharedRefreence, SharedReferenceFrom>(world, entity);
+            hooks.on_remove(|world, context| {
+                disconnect_all_owned::<SharedRefreence, SharedReferenceFrom>(world, context.entity);
             });
         }
     }
     impl Component for SharedReferenceFrom {
+        type Mutability = Mutable;
         const STORAGE_TYPE: StorageType = StorageType::Table;
 
         fn register_component_hooks(hooks: &mut ComponentHooks) {
-            hooks.on_remove(|world, entity, _componentid| {
+            hooks.on_remove(|world, context| {
                 crate::commands::disconnect_all::<SharedReferenceFrom, SharedRefreence>(
-                    world, entity,
+                    world, context.entity,
                 );
             });
         }
@@ -118,7 +122,7 @@ pub mod n_to_one {
 
 pub mod one_to_one {
     use bevy::{
-        ecs::component::{ComponentHooks, StorageType},
+        ecs::component::{ComponentHooks, Mutable, StorageType},
         prelude::*,
     };
 
@@ -145,21 +149,23 @@ pub mod one_to_one {
         type To = UniqueReferenceFrom;
     }
     impl Component for UniqueRefreence {
+        type Mutability = Mutable;
         const STORAGE_TYPE: StorageType = StorageType::Table;
 
         fn register_component_hooks(hooks: &mut ComponentHooks) {
-            hooks.on_remove(|world, entity, _componentid| {
-                disconnect_all_owned::<UniqueRefreence, UniqueReferenceFrom>(world, entity);
+            hooks.on_remove(|world, context| {
+                disconnect_all_owned::<UniqueRefreence, UniqueReferenceFrom>(world, context.entity);
             });
         }
     }
     impl Component for UniqueReferenceFrom {
+        type Mutability = Mutable;
         const STORAGE_TYPE: StorageType = StorageType::Table;
 
         fn register_component_hooks(hooks: &mut ComponentHooks) {
-            hooks.on_remove(|world, entity, _componentid| {
+            hooks.on_remove(|world, context| {
                 crate::commands::disconnect_all::<UniqueReferenceFrom, UniqueRefreence>(
-                    world, entity,
+                    world, context.entity,
                 );
             });
         }

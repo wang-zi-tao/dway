@@ -21,7 +21,7 @@ fn main() {
         .add_plugins(ShaderPlugin::<ButtonStyle>::default())
         .add_plugins(ShaderPlugin::<CheckboxStyle>::default())
         .add_plugins((
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin {
                 wait_duration: Duration::from_secs(4),
                 ..Default::default()

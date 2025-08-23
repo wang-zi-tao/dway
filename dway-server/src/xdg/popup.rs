@@ -77,7 +77,7 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
                 token: _,
             } => {
                 let Some(positioner) =
-                    state.with_component(&positioner, |c: &mut XdgPositioner| c.positioner.clone())
+                    state.with_component(&positioner, |c: &XdgPositioner| c.positioner.clone())
                 else {
                     return;
                 };

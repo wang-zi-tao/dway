@@ -13,8 +13,7 @@ use bevy::{
         io::{AssetReader, AssetReaderError, AssetSource, AsyncSeekForward, PathStream, Reader},
         meta::{AssetAction, AssetMeta},
         AssetLoader,
-    },
-    utils::{BoxedFuture, ConditionalSendFuture},
+    }, tasks::{BoxedFuture, ConditionalSendFuture},
 };
 use bevy_svg::prelude::Svg;
 use dway_util::{asset_cache::AssetCachePlugin, try_or};

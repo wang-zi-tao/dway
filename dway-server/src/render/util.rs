@@ -4,7 +4,6 @@ use std::{
     ptr::null_mut,
 };
 
-use crate::prelude::*;
 use ash::vk;
 use drm_fourcc::{DrmFourcc, UnrecognizedFourcc};
 use glow::HasContext;
@@ -12,6 +11,8 @@ use khronos_egl::{Attrib, Boolean, Int};
 use thiserror::Error;
 use wayland_backend::server::InvalidId;
 use wgpu_hal::{api::Gles, gles::AdapterContext};
+
+use crate::prelude::*;
 
 pub const LINUX_DMA_BUF_EXT: u32 = 0x3270;
 pub const WAYLAND_PLANE_WL: c_uint = 0x31D6;
@@ -123,7 +124,7 @@ pub fn get_egl_display(device: &wgpu::Device) -> Result<khronos_egl::Display> {
                 .raw_display()
                 .cloned()
                 .ok_or_else(|| DWayRenderError::DisplayNotAvailable)
-        }).ok_or(DWayRenderError::BackendIsIsInvalid)??;
+        })?;
         Ok(display)
     }
 }
@@ -173,7 +174,7 @@ pub fn with_gl<R>(
                 .egl_instance()
                 .ok_or_else(|| DWayRenderError::BackendIsNotEGL)?;
             f(context, egl, gl)
-        }).ok_or(DWayRenderError::BackendIsIsInvalid)?
+        })
     }
 }
 

@@ -7,22 +7,23 @@ use std::{
 
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
-    core::FrameCount,
     core_pipeline::core_2d::graph::{Core2d, Node2d},
+    diagnostic::FrameCount,
     ecs::system::SystemId,
+    math::FloatOrd,
     prelude::*,
     render::{
-        camera::RenderTarget,
+        camera::{ImageRenderTarget, RenderTarget},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         render_asset::RenderAssets,
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         render_resource::{
-            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d,
-            ImageCopyBuffer, ImageDataLayout, Maintain, MapMode, TextureDescriptor,
-            TextureDimension, TextureFormat, TextureUsages,
+            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, Maintain,
+            MapMode, TexelCopyBufferInfo, TexelCopyBufferLayout, TexelCopyTextureInfo,
+            TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        texture::{GpuImage},
+        texture::GpuImage,
         Render, RenderApp, RenderSet,
     },
     window::PresentMode,
@@ -162,16 +163,16 @@ impl render_graph::Node for CopyImageNode {
                 .render_device()
                 .create_command_encoder(&CommandEncoderDescriptor::default());
             let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
-                (gpu_image.size.x as usize
+                (gpu_image.size.width as usize
                     / gpu_image.texture_format.block_dimensions().0 as usize)
                     * gpu_image.texture_format.block_copy_size(None).unwrap() as usize,
             );
 
             encoder.copy_texture_to_buffer(
                 gpu_image.texture.as_image_copy(),
-                ImageCopyBuffer {
+                TexelCopyBufferInfo {
                     buffer: &image_copier.buffer,
-                    layout: ImageDataLayout {
+                    layout: TexelCopyBufferLayout {
                         offset: 0,
                         bytes_per_row: Some(
                             std::num::NonZeroU32::new(padded_bytes_per_row as u32)
@@ -181,11 +182,7 @@ impl render_graph::Node for CopyImageNode {
                         rows_per_image: None,
                     },
                 },
-                Extent3d {
-                    width: gpu_image.size.x,
-                    height: gpu_image.size.y,
-                    depth_or_array_layers: 1,
-                },
+                gpu_image.size,
             );
 
             let render_queue = world.get_resource::<RenderQueue>().unwrap();
@@ -259,14 +256,17 @@ fn start_unit_test(
             })
             .id();
         let camera_entity = commands
-            .spawn(Camera2dBundle {
-                camera: Camera {
-                    target: RenderTarget::Image(image_handle.clone()),
+            .spawn((
+                Camera2d::default(),
+                Camera {
+                    target: RenderTarget::Image(ImageRenderTarget {
+                        handle: image_handle.clone(),
+                        scale_factor: FloatOrd(1.0),
+                    }),
                     clear_color: ClearColorConfig::Custom(Color::WHITE),
                     ..Default::default()
                 },
-                ..Default::default()
-            })
+            ))
             .id();
         commands.entity(entity).insert(ImageCopier::new(
             image_handle,
@@ -278,7 +278,7 @@ fn start_unit_test(
             camera: camera_entity,
             window: window_entity,
         };
-        commands.run_system_with_input(unit_test.setup, params);
+        commands.run_system_with(unit_test.setup, params);
     }
 }
 
@@ -302,8 +302,12 @@ fn receive_image_from_buffer(
         image_copier.buffer.unmap();
 
         let gpu_image = gpu_images.get(&image_copier.src_image).unwrap();
-        let output_image =
-            image::RgbaImage::from_raw(gpu_image.size.x, gpu_image.size.y, vec).unwrap();
+        let output_image = image::RgbaImage::from_raw(
+            gpu_image.size.width as u32,
+            gpu_image.size.height as u32,
+            vec,
+        )
+        .unwrap();
         let result = if frame.0 < 64 || output_image.get_pixel(16, 16).0 != [255, 255, 255, 255] {
             None
         } else {

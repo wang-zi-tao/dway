@@ -85,22 +85,24 @@ macro_rules! relationship {
     };
     (@Component: $type:ident $peer:ident) => {
         impl $crate::reexport::Component for $type{
+            type Mutability = $crate::reexport::Mutable;
             const STORAGE_TYPE: $crate::reexport::StorageType= $crate::reexport::StorageType::Table;
 
             fn register_component_hooks(hooks: &mut $crate::reexport::ComponentHooks) {
-                hooks.on_remove(|world, entity, _componentid|{
-                    $crate::disconnect_all::<$type, $peer>(world, entity);
+                hooks.on_remove(|world, context|{
+                    $crate::disconnect_all::<$type, $peer>(world, context.entity);
                 });
             }
         }
     };
     (@Component own: $type:ident $peer:ident) => {
         impl $crate::reexport::Component for $type{
+            type Mutability = $crate::reexport::Mutable;
             const STORAGE_TYPE: $crate::reexport::StorageType= $crate::reexport::StorageType::Table;
 
             fn register_component_hooks(hooks: &mut $crate::reexport::ComponentHooks) {
-                hooks.on_remove(|world, entity, _componentid|{
-                    $crate::disconnect_all_owned::<$type, $peer>(world, entity);
+                hooks.on_remove(|world, context|{
+                    $crate::disconnect_all_owned::<$type, $peer>(world, context.entity);
                 });
             }
         }

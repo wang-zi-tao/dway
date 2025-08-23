@@ -1,7 +1,7 @@
 use std::{fmt::Debug, sync::Arc};
 
-use bevy::{app::DynEq, ecs::label::DynHash, utils::HashMap};
-use bevy_relationship::reexport::{SmallVec, StorageType};
+use bevy::{app::DynEq, ecs::{component::HookContext, label::DynHash}, platform::collections::HashMap};
+use bevy_relationship::reexport::{Mutable, SmallVec, StorageType};
 
 use crate::prelude::*;
 
@@ -46,18 +46,19 @@ impl std::hash::Hash for AnimationKey {
 }
 
 impl Component for AnimationKey {
+    type Mutability = Mutable;
     const STORAGE_TYPE: StorageType = StorageType::Table;
 
     fn register_component_hooks(hooks: &mut bevy::ecs::component::ComponentHooks) {
-        hooks.on_insert(|mut world, entity, _componentid| {
-            let key = world.entity(entity).get::<Self>().unwrap().clone();
+        hooks.on_insert(|mut world, context: HookContext| {
+            let key = world.entity(context.entity).get::<Self>().unwrap().clone();
             let mut register = world.resource_mut::<AnimationRegister>();
-            register.add(entity, key);
+            register.add(context.entity, key);
         });
-        hooks.on_remove(|mut world, entity, _componentid| {
-            let key = world.entity(entity).get::<Self>().unwrap().clone();
+        hooks.on_remove(|mut world, context: HookContext| {
+            let key = world.entity(context.entity).get::<Self>().unwrap().clone();
             let mut register = world.resource_mut::<AnimationRegister>();
-            register.remove(entity, &key);
+            register.remove(context.entity, &key);
         });
     }
 }

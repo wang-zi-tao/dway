@@ -1,7 +1,8 @@
 use bevy::{
+    math::FloatOrd,
     prelude::*,
     render::{
-        camera::{RenderTarget, ScalingMode},
+        camera::{ImageRenderTarget, RenderTarget, ScalingMode},
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
@@ -197,7 +198,7 @@ pub fn prepare_render_command(
                     0.0,
                 ));
 
-                let projection = OrthographicProjection {
+                let projection = Projection::Orthographic(OrthographicProjection {
                     far: 32.,
                     near: -32.,
                     scaling_mode: ScalingMode::Fixed {
@@ -205,21 +206,20 @@ pub fn prepare_render_command(
                         height: node_size.y,
                     },
                     ..OrthographicProjection::default_2d()
-                };
+                });
                 let camera_entity = commands
                     .spawn((
-                        Camera2dBundle {
-                            camera: Camera {
-                                order: -(render_area.alloc_count as isize),
-                                target: RenderTarget::Image(handle),
-                                ..default()
-                            },
-                            camera_2d: Camera2d,
-                            projection,
-                            transform,
+                        Camera {
+                            order: -(render_area.alloc_count as isize),
+                            target: RenderTarget::Image(ImageRenderTarget {
+                                handle,
+                                scale_factor: FloatOrd(1.0),
+                            }),
                             ..default()
                         },
-                        // UiCameraConfig { show_ui: false }, TODO
+                        Camera2d::default(),
+                        projection,
+                        transform,
                         CanvasCamera { canvas: entity },
                     ))
                     .id();
@@ -243,7 +243,7 @@ pub enum UiCanvasSystems {
 
 #[derive(Bundle, Default)]
 pub struct UiCanvasBundle {
-    image: ImageBundle,
+    image: ImageNode,
     canvas: UiCanvas,
 }
 

@@ -1,4 +1,4 @@
-use bevy::ecs::{component::ComponentId, world::DeferredWorld};
+use bevy::ecs::{component::HookContext, world::DeferredWorld};
 
 use crate::prelude::*;
 
@@ -25,7 +25,8 @@ impl UiTextArea {
     }
 }
 
-pub fn on_insert_text_area(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+pub fn on_insert_text_area(mut world: DeferredWorld, context: HookContext) {
+    let entity = context.entity;
     let textarea = world.get_mut::<UiTextArea>(entity).unwrap();
     let text_color = textarea.color;
     let font_size = textarea.font_size;

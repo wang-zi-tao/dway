@@ -12,7 +12,6 @@ members = [
     "bevy-relationship",
     "bevy-relationship-derive",
     "dway-util", 
-    "dway-server-test/dway-test-client",
 ]
 
 [workspace.dependencies]
@@ -69,15 +68,16 @@ proc-macro2 = "1.0"
 syn_derive = "0.1.8"
 derive-syn-parse = "0.1.5"
 
-bevy_framepace = "0.18"
-bevy_mod_debugdump = { version="0.12" }
-bevy_prototype_lyon = "0.13"
-bevy-trait-query = {version="0.7", features=[]}
-bevy_svg = {version="0.15", default-features = false, features=["2d"]}
+bevy_framepace = "0.19"
+bevy_mod_debugdump = { version="0.13" }
+bevy_prototype_lyon = { git = "https://github.com/rparrett/bevy_prototype_lyon", branch = "fix-dynamic-examples" }
+bevy-trait-query = {version="0.16", features=[]}
+bevy_svg = {version="0.16.0-rc1"}
+bevy-inspector-egui = { version="0.33", default-features=false, features = ["bevy_render", "highlight_changes"]}
 
-wgpu={version="23",features=["angle"]}
-wgpu-hal={version="23",features=["gles"]}
-glow = {version="0.14"}
+wgpu={version="24",features=["angle"]}
+wgpu-hal={version="24",features=["gles"]}
+glow = {version="0.16"}
 khronos-egl = { version="6",features= ["dynamic","static"] }
 ash = { version = "0.38", features = [] }
 drm-fourcc = "2.2.0"
@@ -89,10 +89,8 @@ wayland-protocols = { version = "0.32.8", features = ["unstable", "staging", "se
 wayland-protocols-wlr = { version = "0.3.8", features = ["server"]}
 wayland-protocols-misc = { version="0.3.8", features = ["server"]}
 
-bevy-inspector-egui = { version="0.29", default-features=false, features = ["bevy_render", "highlight_changes"]}
-
 [workspace.dependencies.bevy]
-version = "0.15.2"
+version = "0.16.1"
 default-features = false
 features = [
   "bevy_color",
@@ -128,28 +126,28 @@ features = [
 ]
 
 [patch.crates-io]
-bevy_svg = { git="https://github.com/wang-zi-tao/bevy_svg.git", branch = "main" }
-bevy = {git="https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2"}
-bevy_log = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_pbr = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_core = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_app = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_utils = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_asset = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_core_pipeline = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_derive = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_ecs = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_math = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_reflect = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_render = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_transform = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_window = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_winit = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_hierarchy = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_color = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_image = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_diagnostic = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_time = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_state = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_input = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
-bevy_picking = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_svg = { path="../bevy_svg/" }
+# bevy = {git="https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2"}
+# bevy_log = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_pbr = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_core = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_app = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_utils = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_asset = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_core_pipeline = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_derive = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_ecs = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_math = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_reflect = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_render = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_transform = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_window = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_winit = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_hierarchy = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_color = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_image = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_diagnostic = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_time = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_state = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_input = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+# bevy_picking = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }

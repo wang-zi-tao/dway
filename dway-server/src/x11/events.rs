@@ -382,7 +382,7 @@ pub fn dispatch_x11_events(
         .map(|e| e.0)
         .collect::<EntityHashSet>();
     let display_list = world
-        .query::<(Entity, &XWaylandDisplayWrapper, &Parent)>()
+        .query::<(Entity, &XWaylandDisplayWrapper, &ChildOf)>()
         .iter_many(world, display_entity_list)
         .map(|(entity, display, parent)| (entity, display.clone(), parent.get()))
         .collect::<Vec<_>>();

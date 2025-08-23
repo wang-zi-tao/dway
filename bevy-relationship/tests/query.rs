@@ -1,4 +1,4 @@
-use bevy::{app::ScheduleRunnerPlugin, ecs::system::BoxedSystem, prelude::*, utils::HashSet};
+use bevy::{app::ScheduleRunnerPlugin, ecs::system::BoxedSystem, prelude::*, platform::collections::HashSet};
 use bevy_relationship_derive::graph_query2;
 
 use bevy_relationship::{relationship, AppExt, ControlFlow, EntityCommandsExt};
@@ -456,7 +456,7 @@ fn test_query_children() {
 #[test]
 fn test_query_edge_expr() {
     graph_query2! {
-        QueryNode=>path=match (node0:(Entity,&Children))-[(node0.1.iter().cloned())]->(node1:Entity)
+        QueryNode=>path=match (node0:(Entity,&Children))-[(node0.1.iter())]->(node1:Entity)
     }
     test_suit(Box::new(IntoSystem::into_system(
         move |graph: QueryNode| {
@@ -480,7 +480,7 @@ fn test_query_edge_lambda() {
         move |graph: QueryNode| {
             let mut ops = HashSet::new();
             let r = graph.foreach_path(
-                |(_n0, children)| children.iter().cloned().collect::<Vec<_>>(),
+                |(_n0, children)| children.iter().collect::<Vec<_>>(),
                 |(n0, _children), n1| {
                     ops.insert((n0.index(), n1.index()));
                     ControlFlow::<()>::Continue

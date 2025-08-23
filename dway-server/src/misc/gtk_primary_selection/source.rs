@@ -39,7 +39,7 @@ impl Dispatch<gtk_primary_selection_source::GtkPrimarySelectionSource, Entity> f
 
         match request {
             gtk_primary_selection_source::Request::Offer { mime_type } => {
-                state.with_component(resource, |c: &mut GtkPrimarySelectionSource| {
+                state.with_component_mut(resource, |c: &mut GtkPrimarySelectionSource| {
                     c.mime_types.insert(mime_type);
                 });
             }

@@ -2,8 +2,10 @@ use std::{
     collections::VecDeque,
     sync::{Arc, Mutex},
 };
+
 use dway_util::eventloop::PollerRawGuard;
 use wayland_backend::server::{ClientId, DisconnectReason};
+
 use crate::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -46,6 +48,7 @@ impl wayland_backend::server::ClientData for ClientData {
     fn initialized(&self, client: ClientId) {
         info!(entity=?self.entity, ?client, "client connected");
     }
+
     fn disconnected(&self, client: ClientId, reason: DisconnectReason) {
         info!(entity=?self.entity, ?client, ?reason, "client disconnected");
         self.queue
@@ -72,7 +75,9 @@ pub fn clean_client(
     while let Some(event) = queue.pop_front() {
         match event {
             ClientEvent::Destroyed { entity, .. } => {
-                if let Some(c) = commands.get_entity(entity) { c.despawn_recursive() }
+                if let Ok(mut c) = commands.get_entity(entity) {
+                    c.despawn()
+                }
                 events_writer.send(Destroy::new(entity));
             }
         }

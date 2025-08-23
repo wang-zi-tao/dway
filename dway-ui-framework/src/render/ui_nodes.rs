@@ -16,6 +16,7 @@ use bevy::{
         },
     },
     math::FloatOrd,
+    platform::collections::HashMap,
     render::{
         globals::GlobalsBuffer,
         render_asset::{RenderAssetPlugin, RenderAssets},
@@ -34,7 +35,6 @@ use bevy::{
         Extract, Render, RenderApp, RenderSet,
     },
     ui::{stack_z_offsets, PreparedUiMaterial, TransparentUi, UiMaterialPipeline},
-    utils::HashMap,
 };
 use bytemuck::{Pod, Zeroable};
 
@@ -150,23 +150,22 @@ pub fn extract_ui_nodes<M: UiMaterial>(
             Ref<ViewVisibility>,
             Ref<MaterialNode<M>>,
             Option<Ref<CalculatedClip>>,
-            Option<Ref<TargetCamera>>,
+            Option<Ref<UiTargetCamera>>,
         )>,
     >,
     mut extracted_node_query: Query<(&mut ExtractedNode, &mut ExtractedUntypedMaterial)>,
     mut node_index: ResMut<NodeIndex>,
     mut removed_node: Extract<RemovedComponents<Node>>,
     mut removed_clip: Extract<RemovedComponents<CalculatedClip>>,
-    mut removed_target_camera: Extract<RemovedComponents<TargetCamera>>,
+    mut removed_target_camera: Extract<RemovedComponents<UiTargetCamera>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     render_entity_lookup: Extract<Query<RenderEntity>>,
     mut commands: Commands,
 ) {
     let default_ui_camera = default_ui_camera.get();
-    let entity_with_removed_component = removed_clip
-        .read()
-        .chain(removed_target_camera.read())
-        .collect::<EntityHashSet>();
+    let entity_with_removed_component =
+        Iterator::chain(removed_clip.read(), removed_target_camera.read())
+            .collect::<EntityHashSet>();
 
     for node_entity in removed_node.read() {
         if let Some(node) = node_index.remove(&(TypeId::of::<M>(), MainEntity::from(node_entity))) {
@@ -302,7 +301,7 @@ pub fn queue_ui_nodes<M: UiMaterial<Data = ()>>(
 ) {
     let draw_function = draw_functions.read().id::<DrawUiMaterial<M>>();
 
-    for (render_entity, extracted_uinode, extracted_material) in query.iter() {
+    for (index, (render_entity, extracted_uinode, extracted_material)) in query.iter().enumerate() {
         let main_entity = extracted_uinode.main_entity;
         let asset_id = extracted_material.asset_id;
 
@@ -310,7 +309,8 @@ pub fn queue_ui_nodes<M: UiMaterial<Data = ()>>(
             continue;
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -319,7 +319,7 @@ pub fn queue_ui_nodes<M: UiMaterial<Data = ()>>(
             &ui_material_pipeline,
             UiMaterialKey {
                 hdr: view.hdr,
-                sample_count: msaa.samples() as i8,
+                // sample_count: msaa.samples() as i8,
                 bind_group_data: (),
             },
         );
@@ -328,12 +328,11 @@ pub fn queue_ui_nodes<M: UiMaterial<Data = ()>>(
             draw_function,
             pipeline: specialized_pipeline,
             entity: (render_entity, MainEntity::from(*main_entity)),
-            sort_key: (
-                FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
-                render_entity.index(),
-            ),
+            sort_key: FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
             batch_range: 0..0,
-            extra_index: PhaseItemExtraIndex::NONE,
+            extra_index: PhaseItemExtraIndex::None,
+            index,
+            indexed: true,
         });
     }
 }

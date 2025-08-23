@@ -6,13 +6,11 @@ use bevy::{
 };
 use bevy_prototype_lyon::{
     draw::{Fill, Stroke},
-    entity::Path,
-    path::PathBuilder,
 };
 use bevy_svg::prelude::{FillOptions, StrokeOptions};
 use chrono::Timelike;
 use dway_ui_derive::color;
-use dway_ui_framework::{widgets::shape::UiShapeBundle, UiFrameworkPlugin};
+use dway_ui_framework::UiFrameworkPlugin;
 
 fn main() {
     App::new()

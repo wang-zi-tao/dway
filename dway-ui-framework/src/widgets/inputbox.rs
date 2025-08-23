@@ -1,9 +1,7 @@
 use std::cmp::Ordering;
 
 use bevy::{
-    ecs::system::EntityCommands,
-    input::keyboard::Key,
-    text::TextLayoutInfo,
+    ecs::system::EntityCommands, input::keyboard::Key, text::TextLayoutInfo,
     ui::RelativeCursorPosition,
 };
 use bevy_trait_query::RegisterExt;
@@ -68,7 +66,7 @@ structstruck::strike! {
     #[dway_widget_prop]
     #[derive(SmartDefault, Builder)]
     #[require(RelativeCursorPosition, Interaction, UiInputBoxEventDispatcher, UiInput)]
-    #[require(ThemeComponent(||ThemeComponent::widget(WidgetKind::Inputbox)))]
+    #[require(ThemeComponent=ThemeComponent::widget(WidgetKind::Inputbox))]
     #[strikethrough[derive(Debug, Clone, Reflect)]]
     pub struct UiInputBox{
         pub placeholder: String,
@@ -350,8 +348,11 @@ fn on_input_event(
 
 impl EventReceiver<UiInputEvent> for UiInputBox {
     fn on_event(&self, mut commands: EntityCommands, event: UiInputEvent) {
-        commands.queue(|entity: Entity, world: &mut World| {
-            world.run_system_cached_with(on_input_event, UiEvent::new(entity, entity, event));
+        commands.queue(|mut entity: EntityWorldMut| {
+            let entity_id = entity.id();
+            entity
+                .into_world_mut()
+                .run_system_cached_with(on_input_event, UiEvent::new(entity_id, entity_id, event));
         });
     }
 }

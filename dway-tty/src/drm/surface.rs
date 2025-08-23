@@ -483,7 +483,7 @@ mod test {
         app.add_systems(
             PostUpdate,
             |device_query: Query<(&DrmDevice, &GbmDevice)>,
-             surface_query: Query<(&DrmSurface, &Parent)>| {
+             surface_query: Query<(&DrmSurface, &ChildOf)>| {
                 for (surface, parent) in surface_query.iter() {
                     let (drm, gbm) = device_query.get(parent.get()).unwrap();
                     let surface_guard = surface.inner.lock().unwrap();

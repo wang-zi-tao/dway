@@ -14,7 +14,7 @@ use bevy::{
     app::{AppExit, MainScheduleOrder},
     ecs::schedule::{ExecutorKind, ScheduleLabel},
     prelude::*,
-    utils::HashMap,
+    platform::collections::HashMap,
     winit::WakeUp,
 };
 use nix::sys::{

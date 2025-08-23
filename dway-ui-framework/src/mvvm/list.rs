@@ -111,7 +111,7 @@ impl ViewLayouter<usize> for ListViewLayout {
         self.items[&index].clone()
     }
 
-    fn remove(&mut self, entiy: EntityCommands, index: usize) {
+    fn remove(&mut self, mut entiy: EntityCommands, index: usize) {
         self.items.remove(&index);
         entiy.despawn_recursive();
     }

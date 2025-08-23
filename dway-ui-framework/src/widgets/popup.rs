@@ -41,9 +41,9 @@ impl<T: EventReceiver<UiNodeAppearEvent>> EventReceiver<UiPopupEvent> for T {
 structstruck::strike! {
     #[derive(Component, Reflect, SmartDefault, Clone, Debug, Builder)]
     #[builder(default)]
-    #[require(RelativeCursorPosition, UiPopupEventDispatcher)]
-    #[require(FocusPolicy(||FocusPolicy::Block))]
-    #[require(ThemeComponent(||ThemeComponent::widget(WidgetKind::BlurBackground)))]
+    #[require(Node, RelativeCursorPosition, UiPopupEventDispatcher)]
+    #[require(FocusPolicy=FocusPolicy::Block)]
+    #[require(ThemeComponent=ThemeComponent::widget(WidgetKind::BlurBackground))]
     pub struct UiPopup {
         pub close_policy:
             #[derive(Debug, Clone, Copy, Reflect, Default, PartialEq, Eq)]
@@ -158,7 +158,7 @@ make_bundle! {
 }
 
 impl EventReceiver<AnimationEvent> for UiPopup {
-    fn on_event(&self, commands: EntityCommands, event: AnimationEvent) {
+    fn on_event(&self, mut commands: EntityCommands, event: AnimationEvent) {
         if self.state == PopupState::Closed && event.just_finish {
             commands.despawn_recursive();
         }

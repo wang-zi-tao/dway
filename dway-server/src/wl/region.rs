@@ -158,7 +158,7 @@ impl wayland_server::Dispatch<wl_region::WlRegion, bevy::prelude::Entity, DWay> 
                 width,
                 height,
             } => {
-                state.with_component(resource, |c: &mut WlRegion| {
+                state.with_component_mut(resource, |c: &mut WlRegion| {
                     c.add(RegionOperator::Add, IRect::new(x, y, width, height))
                 });
             }
@@ -168,7 +168,7 @@ impl wayland_server::Dispatch<wl_region::WlRegion, bevy::prelude::Entity, DWay> 
                 width,
                 height,
             } => {
-                state.with_component(resource, |c: &mut WlRegion| {
+                state.with_component_mut(resource, |c: &mut WlRegion| {
                     c.add(RegionOperator::Sub, IRect::new(x, y, width, height))
                 });
             }

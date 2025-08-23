@@ -1,4 +1,4 @@
-use bevy::utils::HashSet;
+use bevy::platform::collections::HashSet;
 use wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection_source_v1::{
     self, ZwpPrimarySelectionSourceV1,
 };
@@ -36,7 +36,7 @@ impl Dispatch<ZwpPrimarySelectionSourceV1, Entity> for DWay {
         debug!("request {:?}", &request);
         match request {
             zwp_primary_selection_source_v1::Request::Offer { mime_type } => {
-                state.with_component(resource, |c: &mut PrimarySelectionSource| {
+                state.with_component_mut(resource, |c: &mut PrimarySelectionSource| {
                     c.mime_types.insert(mime_type);
                 });
             }

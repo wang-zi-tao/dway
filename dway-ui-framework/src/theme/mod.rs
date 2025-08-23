@@ -6,9 +6,8 @@ use std::{any::TypeId, fmt::Debug, hash::Hash, sync::Arc};
 use bevy::{
     app::DynEq,
     ecs::{
-        component::ComponentId, label::DynHash, query::QueryData, world::{Command, DeferredWorld}
-    },
-    utils::HashMap,
+        component::{ComponentId, HookContext}, label::DynHash, query::QueryData, world::DeferredWorld
+    }, platform::collections::HashMap,
 };
 use bevy_svg::prelude::Svg;
 use bitflags::bitflags;
@@ -255,7 +254,7 @@ impl Plugin for ThemePlugin {
                 ("panel:hover".to_string(), color!("#ffffff")),
                 ("panel:clicked".to_string(), color!("#D8DEE9")),
                 ("panel-popup".to_string(), Color::WHITE.with_alpha(0.5)),
-                ("panel-popup1".to_string(), Color::rgba(0.9, 0.9, 0.9, 0.5)),
+                ("panel-popup1".to_string(), Color::srgba(0.9, 0.9, 0.9, 0.5)),
                 ("panel-popup:hover".to_string(), color!("#ffffff")),
                 ("panel-popup:clicked".to_string(), color!("#D8DEE9")),
                 ("panel-foreground".to_string(), color!("#1b1d1e")),
@@ -434,7 +433,8 @@ impl DefaultTextTheme {
         Self { size }
     }
 
-    fn on_insert_text(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+    fn on_insert_text(mut world: DeferredWorld, context: HookContext) {
+        let entity = context.entity;
         let theme = world.resource::<Theme>();
         let font = theme.default_font();
         let color = theme.default_text_color();

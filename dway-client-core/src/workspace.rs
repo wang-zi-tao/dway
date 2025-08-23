@@ -28,7 +28,7 @@ pub fn on_new_workspace(
     trigger: Trigger<OnInsert, Workspace>,
     mut workspace_manager: ResMut<WorkspaceManager>,
 ) {
-    workspace_manager.workspaces.push(trigger.entity());
+    workspace_manager.workspaces.push(trigger.target());
 }
 pub fn on_destroy_workspace(
     trigger: Trigger<OnRemove, Workspace>,
@@ -36,7 +36,7 @@ pub fn on_destroy_workspace(
 ) {
     workspace_manager
         .workspaces
-        .retain(|e| *e != trigger.entity());
+        .retain(|e| *e != trigger.target());
 }
 
 graph_query2! { FocusedWindowGraph=>
@@ -102,17 +102,17 @@ pub fn resolve_workspace_request(
                     .disconnect_all::<ScreenAttachWorkspace>();
             }
             commands
-                .entity(trigger.entity())
+                .entity(trigger.target())
                 .connect_from::<ScreenAttachWorkspace>(*screen);
             if let Ok([screen_geo, mut workspace_geo]) =
-                geometry_query.get_many_mut([*screen, trigger.entity()])
+                geometry_query.get_many_mut([*screen, trigger.target()])
             {
                 *workspace_geo = screen_geo.clone();
             };
         }
         WorkspaceRequest::LeaveScreen { screen } => {
             commands
-                .entity(trigger.entity())
+                .entity(trigger.target())
                 .disconnect_from::<ScreenAttachWorkspace>(*screen);
         }
         WorkspaceRequest::AttachWindow { window, unique } => {
@@ -123,12 +123,12 @@ pub fn resolve_workspace_request(
             }
             commands
                 .entity(*window)
-                .connect_to::<WindowOnWorkspace>(trigger.entity());
+                .connect_to::<WindowOnWorkspace>(trigger.target());
         }
         WorkspaceRequest::RemoveWindow { window } => {
             commands
                 .entity(*window)
-                .disconnect_to::<WindowOnWorkspace>(trigger.entity());
+                .disconnect_to::<WindowOnWorkspace>(trigger.target());
         }
         WorkspaceRequest::UpdateWorkspace => {}
     }
@@ -181,7 +181,7 @@ pub fn attach_window_to_workspace(
         .map(|l| l.is_empty())
         .unwrap_or(true)
     {
-        if let Ok(workspace_list) = screen_query.get(trigger.entity()) {
+        if let Ok(workspace_list) = screen_query.get(trigger.target()) {
             for workspace in workspace_list.iter() {
                 let Ok(workspace_rect) = geo_query.get(workspace) else {
                     warn!(entity=?workspace, "the workspace has no GlobalGeometry");
@@ -209,7 +209,7 @@ pub fn on_add_screen(
     >,
     mut commands: Commands,
 ) {
-    if let Ok((screen_entity, screen_geo)) = screen_query.get(trigger.entity()) {
+    if let Ok((screen_entity, screen_geo)) = screen_query.get(trigger.target()) {
         for (workspace_entity, workspace, mut workspace_geo) in workspace_query.iter_mut() {
             if workspace.no_screen && !workspace.hide {
                 commands.queue(ConnectCommand::<ScreenAttachWorkspace>::new(

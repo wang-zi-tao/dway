@@ -7,33 +7,38 @@ pub trait DestroyInterceptor {
     fn apply(&self, entity: &EntityRef, commands: Commands) -> bool;
 }
 
-pub fn destroy_ui(entity: Entity, world: &mut World) {
+pub fn destroy_ui(entity: EntityWorldMut) {
+    let entity_id = entity.id();
+    let world = entity.into_world_mut();
     let mut param = SystemState::<(Query<&dyn DestroyInterceptor>, Commands)>::new(world);
     let (query, mut commands) = param.get_manual(world);
 
-    let Ok(entity_ref) = world.get_entity(entity) else {
+    let Ok(entity_ref) = world.get_entity(entity_id) else {
         return;
     };
 
     let mut despawn = true;
-    for component in query.get(entity).ok().iter().flatten() {
+    for component in query.get(entity_id).ok().iter().flatten() {
         if component.apply(&entity_ref, commands.reborrow()) {
             despawn = false;
         }
     }
 
     if despawn {
-        if let Ok(entity_mut) = world.get_entity_mut(entity) {
-            entity_mut.despawn_recursive();
+        if let Ok(entity_mut) = world.get_entity_mut(entity_id) {
+            entity_mut.despawn();
         }
     }
 }
-pub fn destroy_children_ui(entity: Entity, world: &mut World) {
-    let Some(children) = world.get::<Children>(entity) else {
+
+pub fn destroy_children_ui(entity: EntityWorldMut) {
+    let entity_id = entity.id();
+    let world = entity.into_world_mut();
+    let Some(children) = world.get::<Children>(entity_id) else {
         return;
     };
-    let children_vec = children.iter().cloned().collect::<Vec<_>>();
+    let children_vec = children.iter().collect::<Vec<_>>();
     for child in children_vec {
-        destroy_ui(child, world);
+        destroy_ui(world.entity_mut(child));
     }
 }

@@ -74,7 +74,7 @@ impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
                     icon_emtity_mut.insert(DragIcon);
                 }
 
-                let seat_entity = state.get::<Parent>(*data).unwrap().get();
+                let seat_entity = state.get::<ChildOf>(*data).unwrap().get();
 
                 let surface_entity = DWay::get_entity(&origin);
                 if let Some(mut surface_grab) =

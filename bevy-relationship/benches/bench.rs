@@ -5,7 +5,7 @@ use bevy::{
     app::ScheduleRunnerPlugin,
     ecs::{
         system::RunSystemOnce,
-        world::Command,
+        prelude::Command,
     },
     prelude::*,
 };

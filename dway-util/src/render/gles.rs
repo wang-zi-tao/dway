@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{log::debug, prelude::*};
 use glow::{HasContext, NativeTexture, PixelPackData};
 use image::{ImageBuffer, Rgba, RgbaImage};
 use wgpu::Texture;
@@ -21,7 +21,7 @@ pub fn get_gpu_image(texture: &Texture, image: NativeTexture, gl: &glow::Context
             texture.height() as i32,
             ImageFormat::from_wgpu(format).unwrap().gles_format,
             glow::UNSIGNED_BYTE,
-            glow::PixelPackData::Slice(&mut buffer),
+            glow::PixelPackData::Slice(Some(&mut buffer)),
         );
         gl.bind_texture(glow::TEXTURE_2D, None);
     }
@@ -48,7 +48,7 @@ pub fn debug_output_texture(name: &str, gl: &glow::Context, texture: NativeTextu
             size.y,
             glow::RGBA,
             glow::UNSIGNED_BYTE,
-            PixelPackData::Slice(&mut buffer[..]),
+            PixelPackData::Slice(Some(&mut buffer[..])),
         );
         gl.bind_texture(glow::TEXTURE_2D, None);
         gl.bind_framebuffer(glow::FRAMEBUFFER, None);
