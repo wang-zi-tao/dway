@@ -2,18 +2,13 @@ use dway_client_core::{desktop::FocusedWindow, model::apps::AppListModel};
 use dway_server::apps::{
     icon::LinuxIcon, launchapp::LaunchAppRequest, DesktopEntriesSet, DesktopEntry, WindowList,
 };
-use dway_ui_framework::{
-    animation::translation::{UiTranslationAnimation, UiTranslationAnimationExt},
-    util::DwayUiDirection,
-};
 use event::make_callback;
 use indexmap::IndexSet;
-use widgets::button::{UiButtonEventDispatcher, UiRawButtonBundle};
+use widgets::button::UiButtonEventDispatcher;
 
-use super::icon::{UiIcon, UiIconBundle};
 use crate::{
     popups::app_window_preview::{AppWindowPreviewPopup, AppWindowPreviewPopupBundle},
-    prelude::*,
+    prelude::*, widgets::icon::UiIcon,
 };
 
 #[derive(Component, Reflect)]
@@ -41,12 +36,9 @@ fn click_app(
         let ctrl = key_input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
         if *state.count() > 0 && !ctrl {
             commands.spawn((
-                UiPopupBundle::default(),
-                UiTranslationAnimationExt {
-                    translation: UiTranslationAnimation::new(DwayUiDirection::BOTTOM),
-                    target_style: style!("absolute bottom-52 align-self:center").clone().into(),
-                    ..Default::default()
-                },
+                UiPopup::default(),
+                UiTranslationAnimation::new(DwayUiDirection::BOTTOM),
+                AnimationTargetNodeState(style!("absolute bottom-52 align-self:center").clone()),
             )).with_children(|c|{
                 c.spawn(( AppWindowPreviewPopup{app:widget.data_entity}, style!("h-auto w-auto") ));
             }).set_parent(widget.node_popup_entity);
@@ -70,7 +62,7 @@ fn click_app(
     }
 }
 @global(assets_server: AssetServer)
-<MaterialNodeBundle::<RoundedUiRectMaterial> @id="List"
+<MaterialNode::<RoundedUiRectMaterial> @id="List"
     @for_query(mut(window_list,entry) in Query<(Option<Ref<WindowList>>,Ref<DesktopEntry>)>::iter_many(state.app_entitys().iter().cloned())=>[
         entry=>{if let Some(icon_url)=entry.icon_url(48){ state.set_icon(assets_server.load(icon_url)); }},
 
@@ -79,23 +71,23 @@ fn click_app(
                 state.set_count(window_list.map(|l|l.len()).unwrap_or(0));
             }
         }) >
-    <NodeBundle @id="app_root"
+    <Node @id="app_root"
         @state_component(#[derive(Debug)])
         @use_state(pub count:usize) @use_state(pub icon:Handle<LinuxIcon>) @use_state(pub is_focused:bool)
         @arg(focused_window: ResMut<FocusedWindow> => { state.set_is_focused(focused_window.app_entity == Some(widget.data_entity)); }) >
-        <MiniNodeBundle @style="w-48 h-48 m-4 flex-col" @id="app_rect"
+        <Node @style="w-48 h-48 m-4 flex-col" @id="app_rect"
             @handle(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_alpha(0.4), 10.0)) >
-            <UiRawButtonBundle @id="button" @style="absolute full flex-col"
+            <UiButton NoTheme=(default()) @id="button" @style="absolute full flex-col"
                 UiButtonEventDispatcher=(make_callback(node!(app_root), click_app)) >
-                <UiIconBundle @id="app_icon" @style="w-full h-full" UiIcon=(state.icon().clone().into()) @id="app_icon" />
-                <NodeBundle @id="focus_mark" Node=(Node{
+                <(UiIcon::from(state.icon().clone())) @id="app_icon" @style="w-full h-full" @id="app_icon" />
+                <Node @id="focus_mark" Node=(Node{
                         width:Val::Percent(((*state.count() as f32)/4.0).min(1.0)*80.0),
                     ..style!("absolute bottom-0 h-2 align-center")})
                     BackgroundColor=((if *state.is_focused() {color!("#0000ff")} else {Color::WHITE} ).into())
                 />
-            </UiRawButtonBundle>
-            <MiniNodeBundle @id="popup" @style="absolute full flex-col" />
+            </UiButton>
+            <Node @id="popup" @style="absolute full flex-col" />
         </>
-    </NodeBundle>
+    </Node>
 </>
 }

@@ -10,7 +10,6 @@ use crate::{
         AnimationEvent,
     },
     event::{make_callback, EventReceiver, UiNodeAppearEvent},
-    make_bundle,
     prelude::*,
     theme::{ThemeComponent, WidgetKind},
 };
@@ -137,30 +136,16 @@ pub fn update_popup(
                 }
             }
             if popup.state == PopupState::Closed && popup.auto_destroy {
-                commands.entity(entity).despawn_recursive();
+                commands.entity(entity).despawn();
             };
         }
-    }
-}
-
-make_bundle! {
-    @from popup: UiPopup,
-    @addon UiPopupExt,
-    UiPopupBundle {
-        pub popup: UiPopup,
-        pub relative_cursor: RelativeCursorPosition,
-        #[default(FocusPolicy::Block)]
-        pub focus_policy: FocusPolicy,
-        #[default(ThemeComponent::widget(WidgetKind::BlurBackground))]
-        pub theme: ThemeComponent,
-        pub event_dispatcher: UiPopupEventDispatcher,
     }
 }
 
 impl EventReceiver<AnimationEvent> for UiPopup {
     fn on_event(&self, mut commands: EntityCommands, event: AnimationEvent) {
         if self.state == PopupState::Closed && event.just_finish {
-            commands.despawn_recursive();
+            commands.despawn();
         }
     }
 }

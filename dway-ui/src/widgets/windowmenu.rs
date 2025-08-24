@@ -1,6 +1,3 @@
-use dway_ui_framework::{
-    animation::translation::UiTranslationAnimationExt, widgets::button::UiRawButtonBundle,
-};
 use widgets::{button::UiButtonEventDispatcher, text::UiTextBundle};
 
 pub use crate::prelude::*;
@@ -53,17 +50,17 @@ WindowMenu=>
     }
 }
 @global(theme: Theme)
-<MiniNodeBundle @style="flex-col">
-    <UiRawButtonBundle UiButtonEventDispatcher=(make_callback(prop.window_entity, on_close_button_event))>
+<Node @style="flex-col">
+    <UiButton NoTheme=(default()) UiButtonEventDispatcher=(make_callback(prop.window_entity, on_close_button_event))>
         <(UiTextBundle::new("close", 32, &theme))/>
-    </UiRawButtonBundle>
-    <UiRawButtonBundle UiButtonEventDispatcher=(make_callback(prop.window_entity, on_maximize_button_event))>
+    </UiButton>
+    <UiButton NoTheme=(default()) UiButtonEventDispatcher=(make_callback(prop.window_entity, on_maximize_button_event))>
         <(UiTextBundle::new("maximize", 32, &theme))/>
-    </UiRawButtonBundle>
-    <UiRawButtonBundle UiButtonEventDispatcher=(make_callback(prop.window_entity, on_minimize_button_event))>
+    </UiButton>
+    <UiButton NoTheme=(default()) UiButtonEventDispatcher=(make_callback(prop.window_entity, on_minimize_button_event))>
         <(UiTextBundle::new("minimize", 32, &theme))/>
-    </UiRawButtonBundle>
-</MiniNodeBundle>
+    </UiButton>
+</Node>
 }
 
 pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
@@ -71,11 +68,9 @@ pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
         let style = style!("absolute justify-items:center top-36 align-self:end p-8");
         commands
             .spawn((
-                UiPopupBundle::default(),
-                UiTranslationAnimationExt {
-                    target_style: style.clone().into(),
-                    ..Default::default()
-                },
+                UiPopup::default(),
+                UiTranslationAnimation::default(),
+                AnimationTargetNodeState(style.clone()),
             ))
             .with_children(|c| {
                 c.spawn((WindowMenu::default(), style!("h-auto w-auto")));

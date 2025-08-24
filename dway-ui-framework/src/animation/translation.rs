@@ -7,13 +7,13 @@ use crate::{
     },
     command::DestroyInterceptor,
     event::{EventReceiver, UiNodeAppearEvent},
-    make_bundle,
     prelude::*,
     util::DwayUiDirection,
 };
 
 structstruck::strike! {
     #[derive(Component, SmartDefault)]
+    #[require(Animation)]
     pub struct UiTranslationAnimation {
         #[default(DwayUiDirection::TOP)]
         pub direction: DwayUiDirection,
@@ -115,15 +115,5 @@ impl DestroyInterceptor for UiTranslationAnimation {
     fn apply(&self, entity: &EntityRef, mut commands: Commands) -> bool {
         self.on_event(commands.entity(entity.id()), UiNodeAppearEvent::Disappear);
         true
-    }
-}
-
-make_bundle! {
-    @addon UiTranslationAnimationExt,
-    UiTranslationAnimationBundle{
-        pub translation: UiTranslationAnimation,
-        pub animation: Animation,
-        pub event_dispatcher: EventDispatcher<AnimationEvent>,
-        pub target_style: AnimationTargetNodeState,
     }
 }

@@ -3,7 +3,7 @@ use dway_server::{
     apps::WindowList, geometry::GlobalGeometry, util::rect::IRect, wl::surface::WlSurface,
     xdg::toplevel::DWayToplevel,
 };
-use dway_ui_framework::widgets::button::{UiRawButtonBundle, UiRawButtonExt};
+use dway_ui_framework::theme::NoTheme;
 use event::make_callback;
 use widgets::button::UiButtonEventDispatcher;
 
@@ -56,7 +56,7 @@ fn focus_window(
 @arg(asset_server: Res<AssetServer>)
 @use_state(windows: Vec<Entity>)
 @component(window_list<-Query<Ref<WindowList>>[prop.app]->{ state.set_windows(window_list.iter().collect()); })
-<MiniNodeBundle @style="flex-row m-4" @id="List"
+<Node @style="flex-row m-4" @id="List"
     // Animator<_>=(Animator::new(Tween::new(
     //     EaseFunction::BackOut,
     //     Duration::from_secs_f32(0.5),
@@ -70,28 +70,30 @@ fn focus_window(
             state.set_image_rect(surface.image_rect());
         }
     ]) >
-        <MiniNodeBundle @style="flex-col m-4" @id="window_preview"
+        <Node @style="flex-col m-4" @id="window_preview"
             @use_state(title:String) @use_state(geo:GlobalGeometry) @use_state(image:Handle<Image>) @use_state(image_rect:IRect)
             @use_state(image_size:Vec2 <= state.geo().size().as_vec2() * PREVIEW_HIGHT / state.geo().height() as f32)
         >
-            <NodeBundle @style="flex-row">
-                <MiniNodeBundle @id="close" @style="m-2 w-20 h-20"
-                    UiRawButtonExt=(UiRawButtonExt::from_callback(node!(window_preview), close_window)) >
+            <Node @style="flex-row">
+                <Node @id="close" @style="m-2 w-20 h-20"
+                    UiButton=(default()) NoTheme=(default()) 
+                    UiButtonEventDispatcher=(make_callback(node!(window_preview), close_window))
+                    >
                     <(UiSvg::new(asset_server.load("embedded://dway_ui/icons/close.svg")))  @style="full"/>
-                </MiniNodeBundle>
+                </Node>
                 <Node @style="items-center justify-center m-auto"
                     Text=(Text::new(state.title()))
                     TextFont=(theme.text_font(16.0))
                     TextColor=(theme.default_text_color.into())
                     TextLayout=( TextLayout::new_with_justify(JustifyText::Left) )
                 />
-            </NodeBundle>
-            <UiRawButtonBundle
+            </Node>
+            <UiButton NoTheme=(default())
                 UiButtonEventDispatcher=(make_callback(node!(window_preview), focus_window)) >
-                <MaterialNodeBundle::<RoundedUiImageMaterial>
+                <MaterialNode::<RoundedUiImageMaterial>
                 @handle(RoundedUiImageMaterial=>create_raw_window_material(*state.image_rect(),state.image().clone(),&state.geo, *state.image_size()))
                 @style="w-{state.image_size().x} h-{state.image_size().y}" />
-            </UiRawButtonBundle>
-        </MiniNodeBundle>
-</MiniNodeBundle>
+            </UiButton>
+        </Node>
+</Node>
 }

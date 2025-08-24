@@ -23,7 +23,7 @@ pub fn update_logger_ui(
         if logger.is_changed() || !logger_ui.inited {
             logger_ui.inited = true;
             let mut entity_comands = commands.entity(entity);
-            entity_comands.despawn_descendants();
+            entity_comands.despawn();
 
             let begin = if logger.lines.len() > logger_ui.max_line {logger.lines.len() - logger_ui.max_line} else {0};
             let color = theme.color("white");

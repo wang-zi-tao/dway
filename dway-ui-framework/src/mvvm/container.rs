@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use super::{DataItem, EntityWorldRef, ViewFactory, ViewModel};
-use crate::prelude::*;
+use crate::{prelude::*, UiFrameworkSystems};
 
 #[derive(Component, Default)]
 pub struct ItemCell<Item: DataItem> {

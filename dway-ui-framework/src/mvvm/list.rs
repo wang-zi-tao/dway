@@ -6,10 +6,10 @@ use derive_more::From;
 
 use super::{
     layout::{ItemLayout, ViewAreaLayout, ViewLayouter},
-    ContainerViewFactory, ContainerViewModel, DataItem, EntityWorldRef,
-    RangeModel, UpdateModel, UpdateModelTrait,
+    ContainerViewFactory, ContainerViewModel, DataItem, EntityWorldRef, RangeModel, UpdateModel,
+    UpdateModelTrait,
 };
-use crate::prelude::*;
+use crate::{prelude::*, UiFrameworkSystems};
 
 #[derive(Deref, DerefMut, From)]
 pub struct ListRangeModel(pub Range<usize>);
@@ -196,13 +196,10 @@ pub fn list_bind_data<Item: DataItem>(
                 item_entity
             } else {
                 let entity = commands
-                    .spawn(MiniNodeBundle {
-                        node: Node {
-                            top: Val::Px(item_layout.rect.min.y),
-                            height: Val::Px(item_layout.rect.height()),
-                            position_type: PositionType::Absolute,
-                            ..Default::default()
-                        },
+                    .spawn(Node {
+                        top: Val::Px(item_layout.rect.min.y),
+                        height: Val::Px(item_layout.rect.height()),
+                        position_type: PositionType::Absolute,
                         ..Default::default()
                     })
                     .id();

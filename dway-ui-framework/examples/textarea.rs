@@ -5,13 +5,16 @@ use bevy::{
     prelude::*,
 };
 use dway_ui_derive::color;
-use dway_ui_framework::{prelude::UiHollowBlockBundle, shader::{
-    effect::{Border, Shadow},
-    fill::{FillColor, Gradient},
-    shape::{Circle, *},
-    transform::Margins,
-    ShaderAsset, ShaderPlugin, ShapeRender, Transformed,
-}, text::{cursor::UiTextCursor, editor::UiTextEditor, selection::UiTextSelection, textarea::UiTextArea}};
+use dway_ui_framework::{
+    prelude::*,
+    shader::{
+        effect::{Border, Shadow},
+        fill::{FillColor, Gradient},
+        shape::{Circle, *},
+        transform::Margins,
+        ShaderAsset, ShaderPlugin, ShapeRender, Transformed,
+    },
+};
 
 fn main() {
     App::new()
@@ -42,34 +45,31 @@ type CheckboxStyle = (
 
 type ButtonStyle = ShapeRender<RoundedRect, (Border, FillColor, Shadow)>;
 
-fn setup(
-    mut commands: Commands,
-) {
+fn setup(mut commands: Commands) {
     // Camera so we can see UI
     commands.spawn((Camera2d::default(), Msaa::Sample4));
 
     dway_ui_derive::spawn!(&mut commands=>
         <Node @style="flex-col left-512 top-512">
-            <UiHollowBlockBundle @style="w-256 h-32">
+            <Node BlockStyle=(BlockStyle::Hollow) @style="w-256 h-32">
                 <(UiTextArea::new("text area", 28.0)) @style="full"/>
-            </UiHollowBlockBundle>
-            <UiHollowBlockBundle @style="w-256 h-128">
-                <(UiTextArea::new("text cursor\n text cursor\n text cursor\n text cursor", 28.0)) @style="full" 
+            </Node>
+            <Node BlockStyle=(BlockStyle::Hollow) @style="w-256 h-128">
+                <(UiTextArea::new("text cursor\n text cursor\n text cursor\n text cursor", 28.0)) @style="full"
                     UiTextCursor=(default()) />
-            </UiHollowBlockBundle>
-            <UiHollowBlockBundle @style="w-256 h-128">
+            </Node>
+            <Node BlockStyle=(BlockStyle::Hollow) @style="w-256 h-128">
                 <(UiTextArea::new("text selection\ntext selection\ntext selection\ntext selection\n", 28.0))  @style="full"
                     UiTextCursor=(default())
                     UiTextSelection=(default()) />
-            </UiHollowBlockBundle>
-            <UiHollowBlockBundle @style="w-256 h-32">
+            </Node>
+            <Node BlockStyle=(BlockStyle::Hollow) @style="w-256 h-32">
                 <(UiTextArea::new("text selection", 28.0))  @style="full"
                     UiTextCursor=(default())
                     UiTextSelection=(default())
                     UiTextEditor=(default())
                 />
-            </UiHollowBlockBundle>
+            </Node>
         </Node>
     );
 }
-

@@ -7,7 +7,6 @@ use bevy_relationship::reexport::SmallVec;
 
 use crate::{
     event::EventDispatcher,
-    make_bundle,
     prelude::*,
     theme::{StyleFlags, ThemeComponent},
 };
@@ -285,16 +284,3 @@ pub fn update_ui_input(
 }
 
 pub type UiInputEventDispatcher = EventDispatcher<UiInputEvent>;
-
-make_bundle! {
-    @from input: UiInput,
-    @addon UiInputExt,
-    UiInputBundle {
-        pub input: UiInput,
-        pub interaction: Interaction,
-        #[default(FocusPolicy::Block)]
-        pub focus_policy: FocusPolicy,
-        pub relative_cursor_position: RelativeCursorPosition,
-        pub event_dispatcher: UiInputEventDispatcher,
-    }
-}

@@ -2,7 +2,8 @@ use std::time::Duration;
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    prelude::*, render::RenderPlugin,
+    prelude::*,
+    render::RenderPlugin,
 };
 use dway_ui_derive::color;
 use dway_ui_framework::shader::{
@@ -22,7 +23,7 @@ fn main() {
         .add_plugins(dway_ui_framework::UiFrameworkPlugin)
         .add_plugins(ShaderPlugin::<CheckboxStyle>::default())
         .add_plugins((
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin {
                 wait_duration: Duration::from_secs(1),
                 ..Default::default()
@@ -53,18 +54,15 @@ fn setup(
     let shadow = Shadow::new(color!("#888888"), Vec2::ONE * 1.0, Vec2::ONE * 1.0, 2.0);
 
     commands
-        .spawn(NodeBundle {
-            node: Node {
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                flex_direction: FlexDirection::Row,
-                ..default()
-            },
+        .spawn((Node {
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            flex_direction: FlexDirection::Row,
             ..default()
-        })
+        },))
         .with_children(|commands| {
             // 8192(no batch) / 40000(batch) node at 60 fps
-            commands.spawn(NodeBundle::default()).with_children(|c| {
+            commands.spawn(Node::default()).with_children(|c| {
                 let shader = (
                     Transformed::new(
                         ShapeRender::new(
@@ -84,26 +82,22 @@ fn setup(
                 );
                 let handle = ui_material_checkbox.add(shader);
                 for _i in 0..200 {
-                    c.spawn(NodeBundle {
-                        node: Node {
-                            flex_direction: FlexDirection::Column,
-                            ..Default::default()
-                        },
+                    c.spawn((Node {
+                        flex_direction: FlexDirection::Column,
                         ..Default::default()
-                    })
-                    .with_children(|c| {
-                        for _j in 0..NODE_COUNT / 200 {
-                            c.spawn(MaterialNodeBundle {
-                                node: Node {
-                                    width: Val::Px(8.0),
-                                    height: Val::Px(4.0),
-                                    ..default()
-                                },
-                                material: handle.clone().into(),
-                                ..default()
-                            });
-                        }
-                    });
+                    },))
+                        .with_children(|c| {
+                            for _j in 0..NODE_COUNT / 200 {
+                                c.spawn((
+                                    Node {
+                                        width: Val::Px(8.0),
+                                        height: Val::Px(4.0),
+                                        ..default()
+                                    },
+                                    MaterialNode(handle.clone()),
+                                ));
+                            }
+                        });
                 }
             });
         });

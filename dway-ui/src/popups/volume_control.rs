@@ -1,8 +1,4 @@
 use dway_client_core::controller::volume::VolumeController;
-use dway_ui_framework::{
-    animation::translation::UiTranslationAnimationExt,
-    widgets::checkbox::UiCheckBoxBundle,
-};
 use event::make_callback;
 use widgets::{checkbox::UiCheckBoxEventDispatcher, slider::UiSliderEventDispatcher};
 
@@ -49,7 +45,7 @@ VolumeControl=>
     }
 })
 @global(asset_server: AssetServer)
-<UiCheckBoxBundle UiCheckBoxEventDispatcher=(make_callback(this_entity,on_mute_event))
+<UiCheckBox UiCheckBoxEventDispatcher=(make_callback(this_entity,on_mute_event))
     @style="p-4 align-self:center" @id="mute_checkbox"
     UiCheckBoxState=(UiCheckBoxState::new(*state.mute()))
 >
@@ -59,7 +55,7 @@ VolumeControl=>
         } else {
             asset_server.load("embedded://dway_ui/icons/volume_on.svg")
         } )) />
-</UiCheckBoxBundle>
+</UiCheckBox>
 <UiSliderBundle @id="slider" @style="m-8 h-32 w-256 align-self:center"
     UiSliderEventDispatcher=(make_callback(this_entity,on_slider_event))
     UiSliderState=(UiSliderState{value: *state.volume(),..default()})/>
@@ -70,11 +66,9 @@ pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
         let style = style!("absolute justify-items:center top-36 align-self:end p-8");
         commands
             .spawn((
-                UiPopupBundle::default(),
-                UiTranslationAnimationExt {
-                    target_style: style.clone().into(),
-                    ..Default::default()
-                },
+                UiPopup::default(),
+                UiTranslationAnimation::default(),
+                AnimationTargetNodeState(style.clone()),
             ))
             .with_children(|c| {
                 c.spawn(( VolumeControl::default(), style!("h-auto w-auto")  ));

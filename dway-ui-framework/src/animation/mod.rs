@@ -20,6 +20,7 @@ use crate::{
         UiNodeAppearEvent,
     },
     prelude::*,
+    UiFrameworkSystems,
 };
 
 pub trait Interpolation {
@@ -291,8 +292,7 @@ impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            (update_animation_system, apply_deferred)
-                .chain()
+            update_animation_system
                 .in_set(UiFrameworkSystems::ApplyAnimation),
         )
         .init_resource::<AnimationRegister>()

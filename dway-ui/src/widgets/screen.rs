@@ -38,7 +38,7 @@ ScreenWindows=>
         state.set_screen_geometry(global_geo.geometry);
     }
 })
-<MiniNodeBundle @id="Windows" @style="full absolute"
+<Node @id="Windows" @style="full absolute"
     @map(*window_entity:Entity <= window_entity in state.window_list().iter().cloned() => {
         state.set_window_entity(window_entity);
     })>
@@ -49,5 +49,5 @@ ScreenWindows=>
             screen_geomety: *root_state.screen_geometry()
         })
     />
-</MiniNodeBundle>
+</Node>
 }

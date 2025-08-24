@@ -1,5 +1,4 @@
 use dway_client_core::controller::systemcontroller::SystemControllRequest;
-use dway_ui_framework::animation::translation::UiTranslationAnimationExt;
 
 use super::volume_control::VolumeControlBundle;
 use crate::{panels::PanelButtonBundle, prelude::*};
@@ -36,9 +35,9 @@ PanelSettings=>
 @global(theme:Theme)
 @global(asset_server: AssetServer)
 @global(mut assets_rounded_ui_rect_material: Assets<RoundedUiRectMaterial>)
-<MiniNodeBundle @style="flex-col">
+<Node @style="flex-col">
     <VolumeControlBundle/>
-    <MiniNodeBundle @id="bottom_bar" @style="p-4 justify-content:space-evenly"
+    <Node @id="bottom_bar" @style="p-4 justify-content:space-evenly"
         @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 16.0))
     >
         <( PanelButtonBundle::with_callback(&theme,&mut assets_rounded_ui_rect_material, &[(this_entity, do_logout)]) )
@@ -53,19 +52,17 @@ PanelSettings=>
             @style="w-32 h-32" @id="poweroff_button">
             <(UiSvg::new(theme.icon("power", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
-    </MiniNodeBundle>
-</MiniNodeBundle>
+    </Node>
+</Node>
 }
 
 pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         commands
             .spawn((
-                UiPopupBundle::default(),
-                UiTranslationAnimationExt {
-                    target_style: style!("absolute top-36 align-self:end p-8 right-0").into(),
-                    ..Default::default()
-                },
+                UiPopup::default(),
+                UiTranslationAnimation::default(),
+                AnimationTargetNodeState(style!("absolute top-36 align-self:end p-8 right-0")),
             ))
             .with_children(|c| {
                 c.spawn((PanelSettings::default(), style!("h-auto w-auto")));

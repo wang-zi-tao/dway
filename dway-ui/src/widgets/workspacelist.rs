@@ -1,9 +1,8 @@
-use animation::translation::{UiTranslationAnimation, UiTranslationAnimationExt};
+use animation::translation::UiTranslationAnimation;
 use dway_client_core::{
     desktop::CursorOnScreen,
     workspace::{ScreenAttachWorkspace, ScreenList, Workspace, WorkspaceManager},
 };
-use dway_ui_framework::widgets::button::UiRawButtonBundle;
 use util::DwayUiDirection;
 
 use crate::{
@@ -34,12 +33,9 @@ fn on_click(
         }
         commands
             .spawn((
-                UiPopupBundle::default(),
-                UiTranslationAnimationExt {
-                    translation: UiTranslationAnimation::new(DwayUiDirection::TOP),
-                    target_style: style!("absolute top-42 align-self:center").clone().into(),
-                    ..Default::default()
-                },
+                UiPopup::default(),
+                UiTranslationAnimation::new(DwayUiDirection::TOP),
+                AnimationTargetNodeState(style!("absolute top-42 align-self:center")),
             ))
             .with_children(|c| {
                 c.spawn((
@@ -60,7 +56,7 @@ WorkspaceListUI=>
 @state_reflect()
 @global(theme: Theme)
 @global(workspace_manager: WorkspaceManager)
-<MiniNodeBundle @id="List" @style="align-items:center"
+<Node @id="List" @style="align-items:center"
     @for_query((workspace,screen_list) in Query<(Ref<Workspace>,Ref<ScreenList>)>
         ::iter_many(workspace_manager.workspaces.iter().cloned())=>[
         workspace=>{state.set_name(workspace.name.clone());},
@@ -68,22 +64,24 @@ WorkspaceListUI=>
     ])
     @material(RoundedUiRectMaterial=>rounded_rect(theme.color("background1"), 12.0))
 >
-    <MiniNodeBundle @id="ws" @style="flex-col"
+    <Node @id="ws" @style="flex-col"
         @state_reflect()
         @use_state(pub name:String)
         @use_state(pub is_focused:bool)
         @use_state(pub screen_list:Vec<Entity>)
     >
-        <(UiRawButtonBundle::from_callback(node!(ws),on_click)) @style="w-16 h-16 align-items:center justify-items:center" >
-            <MiniNodeBundle
+        <UiButton NoTheme=(default()) @style="w-16 h-16 align-items:center justify-items:center"
+            UiButtonEventDispatcher=(make_callback(node!(ws),on_click))
+        >
+            <Node
                 @material(UiCircleMaterial=>circle_material(theme.color("blue")))
                 Node=(Node{
                     width:Val::Px(if *state.is_focused() {12.0}else{8.0}),
                     height:Val::Px(if *state.is_focused() {12.0}else{8.0}),
                     ..default()
                 }) >
-            </MiniNodeBundle>
-        </UiRawButtonBundle>
-    </MiniNodeBundle>
-</MiniNodeBundle>
+            </Node>
+        </UiButton>
+    </Node>
+</Node>
 }

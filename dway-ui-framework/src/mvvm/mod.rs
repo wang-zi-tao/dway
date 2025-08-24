@@ -14,7 +14,7 @@ use bevy::ecs::system::EntityCommands;
 use list::{ListItemViewFactory, ListViewLayout, ListViewTrait};
 use view::{list::ListView, TextViewFactory};
 
-use crate::prelude::*;
+use crate::{prelude::*, UiFrameworkSystems};
 
 pub type DynEntityCommand = Box<dyn FnOnce(EntityWorldMut) + Send + 'static>;
 

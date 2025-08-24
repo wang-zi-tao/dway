@@ -45,12 +45,11 @@ PopupUI=>
         }
     }
 })
-<MiniNodeBundle @style="absolute full">
-    <ImageBundle ImageNode=(ImageNode::new(state.image().clone())) @id="content"
-        Node=(irect_to_style(*state.bbox_rect())) FocusPolicy=(FocusPolicy::Block) >
-    </ImageBundle>
-    <NodeBundle Node=(irect_to_style(*state.rect())) >
-        <MiniNodeBundle @id="mouse_area"
+<Node @style="absolute full">
+    <(ImageNode::new(state.image().clone())) @id="content"
+        Node=(irect_to_style(*state.bbox_rect())) FocusPolicy=(FocusPolicy::Block) />
+    <(irect_to_style(*state.rect())) >
+        <Node @id="mouse_area"
             Node=({
                 let distant = if *state.grab() { 16384.0 } else { 4.0 };
                 style!("absolute left-{-distant} top-{-distant} right-{-distant} bottom-{-distant}")
@@ -59,9 +58,9 @@ PopupUI=>
             Interaction=(default()) FocusPolicy=(FocusPolicy::Pass)
         />
     </>
-    <MiniNodeBundle @style="absolute full"
+    <Node @style="absolute full"
         @for_query(_ in Query<Ref<WlSurface>>::iter_many(state.popup_list().iter())=>[ ])>
         <PopupUIBundle PopupUI=(PopupUI{window_entity:widget.data_entity}) @style="full absolute"/>
-    </MiniNodeBundle>
-</MiniNodeBundle>
+    </Node>
+</Node>
 }

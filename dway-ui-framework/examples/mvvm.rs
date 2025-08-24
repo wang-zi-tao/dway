@@ -1,19 +1,6 @@
-use bevy::{core::FrameCount, prelude::*};
+use bevy::{diagnostic::FrameCount, prelude::*};
 use dway_ui_derive::style;
-use dway_ui_framework::{
-    mvvm::{
-        container::{ItemCell, ItemCellPlugin},
-        list::{ListViewLayout, ListViewModelPlugin},
-        view::{
-            list::ListViewBundle,
-            TextViewFactory,
-        },
-        viewmodel::{SimpleItemViewModel, SimpleListViewModel, ViewModelPlugin},
-    },
-    prelude::UiHollowBlockBundle,
-    theme::Theme,
-    widgets::bundles::{MiniNodeBundle, UiBlockBundle},
-};
+use dway_ui_framework::prelude::*;
 
 #[derive(Component)]
 pub struct UpdateText;
@@ -37,50 +24,44 @@ fn setup(mut commands: Commands, theme: Res<Theme>) {
     let text_font = theme.text_font(32.0);
     let color = TextColor::BLACK;
     commands
-        .spawn(UiBlockBundle {
-            node: style!("align-items:center justify-content:center p-8"),
-            ..Default::default()
-        })
+        .spawn((
+            style!("align-items:center justify-content:center p-8"),
+            BlockStyle::Normal,
+        ))
         .with_children(|c| {
-            c.spawn(UiHollowBlockBundle {
-                node: style!("w-256 h-128"),
-                ..Default::default()
-            })
-            .with_children(|c| {
-                c.spawn((
-                    MiniNodeBundle::default(),
-                    TextViewFactory::new(text_font.clone(), color),
-                    SimpleItemViewModel("text view".to_string()),
-                    ItemCell::<String>::default(),
-                    UpdateText,
-                ));
-            });
-            c.spawn(UiHollowBlockBundle {
-                node: style!("w-256 h-256"),
-                ..Default::default()
-            })
-            .with_children(|c| {
-                c.spawn((
-                    ListViewBundle::default(),
-                    TextViewFactory::new(text_font.clone(), Color::BLACK.into()),
-                    SimpleListViewModel(vec![
-                        "text view 1".to_string(),
-                        "text view 2".to_string(),
-                        "text view 3".to_string(),
-                        "text view 4".to_string(),
-                        "text view 5".to_string(),
-                        "text view 6".to_string(),
-                        "text view 7".to_string(),
-                        "text view 8".to_string(),
-                        "text view 9".to_string(),
-                        "text view 10".to_string(),
-                    ]),
-                    ListViewLayout {
-                        item_size: Vec2::new(256.0, 32.0),
-                        ..Default::default()
-                    },
-                ));
-            });
+            c.spawn((style!("w-256 h-128"), BlockStyle::Hollow))
+                .with_children(|c| {
+                    c.spawn((
+                        Node::default(),
+                        TextViewFactory::new(text_font.clone(), color),
+                        SimpleItemViewModel("text view".to_string()),
+                        ItemCell::<String>::default(),
+                        UpdateText,
+                    ));
+                });
+            c.spawn((style!("w-256 h-256"), BlockStyle::Hollow))
+                .with_children(|c| {
+                    c.spawn((
+                        ListViewBundle::default(),
+                        TextViewFactory::new(text_font.clone(), Color::BLACK.into()),
+                        SimpleListViewModel(vec![
+                            "text view 1".to_string(),
+                            "text view 2".to_string(),
+                            "text view 3".to_string(),
+                            "text view 4".to_string(),
+                            "text view 5".to_string(),
+                            "text view 6".to_string(),
+                            "text view 7".to_string(),
+                            "text view 8".to_string(),
+                            "text view 9".to_string(),
+                            "text view 10".to_string(),
+                        ]),
+                        ListViewLayout {
+                            item_size: Vec2::new(256.0, 32.0),
+                            ..Default::default()
+                        },
+                    ));
+                });
         });
 }
 

@@ -5,23 +5,16 @@ use dway_ui_derive::{dway_widget, spawn, style};
 use dway_ui_framework::{
     animation::ui::UiAnimationDropdownConfig,
     event::{make_callback, UiEvent},
-    input::{UiInputEvent, UiInputExt},
+    input::UiInputEvent,
     prelude::*,
     theme::Theme,
     widgets::{
-        bundles::{
-            MiniNodeBundle, UiBlockBundle, UiHighlightBlockBundle, UiHollowBlockBundle,
-            UiSunkenBlockBundle,
-        },
-        button::{
-            UiButtonBundle, UiButtonEvent, UiButtonEventDispatcher, UiButtonEventKind,
-            UiHightlightButtonBundle,
-        },
-        checkbox::UiCheckBoxBundle,
+        button::{UiButtonEvent, UiButtonEventDispatcher, UiButtonEventKind},
         combobox::{StringItem, UiComboBox, UiComboBoxBundle},
         inputbox::{UiInputBox, UiInputBoxBundle},
-        popup::{popup_animation_system, UiPopup, UiPopupExt},
-        slider::UiSliderBundle, text::UiTextBundle,
+        popup::{popup_animation_system, UiPopup},
+        slider::UiSliderBundle,
+        text::UiTextBundle,
     },
 };
 
@@ -35,7 +28,9 @@ fn main() {
         .register_callback(button_open_poppup)
         .register_callback(open_menu)
         .register_callback(popup_animation_system::<UiAnimationDropdownConfig>)
-        .add_plugins(bevy_inspector_egui::quick::FilterQueryInspectorPlugin::<With<UiSlider>>::default())
+        .add_plugins(bevy_inspector_egui::quick::FilterQueryInspectorPlugin::<
+            With<UiSlider>,
+        >::default())
         .run();
 }
 
@@ -44,7 +39,7 @@ fn setup(mut commands: Commands, theme: Res<Theme>, callbacks: Res<CallbackTypeR
     commands.spawn((Camera2d::default(), Msaa::Sample4));
 
     spawn! {&mut commands=>
-        <UiBlockBundle Name=(Name::new("widgets"))
+        <Node BlockStyle=(BlockStyle::Normal) Name=(Name::new("widgets"))
             Node=(Node {
                 align_self: AlignSelf::Center,
                 justify_self: JustifySelf::Center,
@@ -53,25 +48,23 @@ fn setup(mut commands: Commands, theme: Res<Theme>, callbacks: Res<CallbackTypeR
                 justify_content: JustifyContent::Center,
                 ..style!("w-256 h-512 p-8 m-8 flex-col")
             })>
-            <UiButtonBundle @style="flex-col w-64 h-32 m-8 align-items:center justify-content:center">
+            <UiButton @style="flex-col w-64 h-32 m-8 align-items:center justify-content:center">
                 <( UiTextBundle::new("button", 24, &theme) )/>
-            </UiButtonBundle>
-            <UiCheckBoxBundle @style="w-64 h-32 p-4"/>
+            </UiButton>
+            <UiCheckBox @style="w-64 h-32 p-4"/>
             <UiSliderBundle @style="w-128 h-32 p-4"/>
             <UiInputBoxBundle @style="w-128 h-32 p-4"/>
             <CounterBundle/>
-            <UiButtonBundle  @style="flex-col p-4 m-4 justify-content:center"
+            <UiButton  @style="flex-col p-4 m-4 justify-content:center"
                 UiButtonEventDispatcher=(EventDispatcher::default().with_system_to_this( callbacks.system(button_open_poppup),) )>
                 <(UiTextBundle::new("open popup", 32, &theme))/>
-            </UiButtonBundle>
-            <UiHollowBlockBundle  @style="flex-col p-4 m-4 justify-content:center"
-                UiInputExt=(UiInputExt{
-                    event_dispatcher: EventDispatcher::default().with_system_to_this(callbacks.system(open_menu)),
-                    ..default()
-                })
+            </UiButton>
+            <Node BlockStyle=(BlockStyle::Hollow)  @style="flex-col p-4 m-4 justify-content:center"
+                UiInput=(default())
+                UiInputEventDispatcher=(EventDispatcher::default().with_system_to_this(callbacks.system(open_menu)))
             >
                 <(UiTextBundle::new("open menu", 32, &theme))/>
-            </UiHollowBlockBundle>
+            </Node>
             <UiComboBoxBundle Name=(Name::new("combobox")) @style="w-128 h-32" UiComboBox=(UiComboBox {
                 default_index: None,
                 items: vec![
@@ -81,16 +74,16 @@ fn setup(mut commands: Commands, theme: Res<Theme>, callbacks: Res<CallbackTypeR
                 ],
             })/>
             <(UiTextBundle::new("text", 32, &theme))/>
-        </UiBlockBundle>
+        </Node>
     }
     spawn! {&mut commands=>
-        <MiniNodeBundle>
-            <UiHollowBlockBundle @style="w-256 h-256 p-8 m-8">
+        <Node>
+            <Node BlockStyle=(BlockStyle::Hollow) @style="w-256 h-256 p-8 m-8">
                 <UiInputBoxBundle @style="full m-8" />
-            </UiHollowBlockBundle>
-            <UiSunkenBlockBundle @style="w-256 h-256 p-8 m-8"/>
-            <UiHighlightBlockBundle @style="w-256 h-256 p-8 m-8"/>
-        </MiniNodeBundle>
+            </Node>
+            <Node BlockStyle=(BlockStyle::Sunken) @style="w-256 h-256 p-8 m-8"/>
+            <Node @style="w-256 h-256 p-8 m-8"/>
+        </Node>
     }
 }
 
@@ -103,17 +96,15 @@ pub fn button_open_poppup(
     if event.kind == UiButtonEventKind::Released {
         commands.entity(event.sender()).with_children(|c| {
             spawn! {c=>
-                <UiBlockBundle GlobalZIndex=(GlobalZIndex(1024)) @style="w-200 h-200 top-120% absolute align-self:center"
-                    UiPopupExt=(UiPopupExt{
-                        event_dispatcher: make_callback(event.receiver(),
-                            callbacks.system(popup_animation_system::<UiAnimationDropdownConfig>)),
-                        ..default()
-                    })
+                <Node BlockStyle=(BlockStyle::Normal) GlobalZIndex=(GlobalZIndex(1024)) @style="w-200 h-200 top-120% absolute align-self:center"
+                    UiPopup=(default())
+                    UiPopupEventDispatcher=(make_callback(event.receiver(),
+                        callbacks.system(popup_animation_system::<UiAnimationDropdownConfig>)))
                 >
-                    <UiHollowBlockBundle @style="full">
+                    <Node BlockStyle=(BlockStyle::Hollow) @style="full">
                         <(UiTextBundle::new("popup inner", 32, &theme))/>
-                    </UiHollowBlockBundle>
-                </UiBlockBundle>
+                    </Node>
+                </Node>
             }
         });
     }
@@ -135,15 +126,16 @@ pub fn open_menu(
         let delta = normalized * computed_node.size();
         commands.entity(event.sender()).with_children(|c| {
             spawn! {c=>
-                <UiBlockBundle @style="absolute flex-col p-8 left-{delta.x} top-{delta.y}"
-                    UiPopupExt=(UiPopup::default().with_auto_destroy().into())>
-                    <UiButtonBundle @style="m-4 p-4">
+                <Node BlockStyle=(BlockStyle::Normal) @style="absolute flex-col p-8 left-{delta.x} top-{delta.y}"
+                    UiPopup=(UiPopup::default().with_auto_destroy())
+                >
+                    <UiButton @style="m-4 p-4">
                         <(UiTextBundle::new("item 1", 24, &theme))/>
-                    </UiButtonBundle>
-                    <UiButtonBundle @style="m-4 p-4">
+                    </UiButton>
+                    <UiButton @style="m-4 p-4">
                         <(UiTextBundle::new("item 2", 24, &theme))/>
-                    </UiButtonBundle>
-                </UiBlockBundle>
+                    </UiButton>
+                </Node>
             };
         });
     }
@@ -165,17 +157,17 @@ Counter=>
 }
 
 @use_state(count: usize)
-<UiHollowBlockBundle @style="p-8">
-    <Node @style="w-64" 
-        Text=(Text::new(state.count().to_string())) 
-        TextFont=(theme.text_font(32.0)) 
+<Node BlockStyle=(BlockStyle::Hollow) @style="p-8">
+    <Node @style="w-64"
+        Text=(Text::new(state.count().to_string()))
+        TextFont=(theme.text_font(32.0))
         TextColor=(TextColor::BLACK)
     />
-    <UiHightlightButtonBundle @style="p-4 w-32 h-32 align-items:center justify-content:center"  @id="button"
+    <UiButton ThemeHightlight=(default()) @style="p-4 w-32 h-32 align-items:center justify-content:center"  @id="button"
         UiWidgetRoot=(this_entity.into())
         UiButtonEventDispatcher=(make_callback(this_entity, inc))
     >
         <Node Text=(Text::new("+")) TextFont=(theme.text_font(32.0)) TextColor=(TextColor::WHITE)/>
-    </UiHightlightButtonBundle>
-</UiHollowBlockBundle>
+    </UiButton>
+</Node>
 }

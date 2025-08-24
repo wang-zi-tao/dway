@@ -11,7 +11,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::{
     event::{EventReceiver, UiEvent},
     prelude::*,
-    theme::{ThemeComponent, WidgetKind},
+    theme::{ThemeComponent, WidgetKind}, widgets::shader::{rounded_rect, RoundedUiRectMaterial},
 };
 
 #[derive(Debug, Clone, Reflect, PartialEq, Eq)]
@@ -387,21 +387,21 @@ UiInputBox=>
         update_cursor(&prop, &mut state, text_layout);
     }
 }}
-<MiniNodeBundle @id="text" @style="full"
+<Node @id="text" @style="full"
     Text=(Text::new(state.data()))
     TextFont=(theme.text_font(prop.text_size))
     TextColor=(theme.default_text_color())
     TextLayout=( TextLayout::new(JustifyText::Left, LineBreak::WordOrCharacter) )
 />
-<MiniNodeBundle @style="absolute full" @if(*state.show_cursor())>
-    <MiniNodeBundle @id="cursor" Node=(Node{
+<Node @style="absolute full" @if(*state.show_cursor())>
+    <Node @id="cursor" Node=(Node{
         left: Val::Px(state.cursor_position().x),
         top: Val::Px(state.cursor_position().y),
         height: Val::Px(prop.line_height()),
         ..style!("w-2")
     })
     @material(RoundedUiRectMaterial=>rounded_rect(theme.color("inputbox:cursor"), 4.0)) />
-</MiniNodeBundle>
+</Node>
 }
 
 fn update_cursor(prop: &UiInputBox, state: &mut UiInputBoxState, text_layout: Ref<TextLayoutInfo>) {

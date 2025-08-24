@@ -97,10 +97,12 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     if cfg!(feature = "single_thread") {
         default_plugins = default_plugins.set(TaskPoolPlugin {
             task_pool_options: TaskPoolOptions {
-                compute: bevy::core::TaskPoolThreadAssignmentPolicy {
+                compute: bevy::app::TaskPoolThreadAssignmentPolicy {
                     min_threads: 1,
                     max_threads: 1,
                     percent: 1.0,
+                    on_thread_spawn: None,
+                    on_thread_destroy: None,
                 },
                 ..Default::default()
             },
@@ -199,7 +201,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     }
 
     app.add_plugins((
-        FrameTimeDiagnosticsPlugin,
+        FrameTimeDiagnosticsPlugin::default(),
         EntityCountDiagnosticsPlugin,
         UiDiagnosticsPlugin,
     ));

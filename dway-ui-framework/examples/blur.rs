@@ -8,7 +8,6 @@ use dway_ui_framework::{
         shape::{RoundedRect, Shape},
         ShaderAsset, ShaderPlugin, ShapeRender,
     },
-    widgets::bundles::{MiniNodeBundle},
     UiFrameworkPlugin,
 };
 
@@ -34,7 +33,7 @@ fn setup(
     let image = asset_server.load("../../dway/assets/background.jpg");
 
     spawn!(&mut commands=>
-        <MiniNodeBundle @style="full absolute"
+        <Node @style="full absolute"
             @material(BlurImageMaterial=>RoundedRect::new(16.0).with_effect(BlurImage::new(0.5, image)))
         />
     );

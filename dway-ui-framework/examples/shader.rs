@@ -21,7 +21,7 @@ fn main() {
         .add_plugins(ShaderPlugin::<ButtonStyle>::default())
         .add_plugins(ShaderPlugin::<CheckboxStyle>::default())
         .add_plugins((
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin {
                 wait_duration: Duration::from_secs(4),
                 ..Default::default()
@@ -73,86 +73,77 @@ fn setup(
     );
 
     commands
-        .spawn(NodeBundle {
-            node: Node {
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                flex_direction: FlexDirection::Row,
-                ..default()
-            },
+        .spawn(Node {
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            flex_direction: FlexDirection::Row,
             ..default()
         })
         .with_children(|commands| {
             commands
-                .spawn(NodeBundle {
-                    node: Node {
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        flex_direction: FlexDirection::Column,
-                        ..default()
-                    },
+                .spawn(Node {
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    flex_direction: FlexDirection::Column,
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(MaterialNodeBundle {
-                        node: Node {
+                    parent.spawn((
+                        Node {
                             width: Val::Px(250.0),
                             height: Val::Px(250.0),
                             margin: UiRect::all(Val::Px(8.0)),
                             ..default()
                         },
-                        material: ui_materials.add(Circle::new().with_effect((
+                        MaterialNode(ui_materials.add(Circle::new().with_effect((
                             Border::new(Color::WHITE, 2.0),
                             gradient.clone(),
                             shadow.clone(),
-                        ))).into(),
-                        ..default()
-                    });
+                        )))),
+                    ));
                     parent
-                        .spawn(MaterialNodeBundle {
-                            node: Node {
+                        .spawn((
+                            Node {
                                 margin: UiRect::all(Val::Px(8.0)),
                                 padding: UiRect::all(Val::Px(4.0)),
                                 ..default()
                             },
-                            material: ui_material_button
-                                .add(
+                            MaterialNode(
+                                ui_material_button.add(
                                     RoundedRect::new(8.0)
                                         .with_effect(effect_border_fill_shadow.clone()),
-                                )
-                                .into(),
-                            ..default()
-                        })
+                                ),
+                            ),
+                        ))
                         .with_child((
                             Text::new("Button"),
                             TextFont::from_font_size(24.0),
                             TextColor(ui_color),
                         ));
                     parent
-                        .spawn(MaterialNodeBundle {
-                            node: Node {
+                        .spawn((
+                            Node {
                                 margin: UiRect::all(Val::Px(8.0)),
                                 padding: UiRect::all(Val::Px(4.0)),
                                 ..default()
                             },
-                            material: ui_material_button
-                                .add(RoundedRect::new(8.0).with_effect((
+                            MaterialNode(ui_material_button.add(
+                                RoundedRect::new(8.0).with_effect((
                                     Border::new(Color::WHITE, 0.0),
                                     blue.into(),
                                     shadow.clone(),
-                                )))
-                                .into(),
-                            ..default()
-                        })
+                                )),
+                            )),
+                        ))
                         .with_child((
                             Text::new("Button"),
                             TextFont::from_font_size(24.0),
                             TextColor(Color::WHITE),
                         ));
-                    parent.spawn(MaterialNodeBundle {
-                        node: node.clone(),
-                        material: ui_material_checkbox
-                            .add((
+                    parent.spawn((
+                        node.clone(),
+                        MaterialNode(
+                            ui_material_checkbox.add((
                                 Circle::default()
                                     .with_effect((
                                         Border::new(ui_color, 2.0),
@@ -165,10 +156,9 @@ fn setup(
                                     Color::WHITE.into(),
                                     shadow.clone(),
                                 )),
-                            ))
-                            .into(),
-                        ..default()
-                    });
+                            )),
+                        ),
+                    ));
                 });
         });
 }

@@ -1,4 +1,3 @@
-
 use bevy::prelude::*;
 use dway_ui_framework::{
     prelude::*,
@@ -19,10 +18,11 @@ pub fn unit_test<M: shader::Material + Clone>(app: &mut App, name: &str, materia
     app.add_plugins(ShaderPlugin::<M>::default());
     let systemid = app.register_system(move|params: In<UnitTestParams>, mut commands: Commands, mut assets: ResMut<Assets<ShaderAsset< M >>>|{
         let handle = assets.add(ShaderAsset::new( material.clone() ));
-        commands.spawn(( MiniNodeBundle{
-            node: style!("w-256 h-192 align-items:center justify-content:center align-self:center justify-self:center"),
-            ..Default::default()
-        }, MaterialNode(handle), UiTargetCamera(params.camera) ));
+        commands.spawn(( 
+            style!("w-256 h-192 align-items:center justify-content:center align-self:center justify-self:center"),
+            MaterialNode(handle),
+            UiTargetCamera(params.camera)
+        ));
     });
 
     app.world_mut().spawn(UnitTest {

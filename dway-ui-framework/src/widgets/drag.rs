@@ -2,7 +2,6 @@ use bevy::ui::RelativeCursorPosition;
 
 use crate::{
     event::EventDispatcher,
-    make_bundle,
     prelude::*,
     util::nodes::{get_node_position, set_node_position},
 };
@@ -10,6 +9,8 @@ use crate::{
 structstruck::strike! {
     #[strikethrough[derive(Debug, Clone, Reflect)]]
     #[derive(Component, SmartDefault)]
+    #[require(FocusPolicy=FocusPolicy::Block)]
+    #[require(Node, RelativeCursorPosition, UiDragEventDispatcher)]
     pub struct UiDrag {
         pub moving: Option<
         pub struct UiDragState{
@@ -127,18 +128,5 @@ pub fn update_ui_drag(
                 });
             };
         }
-    }
-}
-
-make_bundle! {
-    @from drag: UiDrag,
-    @addon UiDragExt,
-    UiDragBundle{
-        pub drag: UiDrag,
-        pub interaction: Interaction,
-        #[default(FocusPolicy::Block)]
-        pub focus_policy: FocusPolicy,
-        pub relative_cursor_position: RelativeCursorPosition,
-        pub event_dispatcher: UiDragEventDispatcher,
     }
 }

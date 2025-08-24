@@ -32,7 +32,7 @@ use crate::{
         BindGroupBuilder, BindGroupLayoutBuilder, BuildBindGroup, ShaderAsset, ShaderBuilder,
         ShaderPlugin, ShaderVariables, ShapeRender, UniformLayout,
     },
-    widgets::util::visibility,
+    widgets::util::visibility, UiFrameworkSystems,
 };
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Debug)]

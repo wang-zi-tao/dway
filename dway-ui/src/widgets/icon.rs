@@ -1,25 +1,16 @@
 use bevy::{ecs::entity::EntityHashSet};
 use dway_server::apps::icon::{LinuxIcon, LinuxIconKind};
-use dway_ui_framework::{make_bundle, render::mesh::UiMeshHandle};
 
 use crate::prelude::*;
 
 #[derive(Component, Reflect, Debug, Default)]
+#[require(Node, UiSvg)]
 pub struct UiIcon {
     pub handle: Handle<LinuxIcon>,
 }
 impl From<Handle<LinuxIcon>> for UiIcon {
     fn from(value: Handle<LinuxIcon>) -> Self {
         Self { handle: value }
-    }
-}
-
-make_bundle! {
-    @from icon: UiIcon,
-    @addon UiIconExt,
-    UiIconBundle{
-        pub icon: UiIcon,
-        pub svg: UiSvg,
     }
 }
 

@@ -3,10 +3,12 @@ use std::time::Duration;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
+    sprite::Material2d,
 };
 use dway_ui_derive::color;
-use dway_ui_framework::render::mesh::{
-    UiMeshBundle, UiMeshHandle, UiMeshMaterialPlugin, UiMeshPlugin,
+use dway_ui_framework::{
+    render::mesh::{UiMeshHandle, UiMeshMaterialPlugin, UiMeshPlugin},
+    widgets::shape::UiShapeMaterial,
 };
 
 fn main() {
@@ -15,7 +17,7 @@ fn main() {
         .add_plugins((
             UiMeshPlugin,
             UiMeshMaterialPlugin::<ColorMaterial>::default(),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin {
                 wait_duration: Duration::from_secs(4),
                 ..Default::default()
@@ -34,8 +36,8 @@ fn setup(
     commands.spawn((Camera2d::default(), Msaa::Sample4));
 
     commands
-        .spawn(NodeBundle {
-            node: Node {
+        .spawn((
+            Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Row,
@@ -45,14 +47,13 @@ fn setup(
                 top: Val::Px(64.0),
                 ..default()
             },
-            background_color: (Color::rgb(0.8, 0.8, 0.8)).into(),
-            ..default()
-        })
+            BackgroundColor(Color::srgb(0.8, 0.8, 0.8)),
+        ))
         .with_children(|commands| {
-            commands.spawn(UiMeshBundle {
-                mesh: UiMeshHandle::from(meshes.add(RegularPolygon::new(128.0, 6))),
-                material: mesh2d_materials.add(color!("#0000ff")).into(),
-                node: Node {
+            commands.spawn((
+                UiMeshHandle::from(meshes.add(RegularPolygon::new(128.0, 6))),
+                UiShapeMaterial::from(mesh2d_materials.add(color!("#0000ff"))),
+                Node {
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     flex_direction: FlexDirection::Column,
@@ -60,7 +61,6 @@ fn setup(
                     height: Val::Percent(100.0),
                     ..default()
                 },
-                ..default()
-            });
+            ));
         });
 }

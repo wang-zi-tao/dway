@@ -64,17 +64,17 @@ if ( slider_interaction.is_changed() || mouse_position.is_changed() )
         }, commands);
     }
 } }
-<MiniNodeBundle @id="bar" @style="absolute h-8 w-full min-h-8 align-self:center" >
-    <MiniNodeBundle @id="bar_highlight"
+<Node @id="bar" @style="absolute h-8 w-full min-h-8 align-self:center" >
+    <Node @id="bar_highlight"
         Node=(Node{
         width: Val::Percent(100.0*((*state.value()-prop.min)/(prop.max-prop.min)).max(0.0).min(1.0)),
         ..style!("m-2")
     }) />
-</MiniNodeBundle>
-<MiniNodeBundle Node=(Node{
+</Node>
+<Node Node=(Node{
     margin:UiRect::left(Val::Percent(100.0*((*state.value()-prop.min)/(prop.max-prop.min)).max(0.0).min(1.0))),
     ..style!("absolute w-0 h-full flex-col align-items:center justify-content:center align-self:center")
 }) >
-    <MiniNodeBundle @id="handle" @style="absolute align-self:center w/h-1.0 h-80% min-w-16 min-h-16" />
-</MiniNodeBundle>
+    <Node @id="handle" @style="absolute align-self:center w/h-1.0 h-80% min-w-16 min-h-16" />
+</Node>
 }

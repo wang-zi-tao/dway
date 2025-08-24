@@ -1,4 +1,3 @@
-
 use bevy::ecs::relationship::RelatedSpawnerCommands;
 
 use crate::{event::UiEvent, prelude::*};
@@ -14,7 +13,7 @@ pub fn open_right_click_popup<C: RgithClickPopupConfig>(
 ) {
     if let UiInputEvent::MouseRelease(MouseButton::Right) = &*event {
         commands.entity(event.sender()).with_children(|c| {
-            c.spawn(UiPopupBundle::from(UiPopup::default().with_auto_destroy()))
+            c.spawn(UiPopup::default().with_auto_destroy())
                 .with_children(|c| {
                     C::on_open(event.sender(), c);
                 });

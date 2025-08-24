@@ -9,8 +9,7 @@ use dway_server::{
     xdg::{toplevel::DWayToplevel, DWayWindow, PopupList},
 };
 use dway_ui_framework::widgets::{
-    button::UiRawButtonExt,
-    drag::{UiDrag, UiDragEvent, UiDragExt},
+    drag::{UiDrag, UiDragEvent, UiDragEventDispatcher},
 };
 
 use super::popupwindow::{PopupUI, PopupUIBundle, PopupUISystems};
@@ -238,63 +237,58 @@ WindowUI=>
     FocusPolicy=(FocusPolicy::Block)
     UiInputEventDispatcher=(make_callback(this_entity, on_window_ui_input))
 />
-<UiNodeBundle Node=(irect_to_style(*state.bbox_rect())) @if(!*state.decorated()) @id="without_decorated">
-    <ImageBundle @id="image" @style="full" ImageNode=(state.image().clone().into()) />
-</UiNodeBundle>
-<NodeBundle Node=(irect_to_style(*state.rect())) @if(*state.decorated())
+<Node Node=(irect_to_style(*state.bbox_rect())) @if(!*state.decorated()) @id="without_decorated">
+    <ImageNode @id="image" @style="full" ImageNode=(state.image().clone().into()) />
+</Node>
+<Node Node=(irect_to_style(*state.rect())) @if(*state.decorated())
      @id="with_decorated">
-    <MaterialNodeBundle::<RoundedUiRectMaterial> @id="decorated_box"
+    <MaterialNode::<RoundedUiRectMaterial> @id="decorated_box"
         ZIndex=(ZIndex(0))
-        UiDragExt=(UiDragExt{
-            event_dispatcher: make_callback(this_entity, on_decorated_mouse_event),
-            ..default()
-        })
+        UiDrag=(default())
+        UiDragEventDispatcher=(make_callback(this_entity, on_decorated_mouse_event))
         @style="absolute left-{-DECORATION_MARGIN} right-{-DECORATION_MARGIN} bottom-{-DECORATION_MARGIN} top-{-DECORATION_HEIGHT}"
         @handle(RoundedUiRectMaterial=>rounded_rect(color!("#333333"), 16.0)) />
-    <MaterialNodeBundle::<RoundedUiImageMaterial> @id="surface" @style="absolute full"
+    <MaterialNode::<RoundedUiImageMaterial> @id="surface" @style="absolute full"
     @handle(RoundedUiImageMaterial=>rounded_ui_image(
         14.0,
         ( state.bbox_rect().min-state.rect().min ).as_vec2() / state.rect().size().as_vec2(),
         state.bbox_rect().size().as_vec2() / state.rect().size().as_vec2(),
         state.image().clone())) />
-    <NodeBundle @id="title_bar"
-        UiDragExt=(UiDragExt{
-            event_dispatcher: make_callback(this_entity, on_title_bar_mouse_event),
-            drag: UiDrag{
-                auto_move: false,
-                ..Default::default()
-            },
-            ..default()
-        })
+    <Node @id="title_bar"
+        UiDrag=(UiDrag{ auto_move: false,..Default::default() })
+        UiDragEventDispatcher=(make_callback(this_entity, on_title_bar_mouse_event))
         @style="absolute left-0 right-0 top-{-DECORATION_HEIGHT} height-{DECORATION_HEIGHT}" >
-        <MiniNodeBundle @id="close" @style="m-2 w-20 h-20"
-            UiRawButtonExt=(UiRawButtonExt::from_callback(prop.window_entity, on_close_button_event))
+        <Node @id="close" @style="m-2 w-20 h-20"
+            UiButton=(default()) NoTheme=(default())
+            UiButtonEventDispatcher=(make_callback(prop.window_entity, on_close_button_event))
             @handle(UiCircleMaterial=>circle_material(color!("#505050"))) >
             <(UiSvg::new(asset_server.load("embedded://dway_ui/icons/close.svg"))) @style="full" />
-        </MiniNodeBundle>
-        <MiniNodeBundle @id="max" @style="m-2 w-20 h-20"
-            UiRawButtonExt=(UiRawButtonExt::from_callback(prop.window_entity, on_max_button_event))
+        </Node>
+        <Node @id="max" @style="m-2 w-20 h-20"
+            UiButton=(default()) NoTheme=(default())
+            UiButtonEventDispatcher=(make_callback(prop.window_entity, on_max_button_event))
             @handle(UiCircleMaterial=>circle_material(color!("#505050"))) >
             <(UiSvg::new(asset_server.load("embedded://dway_ui/icons/maximize.svg"))) @style="full" />
-        </MiniNodeBundle>
-        <MiniNodeBundle @id="min" @style="m-2 w-20 h-20"
-            UiRawButtonExt=(UiRawButtonExt::from_callback(prop.window_entity, on_min_button_event))
+        </Node>
+        <Node @id="min" @style="m-2 w-20 h-20"
+            UiButton=(default()) NoTheme=(default())
+            UiButtonEventDispatcher=(make_callback(prop.window_entity, on_min_button_event))
             @handle(UiCircleMaterial=>circle_material(color!("#505050"))) >
             <(UiSvg::new(asset_server.load("embedded://dway_ui/icons/minimize.svg"))) @style="full" />
-        </MiniNodeBundle>
+        </Node>
         <Node @id="title" @style="items-center justify-center m-auto"
             Text=(Text::new(state.title().as_deref().unwrap_or_default()))
             TextFont=(theme.text_font(DECORATION_HEIGHT - 2.0))
             TextColor=(Color::WHITE.into())
             TextLayout=( TextLayout::new_with_justify(JustifyText::Left) )
         />
-    </NodeBundle>
-</NodeBundle>
-<MiniNodeBundle @style="absolute full"
+    </Node>
+</Node>
+<Node @style="absolute full"
     @for_query(_ in Query<Ref<WlSurface>>::iter_many(state.popup_list().iter())=>[ ])>
     <PopupUIBundle GlobalZIndex=(GlobalZIndex(WINDEOW_POPUP_BASE_ZINDEX))
         PopupUI=(PopupUI{window_entity:widget.data_entity})/>
-</MiniNodeBundle>
+</Node>
 }
 
 #[derive(Component)]

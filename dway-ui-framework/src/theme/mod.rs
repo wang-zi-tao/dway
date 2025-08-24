@@ -6,8 +6,12 @@ use std::{any::TypeId, fmt::Debug, hash::Hash, sync::Arc};
 use bevy::{
     app::DynEq,
     ecs::{
-        component::{ComponentId, HookContext}, label::DynHash, query::QueryData, world::DeferredWorld
-    }, platform::collections::HashMap,
+        component::{ComponentId, HookContext},
+        label::DynHash,
+        query::QueryData,
+        world::DeferredWorld,
+    },
+    platform::collections::HashMap,
 };
 use bevy_svg::prelude::Svg;
 use bitflags::bitflags;
@@ -15,14 +19,18 @@ use derive_more::From;
 use downcast_rs::{impl_downcast, Downcast};
 
 use crate::{
-    animation::{apply_tween_asset, ease::AnimationEaseMethod, AnimationEvent, AnimationEventDispatcher},
+    animation::{
+        apply_tween_asset, ease::AnimationEaseMethod, AnimationEvent, AnimationEventDispatcher,
+    },
     event::{CallbackTypeRegister, EventDispatcher},
     prelude::*,
     shader::{
         effect::{InnerShadow, Shadow},
         fill::Fill,
         Material, ShaderAsset,
-    }, util::modify_component_or_insert,
+    },
+    util::modify_component_or_insert,
+    UiFrameworkSystems,
 };
 
 pub mod classname {
@@ -450,5 +458,3 @@ impl DefaultTextTheme {
         text_color.0 = *color;
     }
 }
-
-

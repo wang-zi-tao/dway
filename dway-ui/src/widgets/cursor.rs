@@ -6,6 +6,7 @@ use dway_server::{
     wl::surface::{ClientHasSurface, WlSurface},
 };
 use dway_ui_framework::theme::{ThemeComponent, WidgetKind};
+use std::result::Result;
 
 use crate::prelude::*;
 
@@ -82,7 +83,7 @@ Cursor=>
 @use_state(pub cursor_geo: IRect)
 @use_state(pub cursor_image: Handle<Image>)
 @state_component(#[derive(Debug)])
-<ImageBundle ImageNode=(state.cursor_image().clone().into()) GlobalZIndex=(GlobalZIndex(4096))
+<(ImageNode::from(state.cursor_image().clone())) GlobalZIndex=(GlobalZIndex(4096))
     Node=({
         let b = state.cursor_geo();
         Node{

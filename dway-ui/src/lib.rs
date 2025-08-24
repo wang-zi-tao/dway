@@ -10,7 +10,11 @@ pub mod reexport {
     pub use bevy_relationship;
 }
 
-use bevy::{render::camera::RenderTarget, window::WindowRef};
+use bevy::{
+    math::FloatOrd,
+    render::camera::{ImageRenderTarget, RenderTarget},
+    window::WindowRef,
+};
 use bevy_svg::SvgPlugin;
 pub use bitflags::bitflags as __bitflags;
 use dway_client_core::{
@@ -103,38 +107,38 @@ ScreenUI=>
     }
 })
 @global(mut assets_rounded_ui_rect_material: Assets<RoundedUiRectMaterial>)
-<NodeBundle @id="screen_ui" Name=(Name::new("screen_ui"))
+<Node @id="screen_ui" Name=(Name::new("screen_ui"))
     // StyleSheet=(StyleSheet::new(asset_server.load("style/style.css")))
     @style="absolute full">
-    <MiniNodeBundle Name=(Name::new("background")) @style="absolute full" @id="background">
-        <ImageBundle ImageNode=(asset_server.load("background.jpg").into()) GlobalZIndex=(GlobalZIndex(-1024))/>
-    </MiniNodeBundle>
+    <Node Name=(Name::new("background")) @style="absolute full" @id="background">
+        <ImageNode ImageNode=(asset_server.load("background.jpg").into()) GlobalZIndex=(GlobalZIndex(-1024))/>
+    </Node>
     <ScreenWindowsBundle @style="absolute full" Name=(Name::new("windows")) @id="windows"
         ScreenWindows=(ScreenWindows{screen:prop.screen}) />
-    <MiniNodeBundle @style="full absolute" @id="popup_parent" GlobalZIndex=(GlobalZIndex(1024)) />
-    <MiniNodeBundle
+    <Node @style="full absolute" @id="popup_parent" GlobalZIndex=(GlobalZIndex(1024)) />
+    <Node
         ThemeComponent=(default())
         RenderToLayer=(RenderToLayer::blur())
         GlobalZIndex=(GlobalZIndex(1024))
         @style="absolute top-4 left-4 right-4 h-32"
         // @material(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.5),8.0))
         Name=(Name::new("panel")) @id="panel">
-        <MiniNodeBundle @style="absolute flex-row m-4 left-4" @id="left">
+        <Node @style="absolute flex-row m-4 left-4" @id="left">
             <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
                 (prop.screen,callbacks.system(popups::launcher::open_popup))
             ])) @style="flex-col">
                 <(UiSvg::new(theme.icon("dashboard", &asset_server))) @style="w-24 h-24" @id="dashboard"/>
             </PanelButtonBundle>
             <WindowTitleBundle/>
-        </MiniNodeBundle>
-        <MiniNodeBundle @style="absolute flex-row right-4 align-items:center" @id="right">
+        </Node>
+        <Node @style="absolute flex-row right-4 align-items:center" @id="right">
             <ClockBundle/>
             <PanelSystemMonitorBundle @id="system_monitor" @style="h-full"/>
             <NotifyButtonBundle @id="notify"/>
             <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
                 (prop.screen,callbacks.system(popups::volume_control::open_popup))
             ])) @style="flex-col m-4">
-                // <MiniNodeBundle @style="h-24 w-24" />
+                // <Node @style="h-24 w-24" />
                 <(UiSvg::new(theme.icon("volume_on", &asset_server))) @style="w-24 h-24" @id="volume"/>
             </PanelButtonBundle>
             <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
@@ -142,19 +146,19 @@ ScreenUI=>
             ])) @style="m-4">
                 <(UiSvg::new(theme.icon("settings", &asset_server))) @style="w-24 h-24" @id="settings"/>
             </PanelButtonBundle>
-        </MiniNodeBundle>
-        <MiniNodeBundle @style="absolute w-full h-full justify-center items-center" @id="center">
-            <MiniNodeBundle @style="flex-row m-0 h-90%" >
+        </Node>
+        <Node @style="absolute w-full h-full justify-center items-center" @id="center">
+            <Node @style="flex-row m-0 h-90%" >
                 <WorkspaceListUIBundle @id="workspace_list" />
-            </MiniNodeBundle>
-        </MiniNodeBundle>
+            </Node>
+        </Node>
     </>
-    <(NodeBundle{node: style!("absolute bottom-4 w-full justify-center items-center"),
-        focus_policy: FocusPolicy::Pass, ..default()})
+    <(style!("absolute bottom-4 w-full justify-center items-center"))
+        FocusPolicy=(FocusPolicy::Pass)
         GlobalZIndex=(GlobalZIndex(1024))
         // Class=(Class::new("dock"))
         Name=(Name::new("dock")) @id="dock" >
-        <MiniNodeBundle
+        <Node
             ThemeComponent=(default())
             RenderToLayer=(RenderToLayer::blur())
             // @material(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.5), 16.0))
@@ -165,11 +169,11 @@ ScreenUI=>
             ]))>
                 <(UiSvg::new(theme.icon("apps", &asset_server))) @style="w-48 h-48" @id="apps"/>
             </PanelButtonBundle>
-        </MiniNodeBundle>
-    </NodeBundle>
+        </Node>
+    </Node>
     <CursorBundle Cursor=(Cursor::new(asset_server.load("embedded://dway_ui/cursors/cursor-default.png"),Vec2::splat(32.0)))/>
     // <LoggerUIBundle @style="bottom-64 left-32 w-80% absolute"/>
-</NodeBundle>
+</Node>
 }
 
 fn init_screen_ui(
@@ -178,12 +182,15 @@ fn init_screen_ui(
     window_query: Query<&Window>,
     mut commands: Commands,
 ) {
-    let entity = trigger.entity();
+    let entity = trigger.target();
     let (name, target) = if let Ok((drm_surface, connector)) = screen_query.get(entity) {
         let image_handle = drm_surface.image();
         (
             connector.name().to_string(),
-            RenderTarget::Image(image_handle),
+            RenderTarget::Image(ImageRenderTarget {
+                handle: image_handle,
+                scale_factor: FloatOrd(1.0),
+            }),
         )
     } else if let Ok(window) = window_query.get(entity) {
         (
@@ -224,7 +231,7 @@ fn init_screen_ui(
 
     commands
         .spawn((
-            TargetCamera(camera),
+            UiTargetCamera(camera),
             ScreenUIBundle::from(ScreenUI { screen: entity }),
         ))
         .connect_to::<UiAttachData>(entity);

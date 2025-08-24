@@ -1,14 +1,9 @@
 use dway_server::apps::{
     icon::LinuxIcon, launchapp::LaunchAppRequest, DesktopEntriesSet, DesktopEntry,
 };
-use dway_ui_framework::animation::translation::UiTranslationAnimationExt;
 use widgets::text::UiTextBundle;
 
-use crate::{
-    panels::PanelButtonBundle,
-    prelude::*,
-    widgets::icon::{UiIcon, UiIconBundle},
-};
+use crate::{panels::PanelButtonBundle, prelude::*, widgets::icon::UiIcon};
 
 #[dway_widget_prop]
 #[derive(Default)]
@@ -32,18 +27,18 @@ LauncherUI=>
 @plugin{{
     app.register_callback(open_popup);
 }}
-<MiniNodeBundle
+<Node
 @style="flex-col p-4">
-    <MiniNodeBundle @style="min-h-600 w-full">
-        <MiniNodeBundle @id="left_bar" @style="w-34% m-4 min-h-600"
+    <Node @style="min-h-600 w-full">
+        <Node @id="left_bar" @style="w-34% m-4 min-h-600"
             @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 16.0))
         >
-        </MiniNodeBundle>
-        <MiniNodeBundle @id="right_block" @style="m-4 w-full"
+        </Node>
+        <Node @id="right_block" @style="m-4 w-full"
             @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 16.0))
         >
             <UiScrollBundle @style="max-h-600 m-4 w-full" @id="app_list_scroll">
-                <MiniNodeBundle @style="absolute flex-col w-full" @id="AppList"
+                <Node @style="absolute flex-col w-full" @id="AppList"
                     @for_query(mut entry in Query<Ref<DesktopEntry>>::iter_many(&entries.list)=>[
                         entry=>{
                             state.set_name(entry.name().unwrap_or_default().to_string());
@@ -58,14 +53,14 @@ LauncherUI=>
                         @use_state(pub name: String)
                         @use_state(pub icon: Handle<LinuxIcon>)
                     >
-                        <UiIconBundle @style="w-24 h-24 align-self:center" UiIcon=(state.icon().clone().into()) @id="app_icon" />
+                        <UiIcon @style="w-24 h-24 align-self:center" UiIcon=(state.icon().clone().into()) @id="app_icon" />
                         <(UiTextBundle::new(state.name(),24,&theme)) @id="app_name" @style="p-4 align-self:center"/>
                     </PanelButtonBundle>
-                </MiniNodeBundle>
+                </Node>
             </UiScrollBundle>
-        </MiniNodeBundle>
-    </MiniNodeBundle>
-    <MiniNodeBundle @id="bottom_bar" @style="p-4 min-w-512 justify-content:space-evenly"
+        </Node>
+    </Node>
+    <Node @id="bottom_bar" @style="p-4 min-w-512 justify-content:space-evenly"
         @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 16.0))
     >
         <( PanelButtonBundle::new(&theme,&mut assets_rounded_ui_rect_material) ) @style="w-32 h-32" @id="user_icon">
@@ -83,22 +78,20 @@ LauncherUI=>
         <( PanelButtonBundle::new(&theme,&mut assets_rounded_ui_rect_material) ) @style="w-32 h-32" @id="poweroff_button">
             <(UiSvg::new(theme.icon("power", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
-    </MiniNodeBundle>
-</MiniNodeBundle>
+    </Node>
+</Node>
 }
 
 pub fn open_popup(event: UiEvent<UiButtonEvent>, theme: Res<Theme>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         commands
             .spawn((
-                UiPopupBundle::default(),
-                UiTranslationAnimationExt {
-                    target_style: style!("absolute top-36 left-0").into(),
-                    ..Default::default()
-                },
+                UiPopup::default(),
+                UiTranslationAnimation::default(),
+                AnimationTargetNodeState(style!("absolute top-36 left-0")),
             ))
             .with_children(|c| {
-                c.spawn((LauncherUI::default(),style!("h-auto w-auto")));
+                c.spawn((LauncherUI::default(), style!("h-auto w-auto")));
             })
             .set_parent(event.sender());
     }

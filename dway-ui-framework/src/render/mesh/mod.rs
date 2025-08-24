@@ -55,7 +55,7 @@ use bevy::{
 
 use self::graph::NodeUiExt;
 use super::UiRenderOffset;
-use crate::{make_bundle, prelude::*};
+use crate::prelude::*;
 
 pub mod graph {
     use bevy::render::render_graph::RenderLabel;
@@ -1047,13 +1047,5 @@ impl<M: Material2d> Default for PrepareNextFrameMaterials<M> {
         Self {
             assets: Default::default(),
         }
-    }
-}
-
-make_bundle! {
-    @material2d
-    UiMeshBundle {
-        pub mesh: UiMeshHandle,
-        pub mesh_transform: UiMeshTransform,
     }
 }

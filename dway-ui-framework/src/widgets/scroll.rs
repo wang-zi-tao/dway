@@ -1,10 +1,15 @@
-
 use bevy::{input::mouse::MouseWheel, ui::RelativeCursorPosition};
 
-use crate::prelude::*;
+use crate::{prelude::*, widgets::shader::{rounded_rect, RoundedUiRectMaterial}};
 
 #[derive(Component, SmartDefault, Reflect, Debug)]
-#[require(Node, UiScrollState, UiScrollWidget, RelativeCursorPosition, Interaction)]
+#[require(
+    Node,
+    UiScrollState,
+    UiScrollWidget,
+    RelativeCursorPosition,
+    Interaction
+)]
 #[cfg_attr(feature = "hot_reload", derive(Serialize, Deserialize))]
 pub struct UiScroll {
     pub horizontal: bool,
@@ -81,22 +86,23 @@ UiScroll=>
     })();
 }
 @global(theme:Theme)
-<MiniNodeBundle @if(prop.vertical) @style="absolute full">
-    <MiniNodeBundle @id="vertical_handle"
+<Node @if(prop.vertical) @style="absolute full">
+    <Node @id="vertical_handle"
         Node=(Node{
             top: Val::Percent(state.uv().min.y*100.0),
             height: Val::Px(state.uv().size().y*state.size().y),
             ..style!("right-1 w-4 absolute")})
         @material(RoundedUiRectMaterial=>rounded_rect(theme.color("scroll-bar"), 4.0)) >
-    </MiniNodeBundle>
-</MiniNodeBundle>
-<MiniNodeBundle @if(prop.horizontal) @style="absolute full">
-    <MiniNodeBundle @id="vertical_handle"
-        Node=(Node{
+    </Node>
+</Node>
+<Node @if(prop.horizontal) @style="absolute full">
+    <(Node{
             left: Val::Percent(state.uv().min.x*100.0),
             width: Val::Px(state.uv().size().x*state.size().x),
-            ..style!("bottom-1 h-4 absolute")})
+            ..style!("bottom-1 h-4 absolute")
+        })
+        @id="vertical_handle"
         @material(RoundedUiRectMaterial=>rounded_rect(theme.color("scroll-bar"), 4.0)) >
-    </MiniNodeBundle>
-</MiniNodeBundle>
+    </Node>
+</Node>
 }

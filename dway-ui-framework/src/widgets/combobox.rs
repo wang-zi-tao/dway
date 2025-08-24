@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use super::{
-    button::{UiButtonEventDispatcher, UiRawButtonBundle},
+    button::UiButtonEventDispatcher,
 };
 use crate::{
     event::{make_callback, UiEvent},
     prelude::*,
-    theme::{ComboBoxNodeKind, StyleFlags, ThemeComponent, WidgetKind},
+    theme::{ComboBoxNodeKind, NoTheme, StyleFlags, ThemeComponent, WidgetKind},
 };
 
 pub trait UiComboboxItem: 'static + Send + Sync {
@@ -67,13 +67,14 @@ UiComboBox=>
 @state_component(#[derive(Reflect)])
 @use_state(pub selected: Option<usize> @ prop.default_index)
 @use_state(pub open: bool)
-<UiRawButtonBundle @id="selected" @style="full align-items:center justify-content:center"
+<UiButton @style="full align-items:center justify-content:center"
+    NoTheme=(default())
     UiButtonEventDispatcher=(make_callback(this_entity, open_popup))
     @if(state.selected().and_then(|i|prop.items.get(i)).is_some())>
-    <MiniNodeBundle @id="selected" @command({let item = prop.items[state.selected().unwrap()].clone();move|e:EntityWorldMut|item.spawn(e) })/>
-</UiRawButtonBundle>
-<MiniNodeBundle @style="full absolute" @if(*state.open())>
-    <UiPopupBundle @id="List" @style="absolute top-110% align-self:center flex-col w-full p-2"
+    <Node @id="selected" @command({let item = prop.items[state.selected().unwrap()].clone();move|e:EntityWorldMut|item.spawn(e) })/>
+</UiButton>
+<Node @style="full absolute" @if(*state.open())>
+    <UiPopup @id="List" @style="absolute top-110% align-self:center flex-col w-full p-2"
         UiPopupEventDispatcher=(make_callback(this_entity, close_popup))
         @for((index,item):(usize, &Arc<dyn UiComboboxItem> ) in prop.items.iter().enumerate() => {
             state.set_item(Some(item.clone()));
@@ -82,20 +83,20 @@ UiComboBox=>
         GlobalZIndex=(GlobalZIndex(1024))
         ThemeComponent=(ThemeComponent::widget(WidgetKind::ComboBox(ComboBoxNodeKind::Popup)))
     >
-        <MiniNodeBundle @id="item" @style="full"
+        <Node @id="item" @style="full"
                 @use_state(pub combobox: Entity = Entity::PLACEHOLDER @ this_entity)
                 @use_state(pub index: usize)
                 @use_state(#[reflect(ignore)] pub item: Option<Arc<dyn UiComboboxItem>>)
                 @state_component(#[derive(Reflect)]) >
-            <UiRawButtonBundle UiButtonEventDispatcher=(make_callback(node!(item), select))
+            <Node NoTheme=(default()) UiButtonEventDispatcher=(make_callback(node!(item), select))
                 @style="full align-items:center justify-content:center "
                 ThemeComponent=(ThemeComponent::widget(WidgetKind::ComboBox(ComboBoxNodeKind::Item)).with_flag_value(StyleFlags::HIGHLIGHT, Some(*state.index()) == *root_state.selected()))
             >
-                <MiniNodeBundle @command({let item = state.item().clone().unwrap();move|e:EntityWorldMut|item.spawn(e) })/>
-            </UiRawButtonBundle>
-        </MiniNodeBundle>
-    </UiPopupBundle>
-</MiniNodeBundle>
+                <Node @command({let item = state.item().clone().unwrap();move|e:EntityWorldMut|item.spawn(e) })/>
+            </Node>
+        </Node>
+    </UiPopup>
+</Node>
 }
 
 pub struct StringItem {

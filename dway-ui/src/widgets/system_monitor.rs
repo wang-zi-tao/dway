@@ -1,8 +1,10 @@
 use std::f32::consts::PI;
 
-use dway_client_core::controller::systeminfo::{human_readable_byte, human_readable_fresequency, SystemInfo};
-use dway_ui_framework::widgets::shape::UiShapeBundle;
+use dway_client_core::controller::systeminfo::{
+    human_readable_byte, human_readable_fresequency, SystemInfo,
+};
 use dway_ui_framework::reexport::shape::*;
+
 use crate::prelude::*;
 
 #[derive(Component, SmartDefault)]
@@ -22,7 +24,7 @@ PanelSystemMonitor=>
 @use_state(cpu_usage: Vec<f32>)
 @use_state(upload: u64)
 @use_state(download: u64)
-@arg(mut shape_query: Query<(&ComputedNode, &mut Path)>)
+@arg(mut shape_query: Query<(&ComputedNode, &mut Shape)>)
 @global(system_info: SystemInfo -> {
     state.set_memory_usage(1.0 - system_info.available_memory() as f32 / system_info.total_memory() as f32);
     state.set_global_cpu_usage(system_info.cpu_usage());
@@ -32,74 +34,86 @@ PanelSystemMonitor=>
     state.set_download(system_info.network_download());
 })
 @global(theme:Theme)
-<MiniNodeBundle @style="h-full align-items:center">
-    <MiniNodeBundle @style="flex-col">
-        <Node Text=(Text::new(format!("CPU {:.0}%",state.global_cpu_usage() * 100.0))) 
-            TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into()) 
+<Node @style="h-full align-items:center">
+    <Node @style="flex-col">
+        <Node Text=(Text::new(format!("CPU {:.0}%",state.global_cpu_usage() * 100.0)))
+            TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into())
             TextLayout=(TextLayout::new_with_justify(JustifyText::Left) ) />
-        <Node Text=(Text::new(human_readable_fresequency(*state.global_cpu_frequency()))) 
-            TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into()) 
+        <Node Text=(Text::new(human_readable_fresequency(*state.global_cpu_frequency())))
+            TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into())
             TextLayout=(TextLayout::new_with_justify(JustifyText::Left) ) />
-    </MiniNodeBundle>
-    <MiniNodeBundle @style="flex-col">
-        <Node Text=(Text::new(format!("up {}",  human_readable_byte(*state.upload())))) 
-            TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into()) 
+    </Node>
+    <Node @style="flex-col">
+        <Node Text=(Text::new(format!("up {}",  human_readable_byte(*state.upload()))))
+            TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into())
             TextLayout=(TextLayout::new_with_justify(JustifyText::Left) ) />
-        <Node Text=(Text::new( format!("down {}", human_readable_byte(*state.download())))) 
-            TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into()) 
+        <Node Text=(Text::new( format!("down {}", human_readable_byte(*state.download()))))
+            TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into())
             TextLayout=(TextLayout::new_with_justify(JustifyText::Left) ) />
-    </MiniNodeBundle>
-    <MiniNodeBundle @style="h-full w-auto"
+    </Node>
+    <Node @style="h-full w-auto"
         @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 8.0))
     >
-        <UiShapeBundle @id="cpu_shape"
+        <UiShape @id="cpu_shape"
+        Shape=(default())
         Node=(Node{
             width: Val::Px(4.0 * state.cpu_usage().len() as f32),
             ..style!("h-full align-items:center")
         })
-        Stroke=(Stroke {
-            options: StrokeOptions::default()
-                .with_end_cap(LineCap::Round)
-                .with_start_cap(LineCap::Square)
-                .with_line_width(4.0),
-            color: if *state.global_cpu_usage() > prop.global_cpu_threshold
-                    {color!("#DF5B61")}
-                else {color!("#6791C9")},
-        })
         @after_update{if state.cpu_usage_is_changed(){
-            if let Ok((computed_node,mut path)) = shape_query.get_mut(node!(cpu_shape)){
-                let mut builder = PathBuilder::new();
+            if let Ok((computed_node,mut shape)) = shape_query.get_mut(node!(cpu_shape)){
+                let mut path = ShapePath::new();
                 let size = computed_node.size();
                 for (i,cpu) in state.cpu_usage().iter().enumerate() {
                     let w = 4.0;
                     let x = -0.5 * size.x + 0.5 * w + i as f32 * w;
-                    builder.move_to(Vec2::new(x, -0.5 * size.y));
-                    builder.line_to(Vec2::new(x, -0.5 * size.y + cpu * size.y));
+                    path = path
+                        .move_to(Vec2::new(x, -0.5 * size.y))
+                        .line_to(Vec2::new(x, -0.5 * size.y + cpu * size.y));
                 }
-                *path = builder.build();
+                *shape = ShapeBuilder::with(&path)
+                    .stroke(Stroke {
+                        options: StrokeOptions::default()
+                            .with_end_cap(LineCap::Round)
+                            .with_start_cap(LineCap::Square)
+                            .with_line_width(4.0),
+                        color: if *state.global_cpu_usage() > prop.global_cpu_threshold
+                                {color!("#DF5B61")}
+                            else {color!("#6791C9")},
+                    }).build()
             }
         }}/>
-        <UiShapeBundle @id="mem_shape" @style="h-full p-4 ratio-1.0 align-items:center"
-        Stroke=(Stroke {
-            options: StrokeOptions::default()
-                .with_end_cap(LineCap::Round)
-                .with_start_cap(LineCap::Round)
-                .with_line_width(4.0),
-            color: if *state.memory_usage() > prop.memory_threshold
-                    {color!("#DF5B61")}
-                else {color!("#6791C9")},
-        })
+        <UiShape @id="mem_shape" @style="h-full p-4 ratio-1.0 align-items:center"
+        Shape=(ShapeBuilder::with(&ShapePath::new())
+            .stroke(Stroke {
+                options: StrokeOptions::default()
+                    .with_end_cap(LineCap::Round)
+                    .with_start_cap(LineCap::Round)
+                    .with_line_width(4.0),
+                color: if *state.memory_usage() > prop.memory_threshold
+                        {color!("#DF5B61")}
+                    else {color!("#6791C9")},
+            }).build())
         @after_update{if state.memory_usage_is_changed(){
-            if let Ok((node,mut path)) = shape_query.get_mut(node!(mem_shape)){
-                let mut builder = PathBuilder::new();
+            if let Ok((node,mut shape)) = shape_query.get_mut(node!(mem_shape)){
                 let size = node.size();
-                builder.move_to(Vec2::new(0.0, -0.5 * size.y));
-                builder.arc(Vec2::ZERO, Vec2::splat(0.5*size.y), 2.0*PI * *state.memory_usage(), 1.0);
-                *path = builder.build();
+                let mut path = ShapePath::new()
+                    .move_to(Vec2::new(0.0, -0.5 * size.y))
+                    .arc(Vec2::ZERO, Vec2::splat(0.5*size.y), 2.0*PI * *state.memory_usage(), 1.0);
+                *shape = ShapeBuilder::with(&ShapePath::new())
+                    .stroke(Stroke {
+                        options: StrokeOptions::default()
+                            .with_end_cap(LineCap::Round)
+                            .with_start_cap(LineCap::Round)
+                            .with_line_width(4.0),
+                        color: if *state.memory_usage() > prop.memory_threshold
+                                {color!("#DF5B61")}
+                            else {color!("#6791C9")},
+                    }).build();
             }
         }}>
             <Node Text=(Text::new("mem")) TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into()) />
         </>
-    </MiniNodeBundle>
-</MiniNodeBundle>
+    </Node>
+</Node>
 }

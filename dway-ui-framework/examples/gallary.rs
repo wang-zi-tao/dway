@@ -7,19 +7,27 @@ use bevy::{
 };
 use bevy_prototype_lyon::{
     draw::{Fill, Stroke},
-    entity::Path,
-    geometry::GeometryBuilder,
-    shapes,
+    entity::Shape,
+    geometry::LyonPathBuilderExt,
+    path::ShapePath,
+    prelude::{tess::path::traits::SvgPathBuilder, ShapeBuilder, ShapeBuilderBase},
+    shapes::{self, RegularPolygonFeature},
 };
-use bevy_svg::prelude::StrokeOptions;
+use bevy_svg::prelude::{LineJoin, StrokeOptions};
 use dway_ui_derive::dway_widget;
 use dway_ui_framework::{
     prelude::*,
-    render::mesh::{UiMeshBundle, UiMeshHandle, UiMeshTransform},
+    render::mesh::{UiMeshHandle, UiMeshTransform},
     widgets::{
-        inputbox::{UiInputBox, UiInputBoxBundle},
-        shape::UiShapeBundle,
-        text::UiTextBundle,
+        inputbox::{UiInputBox, UiInputBoxBundle}, shader::{
+            arc_material, button_material, checkbox_material, clicked_fake3d_button_material,
+            fake3d_button_material, hollow_block, rainbow_block, rounded_block,
+            rounded_border_block, rounded_inner_shadow_block, rounded_rect, ArcMaterial,
+            CheckboxMaterial, Fake3dButton, HollowBlockMaterial, RoundedBlockMaterial,
+            RoundedBorderBlockMaterial, RoundedInnerShadowBlockMaterial,
+            RoundedRainbowBlockMaterial, RoundedUiImageMaterial, RoundedUiRectMaterial,
+            UiCircleMaterial,
+        }, shape::UiShapeMaterial, text::UiTextBundle
     },
 };
 
@@ -27,7 +35,7 @@ fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
         .add_plugins((
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin {
                 wait_duration: Duration::from_secs(4),
                 ..Default::default()
@@ -138,75 +146,75 @@ Gallary=>
 @global(asset_server: AssetServer)
 @global(mut meshes: Assets<Mesh>)
 @global(mut mesh2d_materials: Assets<ColorMaterial>)
-<MiniNodeBundle Node=(grid_style())
+<Node Node=(grid_style())
     @material(RoundedBlockMaterial=>rounded_block(color!("#dddddd"), 16.0, &theme))
 >
-    <MiniNodeBundle Node=(cell_style())
+    <Node Node=(cell_style())
         @material(RoundedUiRectMaterial=>rounded_rect(color!("#ffffff"), 16.0)) >
         <(UiTextBundle::new("block", 24, &theme))/>
     </>
-    <MiniNodeBundle Node=(cell_style())
+    <Node Node=(cell_style())
         @material(RoundedBlockMaterial=>rounded_block(color!("#ffffff"), 16.0, &theme)) >
         <(UiTextBundle::new("block with shadow", 24, &theme))/>
     </>
-    <MiniNodeBundle Node=(cell_style())
+    <Node Node=(cell_style())
         @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
         <(UiTextBundle::new("hollow block", 24, &theme))/>
     </>
-    <MiniNodeBundle Node=(cell_style())
+    <Node Node=(cell_style())
         @material(RoundedRainbowBlockMaterial=>rainbow_block(16.0, 2.0)) >
         <(UiTextBundle::new("rainbow block", 24, &theme))/>
     </>
-    <MiniNodeBundle Node=(cell_style())>
-        <MiniButtonBundle Node=(button_style())
+    <Node Node=(cell_style())>
+        <Node Node=(button_style())
             @material(RoundedBlockMaterial=>button_material(theme.color("blue"), 8.0, &theme)) >
             <((Text::new("button"), theme.text_font(24.0), TextColor(Color::WHITE)))/>
         </>
     </>
-    <MiniNodeBundle Node=(cell_style())>
-        <MiniButtonBundle Node=(button_style())
+    <Node Node=(cell_style())>
+        <Node Node=(button_style())
             @material(RoundedBlockMaterial=>button_material(color!("#ffffff"), 8.0, &theme)) >
             <((Text::new("button"), theme.text_font(24.0), TextColor(color!("#0000ff"))))/>
         </>
     </>
-    <MiniNodeBundle Node=(cell_style())>
-        <MiniButtonBundle Node=(button_style())
+    <Node Node=(cell_style())>
+        <Node Node=(button_style())
             @material(Fake3dButton=>fake3d_button_material(color!("#ffffff"), 4.0)) >
             <(UiTextBundle::new("3d button", 24, &theme))/>
         </>
     </>
-    <MiniNodeBundle Node=(cell_style())>
-        <MiniButtonBundle Node=(button_style())
+    <Node Node=(cell_style())>
+        <Node Node=(button_style())
             @material(Fake3dButton=>clicked_fake3d_button_material(color!("#ffffff"), 4.0)) >
             <(UiTextBundle::new("3d button", 24, &theme))/>
         </>
     </>
-    <MiniNodeBundle Node=(cell_style())>
-        <MiniButtonBundle Node=(checkbox_style())
+    <Node Node=(cell_style())>
+        <Node Node=(checkbox_style())
             @material(CheckboxMaterial=>checkbox_material(false, Vec2::new(64.0,32.0), &theme))
         >
         </>
-    </MiniNodeBundle>
-    <MiniNodeBundle Node=(cell_style())>
+    </Node>
+    <Node Node=(cell_style())>
         <Node @style="p-8 w-full m-8" @material(RoundedBorderBlockMaterial=>rounded_border_block(Color::WHITE,theme.color("blue"), 8.0, 2.0)) >
             <UiInputBoxBundle UiInputBox=(UiInputBox{
                 placeholder: "input box...".into(),
                 ..Default::default()
             })/>
         </>
-    </MiniNodeBundle>
-    <MiniNodeBundle Node=(cell_style())>
+    </Node>
+    <Node Node=(cell_style())>
         <Node @style="p-8 w-full m-8" @material(RoundedInnerShadowBlockMaterial=>rounded_inner_shadow_block(Color::WHITE, 8.0, &theme)) >
             <UiInputBoxBundle UiInputBox=(UiInputBox{
                 placeholder: "input box...".into(),
                 ..Default::default()
             })/>
         </>
-    </MiniNodeBundle>
-    <MiniNodeBundle Node=(cell_style())>
+    </Node>
+    <Node Node=(cell_style())>
         <UiSliderBundle @style="w-full" />
-    </MiniNodeBundle>
-    <MiniNodeBundle Node=(cell_style())>
+    </Node>
+    <Node Node=(cell_style())>
         <Node @style="w-128 h-128 align-items:center justify-content:center"
             @material(ArcMaterial=>arc_material(color!("#00ff00"), Color::WHITE, 8.0, [0.0,5.28]))
         >
@@ -217,43 +225,40 @@ Gallary=>
                 style!("w-64 h-64"), )
             )/>
         </>
-    </MiniNodeBundle>
-    <MiniNodeBundle Node=(cell_style())
+    </Node>
+    <Node Node=(cell_style())
         @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
-        <( UiMeshBundle{
-            mesh: UiMeshHandle::from(meshes.add(RegularPolygon::new(48.0, 6))),
-            material: mesh2d_materials.add(color!("#ff0000")).into(),
-            node: style!("w-64 h-64"),
-            ..default()
-        })/>
-    </MiniNodeBundle>
-    <MiniNodeBundle Node=(cell_style())
+        <(UiMeshHandle::from(meshes.add(RegularPolygon::new(48.0, 6))))
+        UiShapeMaterial=(mesh2d_materials.add(color!("#ff0000")).into())
+        @style="w-64 h-64"
+    />
+    </Node>
+    <Node Node=(cell_style())
         @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
-        <UiShapeBundle Fill=(Fill::color(color!("#0000ff"))) Stroke=( Stroke::new(Color::BLACK, 8.0) )
+        <UiShape @style="w-120 h-120 m-8"
         UiMeshTransform=(Transform::default().with_translation(Vec3::new(-64.0,-64.0,0.0)).with_scale(Vec3::splat(1.0/8.0)).into())
-        Path=(GeometryBuilder::build_as(&shapes::SvgPathShape {
-            svg_doc_size_in_px: Vec2::splat(0.0),
-            svg_path_string: "M280-240q-100 0-170-70T40-480q0-100 70-170t170-70h400q100 0 170 70t70 170q0 100-70 170t-170 70H280Zm0-80h400q66 0 113-47t47-113q0-66-47-113t-113-47H280q-66 0-113 47t-47 113q0 66 47 113t113 47Zm400-40q50 0 85-35t35-85q0-50-35-85t-85-35q-50 0-85 35t-35 85q0 50 35 85t85 35ZM480-480Z".to_string()
-        }))  @style="w-120 h-120 m-8"/>
-    </MiniNodeBundle>
-    <MiniNodeBundle Node=(cell_style())
+        Shape=(ShapeBuilder::with(&shapes::SvgPathShape {
+                svg_doc_size_in_px: Vec2::splat(0.0),
+                svg_path_string: "M280-240q-100 0-170-70T40-480q0-100 70-170t170-70h400q100 0 170 70t70 170q0 100-70 170t-170 70H280Zm0-80h400q66 0 113-47t47-113q0-66-47-113t-113-47H280q-66 0-113 47t-47 113q0 66 47 113t113 47Zm400-40q50 0 85-35t35-85q0-50-35-85t-85-35q-50 0-85 35t-35 85q0 50 35 85t85 35ZM480-480Z".to_string()
+            }).fill(Fill::color(color!("#0000ff"))).stroke(Stroke::new(Color::BLACK,8.0) ).build())/>
+    </Node>
+    <Node Node=(cell_style())
         @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
-        <UiShapeBundle Fill=(Fill::color(color!("#ffff00")))
-        Stroke=(Stroke{
-            color: Color::BLACK,
-            options: StrokeOptions::default().with_line_join(bevy_svg::prelude::LineJoin::Round).with_line_width(16.0)
-        })
-        Path=(GeometryBuilder::build_as(&shapes::RegularPolygon {
+        <UiShape @style="w-120 h-120 m-8"
+        Shape=(ShapeBuilder::with(&shapes::RegularPolygon {
             sides: 8,
-            feature: shapes::RegularPolygonFeature::Radius(48.0),
-            ..shapes::RegularPolygon::default()
-        }))  @style="w-120 h-120 m-8"/>
-    </MiniNodeBundle>
-    <MiniNodeBundle Node=(cell_style())
+            feature: RegularPolygonFeature::Radius(48.0),
+            ..default()
+        }).fill(Fill::color(color!("#ffff00"))).stroke(Stroke{
+            color: Color::BLACK,
+            options: StrokeOptions::default().with_line_join(LineJoin::Round).with_line_width(16.0)
+        }).build()) />
+    </Node>
+    <Node Node=(cell_style())
         @material(RoundedInnerShadowBlockMaterial=>rounded_inner_shadow_block(Color::WHITE, 8.0, &theme)) >
         <UiScrollBundle @style="w-120 h-120 m-8">
             <(UiTextBundle::new("scroll\nscroll\nscroll\nscroll\nscroll\nscroll\nscroll", 24, &theme)) @style="w-256 h-256 left-4"/>
         </UiScrollBundle>
-    </MiniNodeBundle>
-</MiniNodeBundle>
+    </Node>
+</Node>
 }

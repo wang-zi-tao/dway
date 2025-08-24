@@ -3,9 +3,8 @@ use smart_default::SmartDefault;
 // use bevy_tweening::{AssetAnimator, EaseMethod};
 use crate::{
     event::{make_callback, EventDispatcher},
-    make_bundle,
     prelude::*,
-    theme::{adapter::NoWidgetTheme, ThemeHightlight, StyleFlags, ThemeComponent, WidgetKind},
+    theme::{adapter::NoWidgetTheme, NoTheme, StyleFlags, ThemeComponent, ThemeHightlight, WidgetKind},
 };
 
 #[derive(Event, Debug, Clone, PartialEq, Eq)]
@@ -96,77 +95,3 @@ pub fn update_ui_button(
     }
 }
 
-make_bundle! {
-    @from button: UiButton,
-    @addon UiRawButtonExt,
-    UiRawButtonBundle {
-        pub button: UiButton,
-        pub interaction: Interaction,
-        #[default(FocusPolicy::Block)]
-        pub focus_policy: FocusPolicy,
-        pub event_dispatch: UiButtonEventDispatcher,
-        #[default(ThemeComponent::default())]
-        pub theme_component: ThemeComponent,
-        pub no_button_theme: NoWidgetTheme<UiButton>,
-    }
-}
-make_bundle! {
-    @from button: UiButton,
-    @addon UiButtonExt,
-    UiButtonBundle {
-        pub button: UiButton,
-        pub interaction: Interaction,
-        #[default(ThemeComponent::new(StyleFlags::default(), WidgetKind::Button))]
-        pub theme: ThemeComponent,
-        #[default(FocusPolicy::Block)]
-        pub focus_policy: FocusPolicy,
-        pub event_dispatch: UiButtonEventDispatcher,
-    }
-}
-make_bundle! {
-    @from button: UiButton,
-    @addon UiHightlightButtonExt,
-    UiHightlightButtonBundle {
-        pub button: UiButton,
-        pub interaction: Interaction,
-        pub hightlight_theme: ThemeHightlight,
-        #[default(ThemeComponent::new(StyleFlags::HIGHLIGHT, WidgetKind::Button))]
-        pub theme: ThemeComponent,
-        #[default(FocusPolicy::Block)]
-        pub focus_policy: FocusPolicy,
-        pub event_dispatch: UiButtonEventDispatcher,
-    }
-}
-
-impl UiRawButtonBundle {
-    pub fn from_callback(recevier: Entity, system: SystemId<UiEvent<UiButtonEvent>>) -> Self {
-        Self {
-            event_dispatch: make_callback(recevier, system),
-            ..default()
-        }
-    }
-}
-impl UiButtonBundle {
-    pub fn from_callback(recevier: Entity, system: SystemId<UiEvent<UiButtonEvent>>) -> Self {
-        Self {
-            event_dispatch: make_callback(recevier, system),
-            ..default()
-        }
-    }
-}
-impl UiButtonExt {
-    pub fn from_callback(recevier: Entity, system: SystemId<UiEvent<UiButtonEvent>>) -> Self {
-        Self {
-            event_dispatch: make_callback(recevier, system),
-            ..default()
-        }
-    }
-}
-impl UiRawButtonExt {
-    pub fn from_callback(recevier: Entity, system: SystemId<UiEvent<UiButtonEvent>>) -> Self {
-        Self {
-            event_dispatch: make_callback(recevier, system),
-            ..default()
-        }
-    }
-}

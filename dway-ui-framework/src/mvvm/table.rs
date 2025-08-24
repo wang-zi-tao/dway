@@ -76,6 +76,5 @@ impl<Item: DataItem> Default for Table<Item> {
 dway_widget! {
 Table<Item: DataItem>=>
 @use_state(phantim: PhantomData<Item>)
-<MiniNodeBundle>
-</MiniNodeBundle>
+<Node/>
 }
