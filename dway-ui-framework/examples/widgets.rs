@@ -37,6 +37,8 @@ fn main() {
 fn setup(mut commands: Commands, theme: Res<Theme>, callbacks: Res<CallbackTypeRegister>) {
     // Camera so we can see UI
     commands.spawn((Camera2d::default(), Msaa::Sample4));
+    let button_open_poppup = callbacks.system(button_open_poppup);
+    let open_menu = callbacks.system(open_menu);
 
     spawn! {&mut commands=>
         <Node BlockStyle=(BlockStyle::Normal) Name=(Name::new("widgets"))
@@ -55,14 +57,11 @@ fn setup(mut commands: Commands, theme: Res<Theme>, callbacks: Res<CallbackTypeR
             <UiSliderBundle @style="w-128 h-32 p-4"/>
             <UiInputBoxBundle @style="w-128 h-32 p-4"/>
             <CounterBundle/>
-            <UiButton  @style="flex-col p-4 m-4 justify-content:center"
-                UiButtonEventDispatcher=(EventDispatcher::default().with_system_to_this( callbacks.system(button_open_poppup),) )>
+            <UiButton  @style="flex-col p-4 m-4 justify-content:center" @on_event(button_open_poppup->self) >
                 <(UiTextBundle::new("open popup", 32, &theme))/>
             </UiButton>
             <Node BlockStyle=(BlockStyle::Hollow)  @style="flex-col p-4 m-4 justify-content:center"
-                UiInput
-                UiInputEventDispatcher=(EventDispatcher::default().with_system_to_this(callbacks.system(open_menu)))
-            >
+                UiInput @on_event(open_menu->self) >
                 <(UiTextBundle::new("open menu", 32, &theme))/>
             </Node>
             <UiComboBoxBundle Name=(Name::new("combobox")) @style="w-128 h-32" UiComboBox=(UiComboBox {
