@@ -12,6 +12,7 @@ use const_fnv1a_hash::fnv1a_hash_16_xor;
 use smart_default::SmartDefault;
 
 #[derive(Component, Debug, Clone, Reflect, SmartDefault)]
+#[require(Node)]
 pub struct UiCanvas {
     image: Handle<Image>,
     size: Vec2,

@@ -114,9 +114,9 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
         };
 
         let init_stat = {
-            let spawn_expr = dom.generate_spawn();
+            let spawn_expr = dom.generate_spawn(Some( quote!{#parent_entity} ));
             let init_stat = quote_spanned! {dom.span()=>
-                #entity_var = #spawn_expr.set_parent(#parent_entity).id();
+                #entity_var = #spawn_expr.id();
                 #just_init_var = true;
                 #set_entity_stat
             };
@@ -260,6 +260,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
 
             let spawn_children = quote! {
                 let mut #lambda_var = |mut #ident, mut widget: Mut<#sub_widget_type>, mut state: Mut<#sub_widget_state_type>| {
+                    let widget_entity = #ident;
                     #spawn_children
                     #ident
                 };
@@ -611,6 +612,7 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
             ) in this_query.iter_mut() {
                 let __dway_prop_changed = prop.is_changed();
                 let #parent_just_inited = !widget.inited;
+                let widget_entity = this_entity;
                 #output
                 if #parent_just_inited {
                     widget.inited = true;

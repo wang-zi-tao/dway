@@ -55,7 +55,7 @@ PopupUI=>
                 style!("absolute left-{-distant} top-{-distant} right-{-distant} bottom-{-distant}")
             })
             SurfaceUiNode=(SurfaceUiNode::new(prop.window_entity,widget.node_content_entity).with_grab(*state.grab()))
-            Interaction=(default()) FocusPolicy=(FocusPolicy::Pass)
+            Interaction FocusPolicy=(FocusPolicy::Pass)
         />
     </>
     <Node @style="absolute full"

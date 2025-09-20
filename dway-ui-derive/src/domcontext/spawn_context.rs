@@ -25,7 +25,7 @@ impl<'l> std::ops::Deref for SpawnDomContext<'l> {
 impl<'l> SpawnDomContext<'l> {
     pub fn generate(&mut self, dom: &'l Dom) -> TokenStream {
         self.push(dom);
-        let spawn_expr = dom.generate_spawn();
+        let spawn_expr = dom.generate_spawn(None);
 
         let spawn_children: Vec<TokenStream> = dom
             .children

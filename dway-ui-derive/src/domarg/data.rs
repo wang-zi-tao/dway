@@ -1,39 +1,48 @@
 use syn_derive::ToTokens;
 
+use super::{DomArgKey, DomDecorator};
 use crate::{parser::ParseCodeResult, prelude::*};
 
-use super::{DomArgKey, DomDecorator};
-
 pub struct InsertComponent {
-    pub component: Option<Type>,
-    pub expr: Expr,
+    pub component: Type,
+    pub expr: Option<Expr>,
 }
 impl DomDecorator for InsertComponent {
     fn key(&self) -> DomArgKey {
         DomArgKey::Component(self.component.to_token_stream().to_string())
     }
+
     fn need_node_entity_field(&self) -> bool {
-        let component_state = ParseCodeResult::from_expr(&self.expr);
-        !component_state.use_state.is_empty()
-            || !component_state.set_state.is_empty()
-            || !component_state.use_prop.is_empty()
+        if let Some(expr) = &self.expr {
+            let component_state = ParseCodeResult::from_expr(expr);
+            !component_state.use_state.is_empty()
+                || !component_state.set_state.is_empty()
+                || !component_state.use_prop.is_empty()
+        } else {
+            false
+        }
     }
+
     fn get_component(&self) -> Option<TokenStream> {
         let Self { component, expr } = self;
-        if let Some(component) = component {
+        if let Some(expr) = expr {
             Some(quote_spanned! { expr.span()=>
                 {let value: #component = #expr;value}
             })
         } else {
             Some(quote! {
-                {#expr}
+                {<#component as Default>::default()}
             })
         }
     }
+
     fn generate_update(&self, context: &mut WidgetNodeContext) -> Option<TokenStream> {
         let Self { expr, .. } = self;
         let entity = &context.entity_var;
-        let dependencies = ParseCodeResult::from_expr(expr);
+        let dependencies = expr
+            .as_ref()
+            .map(ParseCodeResult::from_expr)
+            .unwrap_or_default();
         let component = self.get_component();
         dependencies.is_changed().map(|check_changed| {
             quote_spanned! {entity.span()=>
@@ -59,6 +68,7 @@ impl DomDecorator for Argument {
     fn key(&self) -> DomArgKey {
         DomArgKey::Argument(self.name.to_string())
     }
+
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let Self {
             mutable, name, ty, ..
@@ -68,6 +78,7 @@ impl DomDecorator for Argument {
             .system_querys
             .insert(self.name.to_string(), quote!(#mutable #name: #ty));
     }
+
     fn wrap_update(&self, inner: TokenStream, context: &mut WidgetNodeContext) -> TokenStream {
         let Self { name, block, .. } = self;
         let WidgetNodeContext {
@@ -140,6 +151,7 @@ impl DomDecorator for QueryComponent {
     fn key(&self) -> DomArgKey {
         DomArgKey::QueryComponent(self.query_name.to_string())
     }
+
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let Self {
             query_name,
@@ -153,6 +165,7 @@ impl DomDecorator for QueryComponent {
             .system_querys
             .insert(arg_name.to_string(), quote!(#mutable #arg_name: #ty));
     }
+
     fn wrap_update(&self, inner: TokenStream, context: &mut WidgetNodeContext) -> TokenStream {
         let Self {
             query_name,
@@ -195,6 +208,7 @@ impl DomDecorator for Res {
     fn key(&self) -> super::DomArgKey {
         DomArgKey::Resource(self.name.to_string())
     }
+
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let Self {
             name, ty, mutable, ..
@@ -211,6 +225,7 @@ impl DomDecorator for Res {
                 .insert(name.to_string(), quote!(#mutable #name: Res<#ty>));
         }
     }
+
     fn wrap_update(&self, inner: TokenStream, context: &mut WidgetNodeContext) -> TokenStream {
         let Self {
             name, on_change, ..
@@ -246,6 +261,7 @@ impl DomDecorator for QueryMany {
     fn key(&self) -> DomArgKey {
         DomArgKey::QueryComponent(self.query_name.to_string())
     }
+
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let Self {
             query_name,
@@ -259,6 +275,7 @@ impl DomDecorator for QueryMany {
             .system_querys
             .insert(arg_name.to_string(), quote!(#mutable #arg_name: #ty));
     }
+
     fn wrap_update(&self, inner: TokenStream, context: &mut WidgetNodeContext) -> TokenStream {
         let Self {
             query_name,
@@ -310,6 +327,7 @@ impl DomDecorator for Query {
     fn key(&self) -> DomArgKey {
         DomArgKey::QueryComponent(self.query_name.to_string())
     }
+
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let Self {
             query_name,
@@ -323,6 +341,7 @@ impl DomDecorator for Query {
             .system_querys
             .insert(arg_name.to_string(), quote!(#mutable #arg_name: #ty));
     }
+
     fn wrap_update(&self, inner: TokenStream, _context: &mut WidgetNodeContext) -> TokenStream {
         let Self {
             query_name,
@@ -368,6 +387,7 @@ impl DomDecorator for TryQuery {
     fn key(&self) -> DomArgKey {
         DomArgKey::QueryComponent(self.query_name.to_string())
     }
+
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let Self {
             query_name,
@@ -381,6 +401,7 @@ impl DomDecorator for TryQuery {
             .system_querys
             .insert(arg_name.to_string(), quote!(#mutable #arg_name: #ty));
     }
+
     fn wrap_update(&self, inner: TokenStream, _context: &mut WidgetNodeContext) -> TokenStream {
         let Self {
             query_name,

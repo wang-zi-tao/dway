@@ -45,8 +45,7 @@ VolumeControl=>
     }
 })
 @global(asset_server: AssetServer)
-<UiCheckBox UiCheckBoxEventDispatcher=(make_callback(this_entity,on_mute_event))
-    @style="p-4 align-self:center" @id="mute_checkbox"
+<UiCheckBox @on_event(on_mute_event) @style="p-4 align-self:center" @id="mute_checkbox"
     UiCheckBoxState=(UiCheckBoxState::new(*state.mute()))
 >
     <UiSvg @style="w-32 h-32" @id="mute_icon"
@@ -56,9 +55,9 @@ VolumeControl=>
             asset_server.load("embedded://dway_ui/icons/volume_on.svg")
         } )) />
 </UiCheckBox>
-<UiSliderBundle @id="slider" @style="m-8 h-32 w-256 align-self:center"
-    UiSliderEventDispatcher=(make_callback(this_entity,on_slider_event))
-    UiSliderState=(UiSliderState{value: *state.volume(),..default()})/>
+<UiSliderBundle @on_event(on_slider_event) @id="slider" @style="m-8 h-32 w-256 align-self:center"
+    UiSliderState=(UiSliderState{value: *state.volume(),..default()})
+/>
 }
 
 pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {

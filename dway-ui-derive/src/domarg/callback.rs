@@ -1,7 +1,5 @@
-
-use crate::prelude::*;
-
 use super::{DomArgKey, DomDecorator};
+use crate::prelude::*;
 
 #[derive(Parse)]
 pub struct CallbackSig {
@@ -19,10 +17,11 @@ pub struct AddCallback {
     pub func: Ident,
 }
 
-impl DomDecorator for AddCallback{
+impl DomDecorator for AddCallback {
     fn key(&self) -> DomArgKey {
         DomArgKey::System(self.func.to_token_stream().to_string())
     }
+
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let vis = &self.vis;
         let name = &self.func;
@@ -51,6 +50,7 @@ impl DomDecorator for AddCallback{
             },
         );
     }
+
     fn wrap_update(&self, inner: TokenStream, _context: &mut WidgetNodeContext) -> TokenStream {
         let name = &self.func;
         quote_spanned! {name.span()=>
@@ -70,6 +70,7 @@ impl DomDecorator for Callback {
     fn key(&self) -> super::DomArgKey {
         DomArgKey::System(self.func.sig.ident.to_string())
     }
+
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let vis = &self.func.vis;
         let name = &self.func.sig.ident;
@@ -103,12 +104,64 @@ impl DomDecorator for Callback {
             },
         );
     }
+
     fn wrap_update(&self, inner: TokenStream, _context: &mut WidgetNodeContext) -> TokenStream {
         let name = &self.func.sig.ident;
         quote! {
             let #name = resources.#name;
             #inner
         }
+    }
+}
+
+pub struct OnEvent {
+    pub system: Ident,
+    pub target: OnEventTarget,
+}
+
+pub enum OnEventTarget {
+    ThisWidget,
+    Self_,
+    Entity { expr: Expr },
+}
+
+impl syn::parse::Parse for OnEvent {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let system: Ident = input.parse()?;
+        let target = if input.peek(Token![->]) {
+            let _split: Token![->] = input.parse()?;
+            if input.peek(Token![self]) {
+                let _this: Token![self] = input.parse()?;
+                OnEventTarget::Self_
+            } else {
+                OnEventTarget::Entity {
+                    expr: input.parse()?,
+                }
+            }
+        } else {
+            OnEventTarget::ThisWidget
+        };
+        Ok(Self { system, target })
+    }
+}
+
+impl DomDecorator for OnEvent {
+    fn get_component(&self) -> Option<TokenStream> {
+        let system = &self.system;
+        let add_callback = match &self.target {
+            OnEventTarget::ThisWidget => quote_spanned! {self.system.span()=>
+                with_system(widget_entity, #system)
+            },
+            OnEventTarget::Self_ => quote_spanned! {self.system.span()=> 
+                with_system_to_this(#system)
+            },
+            OnEventTarget::Entity { expr } => quote_spanned! {self.system.span()=> 
+                with_system(#expr, #system)
+            },
+        };
+        Some(quote_spanned! {self.system.span()=>
+            dway_ui_framework::event::EventDispatcher::default().#add_callback
+        })
     }
 }
 
@@ -122,6 +175,7 @@ impl DomDecorator for BeforeUpdate {
     fn key(&self) -> DomArgKey {
         DomArgKey::BeforeUpdate
     }
+
     fn wrap_update(&self, inner: TokenStream, _context: &mut WidgetNodeContext) -> TokenStream {
         let stmts = &self.stmts;
         quote! {
@@ -141,6 +195,7 @@ impl DomDecorator for AfterUpdate {
     fn key(&self) -> DomArgKey {
         DomArgKey::AfterUpdate
     }
+
     fn wrap_update(&self, inner: TokenStream, _context: &mut WidgetNodeContext) -> TokenStream {
         let stmts = &self.stmts;
         quote! {

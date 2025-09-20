@@ -134,18 +134,18 @@ impl syn::parse::Parse for DomArg {
                 Ok(Self {
                     span: content.span(),
                     inner: Box::new(InsertComponent {
-                        component: Some(component),
-                        expr,
+                        component,
+                        expr: Some(expr),
                     }),
                     tag: None,
                 })
             } else {
-                let expr: Expr = input.parse()?;
+                let component: Type = input.parse()?;
                 Ok(Self {
-                    span: expr.span(),
+                    span: component.span(),
                     inner: Box::new(InsertComponent {
-                        component: None,
-                        expr,
+                        component,
+                        expr: None,
                     }),
                     tag: None,
                 })
@@ -201,6 +201,7 @@ impl syn::parse::Parse for DomArg {
                         "material" => Box::new(content.parse::<ui::Handle>()?),
                         "callback" => Box::new(content.parse::<callback::Callback>()?),
                         "add_callback" => Box::new(content.parse::<callback::AddCallback>()?),
+                        "on_event" => Box::new(content.parse::<callback::OnEvent>()?),
                         "first" => Box::new(content.parse::<callback::First>()?),
                         "before" => Box::new(content.parse::<callback::BeforeUpdate>()?),
                         "before_update" => Box::new(content.parse::<callback::BeforeUpdate>()?),

@@ -51,13 +51,13 @@ WindowMenu=>
 }
 @global(theme: Theme)
 <Node @style="flex-col">
-    <UiButton NoTheme=(default()) UiButtonEventDispatcher=(make_callback(prop.window_entity, on_close_button_event))>
+    <UiButton NoTheme @on_event(on_close_button_event->prop.window_entity) >
         <(UiTextBundle::new("close", 32, &theme))/>
     </UiButton>
-    <UiButton NoTheme=(default()) UiButtonEventDispatcher=(make_callback(prop.window_entity, on_maximize_button_event))>
+    <UiButton NoTheme @on_event(on_maximize_button_event->prop.window_entity) >
         <(UiTextBundle::new("maximize", 32, &theme))/>
     </UiButton>
-    <UiButton NoTheme=(default()) UiButtonEventDispatcher=(make_callback(prop.window_entity, on_minimize_button_event))>
+    <UiButton NoTheme @on_event(on_minimize_button_event->prop.window_entity) >
         <(UiTextBundle::new("minimize", 32, &theme))/>
     </UiButton>
 </Node>

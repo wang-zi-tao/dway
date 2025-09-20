@@ -70,9 +70,7 @@ WorkspaceListUI=>
         @use_state(pub is_focused:bool)
         @use_state(pub screen_list:Vec<Entity>)
     >
-        <UiButton NoTheme=(default()) @style="w-16 h-16 align-items:center justify-items:center"
-            UiButtonEventDispatcher=(make_callback(node!(ws),on_click))
-        >
+        <UiButton NoTheme @style="w-16 h-16 align-items:center justify-items:center" @on_event(on_click) >
             <Node
                 @material(UiCircleMaterial=>circle_material(theme.color("blue")))
                 Node=(Node{

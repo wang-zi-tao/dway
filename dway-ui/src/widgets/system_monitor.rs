@@ -55,7 +55,7 @@ PanelSystemMonitor=>
         @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 8.0))
     >
         <UiShape @id="cpu_shape"
-        Shape=(default())
+        Shape
         Node=(Node{
             width: Val::Px(4.0 * state.cpu_usage().len() as f32),
             ..style!("h-full align-items:center")

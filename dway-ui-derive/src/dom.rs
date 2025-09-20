@@ -39,26 +39,26 @@ impl ToTokens for DomBundle {
     }
 }
 impl DomBundle {
-    pub fn generate_spawn(&self, ty: Option<TokenStream>) -> TokenStream {
+    pub fn generate_bundle_expr(&self, ty: Option<TokenStream>) -> TokenStream {
         match &self {
             DomBundle::Expr {
                 expr: Expr::Tuple(inner),
                 ..
             } if inner.elems.is_empty() => {
-                quote!(commands.spawn_empty())
+                quote!(())
             }
             DomBundle::Expr { expr, .. } => {
                 if let Some(ty) = ty {
-                    quote!(commands.spawn(#expr as #ty))
+                    quote!(#expr as #ty)
                 } else {
-                    quote!(commands.spawn(#expr))
+                    quote!(#expr)
                 }
             }
             DomBundle::Ident(bundle_tyle) => {
                 if let Some(ty) = ty {
-                    quote!(commands.spawn(#bundle_tyle::default() as #ty))
+                    quote!(#bundle_tyle::default() as #ty)
                 } else {
-                    quote!(commands.spawn(#bundle_tyle::default()))
+                    quote!(#bundle_tyle::default())
                 }
             }
         }
@@ -100,8 +100,8 @@ impl Dom {
         Ok(vec)
     }
 
-    pub fn generate_spawn(&self) -> TokenStream {
-        let spawn_bundle = self.bundle.generate_spawn(
+    pub fn generate_spawn(&self, parent: Option<TokenStream>) -> TokenStream {
+        let bundle_expr = self.bundle.generate_bundle_expr(
             self.end_tag
                 .as_ref()
                 .and_then(|end| end.end_bundle.as_ref())
@@ -112,12 +112,9 @@ impl Dom {
             .iter()
             .filter_map(|arg| arg.get_component_expr())
             .collect();
-        if components_expr.is_empty() {
-            spawn_bundle
-        } else {
-            quote! {
-                #spawn_bundle.insert((#(#components_expr),*))
-            }
+        let parent_expr = parent.map(|p| quote!(bevy::ecs::hierarchy::ChildOf(#p),));
+        quote! {
+            commands.spawn((#bundle_expr, #parent_expr (#(#components_expr),*)))
         }
     }
 }

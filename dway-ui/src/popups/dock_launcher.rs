@@ -2,7 +2,6 @@ use animation::translation::UiTranslationAnimation;
 use dway_server::apps::{
     icon::LinuxIcon, launchapp::LaunchAppRequest, DesktopEntriesSet, DesktopEntry,
 };
-use event::make_callback;
 use regex::{Regex, RegexBuilder};
 use util::DwayUiDirection;
 use widgets::{
@@ -101,8 +100,7 @@ DockLauncherUI=>
 @use_state(pub filter: Regex = Regex::new(".*").unwrap())
 <Node @style="full absolute" >
     <Node @style="full flex-col p-8">
-        <UiInputBoxBundle UiInputBoxEventDispatcher=(make_callback(this_entity, on_text_changed))
-            @style="left-10% right-10% w-80% height-24"/>
+        <UiInputBoxBundle @on_event(on_text_changed) @style="left-10% right-10% w-80% height-24"/>
         <UiScrollBundle @style="m-4 w-full flex_grow:1.0" @id="app_list_scroll">
             <Node @style="absolute w-full min-h-full flex-row flex_wrap:FlexWrap::Wrap" @id="AppList"
                 @for_query(mut entry in Query<Ref<DesktopEntry>>::iter_many(&entries.list)=>[

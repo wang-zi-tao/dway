@@ -46,7 +46,6 @@ type CheckboxStyle = (
 type ButtonStyle = ShapeRender<RoundedRect, (Border, FillColor, Shadow)>;
 
 fn setup(mut commands: Commands) {
-    // Camera so we can see UI
     commands.spawn((Camera2d::default(), Msaa::Sample4));
 
     dway_ui_derive::spawn!(&mut commands=>
@@ -56,18 +55,18 @@ fn setup(mut commands: Commands) {
             </Node>
             <Node BlockStyle=(BlockStyle::Hollow) @style="w-256 h-128">
                 <(UiTextArea::new("text cursor\n text cursor\n text cursor\n text cursor", 28.0)) @style="full"
-                    UiTextCursor=(default()) />
+                    UiTextCursor />
             </Node>
             <Node BlockStyle=(BlockStyle::Hollow) @style="w-256 h-128">
                 <(UiTextArea::new("text selection\ntext selection\ntext selection\ntext selection\n", 28.0))  @style="full"
-                    UiTextCursor=(default())
-                    UiTextSelection=(default()) />
+                    UiTextCursor
+                    UiTextSelection />
             </Node>
             <Node BlockStyle=(BlockStyle::Hollow) @style="w-256 h-32">
                 <(UiTextArea::new("text selection", 28.0))  @style="full"
-                    UiTextCursor=(default())
-                    UiTextSelection=(default())
-                    UiTextEditor=(default())
+                    UiTextCursor
+                    UiTextSelection
+                    UiTextEditor
                 />
             </Node>
         </Node>

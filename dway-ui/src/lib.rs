@@ -117,7 +117,7 @@ ScreenUI=>
         ScreenWindows=(ScreenWindows{screen:prop.screen}) />
     <Node @style="full absolute" @id="popup_parent" GlobalZIndex=(GlobalZIndex(1024)) />
     <Node
-        ThemeComponent=(default())
+        ThemeComponent
         RenderToLayer=(RenderToLayer::blur())
         GlobalZIndex=(GlobalZIndex(1024))
         @style="absolute top-4 left-4 right-4 h-32"
@@ -159,7 +159,7 @@ ScreenUI=>
         // Class=(Class::new("dock"))
         Name=(Name::new("dock")) @id="dock" >
         <Node
-            ThemeComponent=(default())
+            ThemeComponent
             RenderToLayer=(RenderToLayer::blur())
             // @material(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.5), 16.0))
             >

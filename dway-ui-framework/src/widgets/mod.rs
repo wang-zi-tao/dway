@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use bevy::prelude::*;
 pub mod button;
 pub mod canvas;
 pub mod checkbox;
@@ -15,6 +16,7 @@ pub mod text;
 pub mod tips;
 
 #[derive(Component, Debug, Clone, Deref, Reflect)]
+#[require(Node)]
 pub struct UiWidgetRoot(Entity);
 
 impl From<Entity> for UiWidgetRoot {

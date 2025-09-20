@@ -233,9 +233,9 @@ WindowUI=>
 <UiInput @id="content"
     Node=(irect_to_style(*state.rect()))
     ZIndex=(ZIndex(4))
-    RelativeCursorPosition=(default())
+    RelativeCursorPosition
     FocusPolicy=(FocusPolicy::Block)
-    UiInputEventDispatcher=(make_callback(this_entity, on_window_ui_input))
+    @on_event(on_window_ui_input)
 />
 <Node Node=(irect_to_style(*state.bbox_rect())) @if(!*state.decorated()) @id="without_decorated">
     <ImageNode @id="image" @style="full" ImageNode=(state.image().clone().into()) />
@@ -244,8 +244,7 @@ WindowUI=>
      @id="with_decorated">
     <MaterialNode::<RoundedUiRectMaterial> @id="decorated_box"
         ZIndex=(ZIndex(0))
-        UiDrag=(default())
-        UiDragEventDispatcher=(make_callback(this_entity, on_decorated_mouse_event))
+        UiDrag @on_event(on_decorated_mouse_event)
         @style="absolute left-{-DECORATION_MARGIN} right-{-DECORATION_MARGIN} bottom-{-DECORATION_MARGIN} top-{-DECORATION_HEIGHT}"
         @handle(RoundedUiRectMaterial=>rounded_rect(color!("#333333"), 16.0)) />
     <MaterialNode::<RoundedUiImageMaterial> @id="surface" @style="absolute full"
@@ -255,24 +254,20 @@ WindowUI=>
         state.bbox_rect().size().as_vec2() / state.rect().size().as_vec2(),
         state.image().clone())) />
     <Node @id="title_bar"
-        UiDrag=(UiDrag{ auto_move: false,..Default::default() })
-        UiDragEventDispatcher=(make_callback(this_entity, on_title_bar_mouse_event))
+        UiDrag=(UiDrag{ auto_move: false,..Default::default() }) @on_event(on_title_bar_mouse_event)
         @style="absolute left-0 right-0 top-{-DECORATION_HEIGHT} height-{DECORATION_HEIGHT}" >
         <Node @id="close" @style="m-2 w-20 h-20"
-            UiButton=(default()) NoTheme=(default())
-            UiButtonEventDispatcher=(make_callback(prop.window_entity, on_close_button_event))
+            UiButton NoTheme @on_event(on_close_button_event->prop.window_entity)
             @handle(UiCircleMaterial=>circle_material(color!("#505050"))) >
             <(UiSvg::new(asset_server.load("embedded://dway_ui/icons/close.svg"))) @style="full" />
         </Node>
         <Node @id="max" @style="m-2 w-20 h-20"
-            UiButton=(default()) NoTheme=(default())
-            UiButtonEventDispatcher=(make_callback(prop.window_entity, on_max_button_event))
+            UiButton NoTheme @on_event(on_max_button_event->prop.window_entity)
             @handle(UiCircleMaterial=>circle_material(color!("#505050"))) >
             <(UiSvg::new(asset_server.load("embedded://dway_ui/icons/maximize.svg"))) @style="full" />
         </Node>
         <Node @id="min" @style="m-2 w-20 h-20"
-            UiButton=(default()) NoTheme=(default())
-            UiButtonEventDispatcher=(make_callback(prop.window_entity, on_min_button_event))
+            UiButton NoTheme @on_event(on_min_button_event->prop.window_entity)
             @handle(UiCircleMaterial=>circle_material(color!("#505050"))) >
             <(UiSvg::new(asset_server.load("embedded://dway_ui/icons/minimize.svg"))) @style="full" />
         </Node>

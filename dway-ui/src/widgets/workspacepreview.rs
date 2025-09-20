@@ -55,7 +55,7 @@ fn focus_window(
             @use_state(title:String) @use_state(geo:GlobalGeometry) @use_state(image:Handle<Image>) @use_state(image_rect:IRect)
             @use_state(preview_rect:Rect <= *state.image_rect() * prop.scale)
         >
-            <UiButton NoTheme=(default()) UiButtonEventDispatcher=(make_callback(node!(window_preview), focus_window))
+            <UiButton NoTheme @on_event(focus_window)
                 @style="absolute left-{state.preview_rect().min.x} top-{state.preview_rect().min.y} w-{state.preview_rect().width()} h-{state.preview_rect().height()}"
                 @handle(RoundedUiRectMaterial=>rounded_rect(theme.color("border"), 16.0))
             >

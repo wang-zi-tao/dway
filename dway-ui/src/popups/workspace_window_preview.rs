@@ -73,8 +73,7 @@ WorkspaceWindowPreviewPopup=>
             @use_state(image_size:Vec2 <= state.geo().size().as_vec2() * PREVIEW_HIGHT / state.geo().height() as f32)
         >
             <Node @style="flex-row">
-                <UiButton NoTheme=(default()) @id="close" @style="m-2 w-20 h-20"
-                    UiButtonEventDispatcher=(make_callback(node!(window_preview), close_window)) >
+                <UiButton NoTheme @id="close" @style="m-2 w-20 h-20" @on_event(close_window) >
                     <(UiSvg::new(asset_server.load("embedded://dway_ui/icons/close.svg")))  @style="full"/>
                 </UiButton>
                 <Node @style="items-center justify-center m-auto"
@@ -84,7 +83,7 @@ WorkspaceWindowPreviewPopup=>
                     TextLayout=( TextLayout::new_with_justify(JustifyText::Left) )
                 />
             </Node>
-            <UiButton NoTheme=(default()) UiButtonEventDispatcher=(make_callback(node!(window_preview), focus_window))>
+            <UiButton NoTheme @on_event(focus_window)>
                 <MaterialNode::<RoundedUiImageMaterial>
                 @handle(RoundedUiImageMaterial=>create_raw_window_material(*state.image_rect(),state.image().clone(),&state.geo, *state.image_size()))
                 @style="w-{state.image_size().x} h-{state.image_size().y}" />

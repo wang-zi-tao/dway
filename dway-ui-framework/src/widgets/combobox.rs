@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
-use super::{
-    button::UiButtonEventDispatcher,
-};
 use crate::{
-    event::{make_callback, UiEvent},
+    event::UiEvent,
     prelude::*,
     theme::{ComboBoxNodeKind, NoTheme, StyleFlags, ThemeComponent, WidgetKind},
 };
@@ -14,7 +11,13 @@ pub trait UiComboboxItem: 'static + Send + Sync {
 }
 
 #[derive(Component, SmartDefault)]
-#[require(Node, UiComboBoxState, UiComboBoxWidget, UiComboBoxSubStateList, ThemeComponent)]
+#[require(
+    Node,
+    UiComboBoxState,
+    UiComboBoxWidget,
+    UiComboBoxSubStateList,
+    ThemeComponent
+)]
 pub struct UiComboBox {
     pub items: Vec<Arc<dyn UiComboboxItem>>,
     pub default_index: Option<usize>,
@@ -67,15 +70,12 @@ UiComboBox=>
 @state_component(#[derive(Reflect)])
 @use_state(pub selected: Option<usize> @ prop.default_index)
 @use_state(pub open: bool)
-<UiButton @style="full align-items:center justify-content:center"
-    NoTheme=(default())
-    UiButtonEventDispatcher=(make_callback(this_entity, open_popup))
+<UiButton @style="full align-items:center justify-content:center" NoTheme @on_event(open_popup)
     @if(state.selected().and_then(|i|prop.items.get(i)).is_some())>
     <Node @id="selected" @command({let item = prop.items[state.selected().unwrap()].clone();move|e:EntityWorldMut|item.spawn(e) })/>
 </UiButton>
 <Node @style="full absolute" @if(*state.open())>
-    <UiPopup @id="List" @style="absolute top-110% align-self:center flex-col w-full p-2"
-        UiPopupEventDispatcher=(make_callback(this_entity, close_popup))
+    <UiPopup @id="List" @style="absolute top-110% align-self:center flex-col w-full p-2" @on_event(close_popup)
         @for((index,item):(usize, &Arc<dyn UiComboboxItem> ) in prop.items.iter().enumerate() => {
             state.set_item(Some(item.clone()));
             state.set_index(index);
@@ -88,7 +88,7 @@ UiComboBox=>
                 @use_state(pub index: usize)
                 @use_state(#[reflect(ignore)] pub item: Option<Arc<dyn UiComboboxItem>>)
                 @state_component(#[derive(Reflect)]) >
-            <Node NoTheme=(default()) UiButtonEventDispatcher=(make_callback(node!(item), select))
+            <Node NoTheme @on_event(select)
                 @style="full align-items:center justify-content:center "
                 ThemeComponent=(ThemeComponent::widget(WidgetKind::ComboBox(ComboBoxNodeKind::Item)).with_flag_value(StyleFlags::HIGHLIGHT, Some(*state.index()) == *root_state.selected()))
             >

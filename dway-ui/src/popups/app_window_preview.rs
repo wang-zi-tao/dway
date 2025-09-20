@@ -4,8 +4,6 @@ use dway_server::{
     xdg::toplevel::DWayToplevel,
 };
 use dway_ui_framework::theme::NoTheme;
-use event::make_callback;
-use widgets::button::UiButtonEventDispatcher;
 
 use crate::{prelude::*, widgets::window::create_raw_window_material};
 
@@ -75,12 +73,9 @@ fn focus_window(
             @use_state(image_size:Vec2 <= state.geo().size().as_vec2() * PREVIEW_HIGHT / state.geo().height() as f32)
         >
             <Node @style="flex-row">
-                <Node @id="close" @style="m-2 w-20 h-20"
-                    UiButton=(default()) NoTheme=(default()) 
-                    UiButtonEventDispatcher=(make_callback(node!(window_preview), close_window))
-                    >
+                <UiButton @id="close" @style="m-2 w-20 h-20" NoTheme @on_event(close_window) >
                     <(UiSvg::new(asset_server.load("embedded://dway_ui/icons/close.svg")))  @style="full"/>
-                </Node>
+                </UiButton>
                 <Node @style="items-center justify-center m-auto"
                     Text=(Text::new(state.title()))
                     TextFont=(theme.text_font(16.0))
@@ -88,8 +83,7 @@ fn focus_window(
                     TextLayout=( TextLayout::new_with_justify(JustifyText::Left) )
                 />
             </Node>
-            <UiButton NoTheme=(default())
-                UiButtonEventDispatcher=(make_callback(node!(window_preview), focus_window)) >
+            <UiButton NoTheme @on_event(focus_window) >
                 <MaterialNode::<RoundedUiImageMaterial>
                 @handle(RoundedUiImageMaterial=>create_raw_window_material(*state.image_rect(),state.image().clone(),&state.geo, *state.image_size()))
                 @style="w-{state.image_size().x} h-{state.image_size().y}" />

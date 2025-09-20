@@ -4,14 +4,14 @@ use bevy::{prelude::*, ui::RelativeCursorPosition};
 use dway_ui_derive::{dway_widget, spawn, style};
 use dway_ui_framework::{
     animation::ui::UiAnimationDropdownConfig,
-    event::{make_callback, UiEvent},
+    event::UiEvent,
     input::UiInputEvent,
     prelude::*,
     theme::Theme,
     widgets::{
         button::{UiButtonEvent, UiButtonEventDispatcher, UiButtonEventKind},
         combobox::{StringItem, UiComboBox, UiComboBoxBundle},
-        inputbox::{UiInputBox, UiInputBoxBundle},
+        inputbox::UiInputBoxBundle,
         popup::{popup_animation_system, UiPopup},
         slider::UiSliderBundle,
         text::UiTextBundle,
@@ -60,7 +60,7 @@ fn setup(mut commands: Commands, theme: Res<Theme>, callbacks: Res<CallbackTypeR
                 <(UiTextBundle::new("open popup", 32, &theme))/>
             </UiButton>
             <Node BlockStyle=(BlockStyle::Hollow)  @style="flex-col p-4 m-4 justify-content:center"
-                UiInput=(default())
+                UiInput
                 UiInputEventDispatcher=(EventDispatcher::default().with_system_to_this(callbacks.system(open_menu)))
             >
                 <(UiTextBundle::new("open menu", 32, &theme))/>
@@ -94,12 +94,11 @@ pub fn button_open_poppup(
     callbacks: Res<CallbackTypeRegister>,
 ) {
     if event.kind == UiButtonEventKind::Released {
+        let callback = callbacks.system(popup_animation_system::<UiAnimationDropdownConfig>);
         commands.entity(event.sender()).with_children(|c| {
             spawn! {c=>
                 <Node BlockStyle=(BlockStyle::Normal) GlobalZIndex=(GlobalZIndex(1024)) @style="w-200 h-200 top-120% absolute align-self:center"
-                    UiPopup=(default())
-                    UiPopupEventDispatcher=(make_callback(event.receiver(),
-                        callbacks.system(popup_animation_system::<UiAnimationDropdownConfig>)))
+                    UiPopup @on_event(callback->event.receiver())
                 >
                     <Node BlockStyle=(BlockStyle::Hollow) @style="full">
                         <(UiTextBundle::new("popup inner", 32, &theme))/>
@@ -163,9 +162,8 @@ Counter=>
         TextFont=(theme.text_font(32.0))
         TextColor=(TextColor::BLACK)
     />
-    <UiButton ThemeHightlight=(default()) @style="p-4 w-32 h-32 align-items:center justify-content:center"  @id="button"
-        UiWidgetRoot=(this_entity.into())
-        UiButtonEventDispatcher=(make_callback(this_entity, inc))
+    <UiButton ThemeHightlight @style="p-4 w-32 h-32 align-items:center justify-content:center"  @id="button"
+        UiWidgetRoot=(this_entity.into()) @on_event(inc)
     >
         <Node Text=(Text::new("+")) TextFont=(theme.text_font(32.0)) TextColor=(TextColor::WHITE)/>
     </UiButton>

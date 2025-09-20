@@ -1,10 +1,7 @@
-use smart_default::SmartDefault;
-
-// use bevy_tweening::{AssetAnimator, EaseMethod};
 use crate::{
-    event::{make_callback, EventDispatcher},
+    event::EventDispatcher,
     prelude::*,
-    theme::{adapter::NoWidgetTheme, NoTheme, StyleFlags, ThemeComponent, ThemeHightlight, WidgetKind},
+    theme::{StyleFlags, ThemeComponent, WidgetKind},
 };
 
 #[derive(Event, Debug, Clone, PartialEq, Eq)]
@@ -94,4 +91,3 @@ pub fn update_ui_button(
         }
     }
 }
-

@@ -77,8 +77,7 @@ fn click_app(
         @arg(focused_window: ResMut<FocusedWindow> => { state.set_is_focused(focused_window.app_entity == Some(widget.data_entity)); }) >
         <Node @style="w-48 h-48 m-4 flex-col" @id="app_rect"
             @handle(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_alpha(0.4), 10.0)) >
-            <UiButton NoTheme=(default()) @id="button" @style="absolute full flex-col"
-                UiButtonEventDispatcher=(make_callback(node!(app_root), click_app)) >
+            <UiButton NoTheme @id="button" @style="absolute full flex-col" @on_event(click_app) >
                 <(UiIcon::from(state.icon().clone())) @id="app_icon" @style="w-full h-full" @id="app_icon" />
                 <Node @id="focus_mark" Node=(Node{
                         width:Val::Percent(((*state.count() as f32)/4.0).min(1.0)*80.0),
