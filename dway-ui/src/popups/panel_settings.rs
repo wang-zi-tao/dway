@@ -1,10 +1,9 @@
 use dway_client_core::controller::systemcontroller::SystemControllRequest;
 
-use super::volume_control::VolumeControlBundle;
+use super::volume_control::VolumeControl;
 use crate::{panels::PanelButtonBundle, prelude::*};
 
-#[derive(Default)]
-#[dway_widget_prop]
+#[derive(Component, Default)]
 pub struct PanelSettings {}
 
 dway_widget! {
@@ -36,7 +35,7 @@ PanelSettings=>
 @global(asset_server: AssetServer)
 @global(mut assets_rounded_ui_rect_material: Assets<RoundedUiRectMaterial>)
 <Node @style="flex-col">
-    <VolumeControlBundle/>
+    <VolumeControl/>
     <Node @id="bottom_bar" @style="p-4 justify-content:space-evenly"
         @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 16.0))
     >

@@ -113,8 +113,14 @@ impl Dom {
             .filter_map(|arg| arg.get_component_expr())
             .collect();
         let parent_expr = parent.map(|p| quote!(bevy::ecs::hierarchy::ChildOf(#p),));
-        quote! {
+        let mut spawn_stat = quote! {
             commands.spawn((#bundle_expr, #parent_expr (#(#components_expr),*)))
+        };
+
+        for arg in &self.args {
+            spawn_stat = arg.inner.modify_spawn_stat(spawn_stat);
         }
+
+        spawn_stat
     }
 }

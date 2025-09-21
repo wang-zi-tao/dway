@@ -11,13 +11,7 @@ pub trait UiComboboxItem: 'static + Send + Sync {
 }
 
 #[derive(Component, SmartDefault)]
-#[require(
-    Node,
-    UiComboBoxState,
-    UiComboBoxWidget,
-    UiComboBoxSubStateList,
-    ThemeComponent
-)]
+#[require(UiComboBoxSubStateList, ThemeComponent)]
 pub struct UiComboBox {
     pub items: Vec<Arc<dyn UiComboboxItem>>,
     pub default_index: Option<usize>,

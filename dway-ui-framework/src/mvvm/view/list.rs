@@ -18,7 +18,12 @@ pub struct ListView {
 
 impl ListView {
     pub fn update_layout(
-        mut query: Query<(&Self, &ComputedNode, &mut ListViewLayout, Ref<UiScrollState>)>,
+        mut query: Query<(
+            &Self,
+            &ComputedNode,
+            &mut ListViewLayout,
+            Ref<UiScrollState>,
+        )>,
         mut viewport_query: Query<&mut Node>,
     ) {
         for (this, computed_node, mut list_layout, scroll_state) in &mut query {
@@ -44,7 +49,7 @@ impl ListView {
 #[derive(Bundle)]
 pub struct ListViewBundle {
     pub list_view: ListView,
-    pub scroll: UiScrollBundle,
+    pub scroll: UiScroll,
     pub node: Node,
 }
 
@@ -53,13 +58,10 @@ impl Default for ListViewBundle {
         Self {
             list_view: Default::default(),
             node: style!("full"),
-            scroll: UiScrollBundle {
-                prop: UiScroll {
-                    horizontal: false,
-                    vertical: true,
-                    create_viewport: true,
-                },
-                ..Default::default()
+            scroll: UiScroll {
+                horizontal: false,
+                vertical: true,
+                create_viewport: true,
             },
         }
     }

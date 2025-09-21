@@ -9,11 +9,10 @@ use dway_ui_framework::{
     prelude::*,
     theme::Theme,
     widgets::{
-        button::{UiButtonEvent, UiButtonEventDispatcher, UiButtonEventKind},
-        combobox::{StringItem, UiComboBox, UiComboBoxBundle},
-        inputbox::UiInputBoxBundle,
+        button::{UiButtonEvent, UiButtonEventKind},
+        combobox::{StringItem, UiComboBox},
+        inputbox::UiInputBox,
         popup::{popup_animation_system, UiPopup},
-        slider::UiSliderBundle,
         text::UiTextBundle,
     },
 };
@@ -54,9 +53,9 @@ fn setup(mut commands: Commands, theme: Res<Theme>, callbacks: Res<CallbackTypeR
                 <( UiTextBundle::new("button", 24, &theme) )/>
             </UiButton>
             <UiCheckBox @style="w-64 h-32 p-4"/>
-            <UiSliderBundle @style="w-128 h-32 p-4"/>
-            <UiInputBoxBundle @style="w-128 h-32 p-4"/>
-            <CounterBundle/>
+            <UiSlider @style="w-128 h-32 p-4"/>
+            <UiInputBox @style="w-128 h-32 p-4"/>
+            <Counter/>
             <UiButton  @style="flex-col p-4 m-4 justify-content:center" @on_event(button_open_poppup->self) >
                 <(UiTextBundle::new("open popup", 32, &theme))/>
             </UiButton>
@@ -64,7 +63,7 @@ fn setup(mut commands: Commands, theme: Res<Theme>, callbacks: Res<CallbackTypeR
                 UiInput @on_event(open_menu->self) >
                 <(UiTextBundle::new("open menu", 32, &theme))/>
             </Node>
-            <UiComboBoxBundle Name=(Name::new("combobox")) @style="w-128 h-32" UiComboBox=(UiComboBox {
+            <UiComboBox Name=(Name::new("combobox")) @style="w-128 h-32" UiComboBox=(UiComboBox {
                 default_index: None,
                 items: vec![
                     Arc::new(StringItem::new("item1".to_string())),
@@ -78,7 +77,7 @@ fn setup(mut commands: Commands, theme: Res<Theme>, callbacks: Res<CallbackTypeR
     spawn! {&mut commands=>
         <Node>
             <Node BlockStyle=(BlockStyle::Hollow) @style="w-256 h-256 p-8 m-8">
-                <UiInputBoxBundle @style="full m-8" />
+                <UiInputBox @style="full m-8" />
             </Node>
             <Node BlockStyle=(BlockStyle::Sunken) @style="w-256 h-256 p-8 m-8"/>
             <Node @style="w-256 h-256 p-8 m-8"/>

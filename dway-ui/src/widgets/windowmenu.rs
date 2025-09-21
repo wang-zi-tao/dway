@@ -2,7 +2,7 @@ use widgets::{button::UiButtonEventDispatcher, text::UiTextBundle};
 
 pub use crate::prelude::*;
 
-#[dway_widget_prop]
+#[derive(Component, Reflect)]
 #[require(UiPopup)]
 pub struct WindowMenu {
     pub window_entity: Entity,
@@ -18,7 +18,10 @@ impl Default for WindowMenu {
 
 dway_widget! {
 WindowMenu=>
-@plugin{ app.register_callback(open_popup); }
+@plugin{
+    app.register_callback(open_popup); 
+    app.register_type::<WindowMenu>();
+}
 @callback{ [UiEvent<UiButtonEvent>]
     fn on_close_button_event(
         event: UiEvent<UiButtonEvent>,

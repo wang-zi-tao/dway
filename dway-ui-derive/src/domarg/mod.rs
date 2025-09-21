@@ -24,7 +24,6 @@ pub enum DomArgKey {
     Resource(String),
     State(String),
     StateComponent,
-    BundleStructure,
     QueryComponent(String),
     Argument(String),
     Handle(String),
@@ -50,6 +49,9 @@ pub trait DomDecorator: Any {
     fn update_sub_widget_context(&self, _context: &mut WidgetNodeContext) {}
     fn get_component(&self) -> Option<TokenStream> {
         None
+    }
+    fn modify_spawn_stat(&self, input: TokenStream) -> TokenStream {
+        input
     }
     fn generate_update(&self, _context: &mut WidgetNodeContext) -> Option<TokenStream> {
         None
@@ -211,7 +213,6 @@ impl syn::parse::Parse for DomArg {
                         "state_component" => Box::new(content.parse::<state::StateComponent>()?),
                         "state_reflect" => Box::new(content.parse::<state::StateReflect>()?),
                         "prop_reflect" => Box::new(content.parse::<state::PropReflect>()?),
-                        "bundle" => Box::new(content.parse::<state::BundleStructure>()?),
                         "plugin" => Box::new(content.parse::<plugin::Plugin>()?),
                         "connect" => Box::new(content.parse::<relation::Connect>()?),
                         _ => {

@@ -7,7 +7,7 @@ use indexmap::IndexSet;
 use widgets::button::UiButtonEventDispatcher;
 
 use crate::{
-    popups::app_window_preview::{AppWindowPreviewPopup, AppWindowPreviewPopupBundle},
+    popups::app_window_preview::AppWindowPreviewPopup,
     prelude::*, widgets::icon::UiIcon,
 };
 

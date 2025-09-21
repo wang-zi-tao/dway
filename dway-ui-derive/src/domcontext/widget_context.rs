@@ -30,7 +30,6 @@ pub struct WidgetDomContext<'l: 'g, 'g> {
     pub dom_context: &'l mut DomContext<'g>,
     pub state_builder: ComponentBuilder,
     pub widget_builder: ComponentBuilder,
-    pub bundle_builder: ComponentBuilder,
     pub resources_builder: ResourceBuilder,
     pub plugin_builder: PluginBuilder,
     pub world_query: BTreeMap<String, (TokenStream, TokenStream)>,
@@ -368,12 +367,12 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
         dom,
     } = decl;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let ty_generics_turbofish = ty_generics.as_turbofish();
     let prop_type = quote! {#name #ty_generics};
 
     let state_name = format_ident!("{}State", name, span = name.span());
     let widget_name = format_ident!("{}Widget", name, span = name.span());
     let resource_name = format_ident!("{}Resource", name, span = name.span());
-    let bundle_name = format_ident!("{}Bundle", name, span = name.span());
     let plugin_name = format_ident!("{}Plugin", name, span = name.span());
     let systems_name = format_ident!("{}Systems", name, span = name.span());
     let system_name = format_ident!(
@@ -391,7 +390,6 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
     let mut context = WidgetDomContext {
         state_builder: ComponentBuilder::new_with_generics(state_name.clone(), generics.clone()),
         widget_builder: ComponentBuilder::new(widget_name.clone()),
-        bundle_builder: ComponentBuilder::new_with_generics(bundle_name, generics.clone()),
         resources_builder: ResourceBuilder::new(resource_name),
         plugin_builder: PluginBuilder::new(plugin_name, generics.clone(), enable_hot_reload),
         dom_context: &mut dom_context,
@@ -470,59 +468,12 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
     let state_name = context.state_builder.get_type();
     let widget_name = context.widget_builder.get_type();
 
-    context
-        .bundle_builder
-        .attributes
-        .push(quote!(#[derive(Bundle)]));
-
-    context.bundle_builder.generate_init = true;
-    context.bundle_builder.add_field_with_initer(
-        &format_ident!("state"),
-        quote!(pub state: #state_name),
-        quote!(Default::default()),
-    );
-    context.bundle_builder.add_field_with_initer(
-        &format_ident!("widget"),
-        quote!(pub widget: #widget_name),
-        quote!(Default::default()),
-    );
-    context
-        .bundle_builder
-        .add_field(&format_ident!("prop"), quote!(pub prop: #prop_type));
+    context.plugin_builder.stmts.push(quote! {
+        app.register_required_components::<#name #ty_generics_turbofish, #state_name>();
+        app.register_required_components::<#name #ty_generics_turbofish, #widget_name>();
+    });
 
     let function_ty_generics = ty_generics.as_turbofish();
-
-    {
-        let state_name = &context.state_builder.get_type();
-        let bundle_name = &context.bundle_builder.name;
-        context.plugin_builder.other_items.push(quote! {
-            impl #impl_generics From<#prop_type> for #bundle_name #ty_generics #where_clause {
-                fn from(prop: #prop_type) -> Self {
-                    Self {
-                        prop,
-                        ..Default::default()
-                    }
-                }
-            }
-
-            impl #impl_generics #bundle_name #ty_generics #where_clause {
-                pub fn from_prop(prop: #prop_type) -> Self {
-                    Self {
-                        prop,
-                        ..Default::default()
-                    }
-                }
-
-                pub fn from_prop_state(prop: #prop_type, state: #state_name) -> Self {
-                    Self {
-                        prop,
-                        state,
-                        ..Default::default()
-                    }
-                }
-            }
-        });
-    }
 
     if context.enable_hot_reload {
         let state_name = &context.state_builder.get_type();
@@ -567,7 +518,6 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
     context.plugin_builder.components.extend([
         context.state_builder,
         context.widget_builder,
-        context.bundle_builder,
     ]);
     if !context.resources_builder.fields.is_empty() {
         context
@@ -588,6 +538,8 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
     let this_query_var = world_query.values().map(|(pat, _)| pat);
     let system = quote! {
         #[allow(unused_braces)]
+        #[allow(unused_mut)]
+        #[allow(unused_variables)]
         #[allow(non_snake_case)]
         #[allow(clippy::too_many_arguments)]
         pub fn #system_name #impl_generics(

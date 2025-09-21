@@ -63,8 +63,7 @@ impl UiInputCommand {
 }
 
 structstruck::strike! {
-    #[dway_widget_prop]
-    #[derive(SmartDefault, Builder)]
+    #[derive(Component, SmartDefault, Builder)]
     #[require(RelativeCursorPosition, Interaction, UiInputBoxEventDispatcher, UiInput)]
     #[require(ThemeComponent=ThemeComponent::widget(WidgetKind::Inputbox))]
     #[strikethrough[derive(Debug, Clone, Reflect)]]

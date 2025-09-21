@@ -5,12 +5,7 @@ use dway_client_core::{
 };
 use util::DwayUiDirection;
 
-use crate::{
-    popups::workspace_window_preview::{
-        WorkspaceWindowPreviewPopup, WorkspaceWindowPreviewPopupBundle,
-    },
-    prelude::*,
-};
+use crate::{popups::workspace_window_preview::WorkspaceWindowPreviewPopup, prelude::*};
 
 #[derive(Component, Default)]
 pub struct WorkspaceListUI;

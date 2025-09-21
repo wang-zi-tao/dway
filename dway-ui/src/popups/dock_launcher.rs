@@ -2,10 +2,11 @@ use animation::translation::UiTranslationAnimation;
 use dway_server::apps::{
     icon::LinuxIcon, launchapp::LaunchAppRequest, DesktopEntriesSet, DesktopEntry,
 };
+use dway_ui_framework::widgets::scroll::UiScroll;
 use regex::{Regex, RegexBuilder};
 use util::DwayUiDirection;
 use widgets::{
-    inputbox::{UiInputBoxBundle, UiInputBoxEventDispatcher, UiInputBoxState, UiInputboxEvent},
+    inputbox::{UiInputBox, UiInputBoxState, UiInputboxEvent},
     text::UiTextBundle,
 };
 
@@ -82,8 +83,7 @@ fn on_text_changed(
     }
 }
 
-#[dway_widget_prop]
-#[derive(Default)]
+#[derive(Component, Default)]
 pub struct DockLauncherUI;
 
 dway_widget! {
@@ -100,8 +100,8 @@ DockLauncherUI=>
 @use_state(pub filter: Regex = Regex::new(".*").unwrap())
 <Node @style="full absolute" >
     <Node @style="full flex-col p-8">
-        <UiInputBoxBundle @on_event(on_text_changed) @style="left-10% right-10% w-80% height-24"/>
-        <UiScrollBundle @style="m-4 w-full flex_grow:1.0" @id="app_list_scroll">
+        <UiInputBox @on_event(on_text_changed) @style="left-10% right-10% w-80% height-24"/>
+        <UiScroll @style="m-4 w-full flex_grow:1.0" @id="app_list_scroll">
             <Node @style="absolute w-full min-h-full flex-row flex_wrap:FlexWrap::Wrap" @id="AppList"
                 @for_query(mut entry in Query<Ref<DesktopEntry>>::iter_many(&entries.list)=>[
                     entry=>{
@@ -135,7 +135,7 @@ DockLauncherUI=>
                     </PanelButtonBundle>
                 </Node>
             </Node>
-        </UiScrollBundle>
+        </UiScroll>
     </Node>
 </Node>
 }

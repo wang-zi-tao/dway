@@ -7,8 +7,7 @@ use dway_ui_framework::theme::NoTheme;
 
 use crate::{prelude::*, widgets::window::create_raw_window_material};
 
-#[dway_widget_prop]
-#[derive(Reflect)]
+#[derive(Component, Reflect)]
 pub struct AppWindowPreviewPopup {
     pub app: Entity,
 }

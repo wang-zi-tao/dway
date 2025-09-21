@@ -1,11 +1,9 @@
 use dway_client_core::controller::volume::VolumeController;
-use event::make_callback;
 use widgets::{checkbox::UiCheckBoxEventDispatcher, slider::UiSliderEventDispatcher};
 
 use crate::prelude::*;
 
-#[dway_widget_prop]
-#[derive(Default)]
+#[derive(Component, Default)]
 pub struct VolumeControl;
 
 dway_widget! {
@@ -55,7 +53,7 @@ VolumeControl=>
             asset_server.load("embedded://dway_ui/icons/volume_on.svg")
         } )) />
 </UiCheckBox>
-<UiSliderBundle @on_event(on_slider_event) @id="slider" @style="m-8 h-32 w-256 align-self:center"
+<UiSlider @on_event(on_slider_event) @id="slider" @style="m-8 h-32 w-256 align-self:center"
     UiSliderState=(UiSliderState{value: *state.volume(),..default()})
 />
 }

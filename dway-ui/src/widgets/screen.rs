@@ -1,7 +1,7 @@
 use dway_client_core::{screen::ScreenWindowList, UiAttachData};
 use dway_server::{geometry::GlobalGeometry, util::rect::IRect};
 
-use super::window::{WindowUI, WindowUIBundle};
+use super::window::WindowUI;
 use crate::prelude::*;
 
 #[derive(Component, Reflect)]
@@ -42,12 +42,12 @@ ScreenWindows=>
     @map(*window_entity:Entity <= window_entity in state.window_list().iter().cloned() => {
         state.set_window_entity(window_entity);
     })>
-    <WindowUIBundle @style="absolute full" @use_state(window_entity:Entity=Entity::PLACEHOLDER)
+    <(WindowUI{
+        window_entity:*state.window_entity(),
+        screen_geomety: *root_state.screen_geometry()
+    }) 
+        @style="absolute full" @use_state(window_entity:Entity=Entity::PLACEHOLDER)
         @state_component(#[derive(Reflect)])
-        WindowUI=(WindowUI{
-            window_entity:*state.window_entity(),
-            screen_geomety: *root_state.screen_geometry()
-        })
     />
 </Node>
 }

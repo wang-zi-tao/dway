@@ -12,7 +12,7 @@ use dway_ui_framework::widgets::{
     drag::{UiDrag, UiDragEvent, UiDragEventDispatcher},
 };
 
-use super::popupwindow::{PopupUI, PopupUIBundle, PopupUISystems};
+use super::popupwindow::{PopupUI, PopupUISystems};
 use crate::{prelude::*, util::irect_to_style};
 
 pub const WINDEOW_BASE_ZINDEX: i32 = 128;
@@ -281,8 +281,7 @@ WindowUI=>
 </Node>
 <Node @style="absolute full"
     @for_query(_ in Query<Ref<WlSurface>>::iter_many(state.popup_list().iter())=>[ ])>
-    <PopupUIBundle GlobalZIndex=(GlobalZIndex(WINDEOW_POPUP_BASE_ZINDEX))
-        PopupUI=(PopupUI{window_entity:widget.data_entity})/>
+    <(PopupUI{window_entity:widget.data_entity}) GlobalZIndex=(GlobalZIndex(WINDEOW_POPUP_BASE_ZINDEX)) />
 </Node>
 }
 

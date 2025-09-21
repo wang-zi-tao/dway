@@ -1,6 +1,7 @@
 use std::{
     any::type_name,
     num::NonZero,
+    ops::Deref,
     os::fd::{AsFd, AsRawFd, BorrowedFd, OwnedFd, RawFd},
     sync::{
         mpsc::{self, channel},
@@ -13,9 +14,9 @@ use anyhow::Result;
 use bevy::{
     app::{AppExit, MainScheduleOrder},
     ecs::schedule::{ExecutorKind, ScheduleLabel},
-    prelude::*,
     platform::collections::HashMap,
-    winit::WakeUp,
+    prelude::*,
+    winit::{EventLoopProxy, EventLoopProxyWrapper, WakeUp},
 };
 use nix::sys::{
     time::TimeSpec,
@@ -424,6 +425,17 @@ pub enum PollerSystems {
     Flush,
 }
 
+pub fn event_loop_winit_mode_startup(
+    event_loop_proxy: Res<EventLoopProxyWrapper<WakeUp>>,
+    mut poller: NonSendMut<Poller>,
+) {
+    let winit_eventloop_proxy = event_loop_proxy.clone();
+    poller.launch(Some(Box::new(move |_event| {
+        let _ = winit_eventloop_proxy.send_event(WakeUp);
+        false
+    })));
+}
+
 impl Plugin for EventLoopPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.insert_non_send_resource(Poller::new(self.timeout));
@@ -437,15 +449,8 @@ impl Plugin for EventLoopPlugin {
                 main_schedule_order.insert_after(First, PollerSchedule);
 
                 app.add_systems(Last, on_frame_finish.in_set(PollerSystems::Flush));
-                let winit_eventloop_proxy = app
-                    .world()
-                    .non_send_resource::<winit::event_loop::EventLoop<WakeUp>>()
-                    .create_proxy();
-                let mut poller = app.world_mut().non_send_resource_mut::<Poller>();
-                poller.launch(Some(Box::new(move |_event| {
-                    let _ = winit_eventloop_proxy.send_event(WakeUp);
-                    false
-                })));
+
+                app.add_systems(Startup, event_loop_winit_mode_startup);
             }
             EventLoopPluginMode::ManualMode => {}
         }

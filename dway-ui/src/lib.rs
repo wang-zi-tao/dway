@@ -28,19 +28,19 @@ use dway_ui_framework::{
     render::layer_manager::{LayerManager, RenderToLayer},
     theme::{ThemeComponent, WidgetKind},
 };
-use widgets::clock::ClockBundle;
+use widgets::clock::Clock;
 
 use crate::{
     panels::PanelButtonBundle,
     prelude::*,
     widgets::{
-        applist::AppListUIBundle,
-        cursor::{Cursor, CursorBundle},
-        notifys::NotifyButtonBundle,
-        screen::{ScreenWindows, ScreenWindowsBundle},
-        system_monitor::PanelSystemMonitorBundle,
-        windowtitle::WindowTitleBundle,
-        workspacelist::WorkspaceListUIBundle,
+        applist::AppListUI,
+        cursor::Cursor,
+        notifys::NotifyButton,
+        screen::ScreenWindows,
+        system_monitor::PanelSystemMonitor,
+        windowtitle::WindowTitle,
+        workspacelist::WorkspaceListUI,
     },
 };
 
@@ -86,6 +86,7 @@ fn setup(commands: Commands) {
 }
 
 #[derive(Component, SmartDefault)]
+#[require(Name = Name::from("ScreenUI"))]
 pub struct ScreenUI {
     #[default(Entity::PLACEHOLDER)]
     pub screen: Entity,
@@ -95,9 +96,6 @@ ScreenUI=>
 @global(theme: Theme)
 @global(callbacks: CallbackTypeRegister)
 @global(asset_server: AssetServer)
-@bundle{{
-    name:Name = Name::from("ScreenUI"),
-}}
 @world_query(style: &mut Node)
 @query(screen_query: (_screen,global_geo)<-Query<(Ref<Screen>,Ref<GlobalGeometry>)>[prop.screen] -> {
     if !widget.inited || global_geo.is_changed() {
@@ -111,10 +109,9 @@ ScreenUI=>
     // StyleSheet=(StyleSheet::new(asset_server.load("style/style.css")))
     @style="absolute full">
     <Node Name=(Name::new("background")) @style="absolute full" @id="background">
-        <ImageNode ImageNode=(asset_server.load("background.jpg").into()) GlobalZIndex=(GlobalZIndex(-1024))/>
+        <(ImageNode::from(asset_server.load("background.jpg"))) GlobalZIndex=(GlobalZIndex(-1024))/>
     </Node>
-    <ScreenWindowsBundle @style="absolute full" Name=(Name::new("windows")) @id="windows"
-        ScreenWindows=(ScreenWindows{screen:prop.screen}) />
+    <(ScreenWindows{screen:prop.screen}) @style="absolute full" Name=(Name::new("windows")) @id="windows" />
     <Node @style="full absolute" @id="popup_parent" GlobalZIndex=(GlobalZIndex(1024)) />
     <Node
         ThemeComponent
@@ -129,12 +126,12 @@ ScreenUI=>
             ])) @style="flex-col">
                 <(UiSvg::new(theme.icon("dashboard", &asset_server))) @style="w-24 h-24" @id="dashboard"/>
             </PanelButtonBundle>
-            <WindowTitleBundle/>
+            <WindowTitle/>
         </Node>
         <Node @style="absolute flex-row right-4 align-items:center" @id="right">
-            <ClockBundle/>
-            <PanelSystemMonitorBundle @id="system_monitor" @style="h-full"/>
-            <NotifyButtonBundle @id="notify"/>
+            <Clock/>
+            <PanelSystemMonitor @id="system_monitor" @style="h-full"/>
+            <NotifyButton @id="notify"/>
             <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
                 (prop.screen,callbacks.system(popups::volume_control::open_popup))
             ])) @style="flex-col m-4">
@@ -149,7 +146,7 @@ ScreenUI=>
         </Node>
         <Node @style="absolute w-full h-full justify-center items-center" @id="center">
             <Node @style="flex-row m-0 h-90%" >
-                <WorkspaceListUIBundle @id="workspace_list" />
+                <WorkspaceListUI @id="workspace_list" />
             </Node>
         </Node>
     </>
@@ -163,7 +160,7 @@ ScreenUI=>
             RenderToLayer=(RenderToLayer::blur())
             // @material(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.5), 16.0))
             >
-            <AppListUIBundle/>
+            <AppListUI/>
             <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
                 (node!(popup_parent),callbacks.system(popups::dock_launcher::open_popup))
             ]))>
@@ -171,8 +168,8 @@ ScreenUI=>
             </PanelButtonBundle>
         </Node>
     </Node>
-    <CursorBundle Cursor=(Cursor::new(asset_server.load("embedded://dway_ui/cursors/cursor-default.png"),Vec2::splat(32.0)))/>
-    // <LoggerUIBundle @style="bottom-64 left-32 w-80% absolute"/>
+    <(Cursor::new(asset_server.load("embedded://dway_ui/cursors/cursor-default.png"),Vec2::splat(32.0)))/>
+    // <LoggerUI @style="bottom-64 left-32 w-80% absolute"/>
 </Node>
 }
 
@@ -232,7 +229,7 @@ fn init_screen_ui(
     commands
         .spawn((
             UiTargetCamera(camera),
-            ScreenUIBundle::from(ScreenUI { screen: entity }),
+            ScreenUI { screen: entity },
         ))
         .connect_to::<UiAttachData>(entity);
 }

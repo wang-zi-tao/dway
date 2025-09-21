@@ -10,8 +10,7 @@ use crate::{prelude::*, widgets::window::create_raw_window_material};
 
 pub const PREVIEW_HIGHT: f32 = 128.0;
 
-#[dway_widget_prop]
-#[derive(Reflect)]
+#[derive(Component, Reflect)]
 pub struct WorkspaceWindowPreviewPopup {
     pub workspace: Entity,
     pub height: f32,

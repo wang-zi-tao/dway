@@ -10,7 +10,7 @@ use crate::{
 pub struct UiSliderInited;
 
 #[derive(Component, SmartDefault, Reflect)]
-#[require(Node, UiSliderState, UiSliderWidget, RelativeCursorPosition, Interaction, UiSliderEventDispatcher)]
+#[require(RelativeCursorPosition, Interaction, UiSliderEventDispatcher, ThemeComponent)]
 pub struct UiSlider {
     #[default(1.0)]
     pub max: f32,
@@ -36,14 +36,6 @@ UiSlider=>
 @plugin{app.register_type::<UiSlider>();}
 @state_reflect()
 @use_state(pub value: f32)
-@bundle({
-    pub interaction: Interaction,
-    pub focus_policy: FocusPolicy = FocusPolicy::Block,
-    pub node: Node = style!("items-center absolute full min-h-16 min-w-32"),
-    pub cursor_positon: RelativeCursorPosition, // TODO 优化
-    pub event_dispatcher: UiSliderEventDispatcher,
-    pub theme: ThemeComponent,
-})
 @world_query(slider_interaction: Ref<Interaction>)
 @world_query(mouse_position: Ref<RelativeCursorPosition>)
 @world_query(event_dispatcher: Ref<UiSliderEventDispatcher>)

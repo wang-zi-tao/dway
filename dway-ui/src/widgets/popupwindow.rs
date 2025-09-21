@@ -60,7 +60,7 @@ PopupUI=>
     </>
     <Node @style="absolute full"
         @for_query(_ in Query<Ref<WlSurface>>::iter_many(state.popup_list().iter())=>[ ])>
-        <PopupUIBundle PopupUI=(PopupUI{window_entity:widget.data_entity}) @style="full absolute"/>
+        <(PopupUI{window_entity:widget.data_entity}) @style="full absolute"/>
     </Node>
 </Node>
 }

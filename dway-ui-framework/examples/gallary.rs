@@ -19,7 +19,7 @@ use dway_ui_framework::{
     prelude::*,
     render::mesh::{UiMeshHandle, UiMeshTransform},
     widgets::{
-        inputbox::{UiInputBox, UiInputBoxBundle}, shader::{
+        inputbox::UiInputBox, scroll::UiScroll, shader::{
             arc_material, button_material, checkbox_material, clicked_fake3d_button_material,
             fake3d_button_material, hollow_block, rainbow_block, rounded_block,
             rounded_border_block, rounded_inner_shadow_block, rounded_rect, ArcMaterial,
@@ -136,8 +136,7 @@ fn checkbox_style() -> Node {
     }
 }
 
-#[derive(Default)]
-#[dway_widget_prop]
+#[derive(Component, Default)]
 pub struct Gallary;
 
 dway_widget! {
@@ -197,7 +196,7 @@ Gallary=>
     </Node>
     <Node Node=(cell_style())>
         <Node @style="p-8 w-full m-8" @material(RoundedBorderBlockMaterial=>rounded_border_block(Color::WHITE,theme.color("blue"), 8.0, 2.0)) >
-            <UiInputBoxBundle UiInputBox=(UiInputBox{
+            <UiInputBox UiInputBox=(UiInputBox{
                 placeholder: "input box...".into(),
                 ..Default::default()
             })/>
@@ -205,14 +204,14 @@ Gallary=>
     </Node>
     <Node Node=(cell_style())>
         <Node @style="p-8 w-full m-8" @material(RoundedInnerShadowBlockMaterial=>rounded_inner_shadow_block(Color::WHITE, 8.0, &theme)) >
-            <UiInputBoxBundle UiInputBox=(UiInputBox{
+            <UiInputBox UiInputBox=(UiInputBox{
                 placeholder: "input box...".into(),
                 ..Default::default()
             })/>
         </>
     </Node>
     <Node Node=(cell_style())>
-        <UiSliderBundle @style="w-full" />
+        <UiSlider @style="w-full" />
     </Node>
     <Node Node=(cell_style())>
         <Node @style="w-128 h-128 align-items:center justify-content:center"
@@ -256,9 +255,9 @@ Gallary=>
     </Node>
     <Node Node=(cell_style())
         @material(RoundedInnerShadowBlockMaterial=>rounded_inner_shadow_block(Color::WHITE, 8.0, &theme)) >
-        <UiScrollBundle @style="w-120 h-120 m-8">
+        <UiScroll @style="w-120 h-120 m-8">
             <(UiTextBundle::new("scroll\nscroll\nscroll\nscroll\nscroll\nscroll\nscroll", 24, &theme)) @style="w-256 h-256 left-4"/>
-        </UiScrollBundle>
+        </UiScroll>
     </Node>
 </Node>
 }

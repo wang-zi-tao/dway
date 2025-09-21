@@ -1,12 +1,12 @@
 use dway_server::apps::{
     icon::LinuxIcon, launchapp::LaunchAppRequest, DesktopEntriesSet, DesktopEntry,
 };
+use dway_ui_framework::widgets::scroll::UiScroll;
 use widgets::text::UiTextBundle;
 
 use crate::{panels::PanelButtonBundle, prelude::*, widgets::icon::UiIcon};
 
-#[dway_widget_prop]
-#[derive(Default)]
+#[derive(Component, Default)]
 pub struct LauncherUI;
 
 dway_widget! {
@@ -37,7 +37,7 @@ LauncherUI=>
         <Node @id="right_block" @style="m-4 w-full"
             @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 16.0))
         >
-            <UiScrollBundle @style="max-h-600 m-4 w-full" @id="app_list_scroll">
+            <UiScroll @style="max-h-600 m-4 w-full" @id="app_list_scroll">
                 <Node @style="absolute flex-col w-full" @id="AppList"
                     @for_query(mut entry in Query<Ref<DesktopEntry>>::iter_many(&entries.list)=>[
                         entry=>{
@@ -57,7 +57,7 @@ LauncherUI=>
                         <(UiTextBundle::new(state.name(),24,&theme)) @id="app_name" @style="p-4 align-self:center"/>
                     </PanelButtonBundle>
                 </Node>
-            </UiScrollBundle>
+            </UiScroll>
         </Node>
     </Node>
     <Node @id="bottom_bar" @style="p-4 min-w-512 justify-content:space-evenly"

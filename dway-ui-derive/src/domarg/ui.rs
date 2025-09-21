@@ -12,8 +12,11 @@ impl DomDecorator for Style {
     fn key(&self) -> super::DomArgKey {
         super::DomArgKey::Component("Style".to_string())
     }
-    fn get_component(&self) -> Option<TokenStream> {
-        Some(crate::style::generate(&self.style))
+    fn modify_spawn_stat(&self, input: TokenStream) -> TokenStream {
+        let style_component = crate::style::generate(&self.style);
+        quote_spanned!(self.style.span()=> {
+            #input.insert(#style_component)
+        })
     }
 }
 

@@ -3,13 +3,7 @@ use bevy::{input::mouse::MouseWheel, ui::RelativeCursorPosition};
 use crate::{prelude::*, widgets::shader::{rounded_rect, RoundedUiRectMaterial}};
 
 #[derive(Component, SmartDefault, Reflect, Debug)]
-#[require(
-    Node,
-    UiScrollState,
-    UiScrollWidget,
-    RelativeCursorPosition,
-    Interaction
-)]
+#[require(RelativeCursorPosition, Interaction)]
 #[cfg_attr(feature = "hot_reload", derive(Serialize, Deserialize))]
 pub struct UiScroll {
     pub horizontal: bool,
