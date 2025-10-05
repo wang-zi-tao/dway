@@ -7,7 +7,7 @@ use bevy::{
 };
 use dway_ui_derive::color;
 use dway_ui_framework::{
-    render::mesh::{UiMeshHandle, UiMeshMaterialPlugin, UiMeshPlugin},
+    render::mesh::{UiMesh, UiMeshMaterialPlugin, UiMeshPlugin},
     widgets::shape::UiShapeMaterial,
 };
 
@@ -51,7 +51,7 @@ fn setup(
         ))
         .with_children(|commands| {
             commands.spawn((
-                UiMeshHandle::from(meshes.add(RegularPolygon::new(128.0, 6))),
+                UiMesh::from(meshes.add(RegularPolygon::new(128.0, 6))),
                 UiShapeMaterial::from(mesh2d_materials.add(color!("#0000ff"))),
                 Node {
                     align_items: AlignItems::Center,

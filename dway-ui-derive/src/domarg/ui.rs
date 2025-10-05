@@ -29,7 +29,7 @@ impl DomDecorator for BackgroundColor {
     fn key(&self) -> super::DomArgKey {
         super::DomArgKey::Component("BackgroundColor".to_string())
     }
-    fn get_component(&self) -> Option<TokenStream> {
+    fn get_component(&self, _context: &mut DomContext) -> Option<TokenStream> {
         let lit = &self.lit;
         let Some([r, g, b, a]) = parse_color_str(&lit.value()) else {
             return Some(quote_spanned!(lit.span()=> compile_error!("failed to parse color")));
@@ -70,7 +70,7 @@ impl DomDecorator for Handle {
             || !component_state.set_state.is_empty()
             || !component_state.use_prop.is_empty()
     }
-    fn get_component(&self) -> Option<TokenStream> {
+    fn get_component(&self, _context: &mut DomContext) -> Option<TokenStream> {
         let Self { expr, .. } = self;
         let ident = format_ident!(
             "assets_{}",

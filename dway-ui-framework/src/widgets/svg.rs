@@ -3,7 +3,7 @@ use bevy_svg::prelude::Svg;
 
 use crate::{
     prelude::*,
-    render::mesh::{UiMeshHandle, UiMeshTransform},
+    render::mesh::{UiMesh, UiMeshTransform},
 };
 
 fn svg_on_insert(mut world: DeferredWorld, context: HookContext) {
@@ -15,7 +15,7 @@ fn svg_on_insert(mut world: DeferredWorld, context: HookContext) {
 }
 
 #[derive(Component, Default, Reflect, PartialEq, Eq, Hash, Deref, DerefMut)]
-#[require(UiMeshHandle, SvgLayout)]
+#[require(UiMesh, SvgLayout)]
 #[component(on_insert = svg_on_insert)]
 pub struct UiSvg {
     #[deref]
@@ -39,7 +39,7 @@ pub fn update_uisvg(
         Entity,
         Ref<ComputedNode>,
         Ref<UiSvg>,
-        &mut UiMeshHandle,
+        &mut UiMesh,
         &mut MeshMaterial2d<Svg>,
         Ref<SvgLayout>,
         &mut UiMeshTransform,

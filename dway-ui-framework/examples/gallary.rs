@@ -17,7 +17,7 @@ use bevy_svg::prelude::{LineJoin, StrokeOptions};
 use dway_ui_derive::dway_widget;
 use dway_ui_framework::{
     prelude::*,
-    render::mesh::{UiMeshHandle, UiMeshTransform},
+    render::mesh::{UiMesh, UiMeshTransform},
     widgets::{
         inputbox::UiInputBox, scroll::UiScroll, shader::{
             arc_material, button_material, checkbox_material, clicked_fake3d_button_material,
@@ -227,7 +227,7 @@ Gallary=>
     </Node>
     <Node Node=(cell_style())
         @material(HollowBlockMaterial=>hollow_block(theme.color("blue"), 16.0, 2.0)) >
-        <(UiMeshHandle::from(meshes.add(RegularPolygon::new(48.0, 6))))
+        <(UiMesh::from(meshes.add(RegularPolygon::new(48.0, 6))))
         UiShapeMaterial=(mesh2d_materials.add(color!("#ff0000")).into())
         @style="w-64 h-64"
     />

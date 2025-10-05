@@ -21,6 +21,7 @@ bevy_dexterous_developer = {workspace = true, optional=true}
 cfg-if = {workspace=true}
 pprof = {version="0.13", optional=true, features = ["flamegraph"]}
 bevy-inspector-egui = { workspace=true, optional=true }
+bevy_egui = { workspace=true, optional=true }
 
 
 [dependencies.bevy]
@@ -62,7 +63,7 @@ default = [
     "dway_log",
     # "hot_reload",
 ]
-inspector = ["dep:bevy-inspector-egui"]
+inspector = ["dep:bevy-inspector-egui", "dep:bevy_egui"]
 dump_system_graph = ["dep:bevy_mod_debugdump"]
 debug = [ "inspector", "dump_system_graph"]
 dway_log = []

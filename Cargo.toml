@@ -74,6 +74,7 @@ bevy_prototype_lyon = { git = "https://github.com/rparrett/bevy_prototype_lyon",
 bevy-trait-query = {version="0.16", features=[]}
 bevy_svg = {version="0.16.0-rc1"}
 bevy-inspector-egui = { version="0.33", default-features=false, features = ["bevy_render", "highlight_changes"]}
+bevy_egui = { version="0.36.0" }
 
 wgpu={version="24",features=["angle"]}
 wgpu-hal={version="24",features=["gles"]}

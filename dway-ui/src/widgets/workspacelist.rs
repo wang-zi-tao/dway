@@ -66,14 +66,13 @@ WorkspaceListUI=>
         @use_state(pub screen_list:Vec<Entity>)
     >
         <UiButton NoTheme @style="w-16 h-16 align-items:center justify-items:center" @on_event(on_click) >
-            <Node
+            <(Node{
+                width:Val::Px(if *state.is_focused() {12.0}else{8.0}),
+                height:Val::Px(if *state.is_focused() {12.0}else{8.0}),
+                ..default()
+            })
                 @material(UiCircleMaterial=>circle_material(theme.color("blue")))
-                Node=(Node{
-                    width:Val::Px(if *state.is_focused() {12.0}else{8.0}),
-                    height:Val::Px(if *state.is_focused() {12.0}else{8.0}),
-                    ..default()
-                }) >
-            </Node>
+            />
         </UiButton>
     </Node>
 </Node>

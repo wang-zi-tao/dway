@@ -190,6 +190,7 @@ fn vertex(
     @location(1) vertex_uv: vec2<f32>,
     @location(2) size: vec2<f32>,
     @location(3) border_widths: vec4<f32>,
+    @location(4) border_radius: vec4<f32>,
 ) -> VertexOutput {{
     var out: VertexOutput;
     out.position = view.clip_from_world * vec4<f32>(vertex_position, 1.0);
@@ -820,7 +821,6 @@ impl<T: Material> Plugin for ShaderPlugin<T> {
             let wgsl = ShaderAsset::<T>::to_wgsl();
             trace!("add shader: {path:?}\n{wgsl}");
             embedded.insert_asset(std::path::PathBuf::new(), &path, wgsl.into_bytes());
-            use dway_ui_framework::render::ui_nodes::UiMaterialPlugin;
             if !app.is_plugin_added::<UiMaterialPlugin<ShaderAsset<T>>>() {
                 app.add_plugins(UiMaterialPlugin::<ShaderAsset<T>>::default());
             }

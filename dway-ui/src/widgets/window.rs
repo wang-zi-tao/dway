@@ -237,10 +237,10 @@ WindowUI=>
     FocusPolicy=(FocusPolicy::Block)
     @on_event(on_window_ui_input)
 />
-<Node Node=(irect_to_style(*state.bbox_rect())) @if(!*state.decorated()) @id="without_decorated">
-    <ImageNode @id="image" @style="full" ImageNode=(state.image().clone().into()) />
+<(irect_to_style(*state.bbox_rect())) @if(!*state.decorated()) @id="without_decorated">
+    <(ImageNode::from(state.image().clone())) @id="image" @style="full" />
 </Node>
-<Node Node=(irect_to_style(*state.rect())) @if(*state.decorated())
+<(irect_to_style(*state.rect())) @if(*state.decorated())
      @id="with_decorated">
     <MaterialNode::<RoundedUiRectMaterial> @id="decorated_box"
         ZIndex=(ZIndex(0))

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use bevy::{prelude::*, ui::RelativeCursorPosition};
+use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use dway_ui_derive::{dway_widget, spawn, style};
 use dway_ui_framework::{
     animation::ui::UiAnimationDropdownConfig,
@@ -20,6 +21,7 @@ use dway_ui_framework::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugins(EguiPlugin::default())
         .add_plugins(dway_ui_framework::UiFrameworkPlugin)
         .add_systems(Startup, setup)
         .add_plugins(CounterPlugin)
@@ -40,15 +42,14 @@ fn setup(mut commands: Commands, theme: Res<Theme>, callbacks: Res<CallbackTypeR
     let open_menu = callbacks.system(open_menu);
 
     spawn! {&mut commands=>
-        <Node BlockStyle=(BlockStyle::Normal) Name=(Name::new("widgets"))
-            Node=(Node {
+        <(Node {
                 align_self: AlignSelf::Center,
                 justify_self: JustifySelf::Center,
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..style!("w-256 h-512 p-8 m-8 flex-col")
-            })>
+            }) BlockStyle=(BlockStyle::Normal) Name=(Name::new("widgets")) >
             <UiButton @style="flex-col w-64 h-32 m-8 align-items:center justify-content:center">
                 <( UiTextBundle::new("button", 24, &theme) )/>
             </UiButton>
@@ -63,14 +64,14 @@ fn setup(mut commands: Commands, theme: Res<Theme>, callbacks: Res<CallbackTypeR
                 UiInput @on_event(open_menu->self) >
                 <(UiTextBundle::new("open menu", 32, &theme))/>
             </Node>
-            <UiComboBox Name=(Name::new("combobox")) @style="w-128 h-32" UiComboBox=(UiComboBox {
+            <(UiComboBox {
                 default_index: None,
                 items: vec![
                     Arc::new(StringItem::new("item1".to_string())),
                     Arc::new(StringItem::new("item22".to_string())),
                     Arc::new(StringItem::new("item333".to_string())),
                 ],
-            })/>
+            }) Name=(Name::new("combobox")) @style="w-128 h-32" />
             <(UiTextBundle::new("text", 32, &theme))/>
         </Node>
     }

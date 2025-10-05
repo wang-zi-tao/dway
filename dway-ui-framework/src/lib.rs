@@ -40,7 +40,7 @@ use widgets::drag::UiDrag;
 
 use crate::{
     prelude::*,
-    render::mesh::{UiMeshHandle, UiMeshMaterialPlugin, UiMeshTransform},
+    render::mesh::{UiMesh, UiMeshMaterialPlugin, UiMeshTransform},
     widgets::svg::{SvgLayout},
 };
 

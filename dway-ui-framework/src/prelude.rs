@@ -21,7 +21,7 @@ pub use crate::{
         view::{list::ListViewBundle, TextViewFactory},
         viewmodel::{SimpleItemViewModel, SimpleListViewModel, ViewModelPlugin},
     },
-    render::mesh::UiMeshHandle,
+    render::mesh::UiMesh,
     shader::{ShaderAsset, ShaderPlugin, ShapeRender, Transformed},
     text::{
         cursor::UiTextCursor, editor::UiTextEditor, selection::UiTextSelection,

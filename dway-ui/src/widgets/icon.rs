@@ -21,7 +21,7 @@ pub fn uiicon_render(
         Ref<UiIcon>,
         Option<&mut ImageNode>,
         &mut UiSvg,
-        &mut UiMeshHandle,
+        &mut UiMesh,
     )>,
     icons: Res<Assets<LinuxIcon>>,
     mut padding_entity: Local<EntityHashSet>,

@@ -23,7 +23,7 @@ impl DomDecorator for InsertComponent {
         }
     }
 
-    fn get_component(&self) -> Option<TokenStream> {
+    fn get_component(&self, _context: &mut DomContext) -> Option<TokenStream> {
         let Self { component, expr } = self;
         if let Some(expr) = expr {
             Some(quote_spanned! { expr.span()=>
@@ -43,7 +43,7 @@ impl DomDecorator for InsertComponent {
             .as_ref()
             .map(ParseCodeResult::from_expr)
             .unwrap_or_default();
-        let component = self.get_component();
+        let component = self.get_component(context.tree_context.dom_context);
         dependencies.is_changed().map(|check_changed| {
             quote_spanned! {entity.span()=>
                 if #check_changed {

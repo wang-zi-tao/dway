@@ -57,13 +57,13 @@ if ( slider_interaction.is_changed() || mouse_position.is_changed() )
     }
 } }
 <Node @id="bar" @style="absolute h-8 w-full min-h-8 align-self:center" >
-    <Node @id="bar_highlight"
-        Node=(Node{
+    <(Node{
         width: Val::Percent(100.0*((*state.value()-prop.min)/(prop.max-prop.min)).max(0.0).min(1.0)),
         ..style!("m-2")
-    }) />
+    }) @id="bar_highlight"
+/>
 </Node>
-<Node Node=(Node{
+<(Node{
     margin:UiRect::left(Val::Percent(100.0*((*state.value()-prop.min)/(prop.max-prop.min)).max(0.0).min(1.0))),
     ..style!("absolute w-0 h-full flex-col align-items:center justify-content:center align-self:center")
 }) >

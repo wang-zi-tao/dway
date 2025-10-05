@@ -47,7 +47,7 @@ pub trait DomDecorator: Any {
     }
     fn update_context(&self, _context: &mut WidgetNodeContext) {}
     fn update_sub_widget_context(&self, _context: &mut WidgetNodeContext) {}
-    fn get_component(&self) -> Option<TokenStream> {
+    fn get_component(&self, _context: &mut DomContext) -> Option<TokenStream> {
         None
     }
     fn modify_spawn_stat(&self, input: TokenStream) -> TokenStream {
@@ -110,8 +110,8 @@ impl DomArg {
         Ok(vec)
     }
 
-    pub fn get_component_expr(&self) -> Option<TokenStream> {
-        self.inner.get_component()
+    pub fn get_component_expr(&self, context: &mut DomContext) -> Option<TokenStream> {
+        self.inner.get_component(context)
     }
 
     pub fn need_node_entity(&self) -> bool {

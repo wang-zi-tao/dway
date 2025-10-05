@@ -46,7 +46,7 @@ VolumeControl=>
 <UiCheckBox @on_event(on_mute_event) @style="p-4 align-self:center" @id="mute_checkbox"
     UiCheckBoxState=(UiCheckBoxState::new(*state.mute()))
 >
-    <UiSvg @style="w-32 h-32" @id="mute_icon"
+    <Node @style="w-32 h-32" @id="mute_icon"
         UiSvg=(UiSvg::from( if *state.mute() {
             asset_server.load("embedded://dway_ui/icons/volume_off.svg")
         } else {

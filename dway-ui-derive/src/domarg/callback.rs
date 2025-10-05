@@ -146,16 +146,29 @@ impl syn::parse::Parse for OnEvent {
 }
 
 impl DomDecorator for OnEvent {
-    fn get_component(&self) -> Option<TokenStream> {
+    fn get_component(&self, context: &mut DomContext) -> Option<TokenStream> {
         let system = &self.system;
         let add_callback = match &self.target {
-            OnEventTarget::ThisWidget => quote_spanned! {self.system.span()=>
-                with_system(widget_entity, #system)
-            },
-            OnEventTarget::Self_ => quote_spanned! {self.system.span()=> 
+            OnEventTarget::ThisWidget => {
+                let is_sub_widget = context
+                    .dom_stack
+                    .last()
+                    .map(|c| c.is_sub_tree)
+                    .unwrap_or(false);
+                if is_sub_widget {
+                    quote_spanned! {self.system.span()=>
+                        with_system_to_this(#system)
+                    }
+                } else {
+                    quote_spanned! {self.system.span()=>
+                        with_system(widget_entity, #system)
+                    }
+                }
+            }
+            OnEventTarget::Self_ => quote_spanned! {self.system.span()=>
                 with_system_to_this(#system)
             },
-            OnEventTarget::Entity { expr } => quote_spanned! {self.system.span()=> 
+            OnEventTarget::Entity { expr } => quote_spanned! {self.system.span()=>
                 with_system(#expr, #system)
             },
         };

@@ -23,6 +23,7 @@ impl Context {
 pub struct NodeContext<'l> {
     pub dom: &'l Dom,
     pub dom_id: Ident,
+    pub is_sub_tree: bool,
 }
 impl<'l> NodeContext<'l> {
     pub fn get_var(&self, name: &str) -> Ident {
@@ -67,9 +68,9 @@ impl<'l> DomContext<'l> {
         }
     }
 
-    pub fn push(&mut self, dom: &'l Dom) {
+    pub fn push(&mut self, dom: &'l Dom, is_sub_tree: bool) {
         let dom_id = self.get_dom_id(dom, false);
-        self.dom_stack.push(NodeContext { dom, dom_id })
+        self.dom_stack.push(NodeContext { dom, dom_id, is_sub_tree })
     }
 
     pub fn top(&self) -> &NodeContext {

@@ -81,11 +81,11 @@ UiScroll=>
 }
 @global(theme:Theme)
 <Node @if(prop.vertical) @style="absolute full">
-    <Node @id="vertical_handle"
-        Node=(Node{
+    <(Node{
             top: Val::Percent(state.uv().min.y*100.0),
             height: Val::Px(state.uv().size().y*state.size().y),
-            ..style!("right-1 w-4 absolute")})
+            ..style!("right-1 w-4 absolute")}) 
+        @id="vertical_handle"
         @material(RoundedUiRectMaterial=>rounded_rect(theme.color("scroll-bar"), 4.0)) >
     </Node>
 </Node>

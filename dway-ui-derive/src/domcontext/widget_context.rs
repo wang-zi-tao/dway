@@ -60,7 +60,7 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
         parent_just_inited: &Ident,
         export_entity: bool,
     ) -> (Ident, TokenStream) {
-        self.push(dom);
+        self.push(dom, export_entity);
         let node_context = self.top();
         let dom_id = node_context.dom_id.clone();
 
@@ -113,7 +113,10 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
         };
 
         let init_stat = {
-            let spawn_expr = dom.generate_spawn(Some( quote!{#parent_entity} ));
+            let spawn_expr = dom.generate_spawn(
+                Some(quote! {#parent_entity}),
+                context.tree_context.dom_context,
+            );
             let init_stat = quote_spanned! {dom.span()=>
                 #entity_var = #spawn_expr.id();
                 #just_init_var = true;
@@ -259,7 +262,6 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
 
             let spawn_children = quote! {
                 let mut #lambda_var = |mut #ident, mut widget: Mut<#sub_widget_type>, mut state: Mut<#sub_widget_state_type>| {
-                    let widget_entity = #ident;
                     #spawn_children
                     #ident
                 };
@@ -306,6 +308,12 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
             };
             (ident, spawn_children)
         } else {
+            let set_widget_entity = export_entity.then(|| {
+                quote! {
+                    let widget_entity = #entity_var;
+                }
+            });
+
             let spawn_children = dom
                 .children
                 .iter()
@@ -318,7 +326,13 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                 .iter()
                 .map(|(_key, value)| value)
                 .collect::<Vec<_>>();
-            (ident, quote!( #(#spawn_children)* ))
+            (
+                ident,
+                quote! {
+                    #set_widget_entity
+                    #(#spawn_children)*
+                },
+            )
         };
 
         let mut context = WidgetNodeContext {
@@ -515,10 +529,10 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
         .plugin_builder
         .stmts
         .push(quote! {app.register_type::<#widget_name>();});
-    context.plugin_builder.components.extend([
-        context.state_builder,
-        context.widget_builder,
-    ]);
+    context
+        .plugin_builder
+        .components
+        .extend([context.state_builder, context.widget_builder]);
     if !context.resources_builder.fields.is_empty() {
         context
             .resources_builder

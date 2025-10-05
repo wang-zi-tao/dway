@@ -49,7 +49,7 @@ use bevy::{
     },
     ui::{
         graph::{NodeUi, SubGraphUi},
-        TransparentUi,
+        TransparentUi, UiCameraMap, UiCameraView,
     },
 };
 
@@ -69,7 +69,7 @@ pub mod graph {
 #[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq, Deref, DerefMut)]
 #[reflect(Component)]
 #[require(UiMeshTransform, Node, Mesh2d)]
-pub struct UiMeshHandle(Handle<Mesh>);
+pub struct UiMesh(Handle<Mesh>);
 
 #[derive(Component, Deref, DerefMut, Debug, Clone, Reflect)]
 pub struct UiMeshTransform(Transform);
@@ -93,7 +93,7 @@ impl UiMeshTransform {
     }
 }
 
-impl From<Handle<Mesh>> for UiMeshHandle {
+impl From<Handle<Mesh>> for UiMesh {
     fn from(handle: Handle<Mesh>) -> Self {
         Self(handle)
     }
@@ -104,7 +104,7 @@ pub struct UiMeshPlugin;
 impl Plugin for UiMeshPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<UiMeshTransform>()
-            .register_type::<UiMeshHandle>();
+            .register_type::<UiMesh>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<RenderUiMesh2dInstances>()
@@ -212,7 +212,7 @@ impl<M: Material2d> Default for RenderUiMeshMaterialInstances<M> {
 
 fn extract_ui_mesh_handle<M: Material2d>(
     mut material_instances: ResMut<RenderUiMeshMaterialInstances<M>>,
-    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial2d<M>), With<UiMeshHandle>>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial2d<M>), With<UiMesh>>>,
 ) {
     material_instances.clear();
     for (main_entity, view_visibility, handle) in &query {
@@ -229,12 +229,12 @@ pub fn extract_ui_mesh_node(
         Query<(
             Entity,
             &ComputedNode,
-            &ViewVisibility,
+            &InheritedVisibility,
             &UiMeshTransform,
             &GlobalTransform,
-            &UiMeshHandle,
+            &UiMesh,
             Option<&UiRenderOffset>,
-            Option<&UiTargetCamera>,
+            &ComputedNodeTarget,
             Has<NoAutomaticBatching>,
             Option<&CalculatedClip>,
         )>,
@@ -242,7 +242,10 @@ pub fn extract_ui_mesh_node(
     view_query: Query<&ExtractedView>,
     default_ui_camera: Extract<DefaultUiCamera>,
     render_entity_lookup: Extract<Query<RenderEntity>>,
+    camera_map: Extract<UiCameraMap>,
 ) {
+    let mut camera_mapper = camera_map.get_mapper();
+
     render_mesh_instances.clear();
     for (
         main_entity,
@@ -252,7 +255,7 @@ pub fn extract_ui_mesh_node(
         transform,
         handle,
         zoffset,
-        target_camera,
+        camera,
         no_automatic_batching,
         clip,
     ) in query.iter()
@@ -261,13 +264,7 @@ pub fn extract_ui_mesh_node(
             continue;
         }
 
-        let Some(camera_entity) = target_camera
-            .map(UiTargetCamera::entity)
-            .or(default_ui_camera.get())
-        else {
-            continue;
-        };
-        let Ok(camera_entity) = render_entity_lookup.get(camera_entity) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(&camera) else {
             continue;
         };
 
@@ -275,7 +272,7 @@ pub fn extract_ui_mesh_node(
         let clip_rect = clip.map(|clip| clip.clip).unwrap_or(rect).intersect(rect);
         let clip_offset = clip_rect.center() - rect.center();
 
-        let Ok(extracted_view) = view_query.get(camera_entity) else {
+        let Ok(extracted_view) = view_query.get(extracted_camera_entity) else {
             continue;
         };
         let viewport_size = extracted_view.viewport.zw().as_vec2();
@@ -304,7 +301,7 @@ pub fn extract_ui_mesh_node(
                     material_bind_group_id: Material2dBindGroupId::default(),
                     automatic_batching: !no_automatic_batching,
                     stack_index: computed_node.stack_index(),
-                    camera: camera_entity,
+                    extracted_camera_entity,
                     main_entity,
                     zoffset,
                 },
@@ -752,7 +749,7 @@ pub struct RenderUiMeshInstance {
     pub mesh_asset_id: AssetId<Mesh>,
     pub material_bind_group_id: Material2dBindGroupId,
     pub automatic_batching: bool,
-    pub camera: Entity,
+    pub extracted_camera_entity: Entity,
     pub main_entity: Entity,
     pub zoffset: f32,
 }
@@ -771,12 +768,8 @@ pub fn queue_ui_meshes<M: Material2d>(
     mut render_mesh_instances: ResMut<RenderUiMesh2dInstances>,
     render_material_instances: Res<RenderUiMeshMaterialInstances<M>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(
-        &ExtractedView,
-        &Msaa,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
-    )>,
+    mut views: Query<(&ExtractedView, Option<&Tonemapping>, Option<&DebandDither>)>,
+    mut render_views: Query<&UiCameraView, With<ExtractedView>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -795,8 +788,13 @@ pub fn queue_ui_meshes<M: Material2d>(
             continue;
         };
 
-        let Ok((view, msaa, tonemapping, dither)) = views.get_mut(mesh_instance.camera) else {
-            debug!(entity =?mesh_instance.camera ,"camera is not valid");
+        let Ok(default_camera_view) = render_views.get_mut(mesh_instance.extracted_camera_entity)
+        else {
+            continue;
+        };
+
+        let Ok((view, tonemapping, dither)) = views.get_mut(default_camera_view.0) else {
+            debug!(entity =?mesh_instance.extracted_camera_entity ,"camera is not valid");
             continue;
         };
 
@@ -807,8 +805,7 @@ pub fn queue_ui_meshes<M: Material2d>(
 
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawUiMesh<M>>();
 
-        let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+        let mut view_key = Mesh2dPipelineKey::from_hdr(view.hdr);
 
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {

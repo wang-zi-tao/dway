@@ -393,13 +393,12 @@ UiInputBox=>
     TextLayout=( TextLayout::new(JustifyText::Left, LineBreak::WordOrCharacter) )
 />
 <Node @style="absolute full" @if(*state.show_cursor())>
-    <Node @id="cursor" Node=(Node{
+    <(Node{
         left: Val::Px(state.cursor_position().x),
         top: Val::Px(state.cursor_position().y),
         height: Val::Px(prop.line_height()),
         ..style!("w-2")
-    })
-    @material(RoundedUiRectMaterial=>rounded_rect(theme.color("inputbox:cursor"), 4.0)) />
+    }) @id="cursor" @material(RoundedUiRectMaterial=>rounded_rect(theme.color("inputbox:cursor"), 4.0)) />
 </Node>
 }
 

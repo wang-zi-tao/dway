@@ -3,7 +3,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::{parse::ParseStream, spanned::Spanned, token::Paren, *};
 
-use crate::domarg::DomArg;
+use crate::{domarg::DomArg, prelude::DomContext};
 
 pub struct DomChildren {
     pub list: Vec<Dom>,
@@ -100,7 +100,7 @@ impl Dom {
         Ok(vec)
     }
 
-    pub fn generate_spawn(&self, parent: Option<TokenStream>) -> TokenStream {
+    pub fn generate_spawn(&self, parent: Option<TokenStream>, context: &mut DomContext) -> TokenStream {
         let bundle_expr = self.bundle.generate_bundle_expr(
             self.end_tag
                 .as_ref()
@@ -110,7 +110,7 @@ impl Dom {
         let components_expr: Vec<_> = self
             .args
             .iter()
-            .filter_map(|arg| arg.get_component_expr())
+            .filter_map(|arg| arg.get_component_expr(context))
             .collect();
         let parent_expr = parent.map(|p| quote!(bevy::ecs::hierarchy::ChildOf(#p),));
         let mut spawn_stat = quote! {
