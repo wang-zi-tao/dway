@@ -108,6 +108,7 @@ pub type AnimationEventDispatcher = EventDispatcher<AnimationEvent>;
 
 structstruck::strike! {
     #[derive(Component)]
+    #[require(AnimationEventDispatcher)]
     #[strikethrough[derive(Debug, Clone, Reflect)]]
     pub struct Animation {
         pub state:

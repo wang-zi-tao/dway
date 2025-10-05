@@ -3,7 +3,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::{parse::ParseStream, spanned::Spanned, token::Paren, *};
 
-use crate::{domarg::DomArg, prelude::DomContext};
+use crate::{domarg::DomArg, parser::ParseCodeResult, prelude::DomContext};
 
 pub struct DomChildren {
     pub list: Vec<Dom>,
@@ -63,6 +63,18 @@ impl DomBundle {
             }
         }
     }
+
+    pub fn need_node_entity(&self) -> bool {
+        match &self {
+            DomBundle::Expr { expr, .. } => {
+                let component_state = ParseCodeResult::from_expr(expr);
+                !component_state.use_state.is_empty()
+                    || !component_state.set_state.is_empty()
+                    || !component_state.use_prop.is_empty()
+            }
+            _ => false,
+        }
+    }
 }
 
 #[derive(Parse)]
@@ -100,7 +112,11 @@ impl Dom {
         Ok(vec)
     }
 
-    pub fn generate_spawn(&self, parent: Option<TokenStream>, context: &mut DomContext) -> TokenStream {
+    pub fn generate_spawn(
+        &self,
+        parent: Option<TokenStream>,
+        context: &mut DomContext,
+    ) -> TokenStream {
         let bundle_expr = self.bundle.generate_bundle_expr(
             self.end_tag
                 .as_ref()

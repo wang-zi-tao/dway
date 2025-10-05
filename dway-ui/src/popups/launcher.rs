@@ -53,7 +53,7 @@ LauncherUI=>
                         @use_state(pub name: String)
                         @use_state(pub icon: Handle<LinuxIcon>)
                     >
-                        <UiIcon @style="w-24 h-24 align-self:center" UiIcon=(state.icon().clone().into()) @id="app_icon" />
+                        <(UiIcon::from(state.icon().clone())) @style="w-24 h-24 align-self:center"  @id="app_icon" />
                         <(UiTextBundle::new(state.name(),24,&theme)) @id="app_name" @style="p-4 align-self:center"/>
                     </PanelButtonBundle>
                 </Node>

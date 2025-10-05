@@ -13,7 +13,8 @@ use crate::{
     domarg::DomArg,
     domcontext::Context,
     generate::BoolExpr,
-    parser::check_stmts,
+    parser::{check_stmts, ParseCodeResult},
+    DomBundle,
 };
 
 pub struct WidgetNodeContext<'l, 'w: 'l, 'g: 'w> {
@@ -67,7 +68,8 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
         let entity_var = node_context.get_var("_entity");
         let just_init_var = node_context.get_var("_just_inited");
 
-        let need_node_entity = dom.args.iter().any(|arg| arg.need_node_entity());
+        let need_node_entity =
+            dom.args.iter().any(|arg| arg.need_node_entity()) || dom.bundle.need_node_entity();
         let (entity_expr, set_entity_stat) = if need_node_entity {
             let field = node_context.get_field("_entity");
             self.widget_builder.add_field_with_initer(
@@ -129,22 +131,33 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
             init_stat
         };
 
+        let update_bundle_stat = if let DomBundle::Expr { expr, .. } = &dom.bundle {
+            let dependencies = ParseCodeResult::from_expr(expr);
+            dependencies.is_changed().map(|changed| {
+                Some(quote_spanned! {dom.span()=>
+                    if #changed {
+                        commands.entity(#entity_var).insert(#expr);
+                    }
+                })
+            })
+        } else {
+            None
+        }
+        .flatten();
+
         let update_component_stat = dom
             .args
             .iter()
             .map(|arg| arg.inner.generate_update(&mut context))
             .collect::<Vec<_>>();
-        let update_stat = if update_component_stat.is_empty() {
-            None
-        } else {
-            Some(quote_spanned! {dom.span()=>
-                #(#update_component_stat)*
-            })
+        let update_stat = quote_spanned! {dom.span()=>
+            #update_bundle_stat
+            #(#update_component_stat)*
         };
 
         let process_node_stat = dom.args.iter().rev().fold(
             BoolExpr::RuntimeValue(quote!(#parent_just_inited ))
-                .to_if_else(quote! { #init_stat }, update_stat.as_ref())
+                .to_if_else(quote! { #init_stat }, Some(&update_stat))
                 .unwrap_or_default(),
             |stat, arg| arg.inner.wrap_update(stat, &mut context),
         );

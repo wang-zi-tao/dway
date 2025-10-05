@@ -128,8 +128,7 @@ DockLauncherUI=>
                         (node!(app_root),on_launch)
                     ]) )  @style="m-4 w-96 h-96 flex-col items-center justify-center"
                     >
-                        <UiIcon @style="absolute w-64 h-64 align-self:center"
-                            UiIcon=(state.icon().clone().into()) @id="app_icon" />
+                        <(UiIcon::from(state.icon().clone())) @style="absolute w-64 h-64 align-self:center" @id="app_icon" />
                         <(UiTextBundle::new(state.name(),16,&theme)) @id="app_name"
                             @style="absolute bottom-2 align-self:center"/>
                     </PanelButtonBundle>

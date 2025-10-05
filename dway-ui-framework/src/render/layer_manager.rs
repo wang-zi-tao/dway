@@ -32,7 +32,8 @@ use crate::{
         BindGroupBuilder, BindGroupLayoutBuilder, BuildBindGroup, ShaderAsset, ShaderBuilder,
         ShaderPlugin, ShaderVariables, ShapeRender, UniformLayout,
     },
-    widgets::util::visibility, UiFrameworkSystems,
+    widgets::util::visibility,
+    UiFrameworkSystems,
 };
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Debug)]
@@ -44,6 +45,7 @@ pub enum LayerKind {
 }
 
 #[derive(Component, SmartDefault, Reflect)]
+#[require(UiTargetCamera=UiTargetCamera(Entity::PLACEHOLDER))]
 pub struct RenderToLayer {
     pub layer_manager: Option<Entity>,
     pub layer_camera: Option<Entity>,
@@ -556,37 +558,27 @@ fn on_replace_layer_manager(mut world: DeferredWorld, context: HookContext) {
     }
 }
 
-fn update_children_target_camera(
-    entity: Entity,
-    camera_to_set: Entity,
-    node_query: &Query<Option<&UiTargetCamera>, With<Node>>,
-    children_query: &Query<&Children, With<Node>>,
-    commands: &mut Commands,
-) {
-    commands
-        .entity(entity)
-        .insert(UiTargetCamera(camera_to_set));
-    for child in children_query
-        .get(entity)
-        .into_iter()
-        .flat_map(|x| x.iter())
-    {
-        update_children_target_camera(child, camera_to_set, node_query, children_query, commands);
-    }
-}
-
 pub fn update_ui_root(
-    mut query: Query<(Entity, &mut RenderToLayer, &UiTargetCamera)>,
-    children_query: Query<&Children, With<Node>>,
-    node_query: Query<Option<&UiTargetCamera>, With<Node>>,
+    mut query: Query<(
+        Entity,
+        &mut RenderToLayer,
+        &mut UiTargetCamera,
+        &mut ComputedNodeTarget,
+        &ChildOf,
+    )>,
     layer_manager_query: Query<Ref<LayerManager>>,
     layer_camera_query: Query<Ref<LayerCamera>>,
     mut commands: Commands,
     mut update_next_frame: Local<EntityHashSet>,
 ) {
-    for (entity, mut render_to_layer, target_camera) in &mut query {
+    for (entity, mut render_to_layer, mut target_camera, mut node_target, parent) in &mut query {
         let (layer_manager_entity, layer_manager) = {
-            let target_camera_entity = render_to_layer.layer_manager.unwrap_or(target_camera.0);
+            let Some(target_camera_entity) = render_to_layer
+                .layer_manager
+                .or_else(|| node_target.camera())
+            else {
+                continue;
+            };
             if let Ok(layer_manager) = layer_manager_query.get(target_camera_entity) {
                 (target_camera_entity, layer_manager)
             } else if let Ok(layer_camera) = layer_camera_query.get(target_camera_entity) {
@@ -614,13 +606,10 @@ pub fn update_ui_root(
         render_to_layer.background_size = layer_manager.size.as_vec2();
         render_to_layer.ui_background = layer_manager.get_ui_background(render_to_layer.layer_kind);
 
-        update_children_target_camera(
-            entity,
-            layer_camera,
-            &node_query,
-            &children_query,
-            &mut commands,
-        );
+        target_camera.0 = layer_camera;
+        *node_target = default();
+
+        commands.entity(entity).insert(parent.clone());
     }
 }
 
