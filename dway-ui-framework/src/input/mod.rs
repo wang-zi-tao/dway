@@ -71,7 +71,7 @@ impl UiInputEvent {
 }
 
 #[derive(Component, Debug, SmartDefault, Reflect)]
-#[require(Interaction, UiInputEventDispatcher)]
+#[require(Node, Interaction, UiInputEventDispatcher)]
 pub struct UiInput {
     pub input_focused: bool,
     pub input_grabed: bool,

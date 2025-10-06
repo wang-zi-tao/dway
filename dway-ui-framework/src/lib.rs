@@ -18,6 +18,9 @@ pub mod widget;
 pub mod widgets;
 pub mod text;
 
+#[cfg(feature = "develop")]
+pub mod develop;
+
 pub mod reexport {
     #[cfg(feature = "hot_reload")]
     pub use bevy_dexterous_developer;
@@ -159,6 +162,11 @@ impl Plugin for UiFrameworkPlugin {
             ArcMaterial::plugin(),
             AssetAnimationPlugin::<CheckboxMaterial>::default(),
         ));
+
+        #[cfg(feature = "develop")]
+        {
+            app.add_plugins(develop::inspector::InspectorPlugin);
+        }
     }
 }
 

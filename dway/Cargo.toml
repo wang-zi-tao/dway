@@ -20,8 +20,6 @@ dexterous_developer = { workspace = true, optional=true}
 bevy_dexterous_developer = {workspace = true, optional=true}
 cfg-if = {workspace=true}
 pprof = {version="0.13", optional=true, features = ["flamegraph"]}
-bevy-inspector-egui = { workspace=true, optional=true }
-bevy_egui = { workspace=true, optional=true }
 
 
 [dependencies.bevy]
@@ -63,17 +61,17 @@ default = [
     "dway_log",
     # "hot_reload",
 ]
-inspector = ["dep:bevy-inspector-egui", "dep:bevy_egui"]
+inspector = ["dway-ui/develop"]
 dump_system_graph = ["dep:bevy_mod_debugdump"]
 debug = [ "inspector", "dump_system_graph"]
 dway_log = []
-hot_reload = [
-    "dep:dexterous_developer",
-    "dep:bevy_dexterous_developer",
-    "dep:serde",
-    "dway-ui/hot_reload",
-    "bevy/dynamic_linking",
-]
+# hot_reload = [
+#     "dep:dexterous_developer",
+#     "dep:bevy_dexterous_developer",
+#     "dep:serde",
+#     "dway-ui/hot_reload",
+#     "bevy/dynamic_linking",
+# ]
 single_thread = []
 dhat-heap = ["dep:dhat"]    # if you are doing heap profiling
 dhat-ad-hoc = ["dep:dhat"]  # if you are doing ad hoc profiling

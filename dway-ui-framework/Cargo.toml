@@ -44,6 +44,9 @@ slab_tree = "0.3.2"
 petgraph = "0.6.5"
 unicode-segmentation = "1.12"
 
+bevy-inspector-egui = { workspace=true, optional=true}
+egui_dock = { version="0.17", optional=true }
+
 [dev-dependencies]
 bevy = { workspace = true, features = ["png", "jpeg"] }
 regex = {workspace=true}
@@ -52,14 +55,16 @@ pretty_assertions = "1.4.0"
 image = {workspace=true}
 image-diff = "0.1"
 tempdir = "0.3.7"
+
 bevy-inspector-egui = { workspace=true}
 
 [features]
-hot_reload = [
-    "dep:dexterous_developer",
-    "dep:bevy_dexterous_developer",
-    "dway-ui-derive/hot_reload"
-]
+develop = ["dep:bevy-inspector-egui", "dep:egui_dock"]
+# hot_reload = [
+#     "dep:dexterous_developer",
+#     "dep:bevy_dexterous_developer",
+#     "dway-ui-derive/hot_reload"
+# ]
 
 [profile.dev]
 opt-level = 1

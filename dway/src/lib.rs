@@ -179,14 +179,6 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             dway_util::eventloop::EventLoopPlugin::default(),
             // bevy_framepace::FramepacePlugin,
         ));
-        #[cfg(feature = "inspector")]
-        {
-            app.add_plugins(bevy_egui::EguiPlugin::default());
-            app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
-            app.add_plugins(bevy_inspector_egui::quick::FilterQueryInspectorPlugin::<
-                With<DWayWindow>,
-            >::default());
-        }
     }
 
     if cfg!(any(feature = "cpu_profile", feature = "heap_profile")) {

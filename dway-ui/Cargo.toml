@@ -38,7 +38,8 @@ lazy_static = {workspace=true}
 pretty_assertions = "1.4.0"
 
 [features]
-hot_reload = ["dep:dexterous_developer", "dway-ui-framework/hot_reload"]
+# hot_reload = ["dep:dexterous_developer", "dway-ui-framework/hot_reload"]
+develop = ["dway-ui-framework/develop"]
 
 [profile.dev]
 opt-level = 1

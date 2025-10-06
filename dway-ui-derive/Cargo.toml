@@ -23,5 +23,5 @@ anyhow = {workspace=true}
 [features]
 default = []
 css = []
-hot_reload = []
+# hot_reload = []
 

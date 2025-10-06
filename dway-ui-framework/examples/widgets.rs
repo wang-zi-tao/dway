@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use bevy::{prelude::*, ui::RelativeCursorPosition};
-use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use dway_ui_derive::{dway_widget, spawn, style};
 use dway_ui_framework::{
     animation::ui::UiAnimationDropdownConfig,
@@ -21,7 +20,6 @@ use dway_ui_framework::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(EguiPlugin::default())
         .add_plugins(dway_ui_framework::UiFrameworkPlugin)
         .add_systems(Startup, setup)
         .add_plugins(CounterPlugin)
@@ -29,9 +27,6 @@ fn main() {
         .register_callback(button_open_poppup)
         .register_callback(open_menu)
         .register_callback(popup_animation_system::<UiAnimationDropdownConfig>)
-        .add_plugins(bevy_inspector_egui::quick::FilterQueryInspectorPlugin::<
-            With<UiSlider>,
-        >::default())
         .run();
 }
 

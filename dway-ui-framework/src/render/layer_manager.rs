@@ -595,6 +595,7 @@ pub fn update_ui_root(
         if !update_next_frame.remove(&entity)
             && !render_to_layer.is_changed()
             && !layer_manager.is_changed()
+            && !target_camera.is_changed()
         {
             continue;
         }
