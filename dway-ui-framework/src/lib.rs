@@ -38,6 +38,7 @@ use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_svg::{prelude::Svg, SvgPlugin};
 pub use dway_ui_derive::*;
 use dway_util::asset_cache::AssetCachePlugin;
+use egui_dock::egui::PopupAnchor;
 use event::EventReceiver;
 use widgets::drag::UiDrag;
 
@@ -91,9 +92,13 @@ impl Plugin for UiFrameworkPlugin {
         .register_type::<UiButton>()
         .register_type::<UiSvg>()
         .register_type::<UiPopup>()
+        .register_type::<AnchorPolicy>()
+        .register_type::<AttachToAnchor>()
+        .register_type::<Anchor>()
         .register_type::<SvgLayout>()
         .register_type::<input::UiInput>()
         .register_type::<animation::Animation>()
+        .register_type::<animation::ui::AnimationTargetNodeState>()
         .register_type::<input::MousePosition>()
         .init_resource::<input::MousePosition>()
         .register_type::<input::UiFocusState>()

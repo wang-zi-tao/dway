@@ -81,6 +81,11 @@ impl UiPopup {
     pub fn request_close(&mut self) {
         self.request_close = true;
     }
+
+    pub fn with_close_policy(mut self, policy: PopupClosePolicy) -> Self {
+        self.close_policy = policy;
+        self
+    }
 }
 
 pub fn update_popup(
@@ -141,12 +146,13 @@ pub fn update_popup(
 #[relationship_target(relationship = AttachToAnchor, linked_spawn)]
 pub struct Anchor(Vec<Entity>);
 
-#[derive(Component)]
+#[derive(Component, Reflect)]
 #[relationship(relationship_target = Anchor)]
 pub struct AttachToAnchor(pub Entity);
 
 #[derive(Reflect, Clone, Debug)]
 pub enum PopupAnlign {
+    None,
     CameraStart,
     OutterStart,
     InnerStart,
@@ -158,14 +164,31 @@ pub enum PopupAnlign {
 
 #[derive(Component, SmartDefault, Reflect, Clone, Debug)]
 pub struct AnchorPolicy {
-    #[default(PopupAnlign::OutterEnd)]
-    pub vertical_align: PopupAnlign,
     #[default(PopupAnlign::Center)]
     pub horizontal_align: PopupAnlign,
+    #[default(PopupAnlign::OutterEnd)]
+    pub vertical_align: PopupAnlign,
+}
+
+impl AnchorPolicy {
+    pub fn new(horizontal_align: PopupAnlign, vertical_align: PopupAnlign) -> Self {
+        Self {
+            vertical_align,
+            horizontal_align,
+        }
+    }
 }
 
 pub fn anchor_update_system(
-    mut popup_query: Query<(&mut UiTargetCamera, &AnchorPolicy, &mut Node), With<UiPopup>>,
+    mut popup_query: Query<
+        (
+            &mut UiTargetCamera,
+            &AnchorPolicy,
+            &mut Node,
+            Option<&mut AnimationTargetNodeState>,
+        ),
+        With<UiPopup>,
+    >,
     anchor_query: Query<
         (
             Ref<Anchor>,
@@ -192,7 +215,15 @@ pub fn anchor_update_system(
         );
 
         let mut iter = popup_query.iter_many_mut(&*anchor.0);
-        while let Some((mut popup_camera, anchor_policy, mut popup_node)) = iter.fetch_next() {
+        while let Some((mut popup_camera, anchor_policy, mut popup_node, mut animation_end_state)) =
+            iter.fetch_next()
+        {
+            let node = if let Some(state) = animation_end_state.as_deref_mut() {
+                &mut state.0
+            } else {
+                &mut popup_node
+            };
+
             if let Some(camera) = anchor_target.camera() {
                 popup_camera.0 = camera;
             }
@@ -204,31 +235,52 @@ pub fn anchor_update_system(
                 continue;
             };
 
-            let compute_on_direction =
-                |align: PopupAnlign, camera_len: f32, anchor_start: f32, anchor_end: f32| {
-                    match align {
-                        PopupAnlign::CameraStart => (Val::Percent(0.0), Val::Auto),
-                        PopupAnlign::OutterStart => (Val::Auto, Val::Px(anchor_start)),
-                        PopupAnlign::InnerStart => (Val::Px(anchor_start), Val::Auto),
-                        PopupAnlign::Center => todo!(),
-                        PopupAnlign::InnerEnd => (Val::Auto, Val::Px(camera_len - anchor_end)),
-                        PopupAnlign::OutterEnd => (Val::Px(camera_len - anchor_end), Val::Auto),
-                        PopupAnlign::CameraEnd => (Val::Auto, Val::Percent(100.0)),
+            let compute_on_direction = |align: PopupAnlign,
+                                        camera_len: f32,
+                                        anchor_start: f32,
+                                        anchor_end: f32,
+                                        node_start: &mut Val,
+                                        node_end: &mut Val| {
+                match align {
+                    PopupAnlign::None => {}
+                    PopupAnlign::CameraStart => {
+                        *node_start = Val::Percent(0.0);
                     }
-                };
+                    PopupAnlign::OutterStart => {
+                        *node_start = Val::Px(anchor_end);
+                    }
+                    PopupAnlign::InnerStart => {
+                        *node_start = Val::Px(anchor_start);
+                    }
+                    PopupAnlign::Center => {}
+                    PopupAnlign::InnerEnd => {
+                        *node_end = Val::Px(camera_len - anchor_end);
+                    }
+                    PopupAnlign::OutterEnd => {
+                        *node_end = Val::Px(camera_len - anchor_start);
+                    }
+                    PopupAnlign::CameraEnd => {
+                        *node_end = Val::Percent(0.0);
+                    }
+                }
+            };
 
-            (popup_node.left, popup_node.right) = compute_on_direction(
+            compute_on_direction(
                 anchor_policy.horizontal_align.clone(),
                 camera_size.x,
                 anchor_rect.min.x,
                 anchor_rect.max.x,
+                &mut node.left,
+                &mut node.right,
             );
 
-            (popup_node.top, popup_node.bottom) = compute_on_direction(
+            compute_on_direction(
                 anchor_policy.vertical_align.clone(),
                 camera_size.y,
                 anchor_rect.min.y,
                 anchor_rect.max.y,
+                &mut node.top,
+                &mut node.bottom,
             );
         }
     }

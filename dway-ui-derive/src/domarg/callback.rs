@@ -1,3 +1,4 @@
+
 use super::{DomArgKey, DomDecorator};
 use crate::prelude::*;
 
@@ -114,8 +115,30 @@ impl DomDecorator for Callback {
     }
 }
 
+#[derive(Parse)]
+pub enum OnEventSystem {
+    #[peek(Ident, name = "Ident")]
+    Ident(Ident),
+    #[peek(Paren, name = "Paren")]
+    Expr{
+        #[paren]
+        _wrap: Paren, 
+        #[inside(_wrap)]
+        expr: Expr,
+    }
+}
+
+impl ToTokens for OnEventSystem {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        match self {
+            OnEventSystem::Ident(ident) => ident.to_tokens(tokens),
+            OnEventSystem::Expr { expr, .. } => expr.to_tokens(tokens),
+        }
+    }
+}
+
 pub struct OnEvent {
-    pub system: Ident,
+    pub system: OnEventSystem,
     pub target: OnEventTarget,
 }
 
@@ -127,7 +150,7 @@ pub enum OnEventTarget {
 
 impl syn::parse::Parse for OnEvent {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let system: Ident = input.parse()?;
+        let system: OnEventSystem = input.parse()?;
         let target = if input.peek(Token![->]) {
             let _split: Token![->] = input.parse()?;
             if input.peek(Token![self]) {

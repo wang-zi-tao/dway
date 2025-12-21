@@ -4,7 +4,11 @@ use dway_server::apps::{
 use dway_ui_framework::widgets::scroll::UiScroll;
 use widgets::text::UiTextBundle;
 
-use crate::{panels::PanelButtonBundle, prelude::*, widgets::icon::UiIcon};
+use crate::{
+    panels::{PanelButtonBundle, PanelPopupBundle},
+    prelude::*,
+    widgets::icon::UiIcon,
+};
 
 #[derive(Component, Default)]
 pub struct LauncherUI;
@@ -47,9 +51,9 @@ LauncherUI=>
                             }
                         }
                     ])>
-                    <( PanelButtonBundle::with_callback(&theme,&mut assets_rounded_ui_rect_material,&[
-                        (widget.data_entity,on_launch)
-                    ]) ) @style="m-4 p-4"
+                    <( PanelButtonBundle::new(&theme,&mut assets_rounded_ui_rect_material) )
+                        @on_event(on_launch->widget.data_entity)
+                        @style="m-4 p-4"
                         @use_state(pub name: String)
                         @use_state(pub icon: Handle<LinuxIcon>)
                     >
@@ -82,17 +86,13 @@ LauncherUI=>
 </Node>
 }
 
-pub fn open_popup(event: UiEvent<UiButtonEvent>, theme: Res<Theme>, mut commands: Commands) {
+pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         commands
-            .spawn((
-                UiPopup::default(),
-                UiTranslationAnimation::default(),
-                AnimationTargetNodeState(style!("absolute top-36 left-0")),
-            ))
-            .with_children(|c| {
-                c.spawn((LauncherUI::default(), style!("h-auto w-auto")));
+            .spawn(PanelPopupBundle {
+                anchor_policy: AnchorPolicy::new(PopupAnlign::InnerStart, PopupAnlign::None),
+                ..PanelPopupBundle::new(event.receiver(), style!("absolute top-42"))
             })
-            .set_parent(event.sender());
+            .with_child(LauncherUI::default());
     }
 }

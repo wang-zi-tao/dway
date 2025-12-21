@@ -83,8 +83,8 @@ WorkspaceWindowPreviewPopup=>
                 />
             </Node>
             <UiButton NoTheme @on_event(focus_window)>
-                <MaterialNode::<RoundedUiImageMaterial>
-                @handle(RoundedUiImageMaterial=>create_raw_window_material(*state.image_rect(),state.image().clone(),&state.geo, *state.image_size()))
+                <Node
+                @material(RoundedUiImageMaterial=>create_raw_window_material(*state.image_rect(),state.image().clone(),&state.geo, *state.image_size()))
                 @style="w-{state.image_size().x} h-{state.image_size().y}" />
             </UiButton>
         </Node>

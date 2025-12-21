@@ -1,58 +1,101 @@
 use bevy::prelude::*;
 
 #[cfg(feature = "dump_system_graph")]
-pub fn dump_schedule(
-    app: &mut App,
-    schedule_label: impl bevy::ecs::schedule::ScheduleLabel,
-) -> anyhow::Result<()> {
-    use std::path::PathBuf;
+mod dump_system_graph {
+    use bevy::prelude::*;
 
-    let mut path = PathBuf::from(".output/schedule");
-    path.push(&format!("{schedule_label:?}"));
-    path.set_extension("dot");
+    pub fn save_graph(
+        dir: impl AsRef<std::path::Path>,
+        name: &str,
+        dot: &str,
+    ) -> anyhow::Result<()> {
+        use std::{path::PathBuf, process::Command};
 
-    let dot = bevy_mod_debugdump::schedule_graph_dot(
-        app,
-        schedule_label,
-        &bevy_mod_debugdump::schedule_graph::Settings::default(),
-    );
-    std::fs::write(&path, dot)?;
+        if !dir.as_ref().exists() {
+            std::fs::create_dir_all(&dir)?;
+        }
 
-    let mut svg_path = path.clone();
-    svg_path.set_extension("svg");
-    let _ = std::process::Command::new("dot")
-        .args([
-            "-Tsvg",
-            &path.to_string_lossy(),
-            "-o",
-            &svg_path.to_string_lossy(),
-        ])
-        .spawn();
-    info!("create system graph at {:?}", &svg_path);
+        let mut path = PathBuf::from(dir.as_ref());
+        path.push(&format!("{name:?}"));
+        path.set_extension("dot");
 
-    Ok(())
+        let dot_path = path.clone();
+        std::fs::write(&dot_path, dot)?;
+
+        path.set_extension("svg");
+        let svg_path = path;
+
+        let _ = Command::new("dot")
+            .args([
+                "-Tsvg",
+                &dot_path.to_string_lossy(),
+                "-o",
+                &svg_path.to_string_lossy(),
+            ])
+            .spawn();
+        info!("create graph at {:?}", &svg_path);
+
+        Ok(())
+    }
+
+    pub fn dump_schedule(
+        app: &mut App,
+        schedule_label: impl bevy::ecs::schedule::ScheduleLabel,
+    ) -> anyhow::Result<()> {
+        let schedule_name = format!("{schedule_label:?}");
+
+        let dot = bevy_mod_debugdump::schedule_graph_dot(
+            app,
+            schedule_label,
+            &bevy_mod_debugdump::schedule_graph::Settings::default(),
+        );
+        save_graph(".output/schedule", &schedule_name, &dot)?;
+
+        Ok(())
+    }
+
+    pub fn dump_render_graph(app: &mut App) -> anyhow::Result<()> {
+        use std::path::Path;
+
+        info!("dumping render graph at .output/render_graph");
+        if !Path::new(".output/render_graph").exists() {
+            std::fs::create_dir(".output/render_graph")?;
+        }
+
+        let dot = bevy_mod_debugdump::render_graph_dot(
+            app,
+            &bevy_mod_debugdump::render_graph::Settings::default(),
+        );
+
+        save_graph(".output/render_graph", "RenderGraph", &dot)?;
+
+        Ok(())
+    }
+
+    pub fn dump_schedules_system_graph(app: &mut App) -> anyhow::Result<()> {
+        use std::path::Path;
+
+        info!("dumping system graph at .output/schedule");
+        if !Path::new(".output/schedule").exists() {
+            std::fs::create_dir(".output/schedule")?;
+        }
+
+        dump_schedule(app, Main)?;
+        dump_schedule(app, Startup)?;
+        dump_schedule(app, PostStartup)?;
+        dump_schedule(app, First)?;
+        dump_schedule(app, PreUpdate)?;
+        dump_schedule(app, StateTransition)?;
+        dump_schedule(app, Update)?;
+        dump_schedule(app, PostUpdate)?;
+        dump_schedule(app, Last)?;
+        dump_render_graph(app)?;
+        Ok(())
+    }
 }
 
 #[cfg(feature = "dump_system_graph")]
-pub fn dump_schedules_system_graph(app: &mut App) -> anyhow::Result<()> {
-    use std::path::Path;
-
-    info!("dumping system graph at .output/schedule");
-    if !Path::new(".output/schedule").exists() {
-        std::fs::create_dir(".output/schedule")?;
-    }
-
-    dump_schedule(app, Main)?;
-    dump_schedule(app, Startup)?;
-    dump_schedule(app, PostStartup)?;
-    dump_schedule(app, First)?;
-    dump_schedule(app, PreUpdate)?;
-    dump_schedule(app, StateTransition)?;
-    dump_schedule(app, Update)?;
-    dump_schedule(app, PostUpdate)?;
-    dump_schedule(app, Last)?;
-    Ok(())
-}
+pub use dump_system_graph::dump_schedules_system_graph;
 
 pub fn print_resources(world: &mut World) {
     let components = world.components();
@@ -115,3 +158,24 @@ mod pprof {
 
 #[cfg(feature = "pprof")]
 pub use pprof::pprof_profiler;
+
+pub struct DebugRenderPlugin;
+
+#[cfg(feature = "debug_render")]
+pub mod render_doc {
+    use renderdoc::*;
+    pub type Version = V110;
+    pub struct RenderDocContext {
+        pub rd: RenderDoc<Version>,
+    }
+    pub fn start_render_doc() -> RenderDocContext {
+        let mut rd: RenderDoc<V110> = RenderDoc::new().expect("Unable to connect");
+        rd.trigger_multi_frame_capture(16);
+        rd.set_log_file_path_template(".output/renderdoc_capture.rdc");
+
+        RenderDocContext { rd }
+    }
+}
+
+#[cfg(feature = "debug_render")]
+pub use render_doc::start_render_doc;

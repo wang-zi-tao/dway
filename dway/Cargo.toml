@@ -21,6 +21,7 @@ bevy_dexterous_developer = {workspace = true, optional=true}
 cfg-if = {workspace=true}
 pprof = {version="0.13", optional=true, features = ["flamegraph"]}
 
+renderdoc = { version= "0.12.0", optional=true }
 
 [dependencies.bevy]
 features = ["jpeg", "wayland", "serialize", "default_font", "embedded_watcher"]
@@ -64,6 +65,7 @@ default = [
 inspector = ["dway-ui/develop"]
 dump_system_graph = ["dep:bevy_mod_debugdump"]
 debug = [ "inspector", "dump_system_graph"]
+debug_render = ["dep:renderdoc"]
 dway_log = []
 # hot_reload = [
 #     "dep:dexterous_developer",

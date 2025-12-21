@@ -5,7 +5,10 @@ use dway_client_core::{
 };
 use util::DwayUiDirection;
 
-use crate::{popups::workspace_window_preview::WorkspaceWindowPreviewPopup, prelude::*};
+use crate::{
+    panels::PanelPopupBundle, popups::workspace_window_preview::WorkspaceWindowPreviewPopup,
+    prelude::*,
+};
 
 #[derive(Component, Default)]
 pub struct WorkspaceListUI;
@@ -27,21 +30,14 @@ fn on_click(
                 .connect_to::<ScreenAttachWorkspace>(widget.data_entity);
         }
         commands
-            .spawn((
-                UiPopup::default(),
-                UiTranslationAnimation::new(DwayUiDirection::TOP),
-                AnimationTargetNodeState(style!("absolute top-42 align-self:center")),
+            .spawn(PanelPopupBundle::new(
+                event.receiver(),
+                style!("absolute top-42 justify-self:center"),
             ))
-            .with_children(|c| {
-                c.spawn((
-                    WorkspaceWindowPreviewPopup {
-                        workspace: widget.data_entity,
-                        ..Default::default()
-                    },
-                    style!("h-auto w-auto"),
-                ));
-            })
-            .set_parent(event.receiver());
+            .with_child(WorkspaceWindowPreviewPopup {
+                workspace: widget.data_entity,
+                ..Default::default()
+            });
     }
 }
 

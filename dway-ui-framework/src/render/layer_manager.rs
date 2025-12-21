@@ -9,6 +9,7 @@ use bevy::{
     },
     math::FloatOrd,
     platform::collections::HashMap,
+    reflect::List,
     render::{
         camera::{ImageRenderTarget, NormalizedRenderTarget, RenderTarget},
         mesh::{Indices, PrimitiveTopology},
@@ -82,14 +83,30 @@ pub struct LayerRenderArea;
 
 fn on_insert_layer(mut world: DeferredWorld, context: HookContext) {
     let Some(layer) = world.get::<RenderToLayer>(context.entity) else {
-        error!("RenderToLayer component not found on entity {:?}", context.entity);
-        return
+        warn!(
+            "RenderToLayer component not found on entity {:?}",
+            context.entity
+        );
+        return;
     };
 
     let layer_manager_entity = layer.layer_manager();
     let kind = layer.layer_kind();
 
-    let layer_manager = world.get::<LayerManager>(layer_manager_entity).unwrap();
+    let layer_manager_entity =
+        if let Some(layer_camera) = world.get::<LayerCamera>(layer_manager_entity) {
+            layer_camera.layer_manager()
+        } else {
+            layer_manager_entity
+        };
+
+    let Some(layer_manager) = world.get::<LayerManager>(layer_manager_entity) else {
+        warn!(
+            "LayerManager component not found on camera entity {:?}",
+            layer_manager_entity
+        );
+        return;
+    };
 
     let camera_entity = layer_manager.get_camera(kind);
 
@@ -664,37 +681,56 @@ pub fn update_layers(
     mut layer_manager_query: Query<(Entity, &mut LayerManager)>,
     mut camera_query: CameraQuery,
     window_query: Query<&Window>,
-    ui_area_query: Query<
-        (
-            &InheritedVisibility,
-            &ComputedNode,
-            &GlobalTransform,
-            &ComputedNodeTarget,
-        ),
-        With<LayerRenderArea>,
-    >,
+    ui_area_query: Query<(
+        &InheritedVisibility,
+        Ref<ComputedNode>,
+        Ref<GlobalTransform>,
+        &ComputedNodeTarget,
+        Ref<LayerRenderArea>,
+    )>,
+    mut removed_area: RemovedComponents<LayerRenderArea>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
+    #[derive(Default)]
+    struct LayerUsage {
+        rects: Vec<Rect>,
+        changed: bool,
+    }
+
     let primary_window = primary_window.iter().next();
-    let mut layer_rects = HashMap::<Entity, Vec<Rect>>::new();
-    for (visibility, computed_node, global_transform, node_camera) in &ui_area_query {
+    let mut layer_rects = HashMap::<Entity, LayerUsage>::new();
+    for (visibility, computed_node, global_transform, node_camera, layer_render_area) in
+        &ui_area_query
+    {
         if !**visibility {
             continue;
         }
         let Some(layer_camera) = node_camera.camera() else {
             continue;
         };
-        let rects = layer_rects.entry(layer_camera).or_insert(vec![]);
-        let mut rect =
+        let layer_usage = layer_rects.entry(layer_camera).or_default();
+        let rect =
             Rect::from_center_size(global_transform.translation().xy(), computed_node.size());
+
+        if layer_render_area.is_changed()
+            || computed_node.is_changed()
+            || global_transform.is_changed()
+        {
+            layer_usage.changed = true;
+        }
 
         if (rect.width() <= 0.0) || (rect.height() <= 0.0) {
             continue;
         }
 
-        rects.push(rect);
+        layer_usage.rects.push(rect);
+    }
+
+    for removed_entity in removed_area.read() {
+        let layer_usage = layer_rects.entry(removed_entity).or_default();
+        layer_usage.changed = true;
     }
 
     for (entity, mut layer_manager) in &mut layer_manager_query {
@@ -721,8 +757,14 @@ pub fn update_layers(
 
         let mut layer_changed = false;
         {
-            let blur_enable = layer_rects.contains_key(&layer_manager.blur_layer.layer.camera);
-            let canvas_enable = layer_rects.contains_key(&layer_manager.canvas_layer.camera);
+            let blur_enable = layer_rects
+                .get(&layer_manager.blur_layer.layer.camera)
+                .map(|u| !u.rects.is_empty())
+                .unwrap_or(false);
+            let canvas_enable = layer_rects
+                .get(&layer_manager.canvas_layer.camera)
+                .map(|u| !u.rects.is_empty())
+                .unwrap_or(false);
             if blur_enable != layer_manager.blur_enable
                 || canvas_enable != layer_manager.canvas_enable
             {
@@ -734,10 +776,6 @@ pub fn update_layers(
 
         if layer_changed && layer_manager.blur_enable && layer_manager.is_changed() {
             layer_manager.blur_layer.update_shader();
-        }
-
-        if !(image_size_changed || layer_changed || layer_manager.is_changed()) {
-            continue;
         }
 
         if image_size_changed {
@@ -760,7 +798,7 @@ pub fn update_layers(
             );
         }
 
-        {
+        if image_size_changed || layer_changed {
             let mut render_target = layer_manager.render_target.clone();
             layer_manager.blur_layer.layer.update_camera(
                 layer_manager.blur_enable,
@@ -786,17 +824,25 @@ pub fn update_layers(
         let surface_size = layer_manager.size;
         {
             if layer_manager.blur_enable {
-                if let Some(rects) = layer_rects.get(&layer_manager.blur_layer.layer.camera) {
-                    layer_manager
-                        .blur_layer
-                        .update_rects(rects, surface_size, &mut meshes);
+                if let Some(layer_usage) = layer_rects.get(&layer_manager.blur_layer.layer.camera) {
+                    if layer_usage.changed {
+                        layer_manager.blur_layer.update_rects(
+                            &layer_usage.rects,
+                            surface_size,
+                            &mut meshes,
+                        );
+                    }
                 }
             }
             if layer_manager.canvas_enable {
-                if let Some(rects) = layer_rects.get(&layer_manager.canvas_layer.camera) {
-                    layer_manager
-                        .canvas_layer
-                        .update_rects(rects, surface_size, &mut meshes);
+                if let Some(layer_usage) = layer_rects.get(&layer_manager.canvas_layer.camera) {
+                    if layer_usage.changed {
+                        layer_manager.canvas_layer.update_rects(
+                            &layer_usage.rects,
+                            surface_size,
+                            &mut meshes,
+                        );
+                    }
                 }
             }
         }

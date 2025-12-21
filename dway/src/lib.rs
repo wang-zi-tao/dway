@@ -82,6 +82,11 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     #[cfg(feature = "pprof")]
     let _pprof_profiler = debug::pprof_profiler();
 
+    #[cfg(feature = "debug_render")]
+    let _render_doc_context = {
+        debug::start_render_doc()
+    };
+
     app.configure_schedules(ScheduleBuildSettings {
         ambiguity_detection: LogLevel::Error,
         hierarchy_detection: LogLevel::Error,

@@ -6,7 +6,7 @@ use crate::{
     prelude::*,
 };
 
-#[derive(Component, Debug, Clone, Default)]
+#[derive(Component, Debug, Clone, Default, Reflect)]
 pub struct AnimationTargetNodeState(pub Node);
 impl From<Node> for AnimationTargetNodeState {
     fn from(value: Node) -> Self {

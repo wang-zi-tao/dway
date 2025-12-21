@@ -10,10 +10,14 @@ use std::{
 
 use bevy::{
     asset::{
-        io::{AssetReader, AssetReaderError, AssetSource, AsyncSeekForward, PathStream, Reader},
+        io::{
+            AssetReader, AssetReaderError, AssetReaderFuture, AssetSource, AsyncSeekForward,
+            PathStream, Reader,
+        },
         meta::{AssetAction, AssetMeta},
         AssetLoader,
-    }, tasks::{BoxedFuture, ConditionalSendFuture},
+    },
+    tasks::{BoxedFuture, ConditionalSendFuture},
 };
 use bevy_svg::prelude::Svg;
 use dway_util::{asset_cache::AssetCachePlugin, try_or};
@@ -228,36 +232,28 @@ impl Reader for DataReader {
 pub struct LinuxIconReader;
 
 impl AssetReader for LinuxIconReader {
-    fn read<'a>(
-        &'a self,
-        _path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<dyn Reader>, AssetReaderError>> {
-        Box::pin(async move { Ok(Box::<DataReader>::default() as Box<dyn Reader>) })
+    async fn read<'a>(&'a self, _path: &'a Path) -> Result<DataReader, AssetReaderError> {
+        Err(AssetReaderError::NotFound(_path.to_owned()))
     }
 
-    fn read_meta<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<dyn Reader>, AssetReaderError>> {
-        Box::pin(async {
-            use AssetReaderError::*;
-            let icon_info = LinuxIconUrl::from_str(&path.to_string_lossy())
-                .map_err(|e| Io(Arc::new(io::Error::other(e))))?;
-            let data = ron::to_string(&AssetMeta::<LinuxIconLoader, ()> {
-                meta_format_version: "1.0".to_string(),
-                processed_info: None,
-                asset: AssetAction::Load {
-                    loader: type_name::<LinuxIconLoader>().to_string(),
-                    settings: LinuxIconSettings { icon: icon_info },
-                },
-            })
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<DataReader, AssetReaderError> {
+        use AssetReaderError::*;
+        let icon_info = LinuxIconUrl::from_str(&path.to_string_lossy())
             .map_err(|e| Io(Arc::new(io::Error::other(e))))?;
-            let reader: Box<dyn Reader> = Box::new(DataReader {
-                data: data.into_bytes(),
-                bytes_read: 0,
-            });
-            Ok(reader)
+        let data = ron::to_string(&AssetMeta::<LinuxIconLoader, ()> {
+            meta_format_version: "1.0".to_string(),
+            processed_info: None,
+            asset: AssetAction::Load {
+                loader: type_name::<LinuxIconLoader>().to_string(),
+                settings: LinuxIconSettings { icon: icon_info },
+            },
         })
+        .map_err(|e| Io(Arc::new(io::Error::other(e))))?;
+        let reader = DataReader {
+            data: data.into_bytes(),
+            bytes_read: 0,
+        };
+        Ok(reader)
     }
 
     fn read_directory<'a>(

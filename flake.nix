@@ -37,7 +37,6 @@
             gcc-unwrapped
             nx-libs
             libinput
-            libudev-zero
             meson
             pixman
             (xwayland)
@@ -47,7 +46,7 @@
             mesa
             # unstable.wlroots_0_16
             wayland-protocols
-            vulkan-tools
+            wayland-scanner.dev
             hwdata
             glslang
             xorg.libXcursor
@@ -58,7 +57,7 @@
 
             egl-wayland.dev
             libglvnd.dev
-            glew-egl.dev
+            glew.dev
             libinput.dev
             libxkbcommon.dev
             seatd.dev
@@ -89,10 +88,10 @@
             libgbm
             udev
             alsa-lib
-            vulkan-loader
             xorg.libXcursor
             xorg.libXrandr
             xorg.libXi # To use x11 feature
+            xorg.libX11
             libxkbcommon
             wayland # To use wayland feature
             libglvnd
@@ -108,6 +107,9 @@
             xorg.libX11
             graphene
             xorg.libxcb
+            vulkan-loader
+            vulkan-tools
+            libudev-zero
             # libsForQt5.qt5.qtbase
             # libsForQt5.qt5.qtdeclarative
             (buildEnv {
@@ -121,6 +123,7 @@
             gvfs
             openssl
             pulseaudio
+            renderdoc
 
             # lldb
             clang

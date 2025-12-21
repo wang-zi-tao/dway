@@ -1,7 +1,11 @@
 use dway_client_core::controller::systemcontroller::SystemControllRequest;
+use dway_ui_framework::render::layer_manager::{LayerKind, LayerRenderArea, RenderToLayer};
 
 use super::volume_control::VolumeControl;
-use crate::{panels::PanelButtonBundle, prelude::*};
+use crate::{
+    panels::{PanelButtonBundle, PanelPopupBundle},
+    prelude::*,
+};
 
 #[derive(Component, Default)]
 pub struct PanelSettings {}
@@ -39,15 +43,18 @@ PanelSettings=>
     <Node @id="bottom_bar" @style="p-4 justify-content:space-evenly"
         @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 16.0))
     >
-        <( PanelButtonBundle::with_callback(&theme,&mut assets_rounded_ui_rect_material, &[(this_entity, do_logout)]) )
+        <( PanelButtonBundle::new(&theme,&mut assets_rounded_ui_rect_material) )
+            @on_event(do_logout->this_entity)
             @style="w-32 h-32" @id="logout_button">
             <(UiSvg::new(theme.icon("logout", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
-        <( PanelButtonBundle::with_callback(&theme,&mut assets_rounded_ui_rect_material, &[(this_entity, do_reboot)]) )
+        <( PanelButtonBundle::new(&theme,&mut assets_rounded_ui_rect_material) )
+            @on_event(do_reboot->this_entity)
             @style="w-32 h-32" @id="reboot_button">
             <(UiSvg::new(theme.icon("restart", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
-        <( PanelButtonBundle::with_callback(&theme,&mut assets_rounded_ui_rect_material, &[(this_entity, do_shutdown)]) )
+        <( PanelButtonBundle::new(&theme,&mut assets_rounded_ui_rect_material) )
+            @on_event(do_shutdown->this_entity)
             @style="w-32 h-32" @id="poweroff_button">
             <(UiSvg::new(theme.icon("power", &asset_server))) @style="w-32 h-32"/>
         </PanelButtonBundle>
@@ -58,14 +65,15 @@ PanelSettings=>
 pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         commands
-            .spawn((
-                UiPopup::default(),
-                UiTranslationAnimation::default(),
-                AnimationTargetNodeState(style!("absolute top-36 align-self:end p-8 right-0")),
-            ))
+            .spawn(PanelPopupBundle {
+                anchor_policy: AnchorPolicy::new(PopupAnlign::InnerEnd, PopupAnlign::None),
+                ..PanelPopupBundle::new(
+                    event.receiver(),
+                    style!("absolute top-42"),
+                )
+            })
             .with_children(|c| {
                 c.spawn((PanelSettings::default(), style!("h-auto w-auto")));
-            })
-            .set_parent(event.sender());
+            });
     }
 }

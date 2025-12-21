@@ -1,5 +1,6 @@
 #![feature(iter_map_windows)]
 #![feature(trait_upcasting)]
+#![feature(proc_macro_totokens)]
 
 mod builder;
 mod changed;

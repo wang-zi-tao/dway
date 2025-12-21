@@ -78,6 +78,7 @@ bevy_egui = { version="0.36.0" }
 
 wgpu={version="24",features=["angle"]}
 wgpu-hal={version="24",features=["gles"]}
+wgpu-types={version="24"}
 glow = {version="0.16"}
 khronos-egl = { version="6",features= ["dynamic","static"] }
 ash = { version = "0.38", features = [] }

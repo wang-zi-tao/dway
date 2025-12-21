@@ -25,24 +25,30 @@ use dway_client_core::{
 use dway_server::geometry::GlobalGeometry;
 use dway_tty::drm::{connectors::Connector, surface::DrmSurface};
 use dway_ui_framework::{
-    render::layer_manager::{LayerManager, RenderToLayer},
+    render::layer_manager::{LayerKind, LayerManager, RenderToLayer},
     theme::{ThemeComponent, WidgetKind},
 };
 use widgets::clock::Clock;
 
 use crate::{
-    panels::PanelButtonBundle,
+    panels::{dock::Dock, top_panel::Panel},
     prelude::*,
     widgets::{
-        applist::AppListUI,
         cursor::Cursor,
-        notifys::NotifyButton,
         screen::ScreenWindows,
-        system_monitor::PanelSystemMonitor,
-        windowtitle::WindowTitle,
-        workspacelist::WorkspaceListUI,
     },
 };
+
+pub mod zindex {
+    use bevy::ui::GlobalZIndex;
+
+    pub const BACKGROUND: GlobalZIndex = GlobalZIndex(-1024);
+    pub const WINDOWS: GlobalZIndex = GlobalZIndex(0);
+    pub const PANEL: GlobalZIndex = GlobalZIndex(1024);
+    pub const DOCK: GlobalZIndex = GlobalZIndex(1024);
+    pub const POPUP: GlobalZIndex = GlobalZIndex(2048);
+    pub const CURSOR: GlobalZIndex = GlobalZIndex(8192);
+}
 
 pub struct DWayUiPlugin;
 impl Plugin for DWayUiPlugin {
@@ -77,6 +83,10 @@ impl Plugin for DWayUiPlugin {
             popups::workspace_window_preview::WorkspaceWindowPreviewPopupPlugin,
             popups::dock_launcher::DockLauncherUIPlugin,
         ));
+        app.add_plugins((
+            panels::top_panel::PanelPlugin,
+            panels::dock::DockPlugin,
+        ));
         app.add_observer(init_screen_ui);
         app.add_systems(Startup, setup);
     }
@@ -85,12 +95,18 @@ impl Plugin for DWayUiPlugin {
 fn setup(commands: Commands) {
 }
 
-#[derive(Component, SmartDefault)]
+#[derive(Component)]
 #[require(Name = Name::from("ScreenUI"))]
 pub struct ScreenUI {
-    #[default(Entity::PLACEHOLDER)]
     pub screen: Entity,
 }
+
+impl ScreenUI {
+    pub fn new(screen: Entity) -> Self {
+        Self { screen }
+    }
+}
+
 dway_widget! {
 ScreenUI=>
 @global(theme: Theme)
@@ -106,70 +122,11 @@ ScreenUI=>
 })
 @global(mut assets_rounded_ui_rect_material: Assets<RoundedUiRectMaterial>)
 <Node @id="screen_ui" Name=(Name::new("screen_ui"))
-    // StyleSheet=(StyleSheet::new(asset_server.load("style/style.css")))
     @style="absolute full">
     <Node Name=(Name::new("background")) @style="absolute full" @id="background">
         <(ImageNode::from(asset_server.load("background.jpg"))) GlobalZIndex=(GlobalZIndex(-1024))/>
     </Node>
     <(ScreenWindows{screen:prop.screen}) @style="absolute full" Name=(Name::new("windows")) @id="windows" />
-    <Node @style="full absolute" @id="popup_parent" GlobalZIndex=(GlobalZIndex(1024)) />
-    <Node
-        ThemeComponent
-        RenderToLayer=(RenderToLayer::blur())
-        GlobalZIndex=(GlobalZIndex(1024))
-        @style="absolute top-4 left-4 right-4 h-32"
-        // @material(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.5),8.0))
-        Name=(Name::new("panel")) @id="panel">
-        <Node @style="absolute flex-row m-4 left-4" @id="left">
-            <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
-                (prop.screen,callbacks.system(popups::launcher::open_popup))
-            ])) @style="flex-col">
-                <(UiSvg::new(theme.icon("dashboard", &asset_server))) @style="w-24 h-24" @id="dashboard"/>
-            </PanelButtonBundle>
-            <WindowTitle/>
-        </Node>
-        <Node @style="absolute flex-row right-4 align-items:center" @id="right">
-            <Clock/>
-            <PanelSystemMonitor @id="system_monitor" @style="h-full"/>
-            <NotifyButton @id="notify"/>
-            <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
-                (prop.screen,callbacks.system(popups::volume_control::open_popup))
-            ])) @style="flex-col m-4">
-                // <Node @style="h-24 w-24" />
-                <(UiSvg::new(theme.icon("volume_on", &asset_server))) @style="w-24 h-24" @id="volume"/>
-            </PanelButtonBundle>
-            <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
-                (prop.screen,callbacks.system(popups::panel_settings::open_popup))
-            ])) @style="m-4">
-                <(UiSvg::new(theme.icon("settings", &asset_server))) @style="w-24 h-24" @id="settings"/>
-            </PanelButtonBundle>
-        </Node>
-        <Node @style="absolute w-full h-full justify-center items-center" @id="center">
-            <Node @style="flex-row m-0 h-90%" >
-                <WorkspaceListUI @id="workspace_list" />
-            </Node>
-        </Node>
-    </>
-    <(style!("absolute bottom-4 w-full justify-center items-center"))
-        FocusPolicy=(FocusPolicy::Pass)
-        GlobalZIndex=(GlobalZIndex(1024))
-        // Class=(Class::new("dock"))
-        Name=(Name::new("dock")) @id="dock" >
-        <Node
-            ThemeComponent
-            RenderToLayer=(RenderToLayer::blur())
-            // @material(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_a(0.5), 16.0))
-            >
-            <AppListUI/>
-            <(PanelButtonBundle::with_callback(&theme,&mut assets!(RoundedUiRectMaterial), &[
-                (node!(popup_parent),callbacks.system(popups::dock_launcher::open_popup))
-            ]))>
-                <(UiSvg::new(theme.icon("apps", &asset_server))) @style="w-48 h-48" @id="apps"/>
-            </PanelButtonBundle>
-        </Node>
-    </Node>
-    <(Cursor::new(asset_server.load("embedded://dway_ui/cursors/cursor-default.png"),Vec2::splat(32.0)))/>
-    // <LoggerUI @style="bottom-64 left-32 w-80% absolute"/>
 </Node>
 }
 
@@ -178,6 +135,7 @@ fn init_screen_ui(
     screen_query: Query<(&DrmSurface, &Connector)>,
     window_query: Query<&Window>,
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
 ) {
     let entity = trigger.target();
     let (name, target) = if let Ok((drm_surface, connector)) = screen_query.get(entity) {
@@ -228,8 +186,41 @@ fn init_screen_ui(
 
     commands
         .spawn((
+            Name::new("ScreenUI"),
             UiTargetCamera(camera),
-            ScreenUI { screen: entity },
+            ScreenUI::new(entity),
+            style!("absolute full"),
+        ))
+        .connect_to::<UiAttachData>(entity);
+
+    commands
+        .spawn((
+            Name::new("panel"),
+            Panel::new(entity),
+            style!("absolute top-4 left-4 right-4 h-32"),
+            RenderToLayer::new(camera, LayerKind::Blur),
+            zindex::PANEL,
+        ))
+        .connect_to::<UiAttachData>(entity);
+
+    commands
+        .spawn((
+            Name::new("dock"),
+            UiTargetCamera(camera),
+            Dock::new(entity),
+            style!("absolute bottom-4 justify-self:center justify-center items-center"),
+            RenderToLayer::new(camera, LayerKind::Blur),
+            zindex::DOCK,
+        ))
+        .connect_to::<UiAttachData>(entity);
+
+    commands
+        .spawn((
+            Name::new("cursor"),
+            UiTargetCamera(camera),
+            Cursor::new(asset_server.load("embedded://dway_ui/cursors/cursor-default.png"),Vec2::splat(32.0)),
+            RenderToLayer::new(camera, LayerKind::Blur),
+            zindex::CURSOR,
         ))
         .connect_to::<UiAttachData>(entity);
 }

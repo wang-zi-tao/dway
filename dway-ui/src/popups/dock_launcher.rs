@@ -10,7 +10,11 @@ use widgets::{
     text::UiTextBundle,
 };
 
-use crate::{panels::PanelButtonBundle, prelude::*, widgets::icon::UiIcon};
+use crate::{
+    panels::{PanelButtonBundle, PanelPopup, PanelPopupBundle},
+    prelude::*,
+    widgets::icon::UiIcon,
+};
 
 fn on_launch(
     event: UiEvent<UiButtonEvent>,
@@ -35,23 +39,13 @@ pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         commands
             .spawn((
+                UiTranslationAnimation::new(DwayUiDirection::BOTTOM),
+                AnimationTargetNodeState(style!("left-30% right-30% top-30% bottom-30% absolute")),
+                PanelPopup,
+                AttachToAnchor(event.receiver()),
                 UiPopup::default(),
-                style!("full"),
-                DockLauncherUI,
-                UiTranslationAnimation {
-                    direction: DwayUiDirection::BOTTOM,
-                    ..Default::default()
-                },
-                AnimationTargetNodeState(Node {
-                    position_type: PositionType::Absolute,
-                    left: Val::Percent(10.0),
-                    right: Val::Percent(10.0),
-                    top: Val::Percent(10.0),
-                    bottom: Val::Percent(10.0),
-                    ..Default::default()
-                }),
             ))
-            .set_parent(event.receiver());
+            .with_child((DockLauncherUI, style!("full")));
     }
 }
 
@@ -124,9 +118,9 @@ DockLauncherUI=>
                     })
                     @if(*state.enable())
                 >
-                    <( PanelButtonBundle::with_callback(&theme,&mut assets_rounded_ui_rect_material,&[
-                        (node!(app_root),on_launch)
-                    ]) )  @style="m-4 w-96 h-96 flex-col items-center justify-center"
+                    <(PanelButtonBundle::new(&theme,&mut assets_rounded_ui_rect_material))
+                        @on_event(on_launch->node!(app_root))
+                        @style="m-4 w-96 h-96 flex-col items-center justify-center"
                     >
                         <(UiIcon::from(state.icon().clone())) @style="absolute w-64 h-64 align-self:center" @id="app_icon" />
                         <(UiTextBundle::new(state.name(),16,&theme)) @id="app_name"

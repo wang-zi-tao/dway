@@ -7,8 +7,10 @@ use indexmap::IndexSet;
 use widgets::button::UiButtonEventDispatcher;
 
 use crate::{
+    panels::{PanelPopup, PanelPopupBundle},
     popups::app_window_preview::AppWindowPreviewPopup,
-    prelude::*, widgets::icon::UiIcon,
+    prelude::*,
+    widgets::icon::UiIcon,
 };
 
 #[derive(Component, Reflect)]
@@ -17,36 +19,54 @@ pub struct AppEntryUI(pub Entity);
 #[derive(Component, Reflect, Default)]
 pub struct AppListUI {}
 
+fn click_app(
+    event: UiEvent<UiButtonEvent>,
+    query: Query<(&AppListUISubStateList, &AppListUISubWidgetList)>,
+    mut commands: Commands,
+    mut launch_event: EventWriter<LaunchAppRequest>,
+    key_input: Res<ButtonInput<KeyCode>>,
+) {
+    let Ok((state, widget)) = query.get(event.receiver()) else {
+        return;
+    };
+    if widget.node_popup_entity == Entity::PLACEHOLDER {
+        return;
+    }
+    if event.kind == UiButtonEventKind::Released {
+        let ctrl = key_input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
+        if *state.count() > 0 && !ctrl {
+            let anchor = event.receiver();
+            commands
+                .spawn((
+                    UiPopup::default(),
+                    PanelPopup,
+                    AttachToAnchor(anchor),
+                    UiPopup::default(),
+                    UiTranslationAnimation::new(DwayUiDirection::BOTTOM),
+                    AnimationTargetNodeState(
+                        style!("absolute bottom-52 align-self:center").clone(),
+                    ),
+                ))
+                .with_children(|c| {
+                    c.spawn((
+                        AppWindowPreviewPopup {
+                            app: widget.data_entity,
+                        },
+                        style!("h-auto w-auto"),
+                    ));
+                });
+        } else {
+            launch_event.send(LaunchAppRequest::new(widget.data_entity));
+        }
+    }
+}
+
 dway_widget! {
 AppListUI=>
 @plugin{
     app.register_type::<AppListUIState>();
 }
-@callback{ [UiEvent<UiButtonEvent>]
-fn click_app(
-    event: UiEvent<UiButtonEvent>,
-    query: Query<(&AppListUISubStateList,&AppListUISubWidgetList)>,
-    mut commands: Commands,
-    mut launch_event: EventWriter<LaunchAppRequest>,
-    key_input: Res<ButtonInput<KeyCode>>,
-){
-    let Ok((state,widget)) = query.get(event.receiver())else{return;};
-    if widget.node_popup_entity == Entity::PLACEHOLDER {return;}
-    if event.kind == UiButtonEventKind::Released{
-        let ctrl = key_input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
-        if *state.count() > 0 && !ctrl {
-            commands.spawn((
-                UiPopup::default(),
-                UiTranslationAnimation::new(DwayUiDirection::BOTTOM),
-                AnimationTargetNodeState(style!("absolute bottom-52 align-self:center").clone()),
-            )).with_children(|c|{
-                c.spawn(( AppWindowPreviewPopup{app:widget.data_entity}, style!("h-auto w-auto") ));
-            }).set_parent(widget.node_popup_entity);
-        } else {
-            launch_event.send(LaunchAppRequest::new(widget.data_entity));
-        }
-    }
-}}
+@add_callback{ [UiEvent<UiButtonEvent>]click_app }
 @global(app_model: AppListModel)
 @global(desktop_entrys: DesktopEntriesSet)
 @state_component(#[derive(Reflect,serde::Serialize,serde::Deserialize)])

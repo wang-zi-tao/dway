@@ -1,7 +1,8 @@
 use dway_client_core::controller::volume::VolumeController;
+use dway_ui_framework::render::layer_manager::{LayerKind, LayerRenderArea, RenderToLayer};
 use widgets::{checkbox::UiCheckBoxEventDispatcher, slider::UiSliderEventDispatcher};
 
-use crate::prelude::*;
+use crate::{panels::PanelPopupBundle, prelude::*};
 
 #[derive(Component, Default)]
 pub struct VolumeControl;
@@ -58,18 +59,19 @@ VolumeControl=>
 />
 }
 
-pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
+pub fn open_popup(
+    event: UiEvent<UiButtonEvent>,
+    mut commands: Commands,
+) {
     if event.kind == UiButtonEventKind::Released {
-        let style = style!("absolute justify-items:center top-36 align-self:end p-8");
+        let style = style!("absolute top-42");
         commands
-            .spawn((
-                UiPopup::default(),
-                UiTranslationAnimation::default(),
-                AnimationTargetNodeState(style.clone()),
-            ))
-            .with_children(|c| {
-                c.spawn(( VolumeControl::default(), style!("h-auto w-auto")  ));
+            .spawn(PanelPopupBundle {
+                anchor_policy: AnchorPolicy::new(PopupAnlign::InnerEnd, PopupAnlign::None),
+                ..PanelPopupBundle::new(event.receiver(), style)
             })
-            .set_parent(event.sender());
+            .with_children(|c| {
+                c.spawn(VolumeControl::default());
+            });
     }
 }
