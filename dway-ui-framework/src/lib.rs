@@ -38,7 +38,6 @@ use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_svg::{prelude::Svg, SvgPlugin};
 pub use dway_ui_derive::*;
 use dway_util::asset_cache::AssetCachePlugin;
-use egui_dock::egui::PopupAnchor;
 use event::EventReceiver;
 use widgets::drag::UiDrag;
 
