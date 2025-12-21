@@ -64,7 +64,7 @@ impl Plugin for UiFrameworkPlugin {
             theme::flat::FlatThemePlugin::default(),
             render::mesh::UiMeshPlugin,
             render::mesh::UiMeshMaterialPlugin::<ColorMaterial>::default(),
-            render::blur::PostProcessingPlugin,
+            render::blur::BlurRenderPlugin,
             render::layer_manager::LayerManagerPlugin,
             render::ui_nodes::UiNodeRenderPlugin,
             shader::ShaderFrameworkPlugin,
@@ -124,7 +124,7 @@ impl Plugin for UiFrameworkPlugin {
                     .before(VisibilitySystems::CheckVisibility)
                     .before(VisibilitySystems::CalculateBounds)
                     .after(bevy_prototype_lyon::plugin::BuildShapes),
-                widgets::popup::update_popup.in_set(UpdatePopup),
+                (widgets::popup::anchor_update_system, widgets::popup::update_popup ).in_set(UpdatePopup),
             ),
         )
         .configure_sets(
@@ -162,6 +162,8 @@ impl Plugin for UiFrameworkPlugin {
             ArcMaterial::plugin(),
             AssetAnimationPlugin::<CheckboxMaterial>::default(),
         ));
+
+        app.add_plugins(bevy_image_export::ImageExportPlugin::default());
 
         #[cfg(feature = "develop")]
         {

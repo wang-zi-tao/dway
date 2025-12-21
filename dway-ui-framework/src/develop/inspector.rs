@@ -74,7 +74,7 @@ structstruck::strike! {
 impl Default for InspectorUiState {
     fn default() -> Self {
         Self {
-            enable: false,
+            enable: true,
             dock_state: DockState::new(vec![
                 UiTab::Pick,
                 UiTab::Search,
@@ -159,7 +159,7 @@ impl<'l> egui_dock::TabViewer for InspectorTabViewer<'l> {
                                     UiPicking {},
                                     UiTargetCamera(camera),
                                     Name::new("Inspector Picker"),
-                                    ZIndex(settings.zindex),
+                                    GlobalZIndex(settings.zindex),
                                 ))
                                 .id();
                             data.ui.push(entity);

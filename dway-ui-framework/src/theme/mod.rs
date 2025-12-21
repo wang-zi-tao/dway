@@ -80,6 +80,7 @@ pub enum BlockStyle {
     Normal,
     Hollow,
     Sunken,
+    Blur,
 }
 
 #[derive(Resource, Reflect)]

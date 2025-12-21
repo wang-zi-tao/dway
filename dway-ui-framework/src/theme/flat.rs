@@ -1,11 +1,13 @@
 use std::any::type_name;
 
 use bevy::ecs::{
+    component::HookContext,
     query::{QueryData, QueryItem},
     system::{
         lifetimeless::{SRes, SResMut},
         SystemParamItem,
     },
+    world::DeferredWorld,
 };
 
 use super::{
@@ -22,7 +24,7 @@ use crate::{
         AnimationEventDispatcher, MaterialAnimationQueryData,
     },
     prelude::*,
-    render::layer_manager::{FillWithLayer, LayerKind, RenderToLayer},
+    render::layer_manager::{FillWithLayer, LayerCamera, LayerKind, LayerManager, RenderToLayer},
     shader::{
         effect::{Border, InnerShadow, Shadow},
         fill::{AddColor, Fill, FillColor},
@@ -36,7 +38,8 @@ use crate::{
         checkbox::UiCheckBoxEventDispatcher,
         inputbox::{UiInputBox, UiInputBoxEventDispatcher, UiInputBoxWidget},
         slider::{UiSliderEventDispatcher, UiSliderInited, UiSliderWidget},
-    }, UiFrameworkSystems,
+    },
+    UiFrameworkSystems,
 };
 
 type BlockMaterial = ShapeRender<RoundedRect, (FillColor, Shadow)>;
@@ -90,8 +93,8 @@ pub struct FlatTheme {
     pub inner_shadow_radius: f32,
     #[default(2.0)]
     pub shadow_radius: f32,
-    #[default(0.75)]
-    pub blur_brightness: f32,
+    #[default(0.25)]
+    pub blur_opacity: f32,
     #[default(Duration::from_secs_f32(0.2))]
     pub animation_duration: Duration,
     // #[default(AnimationEaseMethod::EaseFunction(EaseFunction::QuadraticIn))]
@@ -421,6 +424,12 @@ impl WidgetInsertObserver<BlockStyle> for FlatTheme {
                 BlockStyle::Sunken => {
                     commands.insert(MaterialNode(self.sunken_block_material.clone()));
                 }
+                BlockStyle::Blur => {
+                    commands.insert((
+                        FlatThemeComponent,
+                        MaterialNode::<ShaderAsset<BlurMaterial>>::default(),
+                    ));
+                }
             }
         }
     }
@@ -684,31 +693,6 @@ impl EventObserver<UiInputEvent, UiInputBox> for FlatTheme {
     }
 }
 
-impl WidgetInsertObserver<RenderToLayer> for FlatTheme {
-    type Filter = ();
-    type ItemQuery = &'static RenderToLayer;
-    type Params = ();
-
-    fn on_widget_insert(
-        &self,
-        theme_entity: Entity,
-        layer: QueryItem<Self::ItemQuery>,
-        _: SystemParamItem<Self::Params>,
-        mut commands: EntityCommands,
-    ) {
-        match layer.layer_kind {
-            LayerKind::Normal => {}
-            LayerKind::Blur => {
-                commands.insert((
-                    FlatThemeComponent,
-                    MaterialNode::<ShaderAsset<BlurMaterial>>::default(),
-                ));
-            }
-            LayerKind::Canvas => {}
-        }
-    }
-}
-
 impl WidgetInsertObserver<UiPopup> for FlatTheme {
     type Filter = ();
     type ItemQuery = ();
@@ -723,34 +707,47 @@ impl WidgetInsertObserver<UiPopup> for FlatTheme {
     ) {
         commands.insert((
             FlatThemeComponent,
-            RenderToLayer::blur(),
             MaterialNode::<ShaderAsset<BlurMaterial>>::default(),
         ));
     }
 }
 
-pub fn update_ui_material(
+pub fn update_ui_blur_material(
     mut query: Query<
         (
-            &RenderToLayer,
+            &ComputedNodeTarget,
             &ThemeComponent,
             &mut MaterialNode<ShaderAsset<BlurMaterial>>,
         ),
-        (With<FlatThemeComponent>, Changed<RenderToLayer>),
+        (
+            With<FlatThemeComponent>,
+            Or<(
+                Changed<ComputedNodeTarget>,
+                Added<MaterialNode<ShaderAsset<BlurMaterial>>>,
+            )>,
+        ),
     >,
+    ui_root_query: Query<&LayerCamera>,
     theme_query: Query<&FlatTheme>,
     mut material_assets: ResMut<Assets<ShaderAsset<BlurMaterial>>>,
 ) {
-    for (render_to_layer, theme_component, mut shader_handle) in &mut query {
+    for (node_target, theme_component, mut shader_handle) in &mut query {
         let Ok(theme) = theme_query.get(theme_component.theme_entity) else {
             continue;
         };
+
+        let Some(layer) = node_target.camera().and_then(|e| ui_root_query.get(e).ok())
+        else {
+            continue;
+        };
+
+
         let material = RoundedRect::new(theme.block_cornor).with_effect(AddColor::new(
             FillWithLayer {
-                texture: render_to_layer.ui_background.clone(),
-                texture_size: render_to_layer.background_size,
+                texture: layer.ui_background().clone(),
+                texture_size: layer.background_size,
             },
-            theme.fill_color.with_alpha(1.0 - theme.blur_brightness),
+            theme.fill_color.with_alpha(theme.blur_opacity),
         ));
         *shader_handle = material_assets.add(material).into();
     }
@@ -765,7 +762,6 @@ impl ThemeTrait for FlatTheme {
         <FlatTheme as WidgetInsertObserver<UiSliderInited>>::register(theme_entity, world);
         <FlatTheme as WidgetInsertObserver<UiInputBox>>::register(theme_entity, world);
         <FlatTheme as WidgetInsertObserver<UiPopup>>::register(theme_entity, world);
-        <FlatTheme as WidgetInsertObserver<RenderToLayer>>::register(theme_entity, world);
     }
 
     fn unregister(&self, theme_entity: Entity, world: &mut World) {
@@ -820,7 +816,7 @@ impl Plugin for FlatThemePlugin {
 
         app.add_systems(
             Last,
-            update_ui_material.in_set(UiFrameworkSystems::UpdateLayersMaterial),
+            update_ui_blur_material.in_set(UiFrameworkSystems::UpdateLayersMaterial),
         );
     }
 }

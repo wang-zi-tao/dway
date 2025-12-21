@@ -44,8 +44,13 @@ slab_tree = "0.3.2"
 petgraph = "0.6.5"
 unicode-segmentation = "1.12"
 
+bevy_image_export = "0.14.0"
 bevy-inspector-egui = { workspace=true, optional=true}
 egui_dock = { version="0.17", optional=true }
+
+wgpu = {workspace=true}
+wgpu-hal = {workspace=true}
+wgpu-types = {workspace=true}
 
 [dev-dependencies]
 bevy = { workspace = true, features = ["png", "jpeg"] }

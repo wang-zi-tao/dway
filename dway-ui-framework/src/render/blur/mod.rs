@@ -4,27 +4,13 @@ use bevy::{
     core_pipeline::core_2d::graph::{Core2d, Node2d},
     ecs::query::QueryItem,
     render::{
-        extract_component::ExtractComponent,
-        mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
-        render_asset::RenderAssets,
-        render_graph::{RenderGraphApp, RenderLabel, ViewNode, ViewNodeRunner},
-        render_resource::{
-            binding_types::{sampler, texture_2d, uniform_buffer},
-            AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
-            CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d,
-            FragmentState, MultisampleState, Operations, PipelineCache, PrimitiveState,
-            RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
-            SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType,
-            SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
-            TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
-            TextureViewDescriptor, VertexState,
-        },
-        renderer::{RenderDevice, RenderQueue},
-        sync_world::{MainEntity, RenderEntity},
-        texture::GpuImage,
-        Extract, RenderApp, RenderSet,
+        Extract, RenderApp, RenderSet, camera::Viewport, extract_component::ExtractComponent, mesh::{RenderMesh, RenderMeshBufferInfo, VertexBufferLayout, allocator::MeshAllocator}, render_asset::RenderAssets, render_graph::{RenderGraphApp, RenderLabel, ViewNode, ViewNodeRunner}, render_resource::{
+            AddressMode, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d, FragmentState, MultisampleState, Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat, TextureId, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, VertexState, binding_types::{sampler, texture_2d, uniform_buffer}
+        }, renderer::{RenderDevice, RenderQueue}, sync_world::{MainEntity, RenderEntity}, texture::GpuImage
     },
 };
+use serde::Deserialize;
+use wgpu::{LoadOp, StoreOp, VertexFormat, VertexStepMode};
 
 use super::layer_manager::{BlurMethod, BlurMethodKind, LayerCamera, LayerManager};
 use crate::prelude::*;
@@ -52,10 +38,17 @@ impl ExtractComponent for Blur {
     }
 }
 
+pub struct BlurPass {
+    pub bind_group: BindGroup,
+    pub output: TextureView,
+    pub viewport: Option<Viewport>,
+}
+
 #[derive(Component)]
 pub struct BlurData {
+    output_image_id: TextureId,
     input: TextureView,
-    textures: Vec<TextureView>,
+    passes: Vec<BlurPass>,
     layout: BindGroupLayout,
     sampler: Sampler,
     pipeline_id: CachedRenderPipelineId,
@@ -70,6 +63,13 @@ impl SpecializedRenderPipeline for BlurPipeline {
     type Key = BlurMethodKind;
 
     fn specialize(&self, _key: Self::Key) -> RenderPipelineDescriptor {
+        let vertex_layout = VertexBufferLayout::from_vertex_formats(
+            VertexStepMode::Vertex,
+            vec![
+                // uv
+                VertexFormat::Float32x2,
+            ],
+        );
         RenderPipelineDescriptor {
             label: Some("blur".into()),
             layout: vec![self.layout.clone()],
@@ -77,7 +77,7 @@ impl SpecializedRenderPipeline for BlurPipeline {
                 shader: self.shader.clone(),
                 shader_defs: Vec::new(),
                 entry_point: Cow::from("vertex"),
-                buffers: Vec::new(),
+                buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -161,7 +161,7 @@ pub fn extract_layer_manager(
             if layer_manager.is_changed() {
                 let blur = Blur {
                     size: layer_manager.size,
-                    area: layer_manager.blur_layer.layer.area.clone(),
+                    area: layer_manager.blur_layer.area.clone(),
                     blur_method: layer_manager.blur_layer.blur_method,
                     blur_output: layer_manager.blur_layer.blur_image.clone(),
                     shader: layer_manager.blur_layer.shader.clone(),
@@ -191,6 +191,7 @@ pub fn prepare_blur_pipeline(
     mut query: Query<(Entity, Ref<Blur>, Option<&mut BlurData>)>,
     mut removed: RemovedComponents<Blur>,
     render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
     pipeline_cache: ResMut<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlurPipeline>>,
     gpu_images: Res<RenderAssets<GpuImage>>,
@@ -202,13 +203,22 @@ pub fn prepare_blur_pipeline(
         }
     }
     for (entity, blur, blur_data) in query.iter_mut() {
-        if blur_data.is_some() && !blur.is_changed() {
+        let Some(output_image) = gpu_images.get(blur.blur_output.id()) else {
+            continue;
+        };
+
+        let output_gpu_image_changed = blur_data
+            .as_ref()
+            .map_or(true, |data| data.output_image_id != output_image.texture.id());
+
+        if blur_data.is_some() && !blur.is_changed() && !output_gpu_image_changed {
             continue;
         }
+
         let layout = render_device.create_bind_group_layout(
             "blur",
             &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
+                ShaderStages::FRAGMENT | ShaderStages::VERTEX_FRAGMENT,
                 (
                     texture_2d(TextureSampleType::Float { filterable: true }),
                     sampler(SamplerBindingType::Filtering),
@@ -233,10 +243,15 @@ pub fn prepare_blur_pipeline(
             blur.blur_method.kind(),
         );
 
-        let mut textures = vec![];
+        let Some(input_image) = gpu_images.get(blur.blur_input.id()) else {
+            continue;
+        };
+        let mut source_texture = input_image.texture_view.clone();
+
+        let mut passes = vec![];
         blur.blur_method
             .foreach_layer(blur.size.as_vec2(), |uniform, is_output| {
-                let texture = if is_output {
+                let dest_texture = if is_output {
                     let gpu_image = gpu_images.get(blur.blur_output.id()).unwrap();
                     gpu_image.texture_view.clone()
                 } else {
@@ -256,17 +271,41 @@ pub fn prepare_blur_pipeline(
                     });
                     texture.create_view(&TextureViewDescriptor::default())
                 };
-                textures.push(texture);
+
+                let mut uniform_buffer = DynamicUniformBuffer::<BlurUniform>::default();
+                {
+                    let Some(mut writer) =
+                        uniform_buffer.get_writer(1, &render_device, &render_queue)
+                    else {
+                        return;
+                    };
+                    writer.write(&uniform);
+                }
+
+                let Some(uniform_binding) = uniform_buffer.binding() else {
+                    return;
+                };
+                let bind_group = render_device.create_bind_group(
+                    "blur_post_process_bind_group",
+                    &layout,
+                    &BindGroupEntries::sequential((&source_texture, &sampler, uniform_binding)),
+                );
+
+                passes.push(BlurPass {
+                    bind_group,
+                    output: dest_texture.clone(),
+                    viewport: None,
+                });
+
+                source_texture = dest_texture;
             });
-        let Some(input_image) = gpu_images.get(blur.blur_input.id()) else {
-            continue;
-        };
         let new_data = BlurData {
             input: input_image.texture_view.clone(),
-            textures,
             layout,
             sampler,
             pipeline_id,
+            passes,
+            output_image_id: output_image.texture.id(),
         };
         if let Some(mut blur_data) = blur_data {
             *blur_data = new_data;
@@ -293,8 +332,6 @@ impl ViewNode for BlurNode {
         world: &'w World,
     ) -> Result<(), bevy::render::render_graph::NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
-        let render_device = world.resource::<RenderDevice>();
-        let render_queue = world.resource::<RenderQueue>();
         let meshes = world.resource::<RenderAssets<RenderMesh>>();
         let mesh_allocator = world.resource::<MeshAllocator>();
 
@@ -305,97 +342,70 @@ impl ViewNode for BlurNode {
             return Ok(());
         };
 
-        let mut source_texture = blur_data.input.clone();
-        let mut texture_iter = blur_data.textures.iter();
+        let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(&blur.area.id()) else {
+            return Ok(());
+        };
 
-        blur.blur_method
-            .foreach_layer(blur.size.as_vec2(), |uniform, _| {
-                let dest_texture = texture_iter.next().unwrap().clone();
-
-                let mut uniform_buffer = DynamicUniformBuffer::<BlurUniform>::default();
-                {
-                    let Some(mut writer) =
-                        uniform_buffer.get_writer(1, render_device, render_queue)
-                    else {
-                        return;
-                    };
-                    writer.write(&uniform);
-                }
-                let Some(uniform_binding) = uniform_buffer.binding() else {
-                    return;
-                };
-                let bind_group = render_context.render_device().create_bind_group(
-                    "blur_post_process_bind_group",
-                    &blur_data.layout,
-                    &BindGroupEntries::sequential((
-                        &source_texture,
-                        &blur_data.sampler,
-                        uniform_binding,
-                    )),
-                );
-
-                {
-                    let mut render_pass =
-                        render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                            label: Some("blur_post_process_pass"),
-                            color_attachments: &[Some(RenderPassColorAttachment {
-                                view: &dest_texture,
-                                resolve_target: None,
-                                ops: Operations::default(),
-                            })],
-                            depth_stencil_attachment: None,
-                            timestamp_writes: None,
-                            occlusion_query_set: None,
-                        });
-
-                    render_pass.set_render_pipeline(pipeline);
-                    render_pass.set_bind_group(0, &bind_group, &[]);
-
-                    let mesh_asset_id = &blur.area.id();
-                    let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(mesh_asset_id)
-                    else {
-                        return;
-                    };
-                    render_pass.set_vertex_buffer(0, vertex_buffer_slice.buffer.slice(..));
-
-                    match &mesh.buffer_info {
-                        RenderMeshBufferInfo::Indexed {
-                            index_format,
-                            count,
-                        } => {
-                            let Some(index_buffer_slice) =
-                                mesh_allocator.mesh_index_slice(mesh_asset_id)
-                            else {
-                                return;
-                            };
-
-                            render_pass.set_index_buffer(
-                                index_buffer_slice.buffer.slice(..),
-                                0,
-                                *index_format,
-                            );
-
-                            render_pass.draw_indexed(
-                                index_buffer_slice.range.start
-                                    ..(index_buffer_slice.range.start + count),
-                                vertex_buffer_slice.range.start as i32,
-                                0..1,
-                            );
-                        }
-                        RenderMeshBufferInfo::NonIndexed => {
-                            render_pass.draw(vertex_buffer_slice.range, 0..1);
-                        }
-                    }
-                }
-
-                source_texture = dest_texture;
+        for BlurPass {
+            bind_group,
+            output,
+            viewport,
+        } in &blur_data.passes
+        {
+            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                label: Some("blur_pass"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: &output,
+                    resolve_target: None,
+                    ops: Operations::default(),
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
+
+            render_pass.set_render_pipeline(pipeline);
+            render_pass.set_bind_group(0, &bind_group, &[]);
+            render_pass.set_vertex_buffer(0, vertex_buffer_slice.buffer.slice(..));
+
+            if let Some(viewport) = viewport {
+                render_pass.set_camera_viewport(viewport);
+            }
+
+            match &mesh.buffer_info {
+                RenderMeshBufferInfo::Indexed {
+                    index_format,
+                    count,
+                } => {
+                    let Some(index_buffer_slice) = mesh_allocator.mesh_index_slice(&blur.area.id())
+                    else {
+                        continue;
+                    };
+
+                    render_pass.set_index_buffer(
+                        index_buffer_slice.buffer.slice(..),
+                        0,
+                        *index_format,
+                    );
+
+                    render_pass.draw_indexed(
+                        index_buffer_slice.range.start..(index_buffer_slice.range.start + count),
+                        vertex_buffer_slice.range.start as i32,
+                        0..1,
+                    );
+                }
+                RenderMeshBufferInfo::NonIndexed => {
+                    render_pass.draw(vertex_buffer_slice.range.clone(), 0..1);
+                }
+            }
+        }
+
         Ok(())
     }
 }
 
-pub struct PostProcessingPlugin;
-impl Plugin for PostProcessingPlugin {
+pub struct BlurRenderPlugin;
+impl Plugin for BlurRenderPlugin {
     fn build(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -408,11 +418,7 @@ impl Plugin for PostProcessingPlugin {
                 .add_render_graph_node::<ViewNodeRunner<BlurNode>>(Core2d, BlurLabel)
                 .add_render_graph_edges(
                     Core2d,
-                    (
-                        Node2d::Tonemapping,
-                        BlurLabel,
-                        Node2d::EndMainPassPostProcessing,
-                    ),
+                    (Node2d::MsaaWriteback, BlurLabel, Node2d::StartMainPass),
                 );
         }
     }
