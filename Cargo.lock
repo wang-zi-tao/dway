@@ -1849,7 +1849,7 @@ dependencies = [
  "bevy 0.16.1",
  "lyon_algorithms",
  "lyon_tessellation",
- "svgtypes",
+ "svgtypes 0.15.3",
 ]
 
 [[package]]
@@ -2209,8 +2209,7 @@ dependencies = [
 [[package]]
 name = "bevy_svg"
 version = "0.16.0-rc1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d4545d3eaf6021696f19d83a8d6fcfff6ee401912e26486d7dc4c2303601d31"
+source = "git+https://github.com/wang-zi-tao/bevy_svg.git?rev=775aa36803fb30d6c99139397dffdba3115f46bf#775aa36803fb30d6c99139397dffdba3115f46bf"
 dependencies = [
  "anyhow",
  "bevy 0.16.1",
@@ -2218,7 +2217,7 @@ dependencies = [
  "lyon_geom",
  "lyon_path",
  "lyon_tessellation",
- "svgtypes",
+ "svgtypes 0.16.0",
  "thiserror 2.0.16",
  "usvg",
 ]
@@ -2567,7 +2566,7 @@ dependencies = [
  "bitflags 2.9.4",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "log",
  "prettyplease 0.2.37",
  "proc-macro2",
@@ -2587,7 +2586,7 @@ dependencies = [
  "bitflags 2.9.4",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "proc-macro2",
  "quote",
  "regex",
@@ -5747,15 +5746,6 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
@@ -5871,6 +5861,17 @@ name = "kurbo"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c62026ae44756f8a599ba21140f350303d4f08dcdcc71b5ad9c9bb8128c13c62"
+dependencies = [
+ "arrayvec 0.7.6",
+ "euclid",
+ "smallvec",
+]
+
+[[package]]
+name = "kurbo"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce9729cc38c18d86123ab736fd2e7151763ba226ac2490ec092d1dd148825e32"
 dependencies = [
  "arrayvec 0.7.6",
  "euclid",
@@ -8683,7 +8684,17 @@ version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68c7541fff44b35860c1a7a47a7cadf3e4a304c457b58f9870d9706ece028afc"
 dependencies = [
- "kurbo",
+ "kurbo 0.11.3",
+ "siphasher",
+]
+
+[[package]]
+name = "svgtypes"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9165405c8cf6bdc11d4417ef1c8c90521ebbadffe7da5c67bb5c1b90a14aeb1"
+dependencies = [
+ "kurbo 0.12.0",
  "siphasher",
 ]
 
@@ -9511,7 +9522,7 @@ dependencies = [
  "flate2",
  "fontdb 0.23.0",
  "imagesize",
- "kurbo",
+ "kurbo 0.11.3",
  "log",
  "pico-args",
  "roxmltree",
@@ -9519,7 +9530,7 @@ dependencies = [
  "simplecss",
  "siphasher",
  "strict-num",
- "svgtypes",
+ "svgtypes 0.15.3",
  "tiny-skia-path",
  "unicode-bidi",
  "unicode-script",
