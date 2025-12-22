@@ -99,9 +99,10 @@ AppListUI=>
             @handle(RoundedUiRectMaterial=>rounded_rect(Color::WHITE.with_alpha(0.4), 10.0)) >
             <UiButton NoTheme @id="button" @style="absolute full flex-col" @on_event(click_app) >
                 <(UiIcon::from(state.icon().clone())) @id="app_icon" @style="w-full h-full" @id="app_icon" />
-                <Node @id="focus_mark" Node=(Node{
+                <(Node{
                         width:Val::Percent(((*state.count() as f32)/4.0).min(1.0)*80.0),
-                    ..style!("absolute bottom-0 h-2 align-center")})
+                        ..style!("absolute bottom-0 h-2 align-center")
+                    }) @id="focus_mark" 
                     BackgroundColor=((if *state.is_focused() {color!("#0000ff")} else {Color::WHITE} ).into())
                 />
             </UiButton>

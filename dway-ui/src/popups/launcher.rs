@@ -13,18 +13,29 @@ use crate::{
 #[derive(Component, Default)]
 pub struct LauncherUI;
 
-dway_widget! {
-LauncherUI=>
-@callback{[UiEvent<UiButtonEvent>]
-    fn on_launch(
-        event: UiEvent<UiButtonEvent>,
-        mut event_writer: EventWriter<LaunchAppRequest>
-    ) {
-        if event.kind == UiButtonEventKind::Released {
-            event_writer.send(LaunchAppRequest::new(event.receiver()));
-        }
+fn on_launch(
+    event: UiEvent<UiButtonEvent>,
+    button_widget_query: Query<(&LauncherUISubStateAppList, &LauncherUISubWidgetAppList)>,
+    mut popup_query: Query<&mut UiPopup>,
+    mut event_writer: EventWriter<LaunchAppRequest>,
+) {
+    if event.kind == UiButtonEventKind::Released {
+        let Ok((state, widget)) = button_widget_query.get(event.receiver()) else {
+            return;
+        };
+
+        let Ok(mut popup) = popup_query.get_mut(state.popup) else {
+            return;
+        };
+        popup.request_close();
+
+        event_writer.send(LaunchAppRequest::new(widget.data_entity));
     }
 }
+
+dway_widget! {
+LauncherUI=>
+@add_callback{[UiEvent<UiButtonEvent>]on_launch}
 @global(theme:Theme)
 @global(entries: DesktopEntriesSet)
 @global(asset_server: AssetServer)
@@ -52,8 +63,9 @@ LauncherUI=>
                         }
                     ])>
                     <( PanelButtonBundle::new(&theme,&mut assets_rounded_ui_rect_material) )
-                        @on_event(on_launch->widget.data_entity)
+                        @on_event(on_launch)
                         @style="m-4 p-4"
+                        @use_state(pub popup: Entity=Entity::PLACEHOLDER @ this_entity)
                         @use_state(pub name: String)
                         @use_state(pub icon: Handle<LinuxIcon>)
                     >
@@ -88,11 +100,12 @@ LauncherUI=>
 
 pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
-        commands
-            .spawn(PanelPopupBundle {
+        commands.spawn((
+            PanelPopupBundle {
                 anchor_policy: AnchorPolicy::new(PopupAnlign::InnerStart, PopupAnlign::None),
                 ..PanelPopupBundle::new(event.receiver(), style!("absolute top-42"))
-            })
-            .with_child(LauncherUI::default());
+            },
+            LauncherUI::default(),
+        ));
     }
 }
