@@ -1,7 +1,7 @@
 pub mod icon;
 pub mod launchapp;
 
-use std::{borrow::Cow, collections::HashMap, path::PathBuf};
+use std::{borrow::Cow, collections::HashMap, path::{Path, PathBuf}};
 
 use bevy::tasks::{block_on, IoTaskPool, Task};
 use futures_lite::future::poll_once;
@@ -137,7 +137,7 @@ impl DesktopEntry {
 
     pub fn icon_url(&self, size: u16) -> Option<String> {
         self.icon().map(|name| {
-            if name.starts_with('/') {
+            if Path::new(name).is_absolute() {
                 name.to_owned()
             } else {
                 format!("linuxicon://{name}/{size}x{size}")
@@ -145,7 +145,7 @@ impl DesktopEntry {
         })
     }
 
-    pub fn name(&self) -> Option<Cow<str>> {
+    pub fn name(&'_ self) -> Option<Cow<'_, str>> {
         self.get_in_current_locale("Desktop Entry", "Name")
     }
 

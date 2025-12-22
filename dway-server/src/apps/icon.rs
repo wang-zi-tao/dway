@@ -1,32 +1,28 @@
 use std::{
     any::type_name,
-    io::{self, SeekFrom},
+    io,
     path::{Path, PathBuf},
-    pin::Pin,
     str::FromStr,
     sync::Arc,
-    task::Poll,
 };
 
 use bevy::{
     asset::{
-        io::{
-            AssetReader, AssetReaderError, AssetReaderFuture, AssetSource, AsyncSeekForward,
-            PathStream, Reader,
-        },
+        io::{AssetReader, AssetReaderError, AssetSource, PathStream, Reader, VecReader},
         meta::{AssetAction, AssetMeta},
         AssetLoader,
     },
-    tasks::{BoxedFuture, ConditionalSendFuture},
+    tasks::ConditionalSendFuture,
 };
 use bevy_svg::prelude::Svg;
 use dway_util::{asset_cache::AssetCachePlugin, try_or};
-use futures::{ready, AsyncSeek, Stream};
-use futures_lite::AsyncRead;
+use futures::AsyncReadExt;
 use thiserror::Error;
 use winnow::{ascii::dec_uint, seq, token::take_while, PResult, Parser};
 
 use crate::prelude::*;
+
+const ICON_EXTENSIONS: &[&str] = &[".png", ".svg", ".jpg", ".jpeg", ".bmp", ".gif"];
 
 #[derive(Error, Debug)]
 pub enum LinuxIconError {
@@ -109,18 +105,15 @@ impl AssetLoader for LinuxIconLoader {
 
     fn load(
         &self,
-        _reader: &mut dyn bevy::asset::io::Reader,
+        reader: &mut dyn bevy::asset::io::Reader,
         settings: &LinuxIconSettings,
         load_context: &mut bevy::asset::LoadContext,
     ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>> {
         Box::pin(async move {
-            let name = &settings.icon.name;
-            let raw_icon = self
-                .icon_loader
-                .load_icon(format!("{}.svg", name))
-                .ok_or(LinuxIconError::NotFound)?;
-            let file = raw_icon.file_for_size(settings.icon.width.max(settings.icon.height));
-            let path = file.path().to_owned();
+            let mut path = String::new();
+            reader.read_to_string(&mut path).await?;
+
+            let path = PathBuf::from(path);
 
             debug!(
                 "loading icon: {:?} {}x{}",
@@ -145,100 +138,44 @@ impl AssetLoader for LinuxIconLoader {
     }
 }
 
-#[derive(Default)]
-struct DataReader {
-    data: Vec<u8>,
-    bytes_read: usize,
+pub struct LinuxIconReader {
+    pub icon_loader: icon_loader::IconLoader,
 }
 
-impl AsyncRead for DataReader {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-        buf: &mut [u8],
-    ) -> std::task::Poll<std::result::Result<usize, std::io::Error>> {
-        if self.bytes_read >= self.data.len() {
-            Poll::Ready(Ok(0))
-        } else {
-            let n = ready!(Pin::new(&mut &self.data[self.bytes_read..]).poll_read(cx, buf))?;
-            self.bytes_read += n;
-            Poll::Ready(Ok(n))
-        }
+impl Default for LinuxIconReader {
+    fn default() -> Self {
+        let mut raw = icon_loader::IconLoader::default();
+        raw.set_theme_name_provider(icon_loader::ThemeNameProvider::GTK);
+        try_or! { raw.update_theme_name(), "failed to update theme name", () };
+        info!("icon theme name: {}", raw.theme_name());
+        Self { icon_loader: raw }
     }
 }
-
-impl AsyncSeekForward for DataReader {
-    fn poll_seek_forward(
-        mut self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
-        offset: u64,
-    ) -> Poll<std::io::Result<u64>> {
-        let result = self
-            .bytes_read
-            .try_into()
-            .map(|bytes_read: u64| bytes_read + offset);
-
-        if let Ok(new_pos) = result {
-            self.bytes_read = new_pos as _;
-
-            Poll::Ready(Ok(new_pos as _))
-        } else {
-            Poll::Ready(Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "seek position is out of range",
-            )))
-        }
-    }
-}
-
-impl AsyncSeek for DataReader {
-    fn poll_seek(
-        mut self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
-        pos: SeekFrom,
-    ) -> Poll<std::io::Result<u64>> {
-        let result = match pos {
-            SeekFrom::Start(offset) => offset.try_into(),
-            SeekFrom::End(offset) => self.data.len().try_into().map(|len: i64| len - offset),
-            SeekFrom::Current(offset) => self
-                .bytes_read
-                .try_into()
-                .map(|bytes_read: i64| bytes_read + offset),
-        };
-
-        if let Ok(new_pos) = result {
-            if new_pos < 0 {
-                Poll::Ready(Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "seek position is out of range",
-                )))
-            } else {
-                self.bytes_read = new_pos as _;
-
-                Poll::Ready(Ok(new_pos as _))
-            }
-        } else {
-            Poll::Ready(Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "seek position is out of range",
-            )))
-        }
-    }
-}
-
-impl Reader for DataReader {
-}
-
-pub struct LinuxIconReader;
 
 impl AssetReader for LinuxIconReader {
-    async fn read<'a>(&'a self, _path: &'a Path) -> Result<DataReader, AssetReaderError> {
-        Err(AssetReaderError::NotFound(_path.to_owned()))
+    async fn read<'a>(&'a self, uri: &'a Path) -> Result<VecReader, AssetReaderError> {
+        use AssetReaderError::*;
+        let icon_info = LinuxIconUrl::from_str(&uri.to_string_lossy())
+            .map_err(|e| Io(Arc::new(io::Error::other(e))))?;
+
+        let raw_icon = ICON_EXTENSIONS
+            .iter()
+            .find_map(|ext| {
+                let mut path = icon_info.name.clone();
+                path += ext;
+                self.icon_loader.load_icon(path)
+            })
+            .ok_or(AssetReaderError::NotFound(uri.to_owned()))?;
+
+        let icon_file = raw_icon.file_for_size(icon_info.width.max(icon_info.height));
+
+        let data = icon_file.path().to_string_lossy().as_bytes().to_vec();
+        Ok(VecReader::new(data))
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<DataReader, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, uri: &'a Path) -> Result<VecReader, AssetReaderError> {
         use AssetReaderError::*;
-        let icon_info = LinuxIconUrl::from_str(&path.to_string_lossy())
+        let icon_info = LinuxIconUrl::from_str(&uri.to_string_lossy())
             .map_err(|e| Io(Arc::new(io::Error::other(e))))?;
         let data = ron::to_string(&AssetMeta::<LinuxIconLoader, ()> {
             meta_format_version: "1.0".to_string(),
@@ -249,11 +186,8 @@ impl AssetReader for LinuxIconReader {
             },
         })
         .map_err(|e| Io(Arc::new(io::Error::other(e))))?;
-        let reader = DataReader {
-            data: data.into_bytes(),
-            bytes_read: 0,
-        };
-        Ok(reader)
+
+        Ok(VecReader::new(data.into_bytes()))
     }
 
     fn read_directory<'a>(
@@ -277,7 +211,7 @@ impl Plugin for LinuxIconSourcePlugin {
         app.add_plugins(AssetCachePlugin::<LinuxIcon>::default());
         app.register_asset_source(
             "linuxicon",
-            AssetSource::build().with_reader(|| Box::new(LinuxIconReader)),
+            AssetSource::build().with_reader(|| Box::new(LinuxIconReader::default())),
         );
     }
 }
