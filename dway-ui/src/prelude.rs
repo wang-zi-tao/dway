@@ -7,3 +7,4 @@ pub(crate) use dway_ui_framework::prelude::*;
 
 pub(crate) use smart_default::SmartDefault;
 pub(crate) use dway_ui_framework::*;
+pub(crate) use bevy::app::{Update, PreUpdate, PostUpdate, Startup, Last};

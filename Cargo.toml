@@ -110,6 +110,7 @@ features = [
   # "bevy_scene",
   "bevy_winit",
   "bevy_core_pipeline",
+  "bevy_log",
   # "bevy_pbr",
   # "bevy_gltf",
   "bevy_post_process",

@@ -526,13 +526,13 @@ pub fn generate(decl: &WidgetDeclare) -> PluginBuilder {
         context.plugin_builder.hot_reload_stmts.push(quote! {
             use dway_ui_framework::reexport::bevy_dexterous_developer::{self,*};
             app.reset_setup::<#prop_type, _>(#reset_system_name #ty_generics);
-            app.add_systems(Update, #system_name #function_ty_generics
+            app.add_systems(bevy::app::Update, #system_name #function_ty_generics
                 .run_if(|query:Query<(),With<#prop_type>>|{!query.is_empty()})
                 .in_set(#systems_name::Render));
         });
     } else {
         context.plugin_builder.stmts.push(quote! {
-            app.add_systems(Update, #system_name #function_ty_generics
+            app.add_systems(bevy::app::Update, #system_name #function_ty_generics
                 .run_if(|query:Query<(),With<#prop_type>>|{!query.is_empty()})
                 .in_set(#systems_name::Render));
         });

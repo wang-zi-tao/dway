@@ -211,7 +211,7 @@ pub fn update_app_entry_set(
         entries.list.clear();
         entries.by_id.clear();
         let root_entity = root_query.single().unwrap();
-        commands.entity(root_entity).despawn();
+        commands.entity(root_entity).clear_children();
         for entry in entry_list {
             let mut entity_mut = commands.spawn(ChildOf(root_entity));
             entries.register(&entry, entity_mut.id());

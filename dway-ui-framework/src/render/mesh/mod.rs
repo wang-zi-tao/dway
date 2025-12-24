@@ -4,7 +4,7 @@ use std::{hash::Hash, marker::PhantomData, ops::Deref};
 use bevy::{
     core_pipeline::{
         core_2d::graph::Node2d,
-        tonemapping::{DebandDither, Tonemapping},
+        tonemapping::{get_lut_bindings, DebandDither, Tonemapping, TonemappingLuts},
     },
     ecs::{
         entity::EntityHashMap,
@@ -38,19 +38,20 @@ use bevy::{
         render_resource::{binding_types::uniform_buffer, *},
         renderer::{RenderDevice, RenderQueue},
         sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
-        texture::{DefaultImageSampler, GpuImage},
+        texture::{DefaultImageSampler, FallbackImage, GpuImage},
         view::*,
-        Extract, RenderApp, RenderSet,
+        Extract, RenderApp, RenderSet, RenderStartup,
     },
+    shader::ShaderRef,
     sprite_render::{
-        tonemapping_pipeline_key, Material2d, Material2dBindGroupId, Material2dKey,
-        Material2dPipeline, Mesh2dPipeline, Mesh2dPipelineKey, MeshFlags, PreparedMaterial2d,
+        init_mesh_2d_pipeline, tonemapping_pipeline_key, Material2d, Material2dBindGroupId,
+        Material2dKey, Material2dPipeline, Mesh2dPipeline, Mesh2dPipelineKey, MeshFlags,
+        PreparedMaterial2d,
     },
     ui_render::{
         graph::{NodeUi, SubGraphUi},
         TransparentUi, UiCameraMap, UiCameraView,
     },
-    shader::ShaderRef,
 };
 
 use self::graph::NodeUiExt;
@@ -110,6 +111,10 @@ impl Plugin for UiMeshPlugin {
                 .init_resource::<RenderUiMesh2dInstances>()
                 .init_resource::<SpecializedMeshPipelines<UiMesh2dPipeline>>()
                 .add_systems(
+                    RenderStartup,
+                    init_ui_mesh_2d_pipeline.after(init_mesh_2d_pipeline),
+                )
+                .add_systems(
                     ExtractSchedule,
                     extract_ui_mesh_node.chain().after(extract_cameras),
                 )
@@ -150,9 +155,7 @@ impl Plugin for UiMeshPlugin {
             let render_device = render_app.world().resource::<RenderDevice>();
             let batched_instance_buffer =
                 BatchedInstanceBuffer::<UiMesh2dUniform>::new(render_device);
-            render_app
-                .insert_resource(batched_instance_buffer)
-                .init_resource::<UiMesh2dPipeline>();
+            render_app.insert_resource(batched_instance_buffer);
         }
     }
 }
@@ -177,17 +180,15 @@ where
                 .add_render_command::<TransparentUi, DrawUiMesh<T>>()
                 .init_resource::<RenderUiMeshMaterialInstances<T>>()
                 .init_resource::<SpecializedMeshPipelines<UiMeshMaterialPipeline<T>>>()
+                .add_systems(
+                    RenderStartup,
+                    init_ui_mesh_material_pipeline::<T>.after(init_ui_mesh_2d_pipeline),
+                )
                 .add_systems(ExtractSchedule, extract_ui_mesh_handle::<T>)
                 .add_systems(
                     bevy::render::Render,
                     queue_ui_meshes::<T>.in_set(RenderSet::QueueMeshes),
                 );
-        }
-    }
-
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<UiMeshMaterialPipeline<T>>();
         }
     }
 }
@@ -321,31 +322,23 @@ impl Deref for UiMesh2dPipeline {
     }
 }
 
-impl FromWorld for UiMesh2dPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let mut system_state: SystemState<(
-            Res<RenderDevice>,
-            Res<RenderQueue>,
-            Res<DefaultImageSampler>,
-            Res<Mesh2dPipeline>,
-        )> = SystemState::new(world);
-        let (render_device, render_queue, default_sampler, mesh2d_pipeline) =
-            system_state.get_mut(world);
-        let render_device = render_device.into_inner();
+pub fn init_ui_mesh_2d_pipeline(
+    render_device: Res<RenderDevice>,
+    mesh2d_pipeline: Res<Mesh2dPipeline>,
+    mut commands: Commands,
+) {
+    let node_layout = render_device.create_bind_group_layout(
+        "ui_mesh2d_node_layout",
+        &BindGroupLayoutEntries::single(
+            ShaderStages::VERTEX_FRAGMENT,
+            GpuArrayBuffer::<UiMeshNodeUniform>::binding_layout(&render_device),
+        ),
+    );
 
-        let node_layout = render_device.create_bind_group_layout(
-            "ui_mesh2d_node_layout",
-            &BindGroupLayoutEntries::single(
-                ShaderStages::VERTEX_FRAGMENT,
-                GpuArrayBuffer::<UiMeshNodeUniform>::binding_layout(render_device),
-            ),
-        );
-
-        UiMesh2dPipeline {
-            node_layout,
-            mesh2d_pipeline: mesh2d_pipeline.clone(),
-        }
-    }
+    commands.insert_resource(UiMesh2dPipeline {
+        node_layout,
+        mesh2d_pipeline: mesh2d_pipeline.clone(),
+    })
 }
 
 impl UiMesh2dPipeline {
@@ -422,7 +415,11 @@ impl SpecializedMeshPipeline for UiMesh2dPipeline {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let spec = self.mesh2d_pipeline.specialize(key, layout)?;
         Ok(RenderPipelineDescriptor {
-            layout: vec![self.view_layout.clone(), self.mesh_layout.clone(), self.node_layout.clone()],
+            layout: vec![
+                self.view_layout.clone(),
+                self.mesh_layout.clone(),
+                self.node_layout.clone(),
+            ],
             label: Some("ui_transparent_mesh2d_pipeline".into()),
             ..spec
         })
@@ -480,28 +477,29 @@ where
     }
 }
 
-impl<M: Material2d> FromWorld for UiMeshMaterialPipeline<M> {
-    fn from_world(world: &mut World) -> Self {
-        let asset_server = world.resource::<AssetServer>();
-        let render_device = world.resource::<RenderDevice>();
-        let material2d_layout = M::bind_group_layout(render_device);
+pub fn init_ui_mesh_material_pipeline<M: Material2d>(
+    asset_server: Res<AssetServer>,
+    render_device: Res<RenderDevice>,
+    mesh2d_pipeline: Res<UiMesh2dPipeline>,
+    mut commands: Commands,
+) {
+    let material2d_layout = M::bind_group_layout(&render_device);
 
-        UiMeshMaterialPipeline {
-            mesh2d_pipeline: world.resource::<UiMesh2dPipeline>().clone(),
-            material2d_layout,
-            vertex_shader: match M::vertex_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            fragment_shader: match M::fragment_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            marker: PhantomData,
-        }
-    }
+    commands.insert_resource(UiMeshMaterialPipeline {
+        mesh2d_pipeline: mesh2d_pipeline.clone(),
+        material2d_layout,
+        vertex_shader: match M::vertex_shader() {
+            ShaderRef::Default => None,
+            ShaderRef::Handle(handle) => Some(handle),
+            ShaderRef::Path(path) => Some(asset_server.load(path)),
+        },
+        fragment_shader: match M::fragment_shader() {
+            ShaderRef::Default => None,
+            ShaderRef::Handle(handle) => Some(handle),
+            ShaderRef::Path(path) => Some(asset_server.load(path)),
+        },
+        marker: PhantomData::<M>,
+    })
 }
 
 #[derive(Resource)]
@@ -536,18 +534,28 @@ pub fn prepare_mesh2d_view_bind_groups(
     render_device: Res<RenderDevice>,
     mesh2d_pipeline: Res<UiMesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
-    views: Query<Entity, With<ExtractedView>>,
+    views: Query<(Entity, &Tonemapping), (With<ExtractedView>, With<Camera2d>)>,
     globals_buffer: Res<GlobalsBuffer>,
+    images: Res<RenderAssets<GpuImage>>,
+    fallback_image: Res<FallbackImage>,
+    tonemapping_luts: Res<TonemappingLuts>,
 ) {
     if let (Some(view_binding), Some(globals)) = (
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
     ) {
-        for entity in &views {
+        for (entity, tonemapping) in &views {
+            let lut_bindings =
+                get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
             let view_bind_group = render_device.create_bind_group(
                 "ui_mesh2d_view_bind_group",
                 &mesh2d_pipeline.view_layout,
-                &BindGroupEntries::sequential((view_binding.clone(), globals.clone())),
+                &BindGroupEntries::sequential((
+                    view_binding.clone(),
+                    globals.clone(),
+                    lut_bindings.0,
+                    lut_bindings.1,
+                )),
             );
 
             commands.entity(entity).insert(UiMesh2dViewBindGroup {

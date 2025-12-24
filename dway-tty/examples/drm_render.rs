@@ -81,6 +81,6 @@ pub fn input_event_system(
         if event.key_code == KeyCode::Escape {
             exit.write(AppExit::Success);
         }
-        debug!("receive event: {?}", event);
+        debug!("receive event: {:?}", event);
     }
 }
