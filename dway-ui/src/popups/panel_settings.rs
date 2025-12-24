@@ -15,23 +15,23 @@ PanelSettings=>
 @state_reflect()
 @plugin{ app.register_callback(open_popup); }
 @callback{[UiEvent<UiButtonEvent>]
-    fn do_logout( event: UiEvent<UiButtonEvent>, mut event_writer: EventWriter<SystemControllRequest>) {
+    fn do_logout( event: UiEvent<UiButtonEvent>, mut event_writer: MessageWriter<SystemControllRequest>) {
         if event.kind == UiButtonEventKind::Released {
-            event_writer.send(SystemControllRequest::Logout);
+            event_writer.write(SystemControllRequest::Logout);
         }
     }
 }
 @callback{[UiEvent<UiButtonEvent>]
-    fn do_reboot( event: UiEvent<UiButtonEvent>, mut event_writer: EventWriter<SystemControllRequest>) {
+    fn do_reboot( event: UiEvent<UiButtonEvent>, mut event_writer: MessageWriter<SystemControllRequest>) {
         if event.kind == UiButtonEventKind::Released {
-            event_writer.send(SystemControllRequest::Reboot);
+            event_writer.write(SystemControllRequest::Reboot);
         }
     }
 }
 @callback{[UiEvent<UiButtonEvent>]
-    fn do_shutdown( event: UiEvent<UiButtonEvent>, mut event_writer: EventWriter<SystemControllRequest>) {
+    fn do_shutdown( event: UiEvent<UiButtonEvent>, mut event_writer: MessageWriter<SystemControllRequest>) {
         if event.kind == UiButtonEventKind::Released {
-            event_writer.send(SystemControllRequest::Shutdown);
+            event_writer.write(SystemControllRequest::Shutdown);
         }
     }
 }

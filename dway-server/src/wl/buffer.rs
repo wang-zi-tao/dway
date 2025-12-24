@@ -5,6 +5,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use bevy::ecs::relationship::Relationship as _;
 use drm_fourcc::DrmModifier;
 use khronos_egl::EGLDisplay;
 use nix::sys::mman;

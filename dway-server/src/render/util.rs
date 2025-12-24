@@ -117,14 +117,16 @@ pub enum DWayRenderError {
 
 pub fn get_egl_display(device: &wgpu::Device) -> Result<khronos_egl::Display> {
     unsafe {
-        let display: khronos_egl::Display = device.as_hal::<Gles, _, _>(|hal_device| {
-            hal_device
-                .ok_or_else(|| DWayRenderError::BackendIsNotEGL)?
-                .context()
-                .raw_display()
-                .cloned()
-                .ok_or_else(|| DWayRenderError::DisplayNotAvailable)
-        })?;
+        let hal_device = device
+            .as_hal::<Gles>()
+            .ok_or_else(|| DWayRenderError::BackendIsNotEGL)?;
+
+        let display: khronos_egl::Display = hal_device
+            .context()
+            .raw_display()
+            .cloned()
+            .ok_or_else(|| DWayRenderError::DisplayNotAvailable)?;
+
         Ok(display)
     }
 }
@@ -165,16 +167,17 @@ pub fn with_gl<R>(
     f: impl FnOnce(&AdapterContext, &EGLInstance, &glow::Context) -> Result<R, DWayRenderError>,
 ) -> Result<R, DWayRenderError> {
     unsafe {
-        device.as_hal::<Gles, _, _>(|hal_device| {
-            let context = hal_device
-                .ok_or_else(|| DWayRenderError::BackendIsNotEGL)?
-                .context();
-            let gl: &glow::Context = &context.lock();
-            let egl: &EGLInstance = context
-                .egl_instance()
-                .ok_or_else(|| DWayRenderError::BackendIsNotEGL)?;
-            f(context, egl, gl)
-        })
+        let hal_device = device
+            .as_hal::<Gles>()
+            .ok_or_else(|| DWayRenderError::BackendIsNotEGL)?;
+
+        let context = hal_device.context();
+        let gl: &glow::Context = &context.lock();
+        let egl: &EGLInstance = context
+            .egl_instance()
+            .ok_or_else(|| DWayRenderError::BackendIsNotEGL)?;
+
+        f(context, egl, gl)
     }
 }
 

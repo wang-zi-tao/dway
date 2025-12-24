@@ -58,7 +58,7 @@ impl WindowStack {
     }
 }
 
-#[derive(Event, Clone, Copy)]
+#[derive(Message, Clone, Copy)]
 pub enum SetWindowIndex {
     ToTop(Entity),
     ToBottom(Entity),
@@ -87,7 +87,7 @@ pub fn init_window_index(
 }
 
 pub fn update_window_index(
-    mut events: EventReader<SetWindowIndex>,
+    mut events: MessageReader<SetWindowIndex>,
     mut stack: ResMut<WindowStack>,
     mut window_query: Query<Option<&mut WindowIndex>, With<DWayWindow>>,
     mut removed_window_query: RemovedComponents<DWayWindow>,

@@ -49,13 +49,13 @@ impl PointDistance for RectRTreeObject {
     }
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct RectAddEvent(pub RectRTreeObject);
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct RectRemoveEvent(pub RectRTreeObject);
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct RectRemoveAllEvent(pub Entity);
 
 #[derive(Resource, Component)]
@@ -70,9 +70,9 @@ impl RTreeIndex {
 
 pub fn update_region_index(
     mut index: ResMut<RTreeIndex>,
-    mut add_event: EventReader<RectAddEvent>,
-    mut remove_event: EventReader<RectRemoveEvent>,
-    mut remove_entity_event: EventReader<RectRemoveAllEvent>,
+    mut add_event: MessageReader<RectAddEvent>,
+    mut remove_event: MessageReader<RectRemoveEvent>,
+    mut remove_entity_event: MessageReader<RectRemoveAllEvent>,
 ) {
     for RectAddEvent(rect) in add_event.read() {
         index.rtree.insert(rect.clone());

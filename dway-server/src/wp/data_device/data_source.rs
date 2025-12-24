@@ -11,6 +11,7 @@ pub struct WlDataSource {
     #[reflect(ignore, default = "unimplemented")]
     pub raw: wl_data_source::WlDataSource,
     pub mime_types: MimeTypeSet,
+    #[reflect(ignore, default = "unimplemented")]
     pub dnd_action: DndAction,
 }
 impl WlDataSource {

@@ -1,11 +1,9 @@
 use bevy_prototype_lyon::entity::Shape;
-use bevy_prototype_lyon::{draw::*, entity::ShapeBundle};
 
 use crate::{prelude::*, render::mesh::UiMesh};
 
 #[derive(Clone, Copy, Component, Default)]
 #[require(Node, Shape, UiMesh)]
-#[require(MeshMaterial2d<ColorMaterial>=ShapeBundle::default().material)]
 pub struct UiShape;
 
 pub type UiShapeMaterial = MeshMaterial2d<ColorMaterial>;

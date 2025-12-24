@@ -16,6 +16,7 @@ pub struct DropData {
     pub active: bool,
     pub dropped: bool,
     pub accepted: bool,
+    #[reflect(ignore, default = "unimplemented")]
     pub chosen_action: DndAction,
 }
 
@@ -27,6 +28,7 @@ pub struct WlDataOffer {
     active: bool,
     dropped: bool,
     accepted: bool,
+    #[reflect(ignore, default = "unimplemented")]
     chosen_action: DndAction,
 }
 

@@ -1,16 +1,16 @@
-use crate::gbm::{
-        buffer::{GbmBuffer},
-        SUPPORTED_FORMATS,
-    };
+use std::os::fd::{AsFd, AsRawFd, IntoRawFd};
+
 use anyhow::{anyhow, bail, Result};
 use ash::{
-    khr::external_memory_fd, vk::{self, *}
+    khr::external_memory_fd,
+    vk::{self, *},
 };
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use smallvec::SmallVec;
-use std::os::fd::{AsFd, AsRawFd, IntoRawFd};
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
-use wgpu_hal::{api::Vulkan, vulkan::Texture, MemoryFlags, TextureUses};
+use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureUses};
+use wgpu_hal::{api::Vulkan, vulkan::Texture, MemoryFlags};
+
+use crate::gbm::{buffer::GbmBuffer, SUPPORTED_FORMATS};
 
 pub const MEM_PLANE_ASCPECT: [ImageAspectFlags; 4] = [
     ImageAspectFlags::MEMORY_PLANE_0_EXT,
@@ -55,52 +55,49 @@ pub fn convert_format(fourcc: DrmFourcc) -> Result<Format> {
     })
 }
 
-pub fn get_formats(render_device: &wgpu::Device) -> Option<Result<Vec<DrmFormat>>> {
+pub fn get_formats(render_device: &wgpu::Device) -> Result<Option<Vec<DrmFormat>>> {
     unsafe {
-        render_device
-            .as_hal::<Vulkan, _, _>(|hal_device| {
-                hal_device.map(|hal_device| {
-                    let instance = hal_device.shared_instance().raw_instance();
-                    let raw_phy = hal_device.raw_physical_device();
+        let Some(hal_device) = render_device.as_hal::<Vulkan>() else {
+            return Ok(None);
+        };
 
-                    let mut formats = Vec::new();
+        let instance = hal_device.shared_instance().raw_instance();
+        let raw_phy = hal_device.raw_physical_device();
 
-                    for fourcc in SUPPORTED_FORMATS {
-                        let vk_format = convert_format(fourcc)?;
+        let mut formats = Vec::new();
 
-                        let mut list = vk::DrmFormatModifierPropertiesListEXT::default();
-                        let mut format_properties2 =
-                            vk::FormatProperties2::default().push_next(&mut list);
-                        instance.get_physical_device_format_properties2(
-                            raw_phy,
-                            vk_format,
-                            &mut format_properties2,
-                        );
-                        let count = list.drm_format_modifier_count;
-                        let mut data = vec![Default::default(); count as usize];
+        for fourcc in SUPPORTED_FORMATS {
+            let vk_format = convert_format(fourcc)?;
 
-                        let mut list = vk::DrmFormatModifierPropertiesListEXT {
-                            p_drm_format_modifier_properties: data.as_mut_ptr(),
-                            drm_format_modifier_count: count,
-                            ..Default::default()
-                        };
-                        let mut format_properties2 =
-                            vk::FormatProperties2::default().push_next(&mut list);
-                        instance.get_physical_device_format_properties2(
-                            raw_phy,
-                            vk_format,
-                            &mut format_properties2,
-                        );
+            let mut list = vk::DrmFormatModifierPropertiesListEXT::default();
+            let mut format_properties2 = vk::FormatProperties2::default().push_next(&mut list);
+            instance.get_physical_device_format_properties2(
+                raw_phy,
+                vk_format,
+                &mut format_properties2,
+            );
+            let count = list.drm_format_modifier_count;
+            let mut data = vec![Default::default(); count as usize];
 
-                        formats.extend(data.into_iter().map(|d| DrmFormat {
-                            code: fourcc,
-                            modifier: DrmModifier::from(d.drm_format_modifier),
-                        }));
-                    }
+            let mut list = vk::DrmFormatModifierPropertiesListEXT {
+                p_drm_format_modifier_properties: data.as_mut_ptr(),
+                drm_format_modifier_count: count,
+                ..Default::default()
+            };
+            let mut format_properties2 = vk::FormatProperties2::default().push_next(&mut list);
+            instance.get_physical_device_format_properties2(
+                raw_phy,
+                vk_format,
+                &mut format_properties2,
+            );
 
-                    Ok(formats)
-                })
-            })
+            formats.extend(data.into_iter().map(|d| DrmFormat {
+                code: fourcc,
+                modifier: DrmModifier::from(d.drm_format_modifier),
+            }));
+        }
+
+        Ok(Some(formats))
     }
 }
 
@@ -180,8 +177,8 @@ pub fn create_framebuffer_texture(
         let mut memorys = SmallVec::<[vk::DeviceMemory; 4]>::default();
         for (i, plane) in buffer.planes.iter().enumerate() {
             let memory_requirement = {
-                let mut requirement_info = ash::vk::ImageMemoryRequirementsInfo2::default()
-                    .image(image);
+                let mut requirement_info =
+                    ash::vk::ImageMemoryRequirementsInfo2::default().image(image);
                 let mut plane_requirement_info =
                     ash::vk::ImagePlaneMemoryRequirementsInfo::default()
                         .plane_aspect(MEM_PLANE_ASCPECT[i]);
@@ -197,20 +194,15 @@ pub fn create_framebuffer_texture(
             let phy_mem_prop = instance.get_physical_device_memory_properties(physical);
 
             let fd_mem_type = if instance
-                .get_device_proc_addr(
-                    device.handle(),
-                    c"vkGetMemoryFdPropertiesKHR"
-                        .as_ptr(),
-                )
+                .get_device_proc_addr(device.handle(), c"vkGetMemoryFdPropertiesKHR".as_ptr())
                 .is_some()
             {
                 let mut fd = MemoryFdPropertiesKHR::default();
-                external_memory_fd::Device::new(instance, device)
-                    .get_memory_fd_properties(
-                        ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
-                        plane.fd.as_fd().as_raw_fd(),
-                        &mut fd,
-                    )?;
+                external_memory_fd::Device::new(instance, device).get_memory_fd_properties(
+                    ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
+                    plane.fd.as_fd().as_raw_fd(),
+                    &mut fd,
+                )?;
                 fd.memory_type_bits
             } else {
                 !0
@@ -220,8 +212,7 @@ pub fn create_framebuffer_texture(
                 .fd(plane.fd.try_clone()?.into_raw_fd())
                 .handle_type(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
 
-            let mut dedicated_info = ash::vk::MemoryDedicatedAllocateInfo::default()
-                .image(image);
+            let mut dedicated_info = ash::vk::MemoryDedicatedAllocateInfo::default().image(image);
 
             let alloc_info = ash::vk::MemoryAllocateInfo::default()
                 .allocation_size(memory_requirement.memory_requirements.size.max(1))
@@ -250,8 +241,7 @@ pub fn create_framebuffer_texture(
 
             if buffer.planes.len() > 1 {
                 let mut info = Box::new(
-                    vk::BindImagePlaneMemoryInfo::default()
-                        .plane_aspect(MEM_PLANE_ASCPECT[i]),
+                    vk::BindImagePlaneMemoryInfo::default().plane_aspect(MEM_PLANE_ASCPECT[i]),
                 );
                 bind_info.p_next = info.as_mut() as *mut _ as *mut _;
                 plane_infos.push(info);
@@ -261,15 +251,7 @@ pub fn create_framebuffer_texture(
         }
         device.bind_image_memory2(&bind_infos)?;
 
-        let fence = device.create_fence(&FenceCreateInfo::default(), None)?;
-        //buffer.render_image = RenderImage::Vulkan(Image {
-        //    device: device.clone(),
-        //    image,
-        //    fence,
-        //    memorys,
-        //});
-
-        Ok(wgpu_hal::vulkan::Device::texture_from_raw(
+        Ok(hal_device.texture_from_raw(
             image,
             &wgpu_hal::TextureDescriptor {
                 label: Some("gbm renderbuffer"),
@@ -293,4 +275,3 @@ pub fn create_framebuffer_texture(
         ))
     }
 }
-

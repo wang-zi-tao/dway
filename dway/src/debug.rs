@@ -97,6 +97,28 @@ mod dump_system_graph {
 #[cfg(feature = "dump_system_graph")]
 pub use dump_system_graph::dump_schedules_system_graph;
 
+pub struct WrapDebugName(DebugName);
+
+impl PartialEq for WrapDebugName {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl Eq for WrapDebugName {}
+
+impl PartialOrd for WrapDebugName {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.0.cmp(&other.0))
+    }
+}
+
+impl Ord for WrapDebugName {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
 pub fn print_resources(world: &mut World) {
     let components = world.components();
     let mut r: Vec<_> = world
@@ -107,7 +129,7 @@ pub fn print_resources(world: &mut World) {
         .chain(world.storages().non_send_resources.iter().map(|(id, _)| id))
         .map(|id| components.get_info(id).unwrap())
         .collect();
-    r.sort_by_key(|info| info.name());
+    r.sort_by_key(|info| WrapDebugName(info.name()));
     r.iter().for_each(|info| {
         debug!(
             "resource: [{:X?}] name: {} is_sync:{}",

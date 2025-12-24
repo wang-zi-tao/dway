@@ -40,20 +40,22 @@ UiSlider=>
 @world_query(mouse_position: Ref<RelativeCursorPosition>)
 @world_query(event_dispatcher: Ref<UiSliderEventDispatcher>)
 @world_query(node: &mut Node)
+@world_query(computed_node: &ComputedNode)
 @before{
 if !widget.inited{
     commands.entity(this_entity).insert(UiSliderInited);
 }
 if ( slider_interaction.is_changed() || mouse_position.is_changed() )
         && *slider_interaction == Interaction::Pressed{
-    if let Some(relative) = mouse_position.normalized {
-        let slider_rect = mouse_position.normalized_visible_node_rect;
-        let raw_value = (relative.x/slider_rect.size().x).max(0.0).min(1.0);
-        state.set_value(raw_value*(prop.max-prop.min)+prop.min);
-        event_dispatcher.send(UiSliderEvent{
-            value: *state.value(),
-            kind: UiSliderEventKind::ValueChanged(*state.value()),
-        }, commands);
+    if mouse_position.cursor_over{
+        if let Some(normalized) = mouse_position.normalized {
+            let raw_value = normalized.x.max(0.0).min(1.0);
+            state.set_value(raw_value*(prop.max-prop.min)+prop.min);
+            event_dispatcher.send(UiSliderEvent{
+                value: *state.value(),
+                kind: UiSliderEventKind::ValueChanged(*state.value()),
+            }, commands);
+        }
     }
 } }
 <Node @id="bar" @style="absolute h-8 w-full min-h-8 align-self:center" >

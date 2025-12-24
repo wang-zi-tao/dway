@@ -13,7 +13,7 @@ pub mod weathre;
 
 use std::time::Duration;
 
-use bevy::time::{common_conditions::on_timer, TimeSystem};
+use bevy::time::{TimeSystem, TimeSystems, common_conditions::on_timer};
 use smart_default::SmartDefault;
 
 use self::{
@@ -48,7 +48,7 @@ impl Plugin for ControllerPlugin {
                     systeminfo::update_system_info_system,
                 )
                     .in_set(DWayClientSystem::UpdateSystemInfo)
-                    .after(TimeSystem)
+                    .after(TimeSystems)
                     .run_if(on_timer(self.timer)),
             )
             .add_systems(

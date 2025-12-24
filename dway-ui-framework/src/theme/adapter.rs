@@ -23,7 +23,7 @@ pub struct ClassName(pub String);
 #[derive(Component, Default)]
 pub struct NoWidgetTheme<T>(PhantomData<T>);
 
-#[derive(Event)]
+#[derive(Message)]
 pub enum ThemeRequestEvent {
     Apply(Entity),
     UnApply(Entity),
@@ -49,7 +49,7 @@ pub trait WidgetInsertObserver<Widget: Component>: Component {
         Self: Sized,
     {
         let observer = Observer::new(
-            move |event: Trigger<'_, OnAdd, Widget>,
+            move |event: On<Add, Widget>,
                   theme_query: Query<&Self>,
                   params: StaticSystemParam<Self::Params>,
                   mut widget_query: ParamSet<(
@@ -100,7 +100,7 @@ pub trait WidgetInsertObserver<Widget: Component>: Component {
                 );
             },
         );
-        let entity = world.spawn(observer).set_parent(theme_entity).id();
+        let entity = world.spawn((observer, ChildOf(theme_entity))).id();
         WidgetThemeAdapter {
             phantom: std::marker::PhantomData,
             observer: entity,
@@ -108,13 +108,13 @@ pub trait WidgetInsertObserver<Widget: Component>: Component {
     }
 }
 
-pub trait EventObserver<E, Marker = ()>: Component {
+pub trait EventObserver<E: Send + Sync + 'static, Marker = ()>: Component {
     type Params: SystemParam + 'static;
     type ItemQuery: QueryData + 'static;
 
     fn on_event(
         &self,
-        event: Trigger<UiEvent<E>>,
+        event: On<UiEvent<E>>,
         theme_entity: Entity,
         query_items: QueryItem<Self::ItemQuery>,
         params: SystemParamItem<Self::Params>,
@@ -122,7 +122,7 @@ pub trait EventObserver<E, Marker = ()>: Component {
     );
 
     fn trigger(
-        event: Trigger<UiEvent<E>>,
+        event: On<UiEvent<E>>,
         theme_query: Query<&Self>,
         mut commands: Commands,
         mut widget_query: ParamSet<(Query<&ThemeComponent>, Query<Self::ItemQuery>)>,

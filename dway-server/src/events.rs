@@ -1,3 +1,5 @@
+use bevy::ecs::event::GlobalTrigger;
+
 use crate::{input::grab::ResizeEdges, prelude::*, util::rect::IRect};
 
 pub struct Bind<T: WlResource> {
@@ -9,9 +11,13 @@ pub struct Insert<T> {
     pub entity: Entity,
     pub phase: std::marker::PhantomData<T>,
 }
+
+impl<T: Send + Sync + 'static> Message for Insert<T> {}
+
 impl<T: Send + Sync + 'static> Event for Insert<T> {
-    type Traversal = ();
+    type Trigger<'a> = GlobalTrigger;
 }
+
 impl<T> Insert<T> {
     pub fn new(entity: Entity) -> Self {
         Self {
@@ -26,9 +32,13 @@ pub struct Destroy<T> {
     pub entity: Entity,
     pub phase: std::marker::PhantomData<T>,
 }
+
+impl<T: Send + Sync + 'static> Message for Destroy<T> {}
+
 impl<T: Send + Sync + 'static> Event for Destroy<T> {
-    type Traversal = ();
+    type Trigger<'a> = GlobalTrigger;
 }
+
 impl<T> Destroy<T> {
     pub fn new(entity: Entity) -> Self {
         Self {
@@ -38,20 +48,20 @@ impl<T> Destroy<T> {
     }
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct ResizeWindow {
     pub entity: Entity,
     pub delta: IVec2,
     pub size: IVec2,
 }
 
-#[derive(Event, Debug)]
+#[derive(Message, Debug)]
 pub struct MoveWindow {
     pub entity: Entity,
     pub delta: IVec2,
 }
 
-#[derive(Event, Debug, Clone)]
+#[derive(Message, Debug, Clone)]
 pub enum WindowAction {
     Close(Entity),
     Maximize(Entity),
@@ -65,37 +75,37 @@ pub enum WindowAction {
     RequestResize(Entity, ResizeEdges),
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct MoveRequest(pub Entity);
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct ResizeRequest(pub Entity);
 
-#[derive(Event, Deref)]
+#[derive(Message, Deref)]
 pub struct DispatchDisplay(pub Entity);
 
-#[derive(Event, Deref)]
+#[derive(Message, Deref)]
 pub struct DispatchXWaylandDisplay(pub Entity);
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct WindowAppIdChanged {
     pub entity: Entity,
     pub app_id: String,
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct WindowAttachedToApp{
     pub app_entity: Entity,
     pub window_entity: Entity,
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct XWindowChanged{
     pub xwindow_entity: Entity,
     pub surface_entity: Option<Entity>,
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct XWindowAttachSurfaceRequest{
     pub xwindow_entity: Entity,
 }

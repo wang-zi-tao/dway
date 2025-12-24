@@ -3,12 +3,9 @@ use std::collections::HashSet;
 use bevy::prelude::*;
 use bevy_relationship::{graph_query2, ControlFlow};
 use dway_server::{
-    geometry::GlobalGeometry,
-    macros::{Insert, WindowAction},
-    xdg::{
-        toplevel::{DWayToplevel, PinedWindow},
-        DWayWindow,
-    },
+    events::Insert, geometry::GlobalGeometry, macros::{WindowAction}, xdg::{
+        DWayWindow, toplevel::{DWayToplevel, PinedWindow}
+    }
 };
 use dway_util::update;
 use getset::Getters;
@@ -38,7 +35,7 @@ pub struct WindowStatistics {
     max: bool,
 }
 
-pub fn on_window_created(mut new_windows: EventReader<Insert<DWayWindow>>, mut commands: Commands) {
+pub fn on_window_created(mut new_windows: MessageReader<Insert<DWayWindow>>, mut commands: Commands) {
     for new_window in new_windows.read() {
         let entity = new_window.entity;
         commands.queue(move |world: &mut World| {
@@ -61,7 +58,7 @@ pub fn update_window(
     >,
     screen_query: Query<(&GlobalGeometry, Option<&LayoutStyle>)>,
     mut commands: Commands,
-    mut window_actions: EventWriter<WindowAction>,
+    mut window_actions: MessageWriter<WindowAction>,
 ) {
     for (window_entity, window, mut client, screen_list) in &mut window_query {
         if window.is_changed() {
@@ -73,7 +70,7 @@ pub fn update_window(
                         let rect = layout_style
                             .map(|s| s.get_pedding_rect(screen_geo.geometry))
                             .unwrap_or(screen_geo.geometry);
-                        window_actions.send(WindowAction::SetRect(window_entity, rect));
+                        window_actions.write(WindowAction::SetRect(window_entity, rect));
                         commands.entity(window_entity).insert(PinedWindow);
                     }
                     commands.entity(window_entity).insert(PinedWindow);
@@ -89,7 +86,7 @@ pub fn update_window(
                         let rect = layout_style
                             .map(|s| s.get_pedding_rect(screen_geo.geometry))
                             .unwrap_or(screen_geo.geometry);
-                        window_actions.send(WindowAction::SetRect(window_entity, rect));
+                        window_actions.write(WindowAction::SetRect(window_entity, rect));
                         commands.entity(window_entity).insert(PinedWindow);
                     }
                     commands.entity(window_entity).insert(PinedWindow);

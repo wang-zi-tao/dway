@@ -3,8 +3,8 @@ use std::{borrow::Cow, collections::VecDeque, sync::mpsc};
 use backtrace::Backtrace;
 use bevy::{
     app::{App, Update},
-    ecs::{system::NonSendMut, prelude::Resource},
-    log::{error, warn, BoxedLayer},
+    ecs::{prelude::Resource, system::NonSendMut},
+    log::{BoxedLayer, error, warn},
     prelude::Plugin,
 };
 use nix::sys::{signal, signal::Signal};

@@ -22,7 +22,7 @@ pub struct MousePosition {
 }
 
 pub fn update_mouse_position(
-    mut mouse_event: EventReader<CursorMoved>,
+    mut mouse_event: MessageReader<CursorMoved>,
     mut mouse_position: ResMut<MousePosition>,
 ) {
     if let Some(mouse) = mouse_event.read().last() {
@@ -100,7 +100,7 @@ impl UiInput {
     }
 }
 
-#[derive(Event, Reflect)]
+#[derive(Message, Reflect)]
 pub enum UiFocusEvent {
     FocusLeaveRequest(Entity),
     FocusEnterRequest(Entity),
@@ -126,9 +126,9 @@ pub struct UiInputQuery {
 pub fn update_ui_input(
     mut query: Query<UiInputQuery>,
     mut commands: Commands,
-    mut keyboard_event: EventReader<KeyboardInput>,
+    mut keyboard_event: MessageReader<KeyboardInput>,
     mouse_button_state: Res<ButtonInput<MouseButton>>,
-    mut ui_focus_event: EventReader<UiFocusEvent>,
+    mut ui_focus_event: MessageReader<UiFocusEvent>,
     mut ui_focus_state: ResMut<UiFocusState>,
     mut wheel_event_cursor: Local<EventCursor<MouseWheel>>,
     mut button_event_cursor: Local<EventCursor<MouseButtonInput>>,

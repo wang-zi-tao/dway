@@ -1,6 +1,6 @@
 use std::{fmt::Debug, sync::Arc};
 
-use bevy::{app::DynEq, ecs::{component::HookContext, label::DynHash}, platform::collections::HashMap};
+use bevy::{app::DynEq, ecs::label::DynHash};
 use bevy_relationship::reexport::{Mutable, SmallVec, StorageType};
 
 use crate::prelude::*;
@@ -47,19 +47,23 @@ impl std::hash::Hash for AnimationKey {
 
 impl Component for AnimationKey {
     type Mutability = Mutable;
+
     const STORAGE_TYPE: StorageType = StorageType::Table;
 
-    fn register_component_hooks(hooks: &mut bevy::ecs::component::ComponentHooks) {
-        hooks.on_insert(|mut world, context: HookContext| {
+    fn on_insert() -> Option<ComponentHook> {
+        Some(|mut world, context: HookContext| {
             let key = world.entity(context.entity).get::<Self>().unwrap().clone();
             let mut register = world.resource_mut::<AnimationRegister>();
             register.add(context.entity, key);
-        });
-        hooks.on_remove(|mut world, context: HookContext| {
+        })
+    }
+
+    fn on_remove() -> Option<ComponentHook> {
+        Some(|mut world, context: HookContext| {
             let key = world.entity(context.entity).get::<Self>().unwrap().clone();
             let mut register = world.resource_mut::<AnimationRegister>();
             register.remove(context.entity, &key);
-        });
+        })
     }
 }
 

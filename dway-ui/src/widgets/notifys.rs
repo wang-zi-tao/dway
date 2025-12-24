@@ -14,7 +14,7 @@ NotifyButton=>
     fn open_notify_list(
         event: UiEvent<UiButtonEvent>,
         mut query: Query<&mut NotifyButtonState>,
-        notify_sender: EventWriter<NotifyRequest>
+        notify_sender: MessageWriter<NotifyRequest>
     ) {
         let Ok(state) = query.get_mut(event.receiver()) else {return};
         if event.kind == UiButtonEventKind::Released{

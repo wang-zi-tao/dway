@@ -1,8 +1,8 @@
 use bevy::{
     math::FloatOrd,
     prelude::*,
+    camera::{ImageRenderTarget, RenderTarget, ScalingMode},
     render::{
-        camera::{ImageRenderTarget, RenderTarget, ScalingMode},
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
@@ -152,13 +152,13 @@ pub fn prepare_render_command(
     for (entity, mut canvas, mut ui_image, compulted_node) in canvas_query.iter_mut() {
         let _span = info_span!("prepare_canvas", ?entity).entered();
         let node_size = compulted_node.size();
-        if canvas.size != node_size || canvas.refresh || canvas.image.is_weak() {
+        if canvas.size != node_size || canvas.refresh || canvas.image.is_uuid() {
             canvas.refresh = false;
             canvas.size = compulted_node.size();
             if node_size.x > 0.0 && node_size.y > 0.0 {
                 let handle = if node_size != canvas.size()
                     || !canvas.reuse_image
-                    || canvas.image.is_weak()
+                    || canvas.image.is_uuid()
                 {
                     let size = Extent3d {
                         width: node_size.x as u32 * 2,
@@ -264,7 +264,7 @@ pub fn cleanup_render_command(
     }
     for (entity, camera) in camera_query.iter() {
         if !render_stub_query.contains(camera.canvas) {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }

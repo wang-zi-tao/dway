@@ -17,7 +17,7 @@ fn on_launch(
     event: UiEvent<UiButtonEvent>,
     button_widget_query: Query<(&LauncherUISubStateAppList, &LauncherUISubWidgetAppList)>,
     mut popup_query: Query<&mut UiPopup>,
-    mut event_writer: EventWriter<LaunchAppRequest>,
+    mut event_writer: MessageWriter<LaunchAppRequest>,
 ) {
     if event.kind == UiButtonEventKind::Released {
         let Ok((state, widget)) = button_widget_query.get(event.receiver()) else {
@@ -29,7 +29,7 @@ fn on_launch(
         };
         popup.request_close();
 
-        event_writer.send(LaunchAppRequest::new(widget.data_entity));
+        event_writer.write(LaunchAppRequest::new(widget.data_entity));
     }
 }
 

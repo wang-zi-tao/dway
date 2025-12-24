@@ -222,8 +222,8 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                             .spawn((
                                 Name::new(buffer.id().to_string()),
                                 UninitedWlBuffer::new(buffer.clone()),
+                                ChildOf(*data),
                             ))
-                            .set_parent(*data)
                             .id();
                         debug!(?entity,resource =%buffer.id(), "create uninited wl_buffer");
                         Some(entity)

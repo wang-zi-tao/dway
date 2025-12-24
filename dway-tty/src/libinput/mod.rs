@@ -122,11 +122,11 @@ impl KeyLockState {
 pub fn receive_events(
     mut windows: Query<(Entity, &mut Window)>,
     mut libinput: NonSendMut<LibinputDevice>,
-    mut motion_events: EventWriter<MouseMotion>,
-    mut move_events: EventWriter<CursorMoved>,
-    mut button_events: EventWriter<MouseButtonInput>,
-    mut axis_events: EventWriter<MouseWheel>,
-    mut keyboard_events: EventWriter<KeyboardInput>,
+    mut motion_events: MessageWriter<MouseMotion>,
+    mut move_events: MessageWriter<CursorMoved>,
+    mut button_events: MessageWriter<MouseButtonInput>,
+    mut axis_events: MessageWriter<MouseWheel>,
+    mut keyboard_events: MessageWriter<KeyboardInput>,
     keycode_state: Res<ButtonInput<KeyCode>>,
     mut lock_state: ResMut<KeyLockState>,
     mut pointer_state: ResMut<PointerState>,
@@ -170,7 +170,7 @@ pub fn receive_events(
                         Key::Character(smol_str) => Some(smol_str.clone()),
                         _ => None,
                     };
-                    keyboard_events.send(KeyboardInput {
+                    keyboard_events.write(KeyboardInput {
                         logical_key,
                         key_code,
                         state: match state {
@@ -187,7 +187,7 @@ pub fn receive_events(
                 match e {
                     PointerEvent::Motion(m) => {
                         let motion = DVec2::new(m.dx(), m.dy()).as_vec2() * mouse_speed;
-                        motion_events.send(MouseMotion { delta: motion });
+                        motion_events.write(MouseMotion { delta: motion });
                         debug!("mouse motion: {}", motion);
                         windows.iter_mut().for_each(|(entity, mut window)| {
                             // TODO 改善边界
@@ -198,7 +198,7 @@ pub fn receive_events(
                                 pointer_state.window = Some(entity);
                                 window.set_cursor_position(Some(relative));
                                 window.set_physical_cursor_position(Some(relative.as_dvec2()));
-                                move_events.send(CursorMoved {
+                                move_events.write(CursorMoved {
                                     window:entity,
                                     position:relative,
                                     delta: Some(motion), 
@@ -223,7 +223,7 @@ pub fn receive_events(
                             tablet_pad::ButtonState::Released => ButtonState::Released,
                         };
                         debug!("mouse button: button={button:?}, state={state:?}, window={default_window_entity:?}");
-                        button_events.send(MouseButtonInput {
+                        button_events.write(MouseButtonInput {
                             button,
                             state,
                             window: default_window_entity,
@@ -234,7 +234,7 @@ pub fn receive_events(
                             "PointerEvent::ScrollWheel {:?}",
                             (&m, m.scroll_value_v120(Axis::Vertical))
                         );
-                        axis_events.send(MouseWheel {
+                        axis_events.write(MouseWheel {
                             unit: bevy::input::mouse::MouseScrollUnit::Pixel,
                             x: m.scroll_value_v120(Axis::Horizontal) as f32 / 120.0
                                 * mouse_wheel_speed,

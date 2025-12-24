@@ -113,7 +113,7 @@ impl ViewLayouter<usize> for ListViewLayout {
 
     fn remove(&mut self, mut entiy: EntityCommands, index: usize) {
         self.items.remove(&index);
-        entiy.despawn_recursive();
+        entiy.despawn();
     }
 
     fn get_item_layout(&self, index: usize) -> Option<&ItemLayout> {

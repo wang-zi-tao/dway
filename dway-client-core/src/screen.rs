@@ -1,4 +1,5 @@
 use dway_server::{
+    events::Insert,
     geometry::{Geometry, GlobalGeometry},
     util::rect::IRect,
     xdg::DWayWindow,
@@ -27,7 +28,7 @@ pub struct ScreenBundle {
 pub fn create_screen(
     screen_query: Query<(Entity, Ref<Window>, Option<&Screen>), Changed<Window>>,
     mut commands: Commands,
-    mut event: EventWriter<Insert<Screen>>,
+    mut event: MessageWriter<Insert<Screen>>,
 ) {
     for (entity, window, screen) in screen_query.iter() {
         let WindowPosition::At(window_position) = window.position else {
@@ -49,15 +50,27 @@ pub fn create_screen(
                 global_geometry: GlobalGeometry::new(rect),
                 stat: WindowStatistics::default(),
             });
-            event.send(Insert::new(entity));
+            event.write(Insert::new(entity));
         }
     }
 }
 
-#[derive(Event, Debug)]
-pub enum ScreenNotify {
-    WindowEnter(Entity),
-    WindowLeave(Entity),
+structstruck::strike! {
+    #[derive(EntityEvent)]
+    pub struct ScreenNotify{
+        #[event_target]
+        pub screen: Entity,
+        pub kind: pub enum ScreenNotifyKind {
+            WindowEnter(Entity),
+            WindowLeave(Entity),
+        }
+    }
+}
+
+impl ScreenNotify {
+    pub fn new(screen: Entity, kind: ScreenNotifyKind) -> Self {
+        Self { screen, kind }
+    }
 }
 
 relationship!(ScreenContainsWindow=>ScreenWindowList>-<WindowScreenList);
@@ -86,7 +99,10 @@ pub fn update_screen(
             commands
                 .entity(*screen_entity)
                 .connect_to::<ScreenContainsWindow>(*window_entity);
-            commands.trigger_targets(ScreenNotify::WindowEnter(*window_entity), *screen_entity);
+            commands.trigger(ScreenNotify::new(
+                *screen_entity,
+                ScreenNotifyKind::WindowEnter(*window_entity),
+            ));
         }
     };
     for w in &window_query {

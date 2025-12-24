@@ -6,7 +6,7 @@ use std::{
 use dway_util::eventloop::PollerRawGuard;
 use wayland_backend::server::{ClientId, DisconnectReason};
 
-use crate::prelude::*;
+use crate::{events::Insert, prelude::*};
 
 #[derive(Debug, Clone)]
 pub enum ClientEvent {
@@ -68,7 +68,7 @@ impl Drop for ClientData {
 
 pub fn clean_client(
     events: Res<ClientEvents>,
-    mut events_writer: EventWriter<Destroy<Client>>,
+    mut events_writer: MessageWriter<Destroy<Client>>,
     mut commands: Commands,
 ) {
     let mut queue = events.queue.lock().unwrap();
@@ -78,7 +78,7 @@ pub fn clean_client(
                 if let Ok(mut c) = commands.get_entity(entity) {
                     c.despawn()
                 }
-                events_writer.send(Destroy::new(entity));
+                events_writer.write(Destroy::new(entity));
             }
         }
     }

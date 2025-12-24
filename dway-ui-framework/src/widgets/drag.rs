@@ -1,4 +1,4 @@
-use bevy::ui::RelativeCursorPosition;
+use bevy::{ecs::relationship::Relationship as _, ui::RelativeCursorPosition};
 
 use crate::{
     event::EventDispatcher,

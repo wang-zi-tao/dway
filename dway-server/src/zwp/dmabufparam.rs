@@ -1,7 +1,4 @@
-use std::{
-    mem::take,
-    os::fd::OwnedFd,
-};
+use std::{mem::take, os::fd::OwnedFd};
 
 use drm_fourcc::DrmModifier;
 use wayland_protocols::wp::linux_dmabuf::zv1::server::zwp_linux_buffer_params_v1::Flags;
@@ -86,12 +83,9 @@ impl Dispatch<zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1, Entity> for DW
                 format,
                 flags,
             } => {
-                let buffer_entity = state
-                    .spawn_empty()
-                    .set_parent(DWay::client_entity(client))
-                    .id();
+                let buffer_entity = state.spawn(ChildOf(DWay::client_entity(client))).id();
                 let mut planes = take(&mut state.get_mut::<DmaBufferParams>(*data).unwrap().planes);
-                planes.sort_by_key(|p|p.plane_idx);
+                planes.sort_by_key(|p| p.plane_idx);
                 let render_client = state.resource::<DWayServerRenderClient>();
 
                 render_client
@@ -122,12 +116,9 @@ impl Dispatch<zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1, Entity> for DW
                 format,
                 flags,
             } => {
-                let buffer_entity = state
-                    .spawn_empty()
-                    .set_parent(DWay::client_entity(client))
-                    .id();
+                let buffer_entity = state.spawn(ChildOf(DWay::client_entity(client))).id();
                 let mut planes = take(&mut state.get_mut::<DmaBufferParams>(*data).unwrap().planes);
-                planes.sort_by_key(|p|p.plane_idx);
+                planes.sort_by_key(|p| p.plane_idx);
                 let render_client = state.resource::<DWayServerRenderClient>();
 
                 let buffer = data_init.init(buffer_id, buffer_entity);

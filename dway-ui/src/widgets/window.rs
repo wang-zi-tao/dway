@@ -66,7 +66,7 @@ pub fn on_window_ui_input(
     event: UiEvent<UiInputEvent>,
     query: Query<(&WindowUI, &WindowUIState, &WindowUIWidget)>,
     contents_query: Query<(&ComputedNode, &RelativeCursorPosition, &GlobalTransform)>,
-    mut surface_input_events: EventWriter<SurfaceInputEvent>,
+    mut surface_input_events: MessageWriter<SurfaceInputEvent>,
 ) {
     let Ok((prop, state, widget)) = query.get(event.receiver()) else {
         return;
@@ -85,7 +85,7 @@ pub fn on_window_ui_input(
         &event,
         Geometry::new(*state.rect()),
     ) {
-        surface_input_events.send(surface_input_event);
+        surface_input_events.write(surface_input_event);
     }
 }
 
@@ -127,36 +127,35 @@ WindowUI=>
 @plugin{
     app.register_type::<WindowUI>();
     app.register_type::<WindowUIState>();
-    app.add_systems(Update, apply_deferred.after(WindowUISystems::Render).before(PopupUISystems::Render));
     app.configure_sets(PreUpdate, DWayClientSystem::Input.after(UiFrameworkSystems::InputSystems));
 }
 @callback{ [UiEvent<UiButtonEvent>]
     fn on_close_button_event(
         event: UiEvent<UiButtonEvent>,
-        mut events: EventWriter<WindowAction>,
+        mut events: MessageWriter<WindowAction>,
     ) {
         if event.kind == UiButtonEventKind::Released{
-            events.send(WindowAction::Close(event.receiver()));
+            events.write(WindowAction::Close(event.receiver()));
         }
     }
 }
 @callback{ [UiEvent<UiButtonEvent>]
     fn on_min_button_event(
         event: UiEvent<UiButtonEvent>,
-        mut events: EventWriter<WindowAction>,
+        mut events: MessageWriter<WindowAction>,
     ) {
         if event.kind == UiButtonEventKind::Released{
-            events.send(WindowAction::Minimize(event.receiver()));
+            events.write(WindowAction::Minimize(event.receiver()));
         }
     }
 }
 @callback{ [UiEvent<UiButtonEvent>]
     fn on_max_button_event(
         event: UiEvent<UiButtonEvent>,
-        mut events: EventWriter<WindowAction>,
+        mut events: MessageWriter<WindowAction>,
     ) {
         if event.kind == UiButtonEventKind::Released{
-            events.send(WindowAction::Maximize(event.receiver()));
+            events.write(WindowAction::Maximize(event.receiver()));
         }
     }
 }
@@ -165,12 +164,12 @@ WindowUI=>
         event: UiEvent<UiDragEvent>,
         this_query: Query<&WindowUI>,
         window_query: Query<&Geometry>,
-        mut events: EventWriter<WindowAction>,
+        mut events: MessageWriter<WindowAction>,
     ) {
         let Ok(prop) = this_query.get(event.receiver()) else {return};
         if let UiDragEvent::Move{ delta: delta, .. } = &*event{
             let Ok(geo) = window_query.get(prop.window_entity) else{ return};
-            events.send(WindowAction::SetRect(prop.window_entity, IRect::from_pos_size(geo.pos() + delta.as_ivec2(), geo.size())));
+            events.write(WindowAction::SetRect(prop.window_entity, IRect::from_pos_size(geo.pos() + delta.as_ivec2(), geo.size())));
         }
     }
 }
@@ -179,7 +178,7 @@ WindowUI=>
         event: UiEvent<UiDragEvent>,
         this_query: Query<&WindowUI>,
         window_query: Query<&Geometry>,
-        events: EventWriter<WindowAction>,
+        events: MessageWriter<WindowAction>,
     ) {
         let Ok(prop) = this_query.get(event.receiver()) else {return};
         if let UiDragEvent::Move{ delta: delta, .. } = &*event{
@@ -275,7 +274,7 @@ WindowUI=>
             Text=(Text::new(state.title().as_deref().unwrap_or_default()))
             TextFont=(theme.text_font(DECORATION_HEIGHT - 2.0))
             TextColor=(Color::WHITE.into())
-            TextLayout=( TextLayout::new_with_justify(JustifyText::Left) )
+            TextLayout=( TextLayout::new_with_justify(Justify::Left) )
         />
     </Node>
 </Node>

@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use bevy::ecs::{entity::EntityHashSet, event::EventCursor};
+use bevy::ecs::{entity::EntityHashSet, event::EventCursor, relationship::Relationship as _};
 use scopeguard::defer;
 use thiserror::Error;
 use x11rb::{
@@ -226,8 +226,6 @@ pub fn process_x11_event(
                 entity_mut.insert(bundle);
                 entity_mut
             } else {
-                let mut entity_mut =
-                    world.spawn((bundle, Name::from(format!("xwindow:{}", c.window))));
                 let parent_entity = if let Ok(parent_entity) = x.find_window(c.parent) {
                     debug!(xwindow=%c.window,"set parent to {:?}", parent_entity);
                     parent_entity
@@ -235,7 +233,11 @@ pub fn process_x11_event(
                     error!("parent window {} not found", c.parent);
                     display_entity
                 };
-                entity_mut.set_parent(parent_entity);
+                let entity_mut = world.spawn((
+                    bundle,
+                    Name::from(format!("xwindow:{}", c.window)),
+                    ChildOf(parent_entity),
+                ));
                 entity_mut
             };
             let entity = entity_mut.id();
@@ -247,7 +249,7 @@ pub fn process_x11_event(
             let world = dway.world_mut();
             if let Some(entity) = x.windows_entitys.remove(&e.window) {
                 debug!(entity=?entity,xwindow=%e.window,"destroy window");
-                world.entity_mut(entity).despawn_recursive();
+                world.entity_mut(entity).despawn();
             }
         }
         x11rb::protocol::Event::EnterNotify(_) => todo!(),
@@ -430,15 +432,14 @@ pub fn dispatch_x11_events(
                                                 geometry: Geometry::new(rect),
                                                 global_geometry: GlobalGeometry::new(rect),
                                             },
+                                            ChildOf(display_entity),
                                         ))
-                                        .set_parent(display_entity)
                                         .id();
                                     debug!("add root window {} at {:?}", screen.root, entity);
                                     x.windows_entitys.insert(screen.root, entity);
                                     x.screen_windows.insert(screen.root);
                                 }
                                 dway.send_event(DWayXWaylandReady::new(dway_entity));
-                                dway.trigger(DWayXWaylandReady::new(dway_entity));
                                 dway.connect::<DWayHasXWayland>(dway_entity, display_entity);
                                 return Ok(());
                             }
@@ -468,7 +469,7 @@ pub fn flush_xwayland(
     for (entity, x) in xwayland_query.iter() {
         let guard = x.lock().unwrap();
         let Some(connection) = guard.connection.upgrade() else {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
             continue;
         };
         if let Err(e) = connection.0.flush() {

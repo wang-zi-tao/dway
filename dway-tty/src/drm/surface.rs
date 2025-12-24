@@ -450,7 +450,7 @@ pub fn print_drm_info(drm: &DrmDeviceFd) -> Result<()> {
 
 #[cfg(test)]
 mod test {
-    use bevy::prelude::*;
+    use bevy::{ecs::relationship::Relationship as _, prelude::*};
     use drm_fourcc::DrmFormat;
     use dway_util::eventloop::{EventLoopPlugin, EventLoopPluginMode};
 

@@ -18,10 +18,11 @@ use bevy::{
 use drm_fourcc::DrmFourcc;
 use dway_util::formats::ImageFormat;
 use wgpu::{
-    core::hal_api, CommandEncoder, CommandEncoderDescriptor, Extent3d, FilterMode,
-    ImageCopyTexture, TextureAspect, TextureDimension, TextureUsages,
+    CommandEncoder, CommandEncoderDescriptor, Extent3d, FilterMode, TexelCopyTextureInfo,
+    TextureAspect, TextureDimension, TextureUsages, TextureUses,
 };
-use wgpu_hal::{MemoryFlags, TextureUses};
+use wgpu_hal::{Api, MemoryFlags};
+use wgpu_core::hal_api::HalApi;
 
 use super::{
     gles::{self, EglState},
@@ -58,7 +59,6 @@ pub enum ImportedBuffer {
 #[derive(Resource, Default)]
 pub struct ImportState {
     pub inner: Option<ImportStateKind>,
-    pub image_set: HashSet<Handle<Image>>,
     pub finished: AtomicBool,
     pub callbacks: Vec<wl_callback::WlCallback>,
     pub elapsed: Duration,
@@ -77,26 +77,16 @@ pub enum ImportStateKind {
 impl ImportStateKind {
     pub fn new(device: &wgpu::Device) -> Result<Self, DWayRenderError> {
         unsafe {
-            if let Some(o) = device
-                .as_hal::<wgpu_hal::api::Vulkan, _, _>(|hal_device| {
-                    hal_device.map(|_| Self::Vulkan(VulkanState::default()))
-                })
-            {
-                return Ok(o);
+            if let Some(_) = device.as_hal::<wgpu_hal::api::Vulkan>() {
+                return Ok(Self::Vulkan(VulkanState::default()));
             };
-            if let Some(o) = device
-                .as_hal::<wgpu_hal::api::Gles, _, _>(|hal_device| {
-                    hal_device.map(|hal_device| {
-                        let egl_context = hal_device.context();
-                        let gl: &glow::Context = &egl_context.lock();
-                        let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> =
-                            egl_context.egl_instance().unwrap();
-                        Ok(Self::Egl(EglState::new(gl, egl)?))
-                    })
-                })
-            {
-                return o;
-            };
+            if let Some(hal_device) = device.as_hal::<wgpu_hal::api::Gles>() {
+                let egl_context = hal_device.context();
+                let gl: &glow::Context = &egl_context.lock();
+                let egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4> =
+                    egl_context.egl_instance().unwrap();
+                return Ok(Self::Egl(EglState::new(gl, egl)?));
+            }
             Err(DWayRenderError::UnknownBackend)
         }
     }
@@ -119,8 +109,8 @@ pub fn extract_surface(
     >,
     time: Extract<Res<Time>>,
     mut removed_buffer: Extract<RemovedComponents<WaylandBuffer>>,
-    mut create_events: Extract<EventReader<WaylandDisplayCreated>>,
-    mut destroy_events: Extract<EventReader<WaylandDisplayDestroyed>>,
+    mut create_events: Extract<MessageReader<WaylandDisplayCreated>>,
+    mut destroy_events: Extract<MessageReader<WaylandDisplayDestroyed>>,
     mut wayland_map: ResMut<DWayDisplayHandles>,
     mut state: ResMut<ImportState>,
     mut importd_buffer: ResMut<ImoprtedBuffers>,
@@ -158,9 +148,6 @@ pub fn extract_surface(
         } else {
             error!(entity=?buffer_entity,"buffer not found");
         }
-
-        debug!("extract wayland buffer: {buffer_entity:?}");
-        state.image_set.insert(surface.image.clone_weak());
     }
     for WaylandDisplayCreated(entity, display_handle) in create_events.read() {
         wayland_map.map.insert(*entity, display_handle.clone());
@@ -333,7 +320,7 @@ pub fn clean(
         let _ = display.flush_clients();
     }
     if let Some(ImportStateKind::Egl(s)) = &state.inner {
-        gles::clean(s, &*state, &render_device);
+        let _ = gles::clean(s, &*state, &render_device);
     }
 }
 
@@ -354,13 +341,13 @@ pub fn copy_texture(
             z: 0,
         };
         command_encoder.copy_texture_to_texture(
-            ImageCopyTexture {
+            TexelCopyTextureInfo {
                 texture: src_texture,
                 mip_level: 0,
                 origin,
                 aspect: TextureAspect::All,
             },
-            ImageCopyTexture {
+            TexelCopyTextureInfo {
                 texture: dest_texture,
                 mip_level: 0,
                 origin,
@@ -445,7 +432,7 @@ pub(crate) unsafe fn hal_texture_to_gpuimage<A>(
     hal_texture: A::Texture,
 ) -> Result<GpuImage>
 where
-    A: hal_api::HalApi,
+    A: HalApi,
 {
     let usage = wgpu::TextureUsages::RENDER_ATTACHMENT
         | wgpu::TextureUsages::TEXTURE_BINDING

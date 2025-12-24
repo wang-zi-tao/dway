@@ -5,9 +5,7 @@ use smart_default::SmartDefault;
 use crate::{
     desktop::{CursorOnScreen, FocusedWindow},
     prelude::*,
-    screen::{
-        Screen, ScreenNotify,
-    },
+    screen::{Screen, ScreenNotify, ScreenNotifyKind},
     window::Hidden,
 };
 
@@ -78,24 +76,39 @@ pub fn on_focus_window(
     });
 }
 
-#[derive(Event)]
-pub enum WorkspaceRequest {
-    AttachToScreen { screen: Entity, unique: bool },
-    LeaveScreen { screen: Entity },
-    AttachWindow { window: Entity, unique: bool },
-    RemoveWindow { window: Entity },
-    UpdateWorkspace,
+structstruck::strike! {
+    #[derive(EntityEvent)]
+    pub struct WorkspaceRequest {
+        #[event_target]
+        pub workspace: Entity,
+        pub kind: pub enum WorkspaceRequestKind {
+            AttachToScreen { screen: Entity, unique: bool },
+            LeaveScreen { screen: Entity },
+            AttachWindow { window: Entity, unique: bool },
+            RemoveWindow { window: Entity },
+            UpdateWorkspace,
+        },
+    }
+}
+
+impl WorkspaceRequest {
+    pub fn new(target: Entity, kind: WorkspaceRequestKind) -> Self {
+        Self {
+            workspace: target,
+            kind,
+        }
+    }
 }
 
 pub fn resolve_workspace_request(
-    trigger: Trigger<WorkspaceRequest>,
+    trigger: On<WorkspaceRequest>,
     workspace_query: Query<&Workspace>,
     screen_query: Query<&Screen>,
     mut geometry_query: Query<&mut Geometry>,
     mut commands: Commands,
 ) {
-    match trigger.event() {
-        WorkspaceRequest::AttachToScreen { screen, unique } => {
+    match &trigger.event().kind {
+        WorkspaceRequestKind::AttachToScreen { screen, unique } => {
             if *unique {
                 commands
                     .entity(*screen)
@@ -110,12 +123,12 @@ pub fn resolve_workspace_request(
                 *workspace_geo = screen_geo.clone();
             };
         }
-        WorkspaceRequest::LeaveScreen { screen } => {
+        WorkspaceRequestKind::LeaveScreen { screen } => {
             commands
                 .entity(trigger.target())
                 .disconnect_from::<ScreenAttachWorkspace>(*screen);
         }
-        WorkspaceRequest::AttachWindow { window, unique } => {
+        WorkspaceRequestKind::AttachWindow { window, unique } => {
             if *unique {
                 commands
                     .entity(*window)
@@ -125,12 +138,12 @@ pub fn resolve_workspace_request(
                 .entity(*window)
                 .connect_to::<WindowOnWorkspace>(trigger.target());
         }
-        WorkspaceRequest::RemoveWindow { window } => {
+        WorkspaceRequestKind::RemoveWindow { window } => {
             commands
                 .entity(*window)
                 .disconnect_to::<WindowOnWorkspace>(trigger.target());
         }
-        WorkspaceRequest::UpdateWorkspace => {}
+        WorkspaceRequestKind::UpdateWorkspace => {}
     }
 }
 
@@ -162,13 +175,13 @@ relationship!(WindowOnWorkspace=>WindowWorkspaceList>-<WindowList);
 relationship!(ScreenAttachWorkspace=>ScreenWorkspaceList>-<ScreenList);
 
 pub fn attach_window_to_workspace(
-    trigger: Trigger<ScreenNotify>,
+    trigger: On<ScreenNotify>,
     window_query: Query<&WindowWorkspaceList>,
     screen_query: Query<&ScreenWorkspaceList>,
     geo_query: Query<&GlobalGeometry>,
     mut commands: Commands,
 ) {
-    let ScreenNotify::WindowEnter(window_entity) = trigger.event() else {
+    let ScreenNotifyKind::WindowEnter(window_entity) = &trigger.event().kind else {
         return;
     };
     let Ok(window_rect) = geo_query.get(*window_entity) else {

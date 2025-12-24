@@ -101,7 +101,7 @@ pub fn update_popup(
     let mouse_down =
         || mouse.any_just_pressed([MouseButton::Left, MouseButton::Middle, MouseButton::Right]);
     for (entity, mut popup, relative_cursor, event_dispatcher) in popup_query.iter_mut() {
-        let mouse_inside = relative_cursor.mouse_over();
+        let mouse_inside = relative_cursor.cursor_over;
         if popup.is_added() && popup.state == PopupState::Open {
             event_dispatcher.send(UiPopupEvent::Opened, &mut commands);
         }
@@ -192,7 +192,7 @@ pub fn anchor_update_system(
     anchor_query: Query<
         (
             Ref<Anchor>,
-            Ref<ComputedNodeTarget>,
+            Ref<ComputedUiTargetCamera>,
             Ref<ComputedNode>,
             Ref<GlobalTransform>,
         ),
@@ -201,7 +201,7 @@ pub fn anchor_update_system(
             Or<(
                 Changed<Anchor>,
                 Changed<ComputedNode>,
-                Changed<ComputedNodeTarget>,
+                Changed<ComputedUiTargetCamera>,
                 Changed<Anchor>,
             )>,
         ),
@@ -224,7 +224,7 @@ pub fn anchor_update_system(
                 &mut popup_node
             };
 
-            if let Some(camera) = anchor_target.camera() {
+            if let Some(camera) = anchor_target.get() {
                 popup_camera.0 = camera;
             }
             let Ok(camera) = camera_query.get(popup_camera.0) else {
@@ -317,6 +317,6 @@ pub fn popup_animation_system<C: UiAnimationConfig>(
 
 pub fn delay_destroy(event: UiEvent<UiPopupEvent>, mut commands: Commands) {
     if matches!(&*event, UiPopupEvent::Closed) {
-        commands.entity(event.receiver()).despawn_recursive();
+        commands.entity(event.receiver()).despawn();
     }
 }

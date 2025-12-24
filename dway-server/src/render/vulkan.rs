@@ -14,7 +14,7 @@ use bevy_relationship::reexport::SmallVec;
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use dway_util::formats::ImageFormat;
 use nix::{libc::makedev, sys::stat::fstat};
-use wgpu::{Extent3d, ImageCopyTexture, TextureAspect};
+use wgpu::{Extent3d, TexelCopyBufferLayout, TexelCopyTextureInfo, TextureAspect};
 use wgpu_hal::{
     vulkan::{self, Api as Vulkan},
     DropCallback,
@@ -88,68 +88,67 @@ pub const SUPPORTED_FORMATS: [DrmFourcc; 4] = [
 
 pub fn drm_info(render_device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError> {
     unsafe {
-        render_device.as_hal::<Vulkan, _, _>(|hal_device| {
-            let hal_device = hal_device.ok_or_else(|| BackendIsNotVulkan)?;
-            info!("use vulkan");
+        let hal_device = render_device
+            .as_hal::<Vulkan>()
+            .ok_or_else(|| BackendIsNotVulkan)?;
 
-            let instance = hal_device.shared_instance().raw_instance();
-            let raw_phy = hal_device.raw_physical_device();
+        let instance = hal_device.shared_instance().raw_instance();
+        let raw_phy = hal_device.raw_physical_device();
 
-            let mut formats = Vec::new();
-            for fourcc in SUPPORTED_FORMATS {
-                let vk_format = ImageFormat::from_drm_fourcc(fourcc)?.vulkan_format;
+        let mut formats = Vec::new();
+        for fourcc in SUPPORTED_FORMATS {
+            let vk_format = ImageFormat::from_drm_fourcc(fourcc)?.vulkan_format;
 
-                let mut list = vk::DrmFormatModifierPropertiesListEXT::default();
-                let mut format_properties2 = vk::FormatProperties2::default().push_next(&mut list);
-                instance.get_physical_device_format_properties2(
-                    raw_phy,
-                    vk_format,
-                    &mut format_properties2,
-                );
-                let count = list.drm_format_modifier_count;
-                let mut modifiers_list = vec![Default::default(); count as usize];
-                let mut modifier_list_prop = vk::DrmFormatModifierPropertiesListEXT::default()
-                    .drm_format_modifier_properties(&mut modifiers_list);
+            let mut list = vk::DrmFormatModifierPropertiesListEXT::default();
+            let mut format_properties2 = vk::FormatProperties2::default().push_next(&mut list);
+            instance.get_physical_device_format_properties2(
+                raw_phy,
+                vk_format,
+                &mut format_properties2,
+            );
+            let count = list.drm_format_modifier_count;
+            let mut modifiers_list = vec![Default::default(); count as usize];
+            let mut modifier_list_prop = vk::DrmFormatModifierPropertiesListEXT::default()
+                .drm_format_modifier_properties(&mut modifiers_list);
 
-                let mut format_properties2 =
-                    vk::FormatProperties2::default().push_next(&mut modifier_list_prop);
-                instance.get_physical_device_format_properties2(
-                    raw_phy,
-                    vk_format,
-                    &mut format_properties2,
-                );
-
-                // modifiers_list.clear(); // TODO : 改进解决方法
-                if modifiers_list.is_empty() {
-                    warn!(format=?fourcc, "no available modifier of format");
-                    formats.push(DrmFormat {
-                        code: fourcc,
-                        modifier: DrmModifier::Linear,
-                    });
-                }
-                formats.extend(modifiers_list.into_iter().map(|d| DrmFormat {
-                    code: fourcc,
-                    modifier: DrmModifier::from(d.drm_format_modifier),
-                }));
-            }
-
-            let mut drm_prop = PhysicalDeviceDrmPropertiesEXT::default();
-            let mut device_prop = PhysicalDeviceProperties2::default().push_next(&mut drm_prop);
-            (instance.fp_v1_1().get_physical_device_properties2)(
-                hal_device.raw_physical_device(),
-                &mut device_prop,
+            let mut format_properties2 =
+                vk::FormatProperties2::default().push_next(&mut modifier_list_prop);
+            instance.get_physical_device_format_properties2(
+                raw_phy,
+                vk_format,
+                &mut format_properties2,
             );
 
-            let drm_node = DrmNode::from_device_id(makedev(
-                drm_prop.render_major as _,
-                drm_prop.render_minor as _,
-            ))?;
+            // modifiers_list.clear(); // TODO : 改进解决方法
+            if modifiers_list.is_empty() {
+                warn!(format=?fourcc, "no available modifier of format");
+                formats.push(DrmFormat {
+                    code: fourcc,
+                    modifier: DrmModifier::Linear,
+                });
+            }
+            formats.extend(modifiers_list.into_iter().map(|d| DrmFormat {
+                code: fourcc,
+                modifier: DrmModifier::from(d.drm_format_modifier),
+            }));
+        }
 
-            Ok(DrmInfo {
-                texture_formats: formats.clone(),
-                render_formats: formats.clone(),
-                drm_node,
-            })
+        let mut drm_prop = PhysicalDeviceDrmPropertiesEXT::default();
+        let mut device_prop = PhysicalDeviceProperties2::default().push_next(&mut drm_prop);
+        (instance.fp_v1_1().get_physical_device_properties2)(
+            hal_device.raw_physical_device(),
+            &mut device_prop,
+        );
+
+        let drm_node = DrmNode::from_device_id(makedev(
+            drm_prop.render_major as _,
+            drm_prop.render_minor as _,
+        ))?;
+
+        Ok(DrmInfo {
+            texture_formats: formats.clone(),
+            render_formats: formats.clone(),
+            drm_node,
         })
     }
 }
@@ -341,7 +340,7 @@ pub unsafe fn import_shm(
         let rect = rect.intersection(IRect::from_pos_size(IVec2::ZERO, texture_size));
         debug!(?rect, "write_texture");
         queue.write_texture(
-            ImageCopyTexture {
+            TexelCopyTextureInfo {
                 texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d {
@@ -352,7 +351,7 @@ pub unsafe fn import_shm(
                 aspect: TextureAspect::All,
             },
             data,
-            wgpu::ImageDataLayout {
+            TexelCopyBufferLayout {
                 offset: (shm_buffer.stride * rect.y()
                     + rect.x()
                         * ImageFormat::from_wayland_format(shm_buffer.format)?.pixel_size() as i32)
@@ -386,20 +385,26 @@ pub fn create_wgpu_dma_image(
     request: &mut ImportDmaBufferRequest,
 ) -> Result<(GpuImage, ImportedBuffer), DWayRenderError> {
     unsafe {
-        let image_guard = device.as_hal::<Vulkan, _, _>(|hal_device| {
-            let hal_device = hal_device.ok_or_else(|| BackendIsNotVulkan)?;
-            let image = create_vulkan_dma_image(hal_device, request)?;
-            Result::<_, DWayRenderError>::Ok(image)
-        })?;
-        let image = image_guard.image;
         let format = drm_fourcc_to_wgpu_format(request)?;
-        let hal_texture = vulkan::Device::texture_from_raw(
-            image,
-            &hal_texture_descriptor(request.size, format)?,
-            None,
-        );
+
+        let hal_texture = {
+            let hal_device = device
+                .as_hal::<Vulkan>()
+                .ok_or_else(|| BackendIsNotVulkan)?;
+            let image_guard = create_vulkan_dma_image(&hal_device, request)?;
+
+            let image = image_guard.image;
+            let hal_texture = hal_device.texture_from_raw(
+                image,
+                &hal_texture_descriptor(request.size, format)?,
+                None,
+            );
+            hal_texture
+        };
+
         let gpu_image =
             hal_texture_to_gpuimage::<Vulkan>(device, request.size, format, hal_texture)?;
+
         Ok((gpu_image, ImportedBuffer::VULKAN))
     }
 }

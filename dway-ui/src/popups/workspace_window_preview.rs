@@ -27,11 +27,11 @@ impl Default for WorkspaceWindowPreviewPopup {
 fn close_window(
     event: UiEvent<UiButtonEvent>,
     prop_query: Query<&WorkspaceWindowPreviewPopupSubWidgetList>,
-    mut events: EventWriter<WindowAction>,
+    mut events: MessageWriter<WindowAction>,
 ){
     let Ok(widget) = prop_query.get(event.receiver())else{return;};
     if event.kind == UiButtonEventKind::Released{
-        events.send(WindowAction::Close(widget.data_entity));
+        events.write(WindowAction::Close(widget.data_entity));
     }
 }
 
@@ -79,7 +79,7 @@ WorkspaceWindowPreviewPopup=>
                     Text=(Text::new(state.title()))
                     TextFont=(theme.text_font(16.0))
                     TextColor=(theme.default_text_color.into())
-                    TextLayout=( TextLayout::new_with_justify(JustifyText::Left) )
+                    TextLayout=( TextLayout::new_with_justify(Justify::Left) )
                 />
             </Node>
             <UiButton NoTheme @on_event(focus_window)>

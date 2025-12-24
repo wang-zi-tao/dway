@@ -1,6 +1,15 @@
 pub(crate) use std::time::Duration;
 
-pub(crate) use bevy::{ecs::system::SystemId, prelude::*, ui::FocusPolicy};
+pub(crate) use bevy::{
+    ecs::{
+        lifecycle::{ComponentHook, HookContext},
+        system::SystemId,
+        world::DeferredWorld,
+    },
+    platform::collections::HashMap,
+    prelude::*,
+    ui::FocusPolicy,
+};
 pub(crate) use bevy_trait_query::*;
 pub use dway_ui_derive::*;
 pub(crate) use smart_default::SmartDefault;
@@ -33,8 +42,8 @@ pub use crate::{
         button::{UiButton, UiButtonEvent, UiButtonEventDispatcher, UiButtonEventKind},
         checkbox::{UiCheckBox, UiCheckBoxEvent, UiCheckBoxState},
         popup::*,
-        shape::UiShape,
         shader::*,
+        shape::UiShape,
         slider::{UiSlider, UiSliderEvent, UiSliderState},
         svg::UiSvg,
         UiWidgetRoot,

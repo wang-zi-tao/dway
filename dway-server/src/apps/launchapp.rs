@@ -4,7 +4,7 @@ use bevy::platform::collections::HashMap;
 use derive_builder::Builder;
 use std::process::{self, Command};
 
-#[derive(Debug, Event, Builder)]
+#[derive(Debug, Message, Builder)]
 pub struct LaunchAppRequest {
     pub app_entity: Entity,
     #[builder(setter(into), default)]
@@ -13,7 +13,7 @@ pub struct LaunchAppRequest {
     pub url: Option<String>,
 }
 
-#[derive(Debug, Event, Builder, Default)]
+#[derive(Debug, Message, Builder, Default)]
 pub struct RunCommandRequest {
     #[builder(setter(into))]
     pub command: String,
@@ -24,7 +24,7 @@ pub struct RunCommandRequest {
 }
 
 pub fn run_command_system(
-    mut event: EventReader<RunCommandRequest>,
+    mut event: MessageReader<RunCommandRequest>,
     server_query: Query<&DWayServer>,
 ) {
     for RunCommandRequest {
@@ -53,7 +53,7 @@ impl LaunchAppRequest {
 }
 
 pub fn launch_app_system(
-    mut event: EventReader<LaunchAppRequest>,
+    mut event: MessageReader<LaunchAppRequest>,
     app_query: Query<&DesktopEntry>,
     server_query: Query<&DWayServer>,
 ) {

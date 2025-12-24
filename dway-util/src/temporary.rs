@@ -14,7 +14,7 @@ pub fn clean_temporary_entity(
     for (entity, mut tmp) in temporary_tree_query.iter_mut() {
         if !tmp.is_added() {
             if tmp.0 == 0 {
-                commands.entity(entity).despawn_recursive();
+                commands.entity(entity).despawn();
             } else {
                 tmp.0 -= 1;
             }

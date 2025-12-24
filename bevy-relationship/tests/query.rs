@@ -1,7 +1,8 @@
-use bevy::{app::ScheduleRunnerPlugin, ecs::system::BoxedSystem, prelude::*, platform::collections::HashSet};
-use bevy_relationship_derive::graph_query2;
-
+use bevy::{
+    app::ScheduleRunnerPlugin, ecs::system::BoxedSystem, platform::collections::HashSet, prelude::*,
+};
 use bevy_relationship::{relationship, AppExt, ControlFlow, EntityCommandsExt};
+use bevy_relationship_derive::graph_query2;
 
 #[derive(Component)]
 pub struct C0(pub usize);
@@ -74,12 +75,9 @@ fn test_suit(system: BoxedSystem) {
         })
         .add_systems(
             Update,
-            (
-                move |mut command: Commands| {
-                    command.run_system(systemid);
-                },
-                apply_deferred,
-            )
+            (move |mut command: Commands| {
+                command.run_system(systemid);
+            },)
                 .chain(),
         );
     app.run();

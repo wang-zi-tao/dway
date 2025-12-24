@@ -11,7 +11,7 @@ pub fn create_window(conn: &Connector, surface: &DrmSurface) -> Window {
         present_mode: PresentMode::AutoVsync,
         mode: WindowMode::Fullscreen(MonitorSelection::Current, VideoModeSelection::Current),
         position: WindowPosition::At(IVec2::default()),
-        resolution: WindowResolution::new(size.x as f32, size.y as f32),
+        resolution: WindowResolution::new(size.x as u32, size.y as u32),
         title: conn.name.clone(),
         composite_alpha_mode: bevy::window::CompositeAlphaMode::Opaque,
         resize_constraints: WindowResizeConstraints {

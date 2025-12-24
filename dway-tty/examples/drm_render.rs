@@ -1,12 +1,12 @@
 use bevy::{
     app::AppExit,
+    camera::{ImageRenderTarget, RenderTarget},
     core_pipeline::tonemapping::Tonemapping,
     input::keyboard::KeyboardInput,
     log::LogPlugin,
     math::FloatOrd,
     prelude::*,
     render::{
-        camera::{ImageRenderTarget, RenderTarget},
         settings::{RenderCreation, WgpuSettings},
         RenderPlugin,
     },
@@ -74,13 +74,13 @@ fn setup(mut commands: Commands, surface_query: Query<&DrmSurface>) {
 }
 
 pub fn input_event_system(
-    mut keyboard_event: EventReader<KeyboardInput>,
-    mut exit: EventWriter<AppExit>,
+    mut keyboard_event: MessageReader<KeyboardInput>,
+    mut exit: MessageWriter<AppExit>,
 ) {
     for event in keyboard_event.read() {
         if event.key_code == KeyCode::Escape {
-            exit.send(AppExit::Success);
+            exit.write(AppExit::Success);
         }
-        dbg!(event);
+        debug!("receive event: {?}", event);
     }
 }

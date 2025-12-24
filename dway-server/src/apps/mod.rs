@@ -1,7 +1,11 @@
 pub mod icon;
 pub mod launchapp;
 
-use std::{borrow::Cow, collections::HashMap, path::{Path, PathBuf}};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use bevy::tasks::{block_on, IoTaskPool, Task};
 use futures_lite::future::poll_once;
@@ -209,8 +213,7 @@ pub fn update_app_entry_set(
         let root_entity = root_query.single().unwrap();
         commands.entity(root_entity).despawn();
         for entry in entry_list {
-            let mut entity_mut = commands.spawn_empty();
-            entity_mut.set_parent(root_entity);
+            let mut entity_mut = commands.spawn(ChildOf(root_entity));
             entries.register(&entry, entity_mut.id());
             entity_mut.insert(entry);
         }
@@ -221,7 +224,7 @@ pub fn update_app_entry_set(
 relationship!(ToplevelConnectAppEntry=>AppRef>-WindowList);
 
 pub fn attach_to_app(
-    mut events: EventReader<WindowAppIdChanged>,
+    mut events: MessageReader<WindowAppIdChanged>,
     register: Res<DesktopEntriesSet>,
     mut commands: Commands,
 ) {

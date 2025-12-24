@@ -6,28 +6,13 @@ use std::{
 };
 
 use bevy::{
-    app::{AppExit, ScheduleRunnerPlugin},
-    core_pipeline::core_2d::graph::{Core2d, Node2d},
-    diagnostic::FrameCount,
-    ecs::system::SystemId,
-    math::FloatOrd,
-    prelude::*,
-    render::{
-        camera::{ImageRenderTarget, RenderTarget},
-        extract_component::{ExtractComponent, ExtractComponentPlugin},
-        render_asset::RenderAssets,
-        render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
-        render_resource::{
-            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, Maintain,
+    app::{AppExit, ScheduleRunnerPlugin}, camera::{ImageRenderTarget, RenderTarget}, core_pipeline::core_2d::graph::{Core2d, Node2d}, diagnostic::FrameCount, ecs::system::SystemId, math::FloatOrd, prelude::*, render::{
+        Render, RenderApp, RenderSet, extract_component::{ExtractComponent, ExtractComponentPlugin}, render_asset::RenderAssets, render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel}, render_resource::{
+            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d,
             MapMode, TexelCopyBufferInfo, TexelCopyBufferLayout, TexelCopyTextureInfo,
             TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-        },
-        renderer::{RenderContext, RenderDevice, RenderQueue},
-        texture::GpuImage,
-        Render, RenderApp, RenderSet,
-    },
-    window::PresentMode,
-    winit::WinitPlugin,
+        }, renderer::{RenderContext, RenderDevice, RenderQueue}, texture::GpuImage
+    }, window::{PresentMode, WindowResolution}, winit::WinitPlugin
 };
 use crossbeam_channel::{Receiver, Sender};
 use image::RgbaImage;
@@ -97,7 +82,7 @@ impl ExtractComponent for ImageCopier {
     type QueryFilter = ();
 
     fn extract_component(
-        item: bevy::ecs::query::QueryItem<'_, Self::QueryData>,
+        item: bevy::ecs::query::QueryItem<'_, '_, Self::QueryData>,
     ) -> Option<Self::Out> {
         item.processing.store(true, Ordering::Relaxed);
         Some(ExtractedImageCopier {
@@ -251,7 +236,7 @@ fn start_unit_test(
                 visible: false,
                 present_mode: PresentMode::AutoVsync,
                 prevent_default_event_handling: false,
-                resolution: (size.x, size.y).into(),
+                resolution: WindowResolution::new(size.x as u32, size.y as u32),
                 ..Default::default()
             })
             .id();
@@ -296,7 +281,7 @@ fn receive_image_from_buffer(
             Ok(r) => s.send(r).expect("Failed to send map update"),
             Err(err) => panic!("Failed to map buffer {err}"),
         });
-        render_device.poll(Maintain::wait()).panic_on_timeout();
+        render_device.poll(wgpu::PollType::Wait).unwrap();
         r.recv().expect("Failed to receive the map_async message");
         let vec = buffer_slice.get_mapped_range().to_vec();
         image_copier.buffer.unmap();
@@ -367,13 +352,13 @@ fn wait_render(
         info!("unit test ({}): {:?}", &unit_test.name, result);
         test_suit.unit_tests.insert(unit_test.name.clone(), result);
 
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
 fn check_exit(
     frame: Res<FrameCount>,
-    mut exit_event: EventWriter<AppExit>,
+    mut exit_event: MessageWriter<AppExit>,
     test_suit: ResMut<TestSuite>,
 ) {
     let finished = test_suit
@@ -385,7 +370,7 @@ fn check_exit(
         .values()
         .all(|s| matches!(s, UnitTestState::Ok));
     if finished || frame.0 > 96 {
-        exit_event.send(if success {
+        exit_event.write(if success {
             let _ = std::fs::remove_dir_all(&test_suit.tmp);
             AppExit::Success
         } else {
@@ -446,6 +431,7 @@ impl PluginGroup for TestPluginsSet {
                 primary_window: None,
                 exit_condition: bevy::window::ExitCondition::DontExit,
                 close_when_requested: false,
+                primary_cursor_options: None,
             })
             .add(dway_ui_framework::UiFrameworkPlugin)
             .add(TestPlugin)

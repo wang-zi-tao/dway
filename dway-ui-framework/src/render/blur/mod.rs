@@ -1,13 +1,11 @@
 use std::borrow::Cow;
 
 use bevy::{
-    core_pipeline::core_2d::graph::{Core2d, Node2d},
-    ecs::query::QueryItem,
-    render::{
-        Extract, RenderApp, RenderSet, camera::Viewport, extract_component::ExtractComponent, mesh::{RenderMesh, RenderMeshBufferInfo, VertexBufferLayout, allocator::MeshAllocator}, render_asset::RenderAssets, render_graph::{RenderGraphApp, RenderLabel, ViewNode, ViewNodeRunner}, render_resource::{
+    camera::Viewport, core_pipeline::core_2d::graph::{Core2d, Node2d}, ecs::query::QueryItem, mesh::VertexBufferLayout, render::{
+        Extract, RenderApp, RenderSet, extract_component::ExtractComponent, mesh::{RenderMesh, RenderMeshBufferInfo, allocator::MeshAllocator}, render_asset::RenderAssets, render_graph::{RenderGraphContext, RenderGraphExt as _, RenderLabel, ViewNode, ViewNodeRunner}, render_resource::{
             AddressMode, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d, FragmentState, MultisampleState, Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat, TextureId, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, VertexState, binding_types::{sampler, texture_2d, uniform_buffer}
-        }, renderer::{RenderDevice, RenderQueue}, sync_world::{MainEntity, RenderEntity}, texture::GpuImage
-    },
+        }, renderer::{RenderContext, RenderDevice, RenderQueue}, sync_world::{MainEntity, RenderEntity}, texture::GpuImage
+    }
 };
 use serde::Deserialize;
 use wgpu::{LoadOp, StoreOp, VertexFormat, VertexStepMode};
@@ -33,7 +31,7 @@ impl ExtractComponent for Blur {
     type QueryData = &'static Blur;
     type QueryFilter = With<Camera>;
 
-    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+    fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())
     }
 }
@@ -76,13 +74,13 @@ impl SpecializedRenderPipeline for BlurPipeline {
             vertex: VertexState {
                 shader: self.shader.clone(),
                 shader_defs: Vec::new(),
-                entry_point: Cow::from("vertex"),
+                entry_point: Some("vertex".into()),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 shader_defs: vec![],
-                entry_point: Cow::from("fragment"),
+                entry_point: Some("fragment".into()),
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend: None,
@@ -324,12 +322,12 @@ struct BlurNode;
 impl ViewNode for BlurNode {
     type ViewQuery = (&'static Blur, &'static BlurData);
 
-    fn run<'w>(
+    fn run(
         &self,
-        _graph: &mut bevy::render::render_graph::RenderGraphContext,
-        render_context: &mut bevy::render::renderer::RenderContext<'w>,
-        (blur, blur_data): bevy::ecs::query::QueryItem<'w, Self::ViewQuery>,
-        world: &'w World,
+        _graph: &mut RenderGraphContext,
+        render_context: &mut RenderContext,
+        (blur, blur_data): QueryItem<Self::ViewQuery>,
+        world: &World,
     ) -> Result<(), bevy::render::render_graph::NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
         let meshes = world.resource::<RenderAssets<RenderMesh>>();
@@ -358,6 +356,7 @@ impl ViewNode for BlurNode {
                     view: &output,
                     resolve_target: None,
                     ops: Operations::default(),
+                    depth_slice: None,
                 })],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,

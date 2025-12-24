@@ -29,7 +29,7 @@ pub const NOTIFY_DBUS_MEMBER: &str = "Notify";
 
 structstruck::strike! {
     #[strikethrough[derive(Debug, Clone, Reflect)]]
-    #[derive(Event)]
+    #[derive(Message)]
     pub enum NotifyRequest{
         SendNotify(NotifyData)
     }
@@ -276,7 +276,7 @@ impl std::ops::Deref for NotifyController {
 
 pub fn do_receive_notify(
     dbus: NonSend<DBusController>,
-    mut events: EventReader<NotifyRequest>,
+    mut events: MessageReader<NotifyRequest>,
     mut notify_controller: ResMut<NotifyController>,
 ) {
     while let Ok(request) = notify_controller.rx.try_recv() {

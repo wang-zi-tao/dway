@@ -1,6 +1,6 @@
 #![feature(linked_list_cursors)]
 
-use bevy::{prelude::*, time::TimeSystem};
+use bevy::{prelude::*, time::{TimeSystem, TimeSystems}};
 use bevy_relationship::{relationship, AppExt};
 use dway_server::{macros::DWayServerSet::UpdateGeometry, schedule::DWayServerSet};
 use dway_util::tokio::TokioPlugin;
@@ -40,7 +40,6 @@ pub enum DWayClientSystem {
     UpdateUI,
     DestroyComponent,
     Destroy,
-    DestroyFlush,
     ToServer,
 }
 
@@ -82,7 +81,7 @@ impl Plugin for DWayClientPlugin {
         if !app.is_plugin_added::<TokioPlugin>() {
             app.add_plugins(TokioPlugin::default());
         }
-        app.configure_sets(FixedFirst, UpdateSystemInfo.after(TimeSystem));
+        app.configure_sets(FixedFirst, UpdateSystemInfo.after(TimeSystems));
         app.configure_sets(
             PreUpdate,
             (
@@ -114,7 +113,6 @@ impl Plugin for DWayClientPlugin {
             (
                 DestroyComponent,
                 Destroy,
-                DestroyFlush,
                 ToServer.before(DWayServerSet::EndPreUpdate),
             )
                 .chain()
@@ -122,7 +120,6 @@ impl Plugin for DWayClientPlugin {
                 .ambiguous_with_all(),
         );
 
-        app.add_systems(PostUpdate, apply_deferred.in_set(DestroyFlush));
         app.add_plugins((
             model::DWayClientModelPlugin,
             controller::ControllerPlugin::default(),

@@ -35,7 +35,7 @@ pub struct AsyncWorldContext {
 }
 
 impl AsyncWorldContext {
-    pub async fn wait_observer<E: Event, F>(&self, entity: Entity, filter: F) -> bool
+    pub async fn wait_observer<E: EntityEvent, F>(&self, entity: Entity, filter: F) -> bool
     where
         F: Fn(&E) -> bool + Send + Sync + 'static,
     {
@@ -47,7 +47,7 @@ impl AsyncWorldContext {
                 world
                     .commands()
                     .entity(entity)
-                    .observe(move |trigger: Trigger<E, ()>| {
+                    .observe(move |trigger: On<E>| {
                         if filter(trigger.event()) {
                             if let Some(tx) = tx.take() {
                                 let _ = tx.send(());
@@ -62,7 +62,7 @@ impl AsyncWorldContext {
         rx.await.is_ok()
     }
 
-    pub async fn listen_observer<E: Event + Clone, F>(
+    pub async fn listen_observer<E: EntityEvent + Clone, F>(
         &self,
         entity: Entity,
     ) -> tokio::sync::mpsc::Receiver<E>
@@ -74,7 +74,7 @@ impl AsyncWorldContext {
             world
                 .commands()
                 .entity(entity)
-                .observe(move |trigger: Trigger<E, ()>| {
+                .observe(move |trigger: On<E>| {
                     let _ = tx.send(trigger.event().clone());
                 });
         }));

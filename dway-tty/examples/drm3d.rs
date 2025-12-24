@@ -138,12 +138,12 @@ pub fn animate_cube(time: Res<Time>, mut query: Query<&mut Transform, With<Mesh3
 }
 
 pub fn input_event_system(
-    mut keyboard_event: EventReader<KeyboardInput>,
-    mut exit: EventWriter<AppExit>,
+    mut keyboard_event: MessageReader<KeyboardInput>,
+    mut exit: MessageWriter<AppExit>,
 ) {
     for event in keyboard_event.read() {
         if event.key_code == KeyCode::Escape {
-            exit.send(AppExit::Success);
+            exit.write(AppExit::Success);
         }
         info!("receive keyboard input: {:?}", event);
     }

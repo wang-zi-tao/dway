@@ -6,7 +6,6 @@ use crate::prelude::*;
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DWayStartSet {
     CreateDisplay,
-    CreateDisplayFlush,
     Spawn,
 }
 
@@ -57,7 +56,6 @@ impl Plugin for DWayServerSchedulePlugin {
             Startup,
             (
                 DWayStartSet::CreateDisplay,
-                DWayStartSet::CreateDisplayFlush,
                 DWayStartSet::Spawn,
             )
                 .before(EndPreUpdate)
@@ -121,11 +119,6 @@ impl Plugin for DWayServerSchedulePlugin {
             )
                 .chain()
                 .ambiguous_with_all(),
-        );
-
-        app.add_systems(
-            Startup,
-            apply_deferred.in_set(DWayStartSet::CreateDisplayFlush),
         );
     }
 }

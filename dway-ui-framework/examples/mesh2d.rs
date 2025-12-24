@@ -3,7 +3,7 @@ use std::time::Duration;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    sprite::Material2d,
+    sprite_render::Material2d,
 };
 use dway_ui_derive::color;
 use dway_ui_framework::{

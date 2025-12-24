@@ -3,7 +3,10 @@ use std::{
     io::{self, Read, Write},
     os::{
         fd::{AsRawFd, IntoRawFd, RawFd},
-        unix::{net::{UnixListener, UnixStream}, process::CommandExt},
+        unix::{
+            net::{UnixListener, UnixStream},
+            process::CommandExt,
+        },
     },
     process::Child,
     sync::{Arc, Mutex, Weak},
@@ -143,8 +146,7 @@ impl XWaylandDisplay {
                 return Err(e.into());
             }
         };
-        entity_mut.insert(client::Client::new(&client));
-        entity_mut.set_parent(dway_entity);
+        entity_mut.insert((client::Client::new(&client), ChildOf(dway_entity)));
 
         let this = Self {
             display_number,

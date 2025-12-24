@@ -83,7 +83,7 @@ impl ListViewTrait for ListView {
 
     fn remove(&mut self, mut commands: EntityCommands, item_index: usize) {
         if let Some(entity) = self.items.remove(&item_index) {
-            commands.commands().entity(entity).despawn_recursive();
+            commands.commands().entity(entity).despawn();
         }
     }
 

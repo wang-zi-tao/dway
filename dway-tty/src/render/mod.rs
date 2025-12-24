@@ -4,7 +4,7 @@ pub mod vulkan;
 use anyhow::{anyhow, Error, Result};
 use ash::vk;
 use bevy::{
-    ecs::entity::EntityHashMap,
+    ecs::{entity::EntityHashMap, relationship::Relationship as _},
     platform::collections::{hash_map::Entry, HashMap},
     prelude::*,
     render::{
@@ -16,13 +16,13 @@ use bevy::{
         texture::GpuImage,
         Extract, Render, RenderApp, RenderSet,
     },
-    ui::ExtractedUiItem,
+    ui_render::ExtractedUiItem,
 };
 use drm::control::framebuffer;
 use drm_fourcc::DrmFormat;
 use dway_util::temporary::TemporaryEntity;
 use tracing::{span, Level};
-use wgpu::core::hal_api::HalApi;
+use wgpu_core::hal_api::HalApi;
 use wgpu_hal::api::Gles;
 
 use self::gles::GlesRenderFunctions;
@@ -95,7 +95,7 @@ impl Plugin for TtyRenderPlugin {
                 .add_systems(ExtractSchedule, extract_drm_surfaces)
                 .add_systems(
                     Render,
-                    (init_render, apply_deferred)
+                    init_render
                         .run_if(run_once)
                         .in_set(RenderSet::PrepareResources),
                 )
@@ -167,12 +167,9 @@ impl<R: TtyRender> TtySwapchains<R> {
 pub fn init_render(render_device: Res<RenderDevice>, mut commands: Commands) {
     let device = render_device.wgpu_device();
     unsafe {
-        let finish = device
-            .as_hal::<Gles, _, _>(|hal_device| {
-                let Some(hal_device) = hal_device else {
-                    return false;
-                };
-                match gles::GlTtyRender::new(hal_device) {
+        let finish = {
+            if let Some(hal_device) = device.as_hal::<Gles>() {
+                match gles::GlTtyRender::new(&hal_device) {
                     Err(e) => {
                         error!("failed to create render with gles: {e}");
                         false
@@ -186,7 +183,11 @@ pub fn init_render(render_device: Res<RenderDevice>, mut commands: Commands) {
                         true
                     }
                 }
-            });
+            } else {
+                false
+            }
+        };
+
         if !finish {
             panic!("failed to create tty render");
         }
@@ -224,13 +225,12 @@ pub fn commit_drm_surface<R: TtyRender>(
             Entry::Occupied(occupied_entry) => occupied_entry.into_mut(),
             Entry::Vacant(vacant_entry) => {
                 let result = unsafe {
-                    render_device
-                        .wgpu_device()
-                        .as_hal::<R::Api, _, _>(|hal_device| {
-                            let hal_device =
-                                hal_device.ok_or_else(|| TtyRenderError::BackendIsNotEGL)?;
-                            render.create_swapchain(hal_device, drm_surface, drm, gbm)
-                        })
+                    let Some(hal_device) = render_device.wgpu_device().as_hal::<R::Api>() else {
+                        error!("wgpu backend is not valid");
+                        continue;
+                    };
+
+                    render.create_swapchain(&hal_device, drm_surface, drm, gbm)
                 };
 
                 match result {
@@ -243,28 +243,29 @@ pub fn commit_drm_surface<R: TtyRender>(
             }
         };
 
-        if let Err(e) = unsafe {
-            render_device
+        if let Err(e) = (|| unsafe {
+            let hal_device = render_device
                 .wgpu_device()
-                .as_hal::<R::Api, _, _>(|hal_device| {
-                    let hal_device = hal_device.ok_or_else(|| TtyRenderError::BackendIsNotEGL)?;
-                    let mut surface = render.acquire_surface(hal_device, swapchain)?;
+                .as_hal::<R::Api>()
+                .ok_or_else(|| TtyRenderError::BackendIsNotEGL)?;
 
-                    let gpu_image = render_images
-                        .get(drm_surface.image.id())
-                        .ok_or_else(|| anyhow!("surface image not found"))?;
+            let mut surface = render.acquire_surface(&hal_device, swapchain)?;
 
-                    gpu_image.texture.as_hal::<R::Api, _, _>(|hal_texture| {
-                        let hal_texture =
-                            hal_texture.ok_or_else(|| TtyRenderError::HalTextureIsInvalid)?;
-                        render.copy_image(hal_device, &mut surface, hal_texture)
-                    })?;
+            let gpu_image = render_images
+                .get(drm_surface.image.id())
+                .ok_or_else(|| anyhow!("surface image not found"))?;
 
-                    render.commit(swapchain, &mut surface, drm_surface, drm)?;
+            let hal_texture = gpu_image
+                .texture
+                .as_hal::<R::Api>()
+                .ok_or_else(|| TtyRenderError::HalTextureIsInvalid)?;
 
-                    render.discard_surface(hal_device, surface)
-                })
-        } {
+            render.copy_image(&hal_device, &mut surface, &hal_texture)?;
+
+            render.commit(swapchain, &mut surface, drm_surface, drm)?;
+
+            render.discard_surface(&hal_device, surface)
+        })() {
             error!("failed to commit drm surface: {e}");
             continue;
         }

@@ -213,6 +213,7 @@ impl<'l> egui_dock::TabViewer for InspectorTabViewer<'l> {
                     .filter(|archetype| {
                         archetype
                             .components()
+                            .iter()
                             .any(|comp| components.contains(&comp))
                     })
                     .map(|a| a.id())
@@ -351,11 +352,12 @@ fn on_mouse_event(
         &mut UiPickingState,
         &GlobalTransform,
         &ComputedNode,
-        &ComputedNodeTarget,
+        &ComputedUiTargetCamera,
     )>,
     node_stack: Res<UiStack>,
 ) {
-    let Ok((mut state, widget_transform, widget_node, widget_camera)) = state.get_mut(event.receiver())
+    let Ok((mut state, widget_transform, widget_node, widget_camera)) =
+        state.get_mut(event.receiver())
     else {
         return;
     };

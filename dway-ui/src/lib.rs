@@ -12,7 +12,7 @@ pub mod reexport {
 
 use bevy::{
     math::FloatOrd,
-    render::camera::{ImageRenderTarget, RenderTarget},
+    camera::{ImageRenderTarget, RenderTarget},
     window::WindowRef,
 };
 use bevy_svg::SvgPlugin;

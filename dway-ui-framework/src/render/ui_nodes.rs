@@ -17,7 +17,7 @@ use bevy::{
     math::FloatOrd,
     platform::collections::HashMap,
     render::{
-        globals::GlobalsBuffer,
+        globals::{GlobalsBuffer, GlobalsUniform},
         render_asset::{RenderAssetPlugin, RenderAssets},
         render_phase::{
             AddRenderCommand, DrawFunctionId, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
@@ -25,20 +25,22 @@ use bevy::{
             ViewSortedRenderPhases,
         },
         render_resource::{
-            BindGroup, BindGroupEntries, BindGroupLayout, BufferUsages, IndexFormat, PipelineCache,
-            RawBufferVec, SpecializedRenderPipelines,
+            binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
+            BindGroupLayoutEntries, BufferUsages, IndexFormat, PipelineCache, RawBufferVec,
+            SpecializedRenderPipelines,
         },
         renderer::{RenderDevice, RenderQueue},
         sync_world::MainEntity,
-        view::{ExtractedView, ViewUniformOffset, ViewUniforms},
-        Extract, Render, RenderApp, RenderSet,
+        view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
+        Extract, Render, RenderApp, RenderSet, RenderStartup,
     },
-    ui::{
-        stack_z_offsets, PreparedUiMaterial, TransparentUi, UiCameraMap, UiCameraView,
-        UiMaterialPipeline,
+    ui_render::{
+        init_ui_material_pipeline, stack_z_offsets, PreparedUiMaterial, TransparentUi, UiCameraMap,
+        UiCameraView, UiMaterialPipeline,
     },
 };
 use bytemuck::{Pod, Zeroable};
+use wgpu::ShaderStages;
 
 use crate::prelude::*;
 
@@ -50,7 +52,6 @@ pub const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
     Vec3::new(0.5, 0.5, 0.0),
     Vec3::new(-0.5, 0.5, 0.0),
 ];
-
 
 pub struct UiNodeRenderPlugin;
 impl Plugin for UiNodeRenderPlugin {
@@ -87,6 +88,7 @@ impl<M: UiMaterial<Data = ()>> Plugin for UiMaterialPlugin<M> {
             render_app
                 .add_render_command::<TransparentUi, DrawUiMaterial<M>>()
                 .init_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
+                .add_systems(RenderStartup, init_ui_material_pipeline::<M>)
                 .add_systems(ExtractSchedule, extract_ui_nodes::<M>)
                 .add_systems(Render, queue_ui_nodes::<M>.in_set(RenderSet::Queue));
         }
@@ -94,8 +96,6 @@ impl<M: UiMaterial<Data = ()>> Plugin for UiMaterialPlugin<M> {
 
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<UiMaterialPipeline<M>>();
-
             let pipeline = UnTypedUiPipeline::from_world::<M>(render_app.world_mut());
             {
                 let mut untyped_pipelines = render_app
@@ -159,7 +159,7 @@ pub fn extract_ui_nodes<M: UiMaterial>(
             Ref<ComputedNode>,
             Ref<GlobalTransform>,
             Ref<InheritedVisibility>,
-            Ref<ComputedNodeTarget>,
+            Ref<ComputedUiTargetCamera>,
             Ref<MaterialNode<M>>,
             Option<Ref<CalculatedClip>>,
         )>,
@@ -199,7 +199,7 @@ pub fn extract_ui_nodes<M: UiMaterial>(
         {
             extracted_node_component.stack_index = stack_index;
             if transform.is_changed() {
-                extracted_node_component.transform = transform.compute_matrix();
+                extracted_node_component.transform = transform.to_matrix();
             }
             if computed_node.is_changed() {
                 extracted_node_component.rect = Rect {
@@ -224,7 +224,7 @@ pub fn extract_ui_nodes<M: UiMaterial>(
         } else {
             let extracted_node = ExtractedNode {
                 stack_index,
-                transform: transform.compute_matrix(),
+                transform: transform.to_matrix(),
                 rect: Rect {
                     min: Vec2::ZERO,
                     max: computed_node.size(),
@@ -286,10 +286,21 @@ impl UnTypedUiPipeline {
     pub fn from_world<M: UiMaterial<Data = ()>>(world: &mut World) -> Self {
         let draw_functions = world.resource::<DrawFunctions<TransparentUi>>();
         let draw_function = draw_functions.read().id::<DrawUiMaterial<M>>();
-        let pipeline = world.resource::<UiMaterialPipeline<M>>();
+        let render_device = world.resource::<RenderDevice>();
+
+        let view_layout = render_device.create_bind_group_layout(
+            "ui_view_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::VERTEX_FRAGMENT,
+                (
+                    uniform_buffer::<ViewUniform>(true),
+                    uniform_buffer::<GlobalsUniform>(false),
+                ),
+            ),
+        );
 
         Self {
-            view_layout: pipeline.view_layout.clone(),
+            view_layout,
             draw_function,
         }
     }
@@ -556,7 +567,7 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
     fn render<'w>(
         item: &P,
         _view: (),
-        _: Option<ROQueryItem<'_, Self::ItemQuery>>,
+        _: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
         (materials, batches): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

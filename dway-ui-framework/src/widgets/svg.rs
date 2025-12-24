@@ -1,4 +1,4 @@
-use bevy::ecs::{component::HookContext, entity::EntityHashSet, world::DeferredWorld};
+use bevy::ecs::{entity::EntityHashSet, world::DeferredWorld};
 use bevy_svg::prelude::Svg;
 
 use crate::{

@@ -50,7 +50,7 @@ impl Dispatch<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, Entity> for DWay {
                         init_feedback(world, &o);
                         DmabufFeedback::new(o)
                     }))
-                    .set_parent(*data)
+                    .insert(ChildOf(*data))
                     .id();
                 state.connect::<DmaBufferHasFeedback>(entity, *data);
             }
@@ -72,6 +72,7 @@ impl Dispatch<zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1, Entity> for DWay {
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

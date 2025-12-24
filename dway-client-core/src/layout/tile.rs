@@ -184,8 +184,12 @@ pub fn update_tile_layout(
             );
             let slot_geo = Geometry::new(slot_rect);
             let slot_entity = commands
-                .spawn((Slot, global_geometry.add(&slot_geo), slot_geo))
-                .set_parent(entity)
+                .spawn((
+                    Slot,
+                    global_geometry.add(&slot_geo),
+                    slot_geo,
+                    ChildOf(entity),
+                ))
                 .id();
             commands.queue(ConnectCommand::<WorkspaceHasSlot>::new(entity, slot_entity));
         }

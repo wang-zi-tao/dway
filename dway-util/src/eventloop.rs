@@ -398,7 +398,7 @@ fn on_frame_begin(world: &mut World) {
     }
 }
 
-fn on_frame_finish(mut poller: NonSendMut<Poller>, exit: EventReader<AppExit>) {
+fn on_frame_finish(mut poller: NonSendMut<Poller>, exit: MessageReader<AppExit>) {
     let quit = !exit.is_empty();
     poller.send(PollerRequest {
         quit,

@@ -1,14 +1,11 @@
+use bevy::ecs::relationship::Relationship as _;
+
 use self::window::XWindowSurfaceRef;
 use super::*;
 use crate::{
-    geometry::{Geometry, GlobalGeometry},
-    input::grab::{StartGrab, WlSurfacePointerState},
-    prelude::*,
-    wl::surface::ClientHasSurface,
-    xdg::{
-        toplevel::{DWayToplevel, PinedWindow},
-        DWayWindow,
-    },
+    events::Insert, geometry::{Geometry, GlobalGeometry}, input::grab::{StartGrab, WlSurfacePointerState}, prelude::*, wl::surface::ClientHasSurface, xdg::{
+        DWayWindow, toplevel::{DWayToplevel, PinedWindow}
+    }
 };
 
 graph_query!(
@@ -22,9 +19,9 @@ XWindowGraph=>[
 });
 
 pub fn process_window_action_events(
-    mut events: EventReader<WindowAction>,
+    mut events: MessageReader<WindowAction>,
     mut query_graph: XWindowGraph,
-    mut start_grab_events: EventWriter<StartGrab>,
+    mut start_grab_events: MessageWriter<StartGrab>,
 ) {
     for event in events.read() {
         match (|| {
@@ -107,7 +104,7 @@ pub fn process_window_action_events(
                                 return ControlFlow::<()>::default();
                             }
                             let mouse_pos = surface_pointer_state.mouse_pos;
-                            start_grab_events.send(StartGrab::Move {
+                            start_grab_events.write(StartGrab::Move {
                                 surface: *e,
                                 seat: *seat_entity,
                                 serial: None,
@@ -125,7 +122,7 @@ pub fn process_window_action_events(
                             if pinned.is_some() {
                                 return ControlFlow::<()>::default();
                             }
-                            start_grab_events.send(StartGrab::Resizing {
+                            start_grab_events.write(StartGrab::Resizing {
                                 surface: *e,
                                 seat: *seat_entity,
                                 edges: *edges,
@@ -149,7 +146,7 @@ pub fn process_window_action_events(
 }
 
 pub fn update_xwindow_surface(
-    mut events: EventReader<XWindowChanged>,
+    mut events: MessageReader<XWindowChanged>,
     mut surface_query: Query<&mut DWayToplevel, With<DWayWindow>>,
     xwindow_query: Query<&XWindow>,
 ) {
@@ -176,7 +173,7 @@ pub fn update_xwindow_surface(
 }
 
 pub fn x11_window_attach_wl_surface(
-    mut event_reader: EventReader<XWindowAttachSurfaceRequest>,
+    mut event_reader: MessageReader<XWindowAttachSurfaceRequest>,
     mut xwindow_query: Query<(
         Entity,
         &mut XWindow,
@@ -187,7 +184,7 @@ pub fn x11_window_attach_wl_surface(
     )>,
     xdisplay_query: Query<(&XWaylandDisplayWrapper, &ChildOf)>,
     wl_query: Query<&DWayServer>,
-    mut event_writter: EventWriter<Insert<DWayWindow>>,
+    mut event_writter: MessageWriter<Insert<DWayWindow>>,
     mut commands: Commands,
 ) {
     let mut iter = xwindow_query.iter_many_mut(event_reader.read().map(|e| e.xwindow_entity));
@@ -241,7 +238,7 @@ pub fn x11_window_attach_wl_surface(
                     ..Default::default()
                 });
             }
-            event_writter.send(Insert::new(wl_surface_entity));
+            event_writter.write(Insert::new(wl_surface_entity));
             commands.entity(xwindow_entity).insert(MappedXWindow);
             debug!(
                 "xwindow {:?} attach wl_surface {:?}",

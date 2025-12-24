@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 use bevy::ecs::query::{QueryData, QueryItem};
-
 use super::{ease::AnimationEaseMethod, AnimationEvent, AnimationEventDispatcher};
 use crate::{prelude::*, util::modify_component_or_insert};
 

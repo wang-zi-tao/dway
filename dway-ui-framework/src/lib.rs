@@ -33,7 +33,7 @@ pub mod reexport {
 }
 
 use animation::AnimationEvent;
-use bevy::{render::view::VisibilitySystems, ui::UiSystem};
+use bevy::{camera::visibility::VisibilitySystems, ui::UiSystem};
 use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_svg::{prelude::Svg, SvgPlugin};
 pub use dway_ui_derive::*;

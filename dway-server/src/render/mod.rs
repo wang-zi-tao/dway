@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 
 use bevy::{
     core_pipeline::core_2d::graph::{Core2d, Node2d},
-    render::{render_graph::RenderGraphApp, Render, RenderApp, RenderSet},
+    render::{Render, RenderApp, RenderSet, render_graph::RenderGraphExt as _},
 };
 use crossbeam_queue::SegQueue;
 use drm::DmaBackend;

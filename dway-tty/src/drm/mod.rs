@@ -3,59 +3,51 @@ pub mod connectors;
 pub mod planes;
 pub mod surface;
 
-use crate::drm::surface::DrmSurface;
-use crate::failure::DWayTTYError::*;
-use crate::window::create_window;
-use anyhow::anyhow;
-use anyhow::bail;
-use anyhow::Result;
-use bevy::prelude::*;
-use bevy::render::extract_component::ExtractComponent;
-use bevy::render::extract_component::ExtractComponentPlugin;
-use bevy::render::Render;
-use bevy::render::RenderApp;
-use bevy::ui::ui_focus_system;
-use bevy::ui::UiSystem;
-use bevy::platform::collections::HashMap;
+use std::{
+    borrow::Cow,
+    collections::HashSet,
+    io,
+    os::fd::AsFd,
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+};
+
+use anyhow::{anyhow, bail, Result};
+use bevy::{
+    platform::collections::HashMap,
+    prelude::*,
+    render::{
+        extract_component::{ExtractComponent, ExtractComponentPlugin},
+        Render, RenderApp,
+    },
+    ui::{ui_focus_system, UiSystem},
+};
 use double_map::DHashMap;
-use drm::control::FbCmd2Flags;
 use drm::{
     control::{
         atomic::AtomicModeReq, connector, crtc, framebuffer, plane, property, AtomicCommitFlags,
-        Device as DrmControlDevice, PropertyValueSet, ResourceHandle, VblankEvent,
+        Device as DrmControlDevice, FbCmd2Flags, PropertyValueSet, ResourceHandle, VblankEvent,
     },
     Device,
 };
 use drm_ffi::drm_format_modifier_blob;
-use drm_fourcc::DrmFormat;
-use drm_fourcc::DrmFourcc;
-use drm_fourcc::DrmModifier;
-
+use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use gbm::BufferObject;
 use nix::libc;
 use smallvec::SmallVec;
-use std::borrow::Cow;
-use std::io;
-use std::os::fd::AsFd;
-use std::path::Path;
-use std::path::PathBuf;
-use std::{
-    collections::HashSet,
-    sync::{Arc, Mutex},
-};
-use tracing::span;
-use tracing::Level;
+use tracing::{span, Level};
 use udev::Enumerator;
 
-use crate::gbm::GbmDevice;
-use crate::schedule::DWayTTYSet;
-use crate::seat::DeviceFd;
-use crate::seat::SeatState;
-use crate::udev::UDevEvent;
-use crate::udev::UDevMonitor;
-
-use self::camera::DrmCamera;
-use self::connectors::Connector;
+use self::{camera::DrmCamera, connectors::Connector};
+use crate::{
+    drm::surface::DrmSurface,
+    failure::DWayTTYError::*,
+    gbm::GbmDevice,
+    schedule::DWayTTYSet,
+    seat::{DeviceFd, SeatState},
+    udev::{UDevEvent, UDevMonitor},
+    window::create_window,
+};
 
 pub struct GpuManager {
     pub udev: UDevMonitor,
@@ -115,8 +107,10 @@ impl AsFd for DrmDeviceFd {
         self.0.as_fd()
     }
 }
-impl drm::Device for DrmDeviceFd {}
-impl drm::control::Device for DrmDeviceFd {}
+impl drm::Device for DrmDeviceFd {
+}
+impl drm::control::Device for DrmDeviceFd {
+}
 impl DrmDeviceFd {
     pub fn try_with_prop<R, F: FnOnce(property::Info, u64) -> Result<R>, T: ResourceHandle>(
         &self,
@@ -474,7 +468,7 @@ impl ExtractComponent for DrmDevice {
     type QueryFilter = ();
 
     fn extract_component(
-        (drm, gbm): bevy::ecs::query::QueryItem<'_, Self::QueryData>,
+        (drm, gbm): bevy::ecs::query::QueryItem<'_, '_, Self::QueryData>,
     ) -> Option<Self::Out> {
         Some(ExtractedDrmDevice {
             device: drm.clone(),
@@ -482,7 +476,6 @@ impl ExtractComponent for DrmDevice {
         })
     }
 }
-
 
 pub enum DrmConnectorEvent {
     Added(connector::Info),
@@ -652,9 +645,13 @@ pub fn add_connector(
 
     let name = conn.name.clone();
     let window = create_window(&conn, &surface);
-    entity_mut
-        .insert((window, surface, conn, Name::new(name.clone())))
-        .set_parent(drm_entity);
+    entity_mut.insert((
+        window,
+        surface,
+        conn,
+        Name::new(name.clone()),
+        ChildOf(drm_entity),
+    ));
     let entity = entity_mut.id();
     info!("init monitor {:?} at {entity:?}", name);
 }
@@ -746,7 +743,7 @@ pub fn on_udev_event(
                         }
                         DrmConnectorEvent::Removed(info, entity) => {
                             if let Some(entity) = entity {
-                                commands.entity(entity).despawn_recursive();
+                                commands.entity(entity).despawn();
                                 drm_guard
                                     .connectors
                                     .get_mut(&info.handle())
@@ -760,7 +757,7 @@ pub fn on_udev_event(
             UDevEvent::Removed(device) => {
                 if let Some(entity) = udev.device_entity_map.get(&PathBuf::from(device.devpath())) {
                     if drm_query.get(*entity).is_ok() {
-                        commands.entity(*entity).despawn_recursive();
+                        commands.entity(*entity).despawn();
                     }
                 }
             }
@@ -768,7 +765,7 @@ pub fn on_udev_event(
     }
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct DrmEvent {
     pub entity: Entity,
     pub event: drm::control::Event,
@@ -778,7 +775,7 @@ pub struct DrmEvent {
 pub fn recevie_drm_events(
     drm_query: Query<(Entity, &DrmDevice, Option<&Children>)>,
     surface_query: Query<&DrmSurface>,
-    mut events_writer: EventWriter<DrmEvent>,
+    mut events_writer: MessageWriter<DrmEvent>,
 ) {
     drm_query.iter().for_each(|(entity, drm, children)| {
         let events = match drm.fd.receive_events() {
@@ -818,7 +815,7 @@ pub fn recevie_drm_events(
                     debug!("drm event: Unknown({data:?})");
                 }
             }
-            events_writer.send(DrmEvent { entity, event });
+            events_writer.write(DrmEvent { entity, event });
         }
     });
 }
@@ -852,12 +849,11 @@ mod test {
     use bevy::prelude::*;
     use dway_util::eventloop::{EventLoopPlugin, EventLoopPluginMode};
 
+    use super::DrmPlugin;
     use crate::{
         schedule::DWayTtySchedulePlugin, seat::SeatPlugin, test::test_suite_plugins,
         udev::UDevPlugin,
     };
-
-    use super::DrmPlugin;
 
     #[test]
     pub fn test_drm_plugin() {

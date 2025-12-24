@@ -1,4 +1,4 @@
-use bevy::ecs::{component::HookContext, world::DeferredWorld};
+use bevy::ecs::{lifecycle::HookContext, world::DeferredWorld};
 use derive_builder::Builder;
 use dway_ui_framework::render::layer_manager::{LayerKind, LayerRenderArea, RenderToLayer};
 
@@ -40,8 +40,8 @@ pub fn on_insert_panel_popup(mut world: DeferredWorld, context: HookContext) {
     };
 
     let Some(camera_entity) = world
-        .get::<ComputedNodeTarget>(ahchor)
-        .and_then(|c| c.camera())
+        .get::<ComputedUiTargetCamera>(ahchor)
+        .and_then(|c| c.get())
     else {
         warn!("anchor is not a ui node or has no camera");
         return;

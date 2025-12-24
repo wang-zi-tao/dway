@@ -161,7 +161,7 @@ fn on_input_event(
         &UiInputBoxEventDispatcher,
     )>,
     text_node_query: Query<(Ref<ComputedNode>, Ref<TextLayoutInfo>)>,
-    mut input_focus_event: EventWriter<UiFocusEvent>,
+    mut input_focus_event: MessageWriter<UiFocusEvent>,
     mut commands: Commands,
 ) {
     let Ok((
@@ -181,12 +181,12 @@ fn on_input_event(
     match &*event {
         UiInputEvent::MousePress(_) => {
             if *interaction == Interaction::None {
-                input_focus_event.send(UiFocusEvent::FocusLeaveRequest(entity));
+                input_focus_event.write(UiFocusEvent::FocusLeaveRequest(entity));
                 return;
             }
 
             if !focus_state.can_receive_keyboard_input() {
-                input_focus_event.send(UiFocusEvent::FocusEnterRequest(entity));
+                input_focus_event.write(UiFocusEvent::FocusEnterRequest(entity));
                 return;
             }
 
@@ -197,7 +197,7 @@ fn on_input_event(
                 return;
             };
 
-            if relative_pos.mouse_over() {
+            if relative_pos.cursor_over {
                 if let Some(normalized) = relative_pos.normalized {
                     move_cursor(
                         normalized * computed_node.size(),
@@ -336,7 +336,7 @@ fn on_input_event(
                     );
                 }
                 Key::Escape => {
-                    input_focus_event.send(UiFocusEvent::FocusLeaveRequest(entity));
+                    input_focus_event.write(UiFocusEvent::FocusLeaveRequest(entity));
                 }
                 _ => {}
             };
@@ -390,7 +390,7 @@ UiInputBox=>
     Text=(Text::new(state.data()))
     TextFont=(theme.text_font(prop.text_size))
     TextColor=(theme.default_text_color())
-    TextLayout=( TextLayout::new(JustifyText::Left, LineBreak::WordOrCharacter) )
+    TextLayout=( TextLayout::new(Justify::Left, LineBreak::WordOrCharacter) )
 />
 <Node @style="absolute full" @if(*state.show_cursor())>
     <(Node{

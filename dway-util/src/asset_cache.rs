@@ -16,7 +16,7 @@ pub struct AssetCache {
 }
 
 pub fn add_to_cache<A: Asset>(
-    mut events: EventReader<AssetEvent<A>>,
+    mut events: MessageReader<AssetEvent<A>>,
     mut assets: ResMut<Assets<A>>,
     mut cache: ResMut<AssetCache>,
 ) {

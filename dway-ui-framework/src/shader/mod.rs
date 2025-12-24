@@ -11,7 +11,7 @@ use std::{
 };
 
 use bevy::{
-    asset::{io::embedded::EmbeddedAssetRegistry, load_internal_asset},
+    asset::{io::embedded::EmbeddedAssetRegistry, load_internal_asset, uuid_handle},
     ecs::system::{lifetimeless::SRes, SystemParamItem},
     render::{
         render_asset::RenderAssets,
@@ -23,12 +23,13 @@ use bevy::{
             },
             AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindingResources,
             BindingType, BufferBindingType, BufferInitDescriptor, BufferUsages,
-            OwnedBindingResource, RenderPipelineDescriptor, SamplerBindingType, ShaderRef,
-            ShaderStages, ShaderType, TextureSampleType, TextureViewDimension, UnpreparedBindGroup,
+            OwnedBindingResource, RenderPipelineDescriptor, SamplerBindingType, ShaderStages,
+            ShaderType, TextureSampleType, TextureViewDimension, UnpreparedBindGroup,
         },
         renderer::RenderDevice,
         texture::{FallbackImage, GpuImage},
     },
+    shader::ShaderRef,
 };
 use dway_ui_derive::Interpolation;
 
@@ -268,10 +269,9 @@ impl<'l> BindGroupBuilder<'l> {
         Ok(())
     }
 
-    pub fn build(self) -> UnpreparedBindGroup<()> {
+    pub fn build(self) -> UnpreparedBindGroup {
         UnpreparedBindGroup {
             bindings: BindingResources(self.output),
-            data: (),
         }
     }
 
@@ -758,7 +758,7 @@ impl<T: Material> AsBindGroup for ShaderAsset<T> {
         render_device: &RenderDevice,
         (images, fallback_image): &mut SystemParamItem<'_, '_, Self::Param>,
         force_no_bindless: bool,
-    ) -> std::prelude::v1::Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
+    ) -> Result<UnpreparedBindGroup, AsBindGroupError> {
         let mut builder = BindGroupBuilder::new(layout, render_device, images, fallback_image);
         builder.add_uniform_buffer(self)?;
         BuildBindGroup::unprepared_bind_group(&self.render, &mut builder)?;
@@ -775,6 +775,10 @@ impl<T: Material> AsBindGroup for ShaderAsset<T> {
         let mut builder = BindGroupLayoutBuilder::new(render_device);
         <T as BuildBindGroup>::bind_group_layout_entries(&mut builder);
         builder.build()
+    }
+
+    fn bind_group_data(&self) -> Self::Data {
+        ()
     }
 }
 
@@ -832,8 +836,7 @@ impl<T: Material> Plugin for ShaderPlugin<T> {
     }
 }
 
-const FRAMEWORK_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(15628284168829255748903736059973599232);
+const FRAMEWORK_HANDLE: Handle<Shader> = uuid_handle!("8d709f36-e01d-11f0-a0a6-e7ddf390e70c");
 
 pub struct ShaderFrameworkPlugin;
 impl Plugin for ShaderFrameworkPlugin {

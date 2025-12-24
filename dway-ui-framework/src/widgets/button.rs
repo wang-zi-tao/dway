@@ -4,7 +4,7 @@ use crate::{
     theme::{StyleFlags, ThemeComponent, WidgetKind},
 };
 
-#[derive(Event, Debug, Clone, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
 pub enum UiButtonEventKind {
     Pressed,
     Released,

@@ -37,7 +37,7 @@ use crate::{
     zwlr::data_control::device::ZwlrDataControlDevice,
 };
 
-#[derive(Event, Debug)]
+#[derive(Message, Debug)]
 pub enum ClipboardEvent {
     SourceAdded(Entity),
     SourceDeleted(Entity),
@@ -47,7 +47,7 @@ pub enum ClipboardEvent {
     },
 }
 
-#[derive(Debug, Default, Clone, Deref, DerefMut)]
+#[derive(Debug, Default, Reflect, Clone, Deref, DerefMut)]
 pub struct MimeTypeSet(HashSet<String>);
 
 impl MimeTypeSet {
@@ -398,7 +398,7 @@ impl ClipboardManager {
     pub fn receive_data_system(
         this: ResMut<Self>,
         mut record_query: Query<(&mut ClipboardRecord, &mut PasteRequests)>,
-        mut event_writer: EventWriter<ClipboardEvent>,
+        mut event_writer: MessageWriter<ClipboardEvent>,
     ) {
         for message in this.receiver.try_iter() {
             match message {
@@ -408,7 +408,7 @@ impl ClipboardManager {
                     data,
                 } => {
                     debug!(entity=?record_entity,mime_type,"cache clipboard");
-                    event_writer.send(ClipboardEvent::SourceMimeTypeReady {
+                    event_writer.write(ClipboardEvent::SourceMimeTypeReady {
                         record_entity,
                         mime_type: mime_type.clone(),
                     });
@@ -461,7 +461,7 @@ pub trait ClipboardDataDevice: Component + Sized {
 }
 
 pub fn send_selection_system(
-    mut event_reader: EventReader<ClipboardEvent>,
+    mut event_reader: MessageReader<ClipboardEvent>,
     record_query: Query<&ClipboardRecord>,
     device_query: Query<
         (

@@ -49,11 +49,11 @@ PopupUI=>
     <(ImageNode::new(state.image().clone())) @id="content"
         Node=(irect_to_style(*state.bbox_rect())) FocusPolicy=(FocusPolicy::Block) />
     <(irect_to_style(*state.rect())) >
-        <Node @id="mouse_area"
-            Node=({
+        <({
                 let distant = if *state.grab() { 16384.0 } else { 4.0 };
                 style!("absolute left-{-distant} top-{-distant} right-{-distant} bottom-{-distant}")
             })
+            @id="mouse_area"
             SurfaceUiNode=(SurfaceUiNode::new(prop.window_entity,widget.node_content_entity).with_grab(*state.grab()))
             Interaction FocusPolicy=(FocusPolicy::Pass)
         />

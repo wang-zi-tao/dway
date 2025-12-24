@@ -44,12 +44,12 @@ pub fn setup(mut commands: Commands){
 }
 
 pub fn input_event_system(
-    mut move_events: EventReader<MouseMotion>,
-    mut whell_event: EventReader<MouseWheel>,
-    mut button_event: EventReader<MouseButtonInput>,
-    mut keyboard_event: EventReader<KeyboardInput>,
+    mut move_events: MessageReader<MouseMotion>,
+    mut whell_event: MessageReader<MouseWheel>,
+    mut button_event: MessageReader<MouseButtonInput>,
+    mut keyboard_event: MessageReader<KeyboardInput>,
 
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
 ) {
 
     for event in move_events.read() {
@@ -63,7 +63,7 @@ pub fn input_event_system(
     }
     for event in keyboard_event.read() {
         if event.key_code == KeyCode::Escape {
-            exit.send(AppExit::Success);
+            exit.write(AppExit::Success);
         }
         info!("{event:?}");
     }

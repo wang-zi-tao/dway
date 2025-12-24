@@ -139,9 +139,9 @@ mod test {
             .add_plugins(DWayTTYPlugin::default());
         app.add_systems(
             Last,
-            |frame: Res<FrameCount>, mut exit: EventWriter<AppExit>| {
+            |frame: Res<FrameCount>, mut exit: MessageWriter<AppExit>| {
                 if frame.0 > 2 {
-                    exit.send_default();
+                    exit.write_default();
                 }
             },
         );
@@ -159,6 +159,7 @@ mod test {
                 level: Level::INFO,
                 filter: "".to_string(),
                 custom_layer: log_layer,
+                ..Default::default()
             })
     }
 }

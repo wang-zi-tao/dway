@@ -228,7 +228,7 @@ impl Animation {
 pub fn update_animation_system(
     mut query: Query<(Entity, &mut Animation, &EventDispatcher<AnimationEvent>)>,
     time: Res<Time>,
-    mut redraw_request: EventWriter<RequestRedraw>,
+    mut redraw_request: MessageWriter<RequestRedraw>,
     mut commands: Commands,
 ) {
     let mut play = false;
@@ -267,7 +267,7 @@ pub fn update_animation_system(
         animation.clock.duration = duration;
     }
     if play {
-        redraw_request.send(RequestRedraw);
+        redraw_request.write(RequestRedraw);
     }
 }
 
@@ -303,6 +303,6 @@ impl Plugin for AnimationPlugin {
         .register_component_as::<dyn DestroyInterceptor, translation::UiTranslationAnimation>()
         .register_callback(ui::popup_open_drop_down)
         .register_callback(ui::popup_open_close_up)
-        .register_callback(ui::despawn_recursive_on_animation_finish);
+        .register_callback(ui::despawn_on_animation_finish);
     }
 }

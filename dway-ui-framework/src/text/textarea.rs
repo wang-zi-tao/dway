@@ -1,4 +1,4 @@
-use bevy::ecs::{component::HookContext, world::DeferredWorld};
+use bevy::ecs::world::DeferredWorld;
 
 use crate::prelude::*;
 
@@ -36,7 +36,7 @@ pub fn on_insert_text_area(mut world: DeferredWorld, context: HookContext) {
         let text_entity = world
             .commands()
             .spawn((
-                Node{
+                Node {
                     position_type: PositionType::Absolute,
                     ..Default::default()
                 },
@@ -46,8 +46,8 @@ pub fn on_insert_text_area(mut world: DeferredWorld, context: HookContext) {
                     font_size,
                     ..Default::default()
                 },
+                ChildOf(entity),
             ))
-            .set_parent(entity)
             .id();
         let mut textarea = world.get_mut::<UiTextArea>(entity).unwrap();
         textarea.text_entity = text_entity;

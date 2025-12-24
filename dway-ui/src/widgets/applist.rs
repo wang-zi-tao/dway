@@ -23,7 +23,7 @@ fn click_app(
     event: UiEvent<UiButtonEvent>,
     query: Query<(&AppListUISubStateList, &AppListUISubWidgetList)>,
     mut commands: Commands,
-    mut launch_event: EventWriter<LaunchAppRequest>,
+    mut launch_event: MessageWriter<LaunchAppRequest>,
     key_input: Res<ButtonInput<KeyCode>>,
 ) {
     let Ok((state, widget)) = query.get(event.receiver()) else {
@@ -56,7 +56,7 @@ fn click_app(
                     ));
                 });
         } else {
-            launch_event.send(LaunchAppRequest::new(widget.data_entity));
+            launch_event.write(LaunchAppRequest::new(widget.data_entity));
         }
     }
 }

@@ -23,11 +23,11 @@ fn on_launch(
         &DockLauncherUISubWidgetAppList,
     )>,
     mut popup_query: Query<&mut UiPopup>,
-    mut event_writer: EventWriter<LaunchAppRequest>,
+    mut event_writer: MessageWriter<LaunchAppRequest>,
 ) {
     if event.kind == UiButtonEventKind::Released {
         let (state, widget) = widget_qeury.get(event.receiver()).unwrap();
-        event_writer.send(LaunchAppRequest::new(widget.data_entity));
+        event_writer.write(LaunchAppRequest::new(widget.data_entity));
 
         if let Some(mut popup) = state.popup.and_then(|e| popup_query.get_mut(e).ok()) {
             popup.request_close();

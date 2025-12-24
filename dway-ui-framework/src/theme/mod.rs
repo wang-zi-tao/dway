@@ -5,12 +5,7 @@ use std::{any::TypeId, fmt::Debug, hash::Hash, sync::Arc};
 
 use bevy::{
     app::DynEq,
-    ecs::{
-        component::{ComponentId, HookContext},
-        label::DynHash,
-        query::QueryData,
-        world::DeferredWorld,
-    },
+    ecs::{component::ComponentId, label::DynHash, query::QueryData, world::DeferredWorld},
     platform::collections::HashMap,
 };
 use bevy_svg::prelude::Svg;

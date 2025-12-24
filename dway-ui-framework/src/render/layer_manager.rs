@@ -1,24 +1,18 @@
 use bevy::{
-    asset::load_internal_asset,
+    asset::{load_internal_asset, uuid_handle, RenderAssetUsages},
+    camera::{ImageRenderTarget, NormalizedRenderTarget, RenderTarget},
     ecs::{
-        component::{ComponentId, HookContext},
-        entity::EntityHashSet,
-        query::QueryData,
         system::{EntityCommand, SystemParam},
         world::DeferredWorld,
     },
     math::FloatOrd,
+    mesh::{Indices, PrimitiveTopology},
     platform::collections::HashMap,
     reflect::List,
-    render::{
-        camera::{ImageRenderTarget, NormalizedRenderTarget, RenderTarget},
-        mesh::{Indices, PrimitiveTopology},
-        render_asset::RenderAssetUsages,
-        render_resource::{
-            encase::internal::{BufferMut, Writer},
-            AsBindGroupError, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
-            TextureUsages,
-        },
+    render::render_resource::{
+        encase::internal::{BufferMut, Writer},
+        AsBindGroupError, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureUsages,
     },
     transform::components::Transform,
     ui::{ui_focus_system, UiSystem},
@@ -264,8 +258,8 @@ impl LayerRef {
                     background_size: Default::default(),
                 },
                 SetWindowTarget(None),
+                ChildOf(manager_entity),
             ))
-            .set_parent(manager_entity)
             .id();
         let background_entity = world
             .commands()
@@ -474,11 +468,9 @@ impl Layer for BlurLayer {
     }
 }
 
-const KWASE_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(48163214082082095667413131907815359807);
+const KWASE_SHADER_HANDLE: Handle<Shader> = uuid_handle!("dc2b97c8-e010-11f0-a744-7bc338dd95d7");
 
-const DUAL_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(318570688117048185338870793837454854575);
+const DUAL_SHADER_HANDLE: Handle<Shader> = uuid_handle!("e5845850-e010-11f0-ad8a-1fe3ebedfc6a");
 
 impl BlurLayer {
     pub fn update_shader(&mut self) {
@@ -685,7 +677,7 @@ pub fn update_layers(
         &InheritedVisibility,
         Ref<ComputedNode>,
         Ref<GlobalTransform>,
-        &ComputedNodeTarget,
+        &ComputedUiTargetCamera,
         Ref<LayerRenderArea>,
     )>,
     mut removed_area: RemovedComponents<LayerRenderArea>,
@@ -707,7 +699,7 @@ pub fn update_layers(
         if !**visibility {
             continue;
         }
-        let Some(layer_camera) = node_camera.camera() else {
+        let Some(layer_camera) = node_camera.get() else {
             continue;
         };
         let layer_usage = layer_rects.entry(layer_camera).or_default();

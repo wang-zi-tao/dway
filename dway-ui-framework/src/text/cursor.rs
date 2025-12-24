@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
 use bevy::{
-    ecs::{component::{ComponentId, HookContext}, world::DeferredWorld},
+    ecs::{component::ComponentId, world::DeferredWorld},
     input::keyboard::Key,
     text::TextLayoutInfo,
     ui::RelativeCursorPosition,
@@ -50,8 +50,8 @@ pub fn on_insert_text_cursor(mut world: DeferredWorld, context: HookContext) {
                     ..Default::default()
                 },
                 BackgroundColor(color),
+                ChildOf(entity),
             ))
-            .set_parent(entity)
             .id();
 
         let mut textcursor = world.get_mut::<UiTextCursor>(entity).unwrap();
@@ -65,7 +65,7 @@ pub fn on_replace_text_cursor(mut world: DeferredWorld, context: HookContext) {
     let cursor_entity = textcursor.cursor_entity;
     world.commands().queue(move |world: &mut World| {
         if let Ok(entity_mut) = world.get_entity_mut(cursor_entity) {
-            entity_mut.despawn_recursive();
+            entity_mut.despawn();
         }
     });
 }
@@ -175,7 +175,7 @@ pub fn text_cursor_on_input_system(
         &ComputedNode,
     )>,
     text_query: Query<&TextLayoutInfo>,
-    mut input_focus_event: EventWriter<UiFocusEvent>,
+    mut input_focus_event: MessageWriter<UiFocusEvent>,
     mut commands: Commands,
 ) {
     let Ok((
@@ -199,7 +199,7 @@ pub fn text_cursor_on_input_system(
     match &*event {
         UiInputEvent::MousePress(_) => {
             if !ui_input.can_receive_keyboard_input() {
-                input_focus_event.send(UiFocusEvent::FocusEnterRequest(entity));
+                input_focus_event.write(UiFocusEvent::FocusEnterRequest(entity));
             }
 
             if let Some(normalized) = relative_pos.normalized {
@@ -257,7 +257,7 @@ pub fn text_cursor_on_input_system(
                     cursor.set_glyph_index(textarea, glyph_index);
                 }
                 Key::Escape => {
-                    input_focus_event.send(UiFocusEvent::FocusLeaveRequest(entity));
+                    input_focus_event.write(UiFocusEvent::FocusLeaveRequest(entity));
                 }
                 _ => {}
             }

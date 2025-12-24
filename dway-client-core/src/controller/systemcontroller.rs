@@ -2,7 +2,7 @@ use system_shutdown::{hibernate, logout, reboot, shutdown, sleep};
 
 use crate::prelude::*;
 
-#[derive(Event)]
+#[derive(Message)]
 pub enum SystemControllRequest {
     Reboot,
     Shutdown,
@@ -11,7 +11,7 @@ pub enum SystemControllRequest {
     Hibernate,
 }
 
-pub fn receive_system_controll_request(mut events: EventReader<SystemControllRequest>) {
+pub fn receive_system_controll_request(mut events: MessageReader<SystemControllRequest>) {
     for event in events.read() {
         match event {
             SystemControllRequest::Reboot => {

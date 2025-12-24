@@ -1,7 +1,6 @@
 use std::any::type_name;
 
 use bevy::ecs::{
-    component::HookContext,
     query::{QueryData, QueryItem},
     system::{
         lifetimeless::{SRes, SResMut},
@@ -715,14 +714,14 @@ impl WidgetInsertObserver<UiPopup> for FlatTheme {
 pub fn update_ui_blur_material(
     mut query: Query<
         (
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &ThemeComponent,
             &mut MaterialNode<ShaderAsset<BlurMaterial>>,
         ),
         (
             With<FlatThemeComponent>,
             Or<(
-                Changed<ComputedNodeTarget>,
+                Changed<ComputedUiTargetCamera>,
                 Added<MaterialNode<ShaderAsset<BlurMaterial>>>,
             )>,
         ),
@@ -736,11 +735,9 @@ pub fn update_ui_blur_material(
             continue;
         };
 
-        let Some(layer) = node_target.camera().and_then(|e| ui_root_query.get(e).ok())
-        else {
+        let Some(layer) = node_target.get().and_then(|e| ui_root_query.get(e).ok()) else {
             continue;
         };
-
 
         let material = RoundedRect::new(theme.block_cornor).with_effect(AddColor::new(
             FillWithLayer {

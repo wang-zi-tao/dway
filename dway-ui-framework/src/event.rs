@@ -6,10 +6,9 @@ use std::{
 
 use bevy::{
     ecs::{
-        component::HookContext,
-        system::{EntityCommand, EntityCommands, IntoObserverSystem, SystemState},
+        event::{EntityTrigger, Trigger}, lifecycle::HookContext, system::{EntityCommand, EntityCommands, IntoObserverSystem, SystemState}
     },
-    platform::collections::{hash_map::Entry, HashMap},
+    platform::collections::{HashMap, hash_map::Entry},
     reflect::List,
 };
 use bevy_relationship::{
@@ -53,7 +52,7 @@ pub enum UiNodeAppearEvent {
     Disappear,
 }
 
-#[derive(Event, Debug)]
+#[derive(Message, Debug)]
 pub struct DespawnLaterEvent {
     pub entity: Entity,
     pub cancel: AtomicBool,
@@ -85,11 +84,25 @@ impl UiNodeAppearEvent {
     }
 }
 
-#[derive(Event, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct UiEvent<E> {
     receiver: Entity,
     sender: Entity,
     event: E,
+}
+
+impl<E: Send + Sync + 'static> Event for UiEvent<E> {
+    type Trigger<'a> = EntityTrigger;
+}
+
+impl<E: Send + Sync + 'static> EntityEvent for UiEvent<E> {
+    fn event_target(&self) -> Entity {
+        self.receiver
+    }
+
+    fn event_target_mut(&mut self) -> &mut Entity {
+        &mut self.receiver
+    }
 }
 
 impl<E> UiEvent<E> {
@@ -257,12 +270,12 @@ impl<E: Clone + Send + Sync + 'static> Component for EventDispatcher<E> {
 
     const STORAGE_TYPE: StorageType = StorageType::Table;
 
-    fn register_component_hooks(hooks: &mut bevy_relationship::reexport::ComponentHooks) {
-        hooks.on_insert(|mut world, context: HookContext| {
+    fn on_insert() -> Option<ComponentHook> {
+        Some(|mut world, context: HookContext| {
             let entity = context.entity;
             let mut dispatcher = world.get_mut::<EventDispatcher<E>>(entity).unwrap();
             dispatcher.this_entity = entity;
-        });
+        })
     }
 }
 
@@ -312,14 +325,11 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
                     }
                 }
                 EventReceiverKind::Trigger(receiver) => {
-                    commands.trigger_targets(
-                        UiEvent {
-                            receiver: *receiver,
-                            event: event.clone(),
-                            sender,
-                        },
-                        *receiver,
-                    );
+                    commands.trigger(UiEvent {
+                        receiver: *receiver,
+                        event: event.clone(),
+                        sender,
+                    });
                 }
                 EventReceiverKind::Trait(receiver) => {
                     trait_entitys.push(*receiver);
@@ -353,14 +363,11 @@ impl<E: Clone + Send + Sync + 'static> EventDispatcher<E> {
         }
 
         if self.run_sender_trigger {
-            commands.trigger_targets(
-                UiEvent {
-                    receiver: sender,
-                    event: event.clone(),
-                    sender,
-                },
+            commands.trigger(UiEvent {
+                receiver: sender,
+                event: event.clone(),
                 sender,
-            );
+            });
         }
 
         if self.run_global_triggers {
@@ -440,8 +447,8 @@ where
 
     const STORAGE_TYPE: StorageType = StorageType::Table;
 
-    fn register_component_hooks(hooks: &mut bevy_relationship::reexport::ComponentHooks) {
-        hooks.on_insert(|mut world, context: HookContext| {
+    fn on_insert() -> Option<ComponentHook> {
+        Some(|mut world, context: HookContext| {
             let entity = context.entity;
             let systemid = world
                 .get_resource::<CallbackTypeRegister>()
@@ -452,7 +459,7 @@ where
             } else {
                 error!("EventDispatcher not found for entity: {:?}", entity);
             }
-        });
+        })
     }
 }
 
@@ -572,10 +579,10 @@ app.register_callback({system});
     }
 }
 
-pub fn on_despawn_later_event(mut events: EventReader<DespawnLaterEvent>, mut commands: Commands) {
+pub fn on_despawn_later_event(mut events: MessageReader<DespawnLaterEvent>, mut commands: Commands) {
     for e in events.read() {
         if !e.is_cancelled() {
-            commands.entity(e.entity).despawn_recursive();
+            commands.entity(e.entity).despawn();
         }
     }
 }

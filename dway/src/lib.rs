@@ -31,7 +31,10 @@ use dway_client_core::{
     workspace::{Workspace, WorkspaceBundle, WorkspaceSet},
     DWayClientSetting, OutputType,
 };
-use dway_server::{apps::{icon::LinuxIconSourcePlugin, launchapp::RunCommandRequest}, xdg::DWayWindow};
+use dway_server::{
+    apps::{icon::LinuxIconSourcePlugin, launchapp::RunCommandRequest},
+    xdg::DWayWindow,
+};
 use dway_tty::{DWayTTYPlugin, DWayTTYSettings};
 use dway_ui_framework::diagnostics::UiDiagnosticsPlugin;
 use dway_util::{
@@ -83,9 +86,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     let _pprof_profiler = debug::pprof_profiler();
 
     #[cfg(feature = "debug_render")]
-    let _render_doc_context = {
-        debug::start_render_doc()
-    };
+    let _render_doc_context = { debug::start_render_doc() };
 
     app.configure_schedules(ScheduleBuildSettings {
         ambiguity_detection: LogLevel::Error,
@@ -129,6 +130,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             } else {
                 |_| None
             },
+            fmt_layer: |_| None,
         })
         .set(RenderPlugin {
             render_creation: RenderCreation::Automatic(WgpuSettings {
@@ -141,6 +143,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         })
         .set(AssetPlugin {
             file_path: opts.assets.clone(),
+            unapproved_path_mode: bevy::asset::UnapprovedPathMode::Allow,
             ..Default::default()
         })
         .add_before::<AssetPlugin>(LinuxIconSourcePlugin)
@@ -200,7 +203,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
 
     app.add_plugins((
         FrameTimeDiagnosticsPlugin::default(),
-        EntityCountDiagnosticsPlugin,
+        EntityCountDiagnosticsPlugin::default(),
         UiDiagnosticsPlugin,
     ));
 
@@ -266,7 +269,7 @@ pub fn setup(
     mut commands: Commands,
     mut app_model: ResMut<AppListModel>,
     opts: Res<DWayOption>,
-    mut run_command_request_sender: EventWriter<RunCommandRequest>,
+    mut run_command_request_sender: MessageWriter<RunCommandRequest>,
 ) {
     commands
         .spawn((WorkspaceSet, Name::from("WorkspaceSet")))

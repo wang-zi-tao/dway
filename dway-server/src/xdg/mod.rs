@@ -11,18 +11,11 @@ use self::{
     wm::XdgWmBase,
 };
 use crate::{
-    geometry::{Geometry, GlobalGeometry},
-    input::grab::WlSurfacePointerState,
-    prelude::*,
-    resource::ResourceWrapper,
-    state::{add_global_dispatch, EntityFactory},
-    util::{rect::IRect, serial::next_serial},
-    wl::surface::WlSurface,
-    xdg::{
+    events::Insert, geometry::{Geometry, GlobalGeometry}, input::grab::WlSurfacePointerState, prelude::*, resource::ResourceWrapper, state::{EntityFactory, add_global_dispatch}, util::{rect::IRect, serial::next_serial}, wl::surface::WlSurface, xdg::{
         popup::{XdgPopup, XdgPopupBundle},
         positioner::XdgPositioner,
         toplevel::{DWayToplevel, XdgToplevel},
-    },
+    }
 };
 use bevy_relationship::relationship;
 

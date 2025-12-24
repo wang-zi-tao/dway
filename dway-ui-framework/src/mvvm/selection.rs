@@ -41,7 +41,7 @@ pub enum SelectMode {
     Toggle,
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct SelectItemRequest<Index: IndexTrait> {
     item_entity: Entity,
     container_entity: Entity,
@@ -66,7 +66,7 @@ pub fn update_selection<Index: IndexTrait>(
         (Entity, &mut ItemSelectionInfo<Index>, &Interaction),
         (Without<DontSelect>, Changed<Interaction>),
     >,
-    mut event_writer: EventWriter<SelectItemRequest<Index>>,
+    mut event_writer: MessageWriter<SelectItemRequest<Index>>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
     for (entity, mut view_ref, interaction) in &mut item_query {
@@ -85,7 +85,7 @@ pub fn update_selection<Index: IndexTrait>(
         };
 
         if mouse_release {
-            event_writer.send(SelectItemRequest {
+            event_writer.write(SelectItemRequest {
                 item_entity: entity,
                 container_entity: view_ref.view,
                 index: view_ref.index.clone(),
@@ -98,7 +98,7 @@ pub fn update_selection<Index: IndexTrait>(
 pub fn do_select<Index: IndexTrait>(
     mut item_query: Query<&mut ItemSelectionInfo<Index>>,
     mut container: Query<&mut SelectionModel<Index>>,
-    mut event_reader: EventReader<SelectItemRequest<Index>>,
+    mut event_reader: MessageReader<SelectItemRequest<Index>>,
 ) {
     for event in event_reader.read() {
         let mut set_selected = |entity: Entity, selected: bool| {

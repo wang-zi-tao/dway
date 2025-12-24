@@ -12,7 +12,7 @@ bitflags! {
     }
 }
 
-#[derive(Event, Debug, Reflect)]
+#[derive(Message, Debug, Reflect)]
 pub enum StartGrab {
     Move {
         surface: Entity,

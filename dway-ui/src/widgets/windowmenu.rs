@@ -19,36 +19,36 @@ impl Default for WindowMenu {
 dway_widget! {
 WindowMenu=>
 @plugin{
-    app.register_callback(open_popup); 
+    app.register_callback(open_popup);
     app.register_type::<WindowMenu>();
 }
 @callback{ [UiEvent<UiButtonEvent>]
     fn on_close_button_event(
         event: UiEvent<UiButtonEvent>,
-        mut events: EventWriter<WindowAction>,
+        mut events: MessageWriter<WindowAction>,
     ) {
         if event.kind == UiButtonEventKind::Released{
-            events.send(WindowAction::Close(event.receiver()));
+            events.write(WindowAction::Close(event.receiver()));
         }
     }
 }
 @callback{ [UiEvent<UiButtonEvent>]
     fn on_maximize_button_event(
         event: UiEvent<UiButtonEvent>,
-        mut events: EventWriter<WindowAction>,
+        mut events: MessageWriter<WindowAction>,
     ) {
         if event.kind == UiButtonEventKind::Released{
-            events.send(WindowAction::Maximize(event.receiver()));
+            events.write(WindowAction::Maximize(event.receiver()));
         }
     }
 }
 @callback{ [UiEvent<UiButtonEvent>]
     fn on_minimize_button_event(
         event: UiEvent<UiButtonEvent>,
-        mut events: EventWriter<WindowAction>,
+        mut events: MessageWriter<WindowAction>,
     ) {
         if event.kind == UiButtonEventKind::Released{
-            events.send(WindowAction::Minimize(event.receiver()));
+            events.write(WindowAction::Minimize(event.receiver()));
         }
     }
 }
@@ -74,10 +74,10 @@ pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
                 UiPopup::default(),
                 UiTranslationAnimation::default(),
                 AnimationTargetNodeState(style.clone()),
+                ChildOf(event.receiver()),
             ))
             .with_children(|c| {
                 c.spawn((WindowMenu::default(), style!("h-auto w-auto")));
-            })
-            .set_parent(event.sender());
+            });
     }
 }

@@ -3,6 +3,7 @@ pub mod data_source;
 pub mod dnd;
 pub mod manager;
 
+use bevy::ecs::relationship::Relationship as _;
 use data_offer::WlDataOffer;
 use data_source::WlDataSource;
 use dnd::{DragAndDrop, DragIcon};

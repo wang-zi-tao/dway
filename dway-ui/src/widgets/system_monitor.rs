@@ -38,18 +38,18 @@ PanelSystemMonitor=>
     <Node @style="flex-col">
         <Node Text=(Text::new(format!("CPU {:.0}%",state.global_cpu_usage() * 100.0)))
             TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into())
-            TextLayout=(TextLayout::new_with_justify(JustifyText::Left) ) />
+            TextLayout=(TextLayout::new_with_justify(Justify::Left) ) />
         <Node Text=(Text::new(human_readable_fresequency(*state.global_cpu_frequency())))
             TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into())
-            TextLayout=(TextLayout::new_with_justify(JustifyText::Left) ) />
+            TextLayout=(TextLayout::new_with_justify(Justify::Left) ) />
     </Node>
     <Node @style="flex-col">
         <Node Text=(Text::new(format!("up {}",  human_readable_byte(*state.upload()))))
             TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into())
-            TextLayout=(TextLayout::new_with_justify(JustifyText::Left) ) />
+            TextLayout=(TextLayout::new_with_justify(Justify::Left) ) />
         <Node Text=(Text::new( format!("down {}", human_readable_byte(*state.download()))))
             TextFont=(theme.text_font(12.0)) TextColor=(theme.color("foreground").into())
-            TextLayout=(TextLayout::new_with_justify(JustifyText::Left) ) />
+            TextLayout=(TextLayout::new_with_justify(Justify::Left) ) />
     </Node>
     <Node @style="h-full w-auto"
         @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 8.0))

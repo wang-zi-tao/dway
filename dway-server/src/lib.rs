@@ -72,12 +72,12 @@ impl Plugin for DWayServerPlugin {
             zwp::DmaBufferPlugin,
             apps::DesktopEntriesPlugin,
         ));
-        app.add_systems(Startup, (init_display, apply_deferred).chain());
+        app.add_systems(Startup, init_display);
     }
 }
 pub fn init_display(
     mut commands: Commands,
-    mut event_sender: EventWriter<WaylandDisplayCreated>,
+    mut event_sender: MessageWriter<WaylandDisplayCreated>,
     config: Res<DWayServerConfig>,
     mut poller: NonSendMut<Poller>,
 ) {

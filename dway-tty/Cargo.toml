@@ -22,6 +22,7 @@ glow = {workspace=true}
 bevy = {workspace=true}
 wgpu={workspace=true}
 wgpu-hal={workspace=true}
+wgpu-core={workspace=true}
 libseat = "0.2.1"
 crossbeam = {workspace=true}
 getset = {workspace=true}

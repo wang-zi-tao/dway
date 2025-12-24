@@ -3,14 +3,10 @@ use smart_default::SmartDefault;
 
 use super::{DWayWindow, XdgSurface};
 use crate::{
-    geometry::{set_geometry, Geometry, GlobalGeometry},
-    input::{
+    events::Insert, geometry::{Geometry, GlobalGeometry, set_geometry}, input::{
         grab::{ResizeEdges, StartGrab, WlSurfacePointerState},
         seat::WlSeat,
-    },
-    prelude::*,
-    resource::ResourceWrapper,
-    wl::surface::{ClientHasSurface, WlSurface},
+    }, prelude::*, resource::ResourceWrapper, wl::surface::{ClientHasSurface, WlSurface}
 };
 
 #[derive(Component)]
@@ -275,9 +271,9 @@ pub fn update_window(
 
 pub fn receive_window_action_event(
     mut graph: InputGraph,
-    mut events: EventReader<WindowAction>,
+    mut events: MessageReader<WindowAction>,
     mut window_query: Query<ToplevelWorldQuery, With<DWayWindow>>,
-    mut start_grab_events: EventWriter<StartGrab>,
+    mut start_grab_events: MessageWriter<StartGrab>,
 ) {
     for e in events.read() {
         match e {
@@ -341,7 +337,7 @@ pub fn receive_window_action_event(
                         return;
                     }
                     graph.for_each_pointer_mut_from(*e, |_, (seat_entity, _)| {
-                        start_grab_events.send(StartGrab::Move {
+                        start_grab_events.write(StartGrab::Move {
                             surface: *e,
                             seat: *seat_entity,
                             serial: None,
@@ -359,7 +355,7 @@ pub fn receive_window_action_event(
                     }
                     graph.for_each_pointer_mut_from(*e, |_, (seat_entity, _)| {
                         debug!(entity=?e, "begin resizing {edges:?}");
-                        start_grab_events.send(StartGrab::Resizing {
+                        start_grab_events.write(StartGrab::Resizing {
                             surface: *e,
                             seat: *seat_entity,
                             serial: None,

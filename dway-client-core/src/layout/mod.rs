@@ -156,7 +156,7 @@ pub fn attach_window_to_slot(
         ),
     >,
     mut commands: Commands,
-    window_actions: EventWriter<WindowAction>,
+    window_actions: MessageWriter<WindowAction>,
 ) {
     for (slots, windows, layout_style, tile) in workspace_query.iter() {
         windows

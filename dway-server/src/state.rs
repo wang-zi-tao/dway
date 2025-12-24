@@ -14,7 +14,7 @@ use bevy::{
     ecs::{
         entity::EntityHashSet,
         event::EventCursor,
-        query::{QueryData, QueryEntityError, QueryItem, WorldQuery},
+        query::{QueryData, QueryEntityError, QueryItem, WorldQuery}, relationship::Relationship as _,
     },
     platform::collections::HashMap,
     tasks::IoTaskPool,
@@ -27,6 +27,7 @@ use wayland_server::{DataInit, ListeningSocket, New};
 
 use crate::{
     client::{Client, ClientData, ClientEvents},
+    events::Insert,
     prelude::*,
 };
 
@@ -488,7 +489,7 @@ impl DWay {
     pub fn despawn_tree(&mut self, entity: Entity) {
         if let Ok(entity_mut) = self.get_entity_mut(entity) {
             trace!(?entity, "despawn recursive");
-            entity_mut.despawn_recursive();
+            entity_mut.despawn();
         }
     }
 
@@ -528,11 +529,7 @@ impl DWay {
         self.despawn_tree(entity);
     }
 
-    pub fn with_component<T, F, R>(
-        &self,
-        object: &impl wayland_server::Resource,
-        f: F,
-    ) -> Option<R>
+    pub fn with_component<T, F, R>(&self, object: &impl wayland_server::Resource, f: F) -> Option<R>
     where
         T: Component,
         F: FnOnce(&T) -> R,
@@ -581,7 +578,7 @@ impl DWay {
     pub fn query<B, F, R>(&mut self, entity: Entity, f: F) -> R
     where
         B: QueryData,
-        F: FnOnce(QueryItem<'_, B>) -> R,
+        F: FnOnce(QueryItem<'_, '_, B>) -> R,
     {
         let world = self.world_mut();
         let mut query = world.query::<B>();
@@ -591,7 +588,7 @@ impl DWay {
     pub fn query_foreach<B, F>(&mut self, f: F)
     where
         B: QueryData,
-        F: Fn(QueryItem<'_, B>),
+        F: Fn(QueryItem<'_, '_, B>),
     {
         let world = self.world_mut();
         let mut query = world.query::<B>();
@@ -603,7 +600,7 @@ impl DWay {
     pub fn try_query<B, F, R>(&mut self, entity: Entity, f: F) -> Result<R, QueryEntityError>
     where
         B: QueryData,
-        F: FnOnce(QueryItem<'_, B>) -> R,
+        F: FnOnce(QueryItem<'_, '_, B>) -> R,
     {
         let world = self.world_mut();
         let mut query = world.query::<B>();
@@ -631,15 +628,16 @@ impl DWay {
     ) -> Option<R>
     where
         B: QueryData,
-        F: FnOnce(QueryItem<'_, B>) -> R,
+        F: FnOnce(QueryItem<'_, '_, B>) -> R,
     {
         let world = self.world_mut();
         let entity = Self::get_entity(object);
         let mut query = world.query::<B>();
-        Some(f(query.get_mut(world, entity).ok()?))
+        let item = query.get_mut(world, entity).ok()?;
+        Some(f(item))
     }
 
-    pub fn send_event<T: Event>(&mut self, event: T) {
+    pub fn send_event<T: Message>(&mut self, event: T) {
         let world = self.world_mut();
         world.send_event(event);
     }
@@ -673,18 +671,18 @@ pub fn create_client(
             error!("Error adding wayland client: {}", err);
         }
     }
-    entity_mut.set_parent(display_entity);
+    entity_mut.insert(ChildOf(display_entity));
     let entity = entity_mut.id();
     world.send_event(Insert::<Client>::new(entity));
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct CreateDisplay;
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct WaylandDisplayCreated(pub Entity, pub DisplayHandle);
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct WaylandDisplayDestroyed(pub Entity, pub DisplayHandle);
 
 pub struct DWayStatePlugin;
@@ -697,15 +695,11 @@ impl Plugin for DWayStatePlugin {
         app.add_event::<WaylandDisplayDestroyed>();
         app.add_systems(
             PreUpdate,
-            (
-                on_create_display_event.run_if(on_event::<CreateDisplay>),
-                apply_deferred,
-            )
-                .chain(),
+            on_create_display_event.run_if(on_event::<CreateDisplay>),
         );
         app.add_systems(
             PreUpdate,
-            (dispatch_events, apply_deferred)
+            dispatch_events
                 .run_if(on_event::<DispatchDisplay>)
                 .in_set(DWayServerSet::Dispatch),
         );
@@ -713,9 +707,9 @@ impl Plugin for DWayStatePlugin {
     }
 }
 pub fn on_create_display_event(
-    mut events: EventReader<CreateDisplay>,
+    mut events: MessageReader<CreateDisplay>,
     mut commands: Commands,
-    mut event_sender: EventWriter<WaylandDisplayCreated>,
+    mut event_sender: MessageWriter<WaylandDisplayCreated>,
     config: Res<DWayServerConfig>,
     mut poller: NonSendMut<Poller>,
 ) {
@@ -727,7 +721,7 @@ pub fn on_create_display_event(
 pub fn create_display(
     commands: &mut Commands,
     config: &DWayServerConfig,
-    event_sender: &mut EventWriter<WaylandDisplayCreated>,
+    event_sender: &mut MessageWriter<WaylandDisplayCreated>,
     poller: &mut Poller,
 ) -> Entity {
     let mut entity_command = commands.spawn_empty();
@@ -735,7 +729,7 @@ pub fn create_display(
 
     let dway = DWayServer::new(config, entity, poller);
     let name = Name::new(Cow::Owned(format!("wayland_server@{}", dway.socket_name())));
-    event_sender.send(WaylandDisplayCreated(entity, dway.display.handle()));
+    event_sender.write(WaylandDisplayCreated(entity, dway.display.handle()));
     entity_command.insert((name, DWayServerMark, dway));
     entity
 }
@@ -973,7 +967,7 @@ where
         entity: Entity,
     ) -> Option<bevy::prelude::EntityWorldMut<'_>> {
         let mut entity = self.inner.insert(world, entity)?;
-        entity.set_parent(self.parent);
+        entity.insert(ChildOf( self.parent ));
         Some(entity)
     }
 
@@ -982,7 +976,7 @@ where
         Self: Sized,
     {
         let mut entity_mut = self.inner.spawn(world);
-        entity_mut.set_parent(self.parent);
+        entity_mut.insert(ChildOf( self.parent ));
         entity_mut
     }
 }

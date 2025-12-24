@@ -1,9 +1,5 @@
 use crate::{
-    geometry::{Geometry, GlobalGeometry},
-    prelude::*,
-    resource::ResourceWrapper,
-    util::rect::IRect,
-    xdg::{positioner::XdgPositioner, DWayWindow},
+    events::Insert, geometry::{Geometry, GlobalGeometry}, prelude::*, resource::ResourceWrapper, util::rect::IRect, xdg::{DWayWindow, positioner::XdgPositioner}
 };
 
 use super::{positioner::Positioner, SurfaceHasPopup};

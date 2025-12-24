@@ -2,8 +2,7 @@ use std::ops::Range;
 
 use bevy::{
     ecs::{
-        component::{ComponentId, HookContext},
-        world::DeferredWorld,
+        component::{ComponentId},
     },
     text::TextLayoutInfo,
     ui::{ContentSize, RelativeCursorPosition},
@@ -155,8 +154,8 @@ pub fn on_insert_selection(mut world: DeferredWorld, context: HookContext) {
                 ),
                 ZIndex(crate::widgets::zindex::TEXT_SELECTION),
                 UiRenderOffset(crate::widgets::zoffset::TEXT_SELECTION),
+                ChildOf(entity)
             ))
-            .set_parent(entity)
             .id();
 
         let mut selection = world.get_mut::<UiTextSelection>(entity).unwrap();
@@ -170,7 +169,7 @@ pub fn on_replace_selection(mut world: DeferredWorld, context: HookContext) {
     let path_entity = selection.path_entity;
     world.commands().queue(move |world: &mut World| {
         if let Ok(entity_mut) = world.get_entity_mut(path_entity) {
-            entity_mut.despawn_recursive();
+            entity_mut.despawn();
         }
     });
 }

@@ -30,7 +30,7 @@ pub struct XWaylandBundle {
 
 pub fn launch_xwayland(
     mut display_query: Query<&mut DWayServer>,
-    mut events: EventReader<WaylandDisplayCreated>,
+    mut events: MessageReader<WaylandDisplayCreated>,
     client_events: Res<ClientEvents>,
     poller: NonSendMut<Poller>,
     mut commands: Commands,
@@ -50,7 +50,7 @@ pub fn launch_xwayland(
     }
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct DWayXWaylandReady {
     pub dway_entity: Entity,
 }
@@ -61,7 +61,7 @@ impl DWayXWaylandReady {
     }
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct DWayXWaylandStoped {
     pub dway_entity: Entity,
 }
@@ -79,11 +79,8 @@ impl Plugin for DWayXWaylandPlugin {
         app.add_systems(
             PreUpdate,
             (
-                (
-                    launch_xwayland.run_if(on_event::<WaylandDisplayCreated>),
-                    apply_deferred,
-                )
-                    .chain()
+                launch_xwayland
+                    .run_if(on_event::<WaylandDisplayCreated>)
                     .in_set(DWayServerSet::Create)
                     .after(on_create_display_event),
                 dispatch_x11_events

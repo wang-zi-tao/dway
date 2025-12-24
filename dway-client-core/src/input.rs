@@ -76,7 +76,7 @@ impl FromWorld for GrabManagerSystems {
 }
 
 pub fn on_start_grab_event(
-    mut events: EventReader<StartGrab>,
+    mut events: MessageReader<StartGrab>,
     mut commands: Commands,
     systems: Res<GrabManagerSystems>,
     mut grab_manager: ResMut<GrabManager>,
@@ -125,7 +125,7 @@ pub fn on_start_grab_event(
 }
 
 structstruck::strike! {
-    #[derive(Event,Debug,Clone)]
+    #[derive(Message,Debug,Clone)]
     pub struct SurfaceInputEvent {
         pub surface_entity: Option<Entity>,
         pub mouse_position: Vec2,
@@ -269,7 +269,7 @@ pub struct GrabMoveWindow {
 
 pub fn move_grab(
     In(request): In<GrabRequest>,
-    mut window_action: EventWriter<WindowAction>,
+    mut window_action: MessageWriter<WindowAction>,
     grab_query: Query<&GrabMoveWindow>,
 ) -> GrabResponse {
     let event = &request.event;
@@ -293,7 +293,7 @@ pub fn move_grab(
     match &event.kind {
         GrabRequestKind::Move(cursor_position) => {
             let pos = (cursor_position - mouse_offset + window_geometry.pos().as_vec2()).as_ivec2();
-            window_action.send(WindowAction::SetRect(
+            window_action.write(WindowAction::SetRect(
                 surface_entity,
                 IRect {
                     min: pos,
@@ -320,7 +320,7 @@ pub struct GrabResizeWindow {
 
 pub fn resize_grab(
     In(request): In<GrabRequest>,
-    mut window_action: EventWriter<WindowAction>,
+    mut window_action: MessageWriter<WindowAction>,
     grab_query: Query<&GrabResizeWindow>,
 ) -> GrabResponse {
     let event = &request.event;
@@ -358,7 +358,7 @@ pub fn resize_grab(
             if edges.contains(ResizeEdges::BUTTOM) {
                 geo.max.y = pos.y as i32;
             }
-            window_action.send(WindowAction::SetRect(surface_entity, geo));
+            window_action.write(WindowAction::SetRect(surface_entity, geo));
         }
         GrabRequestKind::Button(mouse_button_input) => {
             if mouse_button_input.state == ButtonState::Released {
@@ -387,7 +387,7 @@ pub fn on_surface_input_event(
 }
 
 pub fn mouse_move_on_window(
-    mut cursor_moved_events: EventReader<CursorMoved>,
+    mut cursor_moved_events: MessageReader<CursorMoved>,
     mut focus: ResMut<CursorOnScreen>,
 ) {
     for event in cursor_moved_events.read() {

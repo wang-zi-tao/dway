@@ -6,6 +6,7 @@ use std::{
     sync::Arc,
 };
 
+use ash::arm::render_pass_striped;
 use bevy::{
     ecs::entity::EntityHashMap,
     prelude::info,
@@ -363,23 +364,22 @@ pub fn create_wgpu_dma_image(
 ) -> Result<(GpuImage, ImportedBuffer), DWayRenderError> {
     unsafe {
         let format = drm_fourcc_to_wgpu_format(request)?;
-        let (hal_texture, image_guard) = device.as_hal::<Gles, _, _>(|hal_device| {
-            let hal_device = hal_device.ok_or_else(|| BackendIsNotEGL)?;
-            let egl_context = hal_device.context();
-            let gl: &glow::Context = &egl_context.lock();
-            let display = egl_context
-                .raw_display()
-                .ok_or_else(|| DisplayNotAvailable)?;
-            debug!(size=?request.size, ?format, "create dma image");
-            let image_guard = create_gles_dma_image(gl, display.as_ptr(), egl_state, request)?;
-            let texture = image_guard.texture;
-            let hal_texture = hal_device.texture_from_raw(
-                texture.0,
-                &hal_texture_descriptor(request.size, format)?,
-                None,
-            );
-            Result::<_, DWayRenderError>::Ok((hal_texture, image_guard))
-        })?;
+
+        let hal_device = device.as_hal::<Gles>().ok_or_else(|| BackendIsNotEGL)?;
+
+        let egl_context = hal_device.context();
+        let gl: &glow::Context = &egl_context.lock();
+        let display = egl_context
+            .raw_display()
+            .ok_or_else(|| DisplayNotAvailable)?;
+        debug!(size=?request.size, ?format, "create dma image");
+        let image_guard = create_gles_dma_image(gl, display.as_ptr(), egl_state, request)?;
+        let texture = image_guard.texture;
+        let hal_texture = hal_device.texture_from_raw(
+            texture.0,
+            &hal_texture_descriptor(request.size, format)?,
+            None,
+        );
         let gpu_image = hal_texture_to_gpuimage::<Gles>(device, request.size, format, hal_texture)?;
         Ok((gpu_image, ImportedBuffer::GL(image_guard)))
     }
@@ -531,46 +531,51 @@ pub fn import_shm(
     device: &wgpu::Device,
 ) -> Result<(), DWayRenderError> {
     unsafe {
-        device.as_hal::<Gles, _, _>(|hal_device| {
-            let hal_device = hal_device.ok_or_else(|| BackendIsNotEGL)?;
-            let egl_context = hal_device.context();
-            let gl: &glow::Context = &egl_context.lock();
-            texture.as_hal::<Gles, _, _>(|texture| {
-                let texture = texture.unwrap();
-                if let wgpu_hal::gles::TextureInner::Texture { raw, target } = &texture.inner {
-                    import_raw_shm_buffer(surface, shm_buffer, gl, (*raw, *target))?;
-                }
-                Ok(())
-            })
-        })
+        let hal_device = device.as_hal::<Gles>().ok_or_else(|| BackendIsNotEGL)?;
+
+        let egl_context = hal_device.context();
+        let gl: &glow::Context = &egl_context.lock();
+
+        let hal_texture = texture.as_hal::<Gles>().ok_or_else(|| BackendIsNotEGL)?;
+
+        if let wgpu_hal::gles::TextureInner::Texture { raw, target } = &hal_texture.inner {
+            import_raw_shm_buffer(surface, shm_buffer, gl, (*raw, *target))?;
+        }
+
+        Ok(())
     }
 }
 
-pub fn clean(egl_state: &EglState, state: &ImportState, render_device: &RenderDevice) {
+pub fn clean(
+    egl_state: &EglState,
+    state: &ImportState,
+    render_device: &RenderDevice,
+) -> Result<(), DWayRenderError> {
     if state.destroyed_buffers.len() > 0 {
         unsafe {
-            render_device
+            let hal_device = render_device
                 .wgpu_device()
-                .as_hal::<Gles, _, _>(|hal_device| {
-                    let Some(hal_device) = hal_device else { return };
-                    let egl_context = hal_device.context();
-                    let gl: &glow::Context = &egl_context.lock();
-                    let Some(display) = egl_context.raw_display() else {
-                        return;
-                    };
-                    for &buffer_entity in &state.destroyed_buffers {
-                        if let Some(ImportedBuffer::GL(image_guard)) =
-                            state.imported_buffer.get(&buffer_entity)
-                        {
-                            debug!(texture=?image_guard.texture,"delete texture");
-                            gl.delete_texture(image_guard.texture);
-                            (egl_state.egl_unbind_wayland_display_wl)(
-                                display.as_ptr(),
-                                image_guard.egl_image,
-                            );
-                        }
-                    }
-                });
+                .as_hal::<Gles>()
+                .ok_or_else(|| BackendIsNotEGL)?;
+
+            let egl_context = hal_device.context();
+            let gl: &glow::Context = &egl_context.lock();
+            let Some(display) = egl_context.raw_display() else {
+                return Ok(());
+            };
+            for &buffer_entity in &state.destroyed_buffers {
+                if let Some(ImportedBuffer::GL(image_guard)) =
+                    state.imported_buffer.get(&buffer_entity)
+                {
+                    debug!(texture=?image_guard.texture,"delete texture");
+                    gl.delete_texture(image_guard.texture);
+                    (egl_state.egl_unbind_wayland_display_wl)(
+                        display.as_ptr(),
+                        image_guard.egl_image,
+                    );
+                }
+            }
         }
     }
+    Ok(())
 }

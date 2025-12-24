@@ -22,7 +22,7 @@ UiScroll=>
 @arg(mut style_query:Query<(Ref<ComputedNode>,&mut Node)>)
 @world_query(focus_police: &mut FocusPolicy)
 @world_query(children: Option<&Children>)
-@arg(mut mouse_wheel: EventReader<MouseWheel>)
+@arg(mut mouse_wheel: MessageReader<MouseWheel>)
 @global(key_input: ButtonInput<KeyCode>)
 @first{
     let mut wheel_move: Vec2 = mouse_wheel.read().map(|m|Vec2::new(m.x,m.y)).sum();
@@ -44,11 +44,14 @@ UiScroll=>
         if let Some(content) = children.and_then(|c|c.first()) {
             state.set_content(Some(*content));
         } else if prop.create_viewport {
-            let content = commands.spawn(Node{
-                min_width: Val::Percent(100.0),
-                min_height: Val::Percent(100.0),
-                ..Default::default()
-            }).set_parent(this_entity).id();
+            let content = commands.spawn((
+                Node{
+                    min_width: Val::Percent(100.0),
+                    min_height: Val::Percent(100.0),
+                    ..Default::default()
+                },
+                ChildOf(this_entity),
+            )).id();
         state.set_content(Some(content));
         }
     }
@@ -56,7 +59,7 @@ UiScroll=>
         let scroll_rect = Rect::from_center_size(transform.translation().xy(), computed_node.size());
         let Some(content_entity) = *state.content() else {return};
         let Ok((content_node,mut content_style)) = style_query.get_mut(content_entity) else {return};
-        let inside = mouse_position.mouse_over();
+        let inside = mouse_position.cursor_over;
         if !content_node.is_changed() && wheel_move == Vec2::ZERO && !inside {return};
         let diff_size = content_node.size() - scroll_rect.size();
         let offset = if diff_size.x<0.0 && prop.horizontal || diff_size.y<0.0 && prop.vertical || !inside {

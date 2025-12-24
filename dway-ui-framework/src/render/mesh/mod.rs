@@ -1,10 +1,9 @@
 use core::f32;
-use std::{hash::Hash, marker::PhantomData};
+use std::{hash::Hash, marker::PhantomData, ops::Deref};
 
 use bevy::{
     core_pipeline::{
         core_2d::graph::Node2d,
-        msaa_writeback::MsaaWritebackNode,
         tonemapping::{DebandDither, Tonemapping},
     },
     ecs::{
@@ -17,6 +16,8 @@ use bevy::{
     },
     image::{ImageSampler, TextureFormatPixelInfo},
     math::{Affine3, FloatOrd},
+    mesh::MeshVertexBufferLayoutRef,
+    post_process::msaa_writeback::MsaaWritebackNode,
     render::{
         batching::{
             no_gpu_preprocessing::{
@@ -27,11 +28,9 @@ use bevy::{
         },
         camera::extract_cameras,
         globals::{GlobalsBuffer, GlobalsUniform},
-        mesh::{
-            allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo,
-        },
+        mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
         render_asset::{RenderAssetPlugin, RenderAssets},
-        render_graph::{RenderGraphApp, ViewNodeRunner},
+        render_graph::{RenderGraphExt, ViewNodeRunner},
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
             RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewSortedRenderPhases,
@@ -43,14 +42,15 @@ use bevy::{
         view::*,
         Extract, RenderApp, RenderSet,
     },
-    sprite::{
+    sprite_render::{
         tonemapping_pipeline_key, Material2d, Material2dBindGroupId, Material2dKey,
-        Material2dPipeline, Mesh2dPipelineKey, MeshFlags, PreparedMaterial2d, MESH2D_SHADER_HANDLE,
+        Material2dPipeline, Mesh2dPipeline, Mesh2dPipelineKey, MeshFlags, PreparedMaterial2d,
     },
-    ui::{
+    ui_render::{
         graph::{NodeUi, SubGraphUi},
         TransparentUi, UiCameraMap, UiCameraView,
     },
+    shader::ShaderRef,
 };
 
 use self::graph::NodeUiExt;
@@ -111,9 +111,7 @@ impl Plugin for UiMeshPlugin {
                 .init_resource::<SpecializedMeshPipelines<UiMesh2dPipeline>>()
                 .add_systems(
                     ExtractSchedule,
-                    (apply_deferred, extract_ui_mesh_node)
-                        .chain()
-                        .after(extract_cameras),
+                    extract_ui_mesh_node.chain().after(extract_cameras),
                 )
                 .add_systems(
                     bevy::render::Render,
@@ -190,7 +188,6 @@ where
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<UiMeshMaterialPipeline<T>>();
-            render_app.init_resource::<Material2dPipeline<T>>();
         }
     }
 }
@@ -234,7 +231,7 @@ pub fn extract_ui_mesh_node(
             &GlobalTransform,
             &UiMesh,
             Option<&UiRenderOffset>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             Has<NoAutomaticBatching>,
             Option<&CalculatedClip>,
         )>,
@@ -312,12 +309,16 @@ pub fn extract_ui_mesh_node(
 
 #[derive(Resource, Clone)]
 pub struct UiMesh2dPipeline {
-    pub view_layout: BindGroupLayout,
-    pub mesh_layout: BindGroupLayout,
     pub node_layout: BindGroupLayout,
-    // This dummy white texture is to be used in place of optional textures
-    pub dummy_white_gpu_image: GpuImage,
-    pub per_object_buffer_batch_size: Option<u32>,
+    pub mesh2d_pipeline: Mesh2dPipeline,
+}
+
+impl Deref for UiMesh2dPipeline {
+    type Target = Mesh2dPipeline;
+
+    fn deref(&self) -> &Self::Target {
+        &self.mesh2d_pipeline
+    }
 }
 
 impl FromWorld for UiMesh2dPipeline {
@@ -326,20 +327,11 @@ impl FromWorld for UiMesh2dPipeline {
             Res<RenderDevice>,
             Res<RenderQueue>,
             Res<DefaultImageSampler>,
+            Res<Mesh2dPipeline>,
         )> = SystemState::new(world);
-        let (render_device, render_queue, default_sampler) = system_state.get_mut(world);
+        let (render_device, render_queue, default_sampler, mesh2d_pipeline) =
+            system_state.get_mut(world);
         let render_device = render_device.into_inner();
-        let view_layout = render_device.create_bind_group_layout(
-            "ui_mesh2d_view_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::VERTEX_FRAGMENT,
-                (
-                    // View
-                    uniform_buffer::<ViewUniform>(true),
-                    uniform_buffer::<GlobalsUniform>(false),
-                ),
-            ),
-        );
 
         let node_layout = render_device.create_bind_group_layout(
             "ui_mesh2d_node_layout",
@@ -349,61 +341,9 @@ impl FromWorld for UiMesh2dPipeline {
             ),
         );
 
-        let mesh_layout = render_device.create_bind_group_layout(
-            "ui_mesh2d_layout",
-            &BindGroupLayoutEntries::single(
-                ShaderStages::VERTEX_FRAGMENT,
-                GpuArrayBuffer::<UiMesh2dUniform>::binding_layout(render_device),
-            ),
-        );
-        // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
-        let dummy_white_gpu_image = {
-            let image = Image::default();
-            let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = match image.sampler {
-                ImageSampler::Default => (**default_sampler).clone(),
-                ImageSampler::Descriptor(ref descriptor) => {
-                    render_device.create_sampler(&descriptor.as_wgpu())
-                }
-            };
-
-            let format_size = image.texture_descriptor.format.pixel_size();
-            if let Some(data) = &image.data {
-                render_queue.write_texture(
-                    texture.as_image_copy(),
-                    &data,
-                    TexelCopyBufferLayout {
-                        offset: 0,
-                        bytes_per_row: Some(image.width() * format_size as u32),
-                        rows_per_image: None,
-                    },
-                    image.texture_descriptor.size,
-                );
-            }
-
-            let size = image.size();
-            let texture_view = texture.create_view(&TextureViewDescriptor::default());
-            GpuImage {
-                texture,
-                texture_view,
-                texture_format: image.texture_descriptor.format,
-                sampler,
-                size: Extent3d {
-                    width: image.width() as u32,
-                    height: image.height() as u32,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: image.texture_descriptor.mip_level_count,
-            }
-        };
         UiMesh2dPipeline {
-            view_layout,
-            mesh_layout,
             node_layout,
-            dummy_white_gpu_image,
-            per_object_buffer_batch_size: GpuArrayBuffer::<UiMesh2dUniform>::batch_size(
-                render_device,
-            ),
+            mesh2d_pipeline: mesh2d_pipeline.clone(),
         }
     }
 }
@@ -414,15 +354,8 @@ impl UiMesh2dPipeline {
         gpu_images: &'a RenderAssets<GpuImage>,
         handle_option: &Option<Handle<Image>>,
     ) -> Option<(&'a TextureView, &'a Sampler)> {
-        if let Some(handle) = handle_option {
-            let gpu_image = gpu_images.get(handle)?;
-            Some((&gpu_image.texture_view, &gpu_image.sampler))
-        } else {
-            Some((
-                &self.dummy_white_gpu_image.texture_view,
-                &self.dummy_white_gpu_image.sampler,
-            ))
-        }
+        self.mesh2d_pipeline
+            .get_image_texture(gpu_images, handle_option)
     }
 }
 
@@ -487,130 +420,11 @@ impl SpecializedMeshPipeline for UiMesh2dPipeline {
         key: Self::Key,
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut shader_defs = Vec::new();
-        let mut vertex_attributes = Vec::new();
-
-        if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
-            shader_defs.push("VERTEX_POSITIONS".into());
-            vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
-        }
-
-        if layout.0.contains(Mesh::ATTRIBUTE_NORMAL) {
-            shader_defs.push("VERTEX_NORMALS".into());
-            vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
-        }
-
-        if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
-            shader_defs.push("VERTEX_UVS".into());
-            vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
-        }
-
-        if layout.0.contains(Mesh::ATTRIBUTE_TANGENT) {
-            shader_defs.push("VERTEX_TANGENTS".into());
-            vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
-        }
-
-        if layout.0.contains(Mesh::ATTRIBUTE_COLOR) {
-            shader_defs.push("VERTEX_COLORS".into());
-            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
-        }
-
-        if key.msaa_samples() > 1 {
-            shader_defs.push("MULTISAMPLED".into());
-        }
-
-        if key.contains(Mesh2dPipelineKey::TONEMAP_IN_SHADER) {
-            shader_defs.push("TONEMAP_IN_SHADER".into());
-
-            let method = key.intersection(Mesh2dPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
-
-            match method {
-                Mesh2dPipelineKey::TONEMAP_METHOD_NONE => {
-                    shader_defs.push("TONEMAP_METHOD_NONE".into());
-                }
-                Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD => {
-                    shader_defs.push("TONEMAP_METHOD_REINHARD".into());
-                }
-                Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE => {
-                    shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
-                }
-                Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED => {
-                    shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
-                }
-                Mesh2dPipelineKey::TONEMAP_METHOD_AGX => {
-                    shader_defs.push("TONEMAP_METHOD_AGX".into());
-                }
-                Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM => {
-                    shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
-                }
-                Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC => {
-                    shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
-                }
-                Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE => {
-                    shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
-                }
-                _ => {}
-            }
-            // Debanding is tied to tonemapping in the shader, cannot run without it.
-            if key.contains(Mesh2dPipelineKey::DEBAND_DITHER) {
-                shader_defs.push("DEBAND_DITHER".into());
-            }
-        }
-
-        let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
-
-        let format = match key.contains(Mesh2dPipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
-        };
-        let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(
-            feature = "webgl",
-            target_arch = "wasm32",
-            not(feature = "webgpu")
-        )) {
-            push_constant_ranges.push(PushConstantRange {
-                stages: ShaderStages::VERTEX,
-                range: 0..4,
-            });
-        }
-
+        let spec = self.mesh2d_pipeline.specialize(key, layout)?;
         Ok(RenderPipelineDescriptor {
-            vertex: VertexState {
-                shader: MESH2D_SHADER_HANDLE,
-                entry_point: "vertex".into(),
-                shader_defs: shader_defs.clone(),
-                buffers: vec![vertex_buffer_layout],
-            },
-            fragment: Some(FragmentState {
-                shader: MESH2D_SHADER_HANDLE,
-                shader_defs,
-                entry_point: "fragment".into(),
-                targets: vec![Some(ColorTargetState {
-                    format,
-                    blend: Some(BlendState::ALPHA_BLENDING),
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            layout: vec![self.view_layout.clone(), self.mesh_layout.clone()],
-            push_constant_ranges,
-            primitive: PrimitiveState {
-                front_face: FrontFace::Ccw,
-                cull_mode: None,
-                unclipped_depth: false,
-                polygon_mode: PolygonMode::Fill,
-                conservative: false,
-                topology: key.primitive_topology(),
-                strip_index_format: None,
-            },
-            depth_stencil: None,
-            multisample: MultisampleState {
-                count: key.msaa_samples(),
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
+            layout: vec![self.view_layout.clone(), self.mesh_layout.clone(), self.node_layout.clone()],
             label: Some("ui_transparent_mesh2d_pipeline".into()),
-            zero_initialize_workgroup_memory: false,
+            ..spec
         })
     }
 }
@@ -870,7 +684,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewQuery>,
+        (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, '_, Self::ViewQuery>,
         _view: std::option::Option<()>,
         _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,

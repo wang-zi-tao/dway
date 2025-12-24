@@ -88,10 +88,10 @@ macro_rules! relationship {
             type Mutability = $crate::reexport::Mutable;
             const STORAGE_TYPE: $crate::reexport::StorageType= $crate::reexport::StorageType::Table;
 
-            fn register_component_hooks(hooks: &mut $crate::reexport::ComponentHooks) {
-                hooks.on_remove(|world, context|{
+            fn on_remove() -> Option<$crate::reexport::ComponentHook> {
+                Some(|world, context|{
                     $crate::disconnect_all::<$type, $peer>(world, context.entity);
-                });
+                })
             }
         }
     };
@@ -100,10 +100,10 @@ macro_rules! relationship {
             type Mutability = $crate::reexport::Mutable;
             const STORAGE_TYPE: $crate::reexport::StorageType= $crate::reexport::StorageType::Table;
 
-            fn register_component_hooks(hooks: &mut $crate::reexport::ComponentHooks) {
-                hooks.on_remove(|world, context|{
+            fn on_remove() -> Option<bevy::ecs::lifecycle::ComponentHook> {
+                Some(|world, context|{
                     $crate::disconnect_all_owned::<$type, $peer>(world, context.entity);
-                });
+                })
             }
         }
     };

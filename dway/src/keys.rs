@@ -11,10 +11,7 @@ use dway_client_core::{
     desktop::{CursorOnScreen, CursorOnWindow, FocusedWindow},
     layout::tile::{TileLayoutKind, TileLayoutSet},
     navigation::windowstack::WindowStack,
-    workspace::{
-        ScreenAttachWorkspace, WorkspaceManager,
-        WorkspaceRequest,
-    },
+    workspace::{ScreenAttachWorkspace, WorkspaceManager, WorkspaceRequest, WorkspaceRequestKind},
 };
 use dway_server::{
     apps::launchapp::{RunCommandRequest, RunCommandRequestBuilder},
@@ -34,14 +31,14 @@ pub fn wm_keys(
     mut graph: WmGraph,
     input: Res<ButtonInput<KeyCode>>,
     window_under_cursor: Res<CursorOnWindow>,
-    mut exit: EventWriter<AppExit>,
-    mut window_action: EventWriter<WindowAction>,
+    mut exit: MessageWriter<AppExit>,
+    mut window_action: MessageWriter<WindowAction>,
     window_stack: Res<WindowStack>,
     focus_screen: Res<CursorOnScreen>,
     mut focus_window: ResMut<FocusedWindow>,
     mut commands: Commands,
     mut tab_counter: Local<usize>,
-    mut run_command_event: EventWriter<RunCommandRequest>,
+    mut run_command_event: MessageWriter<RunCommandRequest>,
     workspace_manager: Res<WorkspaceManager>,
     window_query: Query<&DWayToplevel>,
     maybe_winit: Option<Res<WinitSettings>>,
@@ -57,7 +54,7 @@ pub fn wm_keys(
 
     if meta {
         if input.just_pressed(KeyCode::Enter) {
-            run_command_event.send(
+            run_command_event.write(
                 RunCommandRequestBuilder::default()
                     .command("tilix".to_string())
                     .build()
@@ -76,9 +73,9 @@ pub fn wm_keys(
             if let Some((window, _)) = &window_under_cursor.0 {
                 if let Ok(toplevel) = window_query.get(*window) {
                     if toplevel.fullscreen {
-                        window_action.send(WindowAction::UnFullscreen(*window));
+                        window_action.write(WindowAction::UnFullscreen(*window));
                     } else {
-                        window_action.send(WindowAction::Fullscreen(*window));
+                        window_action.write(WindowAction::Fullscreen(*window));
                     }
                 }
             }
@@ -86,9 +83,9 @@ pub fn wm_keys(
             if let Some((window, _)) = &window_under_cursor.0 {
                 if let Ok(toplevel) = window_query.get(*window) {
                     if toplevel.max {
-                        window_action.send(WindowAction::UnMaximize(*window));
+                        window_action.write(WindowAction::UnMaximize(*window));
                     } else {
-                        window_action.send(WindowAction::Maximize(*window));
+                        window_action.write(WindowAction::Maximize(*window));
                     }
                 }
             }
@@ -96,17 +93,17 @@ pub fn wm_keys(
             if let Some((window, _)) = &window_under_cursor.0 {
                 if let Ok(toplevel) = window_query.get(*window) {
                     if toplevel.min {
-                        window_action.send(WindowAction::UnMinimize(*window));
+                        window_action.write(WindowAction::UnMinimize(*window));
                     } else {
-                        window_action.send(WindowAction::Minimize(*window));
+                        window_action.write(WindowAction::Minimize(*window));
                     }
                 }
             }
         } else if shift && input.just_pressed(KeyCode::KeyQ) {
-            exit.send(AppExit::Success);
+            exit.write(AppExit::Success);
         } else if input.just_pressed(KeyCode::KeyQ) || input.just_pressed(KeyCode::F4) {
             if let Some((window, _)) = &window_under_cursor.0 {
-                window_action.send(WindowAction::Close(*window));
+                window_action.write(WindowAction::Close(*window));
             }
         } else if input.just_pressed(KeyCode::Tab) {
             *tab_counter += 1;
@@ -131,29 +128,29 @@ pub fn wm_keys(
                 {
                     if input.just_pressed(key) {
                         match (shift, ctrl, alt) {
-                            (false, false, _) => commands.trigger_targets(
-                                WorkspaceRequest::AttachToScreen {
+                            (false, false, _) => commands.trigger(WorkspaceRequest::new(
+                                *workspace,
+                                WorkspaceRequestKind::AttachToScreen {
                                     screen: *screen,
                                     unique: true,
                                 },
+                            )),
+                            (false, true, _) => commands.trigger(WorkspaceRequest::new(
                                 *workspace,
-                            ),
-                            (false, true, _) => commands.trigger_targets(
-                                WorkspaceRequest::AttachToScreen {
+                                WorkspaceRequestKind::AttachToScreen {
                                     screen: *screen,
                                     unique: false,
                                 },
-                                *workspace,
-                            ),
+                            )),
                             (true, false, _) => {
                                 if let Some(window) = &focus_window.window_entity {
-                                    commands.trigger_targets(
-                                        WorkspaceRequest::AttachWindow {
+                                    commands.trigger(WorkspaceRequest::new(
+                                        *workspace,
+                                        WorkspaceRequestKind::AttachWindow {
                                             window: *window,
                                             unique: true,
                                         },
-                                        *workspace,
-                                    )
+                                    ))
                                 }
                             }
                             _ => {}
@@ -174,11 +171,11 @@ pub fn wm_keys(
 
 pub fn wm_mouse_action(
     keys: Res<ButtonInput<KeyCode>>,
-    mut mouse_motion: EventReader<MouseMotion>,
+    mut mouse_motion: MessageReader<MouseMotion>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     focused_window: Res<FocusedWindow>,
-    mut window_action: EventWriter<WindowAction>,
-    _mouse_button_events: EventReader<MouseButtonInput>,
+    mut window_action: MessageWriter<WindowAction>,
+    _mouse_button_events: MessageReader<MouseButtonInput>,
     mut mouse_drag_delta: Local<Option<Vec2>>,
 ) {
     let meta = keys.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
@@ -204,7 +201,7 @@ pub fn wm_mouse_action(
     if meta | alt {
         if let Some(focused_window_entity) = focused_window.window_entity {
             if mouse_buttons.just_pressed(MouseButton::Left) {
-                window_action.send(WindowAction::RequestMove(focused_window_entity));
+                window_action.write(WindowAction::RequestMove(focused_window_entity));
             } else if mouse_buttons.pressed(MouseButton::Right) {
                 if let Some(delta) = mouse_drag_delta.as_mut() {
                     if delta.length_squared() >= 64.0 {
@@ -225,7 +222,7 @@ pub fn wm_mouse_action(
                         });
                         if !edges.is_empty() {
                             window_action
-                                .send(WindowAction::RequestResize(focused_window_entity, edges));
+                                .write(WindowAction::RequestResize(focused_window_entity, edges));
                             *mouse_drag_delta = None;
                         }
                     }

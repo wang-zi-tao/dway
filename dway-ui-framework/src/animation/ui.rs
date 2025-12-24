@@ -80,16 +80,16 @@ pub fn popup_open_close_up(event: UiEvent<AnimationEvent>, world: &mut World) {
         );
     });
     if event.just_finish {
-        entity_mut.despawn_recursive();
+        entity_mut.despawn();
     }
 }
 
-pub fn despawn_recursive_on_animation_finish(
+pub fn despawn_on_animation_finish(
     event: UiEvent<AnimationEvent>,
     mut commands: Commands,
 ) {
     if event.just_finish {
-        commands.entity(event.receiver()).despawn_recursive();
+        commands.entity(event.receiver()).despawn();
     }
 }
 

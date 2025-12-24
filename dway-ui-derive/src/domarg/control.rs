@@ -465,9 +465,9 @@ impl DomDecorator for ForQuery {
             .map(|_| quote!(get_mut))
             .unwrap_or_else(|| quote!(get));
         let item_type = if self.mutable.is_some() {
-            quote!(bevy::ecs::query::QueryItem<'_, #ty>)
+            quote!(bevy::ecs::query::QueryItem<#ty>)
         } else {
-            quote!(bevy::ecs::query::ROQueryItem<'_, #ty>)
+            quote!(bevy::ecs::query::ROQueryItem<#ty>)
         };
 
         let backup_state = format_ident!("{}_state",context.tree_context.state_namespace);
