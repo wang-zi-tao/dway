@@ -64,7 +64,7 @@ default = [
 ]
 inspector = ["dway-ui/develop"]
 dump_system_graph = ["dep:bevy_mod_debugdump"]
-debug = [ "inspector", "dump_system_graph"]
+debug = [ "inspector", "dump_system_graph", "bevy/track_location"]
 debug_render = ["dep:renderdoc"]
 dway_log = []
 # hot_reload = [

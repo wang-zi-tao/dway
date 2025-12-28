@@ -10,33 +10,22 @@ use bevy::{
         entity::{EntityHashMap, EntityHashSet},
         query::ROQueryItem,
         system::{
-            lifetimeless::{Read, SRes},
-            SystemParamItem,
+            SystemParamItem, lifetimeless::{Read, SRes}
         },
     },
-    math::FloatOrd,
+    math::{Affine2, FloatOrd},
     platform::collections::HashMap,
     render::{
-        globals::{GlobalsBuffer, GlobalsUniform},
-        render_asset::{RenderAssetPlugin, RenderAssets},
-        render_phase::{
+        Extract, Render, RenderApp, RenderSet, RenderStartup, globals::{GlobalsBuffer, GlobalsUniform}, render_asset::{RenderAssetPlugin, RenderAssets}, render_phase::{
             AddRenderCommand, DrawFunctionId, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
             RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
             ViewSortedRenderPhases,
-        },
-        render_resource::{
-            binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
-            BindGroupLayoutEntries, BufferUsages, IndexFormat, PipelineCache, RawBufferVec,
-            SpecializedRenderPipelines,
-        },
-        renderer::{RenderDevice, RenderQueue},
-        sync_world::MainEntity,
-        view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
-        Extract, Render, RenderApp, RenderSet, RenderStartup,
+        }, render_resource::{
+            BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BufferUsages, IndexFormat, PipelineCache, RawBufferVec, SpecializedRenderPipelines, binding_types::uniform_buffer
+        }, renderer::{RenderDevice, RenderQueue}, sync_world::MainEntity, view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms}
     },
     ui_render::{
-        init_ui_material_pipeline, stack_z_offsets, PreparedUiMaterial, TransparentUi, UiCameraMap,
-        UiCameraView, UiMaterialPipeline,
+        PreparedUiMaterial, TransparentUi, UiCameraMap, UiCameraView, UiMaterialPipeline, init_ui_material_pipeline, stack_z_offsets
     },
 };
 use bytemuck::{Pod, Zeroable};
@@ -46,11 +35,11 @@ use crate::prelude::*;
 
 pub const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
-pub const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
-    Vec3::new(-0.5, -0.5, 0.0),
-    Vec3::new(0.5, -0.5, 0.0),
-    Vec3::new(0.5, 0.5, 0.0),
-    Vec3::new(-0.5, 0.5, 0.0),
+pub const QUAD_VERTEX_POSITIONS: [Vec2; 4] = [
+    Vec2::new(-0.5, -0.5),
+    Vec2::new(0.5, -0.5),
+    Vec2::new(0.5, 0.5),
+    Vec2::new(-0.5, 0.5),
 ];
 
 pub struct UiNodeRenderPlugin;
@@ -121,7 +110,7 @@ impl<M: UiMaterial<Data = ()>> Plugin for UiMaterialPlugin<M> {
 #[derive(Component)]
 pub struct ExtractedNode {
     pub stack_index: u32,
-    pub transform: Mat4,
+    pub transform: Affine2,
     pub rect: Rect,
     pub clip: Option<Rect>,
     pub extracted_camera_entity: Entity,
@@ -157,7 +146,7 @@ pub fn extract_ui_nodes<M: UiMaterial>(
         Query<(
             Entity,
             Ref<ComputedNode>,
-            Ref<GlobalTransform>,
+            Ref<UiGlobalTransform>,
             Ref<InheritedVisibility>,
             Ref<ComputedUiTargetCamera>,
             Ref<MaterialNode<M>>,
@@ -199,7 +188,7 @@ pub fn extract_ui_nodes<M: UiMaterial>(
         {
             extracted_node_component.stack_index = stack_index;
             if transform.is_changed() {
-                extracted_node_component.transform = transform.to_matrix();
+                extracted_node_component.transform = **transform;
             }
             if computed_node.is_changed() {
                 extracted_node_component.rect = Rect {
@@ -224,7 +213,7 @@ pub fn extract_ui_nodes<M: UiMaterial>(
         } else {
             let extracted_node = ExtractedNode {
                 stack_index,
-                transform: transform.to_matrix(),
+                transform: **transform,
                 rect: Rect {
                     min: Vec2::ZERO,
                     max: computed_node.size(),
@@ -355,7 +344,7 @@ pub fn queue_ui_nodes<M: UiMaterial<Data = ()>>(
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline: specialized_pipeline,
-            entity: (render_entity, MainEntity::from(*main_entity)),
+            entity: (render_entity, main_entity),
             sort_key: FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
@@ -415,9 +404,12 @@ pub fn prepare_ui_nodes(
                     }
 
                     let uinode_rect = extracted_uinode.rect;
-                    let rect_size = uinode_rect.size().extend(1.0);
+                    let rect_size = uinode_rect.size();
                     let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
-                        (extracted_uinode.transform * (pos * rect_size).extend(1.0)).xyz()
+                        extracted_uinode
+                            .transform
+                            .transform_point2(pos * rect_size)
+                            .extend(1.0)
                     });
                     let positions_diff = if let Some(clip) = extracted_uinode.clip {
                         [
@@ -450,7 +442,7 @@ pub fn prepare_ui_nodes(
                     ];
 
                     let transformed_rect_size =
-                        extracted_uinode.transform.transform_vector3(rect_size);
+                        extracted_uinode.transform.transform_vector2(rect_size);
 
                     if extracted_uinode.transform.x_axis[1] == 0.0
                         && (positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x

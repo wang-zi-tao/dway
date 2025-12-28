@@ -194,7 +194,7 @@ pub fn anchor_update_system(
             Ref<Anchor>,
             Ref<ComputedUiTargetCamera>,
             Ref<ComputedNode>,
-            Ref<GlobalTransform>,
+            Ref<UiGlobalTransform>,
         ),
         (
             With<Anchor>,
@@ -209,10 +209,7 @@ pub fn anchor_update_system(
     camera_query: Query<&Camera>,
 ) {
     for (anchor, anchor_target, anchor_node, anchor_transform) in anchor_query.iter() {
-        let anchor_rect = Rect::from_center_size(
-            anchor_transform.translation().truncate(),
-            anchor_node.size(),
-        );
+        let anchor_rect = Rect::from_center_size(anchor_transform.translation, anchor_node.size());
 
         let mut iter = popup_query.iter_many_mut(&*anchor.0);
         while let Some((mut popup_camera, anchor_policy, mut popup_node, mut animation_end_state)) =

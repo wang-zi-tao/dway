@@ -14,6 +14,9 @@ pub mod render;
 pub mod diagnostic;
 pub mod asset_cache;
 
+#[cfg(feature = "debug")]
+pub mod debug;
+
 pub struct UtilPlugin;
 impl Plugin for UtilPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {

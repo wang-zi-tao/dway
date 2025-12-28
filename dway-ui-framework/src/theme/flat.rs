@@ -117,7 +117,7 @@ pub struct FlatTheme {
     pub hollow_block_material: Handle<ShaderAsset<HollowBlockMaterial>>,
     pub hightlight_hollow_block_material: Handle<ShaderAsset<HollowBlockMaterial>>,
     pub sunken_block_material: Handle<ShaderAsset<SunkenBlockMaterial>>,
-    pub hightlight_block_material: Handle<ShaderAsset<HollowBlockMaterial>>,
+    pub hightlight_block_material: Handle<ShaderAsset<BlockMaterial>>,
     pub slider_material: Handle<ShaderAsset<SliderMaterial>>,
     pub slider_hightlight_bar_material: Handle<ShaderAsset<SliderHightlightBarMaterial>>,
 }
@@ -160,12 +160,17 @@ impl FlatTheme {
                 self.block_rounded_rect()
                     .with_effect(self.inner_shadow(self.fill_color())),
             ));
-            self.hightlight_hollow_block_material =
-                world
-                    .resource_mut::<Assets<_>>()
-                    .add(ShaderAsset::new(self.block_rounded_rect().with_effect(
-                        Border::new(self.main_color, self.border_width),
-                    )));
+            self.hightlight_block_material = world.resource_mut::<Assets<_>>().add(
+                ShaderAsset::new(self.block_rounded_rect().with_effect((
+                    FillColor::new(self.main_color),
+                    Shadow::new(
+                        self.shadow_color,
+                        self.shadow_offset,
+                        self.shadow_margin,
+                        self.shadow_radius * 2.0,
+                    ),
+                ))),
+            );
         }
 
         self.button_material_set = InteractionMaterialSet::new(

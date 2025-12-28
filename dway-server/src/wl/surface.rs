@@ -31,6 +31,8 @@ pub struct WlSurfacePeddingState {
     pub scale: Option<i32>,
     pub offset: Option<IVec2>,
     pub window_geometry: Option<IRect>,
+    #[reflect(ignore)]
+    pub transform: Option<wl_output::Transform>,
 }
 #[derive(Default, Reflect, Debug, Clone)]
 #[reflect(Debug)]
@@ -47,6 +49,9 @@ pub struct WlSurfaceCommitedState {
     pub scale: Option<i32>,
     pub offset: Option<IVec2>,
     pub window_geometry: Option<IRect>,
+    /// not use yet
+    #[reflect(ignore)]
+    pub transform: Option<wl_output::Transform>,
 }
 
 #[derive(Component, Reflect, Debug, Clone)]
@@ -308,6 +313,9 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                         if let Some(offset) = surface.pending.offset.take() {
                             *surface.commited.offset.get_or_insert_default() += offset;
                         }
+                        if let Some(transform) = surface.pending.transform.take() {
+                            surface.commited.transform = Some(transform);
+                        }
 
                         if let Some(wl_buffer) = surface.pending.wl_buffer.take() {
                             surface.commited.wl_buffer.as_ref().map(|b| {
@@ -376,7 +384,13 @@ impl wayland_server::Dispatch<wl_surface::WlSurface, bevy::prelude::Entity, DWay
                     },
                 );
             }
-            wl_surface::Request::SetBufferTransform { transform: _ } => todo!(),
+            wl_surface::Request::SetBufferTransform { transform } => {
+                if let Ok(transform) = transform.into_result() {
+                    if let Some(mut c) = state.get_mut::<WlSurface>(*data) {
+                        c.pending.transform = Some(transform);
+                    }
+                }
+            }
             wl_surface::Request::SetBufferScale { scale } => {
                 if let Some(mut c) = state.get_mut::<WlSurface>(*data) {
                     c.pending.scale = Some(scale);

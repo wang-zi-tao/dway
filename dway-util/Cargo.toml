@@ -33,3 +33,6 @@ glow = { workspace = true }
 drm-fourcc = { workspace = true }
 image = {workspace = true}
 chrono = {workspace = true}
+
+[features]
+debug = ["bevy/bevy_remote"]

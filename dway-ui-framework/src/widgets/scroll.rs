@@ -31,7 +31,7 @@ UiScroll=>
     }
 }
 @world_query(computed_node: &ComputedNode)
-@world_query(transform: &GlobalTransform)
+@world_query(transform: &UiGlobalTransform)
 @world_query(mouse_position: Ref<RelativeCursorPosition>)
 @use_state(pub content: Option<Entity>)
 @before{
@@ -56,7 +56,7 @@ UiScroll=>
         }
     }
     (||{
-        let scroll_rect = Rect::from_center_size(transform.translation().xy(), computed_node.size());
+        let scroll_rect = Rect::from_center_size(transform.translation, computed_node.size());
         let Some(content_entity) = *state.content() else {return};
         let Ok((content_node,mut content_style)) = style_query.get_mut(content_entity) else {return};
         let inside = mouse_position.cursor_over;

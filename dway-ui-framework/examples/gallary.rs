@@ -43,7 +43,6 @@ fn main() {
             dway_ui_framework::UiFrameworkPlugin,
             GallaryPlugin,
         ))
-        .add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new())
         .add_plugins((
             RoundedUiRectMaterial::plugin(),
             UiCircleMaterial::plugin(),
@@ -196,7 +195,7 @@ Gallary=>
     </Node>
     <(cell_style())>
         <Node @style="p-8 w-full m-8" @material(RoundedBorderBlockMaterial=>rounded_border_block(Color::WHITE,theme.color("blue"), 8.0, 2.0)) >
-            <UiInputBox UiInputBox=(UiInputBox{
+            <Node UiInputBox=(UiInputBox{
                 placeholder: "input box...".into(),
                 ..Default::default()
             })/>
@@ -204,7 +203,7 @@ Gallary=>
     </Node>
     <(cell_style())>
         <Node @style="p-8 w-full m-8" @material(RoundedInnerShadowBlockMaterial=>rounded_inner_shadow_block(Color::WHITE, 8.0, &theme)) >
-            <UiInputBox UiInputBox=(UiInputBox{
+            <Node UiInputBox=(UiInputBox{
                 placeholder: "input box...".into(),
                 ..Default::default()
             })/>

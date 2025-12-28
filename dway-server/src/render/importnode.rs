@@ -436,7 +436,6 @@ where
 {
     let usage = wgpu::TextureUsages::RENDER_ATTACHMENT
         | wgpu::TextureUsages::TEXTURE_BINDING
-        | wgpu::TextureUsages::STORAGE_BINDING
         | wgpu::TextureUsages::COPY_SRC
         | wgpu::TextureUsages::COPY_DST;
     let extent3d = wgpu::Extent3d {

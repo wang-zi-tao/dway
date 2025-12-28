@@ -172,6 +172,7 @@ impl Plugin for UiFrameworkPlugin {
         #[cfg(feature = "develop")]
         {
             app.add_plugins(develop::inspector::InspectorPlugin);
+            app.add_plugins(dway_util::debug::RemoteDebugPlugin);
         }
     }
 }

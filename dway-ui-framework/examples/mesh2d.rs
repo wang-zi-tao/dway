@@ -7,7 +7,8 @@ use bevy::{
 };
 use dway_ui_derive::color;
 use dway_ui_framework::{
-    render::mesh::{UiMesh, UiMeshMaterialPlugin, UiMeshPlugin},
+    prelude::{RoundedUiRectMaterial, rounded_rect},
+    render::{mesh::{UiMesh, UiMeshMaterialPlugin, UiMeshPlugin}, ui_nodes::UiNodeRenderPlugin},
     widgets::shape::UiShapeMaterial,
 };
 
@@ -15,7 +16,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins((
-            UiMeshPlugin,
+            dway_ui_framework::UiFrameworkPlugin,
             UiMeshMaterialPlugin::<ColorMaterial>::default(),
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin {
@@ -32,6 +33,7 @@ fn setup(
     mut commands: Commands,
     mut mesh2d_materials: ResMut<Assets<ColorMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut assets_rounded_ui_rect_material: ResMut<Assets<RoundedUiRectMaterial>>,
 ) {
     commands.spawn((Camera2d::default(), Msaa::Sample4));
 
@@ -47,7 +49,9 @@ fn setup(
                 top: Val::Px(64.0),
                 ..default()
             },
-            BackgroundColor(Color::srgb(0.8, 0.8, 0.8)),
+            MaterialNode::from(
+                assets_rounded_ui_rect_material.add(rounded_rect(Color::srgb(0.8, 0.8, 0.8), 4.0)),
+            ),
         ))
         .with_children(|commands| {
             commands.spawn((

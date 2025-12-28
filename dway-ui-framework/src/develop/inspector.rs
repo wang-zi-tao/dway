@@ -345,12 +345,12 @@ fn on_mouse_event(
     event: UiEvent<UiInputEvent>,
     mut inspector_ui_state: ResMut<InspectorUiState>,
     node_query: Query<
-        (Entity, &ComputedNode, &GlobalTransform),
+        (Entity, &ComputedNode, &UiGlobalTransform),
         (With<Node>, Without<PickerUiNode>),
     >,
     mut state: Query<(
         &mut UiPickingState,
-        &GlobalTransform,
+        &UiGlobalTransform,
         &ComputedNode,
         &ComputedUiTargetCamera,
     )>,
@@ -374,14 +374,14 @@ fn on_mouse_event(
         }
         UiInputEvent::MouseMove(normaled) => {
             let rect =
-                Rect::from_center_size(widget_transform.translation().xy(), widget_node.size());
+                Rect::from_center_size(widget_transform.translation, widget_node.size());
             let mouse_position = rect.min + rect.size() * normaled;
 
             let mut rects = Vec::new();
             let mut entitys = Vec::new();
 
             for (entity, node, transform) in node_query.iter_many(&node_stack.uinodes) {
-                let rect = Rect::from_center_size(transform.translation().xy(), node.size());
+                let rect = Rect::from_center_size(transform.translation, node.size());
                 if rect.contains(mouse_position) {
                     rects.push(rect);
                     entitys.push(entity);

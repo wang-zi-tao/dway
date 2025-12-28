@@ -32,7 +32,6 @@ fn main() {
         ))
         .add_systems(Startup, setup)
         .insert_resource(ClearColor(Color::WHITE))
-        .add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new())
         .run();
 }
 

@@ -93,9 +93,8 @@ wayland-protocols-wlr = { version = "0.3.8", features = ["server"]}
 wayland-protocols-misc = { version="0.3.8", features = ["server"]}
 
 [workspace.dependencies.bevy_svg]
-version="0.17.1"
-# git = "https://github.com/wang-zi-tao/bevy_svg.git"
-# rev="775aa36803fb30d6c99139397dffdba3115f46bf"
+git = "https://github.com/wang-zi-tao/bevy_svg.git"
+tag = "v0.17.0"
 
 [workspace.dependencies.bevy]
 version = "0.17.3"
@@ -138,7 +137,6 @@ features = [
 ]
 
 [patch.crates-io]
-# bevy_svg = { path="../bevy_svg/" }
 # bevy = {git="https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2"}
 # bevy_log = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
 # bevy_pbr = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }

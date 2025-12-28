@@ -64,7 +64,7 @@ tempdir = "0.3.7"
 bevy-inspector-egui = { workspace=true}
 
 [features]
-develop = ["dep:bevy-inspector-egui", "dep:egui_dock"]
+develop = ["dep:bevy-inspector-egui", "dep:egui_dock", "bevy/reflect_auto_register", "dway-util/debug", "bevy/bevy_picking"]
 # hot_reload = [
 #     "dep:dexterous_developer",
 #     "dep:bevy_dexterous_developer",

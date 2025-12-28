@@ -1696,10 +1696,12 @@ dependencies = [
  "bevy_math 0.17.3",
  "bevy_mesh",
  "bevy_pbr",
+ "bevy_picking",
  "bevy_platform",
  "bevy_post_process",
  "bevy_ptr 0.17.3",
  "bevy_reflect 0.17.3",
+ "bevy_remote",
  "bevy_render 0.17.3",
  "bevy_scene 0.17.3",
  "bevy_shader",
@@ -2010,7 +2012,7 @@ dependencies = [
  "bevy 0.17.3",
  "lyon_algorithms",
  "lyon_tessellation",
- "svgtypes",
+ "svgtypes 0.15.3",
 ]
 
 [[package]]
@@ -2096,6 +2098,31 @@ dependencies = [
  "quote",
  "syn 2.0.111",
  "uuid",
+]
+
+[[package]]
+name = "bevy_remote"
+version = "0.17.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e33d2fe54b564ba3924425e9c80f306d4ee8d4c0d1827636e0472cbd5378354a"
+dependencies = [
+ "anyhow",
+ "async-channel",
+ "async-io 2.6.0",
+ "bevy_app 0.17.3",
+ "bevy_asset 0.17.3",
+ "bevy_derive 0.17.3",
+ "bevy_ecs 0.17.3",
+ "bevy_log 0.17.3",
+ "bevy_platform",
+ "bevy_reflect 0.17.3",
+ "bevy_tasks 0.17.3",
+ "bevy_utils 0.17.3",
+ "http-body-util",
+ "hyper",
+ "serde",
+ "serde_json",
+ "smol-hyper",
 ]
 
 [[package]]
@@ -2413,9 +2440,8 @@ dependencies = [
 
 [[package]]
 name = "bevy_svg"
-version = "0.17.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb80082ed82a06a42fb0bfae8e0b0c8b7bcfb6293cafdb4460f857ba2cee4b89"
+version = "0.17.0"
+source = "git+https://github.com/wang-zi-tao/bevy_svg.git?tag=v0.17.0#005d0778336d9dc2b47d87ad0b01d1e723092a6b"
 dependencies = [
  "anyhow",
  "bevy 0.17.3",
@@ -2423,7 +2449,7 @@ dependencies = [
  "lyon_geom",
  "lyon_path",
  "lyon_tessellation",
- "svgtypes",
+ "svgtypes 0.16.0",
  "thiserror 2.0.16",
  "usvg",
 ]
@@ -5745,10 +5771,76 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 
 [[package]]
+name = "http"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3ba2a386d7f85a81f119ad7498ebe444d2e22c2af0b86b069416ace48b3311a"
+dependencies = [
+ "bytes",
+ "itoa",
+]
+
+[[package]]
+name = "http-body"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1efedce1fb8e6913f23e0c92de8e62cd5b772a67e7b3946df930a62566c93184"
+dependencies = [
+ "bytes",
+ "http",
+]
+
+[[package]]
+name = "http-body-util"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b021d93e26becf5dc7e1b75b1bed1fd93124b374ceb73f43d4d4eafec896a64a"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "http",
+ "http-body",
+ "pin-project-lite",
+]
+
+[[package]]
+name = "httparse"
+version = "1.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
+
+[[package]]
+name = "httpdate"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
+
+[[package]]
 name = "humantime"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "135b12329e5e3ce057a9f972339ea52bc954fe1e9358ef27f95e89716fbc5424"
+
+[[package]]
+name = "hyper"
+version = "1.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ab2d4f250c3d7b1c9fcdff1cece94ea4e2dfbec68614f7b87cb205f24ca9d11"
+dependencies = [
+ "atomic-waker",
+ "bytes",
+ "futures-channel",
+ "futures-core",
+ "http",
+ "http-body",
+ "httparse",
+ "httpdate",
+ "itoa",
+ "pin-project-lite",
+ "pin-utils",
+ "smallvec",
+ "tokio",
+]
 
 [[package]]
 name = "iana-time-zone"
@@ -6291,6 +6383,17 @@ name = "kurbo"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c62026ae44756f8a599ba21140f350303d4f08dcdcc71b5ad9c9bb8128c13c62"
+dependencies = [
+ "arrayvec 0.7.6",
+ "euclid",
+ "smallvec",
+]
+
+[[package]]
+name = "kurbo"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce9729cc38c18d86123ab736fd2e7151763ba226ac2490ec092d1dd148825e32"
 dependencies = [
  "arrayvec 0.7.6",
  "euclid",
@@ -9064,6 +9167,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "smol-hyper"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7428a49d323867702cd12b97b08a6b0104f39ec13b49117911f101271321bc1a"
+dependencies = [
+ "async-executor",
+ "async-io 2.6.0",
+ "futures-io",
+ "hyper",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "smol_str"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9232,7 +9348,17 @@ version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68c7541fff44b35860c1a7a47a7cadf3e4a304c457b58f9870d9706ece028afc"
 dependencies = [
- "kurbo",
+ "kurbo 0.11.3",
+ "siphasher",
+]
+
+[[package]]
+name = "svgtypes"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9165405c8cf6bdc11d4417ef1c8c90521ebbadffe7da5c67bb5c1b90a14aeb1"
+dependencies = [
+ "kurbo 0.12.0",
  "siphasher",
 ]
 
@@ -10096,7 +10222,7 @@ dependencies = [
  "flate2",
  "fontdb 0.23.0",
  "imagesize",
- "kurbo",
+ "kurbo 0.11.3",
  "log",
  "pico-args",
  "roxmltree",
@@ -10104,7 +10230,7 @@ dependencies = [
  "simplecss",
  "siphasher",
  "strict-num",
- "svgtypes",
+ "svgtypes 0.15.3",
  "tiny-skia-path",
  "unicode-bidi",
  "unicode-script",

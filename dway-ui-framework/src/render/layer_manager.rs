@@ -676,7 +676,7 @@ pub fn update_layers(
     ui_area_query: Query<(
         &InheritedVisibility,
         Ref<ComputedNode>,
-        Ref<GlobalTransform>,
+        Ref<UiGlobalTransform>,
         &ComputedUiTargetCamera,
         Ref<LayerRenderArea>,
     )>,
@@ -704,7 +704,7 @@ pub fn update_layers(
         };
         let layer_usage = layer_rects.entry(layer_camera).or_default();
         let rect =
-            Rect::from_center_size(global_transform.translation().xy(), computed_node.size());
+            Rect::from_center_size(global_transform.translation, computed_node.size());
 
         if layer_render_area.is_changed()
             || computed_node.is_changed()

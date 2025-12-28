@@ -365,21 +365,27 @@ pub fn create_wgpu_dma_image(
     unsafe {
         let format = drm_fourcc_to_wgpu_format(request)?;
 
-        let hal_device = device.as_hal::<Gles>().ok_or_else(|| BackendIsNotEGL)?;
+        let (hal_texture, image_guard) = {
+            let hal_device = device.as_hal::<Gles>().ok_or_else(|| BackendIsNotEGL)?;
 
-        let egl_context = hal_device.context();
-        let gl: &glow::Context = &egl_context.lock();
-        let display = egl_context
-            .raw_display()
-            .ok_or_else(|| DisplayNotAvailable)?;
-        debug!(size=?request.size, ?format, "create dma image");
-        let image_guard = create_gles_dma_image(gl, display.as_ptr(), egl_state, request)?;
-        let texture = image_guard.texture;
-        let hal_texture = hal_device.texture_from_raw(
-            texture.0,
-            &hal_texture_descriptor(request.size, format)?,
-            None,
-        );
+            let egl_context = hal_device.context();
+            let gl: &glow::Context = &egl_context.lock();
+            let display = egl_context
+                .raw_display()
+                .ok_or_else(|| DisplayNotAvailable)?;
+            debug!(size=?request.size, ?format, "create dma image");
+
+            let image_guard = create_gles_dma_image(gl, display.as_ptr(), egl_state, request)?;
+            let texture = image_guard.texture;
+            let hal_texture = hal_device.texture_from_raw(
+                texture.0,
+                &hal_texture_descriptor(request.size, format)?,
+                None,
+            );
+
+            (hal_texture, image_guard)
+        };
+
         let gpu_image = hal_texture_to_gpuimage::<Gles>(device, request.size, format, hal_texture)?;
         Ok((gpu_image, ImportedBuffer::GL(image_guard)))
     }

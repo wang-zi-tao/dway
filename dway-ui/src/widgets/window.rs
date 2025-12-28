@@ -1,6 +1,8 @@
 use bevy::ui::RelativeCursorPosition;
 use dway_client_core::{
-    input::{GrabRequestKind, SurfaceInputEvent, SurfaceUiNode}, navigation::windowstack::{WindowIndex, WindowStack}, DWayClientPlugin, UiAttachData
+    input::{GrabRequestKind, SurfaceInputEvent, SurfaceUiNode},
+    navigation::windowstack::{WindowIndex, WindowStack},
+    DWayClientPlugin, UiAttachData,
 };
 use dway_server::{
     geometry::{Geometry, GlobalGeometry},
@@ -8,9 +10,7 @@ use dway_server::{
     wl::surface::WlSurface,
     xdg::{toplevel::DWayToplevel, DWayWindow, PopupList},
 };
-use dway_ui_framework::widgets::{
-    drag::{UiDrag, UiDragEvent, UiDragEventDispatcher},
-};
+use dway_ui_framework::widgets::drag::{UiDrag, UiDragEvent, UiDragEventDispatcher};
 
 use super::popupwindow::{PopupUI, PopupUISystems};
 use crate::{prelude::*, util::irect_to_style};
@@ -25,17 +25,14 @@ pub fn ui_input_event_to_surface_input_event(
     surface_entity: Entity,
     computed_node: &ComputedNode,
     relative_cursor_position: &RelativeCursorPosition,
-    global_transform: &GlobalTransform,
+    global_transform: &UiGlobalTransform,
     event: &UiInputEvent,
     window_geometry: Geometry,
 ) -> Option<SurfaceInputEvent> {
     let mouse_position =
         relative_cursor_position.normalized.unwrap_or_default() * computed_node.size();
 
-    let surface_rect = Rect::from_center_size(
-        global_transform.translation().truncate(),
-        computed_node.size(),
-    );
+    let surface_rect = Rect::from_center_size(global_transform.translation, computed_node.size());
 
     let surface_input_event_kind = match &*event {
         UiInputEvent::MouseEnter => Some(GrabRequestKind::Enter()),
@@ -65,7 +62,7 @@ pub fn ui_input_event_to_surface_input_event(
 pub fn on_window_ui_input(
     event: UiEvent<UiInputEvent>,
     query: Query<(&WindowUI, &WindowUIState, &WindowUIWidget)>,
-    contents_query: Query<(&ComputedNode, &RelativeCursorPosition, &GlobalTransform)>,
+    contents_query: Query<(&ComputedNode, &RelativeCursorPosition, &UiGlobalTransform)>,
     mut surface_input_events: MessageWriter<SurfaceInputEvent>,
 ) {
     let Ok((prop, state, widget)) = query.get(event.receiver()) else {
