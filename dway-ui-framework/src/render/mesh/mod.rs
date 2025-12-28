@@ -26,7 +26,7 @@ use bevy::{
             },
             GetBatchData, NoAutomaticBatching,
         },
-        camera::extract_cameras,
+        camera::{extract_cameras, ExtractedCamera},
         globals::{GlobalsBuffer, GlobalsUniform},
         mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
         render_asset::{RenderAssetPlugin, RenderAssets},
@@ -42,15 +42,17 @@ use bevy::{
         view::*,
         Extract, RenderApp, RenderSet, RenderStartup,
     },
-    shader::ShaderRef,
+    shader::{ShaderDefVal, ShaderRef},
     sprite_render::{
-        init_mesh_2d_pipeline, tonemapping_pipeline_key, Material2d, Material2dBindGroupId,
-        Material2dKey, Material2dPipeline, Mesh2dPipeline, Mesh2dPipelineKey, MeshFlags,
-        PreparedMaterial2d,
+        init_mesh_2d_pipeline, prepare_mesh2d_bind_group, prepare_mesh2d_view_bind_groups,
+        tonemapping_pipeline_key, Material2d, Material2dBindGroupId, Material2dKey,
+        Material2dPipeline, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dViewBindGroup, MeshFlags,
+        PreparedMaterial2d, SetMaterial2dBindGroup, SetMesh2dViewBindGroup,
+        MATERIAL_2D_BIND_GROUP_INDEX,
     },
     ui_render::{
         graph::{NodeUi, SubGraphUi},
-        TransparentUi, UiCameraMap, UiCameraView,
+        TransparentUi, UiCameraMap, UiCameraView, UiViewTarget,
     },
 };
 
@@ -69,7 +71,7 @@ pub mod graph {
 
 #[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq, Deref, DerefMut)]
 #[reflect(Component)]
-#[require(UiMeshTransform, Node, Mesh2d)]
+#[require(UiMeshTransform, Node)]
 pub struct UiMesh(Handle<Mesh>);
 
 #[derive(Component, Deref, DerefMut, Debug, Clone, Reflect)]
@@ -112,7 +114,7 @@ impl Plugin for UiMeshPlugin {
                 .init_resource::<SpecializedMeshPipelines<UiMesh2dPipeline>>()
                 .add_systems(
                     RenderStartup,
-                    init_ui_mesh_2d_pipeline.after(init_mesh_2d_pipeline),
+                    (init_ui_mesh_2d_pipeline.after(init_mesh_2d_pipeline),),
                 )
                 .add_systems(
                     ExtractSchedule,
@@ -125,8 +127,8 @@ impl Plugin for UiMeshPlugin {
                             .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<UiMesh2dPipeline>
                             .in_set(RenderSet::PrepareResourcesFlush),
-                        prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
-                        prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                        prepare_ui_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
+                        prepare_ui_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                         clear_batched_cpu_instance_buffers::<UiMesh2dPipeline>
                             .in_set(RenderSet::Cleanup)
                             .after(RenderSet::Render),
@@ -170,7 +172,15 @@ impl<T: Material2d> Plugin for UiMeshMaterialPlugin<T>
 where
     T::Data: PartialEq + Eq + Hash + Clone,
 {
+    fn is_unique(&self) -> bool {
+        false
+    }
+
     fn build(&self, app: &mut App) {
+        if app.is_plugin_added::<Self>() {
+            return;
+        }
+
         app.world().contains_resource::<Assets<T>>();
         if !app.is_plugin_added::<RenderAssetPlugin<PreparedMaterial2d<T>>>() {
             app.add_plugins(RenderAssetPlugin::<PreparedMaterial2d<T>>::default());
@@ -210,18 +220,17 @@ impl<M: Material2d> Default for RenderUiMeshMaterialInstances<M> {
 
 fn extract_ui_mesh_handle<M: Material2d>(
     mut material_instances: ResMut<RenderUiMeshMaterialInstances<M>>,
-    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial2d<M>), With<UiMesh>>>,
+    query: Extract<Query<(Entity, &InheritedVisibility, &MeshMaterial2d<M>), With<UiMesh>>>,
 ) {
     material_instances.clear();
-    for (main_entity, view_visibility, handle) in &query {
-        if view_visibility.get() {
-            material_instances.insert(main_entity, handle.0.id());
+    for (main_entity, visibility, handle) in &query {
+        if visibility.get() {
+            material_instances.insert(main_entity, handle.id());
         }
     }
 }
 
 pub fn extract_ui_mesh_node(
-    mut commands: Commands,
     mut render_mesh_instances: ResMut<RenderUiMesh2dInstances>,
     query: Extract<
         Query<(
@@ -229,7 +238,7 @@ pub fn extract_ui_mesh_node(
             &ComputedNode,
             &InheritedVisibility,
             &UiMeshTransform,
-            &GlobalTransform,
+            &UiGlobalTransform,
             &UiMesh,
             Option<&UiRenderOffset>,
             &ComputedUiTargetCamera,
@@ -238,8 +247,6 @@ pub fn extract_ui_mesh_node(
         )>,
     >,
     view_query: Query<&ExtractedView>,
-    default_ui_camera: Extract<DefaultUiCamera>,
-    render_entity_lookup: Extract<Query<RenderEntity>>,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
@@ -266,7 +273,7 @@ pub fn extract_ui_mesh_node(
             continue;
         };
 
-        let rect = Rect::from_center_size(transform.translation().xy(), computed_node.size());
+        let rect = Rect::from_center_size(transform.translation, computed_node.size());
         let clip_rect = clip.map(|clip| clip.clip).unwrap_or(rect).intersect(rect);
         let clip_offset = clip_rect.center() - rect.center();
 
@@ -278,7 +285,7 @@ pub fn extract_ui_mesh_node(
 
         if clip_rect.width() > 0.0 && clip_rect.height() > 0.0 {
             render_mesh_instances.insert(
-                commands.spawn(TemporaryRenderEntity).id(),
+                main_entity,
                 RenderUiMeshInstance {
                     transforms: Mesh2dTransforms {
                         transform: (&GlobalTransform::default()
@@ -300,7 +307,6 @@ pub fn extract_ui_mesh_node(
                     automatic_batching: !no_automatic_batching,
                     stack_index: computed_node.stack_index(),
                     extracted_camera_entity,
-                    main_entity,
                     zoffset,
                 },
             );
@@ -359,9 +365,9 @@ impl GetBatchData for UiMesh2dPipeline {
 
     fn get_batch_data(
         mesh_instances: &SystemParamItem<Self::Param>,
-        (entity, _): (Entity, MainEntity),
+        (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
-        let mesh_instance = mesh_instances.get(&entity)?;
+        let mesh_instance = mesh_instances.get(&main_entity.id())?;
         Some((
             (&mesh_instance.transforms).into(),
             mesh_instance.automatic_batching.then_some((
@@ -459,6 +465,7 @@ where
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh2d_pipeline.specialize(key.mesh_key, layout)?;
+
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();
         }
@@ -466,11 +473,23 @@ where
         if let Some(fragment_shader) = &self.fragment_shader {
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
+
+        descriptor.depth_stencil = None;
         descriptor.layout = vec![
             self.mesh2d_pipeline.view_layout.clone(),
             self.mesh2d_pipeline.mesh_layout.clone(),
             self.material2d_layout.clone(),
         ];
+        descriptor.vertex.shader_defs.push(ShaderDefVal::UInt(
+            "MATERIAL_BIND_GROUP".into(),
+            MATERIAL_2D_BIND_GROUP_INDEX as u32,
+        ));
+        if let Some(ref mut fragment) = descriptor.fragment {
+            fragment.shader_defs.push(ShaderDefVal::UInt(
+                "MATERIAL_BIND_GROUP".into(),
+                MATERIAL_2D_BIND_GROUP_INDEX as u32,
+            ));
+        }
 
         M::specialize(&mut descriptor, layout, key)?;
         Ok(descriptor)
@@ -507,7 +526,7 @@ pub struct UiMesh2dBindGroup {
     pub value: BindGroup,
 }
 
-pub fn prepare_mesh2d_bind_group(
+pub fn prepare_ui_mesh2d_bind_group(
     mut commands: Commands,
     mesh2d_pipeline: Res<UiMesh2dPipeline>,
     render_device: Res<RenderDevice>,
@@ -529,12 +548,13 @@ pub struct UiMesh2dViewBindGroup {
     pub value: BindGroup,
 }
 
-pub fn prepare_mesh2d_view_bind_groups(
+pub fn prepare_ui_mesh2d_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mesh2d_pipeline: Res<UiMesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
-    views: Query<(Entity, &Tonemapping), (With<ExtractedView>, With<Camera2d>)>,
+    ui_views: Query<(Entity, &UiViewTarget)>,
+    views: Query<&Tonemapping>,
     globals_buffer: Res<GlobalsBuffer>,
     images: Res<RenderAssets<GpuImage>>,
     fallback_image: Res<FallbackImage>,
@@ -544,7 +564,11 @@ pub fn prepare_mesh2d_view_bind_groups(
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
     ) {
-        for (entity, tonemapping) in &views {
+        for (entity, main_camera_view) in &ui_views {
+            let Ok(tonemapping) = views.get(main_camera_view.0) else {
+                continue;
+            };
+
             let lut_bindings =
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
             let view_bind_group = render_device.create_bind_group(
@@ -572,7 +596,6 @@ pub struct RenderUiMeshInstance {
     pub material_bind_group_id: Material2dBindGroupId,
     pub automatic_batching: bool,
     pub extracted_camera_entity: Entity,
-    pub main_entity: Entity,
     pub zoffset: f32,
 }
 
@@ -595,16 +618,17 @@ pub fn queue_ui_meshes<M: Material2d>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    for (index, (entity, mesh_instance)) in render_mesh_instances.iter_mut().enumerate() {
-        let Some(material_asset_id) = render_material_instances.get(&mesh_instance.main_entity)
-        else {
-            debug!(entity =?mesh_instance.main_entity, "material is not prepared");
-            continue;
-        };
+    for (index, (main_entity, material_asset_id)) in render_material_instances.iter().enumerate() {
         let Some(material2d) = render_materials.get(*material_asset_id) else {
-            debug!(entity =?mesh_instance.main_entity, "material is not prepared");
+            debug!(?main_entity, "material is not prepared");
             continue;
         };
+
+        let Some(mesh_instance) = render_mesh_instances.get_mut(main_entity) else {
+            debug!(?main_entity, "mesh instance is not prepared");
+            continue;
+        };
+
         let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
             debug!(mesh=?mesh_instance.mesh_asset_id,"mesh is not prepared");
             continue;
@@ -664,7 +688,7 @@ pub fn queue_ui_meshes<M: Material2d>(
 
         transparent_phase.add(TransparentUi {
             sort_key: FloatOrd(mesh_instance.stack_index as f32 + mesh_instance.zoffset),
-            entity: (*entity, MainEntity::from(mesh_instance.main_entity)),
+            entity: (*main_entity, (*main_entity).into()),
             pipeline: pipeline_id,
             draw_function: draw_transparent_pbr,
             batch_range: 0..1,
@@ -677,14 +701,14 @@ pub fn queue_ui_meshes<M: Material2d>(
 
 type DrawUiMesh<M> = (
     SetItemPipeline,
-    SetMesh2dViewBindGroup<0>,
-    SetMesh2dBindGroup<1>,
-    SetUiMeshBindGroup<M, 2>,
+    SetUiMesh2dViewBindGroup<0>,
+    SetUiMesh2dBindGroup<1>,
+    SetUiMeshMaterialBindGroup<M, MATERIAL_2D_BIND_GROUP_INDEX>,
     DoDrawUiMesh,
 );
 
-pub struct SetMesh2dViewBindGroup<const I: usize>;
-impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I> {
+pub struct SetUiMesh2dViewBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiMesh2dViewBindGroup<I> {
     type ItemQuery = ();
     type Param = ();
     type ViewQuery = (Read<ViewUniformOffset>, Read<UiMesh2dViewBindGroup>);
@@ -703,8 +727,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I
     }
 }
 
-pub struct SetMesh2dBindGroup<const I: usize>;
-impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
+pub struct SetUiMesh2dBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiMesh2dBindGroup<I> {
     type ItemQuery = ();
     type Param = SRes<UiMesh2dBindGroup>;
     type ViewQuery = ();
@@ -732,8 +756,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
     }
 }
 
-pub struct SetUiMeshBindGroup<M: Material2d, const I: usize>(PhantomData<M>);
-impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P> for SetUiMeshBindGroup<M, I> {
+pub struct SetUiMeshMaterialBindGroup<M: Material2d, const I: usize>(PhantomData<M>);
+impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
+    for SetUiMeshMaterialBindGroup<M, I>
+{
     type ItemQuery = ();
     type Param = (
         SRes<RenderAssets<PreparedMaterial2d<M>>>,
@@ -854,17 +880,5 @@ impl<P: PhaseItem> RenderCommand<P> for DoDrawUiMesh {
         );
 
         RenderCommandResult::Success
-    }
-}
-
-pub struct PrepareNextFrameMaterials<M: Material2d> {
-    assets: Vec<(AssetId<M>, M)>,
-}
-
-impl<M: Material2d> Default for PrepareNextFrameMaterials<M> {
-    fn default() -> Self {
-        Self {
-            assets: Default::default(),
-        }
     }
 }
