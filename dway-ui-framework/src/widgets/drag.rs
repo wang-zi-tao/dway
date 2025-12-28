@@ -52,10 +52,18 @@ pub fn update_ui_drag(
     mut commands: Commands,
     mouse: Res<ButtonInput<MouseButton>>,
 ) {
-    for (parent, mut this, cursor, interaction, event_dispatcher, mut node, computed_node) in
-        &mut query
+    for (
+        parent,
+        mut this,
+        relative_cursor_position,
+        interaction,
+        event_dispatcher,
+        mut node,
+        computed_node,
+    ) in &mut query
     {
-        if let Some(normalized_cursor_pos) = cursor.normalized {
+        if let Some(pointer) = get_node_mouse_position(relative_cursor_position, computed_node)
+        {
             let UiDrag {
                 moving,
                 horizontal,
@@ -64,7 +72,6 @@ pub fn update_ui_drag(
             } = &mut *this;
             if let Some(state) = moving {
                 if mouse.pressed(MouseButton::Left) {
-                    let pointer = normalized_cursor_pos * computed_node.size();
                     if pointer != state.pointer {
                         let size = computed_node.size();
                         let parent_size =
@@ -123,7 +130,7 @@ pub fn update_ui_drag(
             } else if *interaction == Interaction::Pressed {
                 event_dispatcher.send(UiDragEvent::Start, &mut commands);
                 this.moving = Some(UiDragState {
-                    pointer: normalized_cursor_pos * computed_node.size(),
+                    pointer,
                     offset: Vec2::ZERO,
                 });
             };

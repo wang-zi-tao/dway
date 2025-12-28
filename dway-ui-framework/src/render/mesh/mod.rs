@@ -58,7 +58,7 @@ use bevy::{
 
 use self::graph::NodeUiExt;
 use super::UiRenderOffset;
-use crate::prelude::*;
+use crate::{prelude::*, util::nodes::get_node_position};
 
 pub mod graph {
     use bevy::render::render_graph::RenderLabel;
@@ -273,7 +273,7 @@ pub fn extract_ui_mesh_node(
             continue;
         };
 
-        let rect = Rect::from_center_size(transform.translation, computed_node.size());
+        let rect = get_node_rect(transform, computed_node);
         let clip_rect = clip.map(|clip| clip.clip).unwrap_or(rect).intersect(rect);
         let clip_offset = clip_rect.center() - rect.center();
 

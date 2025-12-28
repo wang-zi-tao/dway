@@ -1,6 +1,9 @@
 use bevy::{
     ecs::{event::EventCursor, query::QueryData},
-    input::{keyboard::KeyboardInput, mouse::{MouseButtonInput, MouseWheel}},
+    input::{
+        keyboard::KeyboardInput,
+        mouse::{MouseButtonInput, MouseWheel},
+    },
     ui::RelativeCursorPosition,
 };
 use bevy_relationship::reexport::SmallVec;
@@ -31,6 +34,23 @@ pub fn update_mouse_position(
     }
 }
 
+pub fn get_node_rect(transform: &UiGlobalTransform, computed_node: &ComputedNode) -> Rect {
+    Rect::from_center_size(transform.translation, computed_node.size())
+}
+
+pub fn get_node_mouse_position(
+    relative_cursor_position: &RelativeCursorPosition,
+    computed_node: &ComputedNode,
+) -> Option<Vec2> {
+    if relative_cursor_position.cursor_over() {
+        relative_cursor_position
+            .normalized
+            .map(|v| (v + Vec2::splat(0.5)) * computed_node.size())
+    } else {
+        None
+    }
+}
+
 #[derive(Debug, Clone, Reflect)]
 pub enum UiInputEvent {
     MouseEnter,
@@ -39,6 +59,7 @@ pub enum UiInputEvent {
     MouseRelease(MouseButton),
     KeyboardEnter,
     KeyboardLeave,
+    /// Mouse position relative to the node's top-left corner
     MouseMove(Vec2),
     KeyboardInput(KeyboardInput),
     Wheel(MouseWheel),
@@ -121,6 +142,7 @@ pub struct UiInputQuery {
     relative_cursor_position: Option<Ref<'static, RelativeCursorPosition>>,
     theme: Option<&'static mut ThemeComponent>,
     event_dispatcher: &'static UiInputEventDispatcher,
+    computed_node: &'static ComputedNode,
 }
 
 pub fn update_ui_input(
@@ -141,6 +163,7 @@ pub fn update_ui_input(
         interaction,
         relative_cursor_position,
         event_dispatcher,
+        computed_node,
         ..
     } in &mut query
     {
@@ -182,7 +205,9 @@ pub fn update_ui_input(
 
         if let Some(relative_cursor_position) = relative_cursor_position.as_ref() {
             if relative_cursor_position.is_changed() {
-                if let Some(pos) = relative_cursor_position.normalized {
+                if let Some(pos) =
+                    get_node_mouse_position(relative_cursor_position, computed_node)
+                {
                     event_dispatcher.send(MouseMove(pos), &mut commands);
                 }
             }

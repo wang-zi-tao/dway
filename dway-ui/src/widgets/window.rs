@@ -29,10 +29,9 @@ pub fn ui_input_event_to_surface_input_event(
     event: &UiInputEvent,
     window_geometry: Geometry,
 ) -> Option<SurfaceInputEvent> {
-    let mouse_position =
-        relative_cursor_position.normalized.unwrap_or_default() * computed_node.size();
+    let mouse_position = get_node_mouse_position(relative_cursor_position, computed_node);
 
-    let surface_rect = Rect::from_center_size(global_transform.translation, computed_node.size());
+    let surface_rect = get_node_rect(global_transform, computed_node);
 
     let surface_input_event_kind = match &*event {
         UiInputEvent::MouseEnter => Some(GrabRequestKind::Enter()),
@@ -41,7 +40,7 @@ pub fn ui_input_event_to_surface_input_event(
         UiInputEvent::MouseRelease(_) => None,
         UiInputEvent::KeyboardEnter => None,
         UiInputEvent::KeyboardLeave => None,
-        UiInputEvent::MouseMove(vec2) => Some(GrabRequestKind::Move(vec2 * surface_rect.size())),
+        UiInputEvent::MouseMove(vec2) => Some(GrabRequestKind::Move(*vec2)),
         UiInputEvent::KeyboardInput(keyboard_input) => {
             Some(GrabRequestKind::KeyboardInput(keyboard_input.clone()))
         }

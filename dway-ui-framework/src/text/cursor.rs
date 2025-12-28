@@ -202,17 +202,18 @@ pub fn text_cursor_on_input_system(
                 input_focus_event.write(UiFocusEvent::FocusEnterRequest(entity));
             }
 
-            if let Some(normalized) = relative_pos.normalized {
-                let glyph_index =
-                    cursor.position_to_glyph_index(normalized * computed_node.size(), text_layout);
+            if let Some(mouse_position) = get_node_mouse_position(relative_pos, computed_node)
+            {
+                let glyph_index = cursor.position_to_glyph_index(mouse_position, text_layout);
                 cursor.set_glyph_index(textarea, glyph_index);
             }
         }
         UiInputEvent::MouseMove(_) => {
             if *interaction == Interaction::Pressed {
-                if let Some(normalized) = relative_pos.normalized {
-                    let glyph_index = cursor
-                        .position_to_glyph_index(normalized * computed_node.size(), text_layout);
+                if let Some(mouse_position) =
+                    get_node_mouse_position(relative_pos, computed_node)
+                {
+                    let glyph_index = cursor.position_to_glyph_index(mouse_position, text_layout);
                     cursor.set_glyph_index(textarea, glyph_index);
                 }
             }

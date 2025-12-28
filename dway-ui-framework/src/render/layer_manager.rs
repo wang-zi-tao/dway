@@ -28,6 +28,7 @@ use crate::{
         BindGroupBuilder, BindGroupLayoutBuilder, BuildBindGroup, ShaderAsset, ShaderBuilder,
         ShaderPlugin, ShaderVariables, ShapeRender, UniformLayout,
     },
+    util::nodes::get_node_position,
     widgets::util::visibility,
     UiFrameworkSystems,
 };
@@ -703,8 +704,7 @@ pub fn update_layers(
             continue;
         };
         let layer_usage = layer_rects.entry(layer_camera).or_default();
-        let rect =
-            Rect::from_center_size(global_transform.translation, computed_node.size());
+        let rect = get_node_rect(&global_transform, &computed_node);
 
         if layer_render_area.is_changed()
             || computed_node.is_changed()

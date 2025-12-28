@@ -11,7 +11,8 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::{
     event::{EventReceiver, UiEvent},
     prelude::*,
-    theme::{ThemeComponent, WidgetKind}, widgets::shader::{rounded_rect, RoundedUiRectMaterial},
+    theme::{ThemeComponent, WidgetKind},
+    widgets::shader::{rounded_rect, RoundedUiRectMaterial},
 };
 
 #[derive(Debug, Clone, Reflect, PartialEq, Eq)]
@@ -198,32 +199,26 @@ fn on_input_event(
             };
 
             if relative_pos.cursor_over {
-                if let Some(normalized) = relative_pos.normalized {
-                    move_cursor(
-                        normalized * computed_node.size(),
-                        inputbox,
-                        &text_layout,
-                        &mut inputbox_state,
-                    );
+                if let Some(mouse_position) =
+                    get_node_mouse_position(relative_pos, &computed_node)
+                {
+                    move_cursor(mouse_position, inputbox, &text_layout, &mut inputbox_state);
                 }
             }
         }
         UiInputEvent::MouseMove(_) => {
             if *interaction == Interaction::Pressed {
-                if let Some(normalized) = relative_pos.normalized {
-                    let Ok((node, text_layout)) =
-                        text_node_query.get(inputbox_widget.node_text_entity)
-                    else {
-                        warn!(entity=?entity, "the UiInputBox has broken");
-                        return;
-                    };
+                let Ok((computed_node, text_layout)) =
+                    text_node_query.get(inputbox_widget.node_text_entity)
+                else {
+                    warn!(entity=?entity, "the UiInputBox has broken");
+                    return;
+                };
 
-                    move_cursor(
-                        normalized * node.size(),
-                        inputbox,
-                        &text_layout,
-                        &mut inputbox_state,
-                    );
+                if let Some(mouse_position) =
+                    get_node_mouse_position(relative_pos, &computed_node)
+                {
+                    move_cursor(mouse_position, inputbox, &text_layout, &mut inputbox_state);
                 }
             }
         }

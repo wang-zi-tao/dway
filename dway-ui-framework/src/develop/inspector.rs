@@ -372,18 +372,17 @@ fn on_mouse_event(
                 inspector_ui_state.data.picking.picking = false;
             }
         }
-        UiInputEvent::MouseMove(normaled) => {
-            let rect =
-                Rect::from_center_size(widget_transform.translation, widget_node.size());
-            let mouse_position = rect.min + rect.size() * normaled;
+        UiInputEvent::MouseMove(delta) => {
+            let inspector_rect = get_node_rect(widget_transform, widget_node);
+            let mouse_position = inspector_rect.min + delta;
 
             let mut rects = Vec::new();
             let mut entitys = Vec::new();
 
             for (entity, node, transform) in node_query.iter_many(&node_stack.uinodes) {
-                let rect = Rect::from_center_size(transform.translation, node.size());
-                if rect.contains(mouse_position) {
-                    rects.push(rect);
+                let node_rect = get_node_rect(transform, node);
+                if node_rect.contains(mouse_position) {
+                    rects.push(node_rect);
                     entitys.push(entity);
                 }
             }

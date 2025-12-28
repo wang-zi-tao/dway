@@ -1,6 +1,9 @@
 use bevy::{input::mouse::MouseWheel, ui::RelativeCursorPosition};
 
-use crate::{prelude::*, widgets::shader::{rounded_rect, RoundedUiRectMaterial}};
+use crate::{
+    prelude::*,
+    widgets::shader::{rounded_rect, RoundedUiRectMaterial},
+};
 
 #[derive(Component, SmartDefault, Reflect, Debug)]
 #[require(RelativeCursorPosition, Interaction)]
@@ -56,7 +59,7 @@ UiScroll=>
         }
     }
     (||{
-        let scroll_rect = Rect::from_center_size(transform.translation, computed_node.size());
+        let scroll_rect = get_node_rect(transform, computed_node);
         let Some(content_entity) = *state.content() else {return};
         let Ok((content_node,mut content_style)) = style_query.get_mut(content_entity) else {return};
         let inside = mouse_position.cursor_over;
@@ -87,7 +90,7 @@ UiScroll=>
     <(Node{
             top: Val::Percent(state.uv().min.y*100.0),
             height: Val::Px(state.uv().size().y*state.size().y),
-            ..style!("right-1 w-4 absolute")}) 
+            ..style!("right-1 w-4 absolute")})
         @id="vertical_handle"
         @material(RoundedUiRectMaterial=>rounded_rect(theme.color("scroll-bar"), 4.0)) >
     </Node>

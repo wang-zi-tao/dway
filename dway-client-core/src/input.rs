@@ -128,7 +128,7 @@ structstruck::strike! {
     #[derive(Message,Debug,Clone)]
     pub struct SurfaceInputEvent {
         pub surface_entity: Option<Entity>,
-        pub mouse_position: Vec2,
+        pub mouse_position: Option<Vec2>,
         pub surface_rect: Rect,
         pub window_geometry: Geometry,
         pub kind: #[derive(Debug,Clone)] enum GrabRequestKind {
@@ -218,35 +218,41 @@ pub fn do_input(
     graph.for_each_pointer_mut_from::<()>(
         surface_entity,
         |(surface, window_pointer, popup), ref mut seat, pointer| {
-            let relative_pos = event.mouse_position;
-
             match &event.kind {
                 GrabRequestKind::Move(_cursor_moved) => {
-                    pointer.move_cursor(seat, surface, relative_pos);
-                    window_pointer.mouse_pos = relative_pos.as_ivec2();
-                    cursor_on_window.0 = Some((surface_entity, relative_pos.as_ivec2()));
+                    if let Some(relative_pos) = event.mouse_position {
+                        pointer.move_cursor(seat, surface, relative_pos);
+                        window_pointer.mouse_pos = relative_pos.as_ivec2();
+                        cursor_on_window.0 = Some((surface_entity, relative_pos.as_ivec2()));
+                    }
                 }
                 GrabRequestKind::Button(mouse_button_input) => {
-                    output_focus.window_entity = Some(surface_entity);
-                    pointer.button(seat, mouse_button_input, surface, relative_pos);
-                    if !event.surface_rect.contains(event.mouse_position) {
-                        if let Some(popup) = popup {
-                            popup.raw.popup_done();
+                    if let Some(relative_pos) = event.mouse_position {
+                        output_focus.window_entity = Some(surface_entity);
+                        pointer.button(seat, mouse_button_input, surface, relative_pos);
+                        if !event.surface_rect.contains(relative_pos) {
+                            if let Some(popup) = popup {
+                                popup.raw.popup_done();
+                            }
                         }
                     }
                 }
                 GrabRequestKind::Asix(mouse_wheel) => {
-                    let acc = |x: f64| x * 20.0;
-                    pointer.asix(
-                        seat,
-                        DVec2::new(-acc(mouse_wheel.x as f64), -acc(mouse_wheel.y as f64)),
-                        surface,
-                        relative_pos,
-                    );
-                    output_focus.window_entity = Some(surface_entity);
+                    if let Some(relative_pos) = event.mouse_position {
+                        let acc = |x: f64| x * 20.0;
+                        pointer.asix(
+                            seat,
+                            DVec2::new(-acc(mouse_wheel.x as f64), -acc(mouse_wheel.y as f64)),
+                            surface,
+                            relative_pos,
+                        );
+                        output_focus.window_entity = Some(surface_entity);
+                    }
                 }
                 GrabRequestKind::Enter() => {
-                    pointer.enter(seat, surface, relative_pos);
+                    if let Some(relative_pos) = event.mouse_position {
+                        pointer.enter(seat, surface, relative_pos);
+                    }
                 }
                 GrabRequestKind::Leave() => {
                     pointer.leave();

@@ -111,15 +111,16 @@ pub fn open_menu(
 ) {
     if let UiInputEvent::MouseRelease(MouseButton::Left) = &*event {
         let Ok((relative_pos, computed_node)) = node_query.get(event.sender()) else {
+            warn!(node_entity=?event.sender() , "Could not get node for menu popup");
             return;
         };
-        let Some(normalized) = relative_pos.normalized else {
+        let Some(mouse_position) = get_node_mouse_position(relative_pos, computed_node) else {
             return;
         };
-        let delta = normalized * computed_node.size();
+
         commands.entity(event.sender()).with_children(|c| {
             spawn! {c=>
-                <Node BlockStyle=(BlockStyle::Normal) @style="absolute flex-col p-8 left-{delta.x} top-{delta.y}"
+                <Node BlockStyle=(BlockStyle::Normal) @style="absolute flex-col p-8 left-{mouse_position.x} top-{mouse_position.y}"
                     UiPopup=(UiPopup::default().with_auto_destroy())
                 >
                     <UiButton @style="m-4 p-4">
