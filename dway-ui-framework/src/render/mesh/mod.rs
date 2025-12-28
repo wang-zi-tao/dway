@@ -14,7 +14,6 @@ use bevy::{
             *,
         },
     },
-    image::{ImageSampler, TextureFormatPixelInfo},
     math::{Affine3, FloatOrd},
     mesh::MeshVertexBufferLayoutRef,
     post_process::msaa_writeback::MsaaWritebackNode,
@@ -26,8 +25,8 @@ use bevy::{
             },
             GetBatchData, NoAutomaticBatching,
         },
-        camera::{extract_cameras, ExtractedCamera},
-        globals::{GlobalsBuffer, GlobalsUniform},
+        camera::extract_cameras,
+        globals::GlobalsBuffer,
         mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
         render_asset::{RenderAssetPlugin, RenderAssets},
         render_graph::{RenderGraphExt, ViewNodeRunner},
@@ -35,19 +34,18 @@ use bevy::{
             AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
             RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewSortedRenderPhases,
         },
-        render_resource::{binding_types::uniform_buffer, *},
-        renderer::{RenderDevice, RenderQueue},
-        sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
-        texture::{DefaultImageSampler, FallbackImage, GpuImage},
+        render_resource::*,
+        renderer::RenderDevice,
+        sync_world::MainEntity,
+        texture::{FallbackImage, GpuImage},
         view::*,
         Extract, RenderApp, RenderSet, RenderStartup,
     },
     shader::{ShaderDefVal, ShaderRef},
     sprite_render::{
-        init_mesh_2d_pipeline, prepare_mesh2d_bind_group, prepare_mesh2d_view_bind_groups,
-        tonemapping_pipeline_key, Material2d, Material2dBindGroupId, Material2dKey,
-        Material2dPipeline, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dViewBindGroup, MeshFlags,
-        PreparedMaterial2d, SetMaterial2dBindGroup, SetMesh2dViewBindGroup,
+        init_mesh_2d_pipeline,
+        tonemapping_pipeline_key, Material2d, Material2dBindGroupId, Material2dKey, Mesh2dPipeline, Mesh2dPipelineKey, MeshFlags,
+        PreparedMaterial2d,
         MATERIAL_2D_BIND_GROUP_INDEX,
     },
     ui_render::{
@@ -58,7 +56,7 @@ use bevy::{
 
 use self::graph::NodeUiExt;
 use super::UiRenderOffset;
-use crate::{prelude::*, util::nodes::get_node_position};
+use crate::prelude::*;
 
 pub mod graph {
     use bevy::render::render_graph::RenderLabel;
@@ -269,7 +267,7 @@ pub fn extract_ui_mesh_node(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(&camera) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
 

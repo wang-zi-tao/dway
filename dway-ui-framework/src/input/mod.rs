@@ -154,11 +154,11 @@ pub fn update_ui_input(
     mut ui_focus_state: ResMut<UiFocusState>,
     mut wheel_event_cursor: Local<EventCursor<MouseWheel>>,
     mut button_event_cursor: Local<EventCursor<MouseButtonInput>>,
-    mut wheel_events: Res<Events<MouseWheel>>,
-    mut mouse_button_events: Res<Events<MouseButtonInput>>,
+    wheel_events: Res<Events<MouseWheel>>,
+    mouse_button_events: Res<Events<MouseButtonInput>>,
 ) {
     for UiInputQueryItem {
-        entity,
+        entity: _,
         mut ui_focus,
         interaction,
         relative_cursor_position,
@@ -184,12 +184,12 @@ pub fn update_ui_input(
         if *interaction != Interaction::None {
             let mut wheel_event_cursor_clone = wheel_event_cursor.clone();
             for event in wheel_event_cursor_clone.read(&wheel_events) {
-                event_dispatcher.send(Wheel(event.clone()), &mut commands);
+                event_dispatcher.send(Wheel(*event), &mut commands);
             }
 
             let mut button_event_cursor_clone = button_event_cursor.clone();
             for event in button_event_cursor_clone.read(&mouse_button_events) {
-                event_dispatcher.send(RawMouseButton(event.clone()), &mut commands);
+                event_dispatcher.send(RawMouseButton(*event), &mut commands);
             }
         }
 
@@ -238,7 +238,7 @@ pub fn update_ui_input(
     }
     for key in keyboard_event.read() {
         for UiInputQueryItem {
-            entity,
+            entity: _,
             ui_focus,
             event_dispatcher,
             ..

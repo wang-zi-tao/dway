@@ -2,12 +2,10 @@ use dway_client_core::{desktop::FocusedWindow, model::apps::AppListModel};
 use dway_server::apps::{
     icon::LinuxIcon, launchapp::LaunchAppRequest, DesktopEntriesSet, DesktopEntry, WindowList,
 };
-use event::make_callback;
 use indexmap::IndexSet;
-use widgets::button::UiButtonEventDispatcher;
 
 use crate::{
-    panels::{PanelPopup, PanelPopupBundle},
+    panels::PanelPopup,
     popups::app_window_preview::AppWindowPreviewPopup,
     prelude::*,
     widgets::icon::UiIcon,

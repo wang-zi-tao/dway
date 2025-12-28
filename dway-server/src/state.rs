@@ -14,7 +14,7 @@ use bevy::{
     ecs::{
         entity::EntityHashSet,
         event::EventCursor,
-        query::{QueryData, QueryEntityError, QueryItem, WorldQuery}, relationship::Relationship as _,
+        query::{QueryData, QueryEntityError, QueryItem}, relationship::Relationship as _,
     },
     platform::collections::HashMap,
     tasks::IoTaskPool,
@@ -480,7 +480,7 @@ impl DWay {
     pub fn object_component_mut<T: Component<Mutability = Mutable>>(
         &mut self,
         object: &impl wayland_server::Resource,
-    ) -> Mut<T> {
+    ) -> Mut<'_, T> {
         self.world_mut()
             .get_mut::<T>(DWay::get_entity(object))
             .unwrap()
@@ -547,7 +547,7 @@ impl DWay {
                 )
             })
             .ok()?;
-        Some(f(&component))
+        Some(f(component))
     }
 
     pub fn with_component_mut<T, F, R>(
@@ -773,12 +773,12 @@ impl DWay {
         &mut self,
         entity: Entity,
         f: impl EntityFactory<T>,
-    ) -> Option<EntityWorldMut> {
+    ) -> Option<EntityWorldMut<'_>> {
         let world = self.world_mut();
         f.insert(world, entity)
     }
 
-    pub fn spawn<T>(&mut self, f: impl EntityFactory<T>) -> EntityWorldMut {
+    pub fn spawn<T>(&mut self, f: impl EntityFactory<T>) -> EntityWorldMut<'_> {
         f.spawn(self.world_mut())
     }
 }
@@ -838,7 +838,7 @@ pub trait EntityFactory<T> {
 }
 
 impl<T: Bundle> EntityFactory<(T,)> for T {
-    fn spawn(self, world: &mut World) -> EntityWorldMut {
+    fn spawn(self, world: &mut World) -> EntityWorldMut<'_> {
         world.spawn(self)
     }
 
@@ -853,7 +853,7 @@ impl<T: Bundle> EntityFactory<(T,)> for T {
     }
 }
 impl<T: FnOnce() -> B, B: Bundle> EntityFactory<()> for T {
-    fn spawn(self, world: &mut World) -> EntityWorldMut {
+    fn spawn(self, world: &mut World) -> EntityWorldMut<'_> {
         world.spawn(self())
     }
 
@@ -868,7 +868,7 @@ impl<T: FnOnce() -> B, B: Bundle> EntityFactory<()> for T {
     }
 }
 impl<T: FnOnce(&mut World) -> B, B: Bundle> EntityFactory<(&mut World,)> for T {
-    fn spawn(self, world: &mut World) -> EntityWorldMut {
+    fn spawn(self, world: &mut World) -> EntityWorldMut<'_> {
         let bundle = self(world);
         world.spawn(bundle)
     }
@@ -971,7 +971,7 @@ where
         Some(entity)
     }
 
-    fn spawn(self, world: &mut World) -> EntityWorldMut
+    fn spawn(self, world: &mut World) -> EntityWorldMut<'_>
     where
         Self: Sized,
     {
@@ -1002,7 +1002,7 @@ where
         self.inner.insert(world, entity)
     }
 
-    fn spawn(self, world: &mut World) -> EntityWorldMut
+    fn spawn(self, world: &mut World) -> EntityWorldMut<'_>
     where
         Self: Sized,
     {
@@ -1041,7 +1041,7 @@ where
         world.get_entity_mut(entity).ok()
     }
 
-    fn spawn(self, world: &mut World) -> EntityWorldMut
+    fn spawn(self, world: &mut World) -> EntityWorldMut<'_>
     where
         Self: Sized,
     {

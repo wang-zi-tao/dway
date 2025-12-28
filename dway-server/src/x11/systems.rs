@@ -118,7 +118,7 @@ pub fn process_window_action_events(
                 WindowAction::RequestResize(e, edges) => {
                     query_graph.for_each_seat_path_mut_from(
                         *e,
-                        |(geo, surface_pointer_state, pinned), seat_entity| {
+                        |(geo, _surface_pointer_state, pinned), seat_entity| {
                             if pinned.is_some() {
                                 return ControlFlow::<()>::default();
                             }

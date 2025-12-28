@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use bevy::prelude::*;
 pub mod button;
 pub mod canvas;
 pub mod checkbox;

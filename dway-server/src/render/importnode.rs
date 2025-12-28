@@ -5,7 +5,6 @@ use std::{
 
 use bevy::{
     ecs::entity::EntityHashMap,
-    platform::collections::HashSet,
     render::{
         render_asset::RenderAssets,
         render_graph::Node,
@@ -19,9 +18,9 @@ use drm_fourcc::DrmFourcc;
 use dway_util::formats::ImageFormat;
 use wgpu::{
     CommandEncoder, CommandEncoderDescriptor, Extent3d, FilterMode, TexelCopyTextureInfo,
-    TextureAspect, TextureDimension, TextureUsages, TextureUses,
+    TextureAspect, TextureDimension, TextureUses,
 };
-use wgpu_hal::{Api, MemoryFlags};
+use wgpu_hal::MemoryFlags;
 use wgpu_core::hal_api::HalApi;
 
 use super::{
@@ -320,7 +319,7 @@ pub fn clean(
         let _ = display.flush_clients();
     }
     if let Some(ImportStateKind::Egl(s)) = &state.inner {
-        let _ = gles::clean(s, &*state, &render_device);
+        let _ = gles::clean(s, &state, &render_device);
     }
 }
 

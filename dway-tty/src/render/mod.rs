@@ -8,19 +8,16 @@ use bevy::{
     platform::collections::{hash_map::Entry, HashMap},
     prelude::*,
     render::{
-        extract_component::{ExtractComponent, ExtractComponentPlugin},
         render_asset::RenderAssets,
         renderer::RenderDevice,
         sync_component::SyncComponentPlugin,
-        sync_world::{MainEntity, RenderEntity, SyncToRenderWorld, TemporaryRenderEntity},
+        sync_world::RenderEntity,
         texture::GpuImage,
         Extract, Render, RenderApp, RenderSet,
     },
-    ui_render::ExtractedUiItem,
 };
 use drm::control::framebuffer;
 use drm_fourcc::DrmFormat;
-use dway_util::temporary::TemporaryEntity;
 use tracing::{span, Level};
 use wgpu_core::hal_api::HalApi;
 use wgpu_hal::api::Gles;

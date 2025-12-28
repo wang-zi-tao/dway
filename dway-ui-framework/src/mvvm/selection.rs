@@ -53,7 +53,7 @@ pub struct SelectItemRequest<Index: IndexTrait> {
 pub struct DontSelect;
 
 pub fn select_item_command(mut entity: EntityWorldMut) {
-    let (ctrl, shift) = entity.world_scope(|world| {
+    let (_ctrl, _shift) = entity.world_scope(|world| {
         let keys = world.resource::<ButtonInput<KeyCode>>();
         let ctrl = keys.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
         let shift = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
@@ -101,7 +101,7 @@ pub fn do_select<Index: IndexTrait>(
     mut event_reader: MessageReader<SelectItemRequest<Index>>,
 ) {
     for event in event_reader.read() {
-        let mut set_selected = |entity: Entity, selected: bool| {
+        let mut set_selected = |_entity: Entity, selected: bool| {
             let Ok(mut selection_info) = item_query.get_mut(event.item_entity) else {
                 return;
             };
@@ -123,12 +123,12 @@ pub fn do_select<Index: IndexTrait>(
             }
             SelectMode::AddByRange => {
                 let item = (index, item_entity);
-                let min = selection_model
+                let _min = selection_model
                     .items
                     .first()
                     .map(|i| min(i, &item))
                     .unwrap_or(&item);
-                let max = selection_model
+                let _max = selection_model
                     .items
                     .last()
                     .map(|i| max(i, &item))

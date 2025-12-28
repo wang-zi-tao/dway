@@ -26,7 +26,7 @@ impl ListView {
         )>,
         mut viewport_query: Query<&mut Node>,
     ) {
-        for (this, computed_node, mut list_layout, scroll_state) in &mut query {
+        for (_this, _computed_node, mut list_layout, scroll_state) in &mut query {
             if scroll_state.is_changed() {
                 let rect = Rect::from_corners(
                     scroll_state.offset,

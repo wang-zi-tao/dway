@@ -154,12 +154,12 @@ impl WlSurface {
 
     fn window_area_in_image(&self) -> IRect {
         let image_rect = IRect::from_pos_size(IVec2::ZERO, self.size.unwrap_or_default());
-        let window_geometry = self
+        
+        self
             .commited
             .window_geometry
             .unwrap_or(image_rect)
-            .intersection(image_rect);
-        window_geometry
+            .intersection(image_rect)
     }
 
     pub fn image_rect(&self) -> IRect {

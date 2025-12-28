@@ -5,7 +5,6 @@ use dway_server::{
     util::rect::IRect,
     wl::surface::{ClientHasSurface, WlSurface},
 };
-use dway_ui_framework::theme::{ThemeComponent, WidgetKind};
 use std::result::Result;
 
 use crate::prelude::*;

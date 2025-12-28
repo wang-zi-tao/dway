@@ -418,7 +418,7 @@ impl XWaylandDisplay {
 
     fn open_x11_sockets_for_display(
         display: u32,
-        open_abstract_socket: bool,
+        _open_abstract_socket: bool,
     ) -> Result<Option<Vec<UnixListener>>> {
         let lock_path = format!("/tmp/.X{}-lock", display);
         if fs::metadata(lock_path).is_ok() {

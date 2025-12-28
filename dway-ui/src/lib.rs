@@ -24,11 +24,7 @@ use dway_client_core::{
 };
 use dway_server::geometry::GlobalGeometry;
 use dway_tty::drm::{connectors::Connector, surface::DrmSurface};
-use dway_ui_framework::{
-    render::layer_manager::{LayerKind, LayerManager, RenderToLayer},
-    theme::{ThemeComponent, WidgetKind},
-};
-use widgets::clock::Clock;
+use dway_ui_framework::render::layer_manager::{LayerKind, LayerManager, RenderToLayer};
 
 use crate::{
     panels::{dock::Dock, top_panel::Panel},
@@ -92,7 +88,7 @@ impl Plugin for DWayUiPlugin {
     }
 }
 
-fn setup(commands: Commands) {
+fn setup(_commands: Commands) {
 }
 
 #[derive(Component)]

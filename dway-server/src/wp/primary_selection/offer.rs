@@ -35,12 +35,12 @@ impl Drop for ZwpPrimarySelectionOffer {
 impl Dispatch<ZwpPrimarySelectionOfferV1, Entity> for DWay {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &ZwpPrimarySelectionOfferV1,
         request: <ZwpPrimarySelectionOfferV1 as WlResource>::Request,
         data: &Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span =
             span!(Level::ERROR,"request",entity = ?data,resource = %WlResource::id(resource));

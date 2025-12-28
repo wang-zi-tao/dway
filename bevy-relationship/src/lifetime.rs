@@ -1,5 +1,5 @@
 use bevy::{
-    ecs::{component::Mutable, world::DeferredWorld},
+    ecs::world::DeferredWorld,
     prelude::*,
 };
 use smallvec::SmallVec;

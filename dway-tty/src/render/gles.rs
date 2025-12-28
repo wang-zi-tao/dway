@@ -502,7 +502,7 @@ unsafe fn do_create_renderbuffer(
             request.as_ptr(),
         )
     };
-    if image == null_mut() {
+    if image.is_null() {
         bail!("failed to create EGLImage");
     }
 

@@ -39,12 +39,12 @@ impl Drop for GtkPrimarySelectionDevice {
 impl Dispatch<gtk_primary_selection_device::GtkPrimarySelectionDevice, Entity> for DWay {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &gtk_primary_selection_device::GtkPrimarySelectionDevice,
         request: <gtk_primary_selection_device::GtkPrimarySelectionDevice as WlResource>::Request,
         data: &Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span =
             span!(Level::ERROR,"request",entity = ?data,resource = %WlResource::id(resource));
@@ -56,7 +56,7 @@ impl Dispatch<gtk_primary_selection_device::GtkPrimarySelectionDevice, Entity> f
         });
 
         match request {
-            gtk_primary_selection_device::Request::SetSelection { source, serial } => {
+            gtk_primary_selection_device::Request::SetSelection { source, serial: _ } => {
                 if let Some(source) = source {
                     state.connect::<SourceOfSelection>(*data, DWay::get_entity(&source));
                     let mime_types = state

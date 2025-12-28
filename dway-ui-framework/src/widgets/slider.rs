@@ -3,7 +3,7 @@ use smart_default::SmartDefault;
 
 use crate::{
     prelude::*,
-    theme::{StyleFlags, ThemeComponent, WidgetKind},
+    theme::ThemeComponent,
 };
 
 #[derive(Component)]

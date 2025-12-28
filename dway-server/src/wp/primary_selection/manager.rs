@@ -1,8 +1,8 @@
 use super::{
-    device::PrimarySelectionDevice, offer::ZwpPrimarySelectionOffer, source::PrimarySelectionSource,
+    device::PrimarySelectionDevice, source::PrimarySelectionSource,
 };
 use crate::{
-    clipboard::{ClipboardDataDevice, ClipboardManager},
+    clipboard::ClipboardDataDevice,
     prelude::*,
 };
 
@@ -20,7 +20,7 @@ impl Dispatch<zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDevice
 {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1,
         request: <zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1 as WlResource>::Request,
         data: &Entity,
@@ -31,7 +31,7 @@ impl Dispatch<zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDevice
             zwp_primary_selection_device_manager_v1::Request::CreateSource { id } => {
                 state.spawn_child_object(*data, id, data_init, PrimarySelectionSource::new);
             }
-            zwp_primary_selection_device_manager_v1::Request::GetDevice { id, seat } => {
+            zwp_primary_selection_device_manager_v1::Request::GetDevice { id, seat: _ } => {
                 let device_entity = state.spawn_child_object(*data, id, data_init, |o| {
                     PrimarySelectionDevice::new(o, dhandle.clone())
                 });

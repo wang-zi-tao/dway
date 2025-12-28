@@ -1,16 +1,16 @@
 use std::marker::PhantomData;
 
 use bevy::ecs::{
-    query::{QueryFilter, WorldQuery},
+    query::QueryFilter,
     system::{
-        lifetimeless::{SRes, SResMut},
+        lifetimeless::SResMut,
         StaticSystemParam, SystemParam, SystemParamItem,
     },
 };
 use bevy_relationship::reexport::Mutable;
 use imports::{QueryData, QueryItem};
 
-use super::{NoTheme, ThemeComponent, ThemeDispatch};
+use super::{NoTheme, ThemeComponent};
 use crate::{
     animation::{ease::AnimationEaseMethod, play_asset_animation, MaterialAnimationQueryData},
     prelude::*,
@@ -149,7 +149,7 @@ pub trait EventObserver<E: Send + Sync + 'static, Marker = ()>: Component {
 
         let entity_commands = commands.entity(event.target());
         Self::on_event(
-            &this,
+            this,
             event,
             theme_entity,
             query_item,

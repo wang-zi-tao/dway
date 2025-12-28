@@ -1,7 +1,6 @@
 use std::{
     any::type_name,
     num::NonZero,
-    ops::Deref,
     os::fd::{AsFd, AsRawFd, BorrowedFd, OwnedFd, RawFd},
     sync::{
         mpsc::{self, channel},
@@ -16,7 +15,7 @@ use bevy::{
     ecs::schedule::{ExecutorKind, ScheduleLabel},
     platform::collections::HashMap,
     prelude::*,
-    winit::{EventLoopProxy, EventLoopProxyWrapper, WakeUp},
+    winit::{EventLoopProxyWrapper, WakeUp},
 };
 use nix::sys::{
     time::TimeSpec,

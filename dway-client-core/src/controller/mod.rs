@@ -13,7 +13,7 @@ pub mod weathre;
 
 use std::time::Duration;
 
-use bevy::time::{TimeSystem, TimeSystems, common_conditions::on_timer};
+use bevy::time::{TimeSystems, common_conditions::on_timer};
 use smart_default::SmartDefault;
 
 use self::{

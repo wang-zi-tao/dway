@@ -1,5 +1,4 @@
 use dway_client_core::controller::systemcontroller::SystemControllRequest;
-use dway_ui_framework::render::layer_manager::{LayerKind, LayerRenderArea, RenderToLayer};
 
 use super::volume_control::VolumeControl;
 use crate::{

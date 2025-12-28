@@ -3,16 +3,13 @@ use std::{
     ffi::{c_char, c_int, c_void},
     mem::take,
     os::fd::AsRawFd,
-    sync::Arc,
 };
 
-use ash::arm::render_pass_striped;
 use bevy::{
     ecs::entity::EntityHashMap,
     prelude::info,
     render::{renderer::RenderDevice, texture::GpuImage},
 };
-use crossbeam_queue::SegQueue;
 use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use dway_util::formats::ImageFormat;
 use glow::{HasContext, NativeRenderbuffer, NativeTexture};
@@ -21,7 +18,7 @@ use khronos_egl::{
 };
 use wayland_backend::server::WeakHandle;
 use wgpu::Texture;
-use wgpu_hal::{api::Gles, DropCallback};
+use wgpu_hal::api::Gles;
 use DWayRenderError::*;
 
 use super::{
@@ -479,12 +476,12 @@ pub unsafe fn import_raw_shm_buffer(
 #[tracing::instrument(skip_all)]
 pub unsafe fn import_egl(
     buffer: &wl_buffer::WlBuffer,
-    egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4>,
+    _egl: &khronos_egl::DynamicInstance<khronos_egl::EGL1_4>,
     gl: &glow::Context,
     display: khronos_egl::Display,
     egl_state: &EglState,
 ) -> Result<(), DWayRenderError> {
-    let egl_surface: khronos_egl::Surface =
+    let _egl_surface: khronos_egl::Surface =
         khronos_egl::Surface::from_ptr(buffer.id().as_ptr() as _);
 
     let out = [WAYLAND_PLANE_WL as i32, 0_i32, khronos_egl::NONE];
@@ -498,7 +495,7 @@ pub unsafe fn import_egl(
     if egl_image == EGL_NO_IMAGE_KHR {
         return Err(FailedToImportEglBuffer);
     }
-    let texture = image_bind_texture(gl, egl_image, egl_state)?;
+    let _texture = image_bind_texture(gl, egl_image, egl_state)?;
     warn!("import egl buffer");
     Ok(())
 }
@@ -557,7 +554,7 @@ pub fn clean(
     state: &ImportState,
     render_device: &RenderDevice,
 ) -> Result<(), DWayRenderError> {
-    if state.destroyed_buffers.len() > 0 {
+    if !state.destroyed_buffers.is_empty() {
         unsafe {
             let hal_device = render_device
                 .wgpu_device()

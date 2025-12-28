@@ -1,4 +1,4 @@
-use widgets::{button::UiButtonEventDispatcher, text::UiTextBundle};
+use widgets::text::UiTextBundle;
 
 pub use crate::prelude::*;
 

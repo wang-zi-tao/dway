@@ -25,7 +25,7 @@ impl Dispatch<gtk_primary_selection_device_manager::GtkPrimarySelectionDeviceMan
 {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &gtk_primary_selection_device_manager::GtkPrimarySelectionDeviceManager,
         request: <gtk_primary_selection_device_manager::GtkPrimarySelectionDeviceManager as WlResource>::Request,
         data: &Entity,
@@ -40,7 +40,7 @@ impl Dispatch<gtk_primary_selection_device_manager::GtkPrimarySelectionDeviceMan
             gtk_primary_selection_device_manager::Request::CreateSource { id } => {
                 state.spawn_child_object(*data, id, data_init, GtkPrimarySelectionSource::new);
             }
-            gtk_primary_selection_device_manager::Request::GetDevice { id, seat } => {
+            gtk_primary_selection_device_manager::Request::GetDevice { id, seat: _ } => {
                 let device_entity = state.spawn_child_object(*data, id, data_init, |o| {
                     GtkPrimarySelectionDevice::new(o, dhandle.clone())
                 });
@@ -68,12 +68,12 @@ impl GlobalDispatch<gtk_primary_selection_device_manager::GtkPrimarySelectionDev
 {
     fn bind(
         state: &mut DWay,
-        handle: &DisplayHandle,
+        _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<
             gtk_primary_selection_device_manager::GtkPrimarySelectionDeviceManager,
         >,
-        global_data: &bevy::prelude::Entity,
+        _global_data: &bevy::prelude::Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         state.bind(client, resource, data_init, |o| {

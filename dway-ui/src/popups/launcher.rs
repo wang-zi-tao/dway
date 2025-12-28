@@ -105,7 +105,7 @@ pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
                 anchor_policy: AnchorPolicy::new(PopupAnlign::InnerStart, PopupAnlign::None),
                 ..PanelPopupBundle::new(event.receiver(), style!("absolute top-42"))
             },
-            LauncherUI::default(),
+            LauncherUI,
         ));
     }
 }

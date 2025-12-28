@@ -57,7 +57,7 @@ pub fn on_focus_window(
         return;
     };
 
-    let attached = graph.foreach_window_path_from(window, |w, workspace| {
+    let attached = graph.foreach_window_path_from(window, |_w, workspace| {
         if !workspace.1.no_screen {
             return ControlFlow::Return(());
         }
@@ -67,7 +67,7 @@ pub fn on_focus_window(
         return;
     }
 
-    let has_show = graph.foreach_window_path_from(window, |w, workspace| {
+    let _has_show = graph.foreach_window_path_from(window, |_w, workspace| {
         commands
             .entity(screen)
             .disconnect_all::<ScreenAttachWorkspace>()
@@ -102,8 +102,8 @@ impl WorkspaceRequest {
 
 pub fn resolve_workspace_request(
     trigger: On<WorkspaceRequest>,
-    workspace_query: Query<&Workspace>,
-    screen_query: Query<&Screen>,
+    _workspace_query: Query<&Workspace>,
+    _screen_query: Query<&Screen>,
     mut geometry_query: Query<&mut Geometry>,
     mut commands: Commands,
 ) {
@@ -244,9 +244,9 @@ mut workspaces=match
 
 pub fn update_workspace_system(
     mut graph: WorkspaceGraph,
-    workspace_manager: ResMut<WorkspaceManager>,
+    _workspace_manager: ResMut<WorkspaceManager>,
 ) {
-    graph.foreach_workspaces_mut(|(entity, workspace, screen_list)| {
+    graph.foreach_workspaces_mut(|(_entity, workspace, screen_list)| {
         let no_screen = screen_list.map(|l| l.is_empty()).unwrap_or(true);
         update!(workspace.no_screen, no_screen);
         ControlFlow::<()>::Continue

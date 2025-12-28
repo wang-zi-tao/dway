@@ -1,4 +1,4 @@
-use bevy::input::{mouse::MouseButtonInput, ButtonState};
+use bevy::input::ButtonState;
 use cursor::{
     text_cursor_on_input_system, update_text_cursor_layout_system, UiTextCursor, UiTextCursorEvent,
 };

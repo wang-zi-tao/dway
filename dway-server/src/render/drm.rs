@@ -133,12 +133,11 @@ pub fn init_drm_state(device: Res<RenderDevice>, server: Res<DWayServerRenderSer
             match DmaBackend::new(drm_info) {
                 Err(e) => {
                     error!("failed to init drm state: {e}");
-                    return;
                 }
                 Ok(state_inner) => {
                     *guard = Some(state_inner);
                 }
-            };
+            }
         }
         Err(error) => {
             error!("failed to get drm node info: {error}"); // TODO

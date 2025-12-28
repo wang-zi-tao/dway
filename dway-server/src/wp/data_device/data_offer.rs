@@ -1,8 +1,7 @@
-use bevy::ecs::system::SystemState;
 use wl_data_device_manager::DndAction;
 
 use crate::{
-    clipboard::{ClipboardManager, ClipboardRecord, DataOffer, MimeTypeSet, PasteRequest},
+    clipboard::{ClipboardManager, DataOffer, PasteRequest},
     prelude::*,
     wp::data_device::{
         data_source::WlDataSource,
@@ -65,19 +64,19 @@ impl Drop for WlDataOffer {
 impl Dispatch<wl_data_offer::WlDataOffer, Entity> for DWay {
     fn request(
         state: &mut DWay,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &wl_data_offer::WlDataOffer,
         request: <wl_data_offer::WlDataOffer as WlResource>::Request,
         data: &Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span =
             span!(Level::ERROR,"request",entity = ?data,resource = %WlResource::id(resource));
         let _enter = span.enter();
         debug!("request {:?}", &request);
         match request {
-            wl_data_offer::Request::Accept { serial, mime_type } => {
+            wl_data_offer::Request::Accept { serial: _, mime_type } => {
                 let accepted = if let Some(source) = state
                     .get::<DropFrom>(*data)
                     .and_then(|d| d.get())
@@ -86,7 +85,7 @@ impl Dispatch<wl_data_offer::WlDataOffer, Entity> for DWay {
                     .and_then(|source_entity| state.get::<WlDataSource>(source_entity))
                 {
                     mime_type
-                        .map(|mime_type| source.mime_types.contains(&*mime_type))
+                        .map(|mime_type| source.mime_types.contains(&mime_type))
                         .unwrap_or(false)
                 } else {
                     false

@@ -1,6 +1,6 @@
 #![feature(linked_list_cursors)]
 
-use bevy::{prelude::*, time::{TimeSystem, TimeSystems}};
+use bevy::{prelude::*, time::TimeSystems};
 use bevy_relationship::{relationship, AppExt};
 use dway_server::{macros::DWayServerSet::UpdateGeometry, schedule::DWayServerSet};
 use dway_util::tokio::TokioPlugin;

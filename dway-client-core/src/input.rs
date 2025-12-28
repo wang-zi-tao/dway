@@ -1,7 +1,7 @@
 use bevy::{
     ecs::{
         event::EventCursor,
-        system::{RunSystemOnce, SystemId},
+        system::SystemId,
     },
     input::{
         keyboard::KeyboardInput,
@@ -13,7 +13,7 @@ use bevy::{
 };
 use bevy_relationship::{graph_query, ControlFlow};
 use dway_server::{
-    geometry::{Geometry, GlobalGeometry},
+    geometry::Geometry,
     input::{
         grab::{ResizeEdges, StartGrab, WlSurfacePointerState},
         keyboard::{WlKeyboard, XkbState},
@@ -21,10 +21,9 @@ use dway_server::{
         seat::{SeatHasKeyboard, SeatHasPointer, WlSeat},
     },
     macros::WindowAction,
-    schedule::DWayServerSet,
     util::rect::IRect,
     wl::surface::{ClientHasSurface, WlSurface},
-    xdg::{popup::XdgPopup, toplevel::XdgToplevel, DWayWindow},
+    xdg::{popup::XdgPopup, DWayWindow},
 };
 
 use super::desktop::{CursorOnScreen, FocusedWindow};
@@ -84,9 +83,9 @@ pub fn on_start_grab_event(
     for event in events.read() {
         match event {
             StartGrab::Move {
-                surface,
-                seat,
-                serial,
+                surface: _,
+                seat: _,
+                serial: _,
                 mouse_pos,
                 geometry,
             } => {
@@ -99,10 +98,10 @@ pub fn on_start_grab_event(
                 grab_manager.grab = Some((entity, systems.move_window));
             }
             StartGrab::Resizing {
-                surface,
-                seat,
+                surface: _,
+                seat: _,
                 edges,
-                serial,
+                serial: _,
                 geometry,
             } => {
                 let entity = commands
@@ -115,10 +114,10 @@ pub fn on_start_grab_event(
                 grab_manager.grab = Some((entity, systems.resize_window));
             }
             StartGrab::Drag {
-                surface,
-                seat,
-                data_device,
-                icon,
+                surface: _,
+                seat: _,
+                data_device: _,
+                icon: _,
             } => todo!(),
         }
     }
@@ -196,7 +195,7 @@ pub fn do_input(
     mut graph: InputGraph,
     mut cursor_on_window: ResMut<CursorOnWindow>,
     mut output_focus: ResMut<FocusedWindow>,
-    mut keystate: NonSendMut<XkbState>,
+    keystate: NonSendMut<XkbState>,
 ) {
     let Some(surface_entity) = event.surface_entity else {
         return;
@@ -285,7 +284,7 @@ pub fn move_grab(
     let window_geometry = event.window_geometry.clone();
     let Ok(GrabMoveWindow {
         mouse_offset,
-        begin_position,
+        begin_position: _,
     }) = grab_query.get(request.grab_entity)
     else {
         return default();
@@ -336,7 +335,7 @@ pub fn resize_grab(
     };
     let Ok(GrabResizeWindow {
         edges,
-        begin_rect,
+        begin_rect: _,
         begin_geometry,
     }) = grab_query.get(request.grab_entity)
     else {

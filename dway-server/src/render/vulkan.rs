@@ -16,7 +16,7 @@ use dway_util::formats::ImageFormat;
 use nix::{libc::makedev, sys::stat::fstat};
 use wgpu::{Extent3d, TexelCopyBufferLayout, TexelCopyTextureInfo, TextureAspect};
 use wgpu_hal::{
-    vulkan::{self, Api as Vulkan},
+    vulkan::Api as Vulkan,
     DropCallback,
 };
 
@@ -394,12 +394,12 @@ pub fn create_wgpu_dma_image(
             let image_guard = create_vulkan_dma_image(&hal_device, request)?;
 
             let image = image_guard.image;
-            let hal_texture = hal_device.texture_from_raw(
+            
+            hal_device.texture_from_raw(
                 image,
                 &hal_texture_descriptor(request.size, format)?,
                 None,
-            );
-            hal_texture
+            )
         };
 
         let gpu_image =

@@ -43,7 +43,7 @@ pub fn update_ui_button(
     mut commands: Commands,
 ) {
     use UiButtonEventKind::*;
-    for (entity, mut button, button_state, dispatcher, theme) in &mut ui_query {
+    for (_entity, mut button, button_state, dispatcher, theme) in &mut ui_query {
         let mut call = |kind: UiButtonEventKind| {
             dispatcher.send(
                 UiButtonEvent {

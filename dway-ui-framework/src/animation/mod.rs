@@ -4,7 +4,6 @@ pub mod registry;
 pub mod translation;
 pub mod ui;
 
-use std::marker::PhantomData;
 
 pub use asset::*;
 use bevy::window::RequestRedraw;
@@ -16,7 +15,7 @@ use registry::AnimationRegister;
 use crate::{
     command::DestroyInterceptor,
     event::{
-        CallbackRegisterAppExt, CallbackTypeRegister, EventDispatcher, EventReceiver, UiEvent,
+        CallbackRegisterAppExt, EventDispatcher, EventReceiver,
         UiNodeAppearEvent,
     },
     prelude::*,
@@ -232,7 +231,7 @@ pub fn update_animation_system(
     mut commands: Commands,
 ) {
     let mut play = false;
-    for (entity, mut animation, event_dispatcher) in &mut query {
+    for (_entity, mut animation, event_dispatcher) in &mut query {
         if animation.state != AnimationState::Play {
             continue;
         }

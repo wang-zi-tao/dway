@@ -145,8 +145,8 @@ pub fn attach_window_to_slot(
             Changed<TileLayoutKind>,
         )>,
     >,
-    slot_query: Query<&Geometry, With<Slot>>,
-    window_query: Query<
+    _slot_query: Query<&Geometry, With<Slot>>,
+    _window_query: Query<
         &mut Geometry,
         (
             With<DWayWindow>,
@@ -156,9 +156,9 @@ pub fn attach_window_to_slot(
         ),
     >,
     mut commands: Commands,
-    window_actions: MessageWriter<WindowAction>,
+    _window_actions: MessageWriter<WindowAction>,
 ) {
-    for (slots, windows, layout_style, tile) in workspace_query.iter() {
+    for (slots, windows, _layout_style, tile) in workspace_query.iter() {
         windows
             .iter()
             .zip(slots.iter().cycle().take(windows.len()))

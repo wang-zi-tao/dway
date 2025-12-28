@@ -1,6 +1,4 @@
 use dway_client_core::controller::volume::VolumeController;
-use dway_ui_framework::render::layer_manager::{LayerKind, LayerRenderArea, RenderToLayer};
-use widgets::{checkbox::UiCheckBoxEventDispatcher, slider::UiSliderEventDispatcher};
 
 use crate::{panels::PanelPopupBundle, prelude::*};
 
@@ -71,7 +69,7 @@ pub fn open_popup(
                 ..PanelPopupBundle::new(event.receiver(), style)
             })
             .with_children(|c| {
-                c.spawn(VolumeControl::default());
+                c.spawn(VolumeControl);
             });
     }
 }

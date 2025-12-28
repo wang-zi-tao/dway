@@ -1,12 +1,10 @@
-use std::any::type_name;
 
 use bevy::ecs::{
-    query::{QueryData, QueryItem},
+    query::QueryItem,
     system::{
         lifetimeless::{SRes, SResMut},
         SystemParamItem,
     },
-    world::DeferredWorld,
 };
 
 use super::{
@@ -14,16 +12,15 @@ use super::{
         ApplyMaterialAnimation, EventObserver, FocusMaterialSet, GlobalThemePlugin,
         InteractionMaterialSet, MaterialApplyMethod, ThemeTrait, WidgetInsertObserver,
     },
-    insert_material_tween, BlockStyle, DefaultTextTheme, StyleFlags, ThemeComponent, ThemeDispatch,
+    insert_material_tween, BlockStyle, DefaultTextTheme, ThemeComponent, ThemeDispatch,
     ThemeHightlight,
 };
 use crate::{
     animation::{
-        apply_tween_asset, ease::AnimationEaseMethod, play_asset_animation,
-        AnimationEventDispatcher, MaterialAnimationQueryData,
+        ease::AnimationEaseMethod, MaterialAnimationQueryData,
     },
     prelude::*,
-    render::layer_manager::{FillWithLayer, LayerCamera, LayerKind, LayerManager, RenderToLayer},
+    render::layer_manager::{FillWithLayer, LayerCamera},
     shader::{
         effect::{Border, InnerShadow, Shadow},
         fill::{AddColor, Fill, FillColor},
@@ -31,7 +28,6 @@ use crate::{
         transform::Margins,
         ShaderAsset, ShaderPlugin, ShapeRender, Transformed,
     },
-    util::{modify_component_or_insert, set_component_or_insert},
     widgets::{
         button::UiButtonEventDispatcher,
         checkbox::UiCheckBoxEventDispatcher,
@@ -234,7 +230,7 @@ impl FlatTheme {
                 ShaderAsset::new((
                     up_inner.clone(),
                     RoundedBar::new().with_effect((
-                        FillColor::new(self.fill_color2.into()),
+                        FillColor::new(self.fill_color2),
                         self.invisible_shadow(),
                     )),
                 )),
@@ -242,7 +238,7 @@ impl FlatTheme {
                 ShaderAsset::new((
                     up_inner,
                     RoundedBar::new().with_effect((
-                        FillColor::new(self.fill_color2.into()),
+                        FillColor::new(self.fill_color2),
                         self.highlight_shadow(),
                     )),
                 )),
@@ -257,7 +253,7 @@ impl FlatTheme {
                 ShaderAsset::new((
                     down_inner,
                     RoundedBar::new().with_effect((
-                        FillColor::new(self.main_color.into()),
+                        FillColor::new(self.main_color),
                         self.highlight_shadow(),
                     )),
                 )),
@@ -392,7 +388,7 @@ impl WidgetInsertObserver<Text> for FlatTheme {
 
     fn on_widget_insert(
         &self,
-        theme_entity: Entity,
+        _theme_entity: Entity,
         (mut text_font,): QueryItem<Self::ItemQuery>,
         (theme,): SystemParamItem<Self::Params>,
         _: EntityCommands,
@@ -410,7 +406,7 @@ impl WidgetInsertObserver<BlockStyle> for FlatTheme {
 
     fn on_widget_insert(
         &self,
-        theme_entity: Entity,
+        _theme_entity: Entity,
         (block_style, hightlight): QueryItem<Self::ItemQuery>,
         _: SystemParamItem<Self::Params>,
         mut commands: EntityCommands,
@@ -446,8 +442,8 @@ impl WidgetInsertObserver<UiButton> for FlatTheme {
 
     fn on_widget_insert(
         &self,
-        theme_entity: Entity,
-        (mut event_dispatcher, hightlight): QueryItem<Self::ItemQuery>,
+        _theme_entity: Entity,
+        (_event_dispatcher, hightlight): QueryItem<Self::ItemQuery>,
         mut callback_register: SystemParamItem<Self::Params>,
         mut commands: EntityCommands,
     ) {
@@ -559,7 +555,7 @@ impl EventObserver<UiCheckBoxEvent> for FlatTheme {
         event: Trigger<UiEvent<UiCheckBoxEvent>>,
         _theme_entity: Entity,
         (checkbox, query_items): QueryItem<Self::ItemQuery>,
-        mut callback_register: SystemParamItem<Self::Params>,
+        callback_register: SystemParamItem<Self::Params>,
         commands: EntityCommands,
     ) {
         let material_set = if event.value {
@@ -588,7 +584,7 @@ impl WidgetInsertObserver<UiSliderInited> for FlatTheme {
     fn on_widget_insert(
         &self,
         theme_entity: Entity,
-        (prop, widget, mut event_dispatcher): QueryItem<Self::ItemQuery>,
+        (_prop, widget, _event_dispatcher): QueryItem<Self::ItemQuery>,
         mut callback_register: SystemParamItem<Self::Params>,
         mut commands: EntityCommands,
     ) {
@@ -659,8 +655,8 @@ impl WidgetInsertObserver<UiInputBox> for FlatTheme {
 
     fn on_widget_insert(
         &self,
-        theme_entity: Entity,
-        (prop, widget, mut event_dispatcher): QueryItem<Self::ItemQuery>,
+        _theme_entity: Entity,
+        (_prop, _widget, _event_dispatcher): QueryItem<Self::ItemQuery>,
         mut callback_register: SystemParamItem<Self::Params>,
         mut commands: EntityCommands,
     ) {
@@ -766,7 +762,7 @@ impl ThemeTrait for FlatTheme {
         <FlatTheme as WidgetInsertObserver<UiPopup>>::register(theme_entity, world);
     }
 
-    fn unregister(&self, theme_entity: Entity, world: &mut World) {
+    fn unregister(&self, _theme_entity: Entity, _world: &mut World) {
         todo!()
     }
 }

@@ -1,9 +1,7 @@
-use animation::translation::UiTranslationAnimation;
 use dway_client_core::{
     desktop::CursorOnScreen,
     workspace::{ScreenAttachWorkspace, ScreenList, Workspace, WorkspaceManager},
 };
-use util::DwayUiDirection;
 
 use crate::{
     panels::PanelPopupBundle, popups::workspace_window_preview::WorkspaceWindowPreviewPopup,
@@ -51,7 +49,7 @@ WorkspaceListUI=>
     @for_query((workspace,screen_list) in Query<(Ref<Workspace>,Ref<ScreenList>)>
         ::iter_many(workspace_manager.workspaces.iter().cloned())=>[
         workspace=>{state.set_name(workspace.name.clone());},
-        screen_list=>{ state.set_is_focused(screen_list.len()>0); }
+        screen_list=>{ state.set_is_focused(!screen_list.is_empty()); }
     ])
     @material(RoundedUiRectMaterial=>rounded_rect(theme.color("background1"), 12.0))
 >

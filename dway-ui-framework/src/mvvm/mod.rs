@@ -61,7 +61,7 @@ impl<'a> EntityWorldRef<'a> {
         Self { world, entity }
     }
 
-    pub fn get(&self) -> EntityRef {
+    pub fn get(&self) -> EntityRef<'_> {
         self.world.entity(self.entity)
     }
 }

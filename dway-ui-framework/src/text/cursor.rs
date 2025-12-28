@@ -1,12 +1,12 @@
 use std::cmp::Ordering;
 
 use bevy::{
-    ecs::{component::ComponentId, world::DeferredWorld},
+    ecs::world::DeferredWorld,
     input::keyboard::Key,
     text::TextLayoutInfo,
     ui::RelativeCursorPosition,
 };
-use unicode_segmentation::{GraphemeIndices, UnicodeSegmentation};
+use unicode_segmentation::UnicodeSegmentation;
 
 use super::textarea::UiTextArea;
 use crate::{impl_event_receiver, prelude::*};

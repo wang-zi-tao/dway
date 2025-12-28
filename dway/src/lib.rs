@@ -20,7 +20,6 @@ use bevy::{
     winit::{WakeUp, WinitPlugin},
 };
 use bevy_framepace::Limiter;
-use cfg_if::cfg_if;
 use clap::Parser;
 use dway_client_core::{
     layout::{
@@ -31,10 +30,7 @@ use dway_client_core::{
     workspace::{Workspace, WorkspaceBundle, WorkspaceSet},
     DWayClientSetting, OutputType,
 };
-use dway_server::{
-    apps::{icon::LinuxIconSourcePlugin, launchapp::RunCommandRequest},
-    xdg::DWayWindow,
-};
+use dway_server::apps::{icon::LinuxIconSourcePlugin, launchapp::RunCommandRequest};
 use dway_tty::{DWayTTYPlugin, DWayTTYSettings};
 use dway_ui_framework::diagnostics::UiDiagnosticsPlugin;
 use dway_util::{

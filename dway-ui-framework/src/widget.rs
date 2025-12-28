@@ -17,11 +17,11 @@ pub struct WidgetQueryState<B: Bundle, Q: QueryData, F: QueryFilter> {
 }
 
 impl<B: Bundle, Q: QueryData, F: QueryFilter> WidgetQueryState<B, Q, F> {
-    pub fn update(query: Query<(Entity, Q), F>) {
+    pub fn update(_query: Query<(Entity, Q), F>) {
     }
 
     pub fn check_entity(entity: Entity, query: Query<(Entity, Q), F>) {
-        if let Ok((entity, data)) = query.get(entity) {}
+        if let Ok((_entity, _data)) = query.get(entity) {}
     }
 
     pub fn on_insert(trigger: Trigger<OnInsert, B>, query: Query<(Entity, Q), F>) {

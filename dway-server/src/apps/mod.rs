@@ -95,12 +95,12 @@ impl DesktopEntry {
         Some(&self.groups.get(group)?.get(key)?.0)
     }
 
-    pub fn get_in_current_locale(&self, group: &str, key: &str) -> Option<Cow<str>> {
+    pub fn get_in_current_locale(&self, group: &str, key: &str) -> Option<Cow<'_, str>> {
         let locale = current_locale::current_locale().ok();
         self.get(group, key, locale.as_deref())
     }
 
-    pub fn get(&self, group: &str, key: &str, locale: Option<&str>) -> Option<Cow<str>> {
+    pub fn get(&self, group: &str, key: &str, locale: Option<&str>) -> Option<Cow<'_, str>> {
         let (default_value, value_map) = self.groups.get(group)?.get(key)?;
         if let Some(locale) = locale {
             if let Some(value) = value_map.get(locale) {
@@ -193,7 +193,7 @@ pub fn update_app_entry_set(
     mut commands: Commands,
 ) {
     for (entity, window_list) in &entry_query {
-        if window_list.len() == 0 {
+        if window_list.is_empty() {
             entries.used_entries.shift_remove(&entity);
         } else if !entries.used_entries.contains(&entity) {
             entries.used_entries.insert(entity);

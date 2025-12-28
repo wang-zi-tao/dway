@@ -1,11 +1,10 @@
 use wayland_protocols_wlr::data_control::v1::server::zwlr_data_control_manager_v1::*;
 
 use crate::{
-    clipboard::{ClipboardDataDevice, ClipboardManager},
+    clipboard::ClipboardDataDevice,
     prelude::*,
-    state::add_global_dispatch,
     zwlr::data_control::{
-        device::ZwlrDataControlDevice, offer::ZwlrDataControlOffer, source::ZwlrDataControlSource,
+        device::ZwlrDataControlDevice, source::ZwlrDataControlSource,
     },
 };
 
@@ -28,7 +27,7 @@ impl Drop for ZwlrDataControlManager {
 impl Dispatch<ZwlrDataControlManagerV1, Entity> for DWay {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &ZwlrDataControlManagerV1,
         request: <ZwlrDataControlManagerV1 as WlResource>::Request,
         data: &Entity,
@@ -41,9 +40,9 @@ impl Dispatch<ZwlrDataControlManagerV1, Entity> for DWay {
         debug!("request {:?}", &request);
         match request {
             Request::CreateDataSource { id } => {
-                state.spawn_child_object(*data, id, data_init, |o| ZwlrDataControlSource::new(o));
+                state.spawn_child_object(*data, id, data_init, ZwlrDataControlSource::new);
             }
-            Request::GetDataDevice { id, seat } => {
+            Request::GetDataDevice { id, seat: _ } => {
                 let entity = state.spawn_child_object(*data, id, data_init, |o| {
                     ZwlrDataControlDevice::new(o, dhandle.clone())
                 });
@@ -70,10 +69,10 @@ impl Dispatch<ZwlrDataControlManagerV1, Entity> for DWay {
 impl GlobalDispatch<ZwlrDataControlManagerV1, Entity> for DWay {
     fn bind(
         state: &mut DWay,
-        handle: &DisplayHandle,
+        _handle: &DisplayHandle,
         client: &wayland_server::Client,
         resource: wayland_server::New<ZwlrDataControlManagerV1>,
-        global_data: &bevy::prelude::Entity,
+        _global_data: &bevy::prelude::Entity,
         data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         state.bind(client, resource, data_init, |o| {

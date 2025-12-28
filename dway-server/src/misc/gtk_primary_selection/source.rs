@@ -25,12 +25,12 @@ impl Drop for GtkPrimarySelectionSource {
 impl Dispatch<gtk_primary_selection_source::GtkPrimarySelectionSource, Entity> for DWay {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &gtk_primary_selection_source::GtkPrimarySelectionSource,
         request: <gtk_primary_selection_source::GtkPrimarySelectionSource as WlResource>::Request,
         data: &Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span =
             span!(Level::ERROR,"request",entity = ?data,resource = %WlResource::id(resource));

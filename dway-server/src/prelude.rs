@@ -6,7 +6,6 @@ pub use wayland_protocols::wp::linux_dmabuf::zv1::server::*;
 pub use wayland_protocols::wp::primary_selection::zv1::server::*;
 pub use wayland_protocols::xdg::activation::v1::server::*;
 pub use wayland_protocols::xdg::decoration::zv1::server::*;
-pub use wayland_protocols::xdg::decoration::zv1::server::*;
 pub use wayland_protocols::xdg::shell::server::*;
 pub use wayland_protocols::xdg::xdg_output::zv1::server::*;
 pub use wayland_server::delegate_dispatch;

@@ -312,7 +312,7 @@ impl WlKeyboard {
         kbd.keymap(
             wl_keyboard::KeymapFormat::XkbV1,
             keystate.file.as_fd(),
-            keystate.keymap_string.bytes().len().try_into().unwrap(),
+            keystate.keymap_string.len().try_into().unwrap(),
         );
         if kbd.version() >= 4 {
             kbd.repeat_info(keymap.rate, keymap.delay);

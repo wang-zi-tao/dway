@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 
 use bevy::{
     camera::Viewport, core_pipeline::core_2d::graph::{Core2d, Node2d}, ecs::query::QueryItem, mesh::VertexBufferLayout, render::{
@@ -7,8 +6,7 @@ use bevy::{
         }, renderer::{RenderContext, RenderDevice, RenderQueue}, sync_world::{MainEntity, RenderEntity}, texture::GpuImage
     }
 };
-use serde::Deserialize;
-use wgpu::{LoadOp, StoreOp, VertexFormat, VertexStepMode};
+use wgpu::{VertexFormat, VertexStepMode};
 
 use super::layer_manager::{BlurMethod, BlurMethodKind, LayerCamera, LayerManager};
 use crate::prelude::*;
@@ -207,7 +205,7 @@ pub fn prepare_blur_pipeline(
 
         let output_gpu_image_changed = blur_data
             .as_ref()
-            .map_or(true, |data| data.output_image_id != output_image.texture.id());
+            .is_none_or(|data| data.output_image_id != output_image.texture.id());
 
         if blur_data.is_some() && !blur.is_changed() && !output_gpu_image_changed {
             continue;
@@ -353,7 +351,7 @@ impl ViewNode for BlurNode {
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("blur_pass"),
                 color_attachments: &[Some(RenderPassColorAttachment {
-                    view: &output,
+                    view: output,
                     resolve_target: None,
                     ops: Operations::default(),
                     depth_slice: None,
@@ -364,7 +362,7 @@ impl ViewNode for BlurNode {
             });
 
             render_pass.set_render_pipeline(pipeline);
-            render_pass.set_bind_group(0, &bind_group, &[]);
+            render_pass.set_bind_group(0, bind_group, &[]);
             render_pass.set_vertex_buffer(0, vertex_buffer_slice.buffer.slice(..));
 
             if let Some(viewport) = viewport {

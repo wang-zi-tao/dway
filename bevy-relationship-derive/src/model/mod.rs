@@ -37,7 +37,7 @@ structstruck::strike! {
 }
 
 impl GraphModel {
-    pub fn add_node(&mut self, node: Rc<NodeQuery>) {
+    pub fn add_node(&mut self, _node: Rc<NodeQuery>) {
         todo!()
     }
 }

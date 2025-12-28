@@ -1,7 +1,7 @@
 use crate::{
-    clipboard::{ClipboardDataDevice, ClipboardManager},
+    clipboard::ClipboardDataDevice,
     prelude::*,
-    wp::data_device::{data_offer::WlDataOffer, data_source::WlDataSource, WlDataDevice},
+    wp::data_device::{data_source::WlDataSource, WlDataDevice},
 };
 
 #[derive(Component, Reflect, Debug)]
@@ -22,7 +22,7 @@ impl WlDataDeviceManager {
 impl Dispatch<wl_data_device_manager::WlDataDeviceManager, Entity> for DWay {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &wl_data_device_manager::WlDataDeviceManager,
         request: <wl_data_device_manager::WlDataDeviceManager as WlResource>::Request,
         data: &Entity,

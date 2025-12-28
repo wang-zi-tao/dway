@@ -11,14 +11,10 @@ use dnd::{DragAndDrop, DragIcon};
 use crate::{
     clipboard::{
         send_selection_system, ClipboardDataDevice, ClipboardEvent, ClipboardManager,
-        ClipboardSource, MimeTypeSet,
+        ClipboardSource,
     },
-    input::{
-        grab::{StartGrab, WlSurfacePointerState},
-        seat::{PointerList, SeatHasPointer},
-    },
+    input::grab::{StartGrab, WlSurfacePointerState},
     prelude::*,
-    schedule::DWayServerSchedule,
     state::add_global_dispatch,
 };
 
@@ -57,12 +53,12 @@ impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
                 icon,
                 serial,
             } => {
-                let icon_surface_entity = icon.as_ref().map(|icon| DWay::get_entity(icon));
+                let icon_surface_entity = icon.as_ref().map(DWay::get_entity);
                 let origin_entity = DWay::get_entity(&origin);
                 state.insert(
                     *data,
                     DragAndDrop {
-                        data_source: source.as_ref().map(|source| DWay::get_entity(source)),
+                        data_source: source.as_ref().map(DWay::get_entity),
                         origin_surface: origin_entity,
                         icon_surface: icon_surface_entity,
                         serial,
@@ -78,7 +74,7 @@ impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
                 let seat_entity = state.get::<ChildOf>(*data).unwrap().get();
 
                 let surface_entity = DWay::get_entity(&origin);
-                if let Some(mut surface_grab) =
+                if let Some(_surface_grab) =
                     state.get_mut::<WlSurfacePointerState>(DWay::get_entity(&origin))
                 {
                     state.send_event(StartGrab::Drag {

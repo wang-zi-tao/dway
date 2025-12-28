@@ -11,10 +11,7 @@ use bevy::{
     platform::collections::{HashMap, hash_map::Entry},
     reflect::List,
 };
-use bevy_relationship::{
-    reexport::{Mutable, SmallVec, StorageType},
-    EntityCommandsExt,
-};
+use bevy_relationship::reexport::{Mutable, SmallVec, StorageType};
 
 use crate::prelude::*;
 
@@ -524,7 +521,7 @@ impl CallbackTypeRegister {
     {
         let type_id = system.type_id();
         match self.triggers.entry(type_id) {
-            Entry::Occupied(o) => {
+            Entry::Occupied(_o) => {
                 commands.queue(move |world: &mut World| {
                     if let Some(mut observer) = world.get_mut::<Observer>(entity) {
                         observer.watch_entity(entity);

@@ -6,7 +6,7 @@ use std::{
 
 use bevy::{
     ecs::world::CommandQueue,
-    tasks::{IoTaskPool, Task},
+    tasks::IoTaskPool,
     platform::collections::HashSet,
 };
 use dway_util::eventloop::Poller;
@@ -16,17 +16,15 @@ use wayland_protocols::wp::primary_selection::zv1::server::{
     zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
 };
 use wayland_protocols_misc::gtk_primary_selection::server::{
-    gtk_primary_selection_device,
-    gtk_primary_selection_offer::{self, GtkPrimarySelectionOffer},
-    gtk_primary_selection_source::{self, GtkPrimarySelectionSource},
+    gtk_primary_selection_offer::{self},
+    gtk_primary_selection_source::{self},
 };
 use wayland_protocols_wlr::data_control::v1::server::{
-    zwlr_data_control_device_v1::ZwlrDataControlDeviceV1,
     zwlr_data_control_offer_v1::ZwlrDataControlOfferV1,
     zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
 };
 use wayland_server::{
-    protocol::{wl_data_offer::WlDataOffer, wl_data_source::WlDataSource},
+    protocol::wl_data_source::WlDataSource,
     Client,
 };
 
@@ -285,13 +283,13 @@ impl ClipboardManager {
                         };
                     })
                     .detach();
-                return Ok(());
+                Ok(())
             }
             Some(MimeTypeState::Reading) => {
                 let mut paste_requests = world.get_mut::<PasteRequests>(record_entity).unwrap();
                 debug!("clipboard is pedding");
                 paste_requests.push(paste_request);
-                return Ok(());
+                Ok(())
             }
             Some(MimeTypeState::Pedding) => {
                 let mime_type = paste_request.mime_type.clone();
@@ -333,18 +331,18 @@ impl ClipboardManager {
                 let mut paste_requests = world.get_mut::<PasteRequests>(record_entity).unwrap();
                 paste_requests.push(paste_request);
                 debug!("clipboard is pedding");
-                return Ok(());
+                Ok(())
             }
             None => {
                 warn!("not such mime type: {}", paste_request.mime_type);
-                return Err(paste_request);
+                Err(paste_request)
             }
             Some(MimeTypeState::Error) => {
                 warn!(
                     "failed to read clipboard. mime type: {}",
                     paste_request.mime_type
                 );
-                return Err(paste_request);
+                Err(paste_request)
             }
         }
     }
@@ -455,7 +453,7 @@ pub trait ClipboardDataDevice: Component + Sized {
         let Some(this) = world.get::<Self>(self_entity) else {
             return;
         };
-        Self::create_offer(&this, &mime_types, commands);
+        Self::create_offer(this, &mime_types, commands);
         command_queue.apply(world);
     }
 }
@@ -490,8 +488,8 @@ pub fn send_selection_system(
         let mime_types = record
             .mime_types
             .iter()
-            .filter(|(k, v)| !matches!(v, MimeTypeState::Error))
-            .map(|(k, v)| k.clone())
+            .filter(|(_k, v)| !matches!(v, MimeTypeState::Error))
+            .map(|(k, _v)| k.clone())
             .collect();
 
         for (

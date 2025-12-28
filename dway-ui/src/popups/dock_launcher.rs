@@ -11,7 +11,7 @@ use widgets::{
 };
 
 use crate::{
-    panels::{PanelButtonBundle, PanelPopup, PanelPopupBundle},
+    panels::{PanelButtonBundle, PanelPopup},
     prelude::*,
     widgets::icon::UiIcon,
 };

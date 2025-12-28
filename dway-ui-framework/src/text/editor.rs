@@ -1,10 +1,10 @@
-use bevy::{input::keyboard::Key, text::TextLayoutInfo};
+use bevy::input::keyboard::Key;
 use undo::History;
 
 use super::{
     cursor::{UiTextCursor, UiTextCursorEvent},
     selection::UiTextSelection,
-    textarea::{self, UiTextArea},
+    textarea::UiTextArea,
 };
 use crate::{impl_event_receiver, prelude::*};
 
@@ -101,38 +101,35 @@ pub fn text_editor_on_event(
     )>,
     mut commands: Commands,
 ) {
-    let Ok((entity, mut editor, selection, mut cursor, cursor_event, mut textarea)) =
+    let Ok((_entity, mut editor, _selection, mut cursor, cursor_event, mut textarea)) =
         query.get_mut(event.sender())
     else {
         return;
     };
 
-    match &*event {
-        UiInputEvent::KeyboardInput(keyboard_input) => {
-            if keyboard_input.state.is_pressed() {
-                return;
-            }
-
-            match &keyboard_input.logical_key {
-                Key::Backspace => {
-                    editor.backspace(&mut textarea, &mut cursor);
-                }
-                Key::Delete => {
-                    editor.delete_char(&mut textarea, &mut cursor);
-                }
-                Key::Enter => {
-                    editor.insert_text(&mut textarea, &mut cursor, "\n");
-                }
-                Key::Space => {
-                    editor.insert_text(&mut textarea, &mut cursor, " ");
-                }
-                Key::Character(s) => {
-                    editor.insert_text(&mut textarea, &mut cursor, s);
-                }
-                _ => {}
-            }
+    if let UiInputEvent::KeyboardInput(keyboard_input) = &*event {
+        if keyboard_input.state.is_pressed() {
+            return;
         }
-        _ => {}
+
+        match &keyboard_input.logical_key {
+            Key::Backspace => {
+                editor.backspace(&mut textarea, &mut cursor);
+            }
+            Key::Delete => {
+                editor.delete_char(&mut textarea, &mut cursor);
+            }
+            Key::Enter => {
+                editor.insert_text(&mut textarea, &mut cursor, "\n");
+            }
+            Key::Space => {
+                editor.insert_text(&mut textarea, &mut cursor, " ");
+            }
+            Key::Character(s) => {
+                editor.insert_text(&mut textarea, &mut cursor, s);
+            }
+            _ => {}
+        }
     }
     if cursor.is_changed() {
         EventDispatcher::try_send(

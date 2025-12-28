@@ -4,8 +4,7 @@ use std::{
 };
 
 use bevy::render::{
-    render_resource::TextureView,
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderContext, RenderDevice},
     texture::GpuImage,
 };
 use image::RgbaImage;
@@ -41,7 +40,7 @@ pub fn output_image(
     render_context: &mut RenderContext,
     render_device: &RenderDevice,
 ) -> anyhow::Result<()> {
-    let format = texture.texture.format();
+    let _format = texture.texture.format();
     let size = texture.size;
 
     let buffer = Arc::new(render_device.create_buffer(
@@ -67,8 +66,8 @@ pub fn output_image(
             buffer: &buffer,
             layout: TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(bytes_pre_row as u32),
-                rows_per_image: Some(texture.size.height as u32),
+                bytes_per_row: Some(bytes_pre_row),
+                rows_per_image: Some(texture.size.height),
             },
         },
         texture.size,

@@ -74,7 +74,7 @@ pub struct ListViewLayout {
 }
 
 impl ViewLayouter<usize> for ListViewLayout {
-    fn add(&mut self, entity: EntityCommands, index: usize) -> ItemLayout {
+    fn add(&mut self, _entity: EntityCommands, index: usize) -> ItemLayout {
         if let Some(layout) = self.items.get(&index) {
             return layout.clone();
         }
@@ -128,7 +128,7 @@ impl ViewLayouter<usize> for ListViewLayout {
         self.view_area.rect = rect;
     }
 
-    fn truncate(&mut self, commands: Commands) -> Vec<usize> {
+    fn truncate(&mut self, _commands: Commands) -> Vec<usize> {
         let mut removed_items = vec![];
         self.items.retain(|k, v| {
             let r = v.rect.intersect(self.view_area.rect).is_empty();
@@ -173,7 +173,7 @@ pub fn list_bind_data<Item: DataItem>(
 ) {
     let (world, query) = set.p0();
     let mut update_list = vec![];
-    for (container_entity, layout, model) in &query {
+    for (container_entity, _layout, model) in &query {
         let entity_ref = EntityWorldRef::new(world, container_entity);
         if model.update_from_world(entity_ref) {
             update_list.push((

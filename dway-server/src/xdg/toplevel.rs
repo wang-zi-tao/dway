@@ -263,7 +263,7 @@ pub fn update_window(
     for (toplevel, xdg_surface, wl_surface, mut data, geometry) in &mut windows {
         if geometry.is_changed() && Some(geometry.size()) != data.size {
             data.size = Some(geometry.size());
-            toplevel.configure(&wl_surface, &mut data);
+            toplevel.configure(wl_surface, &data);
             xdg_surface.configure();
         }
     }
@@ -288,7 +288,7 @@ pub fn receive_window_action_event(
                     toplevel.data.max = true;
                     toplevel
                         .xdg_obj
-                        .configure(&toplevel.wl_surface, &mut toplevel.data);
+                        .configure(toplevel.wl_surface, &toplevel.data);
                     toplevel.xdg_surface.configure();
                 }
             }
@@ -297,7 +297,7 @@ pub fn receive_window_action_event(
                     toplevel.data.max = true;
                     toplevel
                         .xdg_obj
-                        .configure(&toplevel.wl_surface, &mut toplevel.data);
+                        .configure(toplevel.wl_surface, &toplevel.data);
                     toplevel.xdg_surface.configure();
                 }
             }
@@ -306,7 +306,7 @@ pub fn receive_window_action_event(
                     toplevel.data.fullscreen = true;
                     toplevel
                         .xdg_obj
-                        .configure(&toplevel.wl_surface, &mut toplevel.data);
+                        .configure(toplevel.wl_surface, &toplevel.data);
                     toplevel.xdg_surface.configure();
                 }
             }
@@ -315,7 +315,7 @@ pub fn receive_window_action_event(
                     toplevel.data.fullscreen = false;
                     toplevel
                         .xdg_obj
-                        .configure(&toplevel.wl_surface, &mut toplevel.data);
+                        .configure(toplevel.wl_surface, &toplevel.data);
                     toplevel.xdg_surface.configure();
                 }
             }
@@ -327,12 +327,12 @@ pub fn receive_window_action_event(
                     toplevel.data.size = Some(rect.size());
                     toplevel
                         .xdg_obj
-                        .configure(&toplevel.wl_surface, &mut toplevel.data);
+                        .configure(toplevel.wl_surface, &toplevel.data);
                     toplevel.xdg_surface.configure();
                 }
             }
             WindowAction::RequestMove(e) => {
-                if let Ok(mut toplevel) = window_query.get_mut(*e) {
+                if let Ok(toplevel) = window_query.get_mut(*e) {
                     if toplevel.pinned.is_some() {
                         return;
                     }
@@ -349,7 +349,7 @@ pub fn receive_window_action_event(
                 }
             }
             WindowAction::RequestResize(e, edges) => {
-                if let Ok(mut toplevel) = window_query.get_mut(*e) {
+                if let Ok(toplevel) = window_query.get_mut(*e) {
                     if toplevel.pinned.is_some() {
                         return;
                     }

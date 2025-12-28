@@ -757,7 +757,7 @@ impl<T: Material> AsBindGroup for ShaderAsset<T> {
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
         (images, fallback_image): &mut SystemParamItem<'_, '_, Self::Param>,
-        force_no_bindless: bool,
+        _force_no_bindless: bool,
     ) -> Result<UnpreparedBindGroup, AsBindGroupError> {
         let mut builder = BindGroupBuilder::new(layout, render_device, images, fallback_image);
         builder.add_uniform_buffer(self)?;
@@ -767,7 +767,7 @@ impl<T: Material> AsBindGroup for ShaderAsset<T> {
 
     fn bind_group_layout_entries(
         render_device: &RenderDevice,
-        force_no_bindless: bool,
+        _force_no_bindless: bool,
     ) -> Vec<BindGroupLayoutEntry>
     where
         Self: Sized,
@@ -778,7 +778,7 @@ impl<T: Material> AsBindGroup for ShaderAsset<T> {
     }
 
     fn bind_group_data(&self) -> Self::Data {
-        ()
+        
     }
 }
 

@@ -1,8 +1,7 @@
 use bevy::ui::RelativeCursorPosition;
 use dway_client_core::{
-    input::{GrabRequestKind, SurfaceInputEvent, SurfaceUiNode},
-    navigation::windowstack::{WindowIndex, WindowStack},
-    DWayClientPlugin, UiAttachData,
+    input::{GrabRequestKind, SurfaceInputEvent},
+    navigation::windowstack::{WindowIndex, WindowStack}, UiAttachData,
 };
 use dway_server::{
     geometry::{Geometry, GlobalGeometry},
@@ -10,9 +9,9 @@ use dway_server::{
     wl::surface::WlSurface,
     xdg::{toplevel::DWayToplevel, DWayWindow, PopupList},
 };
-use dway_ui_framework::widgets::drag::{UiDrag, UiDragEvent, UiDragEventDispatcher};
+use dway_ui_framework::widgets::drag::{UiDrag, UiDragEvent};
 
-use super::popupwindow::{PopupUI, PopupUISystems};
+use super::popupwindow::PopupUI;
 use crate::{prelude::*, util::irect_to_style};
 
 pub const WINDEOW_BASE_ZINDEX: i32 = 128;
@@ -33,7 +32,7 @@ pub fn ui_input_event_to_surface_input_event(
 
     let surface_rect = get_node_rect(global_transform, computed_node);
 
-    let surface_input_event_kind = match &*event {
+    let surface_input_event_kind = match event {
         UiInputEvent::MouseEnter => Some(GrabRequestKind::Enter()),
         UiInputEvent::MouseLeave => Some(GrabRequestKind::Leave()),
         UiInputEvent::MousePress(_) => None,
@@ -44,9 +43,9 @@ pub fn ui_input_event_to_surface_input_event(
         UiInputEvent::KeyboardInput(keyboard_input) => {
             Some(GrabRequestKind::KeyboardInput(keyboard_input.clone()))
         }
-        UiInputEvent::Wheel(mouse_wheel) => Some(GrabRequestKind::Asix(mouse_wheel.clone())),
+        UiInputEvent::Wheel(mouse_wheel) => Some(GrabRequestKind::Asix(*mouse_wheel)),
         UiInputEvent::RawMouseButton(mouse_button_input) => {
-            Some(GrabRequestKind::Button(mouse_button_input.clone()))
+            Some(GrabRequestKind::Button(*mouse_button_input))
         }
     };
     surface_input_event_kind.map(|kind| SurfaceInputEvent {
@@ -163,7 +162,7 @@ WindowUI=>
         mut events: MessageWriter<WindowAction>,
     ) {
         let Ok(prop) = this_query.get(event.receiver()) else {return};
-        if let UiDragEvent::Move{ delta: delta, .. } = &*event{
+        if let UiDragEvent::Move{ delta, .. } = &*event{
             let Ok(geo) = window_query.get(prop.window_entity) else{ return};
             events.write(WindowAction::SetRect(prop.window_entity, IRect::from_pos_size(geo.pos() + delta.as_ivec2(), geo.size())));
         }
@@ -174,11 +173,11 @@ WindowUI=>
         event: UiEvent<UiDragEvent>,
         this_query: Query<&WindowUI>,
         window_query: Query<&Geometry>,
-        events: MessageWriter<WindowAction>,
+        _events: MessageWriter<WindowAction>,
     ) {
         let Ok(prop) = this_query.get(event.receiver()) else {return};
-        if let UiDragEvent::Move{ delta: delta, .. } = &*event{
-            let Ok(geo) = window_query.get(prop.window_entity) else{ return};
+        if let UiDragEvent::Move{ delta: _, .. } = &*event{
+            let Ok(_geo) = window_query.get(prop.window_entity) else{ return};
             // TODO
         }
     }

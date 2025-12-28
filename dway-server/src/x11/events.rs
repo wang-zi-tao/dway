@@ -75,7 +75,7 @@ pub fn process_x11_event(
                     let xwindow_entity = x.find_window(e.window)?;
                     let mut xwindow = world
                         .get_mut::<XWindow>(xwindow_entity)
-                        .ok_or_else(|| InvalidWindowEntity(xwindow_entity))?;
+                        .ok_or(InvalidWindowEntity(xwindow_entity))?;
                     xwindow.surface_id = Some(wid);
                     world.entity_mut(xwindow_entity).insert(MappedXWindow);
 
@@ -98,11 +98,11 @@ pub fn process_x11_event(
                         warn!(?xwindow_entity, "surface entity has no XWindowSurfaceRef");
                         return Ok(());
                     };
-                    let Some(geo) = dway.get::<Geometry>(surface_entity).map(|g| g.clone()) else {
+                    let Some(geo) = dway.get::<Geometry>(surface_entity).cloned() else {
                         warn!(?surface_entity, "surface entity has no Geometry");
                         return Ok(());
                     };
-                    if let Some(mut window_pointer) =
+                    if let Some(window_pointer) =
                         dway.get_mut::<WlSurfacePointerState>(surface_entity)
                     {
                         let data = e.data.as_data32();

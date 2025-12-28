@@ -1,6 +1,6 @@
 use bitflags::bitflags;
 
-use crate::{geometry::Geometry, prelude::*, util::rect::IRect};
+use crate::{geometry::Geometry, prelude::*};
 
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash)]

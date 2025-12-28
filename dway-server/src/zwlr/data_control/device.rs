@@ -29,12 +29,12 @@ impl Drop for ZwlrDataControlDevice {
 impl Dispatch<ZwlrDataControlDeviceV1, Entity> for DWay {
     fn request(
         state: &mut Self,
-        client: &wayland_server::Client,
+        _client: &wayland_server::Client,
         resource: &ZwlrDataControlDeviceV1,
         request: <ZwlrDataControlDeviceV1 as WlResource>::Request,
         data: &Entity,
-        dhandle: &DisplayHandle,
-        data_init: &mut wayland_server::DataInit<'_, Self>,
+        _dhandle: &DisplayHandle,
+        _data_init: &mut wayland_server::DataInit<'_, Self>,
     ) {
         let span =
             span!(Level::ERROR,"request",entity = ?data,resource = %WlResource::id(resource));
@@ -61,7 +61,7 @@ impl Dispatch<ZwlrDataControlDeviceV1, Entity> for DWay {
             Request::Destroy => {
                 state.despawn_object(*data, resource);
             }
-            Request::SetPrimarySelection { source } => todo!(),
+            Request::SetPrimarySelection { source: _ } => todo!(),
             _ => todo!(),
         }
     }

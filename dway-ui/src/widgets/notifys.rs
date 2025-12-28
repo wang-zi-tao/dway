@@ -1,7 +1,7 @@
 use bevy_svg::prelude::Svg;
 use dway_client_core::controller::notify::{NotifyAction, NotifyHistory, NotifyRequest};
 use dway_ui_framework::widgets::util::visibility;
-use widgets::{button::UiButtonEventDispatcher, text::UiTextBundle};
+use widgets::text::UiTextBundle;
 
 use crate::prelude::*;
 
@@ -14,9 +14,9 @@ NotifyButton=>
     fn open_notify_list(
         event: UiEvent<UiButtonEvent>,
         mut query: Query<&mut NotifyButtonState>,
-        notify_sender: MessageWriter<NotifyRequest>
+        _notify_sender: MessageWriter<NotifyRequest>
     ) {
-        let Ok(state) = query.get_mut(event.receiver()) else {return};
+        let Ok(_state) = query.get_mut(event.receiver()) else {return};
         if event.kind == UiButtonEventKind::Released{
         }
     }

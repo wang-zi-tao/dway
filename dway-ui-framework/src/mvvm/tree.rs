@@ -83,37 +83,37 @@ impl<NodeId: IndexTrait> TreeViewLayout<NodeId> {
         self.used_area.max.y < self.view_area.rect.max.y
     }
 
-    fn add(&mut self, entity: EntityCommands, index: NodeId) -> ItemLayout {
+    fn add(&mut self, _entity: EntityCommands, _index: NodeId) -> ItemLayout {
         todo!()
     }
 }
 
 impl<NodeId: IndexTrait> ViewLayouter<NodeId> for TreeViewLayout<NodeId> {
-    fn contains(&self, index: NodeId) -> bool {
+    fn contains(&self, _index: NodeId) -> bool {
         todo!()
     }
 
-    fn add(&mut self, entity: EntityCommands, index: NodeId) -> ItemLayout {
+    fn add(&mut self, _entity: EntityCommands, _index: NodeId) -> ItemLayout {
         todo!()
     }
 
-    fn remove(&mut self, entity: EntityCommands, index: NodeId) {
+    fn remove(&mut self, _entity: EntityCommands, _index: NodeId) {
         todo!()
     }
 
-    fn get_item_layout(&self, index: NodeId) -> Option<&ItemLayout> {
+    fn get_item_layout(&self, _index: NodeId) -> Option<&ItemLayout> {
         todo!()
     }
 
-    fn get_item_layout_mut(&mut self, index: NodeId) -> Option<&mut ItemLayout> {
+    fn get_item_layout_mut(&mut self, _index: NodeId) -> Option<&mut ItemLayout> {
         todo!()
     }
 
-    fn set_view_rect(&mut self, rect: Rect) {
+    fn set_view_rect(&mut self, _rect: Rect) {
         todo!()
     }
 
-    fn truncate(&mut self, commands: Commands) -> Vec<NodeId> {
+    fn truncate(&mut self, _commands: Commands) -> Vec<NodeId> {
         todo!()
     }
 }
@@ -134,9 +134,9 @@ fn tree_node_bind_data<NodeId: IndexTrait, Item: DataItem>(
     mut entity_commands: EntityCommands<'_>,
 ) {
     let children = model.get_children(id, entity_ref);
-    let item_layout = layout.add(entity_commands.reborrow(), id.clone());
+    let _item_layout = layout.add(entity_commands.reborrow(), id.clone());
     if let Some(children) = &children {
-        for (child_index, child) in children {
+        for (child_index, _child) in children {
             if !layout.has_space() {
                 break;
             }
@@ -172,7 +172,7 @@ pub fn tree_bind_data<NodeId: IndexTrait, Item: DataItem>(
 ) {
     let (world, query) = set.p0();
     let mut update_list = vec![];
-    for (container_entity, layout, model) in &query {
+    for (container_entity, _layout, model) in &query {
         let entity_ref = EntityWorldRef::new(world, container_entity);
         if model.update_from_world(entity_ref) {
             let changed = model.get_changed(entity_ref);
@@ -192,7 +192,7 @@ pub fn tree_bind_data<NodeId: IndexTrait, Item: DataItem>(
         };
         for (index, changed_item) in update_model.items {
             let item_layout = layout.add(commands.entity(container_entity), index.clone());
-            let entity = if let Some(item_entity) = view.get_entity(&index) {
+            let _entity = if let Some(item_entity) = view.get_entity(&index) {
                 item_entity
             } else {
                 let entity = commands

@@ -5,7 +5,7 @@ use std::{any::TypeId, fmt::Debug, hash::Hash, sync::Arc};
 
 use bevy::{
     app::DynEq,
-    ecs::{component::ComponentId, label::DynHash, query::QueryData, world::DeferredWorld},
+    ecs::{label::DynHash, world::DeferredWorld},
     platform::collections::HashMap,
 };
 use bevy_svg::prelude::Svg;
@@ -15,7 +15,7 @@ use downcast_rs::{impl_downcast, Downcast};
 
 use crate::{
     animation::{
-        apply_tween_asset, ease::AnimationEaseMethod, AnimationEvent, AnimationEventDispatcher,
+        apply_tween_asset, ease::AnimationEaseMethod, AnimationEvent,
     },
     event::{CallbackTypeRegister, EventDispatcher},
     prelude::*,
@@ -24,7 +24,6 @@ use crate::{
         fill::Fill,
         Material, ShaderAsset,
     },
-    util::modify_component_or_insert,
     UiFrameworkSystems,
 };
 

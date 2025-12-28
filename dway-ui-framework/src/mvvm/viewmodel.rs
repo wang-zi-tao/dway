@@ -11,7 +11,7 @@ use crate::prelude::*;
 pub struct SimpleItemViewModel<Item: DataItem>(pub Item);
 
 impl<Item: DataItem> SimpleItemViewModel<Item> {
-    fn update(&self, entity: EntityRef, item: Item) {
+    fn update(&self, _entity: EntityRef, _item: Item) {
     }
 }
 
@@ -35,13 +35,13 @@ impl<Item: DataItem + Clone> ViewModel<Item> for SimpleItemViewModel<Item> {
 pub struct SimpleListViewModel<Item: DataItem>(pub Vec<Item>);
 
 impl<Item: DataItem + Clone> ListViewModel<Item> for SimpleListViewModel<Item> {
-    fn len(&self, world: EntityWorldRef<'_>) -> usize {
+    fn len(&self, _world: EntityWorldRef<'_>) -> usize {
         self.0.len()
     }
 
     fn get_changed_in_range(
         &self,
-        entity: EntityWorldRef,
+        _entity: EntityWorldRef,
         range: Range<usize>,
     ) -> Vec<(usize, Item)> {
         self.0
@@ -61,7 +61,7 @@ impl<Item: DataItem + Clone> ContainerViewModel<usize, Item> for SimpleListViewM
         entity.get().get_ref::<Self>().unwrap().is_changed()
     }
 
-    fn get(&self, key: &usize, entity: EntityWorldRef) -> Option<Item> {
+    fn get(&self, key: &usize, _entity: EntityWorldRef) -> Option<Item> {
         self.0.get(*key).cloned()
     }
 

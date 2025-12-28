@@ -218,7 +218,7 @@ pub fn prepare_render_command(
                             }),
                             ..default()
                         },
-                        Camera2d::default(),
+                        Camera2d,
                         projection,
                         transform,
                         CanvasCamera { canvas: entity },

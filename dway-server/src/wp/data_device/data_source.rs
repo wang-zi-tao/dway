@@ -1,6 +1,4 @@
-use std::collections::HashSet;
 
-use bevy_relationship::reexport::SmallVec;
 use wayland_server::protocol::wl_data_device_manager::DndAction;
 
 use crate::{clipboard::MimeTypeSet, prelude::*};

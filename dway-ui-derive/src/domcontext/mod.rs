@@ -73,7 +73,7 @@ impl<'l> DomContext<'l> {
         self.dom_stack.push(NodeContext { dom, dom_id, is_sub_tree })
     }
 
-    pub fn top(&self) -> &NodeContext {
+    pub fn top(&self) -> &NodeContext<'_> {
         self.dom_stack.last().unwrap()
     }
 

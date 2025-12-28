@@ -148,13 +148,13 @@ impl PathQuery {
             extract_querys: vec![],
         });
     }
-    pub fn build_foreach_changed(&self, builder: &mut QueryBuilder) {
+    pub fn build_foreach_changed(&self, _builder: &mut QueryBuilder) {
         let entitys: Vec<TokenStream> = vec![];
         let querys: Vec<TokenStream> = vec![];
-        let mut_flags: Vec<TokenStream> = vec![];
-        let get_methods: Vec<TokenStream> = vec![];
+        let _mut_flags: Vec<TokenStream> = vec![];
+        let _get_methods: Vec<TokenStream> = vec![];
         let args: Vec<TokenStream> = vec![];
-        let code = quote!{
+        let _code = quote!{
             let __bevy_relationship__lambda = |this: &Self,#(#entitys: bevy::ecs::entity::Entity),*| {
                 #(let Ok(#args) = #querys.get_methods(#entitys);)*
                 callback(#(&args));

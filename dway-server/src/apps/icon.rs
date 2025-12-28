@@ -8,7 +8,7 @@ use std::{
 
 use bevy::{
     asset::{
-        io::{AssetReader, AssetReaderError, AssetSource, PathStream, Reader, VecReader},
+        io::{AssetReader, AssetReaderError, AssetSource, PathStream, VecReader},
         meta::{AssetAction, AssetMeta},
         AssetLoader,
     },

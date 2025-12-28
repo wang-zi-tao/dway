@@ -1,12 +1,6 @@
 use std::ops::Range;
 
-use bevy::{
-    ecs::{
-        component::{ComponentId},
-    },
-    text::TextLayoutInfo,
-    ui::{ContentSize, RelativeCursorPosition},
-};
+use bevy::text::TextLayoutInfo;
 use bevy_prototype_lyon::{
     draw::{Fill, Stroke},
     entity::Shape,
@@ -135,7 +129,7 @@ pub fn on_insert_selection(mut world: DeferredWorld, context: HookContext) {
                     ..Default::default()
                 },
                 (
-                    UiShape::default(),
+                    UiShape,
                     UiMeshTransform::new_ui_transform(),
                     ShapeBuilder::with(&ShapePath::default())
                         .fill(Fill {

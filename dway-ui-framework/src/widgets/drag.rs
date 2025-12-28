@@ -48,7 +48,7 @@ pub fn update_ui_drag(
         ),
         Or<(Changed<Interaction>, Changed<RelativeCursorPosition>)>,
     >,
-    parent_query: Query<(&ComputedNode)>,
+    parent_query: Query<&ComputedNode >,
     mut commands: Commands,
     mouse: Res<ButtonInput<MouseButton>>,
 ) {
@@ -75,7 +75,7 @@ pub fn update_ui_drag(
                     if pointer != state.pointer {
                         let size = computed_node.size();
                         let parent_size =
-                            if let Some(parent_computed) = parent_query.get(parent.get()).ok() {
+                            if let Ok(parent_computed) = parent_query.get(parent.get()) {
                                 parent_computed.size()
                             } else {
                                 continue;

@@ -1,8 +1,7 @@
-use smart_default::SmartDefault;
 
 use crate::{
     prelude::*,
-    theme::{StyleFlags, ThemeComponent, WidgetKind},
+    theme::{StyleFlags, ThemeComponent},
 };
 
 #[derive(Component, Default, Reflect)]
@@ -56,7 +55,7 @@ pub fn update_ui_checkbox(
     >,
     mut commands: Commands,
 ) {
-    for (entity, mut checkbox, mut state, button_state, event_dispatcher, theme) in
+    for (_entity, mut checkbox, mut state, button_state, event_dispatcher, theme) in
         ui_query.iter_mut()
     {
         use UiCheckBoxEventKind::*;

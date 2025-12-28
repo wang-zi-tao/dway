@@ -342,7 +342,7 @@ fn on_input_event(
 
 impl EventReceiver<UiInputEvent> for UiInputBox {
     fn on_event(&self, mut commands: EntityCommands, event: UiInputEvent) {
-        commands.queue(|mut entity: EntityWorldMut| {
+        commands.queue(|entity: EntityWorldMut| {
             let entity_id = entity.id();
             entity
                 .into_world_mut()

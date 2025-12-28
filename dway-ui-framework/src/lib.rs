@@ -43,7 +43,7 @@ use widgets::drag::UiDrag;
 
 use crate::{
     prelude::*,
-    render::mesh::{UiMesh, UiMeshMaterialPlugin, UiMeshTransform},
+    render::mesh::UiMeshMaterialPlugin,
     widgets::svg::{SvgLayout},
 };
 
@@ -73,7 +73,7 @@ impl Plugin for UiFrameworkPlugin {
             AssetCachePlugin::<Svg>::default(),
         ))
         .add_plugins((
-            text::UiTextPlugin::default(),
+            text::UiTextPlugin,
             widgets::slider::UiSliderPlugin,
             widgets::scroll::UiScrollPlugin,
             widgets::combobox::UiComboBoxPlugin,

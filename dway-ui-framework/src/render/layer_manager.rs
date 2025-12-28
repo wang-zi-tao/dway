@@ -2,7 +2,7 @@ use bevy::{
     asset::{load_internal_asset, uuid_handle, RenderAssetUsages},
     camera::{ImageRenderTarget, NormalizedRenderTarget, RenderTarget},
     ecs::{
-        system::{EntityCommand, SystemParam},
+        system::SystemParam,
         world::DeferredWorld,
     },
     math::FloatOrd,
@@ -24,12 +24,8 @@ use crate::{
     prelude::*,
     shader::{
         fill::Fill,
-        shape::{RoundedRect, Shape},
-        BindGroupBuilder, BindGroupLayoutBuilder, BuildBindGroup, ShaderAsset, ShaderBuilder,
-        ShaderPlugin, ShaderVariables, ShapeRender, UniformLayout,
+        BindGroupBuilder, BindGroupLayoutBuilder, BuildBindGroup, ShaderBuilder, ShaderVariables, UniformLayout,
     },
-    util::nodes::get_node_position,
-    widgets::util::visibility,
     UiFrameworkSystems,
 };
 
@@ -177,7 +173,7 @@ impl BaseLayerRef {
         let surface = create_image(size, &mut image_assets, label);
         BaseLayerRef {
             camera: manager_entity,
-            surface: surface,
+            surface,
         }
     }
 
@@ -244,7 +240,7 @@ impl LayerRef {
         let camera_entity = world
             .commands()
             .spawn((
-                Camera2d::default(),
+                Camera2d,
                 Camera {
                     clear_color: Color::BLACK.into(),
                     target: render_target.clone(),
@@ -292,7 +288,7 @@ impl Layer for LayerRef {
         window_target: &RenderTarget,
         size: Vec2,
     ) {
-        let (mut camera, mut backup, mut layer) = camera_query.camera.get_mut(self.camera).unwrap();
+        let (mut camera, mut backup, layer) = camera_query.camera.get_mut(self.camera).unwrap();
         if let Some(mut layer) = layer {
             layer.background_size = size;
         }
@@ -451,10 +447,10 @@ impl Layer for BlurLayer {
                 Vec2::new(rect.max.x, rect.max.y) / surface_size,
             ]);
             indices.extend([
-                offset + 0,
+                offset,
                 offset + 1,
                 offset + 2,
-                offset + 0,
+                offset,
                 offset + 2,
                 offset + 3,
             ]);
