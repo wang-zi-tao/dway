@@ -22,28 +22,21 @@ pub struct UiButtonEvent {
 }
 
 #[derive(Component, Default, Clone, Reflect)]
-#[require(Node, Interaction)]
+#[require(Node, Interaction, UiButtonEventDispatcher)]
 #[require(FocusPolicy=FocusPolicy::Block)]
-#[require(ThemeComponent=ThemeComponent::widget(WidgetKind::Button))]
 pub struct UiButton {
     pub state: Interaction,
 }
 
 pub fn update_ui_button(
     mut ui_query: Query<
-        (
-            Entity,
-            &mut UiButton,
-            &Interaction,
-            &UiButtonEventDispatcher,
-            Option<&mut ThemeComponent>,
-        ),
+        (&mut UiButton, &Interaction, &UiButtonEventDispatcher),
         Changed<Interaction>,
     >,
     mut commands: Commands,
 ) {
     use UiButtonEventKind::*;
-    for (_entity, mut button, button_state, dispatcher, theme) in &mut ui_query {
+    for (mut button, button_state, dispatcher) in &mut ui_query {
         let mut call = |kind: UiButtonEventKind| {
             dispatcher.send(
                 UiButtonEvent {
@@ -80,14 +73,5 @@ pub fn update_ui_button(
             | (Interaction::Pressed, Interaction::Pressed) => {}
         };
         button.state = *button_state;
-
-        if let Some(mut theme) = theme {
-            theme
-                .style_flags
-                .set(StyleFlags::HOVERED, button.state == Interaction::Hovered);
-            theme
-                .style_flags
-                .set(StyleFlags::CLICKED, button.state == Interaction::Pressed);
-        }
     }
 }

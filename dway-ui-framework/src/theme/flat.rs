@@ -12,7 +12,7 @@ use super::{
         ApplyMaterialAnimation, EventObserver, FocusMaterialSet, GlobalThemePlugin,
         InteractionMaterialSet, MaterialApplyMethod, ThemeTrait, WidgetInsertObserver,
     },
-    insert_material_tween, BlockStyle, DefaultTextTheme, ThemeComponent, ThemeDispatch,
+    insert_material_tween, BlockStyle, DefaultTextTheme, ThemeComponent,
     ThemeHightlight,
 };
 use crate::{
@@ -473,7 +473,7 @@ impl EventObserver<UiButtonEvent> for FlatTheme {
 
     fn on_event(
         &self,
-        event: Trigger<UiEvent<UiButtonEvent>>,
+        event: On<UiEvent<UiButtonEvent>>,
         _theme_entity: Entity,
         query_items: QueryItem<Self::ItemQuery>,
         callback_register: SystemParamItem<Self::Params>,
@@ -499,7 +499,7 @@ impl EventObserver<UiButtonEvent, ThemeHightlight> for FlatTheme {
 
     fn on_event(
         &self,
-        event: Trigger<UiEvent<UiButtonEvent>>,
+        event: On<UiEvent<UiButtonEvent>>,
         _theme_entity: Entity,
         query_items: QueryItem<Self::ItemQuery>,
         callback_register: SystemParamItem<Self::Params>,
@@ -552,7 +552,7 @@ impl EventObserver<UiCheckBoxEvent> for FlatTheme {
 
     fn on_event(
         &self,
-        event: Trigger<UiEvent<UiCheckBoxEvent>>,
+        event: On<UiEvent<UiCheckBoxEvent>>,
         _theme_entity: Entity,
         (checkbox, query_items): QueryItem<Self::ItemQuery>,
         callback_register: SystemParamItem<Self::Params>,
@@ -583,7 +583,7 @@ impl WidgetInsertObserver<UiSliderInited> for FlatTheme {
 
     fn on_widget_insert(
         &self,
-        theme_entity: Entity,
+        _theme_entity: Entity,
         (_prop, widget, _event_dispatcher): QueryItem<Self::ItemQuery>,
         mut callback_register: SystemParamItem<Self::Params>,
         mut commands: EntityCommands,
@@ -601,12 +601,6 @@ impl WidgetInsertObserver<UiSliderInited> for FlatTheme {
         let mut handle_entity_commands = commands.entity(widget.node_handle_entity);
         handle_entity_commands.insert(self.slider_handler_material_set.normal.clone());
         handle_entity_commands.entry::<UiInput>().or_default();
-        handle_entity_commands
-            .entry::<ThemeComponent>()
-            .or_default()
-            .and_modify(move |mut t| {
-                t.theme_entity = theme_entity;
-            });
 
         let handle_entity = widget.node_handle_entity;
         callback_register.add_to_observer(
@@ -625,7 +619,7 @@ impl EventObserver<UiInputEvent, UiSliderHandle> for FlatTheme {
 
     fn on_event(
         &self,
-        event: Trigger<UiEvent<UiInputEvent>>,
+        event: On<UiEvent<UiInputEvent>>,
         _theme_entity: Entity,
         query_items: QueryItem<Self::ItemQuery>,
         callback_register: SystemParamItem<Self::Params>,
@@ -676,7 +670,7 @@ impl EventObserver<UiInputEvent, UiInputBox> for FlatTheme {
 
     fn on_event(
         &self,
-        event: Trigger<UiEvent<UiInputEvent>>,
+        event: On<UiEvent<UiInputEvent>>,
         _theme_entity: Entity,
         query_items: QueryItem<Self::ItemQuery>,
         callback_register: SystemParamItem<Self::Params>,
@@ -807,7 +801,7 @@ impl Plugin for FlatThemePlugin {
         if self.register_to_global {
             let mut flat_theme = self.theme.clone();
             flat_theme.init(app.world_mut());
-            app.add_plugins(GlobalThemePlugin::new(flat_theme));
+            app.add_plugins(GlobalThemePlugin::new(flat_theme, true));
             // let mut theme = app.world_mut().resource_mut::<Theme>();
             // theme.set_theme_dispatch(Some(std::sync::Arc::new(flat_theme)));
         }

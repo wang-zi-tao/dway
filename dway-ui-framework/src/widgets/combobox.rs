@@ -75,7 +75,6 @@ UiComboBox=>
             state.set_index(index);
         })
         GlobalZIndex=(GlobalZIndex(1024))
-        ThemeComponent=(ThemeComponent::widget(WidgetKind::ComboBox(ComboBoxNodeKind::Popup)))
     >
         <Node @id="item" @style="full"
                 @use_state(pub combobox: Entity = Entity::PLACEHOLDER @ this_entity)
@@ -84,7 +83,6 @@ UiComboBox=>
                 @state_component(#[derive(Reflect)]) >
             <Node NoTheme @on_event(select)
                 @style="full align-items:center justify-content:center "
-                ThemeComponent=(ThemeComponent::widget(WidgetKind::ComboBox(ComboBoxNodeKind::Item)).with_flag_value(StyleFlags::HIGHLIGHT, Some(*state.index()) == *root_state.selected()))
             >
                 <Node @command({let item = state.item().clone().unwrap();move|e:EntityWorldMut|item.spawn(e) })/>
             </Node>

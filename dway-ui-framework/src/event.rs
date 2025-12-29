@@ -6,9 +6,11 @@ use std::{
 
 use bevy::{
     ecs::{
-        event::{EntityTrigger, Trigger}, lifecycle::HookContext, system::{EntityCommand, EntityCommands, IntoObserverSystem, SystemState}
+        event::{EntityTrigger, Trigger},
+        lifecycle::HookContext,
+        system::{EntityCommand, EntityCommands, IntoObserverSystem, SystemState},
     },
-    platform::collections::{HashMap, hash_map::Entry},
+    platform::collections::{hash_map::Entry, HashMap},
     reflect::List,
 };
 use bevy_relationship::reexport::{Mutable, SmallVec, StorageType};
@@ -511,6 +513,26 @@ impl CallbackTypeRegister {
         }
     }
 
+    pub fn register_observer_to_world<F, E: Event, B: Bundle, M>(system: F, world: &mut World)
+    where
+        F: IntoObserverSystem<E, B, M>,
+    {
+        let type_id = system.type_id();
+
+        {
+            let this = world.resource::<Self>();
+            if this.triggers.contains_key(&type_id) {
+                return;
+            }
+        }
+
+        let ooserver_entity = world.spawn(Observer::new(system)).id();
+        {
+            let mut this = world.resource_mut::<Self>();
+            this.triggers.insert(type_id, ooserver_entity);
+        }
+    }
+
     pub fn add_to_observer<F, E: Event, B: Bundle, M>(
         &mut self,
         system: F,
@@ -576,7 +598,10 @@ app.register_callback({system});
     }
 }
 
-pub fn on_despawn_later_event(mut events: MessageReader<DespawnLaterEvent>, mut commands: Commands) {
+pub fn on_despawn_later_event(
+    mut events: MessageReader<DespawnLaterEvent>,
+    mut commands: Commands,
+) {
     for e in events.read() {
         if !e.is_cancelled() {
             commands.entity(e.entity).despawn();

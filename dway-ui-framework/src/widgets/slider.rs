@@ -1,16 +1,18 @@
 use bevy::ui::RelativeCursorPosition;
 use smart_default::SmartDefault;
 
-use crate::{
-    prelude::*,
-    theme::ThemeComponent,
-};
+use crate::{prelude::*, theme::ThemeComponent};
 
 #[derive(Component)]
 pub struct UiSliderInited;
 
 #[derive(Component, SmartDefault, Reflect)]
-#[require(RelativeCursorPosition, Interaction, UiSliderEventDispatcher, ThemeComponent)]
+#[require(
+    RelativeCursorPosition,
+    Interaction,
+    UiSliderEventDispatcher,
+    ThemeComponent
+)]
 pub struct UiSlider {
     #[default(1.0)]
     pub max: f32,
@@ -48,7 +50,7 @@ if !widget.inited{
 if ( slider_interaction.is_changed() || relative_cursor_position.is_changed() )
         && *slider_interaction == Interaction::Pressed{
     if let Some(mouse_position) = get_node_mouse_position(&relative_cursor_position, computed_node) {
-        let raw_value = mouse_position.x.max(0.0).min(1.0);
+        let raw_value = (mouse_position.x / computed_node.size().x).max(0.0).min(1.0);
         state.set_value(raw_value*(prop.max-prop.min)+prop.min);
         event_dispatcher.send(UiSliderEvent{
             value: *state.value(),

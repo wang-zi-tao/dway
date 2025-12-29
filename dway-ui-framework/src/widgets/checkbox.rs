@@ -1,11 +1,7 @@
-
-use crate::{
-    prelude::*,
-    theme::{StyleFlags, ThemeComponent},
-};
+use crate::prelude::*;
 
 #[derive(Component, Default, Reflect)]
-#[require(Node, UiCheckBoxState, UiCheckBoxEventDispatcher)]
+#[require(Node, UiCheckBoxState, UiCheckBoxEventDispatcher, Interaction)]
 #[require(FocusPolicy=FocusPolicy::Block)]
 pub struct UiCheckBox {
     pub state: Interaction,
@@ -49,15 +45,12 @@ pub fn update_ui_checkbox(
             &mut UiCheckBoxState,
             &Interaction,
             &UiCheckBoxEventDispatcher,
-            Option<&mut ThemeComponent>,
         ),
         Changed<Interaction>,
     >,
     mut commands: Commands,
 ) {
-    for (_entity, mut checkbox, mut state, button_state, event_dispatcher, theme) in
-        ui_query.iter_mut()
-    {
+    for (_entity, mut checkbox, mut state, button_state, event_dispatcher) in ui_query.iter_mut() {
         use UiCheckBoxEventKind::*;
         match (checkbox.state, button_state) {
             (Interaction::Pressed, Interaction::Hovered) => {
@@ -169,15 +162,5 @@ pub fn update_ui_checkbox(
             | (Interaction::Pressed, Interaction::Pressed) => {}
         };
         checkbox.state = *button_state;
-
-        if let Some(mut theme) = theme {
-            theme
-                .style_flags
-                .set(StyleFlags::HOVERED, checkbox.state == Interaction::Hovered);
-            theme
-                .style_flags
-                .set(StyleFlags::CLICKED, checkbox.state == Interaction::Pressed);
-            theme.style_flags.set(StyleFlags::DOWNED, state.value);
-        }
     }
 }

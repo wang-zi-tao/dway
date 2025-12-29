@@ -4,19 +4,16 @@ pub mod flat;
 use std::{any::TypeId, fmt::Debug, hash::Hash, sync::Arc};
 
 use bevy::{
-    app::DynEq,
+    app::{DynEq, HierarchyPropagatePlugin, Propagate, PropagateSet, PropagateStop},
     ecs::{label::DynHash, world::DeferredWorld},
     platform::collections::HashMap,
 };
 use bevy_svg::prelude::Svg;
 use bitflags::bitflags;
 use derive_more::From;
-use downcast_rs::{impl_downcast, Downcast};
 
 use crate::{
-    animation::{
-        apply_tween_asset, ease::AnimationEaseMethod, AnimationEvent,
-    },
+    animation::{apply_tween_asset, ease::AnimationEaseMethod, AnimationEvent},
     event::{CallbackTypeRegister, EventDispatcher},
     prelude::*,
     shader::{
@@ -24,7 +21,6 @@ use crate::{
         fill::Fill,
         Material, ShaderAsset,
     },
-    UiFrameworkSystems,
 };
 
 pub mod classname {
@@ -69,6 +65,7 @@ pub struct NoTheme;
 pub struct ThemeHightlight;
 
 #[derive(Component, Default)]
+#[require(ThemeComponent)]
 pub enum BlockStyle {
     #[default]
     Normal,
@@ -91,8 +88,7 @@ pub struct Theme {
     pub material_shadow: Shadow,
     #[reflect(ignore)]
     pub material_inner_shadow: (Color, Vec2, f32),
-    #[reflect(ignore)]
-    pub theme_dispatch: Option<Arc<dyn ThemeDispatch>>,
+    pub default_theme: Option<Entity>,
 }
 
 impl Default for Theme {
@@ -111,7 +107,7 @@ impl Default for Theme {
                 2.0,
             ),
             material_inner_shadow: (color!("#888888"), Vec2::new(1.0, 1.0), 1.0),
-            theme_dispatch: None,
+            default_theme: None,
         }
     }
 }
@@ -174,20 +170,6 @@ impl Theme {
         }
     }
 
-    pub fn set_theme_dispatch(&mut self, theme_dispatch: Option<Arc<dyn ThemeDispatch>>) {
-        self.theme_dispatch = theme_dispatch;
-    }
-
-    pub fn get_component(&self, flag: StyleFlags, widget_kind: WidgetKind) -> ThemeComponent {
-        ThemeComponent {
-            theme: self.theme_dispatch.clone(),
-            style_flags: flag,
-            old_style_flags: flag,
-            widget_kind,
-            theme_entity: Entity::PLACEHOLDER,
-        }
-    }
-
     pub fn register_icons_in_dictory(&mut self, dir: &str, icons: &[&str]) {
         let icon_info = ThemeIcon::InDirectory(Arc::from(dir));
         for icon in icons {
@@ -199,23 +181,6 @@ impl Theme {
 #[derive(Resource, Default)]
 pub struct SystemMap {
     pub map: HashMap<(TypeId, String), SystemId>,
-}
-
-pub fn apply_theme_system(
-    mut query: Query<(Entity, &mut ThemeComponent), Changed<ThemeComponent>>,
-    mut commands: Commands,
-    theme: Res<Theme>,
-) {
-    for (entity, mut theme_component) in &mut query {
-        if let Some(theme_dispatch) = theme_component
-            .theme
-            .as_ref()
-            .or_else(|| theme.theme_dispatch.as_ref())
-        {
-            theme_dispatch.apply(entity, &theme_component, &mut commands);
-        }
-        theme_component.old_style_flags = theme_component.style_flags;
-    }
 }
 
 pub struct ThemePlugin;
@@ -275,11 +240,12 @@ impl Plugin for ThemePlugin {
         app.insert_resource(theme)
             .insert_resource(systems)
             .register_type::<ThemeComponent>()
+            .register_type::<Theme>()
+            .add_plugins(HierarchyPropagatePlugin::<ThemeComponent>::new(PostUpdate))
             .add_systems(
                 PostUpdate,
-                apply_theme_system.in_set(UiFrameworkSystems::UpdateTheme),
-            )
-            .register_type::<Theme>();
+                root_node_insert_theme_component.before(PropagateSet::<ThemeComponent>::default()),
+            );
     }
 }
 
@@ -326,58 +292,39 @@ bitflags! {
     }
 }
 
-#[derive(Component, Debug, Clone, SmartDefault, Reflect)]
+#[derive(Component, Debug, Clone, SmartDefault, Reflect, PartialEq, Eq)]
+#[component(immutable)]
 pub struct ThemeComponent {
-    #[reflect(ignore)]
-    pub theme: Option<Arc<dyn ThemeDispatch>>,
     #[default(Entity::PLACEHOLDER)]
     pub theme_entity: Entity,
-    #[reflect(ignore)]
-    pub style_flags: StyleFlags,
-    #[reflect(ignore)]
-    pub old_style_flags: StyleFlags,
-    #[reflect(ignore)]
-    pub widget_kind: WidgetKind,
 }
 
 impl ThemeComponent {
-    pub fn new(style_flags: StyleFlags, widget_kind: WidgetKind) -> Self {
-        Self {
-            theme: None,
-            style_flags,
-            old_style_flags: style_flags,
-            widget_kind,
-            theme_entity: Entity::PLACEHOLDER,
+}
+
+pub fn root_node_insert_theme_component(
+    node_query: Query<
+        Entity,
+        (
+            With<Node>,
+            Without<Propagate<ThemeComponent>>,
+            Without<PropagateStop<ThemeComponent>>,
+            Without<ChildOf>,
+        ),
+    >,
+    theme: Res<Theme>,
+    mut commands: Commands,
+) {
+    for node_entity in node_query.iter() {
+        if let Some(theme_entity) = theme.default_theme {
+            commands
+                .entity(node_entity)
+                .insert(Propagate(ThemeComponent {
+                    theme_entity: theme_entity,
+                }));
         }
     }
-
-    pub fn widget(kind: WidgetKind) -> Self {
-        Self::new(StyleFlags::default(), kind)
-    }
-
-    pub fn none() -> Self {
-        Self::new(StyleFlags::empty(), WidgetKind::None)
-    }
-
-    pub fn set_flag(&mut self, flag: StyleFlags, value: bool) {
-        self.style_flags.set(flag, value);
-    }
-
-    pub fn with_flag(mut self, flag: StyleFlags) -> Self {
-        self.style_flags = self.style_flags.union(flag);
-        self
-    }
-
-    pub fn with_flag_value(mut self, flag: StyleFlags, value: bool) -> Self {
-        self.style_flags.set(flag, value);
-        self
-    }
 }
-
-pub trait ThemeDispatch: Downcast + Debug + Sync + Send + 'static {
-    fn apply(&self, entity: Entity, theme: &ThemeComponent, commands: &mut Commands);
-}
-impl_downcast!(ThemeDispatch);
 
 pub fn insert_material_tween<M: UiMaterial + Asset + Interpolation>(
     world: &mut World,

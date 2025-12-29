@@ -2,10 +2,7 @@ use std::marker::PhantomData;
 
 use bevy::ecs::{
     query::QueryFilter,
-    system::{
-        lifetimeless::SResMut,
-        StaticSystemParam, SystemParam, SystemParamItem,
-    },
+    system::{lifetimeless::SResMut, StaticSystemParam, SystemParam, SystemParamItem},
 };
 use bevy_relationship::reexport::Mutable;
 use imports::{QueryData, QueryItem};
@@ -31,6 +28,39 @@ pub enum ThemeRequestEvent {
     UnRegisterToGlobal,
 }
 
+#[derive(EntityEvent)]
+pub struct OnInsertThemeComponent<Bundle> {
+    pub widget: Entity,
+    #[event_target]
+    pub theme: Entity,
+    pub phantom: PhantomData<Bundle>,
+}
+
+pub fn on_insert_theme_component<Bundle>(
+    insert_event: On<Insert, (ThemeComponent, Bundle)>,
+    mut param: ParamSet<(Query<&ThemeComponent, With<Bundle>>, DeferredWorld)>,
+) where
+    Bundle: Component,
+{
+    let event = {
+        let query = param.p0();
+        let Ok(theme_component) = query.get(insert_event.entity) else {
+            return;
+        };
+
+        OnInsertThemeComponent::<Bundle> {
+            widget: insert_event.entity,
+            theme: theme_component.theme_entity,
+            phantom: PhantomData,
+        }
+    };
+
+    {
+        let mut world = param.p1();
+        world.trigger(event);
+    }
+}
+
 pub trait WidgetInsertObserver<Widget: Component>: Component {
     type Params: SystemParam + 'static;
     type ItemQuery: QueryData + 'static;
@@ -44,63 +74,107 @@ pub trait WidgetInsertObserver<Widget: Component>: Component {
         commands: EntityCommands,
     );
 
+    fn on_event(
+        event: On<OnInsertThemeComponent<Widget>>,
+        theme_query: Query<&Self>,
+        params: StaticSystemParam<Self::Params>,
+        mut commands: Commands,
+        mut widget_query: Query<
+            Self::ItemQuery,
+            (
+                Without<NoTheme>,
+                Without<NoWidgetTheme<Widget>>,
+                Self::Filter,
+            ),
+        >,
+    ) where
+        Self: Sized,
+    {
+        let theme_entity = event.theme;
+        let widget_entity = event.widget;
+
+        let Ok(this) = theme_query.get(theme_entity) else {
+            return;
+        };
+
+        let Ok(query_item) = widget_query.get_mut(widget_entity) else {
+            return;
+        };
+
+        let entity_commands = commands.entity(widget_entity);
+        this.on_widget_insert(
+            theme_entity,
+            query_item,
+            params.into_inner(),
+            entity_commands,
+        );
+    }
+
     fn register(theme_entity: Entity, world: &mut World) -> WidgetThemeAdapter<Widget>
     where
         Self: Sized,
     {
-        let observer = Observer::new(
-            move |event: On<Add, Widget>,
-                  theme_query: Query<&Self>,
-                  params: StaticSystemParam<Self::Params>,
-                  mut widget_query: ParamSet<(
-                Query<
-                    Self::ItemQuery,
-                    (
-                        Without<NoTheme>,
-                        Without<NoWidgetTheme<Widget>>,
-                        Self::Filter,
-                    ),
-                >,
-                Query<
-                    &mut ThemeComponent,
-                    (
-                        Without<NoTheme>,
-                        Without<NoWidgetTheme<Widget>>,
-                        Self::Filter,
-                    ),
-                >,
-            )>,
-                  mut commands: Commands| {
-                let Ok(this) = theme_query.get(theme_entity) else {
-                    return;
-                };
-                {
-                    let mut query = widget_query.p1();
-                    let Ok(mut theme_component) = query.get_mut(event.target()) else {
-                        return;
-                    };
+        // let observer = Observer::new(
+        //     move |event: On<Add, Widget>,
+        //           theme_query: Query<&Self>,
+        //           params: StaticSystemParam<Self::Params>,
+        //           mut widget_query: ParamSet<(
+        //         Query<
+        //             Self::ItemQuery,
+        //             (
+        //                 Without<NoTheme>,
+        //                 Without<NoWidgetTheme<Widget>>,
+        //                 Self::Filter,
+        //             ),
+        //         >,
+        //         Query<
+        //             &mut ThemeComponent,
+        //             (
+        //                 Without<NoTheme>,
+        //                 Without<NoWidgetTheme<Widget>>,
+        //                 Self::Filter,
+        //             ),
+        //         >,
+        //     )>,
+        //           mut commands: Commands| {
+        //         let Ok(this) = theme_query.get(theme_entity) else {
+        //             return;
+        //         };
+        //         {
+        //             let mut query = widget_query.p1();
+        //             let Ok(mut theme_component) = query.get_mut(event.target()) else {
+        //                 return;
+        //             };
+        //
+        //             if theme_component.theme_entity != Entity::PLACEHOLDER {
+        //                 return;
+        //             }
+        //             theme_component.theme_entity = theme_entity;
+        //         }
+        //
+        //         let mut query = widget_query.p0();
+        //         let Ok(query_item) = query.get_mut(event.target()) else {
+        //             return;
+        //         };
+        //
+        //         let entity_commands = commands.entity(event.target());
+        //         this.on_widget_insert(
+        //             theme_entity,
+        //             query_item,
+        //             params.into_inner(),
+        //             entity_commands,
+        //         );
+        //     },
+        // );
 
-                    if theme_component.theme_entity != Entity::PLACEHOLDER {
-                        return;
-                    }
-                    theme_component.theme_entity = theme_entity;
-                }
-
-                let mut query = widget_query.p0();
-                let Ok(query_item) = query.get_mut(event.target()) else {
-                    return;
-                };
-
-                let entity_commands = commands.entity(event.target());
-                this.on_widget_insert(
-                    theme_entity,
-                    query_item,
-                    params.into_inner(),
-                    entity_commands,
-                );
-            },
+        CallbackTypeRegister::register_observer_to_world(
+            on_insert_theme_component::<Widget>,
+            world,
         );
-        let entity = world.spawn((observer, ChildOf(theme_entity))).id();
+
+        let entity = world
+            .spawn((Observer::new(Self::on_event), ChildOf(theme_entity)))
+            .id();
         WidgetThemeAdapter {
             phantom: std::marker::PhantomData,
             observer: entity,
@@ -132,7 +206,7 @@ pub trait EventObserver<E: Send + Sync + 'static, Marker = ()>: Component {
     {
         let theme_entity = {
             let query = widget_query.p0();
-            let Ok(theme_component) = query.get(event.target()) else {
+            let Ok(theme_component) = query.get(event.receiver()) else {
                 return;
             };
             theme_component.theme_entity
@@ -143,11 +217,11 @@ pub trait EventObserver<E: Send + Sync + 'static, Marker = ()>: Component {
         };
 
         let mut query = widget_query.p1();
-        let Ok(query_item) = query.get_mut(event.target()) else {
+        let Ok(query_item) = query.get_mut(event.receiver()) else {
             return;
         };
 
-        let entity_commands = commands.entity(event.target());
+        let entity_commands = commands.entity(event.receiver());
         Self::on_event(
             this,
             event,
@@ -171,19 +245,25 @@ pub trait ThemeTrait: Component {
 
 #[derive(Default)]
 pub struct GlobalThemePlugin<T: ThemeTrait + Clone> {
-    theme: T,
+    pub theme: T,
+    pub is_default: bool,
 }
 
 impl<T: ThemeTrait + Clone> Plugin for GlobalThemePlugin<T> {
     fn build(&self, app: &mut App) {
         let theme_entity = app.world_mut().spawn(self.theme.clone()).id();
         T::register_to_global(theme_entity, app.world_mut());
+
+        if self.is_default {
+            let mut theme = app.world_mut().resource_mut::<Theme>();
+            theme.default_theme = Some(theme_entity);
+        }
     }
 }
 
 impl<T: ThemeTrait + Clone> GlobalThemePlugin<T> {
-    pub fn new(theme: T) -> Self {
-        Self { theme }
+    pub fn new(theme: T, is_default: bool) -> Self {
+        Self { theme, is_default }
     }
 }
 

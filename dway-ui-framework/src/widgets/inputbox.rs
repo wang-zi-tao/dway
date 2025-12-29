@@ -66,7 +66,6 @@ impl UiInputCommand {
 structstruck::strike! {
     #[derive(Component, SmartDefault, Builder)]
     #[require(RelativeCursorPosition, Interaction, UiInputBoxEventDispatcher, UiInput)]
-    #[require(ThemeComponent=ThemeComponent::widget(WidgetKind::Inputbox))]
     #[strikethrough[derive(Debug, Clone, Reflect)]]
     pub struct UiInputBox{
         pub placeholder: String,

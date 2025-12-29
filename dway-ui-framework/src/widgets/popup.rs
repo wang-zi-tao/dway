@@ -36,7 +36,6 @@ structstruck::strike! {
     #[builder(default)]
     #[require(Node, RelativeCursorPosition, UiPopupEventDispatcher)]
     #[require(FocusPolicy=FocusPolicy::Block)]
-    #[require(ThemeComponent=ThemeComponent::widget(WidgetKind::BlurBackground))]
     pub struct UiPopup {
         pub close_policy:
             #[derive(Debug, Clone, Copy, Reflect, Default, PartialEq, Eq)]

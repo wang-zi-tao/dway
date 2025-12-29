@@ -136,11 +136,9 @@ pub struct UiFocusState {
 #[derive(QueryData)]
 #[query_data(mutable)]
 pub struct UiInputQuery {
-    entity: Entity,
     ui_focus: &'static mut UiInput,
     interaction: Ref<'static, Interaction>,
     relative_cursor_position: Option<Ref<'static, RelativeCursorPosition>>,
-    theme: Option<&'static mut ThemeComponent>,
     event_dispatcher: &'static UiInputEventDispatcher,
     computed_node: &'static ComputedNode,
 }
@@ -158,7 +156,6 @@ pub fn update_ui_input(
     mouse_button_events: Res<Events<MouseButtonInput>>,
 ) {
     for UiInputQueryItem {
-        entity: _,
         mut ui_focus,
         interaction,
         relative_cursor_position,
@@ -238,7 +235,6 @@ pub fn update_ui_input(
     }
     for key in keyboard_event.read() {
         for UiInputQueryItem {
-            entity: _,
             ui_focus,
             event_dispatcher,
             ..
@@ -250,31 +246,23 @@ pub fn update_ui_input(
         }
     }
 
-    let set_theme_focused = |theme: Option<Mut<ThemeComponent>>, value: bool| {
-        if let Some(mut theme) = theme {
-            theme.set_flag(StyleFlags::FOCUSED, value);
-        }
-    };
     for event in ui_focus_event.read() {
         match event {
             UiFocusEvent::FocusLeaveRequest(e) => {
                 if let Ok(UiInputQueryItem {
                     mut ui_focus,
-                    theme,
                     event_dispatcher,
                     ..
                 }) = query.get_mut(*e)
                 {
                     ui_focus.input_focused = false;
                     event_dispatcher.send(UiInputEvent::KeyboardLeave, &mut commands);
-                    set_theme_focused(theme, false);
                 }
                 ui_focus_state.input_focus = None;
             }
             UiFocusEvent::FocusEnterRequest(e) => {
                 if let Some(UiInputQueryItem {
                     mut ui_focus,
-                    theme,
                     event_dispatcher,
                     ..
                 }) = ui_focus_state
@@ -283,20 +271,17 @@ pub fn update_ui_input(
                 {
                     ui_focus.input_focused = false;
                     event_dispatcher.send(UiInputEvent::KeyboardLeave, &mut commands);
-                    set_theme_focused(theme, false);
                 } else {
                     warn!(entity=?e, "can not release input focus of node");
                 }
                 if let Ok(UiInputQueryItem {
                     mut ui_focus,
-                    theme,
                     event_dispatcher,
                     ..
                 }) = query.get_mut(*e)
                 {
                     ui_focus.input_focused = true;
                     event_dispatcher.send(UiInputEvent::KeyboardEnter, &mut commands);
-                    set_theme_focused(theme, true);
                 } else {
                     warn!(entity=?e, "can not enter input focus of node");
                 }

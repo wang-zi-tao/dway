@@ -14,6 +14,7 @@ fn main() {
             ListViewModelPlugin::<String>::default(),
             ItemCellPlugin::<String>::default(),
         ))
+        .insert_resource(ClearColor(Color::WHITE))
         .add_systems(Update, update)
         .add_systems(Startup, setup);
     app.run();
