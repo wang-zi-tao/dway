@@ -6,9 +6,8 @@ use crate::prelude::*;
 #[require(Node)]
 #[component(on_insert=on_insert_text_area)]
 pub struct UiTextArea {
-    pub data: String,
-    pub text_entity: Entity,
-    pub font_size: f32,
+    pub(crate) data: String,
+    pub(crate) text_entity: Entity,
     pub color: TextColor,
     pub font: TextFont,
 }
@@ -18,10 +17,22 @@ impl UiTextArea {
         Self {
             data: data.to_string(),
             text_entity: Entity::PLACEHOLDER,
-            font_size,
             color: TextColor(Color::BLACK),
-            font: Default::default(),
+            font: TextFont {
+                font_size,
+                ..Default::default()
+            },
         }
+    }
+
+    pub fn with_font(mut self, font: TextFont) -> Self {
+        self.font = font;
+        self
+    }
+
+    pub fn with_color(mut self, color: Color) -> Self {
+        self.color = TextColor(color);
+        self
     }
 }
 
@@ -29,7 +40,7 @@ pub fn on_insert_text_area(mut world: DeferredWorld, context: HookContext) {
     let entity = context.entity;
     let textarea = world.get_mut::<UiTextArea>(entity).unwrap();
     let text_color = textarea.color;
-    let font_size = textarea.font_size;
+    let font = textarea.font.clone();
     let data = textarea.data.clone();
 
     if textarea.text_entity == Entity::PLACEHOLDER {
@@ -42,10 +53,7 @@ pub fn on_insert_text_area(mut world: DeferredWorld, context: HookContext) {
                 },
                 Text(data),
                 text_color,
-                TextFont {
-                    font_size,
-                    ..Default::default()
-                },
+                font,
                 ChildOf(entity),
             ))
             .id();
@@ -56,12 +64,15 @@ pub fn on_insert_text_area(mut world: DeferredWorld, context: HookContext) {
 
 pub fn update_textarea(
     query: Query<&UiTextArea, Changed<UiTextArea>>,
-    mut text_query: Query<&mut Text>,
+    mut text_query: Query<(&mut Text, &mut TextColor, &mut TextFont)>,
 ) {
     for textarea in query.iter() {
-        let Ok(mut text) = text_query.get_mut(textarea.text_entity) else {
+        let Ok((mut text, mut color, mut font)) = text_query.get_mut(textarea.text_entity) else {
             return;
         };
-        text.0 = textarea.data.clone();
+
+        text.set_if_neq(Text(textarea.data.clone()));
+        color.set_if_neq(textarea.color);
+        font.set_if_neq(textarea.font.clone());
     }
 }

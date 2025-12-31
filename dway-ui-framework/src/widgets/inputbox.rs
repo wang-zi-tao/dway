@@ -6,12 +6,10 @@ use bevy::{
 };
 use bevy_trait_query::RegisterExt;
 use derive_builder::Builder;
-use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{
     event::{EventReceiver, UiEvent},
     prelude::*,
-    theme::{ThemeComponent, WidgetKind},
     widgets::shader::{rounded_rect, RoundedUiRectMaterial},
 };
 
@@ -133,10 +131,12 @@ pub fn move_cursor(
                 .map(|last| (glyphs.len().saturating_sub(1), last))
         })
     {
-        let mut byte_index = UnicodeSegmentation::grapheme_indices(&**inputbox_state.data(), true)
-            .nth(index)
-            .map(|(i, _)| i)
+        let mut byte_index = text_layout
+            .glyphs
+            .get(index)
+            .map(|glyph| glyph.byte_index)
             .unwrap_or_else(|| inputbox_state.data().len());
+
         if glyphs.len() == index + 1 && position.x > glyph.position.x
             || line_start > glyph.position.y
         {
@@ -198,8 +198,7 @@ fn on_input_event(
             };
 
             if relative_pos.cursor_over {
-                if let Some(mouse_position) =
-                    get_node_mouse_position(relative_pos, &computed_node)
+                if let Some(mouse_position) = get_node_mouse_position(relative_pos, &computed_node)
                 {
                     move_cursor(mouse_position, inputbox, &text_layout, &mut inputbox_state);
                 }
@@ -214,8 +213,7 @@ fn on_input_event(
                     return;
                 };
 
-                if let Some(mouse_position) =
-                    get_node_mouse_position(relative_pos, &computed_node)
+                if let Some(mouse_position) = get_node_mouse_position(relative_pos, &computed_node)
                 {
                     move_cursor(mouse_position, inputbox, &text_layout, &mut inputbox_state);
                 }
@@ -401,8 +399,9 @@ fn update_cursor(prop: &UiInputBox, state: &mut UiInputBoxState, text_layout: Re
         let glyphs = &text_layout.glyphs;
         let byte_index = *state.cursor_byte_index();
 
-        let gr_index = UnicodeSegmentation::grapheme_indices(&**state.data(), true)
-            .position(|(index, value)| index <= byte_index && index + value.len() > byte_index);
+        let gr_index = text_layout.glyphs.iter().position(|glyph| {
+            glyph.byte_index <= byte_index && glyph.byte_index + glyph.byte_length > byte_index
+        });
 
         let position = if let Some(glyph) = gr_index.and_then(|i| glyphs.get(i)) {
             Vec2::new(

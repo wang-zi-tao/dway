@@ -1,7 +1,5 @@
 use bevy::input::ButtonState;
-use cursor::{
-    text_cursor_on_input_system, update_text_cursor_layout_system, UiTextCursor, UiTextCursorEvent,
-};
+use cursor::{text_cursor_on_input_system, update_text_cursor_layout_system, UiTextCursor};
 use editor::UiTextEditor;
 use selection::{update_ui_text_selection_system, UiTextSelection};
 use textarea::{update_textarea, UiTextArea};
@@ -15,7 +13,7 @@ pub mod textarea;
 
 #[derive(Clone)]
 pub enum UiTextEvent {
-    ChangePosition {
+    CursorChangePosition {
         position: Vec2,
         byte_index: usize,
     },
@@ -27,6 +25,8 @@ pub enum UiTextEvent {
         byte_index: usize,
     },
 }
+
+pub type UiTextEventDispatcher = EventDispatcher<UiTextEvent>;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum UiTextSystem {
@@ -56,7 +56,7 @@ impl Plugin for UiTextPlugin {
         .register_type::<UiTextCursor>()
         .register_type::<UiTextSelection>()
         .register_component_as::<dyn EventReceiver<UiInputEvent>, UiTextCursor>()
-        .register_component_as::<dyn EventReceiver<UiTextCursorEvent>, UiTextSelection>()
+        .register_component_as::<dyn EventReceiver<UiTextEvent>, UiTextSelection>()
         .register_component_as::<dyn EventReceiver<UiInputEvent>, UiTextEditor>()
         .register_callback(text_cursor_on_input_system);
     }

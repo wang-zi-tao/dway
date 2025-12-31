@@ -3,13 +3,16 @@ use std::cmp::Ordering;
 use bevy::{
     ecs::world::DeferredWorld,
     input::keyboard::Key,
-    text::TextLayoutInfo,
+    text::{LineHeight, TextLayoutInfo},
     ui::RelativeCursorPosition,
 };
-use unicode_segmentation::UnicodeSegmentation;
 
 use super::textarea::UiTextArea;
-use crate::{impl_event_receiver, prelude::*};
+use crate::{
+    impl_event_receiver,
+    prelude::*,
+    text::{UiTextEvent, UiTextEventDispatcher},
+};
 
 #[derive(Component, SmartDefault, Reflect)]
 #[require(UiInput, RelativeCursorPosition)]
@@ -31,9 +34,9 @@ pub struct UiTextCursor {
 pub fn on_insert_text_cursor(mut world: DeferredWorld, context: HookContext) {
     let entity = context.entity;
     let textarea = world.get_mut::<UiTextArea>(entity).unwrap();
-    let font_size = textarea.font_size;
+    let line_height = line_height(&textarea.font);
+
     let mut textcursor = world.get_mut::<UiTextCursor>(entity).unwrap();
-    let line_height = font_size * 1.2;
     textcursor.line_height = line_height;
     let color = textcursor.corsor_color;
 
@@ -127,35 +130,65 @@ impl UiTextCursor {
         }
     }
 
-    pub fn glyph_index_to_byte_index(&self, textarea: &UiTextArea, index: usize) -> usize {
-        UnicodeSegmentation::grapheme_indices(&*textarea.data, true)
-            .filter(|(_, c)| *c != "\n")
-            .nth(index)
-            .map(|(i, _)| i)
-            .unwrap_or_else(|| textarea.data.len())
+    pub fn glyph_index_to_byte_index(
+        &self,
+        text_layout: &TextLayoutInfo,
+        textarea: &UiTextArea,
+        index: usize,
+    ) -> Option<usize> {
+        text_layout.glyphs.get(index).map(|glyph| {
+            let byte_index = glyph.byte_index;
+            let line = glyph.line_index;
+            let line_start = textarea
+                .data
+                .split('\n')
+                .take(line)
+                .map(|l| l.len() + 1)
+                .sum::<usize>();
+            line_start + byte_index
+        })
     }
 
     pub fn byte_index_to_glyph_index(
         &self,
+        text_layout: &TextLayoutInfo,
         textarea: &UiTextArea,
         byte_index: usize,
     ) -> Option<usize> {
-        UnicodeSegmentation::grapheme_indices(&*textarea.data, true)
-            .filter(|(_, c)| *c != "\n")
-            .position(|(index, value)| index + value.len() > byte_index)
+        let (line_number, line_start) = textarea.data.bytes().enumerate().take(byte_index).fold(
+            (0usize, 0usize),
+            |(line_number, line_start), (i, b)| {
+                if b == b'\n' {
+                    (line_number + 1, i + 1)
+                } else {
+                    (line_number, line_start)
+                }
+            },
+        );
+
+        text_layout.glyphs.iter().position(|glyph| {
+            glyph.line_index > line_number
+                || (glyph.line_index == line_number && glyph.byte_index >= byte_index - line_start)
+        })
     }
 
-    pub fn set_glyph_index(&mut self, textarea: &UiTextArea, index: usize) {
-        let byte_index = self.glyph_index_to_byte_index(textarea, index);
+    pub fn set_glyph_index(
+        &mut self,
+        text_layout: &TextLayoutInfo,
+        textarea: &UiTextArea,
+        index: usize,
+    ) -> Option<usize> {
+        let byte_index = self.glyph_index_to_byte_index(text_layout, textarea, index)?;
         self.byte_index = byte_index;
+        Some(byte_index)
     }
 
     pub fn set_byte_index(&mut self, index: usize) {
         self.byte_index = index;
     }
 
-    pub fn create_change_event(&self) -> UiTextCursorEvent {
-        UiTextCursorEvent::ChangePosition {
+    pub fn create_change_event(&self) -> UiTextEvent {
+        UiTextEvent::CursorChangePosition {
             position: self.position,
             byte_index: self.byte_index,
         }
@@ -168,7 +201,7 @@ pub fn text_cursor_on_input_system(
         Entity,
         &UiTextArea,
         &mut UiTextCursor,
-        Option<&EventDispatcher<UiTextCursorEvent>>,
+        Option<&UiTextEventDispatcher>,
         &Interaction,
         &mut UiInput,
         &RelativeCursorPosition,
@@ -202,19 +235,16 @@ pub fn text_cursor_on_input_system(
                 input_focus_event.write(UiFocusEvent::FocusEnterRequest(entity));
             }
 
-            if let Some(mouse_position) = get_node_mouse_position(relative_pos, computed_node)
-            {
+            if let Some(mouse_position) = get_node_mouse_position(relative_pos, computed_node) {
                 let glyph_index = cursor.position_to_glyph_index(mouse_position, text_layout);
-                cursor.set_glyph_index(textarea, glyph_index);
+                cursor.set_glyph_index(text_layout, textarea, glyph_index);
             }
         }
         UiInputEvent::MouseMove(_) => {
             if *interaction == Interaction::Pressed {
-                if let Some(mouse_position) =
-                    get_node_mouse_position(relative_pos, computed_node)
-                {
+                if let Some(mouse_position) = get_node_mouse_position(relative_pos, computed_node) {
                     let glyph_index = cursor.position_to_glyph_index(mouse_position, text_layout);
-                    cursor.set_glyph_index(textarea, glyph_index);
+                    cursor.set_glyph_index(text_layout, textarea, glyph_index);
                 }
             }
         }
@@ -248,14 +278,14 @@ pub fn text_cursor_on_input_system(
                         cursor.position - cursor.line_height * Vec2::Y,
                         text_layout,
                     );
-                    cursor.set_glyph_index(textarea, glyph_index);
+                    cursor.set_glyph_index(text_layout, textarea, glyph_index);
                 }
                 Key::ArrowDown => {
                     let glyph_index = cursor.position_to_glyph_index(
                         cursor.position + cursor.line_height * Vec2::Y,
                         text_layout,
                     );
-                    cursor.set_glyph_index(textarea, glyph_index);
+                    cursor.set_glyph_index(text_layout, textarea, glyph_index);
                 }
                 Key::Escape => {
                     input_focus_event.write(UiFocusEvent::FocusLeaveRequest(entity));
@@ -279,6 +309,13 @@ impl_event_receiver! {
     impl EventReceiver<UiInputEvent> for UiTextCursor => text_cursor_on_input_system
 }
 
+pub(crate) fn line_height(font: &TextFont) -> f32 {
+    match font.line_height {
+        LineHeight::Px(px) => px,
+        LineHeight::RelativeToFont(f) => f * font.font_size,
+    }
+}
+
 pub fn update_text_cursor_layout_system(
     mut query: Query<(Ref<UiTextArea>, &mut UiTextCursor)>,
     text_query: Query<Ref<TextLayoutInfo>>,
@@ -286,7 +323,7 @@ pub fn update_text_cursor_layout_system(
 ) {
     for (textarea, mut cursor) in query.iter_mut() {
         if textarea.is_changed() {
-            let line_height = textarea.font_size * 1.2;
+            let line_height = line_height(&textarea.font);
             if cursor.line_height != line_height {
                 cursor.line_height = line_height;
             }
@@ -296,7 +333,8 @@ pub fn update_text_cursor_layout_system(
         };
 
         if cursor.is_changed() || text_layout.is_changed() {
-            let gr_index = cursor.byte_index_to_glyph_index(&textarea, cursor.byte_index);
+            let gr_index =
+                cursor.byte_index_to_glyph_index(&text_layout, &textarea, cursor.byte_index);
             cursor.position = cursor.get_cursor_position_of_glyph(gr_index, &text_layout);
 
             let Ok((mut cursor_node, mut background_color)) =
@@ -310,10 +348,4 @@ pub fn update_text_cursor_layout_system(
             background_color.0 = cursor.corsor_color;
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub enum UiTextCursorEvent {
-    ChangePosition { position: Vec2, byte_index: usize },
-    TextLayoutChanged {},
 }

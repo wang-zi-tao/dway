@@ -1,16 +1,8 @@
 use bevy::input::keyboard::Key;
 use undo::History;
 
-use super::{
-    cursor::{UiTextCursor, UiTextCursorEvent},
-    selection::UiTextSelection,
-    textarea::UiTextArea,
-};
-use crate::{impl_event_receiver, prelude::*};
-
-pub enum UiTextEditorEvent {
-    Changed(String),
-}
+use super::{cursor::UiTextCursor, selection::UiTextSelection, textarea::UiTextArea};
+use crate::{impl_event_receiver, prelude::*, text::UiTextEventDispatcher};
 
 #[derive(Debug)]
 pub enum UiInputCommand {
@@ -59,9 +51,9 @@ impl UiTextEditor {
         text: &str,
     ) {
         UiInputCommand::Insert(cursor.byte_index, text.to_string()).apply(textarea);
-        let position = textarea.data.floor_char_boundary(
-            cursor.byte_index + text.len(),
-        );
+        let position = textarea
+            .data
+            .floor_char_boundary(cursor.byte_index + text.len());
         cursor.byte_index = position;
     }
 
@@ -96,7 +88,7 @@ pub fn text_editor_on_event(
         &mut UiTextEditor,
         &mut UiTextSelection,
         &mut UiTextCursor,
-        Option<&EventDispatcher<UiTextCursorEvent>>,
+        Option<&UiTextEventDispatcher>,
         &mut UiTextArea,
     )>,
     mut commands: Commands,

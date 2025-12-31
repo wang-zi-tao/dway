@@ -42,7 +42,6 @@ smallbox = {workspace=true}
 tokio = {workspace=true}
 slab_tree = "0.3.2"
 petgraph = "0.6.5"
-unicode-segmentation = "1.12"
 
 bevy_image_export = {workspace=true}
 bevy-inspector-egui = { workspace=true, optional=true}

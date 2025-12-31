@@ -8,14 +8,12 @@ use bevy_prototype_lyon::{
 };
 use bevy_svg::prelude::{FillOptions, StrokeOptions};
 
-use super::{
-    cursor::{UiTextCursor, UiTextCursorEvent},
-    textarea::UiTextArea,
-};
+use super::{cursor::UiTextCursor, textarea::UiTextArea};
 use crate::{
     impl_event_receiver,
     prelude::*,
     render::{mesh::UiMeshTransform, UiRenderOffset},
+    text::UiTextEvent,
     widgets::shape::UiShape,
 };
 
@@ -24,8 +22,8 @@ use crate::{
 #[component(on_insert=on_insert_selection)]
 #[component(on_replace=on_replace_selection)]
 pub struct UiTextSelection {
-    pub glyph_start: usize,
-    pub glyph_end: usize,
+    pub byte_index_start: usize,
+    pub byte_index_end: usize,
     #[default(color!("#0000ff"))]
     pub color: Color,
     #[default(Entity::PLACEHOLDER)]
@@ -34,12 +32,12 @@ pub struct UiTextSelection {
 
 impl UiTextSelection {
     pub fn get_range(&self) -> Option<Range<usize>> {
-        if self.glyph_end == self.glyph_start {
+        if self.byte_index_end == self.byte_index_start {
             None
         } else {
-            let glyph_start = usize::min(self.glyph_start, self.glyph_end);
-            let glyph_end = usize::max(self.glyph_start, self.glyph_end);
-            Some(glyph_start..glyph_end)
+            let byte_index_start = usize::min(self.byte_index_start, self.byte_index_end);
+            let byte_index_end = usize::max(self.byte_index_start, self.byte_index_end);
+            Some(byte_index_start..byte_index_end)
         }
     }
 
@@ -47,19 +45,24 @@ impl UiTextSelection {
         &self,
         cursor: &UiTextCursor,
         text_layout: &TextLayoutInfo,
+        textarea: &UiTextArea,
         size: Vec2,
         line_width: f32,
     ) -> ShapePath {
         let Some(Range {
-            start: glyph_start,
-            end: glyph_end,
+            start: byte_index_start,
+            end: byte_index_end,
         }) = self.get_range()
         else {
             return ShapePath::default();
         };
 
-        let start_position = cursor.get_cursor_position_of_glyph(Some(glyph_start), text_layout);
-        let end_position = cursor.get_cursor_position_of_glyph(Some(glyph_end), text_layout);
+        let glyph_start = cursor.byte_index_to_glyph_index(text_layout, textarea, byte_index_start);
+        let start_position = cursor.get_cursor_position_of_glyph(glyph_start, text_layout);
+
+        let glyph_end = cursor.byte_index_to_glyph_index(text_layout, textarea, byte_index_end);
+        let end_position = cursor.get_cursor_position_of_glyph(glyph_end, text_layout);
+
         let line_height = cursor.line_height;
         let multi_line = (start_position.y - end_position.y).abs() > 0.5 * line_height;
         let two_line = (start_position.y - end_position.y).abs() < 1.5 * line_height;
@@ -148,7 +151,7 @@ pub fn on_insert_selection(mut world: DeferredWorld, context: HookContext) {
                 ),
                 ZIndex(crate::widgets::zindex::TEXT_SELECTION),
                 UiRenderOffset(crate::widgets::zoffset::TEXT_SELECTION),
-                ChildOf(entity)
+                ChildOf(entity),
             ))
             .id();
 
@@ -169,7 +172,7 @@ pub fn on_replace_selection(mut world: DeferredWorld, context: HookContext) {
 }
 
 pub fn on_ui_input_event(
-    event: UiEvent<UiTextCursorEvent>,
+    event: UiEvent<UiTextEvent>,
     mut self_query: Query<(&mut UiTextSelection, &Interaction, &UiInput)>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
@@ -178,34 +181,35 @@ pub fn on_ui_input_event(
     };
 
     match &*event {
-        UiTextCursorEvent::ChangePosition { byte_index, .. } => {
+        UiTextEvent::CursorChangePosition { byte_index, .. } => {
             let byte_index = *byte_index;
             if *interaction == Interaction::Pressed {
                 let shift_pressed = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
                 if ui_input.pressed() && shift_pressed {
-                    if (byte_index < (selection.glyph_start + selection.glyph_end) / 2)
-                        ^ (selection.glyph_start < selection.glyph_end)
+                    if (byte_index < (selection.byte_index_start + selection.byte_index_end) / 2)
+                        ^ (selection.byte_index_start < selection.byte_index_end)
                     {
-                        selection.glyph_end = byte_index;
+                        selection.byte_index_end = byte_index;
                     } else {
-                        selection.glyph_start = byte_index;
+                        selection.byte_index_start = byte_index;
                     }
                 } else if ui_input.just_pressed() {
-                    selection.glyph_start = byte_index;
-                    selection.glyph_end = byte_index;
+                    selection.byte_index_start = byte_index;
+                    selection.byte_index_end = byte_index;
                 } else {
-                    selection.glyph_end = byte_index;
+                    selection.byte_index_end = byte_index;
                 }
             }
         }
-        UiTextCursorEvent::TextLayoutChanged {} => {
+        UiTextEvent::TextLayoutChanged {} => {
             selection.set_changed();
         }
+        _ => {}
     }
 }
 
 impl_event_receiver! {
-    impl EventReceiver<UiTextCursorEvent> for UiTextSelection => on_ui_input_event
+    impl EventReceiver<UiTextEvent> for UiTextSelection => on_ui_input_event
 }
 
 pub fn update_ui_text_selection_system(
@@ -232,6 +236,7 @@ pub fn update_ui_text_selection_system(
         let path = selection.build_path(
             cursor,
             &text_layout,
+            textarea,
             size,
             shape
                 .stroke
