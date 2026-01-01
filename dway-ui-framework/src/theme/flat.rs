@@ -1,4 +1,3 @@
-
 use bevy::ecs::{
     query::QueryItem,
     system::{
@@ -12,15 +11,12 @@ use super::{
         ApplyMaterialAnimation, EventObserver, FocusMaterialSet, GlobalThemePlugin,
         InteractionMaterialSet, MaterialApplyMethod, ThemeTrait, WidgetInsertObserver,
     },
-    insert_material_tween, BlockStyle, DefaultTextTheme, ThemeComponent,
-    ThemeHightlight,
+    insert_material_tween, BlockStyle, DefaultTextTheme, ThemeComponent, ThemeHightlight,
 };
 use crate::{
-    animation::{
-        ease::AnimationEaseMethod, MaterialAnimationQueryData,
-    },
+    animation::{ease::AnimationEaseMethod, MaterialAnimationQueryData},
     prelude::*,
-    render::layer_manager::{FillWithLayer, LayerCamera},
+    render::layer_manager::{FillWithLayer, LayerCamera, LayerRenderArea},
     shader::{
         effect::{Border, InnerShadow, Shadow},
         fill::{AddColor, Fill, FillColor},
@@ -229,18 +225,14 @@ impl FlatTheme {
                 &mut world.resource_mut::<Assets<_>>(),
                 ShaderAsset::new((
                     up_inner.clone(),
-                    RoundedBar::new().with_effect((
-                        FillColor::new(self.fill_color2),
-                        self.invisible_shadow(),
-                    )),
+                    RoundedBar::new()
+                        .with_effect((FillColor::new(self.fill_color2), self.invisible_shadow())),
                 )),
                 None,
                 ShaderAsset::new((
                     up_inner,
-                    RoundedBar::new().with_effect((
-                        FillColor::new(self.fill_color2),
-                        self.highlight_shadow(),
-                    )),
+                    RoundedBar::new()
+                        .with_effect((FillColor::new(self.fill_color2), self.highlight_shadow())),
                 )),
             );
             self.checkbox_material_down_set = InteractionMaterialSet::new(
@@ -252,10 +244,8 @@ impl FlatTheme {
                 None,
                 ShaderAsset::new((
                     down_inner,
-                    RoundedBar::new().with_effect((
-                        FillColor::new(self.main_color),
-                        self.highlight_shadow(),
-                    )),
+                    RoundedBar::new()
+                        .with_effect((FillColor::new(self.main_color), self.highlight_shadow())),
                 )),
             );
         }
@@ -427,6 +417,7 @@ impl WidgetInsertObserver<BlockStyle> for FlatTheme {
                 BlockStyle::Blur => {
                     commands.insert((
                         FlatThemeComponent,
+                        LayerRenderArea,
                         MaterialNode::<ShaderAsset<BlurMaterial>>::default(),
                     ));
                 }
