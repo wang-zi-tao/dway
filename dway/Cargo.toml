@@ -62,9 +62,9 @@ default = [
     "dway_log",
     # "hot_reload",
 ]
-inspector = ["dway-ui/develop"]
+develop = ["dway-ui/develop"]
 dump_system_graph = ["dep:bevy_mod_debugdump"]
-debug = [ "inspector", "dump_system_graph", "bevy/track_location"]
+debug = [ "develop", "dump_system_graph", "bevy/track_location"]
 debug_render = ["dep:renderdoc"]
 dway_log = []
 # hot_reload = [
@@ -91,7 +91,7 @@ name = "dway_main"
 [package]
 edition = "2021"
 name = "dway"
-version = "0.1.0"
+version = "0.3.0"
 
 [profile.dev]
 opt-level = 1
