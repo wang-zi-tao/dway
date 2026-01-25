@@ -1,10 +1,7 @@
 use bevy::{
     asset::{load_internal_asset, uuid_handle, RenderAssetUsages},
     camera::{ImageRenderTarget, NormalizedRenderTarget, RenderTarget},
-    ecs::{
-        system::SystemParam,
-        world::DeferredWorld,
-    },
+    ecs::{system::SystemParam, world::DeferredWorld},
     math::FloatOrd,
     mesh::{Indices, PrimitiveTopology},
     platform::collections::HashMap,
@@ -23,8 +20,8 @@ use bevy_relationship::reexport::Entity;
 use crate::{
     prelude::*,
     shader::{
-        fill::Fill,
-        BindGroupBuilder, BindGroupLayoutBuilder, BuildBindGroup, ShaderBuilder, ShaderVariables, UniformLayout,
+        fill::Fill, BindGroupBuilder, BindGroupLayoutBuilder, BuildBindGroup, ShaderBuilder,
+        ShaderVariables, UniformLayout,
     },
     UiFrameworkSystems,
 };
@@ -38,7 +35,6 @@ pub enum LayerKind {
 }
 
 #[derive(Component, Reflect)]
-#[require(LayerRenderArea)]
 #[require(UiTargetCamera=UiTargetCamera(Entity::PLACEHOLDER))]
 #[component(on_insert=on_insert_layer)]
 pub struct RenderToLayer {
@@ -171,6 +167,7 @@ impl BaseLayerRef {
         let mut image_assets = world.resource_mut::<Assets<Image>>();
         let size = UVec2::ONE;
         let surface = create_image(size, &mut image_assets, label);
+
         BaseLayerRef {
             camera: manager_entity,
             surface,
@@ -392,6 +389,11 @@ impl BlurLayer {
             "layer_manager/blur_layer/background_image",
         );
 
+        world
+            .commands()
+            .entity(inner.camera)
+            .insert(BlurLayerCamera);
+
         Self {
             blur_method: BlurMethod::dual(),
             layer: inner,
@@ -504,6 +506,9 @@ pub struct LayerManager {
     pub(crate) render_target: RenderTarget,
 }
 
+#[derive(Component)]
+pub struct BlurLayerCamera;
+
 fn create_image_descripteor(size: UVec2, label: &'static str) -> Image {
     let mut image = Image {
         texture_descriptor: TextureDescriptor {
@@ -543,7 +548,7 @@ fn update_image(
 ) {
     let image = create_image_descripteor(size, label);
     if handle.is_strong() {
-        images.insert(handle.id(), image);
+        images.insert(handle.id(), image).unwrap();
     } else {
         *handle = images.add(image);
     }
@@ -602,16 +607,18 @@ fn on_insert_layer_manager(mut world: DeferredWorld, context: HookContext) {
     let camera = world.get::<Camera>(entity).unwrap();
     let render_target = camera.target.clone();
 
+    let base_order = camera.order;
+
     let base_layer = BaseLayerRef::new(&mut world, entity, "layer_manager/base_layer/surface");
     let canvas_layer = LayerRef::new(
         &mut world,
-        10,
+        base_order + 1,
         &render_target,
         default(),
         entity,
         "layer_manager/canvas_layer/background_image",
     );
-    let blur_layer = BlurLayer::new(&mut world, 20, &render_target, entity);
+    let blur_layer = BlurLayer::new(&mut world, base_order + 2, &render_target, entity);
 
     let mut layer_manager = world.get_mut::<LayerManager>(entity).unwrap();
     layer_manager.base_layer = base_layer;
@@ -923,7 +930,7 @@ impl Plugin for LayerManagerPlugin {
                     .in_set(UiSystem::Focus),
             )
             .add_systems(
-                Last,
+                PostUpdate,
                 (update_layers.in_set(UiFrameworkSystems::UpdateLayers),).chain(),
             );
     }

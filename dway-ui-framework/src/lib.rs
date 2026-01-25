@@ -149,7 +149,7 @@ impl Plugin for UiFrameworkPlugin {
             )
                 .before(UiSystem::Layout),
         )
-        .configure_sets(Last, UpdateLayersMaterial.after(UpdateLayers))
+        .configure_sets(PostUpdate, UpdateLayersMaterial.after(UpdateLayers))
         .add_plugins((
             RoundedUiRectMaterial::plugin(),
             UiCircleMaterial::plugin(),

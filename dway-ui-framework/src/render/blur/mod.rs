@@ -1,15 +1,36 @@
-
 use bevy::{
-    camera::Viewport, core_pipeline::core_2d::graph::{Core2d, Node2d}, ecs::query::QueryItem, mesh::VertexBufferLayout, render::{
-        Extract, RenderApp, RenderSet, extract_component::ExtractComponent, mesh::{RenderMesh, RenderMeshBufferInfo, allocator::MeshAllocator}, render_asset::RenderAssets, render_graph::{RenderGraphContext, RenderGraphExt as _, RenderLabel, ViewNode, ViewNodeRunner}, render_resource::{
-            AddressMode, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d, FragmentState, MultisampleState, Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat, TextureId, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, VertexState, binding_types::{sampler, texture_2d, uniform_buffer}
-        }, renderer::{RenderContext, RenderDevice, RenderQueue}, sync_world::{MainEntity, RenderEntity}, texture::GpuImage
-    }
+    camera::Viewport,
+    core_pipeline::core_2d::graph::{Core2d, Node2d},
+    ecs::query::QueryItem,
+    mesh::VertexBufferLayout,
+    render::{
+        extract_component::ExtractComponent,
+        mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
+        render_asset::RenderAssets,
+        render_graph::{
+            RenderGraphContext, RenderGraphExt as _, RenderLabel, ViewNode, ViewNodeRunner,
+        },
+        render_resource::{
+            binding_types::{sampler, texture_2d, uniform_buffer},
+            AddressMode, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
+            CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d,
+            FragmentState, MultisampleState, Operations, PipelineCache, PrimitiveState,
+            RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
+            SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType,
+            SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
+            TextureDimension, TextureFormat, TextureId, TextureSampleType, TextureUsages,
+            TextureView, TextureViewDescriptor, VertexState,
+        },
+        renderer::{RenderContext, RenderDevice, RenderQueue},
+        sync_world::{MainEntity, RenderEntity},
+        texture::GpuImage,
+        Extract, RenderApp, RenderSet,
+    },
 };
 use wgpu::{VertexFormat, VertexStepMode};
 
 use super::layer_manager::{BlurMethod, BlurMethodKind, LayerCamera, LayerManager};
-use crate::prelude::*;
+use crate::{prelude::*, render::layer_manager::BlurLayerCamera};
 
 structstruck::strike! {
     #[strikethrough[derive(Debug, Clone)]]
@@ -43,10 +64,7 @@ pub struct BlurPass {
 #[derive(Component)]
 pub struct BlurData {
     output_image_id: TextureId,
-    input: TextureView,
     passes: Vec<BlurPass>,
-    layout: BindGroupLayout,
-    sampler: Sampler,
     pipeline_id: CachedRenderPipelineId,
 }
 
@@ -147,35 +165,37 @@ struct BlurUniform {
 }
 
 pub fn extract_layer_manager(
-    layer_manager_query: Extract<Query<(Ref<LayerManager>, RenderEntity)>>,
-    mut removed: Extract<RemovedComponents<LayerCamera>>,
+    layer_manager_query: Extract<Query<Ref<LayerManager>>>,
+    render_entity_query: Extract<Query<&RenderEntity>>,
+    mut removed: Extract<RemovedComponents<BlurLayerCamera>>,
     mut camera_query: Query<&mut Blur>,
     mut commands: Commands,
 ) {
-    for (layer_manager, render_entity) in layer_manager_query.iter() {
-        if layer_manager.blur_enable {
-            if layer_manager.is_changed() {
-                let blur = Blur {
-                    size: layer_manager.size,
-                    area: layer_manager.blur_layer.area.clone(),
-                    blur_method: layer_manager.blur_layer.blur_method,
-                    blur_output: layer_manager.blur_layer.blur_image.clone(),
-                    shader: layer_manager.blur_layer.shader.clone(),
-                    blur_input: layer_manager.blur_layer.layer.background_image.clone(),
-                    main_entity: MainEntity::from(layer_manager.base_layer.camera),
-                };
-                if let Ok(mut old_value) = camera_query.get_mut(render_entity) {
-                    old_value.set_if_neq(blur);
-                } else {
-                    commands.entity(render_entity).insert(blur);
-                }
-            }
-        } else if layer_manager.is_changed() {
-            if let Ok(mut e) = commands.get_entity(render_entity) {
-                e.remove::<Blur>();
+    for layer_manager in layer_manager_query.iter() {
+        if layer_manager.is_changed() {
+            let Ok(render_entity) = render_entity_query.get(layer_manager.blur_layer.layer.camera)
+            else {
+                continue;
+            };
+
+            let blur = Blur {
+                size: layer_manager.size,
+                area: layer_manager.blur_layer.area.clone(),
+                blur_method: layer_manager.blur_layer.blur_method,
+                blur_output: layer_manager.blur_layer.blur_image.clone(),
+                shader: layer_manager.blur_layer.shader.clone(),
+                blur_input: layer_manager.blur_layer.layer.background_image.clone(),
+                main_entity: MainEntity::from(layer_manager.base_layer.camera),
+            };
+
+            if let Ok(mut old_value) = camera_query.get_mut(render_entity.entity()) {
+                old_value.set_if_neq(blur);
+            } else {
+                commands.entity(render_entity.entity()).insert(blur);
             }
         }
     }
+
     for render_entity in removed.read() {
         if let Ok(mut e) = commands.get_entity(render_entity) {
             e.remove::<Blur>();
@@ -296,9 +316,6 @@ pub fn prepare_blur_pipeline(
                 source_texture = dest_texture;
             });
         let new_data = BlurData {
-            input: input_image.texture_view.clone(),
-            layout,
-            sampler,
             pipeline_id,
             passes,
             output_image_id: output_image.texture.id(),
@@ -415,7 +432,7 @@ impl Plugin for BlurRenderPlugin {
                 .add_render_graph_node::<ViewNodeRunner<BlurNode>>(Core2d, BlurLabel)
                 .add_render_graph_edges(
                     Core2d,
-                    (Node2d::MsaaWriteback, BlurLabel, Node2d::StartMainPass),
+                    (Node2d::PostProcessing, BlurLabel, Node2d::Tonemapping),
                 );
         }
     }

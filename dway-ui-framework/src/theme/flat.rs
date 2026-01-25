@@ -732,7 +732,15 @@ pub fn update_ui_blur_material(
             },
             theme.fill_color.with_alpha(theme.blur_opacity),
         ));
-        *shader_handle = material_assets.add(material).into();
+
+        if &shader_handle.0 == &Handle::default() {
+            *shader_handle = material_assets.add(ShaderAsset::new(material)).into();
+        } else {
+            if let Err(e) = material_assets.insert(shader_handle.0.id(), ShaderAsset::new(material))
+            {
+                log::error!("Failed to update blur material: {}", e);
+            }
+        }
     }
 }
 
@@ -798,7 +806,7 @@ impl Plugin for FlatThemePlugin {
         }
 
         app.add_systems(
-            Last,
+            PostUpdate,
             update_ui_blur_material.in_set(UiFrameworkSystems::UpdateLayersMaterial),
         );
     }
