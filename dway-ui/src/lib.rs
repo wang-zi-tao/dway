@@ -24,7 +24,7 @@ use dway_client_core::{
 };
 use dway_server::geometry::GlobalGeometry;
 use dway_tty::drm::{connectors::Connector, surface::DrmSurface};
-use dway_ui_framework::render::layer_manager::{LayerKind, LayerManager, RenderToLayer};
+use dway_ui_framework::render::layer_manager::{LayerKind, LayerManager, LayerRenderArea, RenderToLayer};
 
 use crate::{
     panels::{dock::Dock, top_panel::Panel},

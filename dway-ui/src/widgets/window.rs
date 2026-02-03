@@ -1,7 +1,8 @@
 use bevy::ui::RelativeCursorPosition;
 use dway_client_core::{
     input::{GrabRequestKind, SurfaceInputEvent},
-    navigation::windowstack::{WindowIndex, WindowStack}, UiAttachData,
+    navigation::windowstack::{WindowIndex, WindowStack},
+    UiAttachData,
 };
 use dway_server::{
     geometry::{Geometry, GlobalGeometry},
@@ -9,7 +10,10 @@ use dway_server::{
     wl::surface::WlSurface,
     xdg::{toplevel::DWayToplevel, DWayWindow, PopupList},
 };
-use dway_ui_framework::widgets::drag::{UiDrag, UiDragEvent};
+use dway_ui_framework::{
+    util::nodes::get_node_position,
+    widgets::drag::{UiDrag, UiDragEvent},
+};
 
 use super::popupwindow::PopupUI;
 use crate::{prelude::*, util::irect_to_style};
@@ -23,14 +27,15 @@ pub const DECORATION_MARGIN: f32 = 2.0;
 pub fn ui_input_event_to_surface_input_event(
     surface_entity: Entity,
     computed_node: &ComputedNode,
-    relative_cursor_position: &RelativeCursorPosition,
     global_transform: &UiGlobalTransform,
     event: &UiInputEvent,
     window_geometry: Geometry,
+    global_mouse: &MousePosition,
 ) -> Option<SurfaceInputEvent> {
-    let mouse_position = get_node_mouse_position(relative_cursor_position, computed_node);
-
     let surface_rect = get_node_rect(global_transform, computed_node);
+    let mouse_position = global_mouse
+        .position
+        .map(|global_pos| global_pos - surface_rect.min);
 
     let surface_input_event_kind = match event {
         UiInputEvent::MouseEnter => Some(GrabRequestKind::Enter()),
@@ -60,14 +65,14 @@ pub fn ui_input_event_to_surface_input_event(
 pub fn on_window_ui_input(
     event: UiEvent<UiInputEvent>,
     query: Query<(&WindowUI, &WindowUIState, &WindowUIWidget)>,
-    contents_query: Query<(&ComputedNode, &RelativeCursorPosition, &UiGlobalTransform)>,
+    contents_query: Query<(&ComputedNode, &UiGlobalTransform)>,
     mut surface_input_events: MessageWriter<SurfaceInputEvent>,
+    global_mouse: Res<MousePosition>,
 ) {
     let Ok((prop, state, widget)) = query.get(event.receiver()) else {
         return;
     };
-    let Ok((computed_node, relative_cursor_position, global_transform)) =
-        contents_query.get(widget.node_content_entity)
+    let Ok((computed_node, global_transform)) = contents_query.get(widget.node_content_entity)
     else {
         return;
     };
@@ -75,10 +80,10 @@ pub fn on_window_ui_input(
     if let Some(surface_input_event) = ui_input_event_to_surface_input_event(
         prop.window_entity,
         computed_node,
-        relative_cursor_position,
         global_transform,
         &event,
         Geometry::new(*state.rect()),
+        &global_mouse,
     ) {
         surface_input_events.write(surface_input_event);
     }

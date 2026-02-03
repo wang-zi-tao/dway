@@ -22,15 +22,23 @@ pub type CallbackSlots<E> = SmallVec<[(Entity, SystemId<E>); 2]>;
 pub struct MousePosition {
     pub window: Option<Entity>,
     pub position: Option<Vec2>,
+    pub global_position: Option<Vec2>,
 }
 
 pub fn update_mouse_position(
     mut mouse_event: MessageReader<CursorMoved>,
     mut mouse_position: ResMut<MousePosition>,
+    window_query: Query<&Window>,
 ) {
     if let Some(mouse) = mouse_event.read().last() {
         mouse_position.window = Some(mouse.window);
         mouse_position.position = Some(mouse.position);
+
+        if let Some(window) = window_query.get(mouse.window).ok() {
+            if let WindowPosition::At(pos) = window.position {
+                mouse_position.global_position = Some(pos.as_vec2() + mouse.position);
+            }
+        }
     }
 }
 
@@ -138,9 +146,9 @@ pub struct UiFocusState {
 pub struct UiInputQuery {
     ui_focus: &'static mut UiInput,
     interaction: Ref<'static, Interaction>,
-    relative_cursor_position: Option<Ref<'static, RelativeCursorPosition>>,
     event_dispatcher: &'static UiInputEventDispatcher,
     computed_node: &'static ComputedNode,
+    global_transform: &'static UiGlobalTransform,
 }
 
 pub fn update_ui_input(
@@ -154,14 +162,14 @@ pub fn update_ui_input(
     mut button_event_cursor: Local<EventCursor<MouseButtonInput>>,
     wheel_events: Res<Events<MouseWheel>>,
     mouse_button_events: Res<Events<MouseButtonInput>>,
+    global_mouse_position: Res<MousePosition>,
 ) {
     for UiInputQueryItem {
         mut ui_focus,
         interaction,
-        relative_cursor_position,
         event_dispatcher,
         computed_node,
-        ..
+        global_transform,
     } in &mut query
     {
         use UiInputEvent::*;
@@ -178,7 +186,7 @@ pub fn update_ui_input(
             }
         }
 
-        if *interaction != Interaction::None {
+        if *interaction != Interaction::None || ui_focus.prev_mouse_state != Interaction::None {
             let mut wheel_event_cursor_clone = wheel_event_cursor.clone();
             for event in wheel_event_cursor_clone.read(&wheel_events) {
                 event_dispatcher.send(Wheel(*event), &mut commands);
@@ -190,25 +198,17 @@ pub fn update_ui_input(
             }
         }
 
-        if !interaction.is_changed()
-            && !ui_focus.is_changed()
-            && !relative_cursor_position
-                .as_ref()
-                .map(|r| r.is_changed())
-                .unwrap_or_default()
-        {
+        if *interaction != Interaction::None {
+            if let Some(global_pos) = global_mouse_position.position {
+                let node_rect = get_node_rect(global_transform, computed_node);
+                event_dispatcher.send(MouseMove(global_pos - node_rect.min), &mut commands);
+            }
+        }
+
+        if !interaction.is_changed() && !ui_focus.is_changed() {
             continue;
         }
 
-        if let Some(relative_cursor_position) = relative_cursor_position.as_ref() {
-            if relative_cursor_position.is_changed() {
-                if let Some(pos) =
-                    get_node_mouse_position(relative_cursor_position, computed_node)
-                {
-                    event_dispatcher.send(MouseMove(pos), &mut commands);
-                }
-            }
-        }
         match (ui_focus.mouse_state, &*interaction) {
             (Interaction::Hovered | Interaction::None, Interaction::None) => {
                 event_dispatcher.send(MouseLeave, &mut commands);

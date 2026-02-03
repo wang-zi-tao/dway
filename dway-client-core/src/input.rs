@@ -1,8 +1,5 @@
 use bevy::{
-    ecs::{
-        event::EventCursor,
-        system::SystemId,
-    },
+    ecs::{event::EventCursor, message::MessageCursor, system::SystemId},
     input::{
         keyboard::KeyboardInput,
         mouse::{MouseButtonInput, MouseWheel},
@@ -350,7 +347,7 @@ pub fn resize_grab(
     match &event.kind {
         GrabRequestKind::Move(cursor_position) => {
             let mut geo = begin_geometry.geometry;
-            let pos = cursor_position + event.surface_rect.min - window_geometry.pos().as_vec2();
+            let pos = cursor_position + window_geometry.pos().as_vec2();
             if edges.contains(ResizeEdges::LEFT) {
                 geo.min.x = pos.x as i32;
             }
@@ -377,9 +374,9 @@ pub fn resize_grab(
 
 pub fn on_surface_input_event(
     world: &mut World,
-    mut events_cursor: Local<EventCursor<SurfaceInputEvent>>,
+    mut events_cursor: Local<MessageCursor<SurfaceInputEvent>>,
 ) {
-    let events_resource = world.resource::<Events<_>>();
+    let events_resource = world.resource::<Messages<_>>();
     let events: Vec<_> = events_cursor.read(events_resource).cloned().collect();
     for event in events {
         let response = GrabManager::process(world, event.clone());

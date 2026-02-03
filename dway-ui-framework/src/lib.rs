@@ -12,11 +12,11 @@ pub mod mvvm;
 pub mod prelude;
 pub mod render;
 pub mod shader;
+pub mod text;
 pub mod theme;
 pub mod util;
 pub mod widget;
 pub mod widgets;
-pub mod text;
 
 #[cfg(feature = "develop")]
 pub mod develop;
@@ -41,11 +41,7 @@ use dway_util::asset_cache::AssetCachePlugin;
 use event::EventReceiver;
 use widgets::drag::UiDrag;
 
-use crate::{
-    prelude::*,
-    render::mesh::UiMeshMaterialPlugin,
-    widgets::svg::{SvgLayout},
-};
+use crate::{prelude::*, render::mesh::UiMeshMaterialPlugin, widgets::svg::SvgLayout};
 
 pub struct UiFrameworkPlugin;
 impl Plugin for UiFrameworkPlugin {
@@ -113,7 +109,10 @@ impl Plugin for UiFrameworkPlugin {
                 input::update_mouse_position
                     .run_if(on_event::<CursorMoved>)
                     .in_set(InputSystems),
-                update_ui_input.in_set(InputSystems).after(UiSystem::Focus),
+                update_ui_input
+                    .in_set(InputSystems)
+                    .after(UiSystem::Focus)
+                    .after(input::update_mouse_position),
                 widgets::button::update_ui_button.in_set(WidgetInputSystems),
                 widgets::checkbox::update_ui_checkbox.in_set(WidgetInputSystems),
                 widgets::drag::update_ui_drag.in_set(WidgetInputSystems),
@@ -128,7 +127,11 @@ impl Plugin for UiFrameworkPlugin {
                     .before(VisibilitySystems::CheckVisibility)
                     .before(VisibilitySystems::CalculateBounds)
                     .after(bevy_prototype_lyon::plugin::BuildShapes),
-                (widgets::popup::anchor_update_system, widgets::popup::update_popup ).in_set(UpdatePopup),
+                (
+                    widgets::popup::anchor_update_system,
+                    widgets::popup::update_popup,
+                )
+                    .in_set(UpdatePopup),
             ),
         )
         .configure_sets(
