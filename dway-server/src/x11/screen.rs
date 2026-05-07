@@ -1,11 +1,10 @@
 use x11rb::protocol::xproto::Screen;
 
+use super::window::XWindow;
 use crate::{
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
 };
-
-use super::window::XWindow;
 
 #[derive(Component, Debug)]
 pub struct XScreen {

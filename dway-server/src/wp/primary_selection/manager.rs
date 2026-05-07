@@ -1,10 +1,5 @@
-use super::{
-    device::PrimarySelectionDevice, source::PrimarySelectionSource,
-};
-use crate::{
-    clipboard::ClipboardDataDevice,
-    prelude::*,
-};
+use super::{device::PrimarySelectionDevice, source::PrimarySelectionSource};
+use crate::{clipboard::ClipboardDataDevice, prelude::*};
 
 #[derive(Component)]
 pub struct PrimarySelectionDeviceManager {

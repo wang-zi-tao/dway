@@ -54,10 +54,7 @@ impl Plugin for DWayServerSchedulePlugin {
 
         app.configure_sets(
             Startup,
-            (
-                DWayStartSet::CreateDisplay,
-                DWayStartSet::Spawn,
-            )
+            (DWayStartSet::CreateDisplay, DWayStartSet::Spawn)
                 .before(EndPreUpdate)
                 .chain()
                 .ambiguous_with_all(),

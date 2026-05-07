@@ -48,7 +48,7 @@ pub fn update_ui_drag(
         ),
         Or<(Changed<Interaction>, Changed<RelativeCursorPosition>)>,
     >,
-    parent_query: Query<&ComputedNode >,
+    parent_query: Query<&ComputedNode>,
     mut commands: Commands,
     mouse: Res<ButtonInput<MouseButton>>,
 ) {
@@ -62,8 +62,7 @@ pub fn update_ui_drag(
         computed_node,
     ) in &mut query
     {
-        if let Some(pointer) = get_node_mouse_position(relative_cursor_position, computed_node)
-        {
+        if let Some(pointer) = get_node_mouse_position(relative_cursor_position, computed_node) {
             let UiDrag {
                 moving,
                 horizontal,

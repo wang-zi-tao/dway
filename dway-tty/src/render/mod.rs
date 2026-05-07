@@ -8,12 +8,8 @@ use bevy::{
     platform::collections::{hash_map::Entry, HashMap},
     prelude::*,
     render::{
-        render_asset::RenderAssets,
-        renderer::RenderDevice,
-        sync_component::SyncComponentPlugin,
-        sync_world::RenderEntity,
-        texture::GpuImage,
-        Extract, Render, RenderApp, RenderSet,
+        render_asset::RenderAssets, renderer::RenderDevice, sync_component::SyncComponentPlugin,
+        sync_world::RenderEntity, texture::GpuImage, Extract, Render, RenderApp, RenderSet,
     },
 };
 use drm::control::framebuffer;

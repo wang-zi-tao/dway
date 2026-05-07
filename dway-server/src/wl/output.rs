@@ -1,13 +1,13 @@
+use bevy_relationship::{graph_query, relationship};
+use wayland_server::protocol::wl_output::Mode;
+
+use super::surface::{ClientHasSurface, WlSurface};
 use crate::{
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
     state::add_global_dispatch,
     util::rect::IRect,
 };
-use bevy_relationship::{graph_query, relationship};
-use wayland_server::protocol::wl_output::Mode;
-
-use super::surface::{ClientHasSurface, WlSurface};
 
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
@@ -62,6 +62,7 @@ impl wayland_server::Dispatch<wl_output::WlOutput, bevy::prelude::Entity, DWay> 
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

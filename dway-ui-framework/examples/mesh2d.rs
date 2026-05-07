@@ -7,8 +7,11 @@ use bevy::{
 };
 use dway_ui_derive::color;
 use dway_ui_framework::{
-    prelude::{RoundedUiRectMaterial, rounded_rect},
-    render::{mesh::{UiMesh, UiMeshMaterialPlugin, UiMeshPlugin}, ui_nodes::UiNodeRenderPlugin},
+    prelude::{rounded_rect, RoundedUiRectMaterial},
+    render::{
+        mesh::{UiMesh, UiMeshMaterialPlugin, UiMeshPlugin},
+        ui_nodes::UiNodeRenderPlugin,
+    },
     widgets::shape::UiShapeMaterial,
 };
 

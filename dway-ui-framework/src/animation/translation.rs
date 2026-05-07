@@ -57,16 +57,22 @@ impl EventReceiver<AnimationEvent> for UiTranslationAnimation {
             else {
                 return;
             };
-            let Some(child_size) =
-                entity_mut.world_scope(|world| world.get::<ComputedNode>(child_entity).map(ComputedNode::size))
-            else {
+            let Some(child_size) = entity_mut.world_scope(|world| {
+                world
+                    .get::<ComputedNode>(child_entity)
+                    .map(ComputedNode::size)
+            }) else {
                 return;
             };
             let direction = entity_mut
                 .get::<UiTranslationAnimation>()
                 .unwrap()
                 .direction;
-            let target_layout = entity_mut.get::<AnimationTargetNodeState>().unwrap().0.clone();
+            let target_layout = entity_mut
+                .get::<AnimationTargetNodeState>()
+                .unwrap()
+                .0
+                .clone();
             {
                 let Some(mut layout) = entity_mut.get_mut::<Node>() else {
                     return;

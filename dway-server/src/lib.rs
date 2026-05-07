@@ -11,15 +11,16 @@ use dway_util::eventloop::Poller;
 use schedule::DWayServerSet;
 use state::{create_display, DWayServerConfig, WaylandDisplayCreated};
 
-
 pub mod apps;
 pub mod client;
+pub mod clipboard;
 pub mod dispatch;
 pub mod display;
 pub mod events;
 pub mod geometry;
 pub mod input;
 pub mod macros;
+pub mod misc;
 pub mod prelude;
 pub mod render;
 pub mod resource;
@@ -30,11 +31,9 @@ pub mod wl;
 pub mod wp;
 pub mod x11;
 pub mod xdg;
+pub mod zwlr;
 pub mod zwp;
 pub mod zxdg;
-pub mod zwlr;
-pub mod misc;
-pub mod clipboard;
 
 #[derive(Default)]
 pub struct DWayServerPlugin;
@@ -81,10 +80,5 @@ pub fn init_display(
     config: Res<DWayServerConfig>,
     mut poller: NonSendMut<Poller>,
 ) {
-    create_display(
-        &mut commands,
-        &config,
-        &mut event_sender,
-        &mut poller,
-    );
+    create_display(&mut commands, &config, &mut event_sender, &mut poller);
 }

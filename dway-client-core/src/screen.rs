@@ -31,9 +31,6 @@ pub fn create_screen(
     mut event: MessageWriter<Insert<Screen>>,
 ) {
     for (entity, window, screen) in screen_query.iter() {
-        let WindowPosition::At(_window_position) = window.position else {
-            continue;
-        };
         let rect = IRect::new(
             0,
             0,

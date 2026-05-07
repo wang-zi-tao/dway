@@ -778,7 +778,6 @@ impl<T: Material> AsBindGroup for ShaderAsset<T> {
     }
 
     fn bind_group_data(&self) -> Self::Data {
-        
     }
 }
 

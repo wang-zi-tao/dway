@@ -1,18 +1,18 @@
 use bevy::prelude::*;
 use temporary::clean_temporary_entity;
 
+pub mod asset_cache;
+pub mod diagnostic;
 pub mod eventloop;
+pub mod formats;
+pub mod keys;
 pub mod logger;
 pub mod macros;
+pub mod render;
 pub mod stat;
 pub mod temporary;
-pub mod keys;
 pub mod tokio;
-pub mod formats;
 mod typed_ecs;
-pub mod render;
-pub mod diagnostic;
-pub mod asset_cache;
 
 #[cfg(feature = "debug")]
 pub mod debug;
@@ -29,4 +29,3 @@ impl Plugin for UtilPlugin {
         false
     }
 }
-

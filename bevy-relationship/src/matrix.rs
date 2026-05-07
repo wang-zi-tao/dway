@@ -4,7 +4,6 @@ use bevy::{
 };
 use petgraph::csr;
 
-
 pub trait MRelationship {
     type Weight;
 }

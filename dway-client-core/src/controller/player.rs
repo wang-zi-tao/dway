@@ -1,8 +1,6 @@
+pub struct PlayerController {}
 
-pub struct PlayerController{
-}
-
-impl PlayerController{
+impl PlayerController {
     pub fn play(&mut self) {
     }
 }

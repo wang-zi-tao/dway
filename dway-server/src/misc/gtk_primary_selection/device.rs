@@ -1,13 +1,12 @@
 use wayland_protocols_misc::gtk_primary_selection::server::*;
 
+use super::offer::GtkPrimarySelectionOffer;
 use crate::{
     clipboard::{ClipboardDataDevice, ClipboardManager, ClipboardSource},
     misc::gtk_primary_selection::source::GtkPrimarySelectionSource,
     prelude::*,
     wp::primary_selection::SourceOfSelection,
 };
-
-use super::offer::GtkPrimarySelectionOffer;
 
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]

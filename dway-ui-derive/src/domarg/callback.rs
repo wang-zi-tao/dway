@@ -1,4 +1,3 @@
-
 use super::{DomArgKey, DomDecorator};
 use crate::prelude::*;
 
@@ -120,12 +119,12 @@ pub enum OnEventSystem {
     #[peek(Ident, name = "Ident")]
     Ident(Ident),
     #[peek(Paren, name = "Paren")]
-    Expr{
+    Expr {
         #[paren]
-        _wrap: Paren, 
+        _wrap: Paren,
         #[inside(_wrap)]
         expr: Expr,
-    }
+    },
 }
 
 impl ToTokens for OnEventSystem {

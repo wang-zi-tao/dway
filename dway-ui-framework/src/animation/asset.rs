@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use bevy::ecs::query::{QueryData, QueryItem};
+
 use super::{ease::AnimationEaseMethod, AnimationEvent, AnimationEventDispatcher};
 use crate::{prelude::*, util::modify_component_or_insert};
 
@@ -35,18 +36,26 @@ pub fn play_asset_animation<M: UiMaterial + Asset + Interpolation>(
             *tween = new_tween;
         } else {
             let system = callback_register.system(apply_tween_asset::<M>);
-            modify_component_or_insert(animation_event.as_deref_mut(), entity_commands.reborrow(), move |c| {
-                c.add_system_to_this(system);
-            });
+            modify_component_or_insert(
+                animation_event.as_deref_mut(),
+                entity_commands.reborrow(),
+                move |c| {
+                    c.add_system_to_this(system);
+                },
+            );
 
             entity_commands.insert(new_tween);
         }
 
-        modify_component_or_insert(animation.as_deref_mut(), entity_commands.reborrow(), move |a| {
-            a.set_duration(duration);
-            a.set_ease_method(ease);
-            a.replay();
-        });
+        modify_component_or_insert(
+            animation.as_deref_mut(),
+            entity_commands.reborrow(),
+            move |a| {
+                a.set_duration(duration);
+                a.set_ease_method(ease);
+                a.replay();
+            },
+        );
     } else {
         entity_commands.insert(MaterialNode(end_material));
     }

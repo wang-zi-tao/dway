@@ -6,7 +6,7 @@ pub struct Clock {
     pub format: String,
 }
 
-dway_widget!{ 
+dway_widget! {
 Clock=>
 @use_state{ pub text:String="".to_string() }
 @state_component{#[derive(Debug)]}
@@ -20,5 +20,5 @@ Clock=>
     Text=(Text::new(state.text()))
     TextFont=(theme.text_font(24.0))
     TextColor=(theme.color("panel-foreground").into())
-/> 
+/>
 }

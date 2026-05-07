@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use bevy::{
     app::AppExit,
     input::{
@@ -9,8 +11,6 @@ use bevy::{
 };
 use dway_tty::{libinput::LibInputPlugin, seat::SeatPlugin};
 use dway_util::eventloop::{EventLoopPlugin, EventLoopPluginMode};
-use std::time::Duration;
-
 use tracing::Level;
 
 pub fn main() {
@@ -39,7 +39,7 @@ pub fn main() {
     }
 }
 
-pub fn setup(mut commands: Commands){
+pub fn setup(mut commands: Commands) {
     commands.spawn(Window::default());
 }
 
@@ -51,7 +51,6 @@ pub fn input_event_system(
 
     mut exit: MessageWriter<AppExit>,
 ) {
-
     for event in move_events.read() {
         info!("{event:?}");
     }

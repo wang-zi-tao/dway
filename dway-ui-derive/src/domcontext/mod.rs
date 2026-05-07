@@ -70,7 +70,11 @@ impl<'l> DomContext<'l> {
 
     pub fn push(&mut self, dom: &'l Dom, is_sub_tree: bool) {
         let dom_id = self.get_dom_id(dom, false);
-        self.dom_stack.push(NodeContext { dom, dom_id, is_sub_tree })
+        self.dom_stack.push(NodeContext {
+            dom,
+            dom_id,
+            is_sub_tree,
+        })
     }
 
     pub fn top(&self) -> &NodeContext<'_> {

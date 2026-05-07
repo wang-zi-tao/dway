@@ -12,7 +12,8 @@ pub struct Insert<T> {
     pub phase: std::marker::PhantomData<T>,
 }
 
-impl<T: Send + Sync + 'static> Message for Insert<T> {}
+impl<T: Send + Sync + 'static> Message for Insert<T> {
+}
 
 impl<T: Send + Sync + 'static> Event for Insert<T> {
     type Trigger<'a> = GlobalTrigger;
@@ -33,7 +34,8 @@ pub struct Destroy<T> {
     pub phase: std::marker::PhantomData<T>,
 }
 
-impl<T: Send + Sync + 'static> Message for Destroy<T> {}
+impl<T: Send + Sync + 'static> Message for Destroy<T> {
+}
 
 impl<T: Send + Sync + 'static> Event for Destroy<T> {
     type Trigger<'a> = GlobalTrigger;
@@ -94,19 +96,19 @@ pub struct WindowAppIdChanged {
 }
 
 #[derive(Message)]
-pub struct WindowAttachedToApp{
+pub struct WindowAttachedToApp {
     pub app_entity: Entity,
     pub window_entity: Entity,
 }
 
 #[derive(Message)]
-pub struct XWindowChanged{
+pub struct XWindowChanged {
     pub xwindow_entity: Entity,
     pub surface_entity: Option<Entity>,
 }
 
 #[derive(Message)]
-pub struct XWindowAttachSurfaceRequest{
+pub struct XWindowAttachSurfaceRequest {
     pub xwindow_entity: Entity,
 }
 

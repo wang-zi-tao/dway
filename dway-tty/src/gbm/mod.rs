@@ -1,15 +1,13 @@
 pub mod buffer;
 
-use crate::drm::{DrmDevice, DrmDeviceFd};
-use anyhow::anyhow;
-use anyhow::Result;
-use bevy::prelude::*;
-use bevy::platform::collections::HashSet;
-use drm_fourcc::DrmModifier;
-use drm_fourcc::{DrmFormat, DrmFourcc};
+use std::sync::{Arc, Mutex};
+
+use anyhow::{anyhow, Result};
+use bevy::{platform::collections::HashSet, prelude::*};
+use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use gbm::BufferObjectFlags;
-use std::sync::Arc;
-use std::sync::Mutex;
+
+use crate::drm::{DrmDevice, DrmDeviceFd};
 
 pub const SUPPORTED_FORMATS: [DrmFourcc; 1] = [DrmFourcc::Argb8888];
 

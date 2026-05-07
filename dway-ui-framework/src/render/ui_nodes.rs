@@ -10,22 +10,33 @@ use bevy::{
         entity::{EntityHashMap, EntityHashSet},
         query::ROQueryItem,
         system::{
-            SystemParamItem, lifetimeless::{Read, SRes}
+            lifetimeless::{Read, SRes},
+            SystemParamItem,
         },
     },
     math::{Affine2, FloatOrd},
     platform::collections::HashMap,
     render::{
-        Extract, Render, RenderApp, RenderSet, RenderStartup, globals::{GlobalsBuffer, GlobalsUniform}, render_asset::{RenderAssetPlugin, RenderAssets}, render_phase::{
+        globals::{GlobalsBuffer, GlobalsUniform},
+        render_asset::{RenderAssetPlugin, RenderAssets},
+        render_phase::{
             AddRenderCommand, DrawFunctionId, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
             RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
             ViewSortedRenderPhases,
-        }, render_resource::{
-            BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BufferUsages, IndexFormat, PipelineCache, RawBufferVec, SpecializedRenderPipelines, binding_types::uniform_buffer
-        }, renderer::{RenderDevice, RenderQueue}, sync_world::MainEntity, view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms}
+        },
+        render_resource::{
+            binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
+            BindGroupLayoutEntries, BufferUsages, IndexFormat, PipelineCache, RawBufferVec,
+            SpecializedRenderPipelines,
+        },
+        renderer::{RenderDevice, RenderQueue},
+        sync_world::MainEntity,
+        view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
+        Extract, Render, RenderApp, RenderSet, RenderStartup,
     },
     ui_render::{
-        PreparedUiMaterial, TransparentUi, UiCameraMap, UiCameraView, UiMaterialPipeline, init_ui_material_pipeline, stack_z_offsets
+        init_ui_material_pipeline, stack_z_offsets, PreparedUiMaterial, TransparentUi, UiCameraMap,
+        UiCameraView, UiMaterialPipeline,
     },
 };
 use bytemuck::{Pod, Zeroable};

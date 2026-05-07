@@ -5,19 +5,28 @@ pub mod positioner;
 pub mod toplevel;
 pub mod wm;
 
+use bevy_relationship::relationship;
+
 use self::{
     activation::{SurfaceActivate, XdgActivation},
     activation_token::XdgActivationToken,
     wm::XdgWmBase,
 };
 use crate::{
-    events::Insert, geometry::{Geometry, GlobalGeometry}, input::grab::WlSurfacePointerState, prelude::*, resource::ResourceWrapper, state::{EntityFactory, add_global_dispatch}, util::{rect::IRect, serial::next_serial}, wl::surface::WlSurface, xdg::{
+    events::Insert,
+    geometry::{Geometry, GlobalGeometry},
+    input::grab::WlSurfacePointerState,
+    prelude::*,
+    resource::ResourceWrapper,
+    state::{add_global_dispatch, EntityFactory},
+    util::{rect::IRect, serial::next_serial},
+    wl::surface::WlSurface,
+    xdg::{
         popup::{XdgPopup, XdgPopupBundle},
         positioner::XdgPositioner,
         toplevel::{DWayToplevel, XdgToplevel},
-    }
+    },
 };
-use bevy_relationship::relationship;
 
 #[derive(Component, Default, Clone, Reflect)]
 pub struct DWayWindow {}
@@ -55,6 +64,7 @@ impl XdgSurface {
             send_configure: false,
         }
     }
+
     pub fn configure(&self) {
         self.raw.configure(next_serial());
     }
@@ -77,7 +87,7 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
         let _enter = span.enter();
         debug!("request {:?}", &request);
         match request {
-            xdg_surface::Request::Destroy => { }
+            xdg_surface::Request::Destroy => {}
             xdg_surface::Request::GetToplevel { id } => {
                 state.insert(
                     *data,
@@ -178,6 +188,7 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

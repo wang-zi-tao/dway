@@ -1,5 +1,6 @@
-use crate::{prelude::*, util::rect::IRect};
 use rstar::{PointDistance, RTree, RTreeObject, SelectionFunction, AABB};
+
+use crate::{prelude::*, util::rect::IRect};
 
 #[derive(Resource)]
 struct RegionDelegate;
@@ -108,12 +109,14 @@ impl WlRegion {
             union: Default::default(),
         }
     }
+
     pub fn add(&mut self, operator: RegionOperator, rect: IRect) {
         self.rects.push((operator, rect));
         if operator == RegionOperator::Add {
             self.union = self.union.union(rect);
         }
     }
+
     pub fn update_union(&mut self) {
         let mut union = IRect::default();
         for (operator, rect) in &self.rects {
@@ -123,6 +126,7 @@ impl WlRegion {
         }
         self.union = union;
     }
+
     pub fn is_inside(&self, pos: IVec2) -> bool {
         let mut result = false;
         for (operator, rect) in &self.rects {
@@ -175,6 +179,7 @@ impl wayland_server::Dispatch<wl_region::WlRegion, bevy::prelude::Entity, DWay> 
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

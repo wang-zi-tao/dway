@@ -20,8 +20,8 @@ use wgpu::{
     CommandEncoder, CommandEncoderDescriptor, Extent3d, FilterMode, TexelCopyTextureInfo,
     TextureAspect, TextureDimension, TextureUses,
 };
-use wgpu_hal::MemoryFlags;
 use wgpu_core::hal_api::HalApi;
+use wgpu_hal::MemoryFlags;
 
 use super::{
     gles::{self, EglState},
@@ -404,7 +404,7 @@ pub(crate) fn hal_texture_descriptor(
     format: wgpu::TextureFormat,
 ) -> Result<wgpu_hal::TextureDescriptor<'static>> {
     Ok(wgpu_hal::TextureDescriptor {
-        label: Some("gbm renderbuffer"),
+        label: Some("wayland client surface"),
         size: Extent3d {
             width: size.x,
             height: size.y,
@@ -414,11 +414,7 @@ pub(crate) fn hal_texture_descriptor(
         format,
         mip_level_count: 1,
         sample_count: 1,
-        usage: TextureUses::COLOR_TARGET
-            | TextureUses::DEPTH_STENCIL_READ
-            | TextureUses::DEPTH_STENCIL_WRITE
-            | TextureUses::COPY_SRC
-            | TextureUses::COPY_DST,
+        usage: TextureUses::COPY_SRC,
         view_formats: vec![],
         memory_flags: MemoryFlags::empty(),
     })

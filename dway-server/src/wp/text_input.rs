@@ -53,6 +53,7 @@ impl Dispatch<zwp_text_input_v3::ZwpTextInputV3, Entity> for DWay {
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
@@ -98,6 +99,7 @@ impl Dispatch<zwp_text_input_manager_v3::ZwpTextInputManagerV3, Entity> for DWay
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

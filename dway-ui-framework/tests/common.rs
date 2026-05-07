@@ -6,13 +6,28 @@ use std::{
 };
 
 use bevy::{
-    app::{AppExit, ScheduleRunnerPlugin}, camera::{ImageRenderTarget, RenderTarget}, core_pipeline::core_2d::graph::{Core2d, Node2d}, diagnostic::FrameCount, ecs::system::SystemId, math::FloatOrd, prelude::*, render::{
-        Render, RenderApp, RenderSet, extract_component::{ExtractComponent, ExtractComponentPlugin}, render_asset::RenderAssets, render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel}, render_resource::{
-            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d,
-            MapMode, TexelCopyBufferInfo, TexelCopyBufferLayout, TexelCopyTextureInfo,
-            TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-        }, renderer::{RenderContext, RenderDevice, RenderQueue}, texture::GpuImage
-    }, window::{PresentMode, WindowResolution}, winit::WinitPlugin
+    app::{AppExit, ScheduleRunnerPlugin},
+    camera::{ImageRenderTarget, RenderTarget},
+    core_pipeline::core_2d::graph::{Core2d, Node2d},
+    diagnostic::FrameCount,
+    ecs::system::SystemId,
+    math::FloatOrd,
+    prelude::*,
+    render::{
+        extract_component::{ExtractComponent, ExtractComponentPlugin},
+        render_asset::RenderAssets,
+        render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
+        render_resource::{
+            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, MapMode,
+            TexelCopyBufferInfo, TexelCopyBufferLayout, TexelCopyTextureInfo, TextureDescriptor,
+            TextureDimension, TextureFormat, TextureUsages,
+        },
+        renderer::{RenderContext, RenderDevice, RenderQueue},
+        texture::GpuImage,
+        Render, RenderApp, RenderSet,
+    },
+    window::{PresentMode, WindowResolution},
+    winit::WinitPlugin,
 };
 use crossbeam_channel::{Receiver, Sender};
 use image::RgbaImage;

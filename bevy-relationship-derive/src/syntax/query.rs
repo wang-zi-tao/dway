@@ -1,10 +1,12 @@
-use super::path::PathQuery;
-use crate::builder::{QueryBuilder, QuerySetBuilder};
+use std::{cell::RefCell, rc::Rc};
+
 use derive_syn_parse::Parse;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
-use std::{cell::RefCell, rc::Rc};
 use syn::{punctuated::Punctuated, Token};
+
+use super::path::PathQuery;
+use crate::builder::{QueryBuilder, QuerySetBuilder};
 
 #[derive(Parse)]
 pub struct GraphQuery {

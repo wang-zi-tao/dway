@@ -4,8 +4,8 @@ use bevy::ecs::system::EntityCommands;
 
 use super::{
     layout::{ItemLayout, ViewAreaLayout, ViewLayouter},
-    ContainerViewFactory, ContainerViewModel, DataItem, EntityWorldRef,
-    IndexTrait, RangeModel, UpdateModel, ViewFactory,
+    ContainerViewFactory, ContainerViewModel, DataItem, EntityWorldRef, IndexTrait, RangeModel,
+    UpdateModel, ViewFactory,
 };
 use crate::prelude::*;
 

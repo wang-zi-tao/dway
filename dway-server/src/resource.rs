@@ -5,7 +5,7 @@ pub trait ResourceWrapper {
     fn get_resource(&self) -> &Self::Resource;
 }
 
-structstruck::strike!{
+structstruck::strike! {
     #[strikethrough[derive(Debug, Clone, Reflect)]]
     pub struct MimeData{
         pub kind: enum MimeDataKind{
@@ -19,6 +19,6 @@ structstruck::strike!{
 }
 
 #[derive(Resource, Debug, Reflect)]
-pub struct Clipboard{
-    pub mine_data: Option<MimeData>
+pub struct Clipboard {
+    pub mine_data: Option<MimeData>,
 }

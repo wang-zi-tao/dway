@@ -1,7 +1,4 @@
-use bevy::{
-    ecs::world::DeferredWorld,
-    prelude::*,
-};
+use bevy::{ecs::world::DeferredWorld, prelude::*};
 use smallvec::SmallVec;
 
 use crate::ConnectableMut;

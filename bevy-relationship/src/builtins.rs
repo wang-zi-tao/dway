@@ -1,6 +1,6 @@
-use bevy::prelude::Plugin;
+use bevy::prelude::{Plugin, *};
+
 use crate::{relationship, AppExt};
-use bevy::prelude::*;
 
 relationship!(IntersectWith => @both -< Intersect );
 

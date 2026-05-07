@@ -4,7 +4,7 @@ use backtrace::Backtrace;
 use bevy::{
     app::{App, Update},
     ecs::{prelude::Resource, system::NonSendMut},
-    log::{BoxedLayer, error, warn},
+    log::{error, warn, BoxedLayer},
     prelude::Plugin,
 };
 use nix::sys::{signal, signal::Signal};
@@ -158,6 +158,7 @@ extern "C" fn handle_sig(s: i32) {
             .unwrap_or_else(|_| s.to_string()),
         backtrace::Backtrace::new()
     );
+    std::process::abort();
 }
 
 fn register_signal(signal: Signal) {

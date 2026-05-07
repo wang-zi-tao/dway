@@ -3,9 +3,7 @@ use wayland_protocols_wlr::data_control::v1::server::zwlr_data_control_manager_v
 use crate::{
     clipboard::ClipboardDataDevice,
     prelude::*,
-    zwlr::data_control::{
-        device::ZwlrDataControlDevice, source::ZwlrDataControlSource,
-    },
+    zwlr::data_control::{device::ZwlrDataControlDevice, source::ZwlrDataControlSource},
 };
 
 #[derive(Component, Reflect, Debug)]

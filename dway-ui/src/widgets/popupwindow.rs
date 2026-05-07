@@ -1,4 +1,4 @@
-use dway_client_core::{input::SurfaceUiNode};
+use dway_client_core::input::SurfaceUiNode;
 use dway_server::{
     geometry::GlobalGeometry,
     util::rect::IRect,
@@ -7,7 +7,6 @@ use dway_server::{
 };
 
 use crate::{prelude::*, util::irect_to_style};
-
 
 #[derive(Component, Reflect, Debug)]
 pub struct PopupUI {

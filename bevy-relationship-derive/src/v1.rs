@@ -1,6 +1,6 @@
-use lazy_static::lazy_static;
 use std::collections::{BTreeMap, HashMap};
 
+use lazy_static::lazy_static;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, TokenStream as TokenStream2};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
@@ -85,6 +85,7 @@ impl PathQuery {
             });
         quote! { FnMut(#(#components),*) -> bevy_relationship::ControlFlow<R> }
     }
+
     pub fn gen_callback_mut(&self, graph: &GraphQuery) -> TokenStream2 {
         let components = std::iter::once(&self.first_node)
             .chain(self.edges.iter().map(|(_direction, _edge, node)| node))
@@ -102,6 +103,7 @@ impl PathQuery {
             });
         quote! { FnMut(#(#components),*) -> bevy_relationship::ControlFlow<R> }
     }
+
     pub fn gen_for_each(&self, graph: &GraphQuery) -> TokenStream2 {
         let callback = self.gen_callback(graph);
         let args = std::iter::once(&self.first_node)
@@ -155,6 +157,7 @@ impl PathQuery {
             }
         }
     }
+
     pub fn gen_for_each_mut(&self, graph: &GraphQuery) -> TokenStream2 {
         let callback = self.gen_callback_mut(graph);
         let args = std::iter::once(&self.first_node)

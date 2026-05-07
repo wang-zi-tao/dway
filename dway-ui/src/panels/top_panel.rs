@@ -1,10 +1,13 @@
 use dway_ui_framework::theme::ThemeComponent;
 
 use crate::{
-    panels::PanelButtonBundle, popups::{launcher, panel_settings, volume_control}, prelude::*, widgets::{
+    panels::PanelButtonBundle,
+    popups::{launcher, panel_settings, volume_control},
+    prelude::*,
+    widgets::{
         clock::Clock, notifys::NotifyButton, system_monitor::PanelSystemMonitor,
         windowtitle::WindowTitle, workspacelist::WorkspaceListUI,
-    }
+    },
 };
 
 #[derive(Component)]

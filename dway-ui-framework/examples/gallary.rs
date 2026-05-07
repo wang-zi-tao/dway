@@ -19,7 +19,9 @@ use dway_ui_framework::{
     prelude::*,
     render::mesh::{UiMesh, UiMeshTransform},
     widgets::{
-        inputbox::UiInputBox, scroll::UiScroll, shader::{
+        inputbox::UiInputBox,
+        scroll::UiScroll,
+        shader::{
             arc_material, button_material, checkbox_material, clicked_fake3d_button_material,
             fake3d_button_material, hollow_block, rainbow_block, rounded_block,
             rounded_border_block, rounded_inner_shadow_block, rounded_rect, ArcMaterial,
@@ -27,7 +29,9 @@ use dway_ui_framework::{
             RoundedBorderBlockMaterial, RoundedInnerShadowBlockMaterial,
             RoundedRainbowBlockMaterial, RoundedUiImageMaterial, RoundedUiRectMaterial,
             UiCircleMaterial,
-        }, shape::UiShapeMaterial, text::UiTextBundle
+        },
+        shape::UiShapeMaterial,
+        text::UiTextBundle,
     },
 };
 

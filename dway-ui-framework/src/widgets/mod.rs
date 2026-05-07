@@ -24,7 +24,7 @@ impl From<Entity> for UiWidgetRoot {
     }
 }
 
-pub mod zoffset{
+pub mod zoffset {
     pub const TEXT_SELECTION: f32 = -1.1;
 }
 

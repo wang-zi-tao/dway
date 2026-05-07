@@ -7,9 +7,8 @@ use syn::{
     ExprRange, Token, Type,
 };
 
-use crate::builder::{NodeInfo, QueryBuilder};
-
 use super::{edge::EdgeQuery, filter::Filter, node::NodeQuery};
+use crate::builder::{NodeInfo, QueryBuilder};
 
 mod kw {
     use syn::custom_keyword;
@@ -46,10 +45,10 @@ impl PathEdgeQuery {
             let span = self.multi.span();
             let inner = std::mem::replace(&mut builder.code, quote!());
             let iterator = self.edge.get_iterator(builder, direction);
-            let code = quote_spanned!{span=>
-                let __bevy_relationship_range: std::ops::Range<usize> = #range; 
-                let mut __bevy_relationship_entity_set: bevy::ecs::entity::EntityHashMap<usize> = Default::default(); 
-                let mut __bevy_relationship_entity_stack: Vec<(bevy::ecs::entity::Entity, usize)> = vec![(entity, 0)]; 
+            let code = quote_spanned! {span=>
+                let __bevy_relationship_range: std::ops::Range<usize> = #range;
+                let mut __bevy_relationship_entity_set: bevy::ecs::entity::EntityHashMap<usize> = Default::default();
+                let mut __bevy_relationship_entity_stack: Vec<(bevy::ecs::entity::Entity, usize)> = vec![(entity, 0)];
                 __bevy_relationship_entity_set.insert(entity, 0);
 
                 while let Some((entity, level)) = __bevy_relationship_entity_stack.pop() {
@@ -148,13 +147,14 @@ impl PathQuery {
             extract_querys: vec![],
         });
     }
+
     pub fn build_foreach_changed(&self, _builder: &mut QueryBuilder) {
         let entitys: Vec<TokenStream> = vec![];
         let querys: Vec<TokenStream> = vec![];
         let _mut_flags: Vec<TokenStream> = vec![];
         let _get_methods: Vec<TokenStream> = vec![];
         let args: Vec<TokenStream> = vec![];
-        let _code = quote!{
+        let _code = quote! {
             let __bevy_relationship__lambda = |this: &Self,#(#entitys: bevy::ecs::entity::Entity),*| {
                 #(let Ok(#args) = #querys.get_methods(#entitys);)*
                 callback(#(&args));
@@ -172,6 +172,7 @@ impl PathQuery {
         node0.build(builder);
         builder.node_stack.pop();
     }
+
     fn build_foreach_inner(
         &self,
         builder: &mut QueryBuilder,

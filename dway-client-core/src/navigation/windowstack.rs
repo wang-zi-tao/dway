@@ -177,9 +177,7 @@ impl Plugin for WindowStackPlugin {
                         .in_set(DWayClientSystem::UpdateZIndex)
                         .before(update_window_index),
                     update_window_index
-                        .run_if(
-                            on_event::<SetWindowIndex>.or(resource_changed::<WindowStack>),
-                        )
+                        .run_if(on_event::<SetWindowIndex>.or(resource_changed::<WindowStack>))
                         .in_set(DWayClientSystem::UpdateZIndex),
                 ),
             );

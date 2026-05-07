@@ -1,7 +1,7 @@
-use crate::{parse_color_str, parser::ParseCodeResult, prelude::*};
 use syn::LitStr;
 
 use super::{DomArgKey, DomDecorator};
+use crate::{parse_color_str, parser::ParseCodeResult, prelude::*};
 
 #[derive(Parse)]
 pub struct Style {
@@ -12,6 +12,7 @@ impl DomDecorator for Style {
     fn key(&self) -> super::DomArgKey {
         super::DomArgKey::Component("Style".to_string())
     }
+
     fn modify_spawn_stat(&self, input: TokenStream) -> TokenStream {
         let style_component = crate::style::generate(&self.style);
         quote_spanned!(self.style.span()=> {
@@ -29,6 +30,7 @@ impl DomDecorator for BackgroundColor {
     fn key(&self) -> super::DomArgKey {
         super::DomArgKey::Component("BackgroundColor".to_string())
     }
+
     fn get_component(&self, _context: &mut DomContext) -> Option<TokenStream> {
         let lit = &self.lit;
         let Some([r, g, b, a]) = parse_color_str(&lit.value()) else {
@@ -49,6 +51,7 @@ impl DomDecorator for Handle {
     fn key(&self) -> super::DomArgKey {
         DomArgKey::Component(format!("Handle<{}>", self.ty.to_token_stream()))
     }
+
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let ty = &self.ty;
         let ident = format_ident!(
@@ -64,12 +67,14 @@ impl DomDecorator for Handle {
             },
         );
     }
+
     fn need_node_entity_field(&self) -> bool {
         let component_state = ParseCodeResult::from_expr(&self.expr);
         !component_state.use_state.is_empty()
             || !component_state.set_state.is_empty()
             || !component_state.use_prop.is_empty()
     }
+
     fn get_component(&self, _context: &mut DomContext) -> Option<TokenStream> {
         let Self { expr, .. } = self;
         let ident = format_ident!(
@@ -79,6 +84,7 @@ impl DomDecorator for Handle {
         );
         Some(quote_spanned!(self._col.span()=> MaterialNode(#ident.add(#expr))))
     }
+
     fn generate_update(&self, context: &mut WidgetNodeContext) -> Option<TokenStream> {
         let Self { expr, .. } = self;
         let dependencies = ParseCodeResult::from_expr(expr);

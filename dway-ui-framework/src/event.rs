@@ -533,6 +533,28 @@ impl CallbackTypeRegister {
         }
     }
 
+    pub fn add_to_observer_in_world<F, E: Event, B: Bundle, M>(
+        &mut self,
+        system: F,
+        entity: Entity,
+        world: &mut World,
+    ) where
+        F: IntoObserverSystem<E, B, M>,
+    {
+        let type_id = system.type_id();
+        match self.triggers.entry(type_id) {
+            Entry::Occupied(_o) => {
+                if let Some(mut observer) = world.get_mut::<Observer>(entity) {
+                    observer.watch_entity(entity);
+                };
+            }
+            Entry::Vacant(v) => {
+                let trigger = world.spawn(Observer::new(system).with_entity(entity)).id();
+                v.insert(trigger);
+            }
+        }
+    }
+
     pub fn add_to_observer<F, E: Event, B: Bundle, M>(
         &mut self,
         system: F,
@@ -541,22 +563,11 @@ impl CallbackTypeRegister {
     ) where
         F: IntoObserverSystem<E, B, M>,
     {
-        let type_id = system.type_id();
-        match self.triggers.entry(type_id) {
-            Entry::Occupied(_o) => {
-                commands.queue(move |world: &mut World| {
-                    if let Some(mut observer) = world.get_mut::<Observer>(entity) {
-                        observer.watch_entity(entity);
-                    };
-                });
-            }
-            Entry::Vacant(v) => {
-                let trigger = commands
-                    .spawn(Observer::new(system).with_entity(entity))
-                    .id();
-                v.insert(trigger);
-            }
-        }
+        commands.queue(move |world: &mut World| {
+            world.resource_scope::<Self, _>(|world, mut this| {
+                this.add_to_observer_in_world(system, entity, world);
+            })
+        })
     }
 
     pub fn get_system<F, I, M>(&self) -> SystemId<I, ()>

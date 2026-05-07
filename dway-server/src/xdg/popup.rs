@@ -1,8 +1,12 @@
-use crate::{
-    events::Insert, geometry::{Geometry, GlobalGeometry}, prelude::*, resource::ResourceWrapper, util::rect::IRect, xdg::{DWayWindow, positioner::XdgPositioner}
-};
-
 use super::{positioner::Positioner, SurfaceHasPopup};
+use crate::{
+    events::Insert,
+    geometry::{Geometry, GlobalGeometry},
+    prelude::*,
+    resource::ResourceWrapper,
+    util::rect::IRect,
+    xdg::{positioner::XdgPositioner, DWayWindow},
+};
 
 #[derive(Component, Reflect, Debug, Clone)]
 #[reflect(Debug)]
@@ -88,6 +92,7 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

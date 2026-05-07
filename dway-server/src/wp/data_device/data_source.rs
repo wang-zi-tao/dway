@@ -1,4 +1,3 @@
-
 use wayland_server::protocol::wl_data_device_manager::DndAction;
 
 use crate::{clipboard::MimeTypeSet, prelude::*};

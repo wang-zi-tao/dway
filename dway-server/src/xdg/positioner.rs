@@ -1,4 +1,6 @@
-use wayland_protocols::xdg::shell::server::xdg_positioner::{Anchor, ConstraintAdjustment, Gravity};
+use wayland_protocols::xdg::shell::server::xdg_positioner::{
+    Anchor, ConstraintAdjustment, Gravity,
+};
 
 use crate::{
     geometry::{Geometry, GlobalGeometry},
@@ -200,6 +202,7 @@ impl Dispatch<xdg_positioner::XdgPositioner, Entity> for DWay {
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

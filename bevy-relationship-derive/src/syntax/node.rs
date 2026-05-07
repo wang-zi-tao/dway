@@ -1,10 +1,7 @@
 use convert_case::Casing;
 use derive_syn_parse::Parse;
-use proc_macro2::Ident;
-use proc_macro2::TokenStream;
-use quote::format_ident;
-use quote::quote;
-use quote::quote_spanned;
+use proc_macro2::{Ident, TokenStream};
+use quote::{format_ident, quote, quote_spanned};
 use syn::{
     braced, parenthesized,
     punctuated::Punctuated,
@@ -151,10 +148,14 @@ impl NodeQuery {
         let inner = std::mem::replace(&mut builder.code, quote!());
         let ty = self.to_type(builder, name);
         let node_info = builder.node_stack.last().unwrap();
-        let (extract_query_vars, extract_query_type): (Vec<_>, Vec<_>) = node_info.extract_querys.iter().cloned().unzip();
-        let query = builder.add_query(&quote_spanned!{ span=> 
-            (Entity,#ty, #(#extract_query_type,)*) 
-        }, query_filter);
+        let (extract_query_vars, extract_query_type): (Vec<_>, Vec<_>) =
+            node_info.extract_querys.iter().cloned().unzip();
+        let query = builder.add_query(
+            &quote_spanned! { span=>
+                (Entity,#ty, #(#extract_query_type,)*)
+            },
+            query_filter,
+        );
         let mut_flag = mutable.then_some(quote_spanned!(span=>mut));
         let query_vars = quote_spanned!(span=> (entity,#mut_flag #name, #(#extract_query_vars,)*));
         builder.code = if builder.node_stack.len() == 1 && !builder.has_begin_node {

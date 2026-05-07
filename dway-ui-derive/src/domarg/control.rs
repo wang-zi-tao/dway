@@ -1,6 +1,5 @@
-use crate::{parser::ParseCodeResult, prelude::*};
-
 use super::{DomArgKey, DomDecorator};
+use crate::{parser::ParseCodeResult, prelude::*};
 
 #[derive(Parse)]
 pub struct Id {
@@ -10,6 +9,7 @@ impl DomDecorator for Id {
     fn key(&self) -> DomArgKey {
         DomArgKey::Id
     }
+
     fn need_node_entity_field(&self) -> bool {
         true
     }
@@ -27,6 +27,7 @@ impl DomDecorator for If {
     fn need_node_entity_field(&self) -> bool {
         true
     }
+
     fn wrap_spawn_children(&self, inner: TokenStream, _context: &mut DomContext) -> TokenStream {
         let expr = &self.expr;
         quote_spanned! {expr.span()=>
@@ -35,6 +36,7 @@ impl DomDecorator for If {
             }
         }
     }
+
     fn wrap_update_children(
         &self,
         _child_entity: Option<Ident>,
@@ -110,9 +112,11 @@ impl DomDecorator for For {
     fn need_node_entity_field(&self) -> bool {
         true
     }
+
     fn need_sub_widget(&self) -> bool {
         true
     }
+
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let WidgetNodeContext {
             tree_context,
@@ -126,6 +130,7 @@ impl DomDecorator for For {
             quote!(Vec::new()),
         );
     }
+
     fn wrap_spawn_children(&self, inner: TokenStream, _context: &mut DomContext) -> TokenStream {
         let Self { pat, expr, .. } = self;
         quote_spanned! {pat.span()=>
@@ -134,6 +139,7 @@ impl DomDecorator for For {
             }
         }
     }
+
     fn wrap_sub_widget(&self, inner: TokenStream, context: &mut WidgetNodeContext) -> TokenStream {
         let Self { pat, update, .. } = self;
         let item_var = DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_item");
@@ -144,6 +150,7 @@ impl DomDecorator for For {
             #inner
         }
     }
+
     fn wrap_update_children(
         &self,
         child_ident: Option<Ident>,
@@ -162,8 +169,8 @@ impl DomDecorator for For {
         let lambda_var = DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_lambda");
         let changed = ParseCodeResult::from_expr(&self.expr).changed_bool();
 
-        let backup_state = format_ident!("{}_state",context.tree_context.state_namespace);
-        let backup_widget = format_ident!("{}_widget",context.tree_context.state_namespace);
+        let backup_state = format_ident!("{}_state", context.tree_context.state_namespace);
+        let backup_widget = format_ident!("{}_widget", context.tree_context.state_namespace);
         let state_name = &context.tree_context.state_builder.name;
         let widget_name = &context.tree_context.widget_builder.name;
 
@@ -222,12 +229,15 @@ impl DomDecorator for Map {
     fn key(&self) -> DomArgKey {
         DomArgKey::For
     }
+
     fn need_node_entity_field(&self) -> bool {
         true
     }
+
     fn need_sub_widget(&self) -> bool {
         true
     }
+
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let Self { ty, .. } = self;
         let WidgetNodeContext {
@@ -242,6 +252,7 @@ impl DomDecorator for Map {
             quote_spanned!(ty.span()=> std::collections::BTreeMap::new()),
         );
     }
+
     fn wrap_spawn_children(&self, inner: TokenStream, context: &mut DomContext) -> TokenStream {
         let Self {
             key, ty, pat, expr, ..
@@ -260,6 +271,7 @@ impl DomDecorator for Map {
             }
         }
     }
+
     fn wrap_sub_widget(&self, inner: TokenStream, context: &mut WidgetNodeContext) -> TokenStream {
         let Self { pat, update, .. } = self;
         let item_var = DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_child_item");
@@ -270,6 +282,7 @@ impl DomDecorator for Map {
             #inner
         }
     }
+
     fn wrap_update_children(
         &self,
         child_ident: Option<Ident>,
@@ -279,7 +292,12 @@ impl DomDecorator for Map {
         let entity_var = &context.entity_var;
         let just_inited = &context.just_inited;
         let Self {
-            key, ty, pat, _in, expr, ..
+            key,
+            ty,
+            pat,
+            _in,
+            expr,
+            ..
         } = self;
         let child_entity_map_var =
             DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_child_entity_map");
@@ -291,8 +309,8 @@ impl DomDecorator for Map {
         let lambda_var = DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_lambda");
         let changed = ParseCodeResult::from_expr(expr).changed_bool();
 
-        let backup_state = format_ident!("{}_state",context.tree_context.state_namespace);
-        let backup_widget = format_ident!("{}_widget",context.tree_context.state_namespace);
+        let backup_state = format_ident!("{}_state", context.tree_context.state_namespace);
+        let backup_widget = format_ident!("{}_widget", context.tree_context.state_namespace);
         let state_name = &context.tree_context.state_builder.name;
         let widget_name = &context.tree_context.widget_builder.name;
 
@@ -382,12 +400,15 @@ impl DomDecorator for ForQuery {
     fn key(&self) -> DomArgKey {
         DomArgKey::For
     }
+
     fn need_node_entity_field(&self) -> bool {
         true
     }
+
     fn need_sub_widget(&self) -> bool {
         true
     }
+
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let Self { ty, mutable, .. } = self;
         let dom_entity_list_field = DomContext::wrap_dom_id("node_", &context.dom_id, "_child_map");
@@ -402,6 +423,7 @@ impl DomDecorator for ForQuery {
             quote!(bevy::ecs::entity::EntityHashMap::default()),
         );
     }
+
     fn update_sub_widget_context(&self, context: &mut WidgetNodeContext) {
         context.tree_context.widget_builder.add_field_with_initer(
             &format_ident!("data_entity"),
@@ -409,9 +431,15 @@ impl DomDecorator for ForQuery {
             quote!(Entity::PLACEHOLDER),
         );
     }
+
     fn wrap_sub_widget(&self, inner: TokenStream, context: &mut WidgetNodeContext) -> TokenStream {
         let just_inited = &context.just_inited;
-        let Self { pat, update, other_stmt, .. } = self;
+        let Self {
+            pat,
+            update,
+            other_stmt,
+            ..
+        } = self;
         let item_var = DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_child_item");
         let data_entity_var =
             DomContext::wrap_dom_id("__dway_ui_node_", &context.dom_id, "_data_entity");
@@ -435,6 +463,7 @@ impl DomDecorator for ForQuery {
             #inner
         }
     }
+
     fn wrap_update_children(
         &self,
         child_ident: Option<Ident>,
@@ -470,8 +499,8 @@ impl DomDecorator for ForQuery {
             quote!(bevy::ecs::query::ROQueryItem<#ty>)
         };
 
-        let backup_state = format_ident!("{}_state",context.tree_context.state_namespace);
-        let backup_widget = format_ident!("{}_widget",context.tree_context.state_namespace);
+        let backup_state = format_ident!("{}_state", context.tree_context.state_namespace);
+        let backup_widget = format_ident!("{}_widget", context.tree_context.state_namespace);
         let state_name = &context.tree_context.state_builder.name;
         let widget_name = &context.tree_context.widget_builder.name;
 
@@ -523,20 +552,21 @@ pub struct Command {
     command: Expr,
 }
 
-impl DomDecorator for Command{
+impl DomDecorator for Command {
     fn wrap_spawn(
-            &self,
-            inner: TokenStream,
-            context: &mut DomContext,
-            _need_update: bool,
-        ) -> TokenStream {
+        &self,
+        inner: TokenStream,
+        context: &mut DomContext,
+        _need_update: bool,
+    ) -> TokenStream {
         let entity = context.top().get_node_entity();
         let command = &self.command;
-        quote_spanned!{entity.span()=>
+        quote_spanned! {entity.span()=>
             #inner
             commands.entity(#entity).queue(#command);
         }
     }
+
     fn generate_update(&self, context: &mut WidgetNodeContext) -> Option<TokenStream> {
         let Self { command, .. } = self;
         let entity = &context.entity_var;

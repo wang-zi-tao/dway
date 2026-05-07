@@ -3,9 +3,15 @@ use bevy::ecs::relationship::Relationship as _;
 use self::window::XWindowSurfaceRef;
 use super::*;
 use crate::{
-    events::Insert, geometry::{Geometry, GlobalGeometry}, input::grab::{StartGrab, WlSurfacePointerState}, prelude::*, wl::surface::ClientHasSurface, xdg::{
-        DWayWindow, toplevel::{DWayToplevel, PinedWindow}
-    }
+    events::Insert,
+    geometry::{Geometry, GlobalGeometry},
+    input::grab::{StartGrab, WlSurfacePointerState},
+    prelude::*,
+    wl::surface::ClientHasSurface,
+    xdg::{
+        toplevel::{DWayToplevel, PinedWindow},
+        DWayWindow,
+    },
 };
 
 graph_query!(

@@ -4,7 +4,6 @@ pub mod registry;
 pub mod translation;
 pub mod ui;
 
-
 pub use asset::*;
 use bevy::window::RequestRedraw;
 use ease::AnimationEaseMethod;
@@ -14,10 +13,7 @@ use registry::AnimationRegister;
 
 use crate::{
     command::DestroyInterceptor,
-    event::{
-        CallbackRegisterAppExt, EventDispatcher, EventReceiver,
-        UiNodeAppearEvent,
-    },
+    event::{CallbackRegisterAppExt, EventDispatcher, EventReceiver, UiNodeAppearEvent},
     prelude::*,
     UiFrameworkSystems,
 };

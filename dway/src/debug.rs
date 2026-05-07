@@ -105,7 +105,8 @@ impl PartialEq for WrapDebugName {
     }
 }
 
-impl Eq for WrapDebugName {}
+impl Eq for WrapDebugName {
+}
 
 impl PartialOrd for WrapDebugName {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {

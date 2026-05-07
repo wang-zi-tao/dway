@@ -1,3 +1,5 @@
+pub mod picking;
+
 use bevy::{
     ecs::{event::EventCursor, query::QueryData},
     input::{
@@ -72,6 +74,23 @@ pub enum UiInputEvent {
     KeyboardInput(KeyboardInput),
     Wheel(MouseWheel),
     RawMouseButton(MouseButtonInput),
+
+    /// use with UiPickingInput
+    DragStart(DragStart),
+    /// use with UiPickingInput
+    Drag(Drag),
+    /// use with UiPickingInput
+    DragEnd(DragEnd),
+    /// use with UiPickingInput
+    DragEnter(DragEnter),
+    /// use with UiPickingInput
+    DragOver(DragOver),
+    /// use with UiPickingInput
+    DragLeave(DragLeave),
+    /// use with UiPickingInput
+    DragDrop(DragDrop),
+    /// use with UiPickingInput
+    DragEntry(DragEntry),
 }
 
 impl UiInputEvent {
@@ -81,12 +100,7 @@ impl UiInputEvent {
             UiInputEvent::MouseLeave => Some(Interaction::None),
             UiInputEvent::MousePress(_) => Some(Interaction::Pressed),
             UiInputEvent::MouseRelease(_) => Some(Interaction::Hovered),
-            UiInputEvent::KeyboardEnter => None,
-            UiInputEvent::KeyboardLeave => None,
-            UiInputEvent::MouseMove(_) => None,
-            UiInputEvent::KeyboardInput(_) => None,
-            UiInputEvent::Wheel(_) => None,
-            UiInputEvent::RawMouseButton(_) => None,
+            _ => None,
         }
     }
 

@@ -1,14 +1,16 @@
-use crate::prelude::*;
-use nix::{
-    fcntl::{FcntlArg, SealFlag},
-    sys::memfd::{memfd_create, MemFdCreateFlag},
-};
 use std::{
     ffi::CStr,
     fs::File,
     io::{Seek, Write},
     os::fd::AsRawFd,
 };
+
+use nix::{
+    fcntl::{FcntlArg, SealFlag},
+    sys::memfd::{memfd_create, MemFdCreateFlag},
+};
+
+use crate::prelude::*;
 
 pub fn create_sealed_file(name: &CStr, data: &[u8]) -> Result<(File, usize)> {
     let fd = memfd_create(

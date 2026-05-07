@@ -11,8 +11,8 @@ pub mod reexport {
 }
 
 use bevy::{
-    math::FloatOrd,
     camera::{ImageRenderTarget, RenderTarget},
+    math::FloatOrd,
     window::WindowRef,
 };
 use bevy_svg::SvgPlugin;
@@ -24,15 +24,14 @@ use dway_client_core::{
 };
 use dway_server::geometry::GlobalGeometry;
 use dway_tty::drm::{connectors::Connector, surface::DrmSurface};
-use dway_ui_framework::render::layer_manager::{LayerKind, LayerManager, LayerRenderArea, RenderToLayer};
+use dway_ui_framework::render::layer_manager::{
+    LayerKind, LayerManager, LayerRenderArea, RenderToLayer,
+};
 
 use crate::{
     panels::{dock::Dock, top_panel::Panel},
     prelude::*,
-    widgets::{
-        cursor::Cursor,
-        screen::ScreenWindows,
-    },
+    widgets::{cursor::Cursor, screen::ScreenWindows},
 };
 
 pub mod zindex {
@@ -79,10 +78,7 @@ impl Plugin for DWayUiPlugin {
             popups::workspace_window_preview::WorkspaceWindowPreviewPopupPlugin,
             popups::dock_launcher::DockLauncherUIPlugin,
         ));
-        app.add_plugins((
-            panels::top_panel::PanelPlugin,
-            panels::dock::DockPlugin,
-        ));
+        app.add_plugins((panels::top_panel::PanelPlugin, panels::dock::DockPlugin));
         app.add_observer(init_screen_ui);
         app.add_systems(Startup, setup);
     }
@@ -214,7 +210,10 @@ fn init_screen_ui(
         .spawn((
             Name::new("cursor"),
             UiTargetCamera(camera),
-            Cursor::new(asset_server.load("embedded://dway_ui/cursors/cursor-default.png"),Vec2::splat(32.0)),
+            Cursor::new(
+                asset_server.load("embedded://dway_ui/cursors/cursor-default.png"),
+                Vec2::splat(32.0),
+            ),
             RenderToLayer::new(camera, LayerKind::Blur),
             zindex::CURSOR,
         ))

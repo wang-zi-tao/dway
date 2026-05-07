@@ -1,6 +1,12 @@
 use wayland_protocols_misc::gtk_primary_selection::server::*;
 
-use crate::{clipboard::ClipboardDataDevice, misc::gtk_primary_selection::{device::GtkPrimarySelectionDevice, source::GtkPrimarySelectionSource}, prelude::*};
+use crate::{
+    clipboard::ClipboardDataDevice,
+    misc::gtk_primary_selection::{
+        device::GtkPrimarySelectionDevice, source::GtkPrimarySelectionSource,
+    },
+    prelude::*,
+};
 
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]

@@ -1,7 +1,7 @@
 use bevy::{
+    camera::{ImageRenderTarget, RenderTarget},
     math::FloatOrd,
     prelude::*,
-    camera::{ImageRenderTarget, RenderTarget},
     window::WindowRef,
 };
 

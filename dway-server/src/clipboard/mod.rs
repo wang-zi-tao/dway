@@ -4,11 +4,7 @@ use std::{
     os::fd::{AsFd, BorrowedFd, FromRawFd, IntoRawFd, OwnedFd},
 };
 
-use bevy::{
-    ecs::world::CommandQueue,
-    tasks::IoTaskPool,
-    platform::collections::HashSet,
-};
+use bevy::{ecs::world::CommandQueue, platform::collections::HashSet, tasks::IoTaskPool};
 use dway_util::eventloop::Poller;
 use wayland_backend::server::WeakHandle;
 use wayland_protocols::wp::primary_selection::zv1::server::{
@@ -23,10 +19,7 @@ use wayland_protocols_wlr::data_control::v1::server::{
     zwlr_data_control_offer_v1::ZwlrDataControlOfferV1,
     zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
 };
-use wayland_server::{
-    protocol::wl_data_source::WlDataSource,
-    Client,
-};
+use wayland_server::{protocol::wl_data_source::WlDataSource, Client};
 
 use crate::{
     misc::gtk_primary_selection::device::GtkPrimarySelectionDevice,

@@ -14,7 +14,8 @@ use bevy::{
     ecs::{
         entity::EntityHashSet,
         event::EventCursor,
-        query::{QueryData, QueryEntityError, QueryItem}, relationship::Relationship as _,
+        query::{QueryData, QueryEntityError, QueryItem},
+        relationship::Relationship as _,
     },
     platform::collections::HashMap,
     tasks::IoTaskPool,
@@ -967,7 +968,7 @@ where
         entity: Entity,
     ) -> Option<bevy::prelude::EntityWorldMut<'_>> {
         let mut entity = self.inner.insert(world, entity)?;
-        entity.insert(ChildOf( self.parent ));
+        entity.insert(ChildOf(self.parent));
         Some(entity)
     }
 
@@ -976,7 +977,7 @@ where
         Self: Sized,
     {
         let mut entity_mut = self.inner.spawn(world);
-        entity_mut.insert(ChildOf( self.parent ));
+        entity_mut.insert(ChildOf(self.parent));
         entity_mut
     }
 }

@@ -39,15 +39,13 @@ impl<A: Asset> Default for AssetCachePlugin<A> {
 
 impl<A: Asset> Plugin for AssetCachePlugin<A> {
     fn build(&self, app: &mut App) {
-        if app.world().get_resource_ref::<AssetCache>().is_none(){
+        if app.world().get_resource_ref::<AssetCache>().is_none() {
             app.init_resource::<AssetCacheSetting>();
             let setting = app.world().resource::<AssetCacheSetting>();
-            app.insert_resource(AssetCache{
+            app.insert_resource(AssetCache {
                 cache: LruCache::new(setting.cap),
             });
         }
         app.add_systems(Last, add_to_cache::<A>);
     }
 }
-
-

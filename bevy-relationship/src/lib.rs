@@ -114,7 +114,7 @@ impl ConnectableMut for RelationshipToManyEntity {
     type Drain<'l> = smallvec::Drain<'l, [Entity; 4]>;
 
     fn connect(&mut self, entity: Entity) -> Option<Entity> {
-        if !self.peers.contains(&entity){
+        if !self.peers.contains(&entity) {
             self.peers.push(entity);
         }
         None

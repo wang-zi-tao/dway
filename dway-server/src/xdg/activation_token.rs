@@ -1,4 +1,5 @@
 use uuid::Uuid;
+
 use crate::prelude::*;
 
 #[derive(Component, Reflect, Debug)]
@@ -70,6 +71,7 @@ impl Dispatch<xdg_activation_token_v1::XdgActivationTokenV1, Entity> for DWay {
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

@@ -1,9 +1,10 @@
+use std::time::Duration;
+
 use anyhow::Result;
 use dbus::{
     arg::{AppendAll, ReadAll},
     ffidisp::Connection,
 };
-use std::time::Duration;
 
 pub struct DBusController {
     pub connection: Connection,

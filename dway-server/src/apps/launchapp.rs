@@ -1,8 +1,10 @@
-use super::DesktopEntry;
-use crate::prelude::*;
+use std::process::{self, Command};
+
 use bevy::platform::collections::HashMap;
 use derive_builder::Builder;
-use std::process::{self, Command};
+
+use super::DesktopEntry;
+use crate::prelude::*;
 
 #[derive(Debug, Message, Builder)]
 pub struct LaunchAppRequest {

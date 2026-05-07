@@ -11,7 +11,10 @@ pub struct ZwlrDataControlSource {
 }
 impl ZwlrDataControlSource {
     pub fn new(raw: ZwlrDataControlSourceV1) -> Self {
-        Self { raw, mime_types: default() }
+        Self {
+            raw,
+            mime_types: default(),
+        }
     }
 }
 impl Drop for ZwlrDataControlSource {
@@ -39,7 +42,7 @@ impl Dispatch<ZwlrDataControlSourceV1, Entity> for DWay {
                 if let Some(mut c) = state.get_mut::<ZwlrDataControlSource>(*data) {
                     c.mime_types.insert(mime_type);
                 }
-            },
+            }
             Request::Destroy => {
                 state.despawn_object_component::<ZwlrDataControlSource>(*data, resource);
             }

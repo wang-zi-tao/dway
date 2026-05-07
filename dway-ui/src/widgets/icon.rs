@@ -1,4 +1,4 @@
-use bevy::{ecs::entity::EntityHashSet};
+use bevy::ecs::entity::EntityHashSet;
 use dway_server::apps::icon::{LinuxIcon, LinuxIconKind};
 
 use crate::prelude::*;
@@ -47,7 +47,7 @@ pub fn uiicon_render(
                 LinuxIconKind::Svg(h) => {
                     if &**svg != h {
                         *svg = h.clone().into();
-                        if image.is_some(){
+                        if image.is_some() {
                             commands.entity(e).remove::<ImageNode>();
                         }
                     }

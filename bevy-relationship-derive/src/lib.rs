@@ -24,8 +24,8 @@ pub fn graph_query2(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
-pub fn right_of(input: TokenStream) -> TokenStream { 
+pub fn right_of(input: TokenStream) -> TokenStream {
     let name = parse_macro_input!(input as Ident);
-    let ident = format_ident!("edge_{}", name, span=name.span());
+    let ident = format_ident!("edge_{}", name, span = name.span());
     quote!(#ident).into()
 }

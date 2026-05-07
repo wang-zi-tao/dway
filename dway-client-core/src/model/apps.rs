@@ -26,14 +26,14 @@ pub struct AppListModel {
     pub folder: IndexMap<String, Vec<AppId>>,
 }
 
-pub enum RuleRequest{
+pub enum RuleRequest {
     AddWindow,
     AddToplevel,
     AddPopup,
 }
 
-pub enum RuleResponse{
-    SetupWindow{
+pub enum RuleResponse {
+    SetupWindow {
         pos: Option<IVec2>,
         size: Option<IVec2>,
         workspace: Option<Entity>,

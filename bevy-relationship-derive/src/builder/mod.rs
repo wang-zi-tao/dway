@@ -1,7 +1,8 @@
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
+
 use convert_case::Casing;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote_spanned, ToTokens};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use syn::{spanned::Spanned, Type};
 
 pub struct QuerySetBuilder {
@@ -54,7 +55,7 @@ impl QuerySetBuilder {
 
 pub struct NodeInfo {
     pub name: Ident,
-    pub extract_querys:Vec<(Ident, TokenStream)>,
+    pub extract_querys: Vec<(Ident, TokenStream)>,
     pub callback_arg: TokenStream,
     pub callback_type: TokenStream,
 }

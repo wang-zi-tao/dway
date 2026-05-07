@@ -16,7 +16,7 @@ failure = { workspace = true }
 uuid = { workspace = true }
 lru = { workspace = true }
 rand = { workspace = true }
-bevy = { workspace = true }
+bevy = { workspace = true, features = ["bevy_picking"] }
 bevy_svg.workspace = true
 const-fnv1a-hash = "1.1.0"
 bitflags = {workspace=true}
@@ -63,7 +63,7 @@ tempdir = "0.3.7"
 bevy-inspector-egui = { workspace=true}
 
 [features]
-develop = ["dep:bevy-inspector-egui", "dep:egui_dock", "bevy/reflect_auto_register", "dway-util/debug", "bevy/bevy_picking"]
+develop = ["dep:bevy-inspector-egui", "dep:egui_dock", "bevy/reflect_auto_register", "dway-util/debug"]
 # hot_reload = [
 #     "dep:dexterous_developer",
 #     "dep:bevy_dexterous_developer",

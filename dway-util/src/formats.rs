@@ -30,7 +30,6 @@ pub const ARGB8888_SRGB: ImageFormat = ImageFormat {
     gles_format: glow::SRGB_ALPHA,
 };
 
-
 ///RGB little endian
 pub const XRGB8888: ImageFormat = ImageFormat {
     wl_format: wl_shm::Format::Xrgb8888,
@@ -58,37 +57,40 @@ pub const XBGR8888: ImageFormat = ImageFormat {
 
 impl ImageFormat {
     pub fn from_wayland_format(format: wl_shm::Format) -> Result<ImageFormat> {
-        Ok( match format {
+        Ok(match format {
             wl_shm::Format::Argb8888 => ARGB8888,
             wl_shm::Format::Xrgb8888 => ARGB8888,
             wl_shm::Format::Abgr8888 => ABGR8888,
             wl_shm::Format::Xbgr8888 => ABGR8888,
             _ => {
                 bail!("unsupported format ({format:?})");
-            },
-        } )
+            }
+        })
     }
+
     pub fn from_drm_fourcc(fourcc: DrmFourcc) -> Result<ImageFormat> {
-        Ok( match fourcc {
+        Ok(match fourcc {
             DrmFourcc::Argb8888 => ARGB8888,
             DrmFourcc::Xrgb8888 => ARGB8888,
             DrmFourcc::Abgr8888 => ABGR8888,
             DrmFourcc::Xbgr8888 => ABGR8888,
             _ => {
                 bail!("unsupported fourcc ({fourcc:?})");
-            },
-        } )
+            }
+        })
     }
-    pub fn from_wgpu(format: wgpu::TextureFormat) -> Result<Self>{
-        Ok( match format {
+
+    pub fn from_wgpu(format: wgpu::TextureFormat) -> Result<Self> {
+        Ok(match format {
             wgpu::TextureFormat::Bgra8UnormSrgb => ARGB8888_SRGB,
             wgpu::TextureFormat::Rgba8Unorm => ABGR8888,
             _ => {
                 bail!("unsupported wgpu format ({format:?})");
-            },
-        } )
+            }
+        })
     }
-    pub fn pixel_size(&self)->usize{
+
+    pub fn pixel_size(&self) -> usize {
         self.wgpu_format.components() as usize
     }
 }

@@ -84,10 +84,7 @@ pub fn popup_open_close_up(event: UiEvent<AnimationEvent>, world: &mut World) {
     }
 }
 
-pub fn despawn_on_animation_finish(
-    event: UiEvent<AnimationEvent>,
-    mut commands: Commands,
-) {
+pub fn despawn_on_animation_finish(event: UiEvent<AnimationEvent>, mut commands: Commands) {
     if event.just_finish {
         commands.entity(event.receiver()).despawn();
     }

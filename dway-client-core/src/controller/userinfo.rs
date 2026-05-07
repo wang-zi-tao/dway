@@ -4,11 +4,11 @@ use sysinfo::{get_current_pid, ProcessRefreshKind, RefreshKind, System, Users};
 
 #[derive(Resource, Getters)]
 pub struct UserInfo {
-    #[getset(get="pub")]
+    #[getset(get = "pub")]
     name: Option<String>,
-    #[getset(get_copy="pub")]
+    #[getset(get_copy = "pub")]
     uid: Option<u32>,
-    #[getset(get_copy="pub")]
+    #[getset(get_copy = "pub")]
     gid: Option<u32>,
 }
 

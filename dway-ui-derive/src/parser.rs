@@ -1,11 +1,9 @@
+use std::collections::HashMap;
+
 use derive_syn_parse::Parse;
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
-use std::collections::HashMap;
-use syn::{
-    parse_quote, visit::Visit, Block, Expr, ExprField, Macro, Member,
-    Stmt,
-};
+use syn::{parse_quote, visit::Visit, Block, Expr, ExprField, Macro, Member, Stmt};
 
 use crate::generate::BoolExpr;
 
@@ -26,6 +24,7 @@ impl Visit<'_> for ParseCodeResult {
         }
         syn::visit::visit_macro(self, i);
     }
+
     fn visit_expr_field(&mut self, i: &'_ ExprField) {
         let Expr::Path(var) = &*i.base else {
             syn::visit::visit_expr_field(self, i);
@@ -51,6 +50,7 @@ impl Visit<'_> for ParseCodeResult {
         }
         syn::visit::visit_expr_field(self, i);
     }
+
     fn visit_expr_method_call(&mut self, i: &'_ syn::ExprMethodCall) {
         if let Expr::Path(var) = &*i.receiver {
             match &*var
@@ -83,12 +83,15 @@ impl ParseCodeResult {
         self.use_state.insert(ident.to_string(), ident.span());
         self.set_state.insert(ident.to_string(), ident.span());
     }
+
     pub fn use_prop(&mut self, ident: &Ident) {
         self.use_prop.insert(ident.to_string(), ident.span());
     }
+
     pub fn use_state(&mut self, ident: &Ident) {
         self.use_state.insert(ident.to_string(), ident.span());
     }
+
     pub fn changed_bool(&self) -> BoolExpr {
         if self.use_state.is_empty() && self.use_prop.is_empty() {
             BoolExpr::False
@@ -100,13 +103,11 @@ impl ParseCodeResult {
                     let method_name = format_ident!("{}_is_changed", name, span = *span);
                     quote_spanned!(*span=>state.#method_name())
                 })
-                .chain(
-                    (!self.use_prop.is_empty())
-                        .then_some(quote!(__dway_prop_changed)),
-                );
+                .chain((!self.use_prop.is_empty()).then_some(quote!(__dway_prop_changed)));
             BoolExpr::RuntimeValue(quote!(#(#exprs)||*))
         }
     }
+
     pub fn is_changed(&self) -> Option<TokenStream> {
         self.changed_bool().optional_token_stream()
     }

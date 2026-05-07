@@ -12,20 +12,14 @@ mod parser;
 mod prelude;
 mod style;
 
-use crate::dom::*;
-
 use derive_syn_parse::Parse;
 use domcontext::widget_context::WidgetDeclare;
-
 use prelude::convert_type_name;
 use proc_macro::TokenStream;
-
 use quote::{format_ident, quote, quote_spanned};
+use syn::{spanned::Spanned, *};
 
-use syn::{
-    spanned::Spanned,
-    *,
-};
+use crate::dom::*;
 
 #[derive(Parse)]
 struct SpawnDomInput {
@@ -134,16 +128,16 @@ pub fn dway_widget(input: TokenStream) -> TokenStream {
 pub fn interpolation(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as ItemStruct);
     let mut generics = ast.generics.clone();
-    generics.type_params_mut().for_each(|t|{
-        t.bounds.push(parse_quote!(Interpolation))
-    });
+    generics
+        .type_params_mut()
+        .for_each(|t| t.bounds.push(parse_quote!(Interpolation)));
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let name = &ast.ident;
-    let fields = ast.fields.iter().map(|f|{
+    let fields = ast.fields.iter().map(|f| {
         let name = &f.ident;
         quote!(#name: Interpolation::interpolation(&self.#name, &other.#name, v))
     });
-    let output = quote!{
+    let output = quote! {
         impl #impl_generics Interpolation for #name #ty_generics #where_clause {
             fn interpolation(&self, other: &Self, v: f32) -> Self {
                 Self {
@@ -154,4 +148,3 @@ pub fn interpolation(input: TokenStream) -> TokenStream {
     };
     TokenStream::from(output)
 }
-

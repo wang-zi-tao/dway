@@ -1,8 +1,7 @@
 use std::any::TypeId;
 
-use crate::{parser::ParseCodeResult, prelude::*};
-
 use super::{DomArgKey, DomDecorator};
+use crate::{parser::ParseCodeResult, prelude::*};
 
 #[derive(Parse)]
 pub enum Connect {
@@ -49,6 +48,7 @@ impl DomDecorator for Connect {
             }
         }
     }
+
     fn need_node_entity_field(&self) -> bool {
         let component_state = ParseCodeResult::from_expr(self.expr());
         !component_state.use_state.is_empty()

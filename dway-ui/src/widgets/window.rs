@@ -52,6 +52,7 @@ pub fn ui_input_event_to_surface_input_event(
         UiInputEvent::RawMouseButton(mouse_button_input) => {
             Some(GrabRequestKind::Button(*mouse_button_input))
         }
+        _ => None,
     };
     surface_input_event_kind.map(|kind| SurfaceInputEvent {
         surface_entity: Some(surface_entity),

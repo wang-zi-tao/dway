@@ -14,7 +14,7 @@ use bevy::{
     log::{Level, LogPlugin},
     prelude::*,
     render::{
-        settings::{Backends, RenderCreation, WgpuSettings},
+        settings::{Backends, RenderCreation, WgpuFeatures, WgpuSettings},
         RenderPlugin,
     },
     winit::{WakeUp, WinitPlugin},
@@ -130,7 +130,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         })
         .set(RenderPlugin {
             render_creation: RenderCreation::Automatic(WgpuSettings {
-                backends: Some(Backends::GL),
+                backends: Some(Backends::VULKAN),
                 priority: bevy::render::settings::WgpuSettingsPriority::Functionality,
                 memory_hints: bevy::render::settings::MemoryHints::MemoryUsage,
                 ..Default::default()

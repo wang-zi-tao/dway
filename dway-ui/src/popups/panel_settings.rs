@@ -66,10 +66,7 @@ pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
         commands
             .spawn(PanelPopupBundle {
                 anchor_policy: AnchorPolicy::new(PopupAnlign::InnerEnd, PopupAnlign::None),
-                ..PanelPopupBundle::new(
-                    event.receiver(),
-                    style!("absolute top-42"),
-                )
+                ..PanelPopupBundle::new(event.receiver(), style!("absolute top-42"))
             })
             .with_children(|c| {
                 c.spawn((PanelSettings::default(), style!("h-auto w-auto")));

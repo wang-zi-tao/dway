@@ -5,9 +5,8 @@ use syn::{
     bracketed, punctuated::Punctuated, spanned::Spanned, token::Bracket, Expr, Ident, Path, Token,
 };
 
-use crate::builder::QueryBuilder;
-
 use super::path::EdgeDirection;
+use crate::builder::QueryBuilder;
 
 mod kw {
     use syn::custom_keyword;

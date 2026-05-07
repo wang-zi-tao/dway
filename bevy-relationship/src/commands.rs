@@ -1,11 +1,8 @@
 use std::marker::PhantomData;
 
 use bevy::{
-    ecs::{
-        system::EntityCommands,
-        world::{DeferredWorld},
-    },
-    prelude::{Entity, World, Command},
+    ecs::{system::EntityCommands, world::DeferredWorld},
+    prelude::{Command, Entity, World},
 };
 use smallvec::SmallVec;
 
@@ -221,7 +218,8 @@ impl<'w> EntityCommandsExt for EntityCommands<'w> {
         R::To: ConnectableMut + Default,
     {
         let entity = self.id();
-        self.commands().queue(ConnectCommand::<R>::new(entity, peer));
+        self.commands()
+            .queue(ConnectCommand::<R>::new(entity, peer));
         self
     }
 
@@ -231,7 +229,8 @@ impl<'w> EntityCommandsExt for EntityCommands<'w> {
         R::To: ConnectableMut + Default,
     {
         let entity = self.id();
-        self.commands().queue(ConnectCommand::<R>::new(peer, entity));
+        self.commands()
+            .queue(ConnectCommand::<R>::new(peer, entity));
         self
     }
 
@@ -266,7 +265,8 @@ impl<'w> EntityCommandsExt for EntityCommands<'w> {
         R::To: ConnectableMut + Default,
     {
         let entity = self.id();
-        self.commands().queue(DisconnectAllCommand::<R>::new(entity));
+        self.commands()
+            .queue(DisconnectAllCommand::<R>::new(entity));
         self
     }
 

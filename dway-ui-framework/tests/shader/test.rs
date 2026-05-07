@@ -2,7 +2,11 @@ use bevy::prelude::*;
 use dway_ui_framework::{
     prelude::*,
     shader::{
-        self, ShaderAsset, ShaderPlugin, effect::*, fill::{Gradient, *}, shape::{Circle, Rect, *}
+        self,
+        effect::*,
+        fill::{Gradient, *},
+        shape::{Circle, Rect, *},
+        ShaderAsset, ShaderPlugin,
     },
 };
 

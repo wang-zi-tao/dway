@@ -1,3 +1,5 @@
+use std::result::Result;
+
 use dway_client_core::desktop::{CursorOnScreen, CursorOnWindow};
 use dway_server::{
     geometry::GlobalGeometry,
@@ -5,7 +7,6 @@ use dway_server::{
     util::rect::IRect,
     wl::surface::{ClientHasSurface, WlSurface},
 };
-use std::result::Result;
 
 use crate::prelude::*;
 

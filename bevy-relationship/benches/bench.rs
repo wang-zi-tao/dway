@@ -3,10 +3,7 @@ use std::collections::VecDeque;
 
 use bevy::{
     app::ScheduleRunnerPlugin,
-    ecs::{
-        system::RunSystemOnce,
-        prelude::Command,
-    },
+    ecs::{prelude::Command, system::RunSystemOnce},
     prelude::*,
 };
 use bevy_relationship::*;
@@ -145,8 +142,8 @@ fn bench_iter(c: &mut Criterion) {
 
     c.bench_function("query_path2_manual", |b| {
         b.iter(|| {
-            app.world_mut()
-                .run_system_once(|query: Query<(Entity, &WzPeer)>, query2: Query<Entity>| {
+            app.world_mut().run_system_once(
+                |query: Query<(Entity, &WzPeer)>, query2: Query<Entity>| {
                     let mut r: u64 = 0;
                     for (n0, f0) in query.iter() {
                         let mut iterator = query2.iter_many(f0.iter());
@@ -155,7 +152,8 @@ fn bench_iter(c: &mut Criterion) {
                         }
                     }
                     black_box(r);
-                })
+                },
+            )
         });
     });
 

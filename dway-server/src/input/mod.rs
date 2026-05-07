@@ -2,8 +2,8 @@ pub mod grab;
 pub mod keyboard;
 pub mod pointer;
 pub mod seat;
-pub mod touch;
 pub mod textinput;
+pub mod touch;
 
 use std::time::SystemTime;
 

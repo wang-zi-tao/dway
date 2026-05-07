@@ -1,9 +1,10 @@
+use bevy_relationship::relationship;
+
 use crate::{
     prelude::*,
     state::{add_global_dispatch, EntityFactory},
     wl::surface::{ClientHasSurface, WlSubsurface, WlSurface, WlSurfaceBundle},
 };
-use bevy_relationship::relationship;
 
 #[derive(Component)]
 pub struct WlCompositor {
@@ -58,6 +59,7 @@ impl wayland_server::Dispatch<wl_compositor::WlCompositor, bevy::prelude::Entity
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,
@@ -104,6 +106,7 @@ impl wayland_server::Dispatch<wl_subcompositor::WlSubcompositor, bevy::prelude::
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

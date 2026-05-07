@@ -45,7 +45,7 @@ ScreenWindows=>
     <(WindowUI{
         window_entity:*state.window_entity(),
         screen_geomety: *root_state.screen_geometry()
-    }) 
+    })
         @style="absolute full" @use_state(window_entity:Entity=Entity::PLACEHOLDER)
         @state_component(#[derive(Reflect)])
     />

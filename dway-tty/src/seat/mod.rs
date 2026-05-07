@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::Result;
-use bevy::{prelude::*, platform::collections::HashMap};
+use bevy::{platform::collections::HashMap, prelude::*};
 use crossbeam::queue::ArrayQueue;
 use getset::Getters;
 use libseat::{Seat, SeatEvent};
@@ -92,8 +92,9 @@ impl Plugin for SeatPlugin {
 
 #[cfg(test)]
 mod tests {
-    use super::SeatPlugin;
     use bevy::{log::LogPlugin, prelude::App};
+
+    use super::SeatPlugin;
 
     #[test]
     pub fn test_seat_plugin() {

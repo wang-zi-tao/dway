@@ -1,5 +1,6 @@
 use dway_client_core::navigation::windowstack::WindowStack;
 use dway_server::xdg::toplevel::DWayToplevel;
+
 use crate::prelude::*;
 
 #[derive(Component, Debug, Default)]
@@ -27,4 +28,3 @@ WindowTitle=>
     />
 </Node>
 }
-

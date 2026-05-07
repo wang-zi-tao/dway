@@ -1,6 +1,5 @@
-use crate::prelude::*;
-
 use super::DomDecorator;
+use crate::prelude::*;
 
 #[derive(Parse)]
 pub struct Plugin {
@@ -12,6 +11,7 @@ impl DomDecorator for Plugin {
     fn key(&self) -> super::DomArgKey {
         super::DomArgKey::Plugin
     }
+
     fn update_context(&self, context: &mut WidgetNodeContext) {
         context
             .tree_context

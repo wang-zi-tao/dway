@@ -26,9 +26,11 @@ fn close_window(
     event: UiEvent<UiButtonEvent>,
     prop_query: Query<&WorkspaceWindowPreviewPopupSubWidgetList>,
     mut events: MessageWriter<WindowAction>,
-){
-    let Ok(widget) = prop_query.get(event.receiver())else{return;};
-    if event.kind == UiButtonEventKind::Released{
+) {
+    let Ok(widget) = prop_query.get(event.receiver()) else {
+        return;
+    };
+    if event.kind == UiButtonEventKind::Released {
         events.write(WindowAction::Close(widget.data_entity));
     }
 }
@@ -37,9 +39,11 @@ fn focus_window(
     event: UiEvent<UiButtonEvent>,
     prop_query: Query<&WorkspaceWindowPreviewPopupSubWidgetList>,
     mut focused: ResMut<FocusedWindow>,
-){
-    let Ok(widget) = prop_query.get(event.receiver())else{return;};
-    if event.kind == UiButtonEventKind::Released{
+) {
+    let Ok(widget) = prop_query.get(event.receiver()) else {
+        return;
+    };
+    if event.kind == UiButtonEventKind::Released {
         focused.window_entity = Some(widget.data_entity);
     }
 }

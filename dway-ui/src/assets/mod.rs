@@ -1,5 +1,6 @@
-use crate::prelude::*;
 use bevy::asset::embedded_asset;
+
+use crate::prelude::*;
 
 pub struct DWayAssetsPlugin;
 impl Plugin for DWayAssetsPlugin {

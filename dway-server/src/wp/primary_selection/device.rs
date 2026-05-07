@@ -2,13 +2,12 @@ use wayland_protocols::wp::primary_selection::zv1::server::zwp_primary_selection
     self, ZwpPrimarySelectionDeviceV1,
 };
 
+use super::offer::ZwpPrimarySelectionOffer;
 use crate::{
     clipboard::{ClipboardDataDevice, ClipboardManager, ClipboardSource},
     prelude::*,
     wp::primary_selection::{source::PrimarySelectionSource, SourceOfSelection},
 };
-
-use super::offer::ZwpPrimarySelectionOffer;
 
 #[derive(Component, Reflect, Debug)]
 #[reflect(Debug)]

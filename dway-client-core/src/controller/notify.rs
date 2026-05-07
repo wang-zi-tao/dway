@@ -1,6 +1,15 @@
-use dbus::channel::MatchingReceiver;
+use std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
+    time::{Duration, SystemTime},
+};
+
 use dbus::{
     arg::{messageitem::MessageItem, Variant},
+    channel::MatchingReceiver,
     message::MatchRule,
 };
 use dbus_crossroads::Crossroads;
@@ -13,14 +22,6 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 use super::dbus::DBusController;
 use crate::prelude::*;
-use std::{
-    collections::HashMap,
-    sync::{
-        atomic::{AtomicU32, Ordering},
-        Arc,
-    },
-    time::{Duration, SystemTime},
-};
 
 pub const NOTIFY_DBUS_DEST: &str = "org.freedesktop.Notifications";
 pub const NOTIFY_DBUS_PATH: &str = "/org/freedesktop/Notifications";
@@ -63,7 +64,8 @@ structstruck::strike! {
     }
 }
 
-impl NotifyData {}
+impl NotifyData {
+}
 
 enum Request {
     ReceiveNotify(NotifyHistory),

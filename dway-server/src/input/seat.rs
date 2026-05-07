@@ -1,16 +1,13 @@
-use super::{
-    keyboard::WlKeyboard,
-    pointer::WlPointer,
-    touch::WlTouch,
-};
+use bevy_relationship::relationship;
+use wayland_server::protocol::wl_seat::Capability;
+
+use super::{keyboard::WlKeyboard, pointer::WlPointer, touch::WlTouch};
 use crate::{
     input::{keyboard::WlKeyboardBundle, pointer::WlPointerBundle, touch::WlTouchBundle},
     prelude::*,
     state::{add_global_dispatch, EntityFactory},
     wl::{cursor::PointerHasSurface, surface::WlSurface},
 };
-use bevy_relationship::relationship;
-use wayland_server::protocol::wl_seat::Capability;
 
 #[derive(Component, Reflect)]
 pub struct WlSeat {
@@ -31,24 +28,30 @@ impl WlSeat {
             enabled: true,
         }
     }
+
     pub fn enable(&mut self) {
         self.enabled = true;
     }
+
     pub fn disable(&mut self) {
         self.enabled = false;
     }
+
     pub fn grab(&mut self, surface: &WlSurface) {
         debug!(surface=%WlResource::id(&surface.raw),"set grab");
         self.grab_by = Some(surface.raw.clone());
     }
+
     pub fn unset_grab(&mut self) {
         debug!("unset grab");
         self.grab_by = None;
     }
+
     pub fn grab_raw(&mut self, surface: &wl_surface::WlSurface) {
         debug!(surface=%WlResource::id(surface),"set grab");
         self.grab_by = Some(surface.clone());
     }
+
     pub fn can_focus_on(&mut self, surface: &WlSurface) -> bool {
         if let Some(s) = &self.grab_by {
             if s.is_alive() {
@@ -69,9 +72,7 @@ pub struct WlSeatBundle {
 
 impl WlSeatBundle {
     pub fn new(seat: WlSeat) -> Self {
-        Self {
-            seat,
-        }
+        Self { seat }
     }
 }
 relationship!(SeatHasPointer=>PointerList :own --SeatOfPoint);
@@ -134,6 +135,7 @@ impl
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

@@ -24,7 +24,7 @@ NotifyButton=>
 @use_state(notify_count: usize)
 @global(theme:Theme)
 @global(asset_server: AssetServer)
-<UiButton NoTheme @on_event(open_notify_list)  
+<UiButton NoTheme @on_event(open_notify_list)
     @material(RoundedUiRectMaterial=>rounded_rect(theme.color("panel-popup1"), 8.0))
 >
     <(UiSvg::new(theme.icon("notifications", &asset_server))) @style="w-24 h-24" @id="icon"/>
@@ -37,7 +37,7 @@ pub struct NotifyView {
     pub with_close_button: bool,
 }
 
-dway_widget!{
+dway_widget! {
 NotifyView=>
 @global(theme: Theme)
 @global(asset_server: AssetServer)
@@ -56,7 +56,7 @@ NotifyView=>
         <Node ImageNode=(state.image().clone().into())
             Visibility=(visibility(state.image()!=&Handle::default()))/>
     </Node>
-    <Node @id="actions" 
+    <Node @id="actions"
         Visibility=(visibility(prop.notify.data.actions.is_empty()))
     @for(action: NotifyAction in prop.notify.data.actions.iter().cloned() => {
         state.set_action(action.name.clone());

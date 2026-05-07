@@ -1,6 +1,7 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::{parse::Parse, spanned::Spanned, Expr, Token};
+
 use crate::builder::QueryBuilder;
 
 pub enum Filter {
@@ -15,6 +16,7 @@ impl Filter {
             Filter::Lambda(t) => t.span,
         }
     }
+
     pub fn get_filter_expr(
         &self,
         builder: &mut QueryBuilder,
@@ -22,12 +24,10 @@ impl Filter {
         arg: TokenStream,
         ty: TokenStream,
     ) -> TokenStream {
-        
         match self {
             Filter::Expr(e) => quote!(#e),
             Filter::Lambda(t) => {
-                let lambda_name =
-                    builder.alloc_name(&format!("{}_filter", name), t.span);
+                let lambda_name = builder.alloc_name(&format!("{}_filter", name), t.span);
                 builder.add_param(quote_spanned! {t.span=>
                     mut #lambda_name: impl FnMut(#ty) -> bool
                 });
@@ -37,6 +37,7 @@ impl Filter {
             }
         }
     }
+
     pub fn build_modify_iter(
         &self,
         builder: &mut QueryBuilder,
@@ -51,6 +52,7 @@ impl Filter {
             #code
         };
     }
+
     pub fn build(
         &self,
         builder: &mut QueryBuilder,

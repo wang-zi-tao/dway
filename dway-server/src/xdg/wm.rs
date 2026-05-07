@@ -1,12 +1,11 @@
+use super::{
+    positioner::{XdgPositioner, XdgPositionerBundle},
+    XdgDelegate, XdgSurface, XdgSurfaceBundle,
+};
 use crate::{
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
     state::EntityFactory,
-};
-
-use super::{
-    positioner::{XdgPositioner, XdgPositionerBundle},
-    XdgDelegate, XdgSurface, XdgSurfaceBundle,
 };
 
 #[derive(Component)]

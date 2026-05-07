@@ -1,10 +1,11 @@
-use super::KeyLockState;
 use bevy::{
     input::keyboard::{Key, NativeKey, NativeKeyCode},
     prelude::{ButtonInput, KeyCode},
 };
 use dway_util::keys::*;
 use input::{event::tablet_pad::KeyState, Device};
+
+use super::KeyLockState;
 
 #[allow(non_upper_case_globals)]
 pub fn convert_keycode(

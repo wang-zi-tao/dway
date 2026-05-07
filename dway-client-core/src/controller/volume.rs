@@ -1,7 +1,7 @@
-
-use crate::prelude::*;
 use libpulse_binding::volume::Volume;
 use pulsectl::controllers::{DeviceControl, SinkController};
+
+use crate::prelude::*;
 
 pub struct VolumeController {
     pub controller: SinkController,

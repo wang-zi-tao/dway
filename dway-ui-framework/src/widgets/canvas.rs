@@ -1,11 +1,9 @@
 use bevy::{
+    camera::{ImageRenderTarget, RenderTarget, ScalingMode},
     math::FloatOrd,
     prelude::*,
-    camera::{ImageRenderTarget, RenderTarget, ScalingMode},
-    render::{
-        render_resource::{
-            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-        },
+    render::render_resource::{
+        Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     },
 };
 use const_fnv1a_hash::fnv1a_hash_16_xor;

@@ -57,10 +57,7 @@ VolumeControl=>
 />
 }
 
-pub fn open_popup(
-    event: UiEvent<UiButtonEvent>,
-    mut commands: Commands,
-) {
+pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
     if event.kind == UiButtonEventKind::Released {
         let style = style!("absolute top-42");
         commands

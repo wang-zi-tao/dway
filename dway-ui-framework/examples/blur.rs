@@ -1,6 +1,4 @@
-use bevy::{
-    prelude::*,
-};
+use bevy::prelude::*;
 use dway_ui_derive::spawn;
 use dway_ui_framework::{
     shader::{

@@ -18,10 +18,7 @@ pub fn get_node_rect(node: &Node, compiluted_node: &ComputedNode) -> Rect {
     Rect::from_corners(pos, pos + size)
 }
 
-pub fn set_node_position(
-    node: &mut Node,
-    pos: Vec2,
-) {
+pub fn set_node_position(node: &mut Node, pos: Vec2) {
     node.left = Val::Px(pos.x);
     node.top = Val::Px(pos.y);
 }

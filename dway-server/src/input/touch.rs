@@ -18,9 +18,7 @@ pub struct WlTouchBundle {
 
 impl WlTouchBundle {
     pub fn new(resource: WlTouch) -> Self {
-        Self {
-            resource,
-        }
+        Self { resource }
     }
 }
 
@@ -50,6 +48,7 @@ impl
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

@@ -1,5 +1,5 @@
-use crate::{parser::ParseCodeResult, prelude::*};
 use super::{DomArgKey, DomDecorator};
+use crate::{parser::ParseCodeResult, prelude::*};
 
 #[derive(Parse)]
 pub struct UseState {
@@ -25,6 +25,7 @@ impl DomDecorator for UseState {
     fn key(&self) -> DomArgKey {
         DomArgKey::State(self.name.to_string())
     }
+
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let Self {
             vis,
@@ -44,6 +45,7 @@ impl DomDecorator for UseState {
             quote! {#init},
         );
     }
+
     fn wrap_update(&self, inner: TokenStream, context: &mut WidgetNodeContext) -> TokenStream {
         let Self {
             name,
@@ -109,6 +111,7 @@ impl DomDecorator for StateComponent {
     fn key(&self) -> DomArgKey {
         DomArgKey::StateComponent
     }
+
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let state_builder = &mut context.tree_context.state_builder;
         state_builder
@@ -146,9 +149,13 @@ impl DomDecorator for StateReflect {
             .attributes
             .push(quote_spanned! {span=> #[derive(Reflect)]});
         let state_name = context.tree_context.state_builder.name.clone();
-        context.tree_context.plugin_builder.stmts.push(quote_spanned! {state_name.span()=>
-            app.register_type::<#state_name>();
-        });
+        context
+            .tree_context
+            .plugin_builder
+            .stmts
+            .push(quote_spanned! {state_name.span()=>
+                app.register_type::<#state_name>();
+            });
     }
 }
 
@@ -158,8 +165,12 @@ pub struct PropReflect {}
 impl DomDecorator for PropReflect {
     fn update_context(&self, context: &mut WidgetNodeContext) {
         let prop_name = format_ident!("{}", &context.tree_context.context.namespace);
-        context.tree_context.plugin_builder.stmts.push(quote_spanned! {prop_name.span()=>
-            app.register_type::<#prop_name>();
-        });
+        context
+            .tree_context
+            .plugin_builder
+            .stmts
+            .push(quote_spanned! {prop_name.span()=>
+                app.register_type::<#prop_name>();
+            });
     }
 }

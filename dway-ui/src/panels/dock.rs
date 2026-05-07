@@ -1,6 +1,8 @@
 use dway_ui_framework::theme::ThemeComponent;
 
-use crate::{panels::PanelButtonBundle, popups::dock_launcher, prelude::*, widgets::applist::AppListUI};
+use crate::{
+    panels::PanelButtonBundle, popups::dock_launcher, prelude::*, widgets::applist::AppListUI,
+};
 
 #[derive(Component)]
 pub struct Dock {
@@ -13,15 +15,15 @@ impl Dock {
     }
 }
 
-dway_widget!{
+dway_widget! {
 Dock=>
 @global(theme: Theme)
 @global(callbacks: CallbackTypeRegister)
 @global(asset_server: AssetServer)
 @global(mut assets_rounded_ui_rect_material: Assets<RoundedUiRectMaterial>)
-<Node 
-    ThemeComponent 
-    BlockStyle=(BlockStyle::Blur) 
+<Node
+    ThemeComponent
+    BlockStyle=(BlockStyle::Blur)
     GlobalZIndex=(crate::zindex::DOCK)>
     <AppListUI/>
     <(PanelButtonBundle::new(&theme,&mut assets!(RoundedUiRectMaterial)))

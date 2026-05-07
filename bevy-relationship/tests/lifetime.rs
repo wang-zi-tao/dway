@@ -1,10 +1,7 @@
-use bevy::{
-    app::ScheduleRunnerPlugin,
-    ecs::prelude::Command,
-    prelude::*,
-};
+use bevy::{app::ScheduleRunnerPlugin, ecs::prelude::Command, prelude::*};
 use bevy_relationship::{
-    relationship, ConnectCommand, Connectable, SharedReferenceFrom, SharedReferenceRelationship, UniqueReferenceRelationship
+    relationship, ConnectCommand, Connectable, SharedReferenceFrom, SharedReferenceRelationship,
+    UniqueReferenceRelationship,
 };
 
 relationship!(R0=>F0--T0);
@@ -52,9 +49,23 @@ fn test_shared_ref() {
     ConnectCommand::<SharedReferenceRelationship>::new(e0, e2).apply(app.world_mut());
     ConnectCommand::<SharedReferenceRelationship>::new(e1, e2).apply(app.world_mut());
 
-    assert_eq!(app.world().get::<SharedReferenceFrom>(e2).unwrap().iter().len(), 2);
+    assert_eq!(
+        app.world()
+            .get::<SharedReferenceFrom>(e2)
+            .unwrap()
+            .iter()
+            .len(),
+        2
+    );
     app.world_mut().despawn(e0);
-    assert_eq!(app.world().get::<SharedReferenceFrom>(e2).unwrap().iter().len(), 1);
+    assert_eq!(
+        app.world()
+            .get::<SharedReferenceFrom>(e2)
+            .unwrap()
+            .iter()
+            .len(),
+        1
+    );
     app.world_mut().despawn(e1);
     assert!(app.world().get_entity(e2).is_err());
 

@@ -1,5 +1,6 @@
-use proc_macro::Ident;
 use std::{collections::HashMap, rc::Rc};
+
+use proc_macro::Ident;
 use syn::Expr;
 
 use crate::syntax::node::NodeQuery;

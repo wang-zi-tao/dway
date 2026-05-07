@@ -6,9 +6,10 @@ pub mod relation;
 pub mod state;
 pub mod ui;
 
+use std::any::{type_name, Any, TypeId};
+
 use proc_macro2::{Span, TokenStream};
 use quote::quote_spanned;
-use std::any::{type_name, Any, TypeId};
 use syn::{ext::IdentExt, parse::ParseStream, spanned::Spanned, token::Brace, *};
 
 use self::{control::Id, data::InsertComponent, ui::Style};
@@ -45,8 +46,10 @@ pub trait DomDecorator: Any {
     fn need_sub_widget(&self) -> bool {
         false
     }
-    fn update_context(&self, _context: &mut WidgetNodeContext) {}
-    fn update_sub_widget_context(&self, _context: &mut WidgetNodeContext) {}
+    fn update_context(&self, _context: &mut WidgetNodeContext) {
+    }
+    fn update_sub_widget_context(&self, _context: &mut WidgetNodeContext) {
+    }
     fn get_component(&self, _context: &mut DomContext) -> Option<TokenStream> {
         None
     }

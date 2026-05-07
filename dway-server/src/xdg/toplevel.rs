@@ -3,10 +3,15 @@ use smart_default::SmartDefault;
 
 use super::{DWayWindow, XdgSurface};
 use crate::{
-    events::Insert, geometry::{Geometry, GlobalGeometry, set_geometry}, input::{
+    events::Insert,
+    geometry::{set_geometry, Geometry, GlobalGeometry},
+    input::{
         grab::{ResizeEdges, StartGrab, WlSurfacePointerState},
         seat::WlSeat,
-    }, prelude::*, resource::ResourceWrapper, wl::surface::{ClientHasSurface, WlSurface}
+    },
+    prelude::*,
+    resource::ResourceWrapper,
+    wl::surface::{ClientHasSurface, WlSurface},
 };
 
 #[derive(Component)]

@@ -1,7 +1,9 @@
 {
   inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
+    nixpkgs-old.url = "github:nixos/nixpkgs/nixos-25.05";
     flake-utils.url = "github:numtide/flake-utils";
-    unstable.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     fenix = {
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -10,17 +12,29 @@
   };
 
   # inputs.fenix.url = "github:nix-community/fenix";
-  outputs = inputs@{ self, nixpkgs, unstable, fenix, flake-utils, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs =
+    inputs@{
+      self,
+      nixpkgs,
+      nixpkgs-unstable,
+      fenix,
+      flake-utils,
+      ...
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
         fenix = inputs.fenix.packages.${system};
         rust-toolchain = fenix.complete;
-        unstable = import inputs.unstable { inherit system pkgs; };
+        unstable = import nixpkgs-unstable { inherit system pkgs; };
         nixpkgs-qt5 = import inputs.nixpkgs-qt5 { inherit system; };
         source-code = pkg: pkgs.stdenv.mkDerivation { src = pkg.src; };
+        nixpkgs-old = import inputs.nixpkgs-old { inherit system; };
         # qtbase = nixpkgs-qt5.libsForQt5.qt5.qtbase;
-      in {
+        mesa = pkgs.enableDebugging pkgs.mesa;
+      in
+      {
         devShell = pkgs.mkShell rec {
           nativeBuildInputs = with pkgs; [
             rust-toolchain.toolchain
@@ -37,6 +51,7 @@
             gcc-unwrapped
             nx-libs
             libinput
+            libudev-zero
             meson
             pixman
             (xwayland)
@@ -47,6 +62,7 @@
             # unstable.wlroots_0_16
             wayland-protocols
             wayland-scanner.dev
+            vulkan-tools
             hwdata
             glslang
             xorg.libXcursor
@@ -78,20 +94,20 @@
             # libsForQt5.qt5.qtdeclarative.dev
             # qt6.qtbase.dev
             # qt6.qtdeclarative.dev
-            
+
           ];
           buildInputs = with pkgs; [
+            nixpkgs-old.lldb_17
             tracy
             libinput
             seatd
-            mesa
             libgbm
             udev
             alsa-lib
+            vulkan-loader
             xorg.libXcursor
             xorg.libXrandr
             xorg.libXi # To use x11 feature
-            xorg.libX11
             libxkbcommon
             wayland # To use wayland feature
             libglvnd
@@ -107,18 +123,15 @@
             xorg.libX11
             graphene
             xorg.libxcb
-            vulkan-loader
-            vulkan-tools
-            libudev-zero
             # libsForQt5.qt5.qtbase
             # libsForQt5.qt5.qtdeclarative
             (buildEnv {
-                name = "qt6";
-                paths = with pkgs;[
-                    (qt6.qtbase )
-                    (qt6.qtdeclarative )
-                ];
-             })
+              name = "qt6";
+              paths = with pkgs; [
+                (qt6.qtbase)
+                (qt6.qtdeclarative)
+              ];
+            })
             harfbuzz
             gvfs
             openssl
@@ -129,16 +142,19 @@
             clang
           ];
           # LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs + "";
-          AMD_VULKAN_ICD = "RADV";
+          # AMD_VULKAN_ICD = "RADV";
           # AMD_VULKAN_ICD = "AMDVLK";
           # AMDVLK_ENABLE_DEVELOPING_EXT = "all";
           # VK_LOADER_DEBUG="all";
           # G_MESSAGES_DEBUG="all";
+          VK_INSTANCE_LAYERS = "VK_LAYER_KHRONOS_validation";
+          VK_ICD_FILENAMES = "${mesa}/share/vulkan/icd.d/intel_icd.x86_64.json";
+          MESA_DEBUG = "${mesa.debug}";
+          VK_LOADER_DEBUG = "all";
           shellHook = ''
-            export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${
-              pkgs.lib.makeLibraryPath buildInputs
-            }"
+            export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath buildInputs}"
           '';
         };
-      });
+      }
+    );
 }

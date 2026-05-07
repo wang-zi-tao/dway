@@ -195,7 +195,6 @@ impl TtyRender for GlTtyRender {
             return Err(TtyRenderError::TextureIsNotValid);
         };
 
-
         gl.bind_framebuffer(glow::DRAW_FRAMEBUFFER, Some(surface.frame_buffer));
         defer! {gl.bind_framebuffer(glow::DRAW_FRAMEBUFFER, None);};
 
@@ -225,7 +224,18 @@ impl TtyRender for GlTtyRender {
 
         gl.disable(glow::FRAMEBUFFER_SRGB);
         call_gl(gl, || {
-            gl.blit_framebuffer(0, 0, width, height, 0, 0, width, height, glow::COLOR_BUFFER_BIT, glow::LINEAR)
+            gl.blit_framebuffer(
+                0,
+                0,
+                width,
+                height,
+                0,
+                0,
+                width,
+                height,
+                glow::COLOR_BUFFER_BIT,
+                glow::LINEAR,
+            )
         })?;
         gl.enable(glow::FRAMEBUFFER_SRGB);
 

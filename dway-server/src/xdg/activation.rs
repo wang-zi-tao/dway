@@ -57,6 +57,7 @@ impl Dispatch<xdg_activation_v1::XdgActivationV1, Entity> for DWay {
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

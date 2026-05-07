@@ -1,5 +1,4 @@
 use convert_case::Casing;
-
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::Type;
@@ -29,6 +28,7 @@ impl BoolExpr {
             ),
         }
     }
+
     pub fn optional_token_stream(self) -> Option<TokenStream> {
         match self {
             BoolExpr::False => None,
@@ -53,10 +53,7 @@ pub fn convert_type_name(ty: &Type) -> String {
     let name = name.replace('_', "__");
     let name = name.replace(
         |c: char| {
-            !(c == '_'
-                || c.is_ascii_digit()
-                || c.is_ascii_uppercase()
-                || c.is_ascii_lowercase())
+            !(c == '_' || c.is_ascii_digit() || c.is_ascii_uppercase() || c.is_ascii_lowercase())
         },
         "__",
     );

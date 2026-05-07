@@ -2,8 +2,7 @@ use std::{marker::PhantomData, ops::Range};
 
 use super::{
     list::{ListRangeModel, ListViewModel},
-    ContainerViewModel, DataItem, EntityCommands, EntityWorldRef,
-    UpdateModel, ViewModel,
+    ContainerViewModel, DataItem, EntityCommands, EntityWorldRef, UpdateModel, ViewModel,
 };
 use crate::prelude::*;
 

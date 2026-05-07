@@ -5,9 +5,7 @@ use dway_server::apps::{
 use indexmap::IndexSet;
 
 use crate::{
-    panels::PanelPopup,
-    popups::app_window_preview::AppWindowPreviewPopup,
-    prelude::*,
+    panels::PanelPopup, popups::app_window_preview::AppWindowPreviewPopup, prelude::*,
     widgets::icon::UiIcon,
 };
 
@@ -100,7 +98,7 @@ AppListUI=>
                 <(Node{
                         width:Val::Percent(((*state.count() as f32)/4.0).min(1.0)*80.0),
                         ..style!("absolute bottom-0 h-2 align-center")
-                    }) @id="focus_mark" 
+                    }) @id="focus_mark"
                     BackgroundColor=((if *state.is_focused() {color!("#0000ff")} else {Color::WHITE} ).into())
                 />
             </UiButton>

@@ -1,20 +1,22 @@
 pub mod convert;
 
-use anyhow::anyhow;
-use dway_util::eventloop::{Poller, PollerGuard};
 use std::{
     os::fd::{AsFd, AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd},
     sync::{Arc, Mutex},
 };
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use bevy::{
     input::{
         keyboard::{Key, KeyboardInput},
         mouse::{MouseButtonInput, MouseMotion, MouseWheel},
         ButtonState,
-    }, math::DVec2, platform::collections::HashMap, prelude::*
+    },
+    math::DVec2,
+    platform::collections::HashMap,
+    prelude::*,
 };
+use dway_util::eventloop::{Poller, PollerGuard};
 use input::{
     event::{
         keyboard::KeyboardEventTrait, pointer::Axis, tablet_pad, EventTrait, KeyboardEvent,
@@ -25,8 +27,8 @@ use input::{
 use libseat::Seat;
 
 use crate::{
-    libinput::convert::convert_keycode, schedule::DWayTTYSet,
-    seat::SeatState, window::relative_to_window,
+    libinput::convert::convert_keycode, schedule::DWayTTYSet, seat::SeatState,
+    window::relative_to_window,
 };
 
 pub struct SeatLibinputInterface {
@@ -271,7 +273,7 @@ pub fn receive_events(
 pub struct LibInputPlugin;
 impl Plugin for LibInputPlugin {
     fn build(&self, app: &mut App) {
-        let libinput = unsafe{
+        let libinput = unsafe {
             let cell = app.world_mut().as_unsafe_world_cell();
             let mut seat = cell.get_non_send_resource_mut::<SeatState>().unwrap();
             let mut poller = cell.get_non_send_resource_mut::<Poller>().unwrap();

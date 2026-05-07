@@ -15,6 +15,7 @@ impl wayland_server::Dispatch<wl_shell::WlShell, bevy::prelude::Entity, DWay> fo
             _ => todo!(),
         }
     }
+
     fn destroyed(
         state: &mut DWay,
         _client: wayland_backend::server::ClientId,

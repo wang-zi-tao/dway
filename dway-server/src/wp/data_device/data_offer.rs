@@ -76,7 +76,10 @@ impl Dispatch<wl_data_offer::WlDataOffer, Entity> for DWay {
         let _enter = span.enter();
         debug!("request {:?}", &request);
         match request {
-            wl_data_offer::Request::Accept { serial: _, mime_type } => {
+            wl_data_offer::Request::Accept {
+                serial: _,
+                mime_type,
+            } => {
                 let accepted = if let Some(source) = state
                     .get::<DropFrom>(*data)
                     .and_then(|d| d.get())

@@ -43,9 +43,8 @@ use bevy::{
     },
     shader::{ShaderDefVal, ShaderRef},
     sprite_render::{
-        init_mesh_2d_pipeline,
-        tonemapping_pipeline_key, Material2d, Material2dBindGroupId, Material2dKey, Mesh2dPipeline, Mesh2dPipelineKey, MeshFlags,
-        PreparedMaterial2d,
+        init_mesh_2d_pipeline, tonemapping_pipeline_key, Material2d, Material2dBindGroupId,
+        Material2dKey, Mesh2dPipeline, Mesh2dPipelineKey, MeshFlags, PreparedMaterial2d,
         MATERIAL_2D_BIND_GROUP_INDEX,
     },
     ui_render::{

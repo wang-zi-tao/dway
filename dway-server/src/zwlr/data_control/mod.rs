@@ -1,7 +1,7 @@
-pub mod source;
-pub mod manager;
 pub mod device;
+pub mod manager;
 pub mod offer;
+pub mod source;
 
 use wayland_protocols_wlr::data_control::v1::server::zwlr_data_control_manager_v1::ZwlrDataControlManagerV1;
 

@@ -1,8 +1,8 @@
-use crate::dom::Dom;
 use proc_macro2::TokenStream;
 use quote::quote;
 
 use super::{Context, DomContext};
+use crate::dom::Dom;
 
 pub struct SpawnDomContext<'l> {
     pub dom_context: DomContext<'l>,

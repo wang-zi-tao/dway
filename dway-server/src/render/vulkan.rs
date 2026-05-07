@@ -15,10 +15,7 @@ use drm_fourcc::{DrmFormat, DrmFourcc, DrmModifier};
 use dway_util::formats::ImageFormat;
 use nix::{libc::makedev, sys::stat::fstat};
 use wgpu::{Extent3d, TexelCopyBufferLayout, TexelCopyTextureInfo, TextureAspect};
-use wgpu_hal::{
-    vulkan::Api as Vulkan,
-    DropCallback,
-};
+use wgpu_hal::{vulkan::Api as Vulkan, DropCallback};
 
 use super::{
     drm::{DrmInfo, DrmNode},
@@ -162,6 +159,7 @@ pub fn create_vulkan_dma_image(
     let physical = hal_device.raw_physical_device();
 
     let format = DrmFourcc::try_from(buffer.format)?;
+    let image_format = ImageFormat::from_drm_fourcc(format)?;
 
     debug!(size=?buffer.size, ?format, "create dma image");
 
@@ -203,6 +201,11 @@ pub fn create_vulkan_dma_image(
 
         let mut dmabuf_info = ash::vk::ExternalMemoryImageCreateInfoKHR::default()
             .handle_types(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
+
+        let view_formats = [image_format.vulkan_format];
+        let mut format_list_info =
+            ash::vk::ImageFormatListCreateInfo::default().view_formats(&view_formats);
+
         let create_image_info = ash::vk::ImageCreateInfo::default()
             .sharing_mode(SharingMode::EXCLUSIVE)
             .image_type(ImageType::TYPE_2D)
@@ -214,20 +217,26 @@ pub fn create_vulkan_dma_image(
             .tiling(ImageTiling::DRM_FORMAT_MODIFIER_EXT)
             .mip_levels(1)
             .array_layers(1)
-            .format(ImageFormat::from_drm_fourcc(format)?.vulkan_format)
+            .format(image_format.vulkan_format)
             .samples(SampleCountFlags::TYPE_1)
-            .usage(ImageUsageFlags::COLOR_ATTACHMENT)
+            .usage(
+                ImageUsageFlags::SAMPLED
+                    | ImageUsageFlags::TRANSFER_DST
+                    | ImageUsageFlags::TRANSFER_SRC,
+            )
             .flags(if is_disjoint {
                 ImageCreateFlags::DISJOINT
             } else {
                 ImageCreateFlags::empty()
             })
             .push_next(&mut dmabuf_info)
-            .push_next(&mut drm_info);
+            .push_next(&mut drm_info)
+            .push_next(&mut format_list_info);
         let image = device
             .create_image(&create_image_info, None)
             .map_err(|e| anyhow!("error while create_image: {e}"))?;
 
+        let phy_mem_prop = instance.get_physical_device_memory_properties(physical);
         let mut plane_infos = Vec::with_capacity(planes.len());
         let mut bind_infos = Vec::with_capacity(planes.len());
 
@@ -241,51 +250,45 @@ pub fn create_vulkan_dma_image(
                     ash::vk::ImagePlaneMemoryRequirementsInfo::default()
                         .plane_aspect(MEM_PLANE_ASCPECT[i]);
                 if is_disjoint {
-                    requirement_info.p_next = &mut plane_requirement_info
-                        as *mut ImagePlaneMemoryRequirementsInfo
-                        as *mut _;
+                    requirement_info = requirement_info.push_next(&mut plane_requirement_info);
                 }
-                let mut memory_requrement = ash::vk::MemoryRequirements2::default();
-                device.get_image_memory_requirements2(&requirement_info, &mut memory_requrement);
-                memory_requrement
+                let mut memory_requirement = ash::vk::MemoryRequirements2::default();
+                device.get_image_memory_requirements2(&requirement_info, &mut memory_requirement);
+                memory_requirement
             };
-            let phy_mem_prop = instance.get_physical_device_memory_properties(physical);
 
-            let fd_mem_type = if instance
-                .get_device_proc_addr(device.handle(), c"vkGetMemoryFdPropertiesKHR".as_ptr())
-                .is_some()
-            {
+            let mem_type = {
                 let mut properties = MemoryFdPropertiesKHR::default();
                 external_memory_fd::Device::new(instance, device).get_memory_fd_properties(
                     ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
                     plane.fd.as_fd().as_raw_fd(),
                     &mut properties,
                 )?;
-                properties.memory_type_bits
-            } else {
-                !0
+                phy_mem_prop
+                    .memory_types
+                    .iter()
+                    .enumerate()
+                    .position(|(i, _t)| {
+                        0 != (1 << i)
+                            & (memory_requirement.memory_requirements.memory_type_bits
+                                & properties.memory_type_bits)
+                                as usize
+                    })
+                    .ok_or_else(|| NoValidMemoryType)?
             };
 
             let mut fd_info = ash::vk::ImportMemoryFdInfoKHR::default()
                 .fd(plane.fd.into_raw_fd())
                 .handle_type(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
 
+            let mut dedicated_info = ash::vk::MemoryDedicatedAllocateInfo::default().image(image);
+
             let alloc_info = ash::vk::MemoryAllocateInfo::default()
                 .allocation_size(memory_requirement.memory_requirements.size.max(1))
-                .memory_type_index(
-                    phy_mem_prop
-                        .memory_types
-                        .iter()
-                        .enumerate()
-                        .position(|(i, _t)| {
-                            0 != (1 << i)
-                                & (memory_requirement.memory_requirements.memory_type_bits
-                                    & fd_mem_type) as usize
-                        })
-                        .map(|v| v as u32)
-                        .ok_or_else(|| NoValidMemoryType)?,
-                )
+                .memory_type_index(mem_type as u32)
+                .push_next(&mut dedicated_info)
                 .push_next(&mut fd_info);
+
             let memory = device
                 .allocate_memory(&alloc_info, None)
                 .map_err(|e| anyhow!("error while allocate_memory: {e}"))?;
@@ -394,12 +397,8 @@ pub fn create_wgpu_dma_image(
             let image_guard = create_vulkan_dma_image(&hal_device, request)?;
 
             let image = image_guard.image;
-            
-            hal_device.texture_from_raw(
-                image,
-                &hal_texture_descriptor(request.size, format)?,
-                None,
-            )
+
+            hal_device.texture_from_raw(image, &hal_texture_descriptor(request.size, format)?, None)
         };
 
         let gpu_image =

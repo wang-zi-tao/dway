@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 
 use bevy::{
     core_pipeline::core_2d::graph::{Core2d, Node2d},
-    render::{Render, RenderApp, RenderSet, render_graph::RenderGraphExt as _},
+    render::{render_graph::RenderGraphExt as _, Render, RenderApp, RenderSet},
 };
 use crossbeam_queue::SegQueue;
 use drm::DmaBackend;
@@ -148,7 +148,11 @@ impl Plugin for DWayServerRenderPlugin {
                 )
                 .add_render_graph_edges(
                     Core2d,
-                    (Node2d::MsaaWriteback, importnode::graph::Labels2d::Import, Node2d::StartMainPass),
+                    (
+                        Node2d::MsaaWriteback,
+                        importnode::graph::Labels2d::Import,
+                        Node2d::StartMainPass,
+                    ),
                 );
 
             render_app.add_systems(
@@ -159,9 +163,7 @@ impl Plugin for DWayServerRenderPlugin {
             );
             render_app.add_systems(
                 Render,
-                clean
-                    .after(RenderSet::Render)
-                    .before(RenderSet::Cleanup),
+                clean.after(RenderSet::Render).before(RenderSet::Cleanup),
             );
         }
     }

@@ -3,9 +3,13 @@ use std::collections::HashSet;
 use bevy::prelude::*;
 use bevy_relationship::{graph_query2, ControlFlow};
 use dway_server::{
-    events::Insert, geometry::GlobalGeometry, macros::{WindowAction}, xdg::{
-        DWayWindow, toplevel::{DWayToplevel, PinedWindow}
-    }
+    events::Insert,
+    geometry::GlobalGeometry,
+    macros::WindowAction,
+    xdg::{
+        toplevel::{DWayToplevel, PinedWindow},
+        DWayWindow,
+    },
 };
 use dway_util::update;
 use getset::Getters;
@@ -35,7 +39,10 @@ pub struct WindowStatistics {
     max: bool,
 }
 
-pub fn on_window_created(mut new_windows: MessageReader<Insert<DWayWindow>>, mut commands: Commands) {
+pub fn on_window_created(
+    mut new_windows: MessageReader<Insert<DWayWindow>>,
+    mut commands: Commands,
+) {
     for new_window in new_windows.read() {
         let entity = new_window.entity;
         commands.queue(move |world: &mut World| {

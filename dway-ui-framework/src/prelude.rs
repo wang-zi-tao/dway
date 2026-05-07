@@ -1,7 +1,7 @@
 pub(crate) use std::time::Duration;
 
 pub(crate) use bevy::{
-    app::{Update, PreUpdate, PostUpdate, Last},
+    app::{Last, PostUpdate, PreUpdate, Update},
     ecs::{
         lifecycle::{ComponentHook, HookContext},
         system::SystemId,
