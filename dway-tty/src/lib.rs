@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use bevy::{
     app::{AppExit, PluginsState},
-    ecs::event::EventCursor,
+    ecs::message::MessageCursor,
     prelude::*,
     window::RequestRedraw,
 };
@@ -73,8 +73,8 @@ fn runner(mut app: App) -> AppExit {
         app.cleanup();
     }
 
-    let mut redraw_events_reader = EventCursor::<RequestRedraw>::default();
-    let mut exit_events_reader = EventCursor::<AppExit>::default();
+    let mut redraw_events_reader = MessageCursor::<RequestRedraw>::default();
+    let mut exit_events_reader = MessageCursor::<AppExit>::default();
 
     let mut poller = app.world_mut().non_send_resource_mut::<Poller>().take();
 

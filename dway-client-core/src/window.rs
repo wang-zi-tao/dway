@@ -150,7 +150,7 @@ impl Plugin for DWayWindowPlugin {
             PreUpdate,
             (
                 on_window_created
-                    .run_if(on_event::<Insert<DWayWindow>>)
+                    .run_if(on_message::<Insert<DWayWindow>>)
                     .in_set(DWayClientSystem::InsertWindowComponent),
                 window_statistics_system.in_set(DWayClientSystem::UpdateScreen),
                 update_window.in_set(DWayClientSystem::UpdateWindow),

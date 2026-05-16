@@ -1,6 +1,6 @@
 use bevy::{
     prelude::*,
-    render::{Render, RenderApp, RenderSet},
+    render::{Render, RenderApp, RenderSystems},
 };
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
@@ -40,9 +40,9 @@ impl Plugin for DWayTtySchedulePlugin {
             Render,
             (
                 DWayTTYRemderSet::DrmEventSystem
-                    .after(RenderSet::Render)
-                    .before(RenderSet::Cleanup),
-                DWayTTYRemderSet::DrmCommitSystem.before(RenderSet::Cleanup),
+                    .after(RenderSystems::Render)
+                    .before(RenderSystems::Cleanup),
+                DWayTTYRemderSet::DrmCommitSystem.before(RenderSystems::Cleanup),
             )
                 .chain(),
         );

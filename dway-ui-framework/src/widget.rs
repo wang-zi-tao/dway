@@ -24,11 +24,11 @@ impl<B: Bundle, Q: QueryData, F: QueryFilter> WidgetQueryState<B, Q, F> {
         if let Ok((_entity, _data)) = query.get(entity) {}
     }
 
-    pub fn on_insert(trigger: Trigger<OnInsert, B>, query: Query<(Entity, Q), F>) {
-        Self::check_entity(trigger.target(), query);
+    pub fn on_insert(trigger: On<Insert, B>, query: Query<(Entity, Q), F>) {
+        Self::check_entity(trigger.entity, query);
     }
 
-    pub fn on_remove(trigger: Trigger<OnRemove, B>, query: Query<(Entity, Q), F>) {
-        Self::check_entity(trigger.target(), query);
+    pub fn on_remove(trigger: On<Remove, B>, query: Query<(Entity, Q), F>) {
+        Self::check_entity(trigger.entity, query);
     }
 }

@@ -16,8 +16,6 @@ pretty_env_logger = {workspace=true}
 rand = {workspace=true}
 uuid = {workspace=true}
 dhat = {version="0.3.2", optional=true}
-dexterous_developer = { workspace = true, optional=true}
-bevy_dexterous_developer = {workspace = true, optional=true}
 cfg-if = {workspace=true}
 pprof = {version="0.13", optional=true, features = ["flamegraph"]}
 
@@ -49,10 +47,6 @@ path = "../dway-ui-framework/"
 [dependencies.dway-util]
 path = "../dway-util/"
 
-[dependencies.serde]
-optional = true
-workspace = true
-
 [dependencies.tracing-subscriber]
 features = ["env-filter"]
 workspace = true
@@ -60,20 +54,12 @@ workspace = true
 [features]
 default = [
     "dway_log",
-    # "hot_reload",
 ]
 develop = ["dway-ui/develop"]
 dump_system_graph = ["dep:bevy_mod_debugdump"]
 debug = [ "develop", "dump_system_graph", "bevy/track_location"]
 debug_render = ["dep:renderdoc"]
 dway_log = []
-# hot_reload = [
-#     "dep:dexterous_developer",
-#     "dep:bevy_dexterous_developer",
-#     "dep:serde",
-#     "dway-ui/hot_reload",
-#     "bevy/dynamic_linking",
-# ]
 single_thread = []
 dhat-heap = ["dep:dhat"]    # if you are doing heap profiling
 dhat-ad-hoc = ["dep:dhat"]  # if you are doing ad hoc profiling
@@ -115,6 +101,3 @@ debug-assertions = false
 [profile.release]
 lto = "thin"
 strip = true
-
-[package.metadata]
-hot_reload_features = ["bevy/dynamic_linking", "bevy/embedded_watcher"]

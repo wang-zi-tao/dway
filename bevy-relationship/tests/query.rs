@@ -40,14 +40,14 @@ fn test_suit(system: BoxedSystem) {
             let e6 = command.spawn((C2(5), C0(5))).id();
             let e7 = command.spawn((C2(6), C0(6))).id();
             let e8 = command.spawn((C0(7), C1(7), C2(7))).id();
-            assert_eq!(e1.index(), 1);
-            assert_eq!(e2.index(), 2);
-            assert_eq!(e3.index(), 3);
-            assert_eq!(e4.index(), 4);
-            assert_eq!(e5.index(), 5);
-            assert_eq!(e6.index(), 6);
-            assert_eq!(e7.index(), 7);
-            assert_eq!(e8.index(), 8);
+            assert_eq!(e1.index_u32(), 1);
+            assert_eq!(e2.index_u32(), 2);
+            assert_eq!(e3.index_u32(), 3);
+            assert_eq!(e4.index_u32(), 4);
+            assert_eq!(e5.index_u32(), 5);
+            assert_eq!(e6.index_u32(), 6);
+            assert_eq!(e7.index_u32(), 7);
+            assert_eq!(e8.index_u32(), 8);
             command.entity(e1).connect_to::<R0>(e2);
             command.entity(e1).connect_to::<R1>(e3);
             command.entity(e1).connect_to::<R2>(e4);
@@ -112,7 +112,7 @@ fn test_query_node_query_filter() {
         move |graph: QueryNode| {
             let mut ops = HashSet::new();
             let r = graph.foreach_path(|e: &Entity| {
-                ops.insert(e.index());
+                ops.insert(e.index_u32());
                 ControlFlow::<()>::Continue
             });
             assert!(r.is_none());
@@ -157,7 +157,7 @@ fn test_query_node_entity() {
         move |graph: QueryNode| {
             let mut ops = HashSet::new();
             let r = graph.foreach_path(|(e, c): &(Entity, &C0)| {
-                ops.insert((e.index(), c.0));
+                ops.insert((e.index_u32(), c.0));
                 ControlFlow::<()>::Continue
             });
             assert!(r.is_none());
@@ -194,7 +194,7 @@ fn test_query_node_has() {
         move |graph: QueryNode| {
             let mut ops = HashSet::new();
             let r = graph.foreach_path(|(e, c): &(Entity, bool)| {
-                ops.insert((e.index(), *c));
+                ops.insert((e.index_u32(), *c));
                 ControlFlow::<()>::Continue
             });
             assert!(r.is_none());
@@ -225,7 +225,7 @@ fn test_query_node_option() {
         move |graph: QueryNode| {
             let mut ops = HashSet::new();
             let r = graph.foreach_path(|(e, c): &(Entity, Option<&C0>)| {
-                ops.insert((e.index(), c.is_some()));
+                ops.insert((e.index_u32(), c.is_some()));
                 ControlFlow::<()>::Continue
             });
             assert!(r.is_none());
@@ -256,7 +256,7 @@ fn test_query_node_tuple() {
         move |graph: QueryNode| {
             let mut ops = HashSet::new();
             let r = graph.foreach_path(|(e, _c): &(Entity, (&C0, &C1))| {
-                ops.insert(e.index());
+                ops.insert(e.index_u32());
                 ControlFlow::<()>::Continue
             });
             assert!(r.is_none());
@@ -274,7 +274,7 @@ fn test_query_node_struct() {
         move |graph: QueryNode| {
             let mut ops = HashSet::new();
             let r = graph.foreach_path(|(e, s)| {
-                ops.insert((e.index(), s.c0.0, s.c1.0));
+                ops.insert((e.index_u32(), s.c0.0, s.c1.0));
                 ControlFlow::<()>::Continue
             });
             assert!(r.is_none());
@@ -292,7 +292,7 @@ fn test_query_node_where() {
         move |graph: QueryNode| {
             let mut ops = HashSet::new();
             let r = graph.foreach_path(|(e, c)| {
-                ops.insert((e.index(), c.0));
+                ops.insert((e.index_u32(), c.0));
                 ControlFlow::<()>::Continue
             });
             assert!(r.is_none());
@@ -312,7 +312,7 @@ fn test_query_node_where_lambda() {
             let r = graph.foreach_path(
                 |(_, c)| c.0 < 6,
                 |(e, c)| {
-                    ops.insert((e.index(), c.0));
+                    ops.insert((e.index_u32(), c.0));
                     ControlFlow::<()>::Continue
                 },
             );
@@ -331,7 +331,7 @@ fn test_query_path2() {
         move |graph: QueryNode| {
             let mut ops = HashSet::new();
             let r = graph.foreach_path(|n0, n1| {
-                ops.insert((n0.index(), n1.index()));
+                ops.insert((n0.index_u32(), n1.index_u32()));
                 ControlFlow::<()>::Continue
             });
             assert!(r.is_none());
@@ -361,7 +361,7 @@ fn test_query_path3() {
         move |graph: QueryNode| {
             let mut ops = HashSet::new();
             let r = graph.foreach_path(|n0, n1, n2| {
-                ops.insert((n0.index(), n1.index(), n2.index()));
+                ops.insert((n0.index_u32(), n1.index_u32(), n2.index_u32()));
                 ControlFlow::<()>::Continue
             });
             assert!(r.is_none());
@@ -379,9 +379,9 @@ fn test_query_path_edge_filter() {
         move |graph: QueryNode| {
             let mut ops = HashSet::new();
             let r = graph.foreach_path(
-                |entity| entity.index() > 3,
+                |entity| entity.index_u32() > 3,
                 |n0, n1| {
-                    ops.insert((n0.index(), n1.index()));
+                    ops.insert((n0.index_u32(), n1.index_u32()));
                     ControlFlow::<()>::Continue
                 },
             );
@@ -412,7 +412,7 @@ fn test_query_path2_rev() {
         move |graph: QueryNode| {
             let mut ops = HashSet::new();
             let r = graph.foreach_path(|n0, n1| {
-                ops.insert((n0.index(), n1.index()));
+                ops.insert((n0.index_u32(), n1.index_u32()));
                 ControlFlow::<()>::Continue
             });
             assert!(r.is_none());
@@ -442,7 +442,7 @@ fn test_query_children() {
         move |graph: QueryNode| {
             let mut ops = HashSet::new();
             let r = graph.foreach_path(|n0, n1| {
-                ops.insert((n0.index(), n1.index()));
+                ops.insert((n0.index_u32(), n1.index_u32()));
                 ControlFlow::<()>::Continue
             });
             assert!(r.is_none());
@@ -460,7 +460,7 @@ fn test_query_edge_expr() {
         move |graph: QueryNode| {
             let mut ops = HashSet::new();
             let r = graph.foreach_path(|(n0, _children), n1| {
-                ops.insert((n0.index(), n1.index()));
+                ops.insert((n0.index_u32(), n1.index_u32()));
                 ControlFlow::<()>::Continue
             });
             assert!(r.is_none());
@@ -480,7 +480,7 @@ fn test_query_edge_lambda() {
             let r = graph.foreach_path(
                 |(_n0, children)| children.iter().collect::<Vec<_>>(),
                 |(n0, _children), n1| {
-                    ops.insert((n0.index(), n1.index()));
+                    ops.insert((n0.index_u32(), n1.index_u32()));
                     ControlFlow::<()>::Continue
                 },
             );
@@ -499,7 +499,7 @@ fn test_query_edge_many() {
         move |graph: QueryNode| {
             let mut ops = HashSet::new();
             let r = graph.foreach_path(|n0, n1| {
-                ops.insert((n0.index(), n1.index()));
+                ops.insert((n0.index_u32(), n1.index_u32()));
                 ControlFlow::<()>::Continue
             });
             assert!(r.is_none());
@@ -532,7 +532,7 @@ fn test_query_from_node() {
             let mut ops = HashSet::new();
             for entity in &query {
                 let r = graph.foreach_path_from(entity, |n0, n1| {
-                    ops.insert((n0.index(), n1.index()));
+                    ops.insert((n0.index_u32(), n1.index_u32()));
                     ControlFlow::<()>::Continue
                 });
                 assert!(r.is_none());
@@ -555,7 +555,7 @@ fn test_query_edge_deep() {
             let mut ops = HashSet::new();
             for entity in &query {
                 let r = graph.foreach_path_from(entity, |n0, n1| {
-                    ops.insert((n0.index(), n1.index()));
+                    ops.insert((n0.index_u32(), n1.index_u32()));
                     ControlFlow::<()>::Continue
                 });
                 assert!(r.is_none());

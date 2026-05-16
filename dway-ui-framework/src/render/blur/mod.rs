@@ -12,7 +12,8 @@ use bevy::{
         },
         render_resource::{
             binding_types::{sampler, texture_2d, uniform_buffer},
-            AddressMode, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
+            AddressMode, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutDescriptor,
+            BindGroupLayoutEntries,
             CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d,
             FragmentState, MultisampleState, Operations, PipelineCache, PrimitiveState,
             RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
@@ -24,7 +25,7 @@ use bevy::{
         renderer::{RenderContext, RenderDevice, RenderQueue},
         sync_world::{MainEntity, RenderEntity},
         texture::GpuImage,
-        Extract, RenderApp, RenderSet,
+        Extract, RenderApp, RenderSystems,
     },
 };
 use wgpu::{VertexFormat, VertexStepMode};
@@ -70,7 +71,7 @@ pub struct BlurData {
 
 pub struct BlurPipeline {
     pub shader: Handle<Shader>,
-    pub layout: BindGroupLayout,
+    pub layout: BindGroupLayoutDescriptor,
 }
 
 impl SpecializedRenderPipeline for BlurPipeline {
@@ -231,7 +232,7 @@ pub fn prepare_blur_pipeline(
             continue;
         }
 
-        let layout = render_device.create_bind_group_layout(
+        let layout_desc = BindGroupLayoutDescriptor::new(
             "blur",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT | ShaderStages::VERTEX_FRAGMENT,
@@ -242,6 +243,7 @@ pub fn prepare_blur_pipeline(
                 ),
             ),
         );
+        let layout = pipeline_cache.get_bind_group_layout(&layout_desc);
         let sampler = render_device.create_sampler(&SamplerDescriptor {
             label: Some("blur"),
             address_mode_u: AddressMode::Repeat,
@@ -254,7 +256,7 @@ pub fn prepare_blur_pipeline(
             &pipeline_cache,
             &BlurPipeline {
                 shader,
-                layout: layout.clone(),
+                layout: layout_desc,
             },
             blur.blur_method.kind(),
         );
@@ -398,7 +400,6 @@ impl ViewNode for BlurNode {
 
                     render_pass.set_index_buffer(
                         index_buffer_slice.buffer.slice(..),
-                        0,
                         *index_format,
                     );
 
@@ -427,7 +428,7 @@ impl Plugin for BlurRenderPlugin {
                 .add_systems(ExtractSchedule, extract_layer_manager)
                 .add_systems(
                     bevy::render::Render,
-                    prepare_blur_pipeline.in_set(RenderSet::PrepareAssets),
+                    prepare_blur_pipeline.in_set(RenderSystems::PrepareAssets),
                 )
                 .add_render_graph_node::<ViewNodeRunner<BlurNode>>(Core2d, BlurLabel)
                 .add_render_graph_edges(

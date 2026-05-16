@@ -39,8 +39,8 @@ impl Plugin for ControllerPlugin {
             .init_resource::<SystemInfo>()
             .init_resource::<UserInfo>()
             .init_resource::<NotifyController>()
-            .add_event::<SystemControllRequest>()
-            .add_event::<NotifyRequest>()
+.add_message::<SystemControllRequest>()
+        .add_message::<NotifyRequest>()
             .add_systems(
                 FixedFirst,
                 (
@@ -55,7 +55,7 @@ impl Plugin for ControllerPlugin {
                 Last,
                 (
                     systemcontroller::receive_system_controll_request
-                        .run_if(on_event::<SystemControllRequest>),
+                        .run_if(on_message::<SystemControllRequest>),
                     notify::do_receive_notify,
                 ),
             );

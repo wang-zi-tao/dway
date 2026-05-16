@@ -240,8 +240,8 @@ pub fn attach_to_app(
 pub struct DesktopEntriesPlugin;
 impl Plugin for DesktopEntriesPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<RunCommandRequest>();
-        app.add_event::<LaunchAppRequest>();
+        app.add_message::<RunCommandRequest>();
+        app.add_message::<LaunchAppRequest>();
         app.register_type::<DesktopEntry>();
         app.register_type::<LinuxIcon>();
         app.init_asset::<LinuxIcon>();
@@ -259,15 +259,12 @@ impl Plugin for DesktopEntriesPlugin {
         );
         app.add_systems(
             PreUpdate,
-            attach_to_app
-                .run_if(on_event::<WindowAppIdChanged>)
-                .in_set(DWayServerSet::UpdateAppInfo),
-        );
-        app.add_systems(
-            PostUpdate,
             (
-                run_command_system.run_if(on_event::<RunCommandRequest>),
-                launch_app_system.run_if(on_event::<LaunchAppRequest>),
+                attach_to_app
+                    .run_if(on_message::<WindowAppIdChanged>)
+                    .run_if(on_message::<WindowAttachedToApp>),
+                run_command_system.run_if(on_message::<RunCommandRequest>),
+                launch_app_system.run_if(on_message::<LaunchAppRequest>),
             ),
         );
     }

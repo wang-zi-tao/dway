@@ -1,5 +1,5 @@
 use bevy::{
-    ecs::{event::EventCursor, message::MessageCursor, system::SystemId},
+    ecs::{message::{MessageCursor, Messages}, system::SystemId},
     input::{
         keyboard::KeyboardInput,
         mouse::{MouseButtonInput, MouseWheel},
@@ -34,17 +34,17 @@ impl Plugin for DWayInputPlugin {
     fn build(&self, app: &mut App) {
         // app.add_system(print_pick_events.label(WindowLabel::Input));
 
-        app.add_event::<SurfaceInputEvent>();
+        app.add_message::<SurfaceInputEvent>();
         app.init_resource::<GrabManagerSystems>();
         app.init_resource::<GrabManager>();
         app.add_systems(
             PreUpdate,
             (
-                on_start_grab_event.run_if(on_event::<StartGrab>),
+                on_start_grab_event.run_if(on_message::<StartGrab>),
                 on_surface_input_event
-                    .run_if(on_event::<SurfaceInputEvent>)
+                    .run_if(on_message::<SurfaceInputEvent>)
                     .before(mouse_move_on_window),
-                mouse_move_on_window.run_if(on_event::<CursorMoved>),
+                mouse_move_on_window.run_if(on_message::<CursorMoved>),
             )
                 .chain()
                 .in_set(DWayClientSystem::Input),

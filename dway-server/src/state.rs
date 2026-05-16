@@ -13,7 +13,8 @@ use anyhow::anyhow;
 use bevy::{
     ecs::{
         entity::EntityHashSet,
-        event::EventCursor,
+        event::Trigger,
+        message::MessageCursor,
         query::{QueryData, QueryEntityError, QueryItem},
         relationship::Relationship as _,
     },
@@ -86,13 +87,13 @@ impl DWayServer {
         let display = poller.add_with_callback(
             wayland_server::Display::<DWay>::new().unwrap(),
             move |world| {
-                world.send_event(DispatchDisplay(entity));
+                world.write_message(DispatchDisplay(entity));
             },
         );
         let socket = poller.add_with_callback(
             ListeningSocket::bind_auto("wayland", 1..33).unwrap(),
             move |world| {
-                world.send_event(DispatchDisplay(entity));
+                world.write_message(DispatchDisplay(entity));
             },
         );
         info!("create wayland server {:?}", &socket.socket_name().unwrap());
@@ -638,9 +639,9 @@ impl DWay {
         Some(f(item))
     }
 
-    pub fn send_event<T: Message>(&mut self, event: T) {
+    pub fn send_message<T: Message>(&mut self, event: T) {
         let world = self.world_mut();
-        world.send_event(event);
+        world.write_message(event);
     }
 }
 
@@ -653,7 +654,7 @@ pub fn create_client(
     let guard = unsafe {
         let mut poller = world.non_send_resource_mut::<Poller>();
         poller.add_raw_with_callback(&client_stream, move |world| {
-            world.send_event(DispatchDisplay(display_entity));
+            world.write_message(DispatchDisplay(display_entity));
         })
     };
     let entity = world.spawn_empty().id();
@@ -674,7 +675,7 @@ pub fn create_client(
     }
     entity_mut.insert(ChildOf(display_entity));
     let entity = entity_mut.id();
-    world.send_event(Insert::<Client>::new(entity));
+    world.write_message(Insert::<Client>::new(entity));
 }
 
 #[derive(Message)]
@@ -691,18 +692,16 @@ impl Plugin for DWayStatePlugin {
     fn build(&self, app: &mut App) {
         app.init_non_send_resource::<NonSendMark>();
         app.init_resource::<DWayServerConfig>();
-        app.add_event::<CreateDisplay>();
-        app.add_event::<WaylandDisplayCreated>();
-        app.add_event::<WaylandDisplayDestroyed>();
+        app.add_message::<CreateDisplay>();
+        app.add_message::<WaylandDisplayCreated>();
+        app.add_message::<WaylandDisplayDestroyed>();
         app.add_systems(
             PreUpdate,
-            on_create_display_event.run_if(on_event::<CreateDisplay>),
-        );
-        app.add_systems(
-            PreUpdate,
-            dispatch_events
-                .run_if(on_event::<DispatchDisplay>)
-                .in_set(DWayServerSet::Dispatch),
+            (
+                on_create_display_event.run_if(on_message::<CreateDisplay>),
+                dispatch_events.run_if(on_message::<DispatchDisplay>)
+                    .in_set(DWayServerSet::Dispatch),
+            ),
         );
         app.add_systems(Last, flush_display.in_set(DWayServerSet::Clean));
     }
@@ -735,7 +734,7 @@ pub fn create_display(
     entity
 }
 
-pub fn dispatch_events(world: &mut World, mut event_reader: Local<EventCursor<DispatchDisplay>>) {
+pub fn dispatch_events(world: &mut World, mut event_reader: Local<MessageCursor<DispatchDisplay>>) {
     let displays = event_reader
         .read(world.resource())
         .map(|e| e.0)

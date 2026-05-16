@@ -15,7 +15,7 @@ use bevy::{
     ecs::schedule::{ExecutorKind, ScheduleLabel},
     platform::collections::HashMap,
     prelude::*,
-    winit::{EventLoopProxyWrapper, WakeUp},
+    winit::{EventLoopProxyWrapper, WinitUserEvent},
 };
 use nix::sys::{
     time::TimeSpec,
@@ -425,12 +425,12 @@ pub enum PollerSystems {
 }
 
 pub fn event_loop_winit_mode_startup(
-    event_loop_proxy: Res<EventLoopProxyWrapper<WakeUp>>,
+    event_loop_proxy: Res<EventLoopProxyWrapper>,
     mut poller: NonSendMut<Poller>,
 ) {
     let winit_eventloop_proxy = event_loop_proxy.clone();
     poller.launch(Some(Box::new(move |_event| {
-        let _ = winit_eventloop_proxy.send_event(WakeUp);
+        let _ = winit_eventloop_proxy.send_event(WinitUserEvent::WakeUp);
         false
     })));
 }

@@ -39,7 +39,7 @@ use bevy::{
         sync_world::MainEntity,
         texture::{FallbackImage, GpuImage},
         view::*,
-        Extract, RenderApp, RenderSet, RenderStartup,
+        Extract, RenderApp, RenderSystems, RenderStartup,
     },
     shader::{ShaderDefVal, ShaderRef},
     sprite_render::{
@@ -121,14 +121,14 @@ impl Plugin for UiMeshPlugin {
                     bevy::render::Render,
                     (
                         batch_and_prepare_sorted_render_phase::<TransparentUi, UiMesh2dPipeline>
-                            .in_set(RenderSet::PrepareResources),
+                            .in_set(RenderSystems::PrepareResources),
                         write_batched_instance_buffer::<UiMesh2dPipeline>
-                            .in_set(RenderSet::PrepareResourcesFlush),
-                        prepare_ui_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
-                        prepare_ui_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                            .in_set(RenderSystems::PrepareResourcesFlush),
+                        prepare_ui_mesh2d_bind_group.in_set(RenderSystems::PrepareBindGroups),
+                        prepare_ui_mesh2d_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                         clear_batched_cpu_instance_buffers::<UiMesh2dPipeline>
-                            .in_set(RenderSet::Cleanup)
-                            .after(RenderSet::Render),
+                            .in_set(RenderSystems::Cleanup)
+                            .after(RenderSystems::Render),
                     ),
                 )
                 .add_render_graph_node::<ViewNodeRunner<MsaaWritebackNode>>(
@@ -153,7 +153,7 @@ impl Plugin for UiMeshPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             let render_device = render_app.world().resource::<RenderDevice>();
             let batched_instance_buffer =
-                BatchedInstanceBuffer::<UiMesh2dUniform>::new(render_device);
+                BatchedInstanceBuffer::<UiMesh2dUniform>::new(&render_device.limits());
             render_app.insert_resource(batched_instance_buffer);
         }
     }
@@ -194,7 +194,7 @@ where
                 .add_systems(ExtractSchedule, extract_ui_mesh_handle::<T>)
                 .add_systems(
                     bevy::render::Render,
-                    queue_ui_meshes::<T>.in_set(RenderSet::QueueMeshes),
+                    queue_ui_meshes::<T>.in_set(RenderSystems::QueueMeshes),
                 );
         }
     }
@@ -313,7 +313,7 @@ pub fn extract_ui_mesh_node(
 
 #[derive(Resource, Clone)]
 pub struct UiMesh2dPipeline {
-    pub node_layout: BindGroupLayout,
+    pub node_layout: BindGroupLayoutDescriptor,
     pub mesh2d_pipeline: Mesh2dPipeline,
 }
 
@@ -330,11 +330,11 @@ pub fn init_ui_mesh_2d_pipeline(
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     mut commands: Commands,
 ) {
-    let node_layout = render_device.create_bind_group_layout(
+    let node_layout = BindGroupLayoutDescriptor::new(
         "ui_mesh2d_node_layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::VERTEX_FRAGMENT,
-            GpuArrayBuffer::<UiMeshNodeUniform>::binding_layout(&render_device),
+            GpuArrayBuffer::<UiMeshNodeUniform>::binding_layout(&render_device.limits()),
         ),
     );
 
@@ -342,17 +342,6 @@ pub fn init_ui_mesh_2d_pipeline(
         node_layout,
         mesh2d_pipeline: mesh2d_pipeline.clone(),
     })
-}
-
-impl UiMesh2dPipeline {
-    pub fn get_image_texture<'a>(
-        &'a self,
-        gpu_images: &'a RenderAssets<GpuImage>,
-        handle_option: &Option<Handle<Image>>,
-    ) -> Option<(&'a TextureView, &'a Sampler)> {
-        self.mesh2d_pipeline
-            .get_image_texture(gpu_images, handle_option)
-    }
 }
 
 impl GetBatchData for UiMesh2dPipeline {
@@ -432,7 +421,7 @@ impl SpecializedMeshPipeline for UiMesh2dPipeline {
 #[derive(Resource)]
 pub struct UiMeshMaterialPipeline<M: Material2d> {
     pub mesh2d_pipeline: UiMesh2dPipeline,
-    pub material2d_layout: BindGroupLayout,
+    pub material2d_layout: BindGroupLayoutDescriptor,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
     marker: PhantomData<M>,
@@ -499,7 +488,7 @@ pub fn init_ui_mesh_material_pipeline<M: Material2d>(
     mesh2d_pipeline: Res<UiMesh2dPipeline>,
     mut commands: Commands,
 ) {
-    let material2d_layout = M::bind_group_layout(&render_device);
+    let material2d_layout = M::bind_group_layout_descriptor(&render_device);
 
     commands.insert_resource(UiMeshMaterialPipeline {
         mesh2d_pipeline: mesh2d_pipeline.clone(),
@@ -527,13 +516,14 @@ pub fn prepare_ui_mesh2d_bind_group(
     mut commands: Commands,
     mesh2d_pipeline: Res<UiMesh2dPipeline>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     mesh2d_uniforms: Res<BatchedInstanceBuffer<UiMesh2dUniform>>,
 ) {
     if let Some(binding) = mesh2d_uniforms.binding() {
         commands.insert_resource(UiMesh2dBindGroup {
             value: render_device.create_bind_group(
                 "ui_mesh2d_bind_group",
-                &mesh2d_pipeline.mesh_layout,
+                &pipeline_cache.get_bind_group_layout(&mesh2d_pipeline.mesh_layout),
                 &BindGroupEntries::single(binding),
             ),
         });
@@ -548,6 +538,7 @@ pub struct UiMesh2dViewBindGroup {
 pub fn prepare_ui_mesh2d_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     mesh2d_pipeline: Res<UiMesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
     ui_views: Query<(Entity, &UiViewTarget)>,
@@ -570,7 +561,7 @@ pub fn prepare_ui_mesh2d_view_bind_groups(
                 get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
             let view_bind_group = render_device.create_bind_group(
                 "ui_mesh2d_view_bind_group",
-                &mesh2d_pipeline.view_layout,
+                &pipeline_cache.get_bind_group_layout(&mesh2d_pipeline.view_layout),
                 &BindGroupEntries::sequential((
                     view_binding.clone(),
                     globals.clone(),
@@ -853,7 +844,7 @@ impl<P: PhaseItem> RenderCommand<P> for DoDrawUiMesh {
                     return RenderCommandResult::Skip;
                 };
 
-                pass.set_index_buffer(index_buffer_slice.buffer.slice(..), 0, *index_format);
+                pass.set_index_buffer(index_buffer_slice.buffer.slice(..), *index_format);
 
                 pass.draw_indexed(
                     index_buffer_slice.range.start..(index_buffer_slice.range.start + count),

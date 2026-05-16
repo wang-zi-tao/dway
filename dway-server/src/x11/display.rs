@@ -131,8 +131,8 @@ impl XWaylandDisplay {
             poller.clone().add_raw(
                 &wayland_client_stream,
                 Some(Arc::new(move |world: &mut World| {
-                    world.send_event(DispatchXWaylandDisplay(entity));
-                    world.send_event(DispatchDisplay(dway_entity));
+                    world.write_message(DispatchXWaylandDisplay(entity));
+                    world.write_message(DispatchDisplay(dway_entity));
                 })),
             )
         };
@@ -171,7 +171,7 @@ impl XWaylandDisplay {
                     let stream = UnixStreamWrapper(poller.add(
                         stream,
                         Some(Arc::new(move |world: &mut World| {
-                            world.send_event(DispatchXWaylandDisplay(entity));
+                            world.write_message(DispatchXWaylandDisplay(entity));
                         })),
                     ));
                     let rust_connection = RustConnection::connect_to_stream(stream, 0)?;

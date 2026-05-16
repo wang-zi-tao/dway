@@ -17,7 +17,7 @@ use bevy::{
         settings::{Backends, RenderCreation, WgpuFeatures, WgpuSettings},
         RenderPlugin,
     },
-    winit::{WakeUp, WinitPlugin},
+    winit::WinitPlugin,
 };
 use bevy_framepace::Limiter;
 use clap::Parser;
@@ -45,34 +45,12 @@ const LOG_LEVEL: Level = Level::INFO;
 const LOG: &str = "\
 ";
 
-#[cfg(not(feature = "hot_reload"))]
 pub fn bevy_main() {
-    use bevy::prelude::*;
-
     let mut app = App::new();
     init_app(&mut app, DefaultPlugins.build());
 }
 
-#[cfg(feature = "hot_reload")]
-use bevy_dexterous_developer::{self, *};
 use spawn_app::spawn_apps_on_launch;
-
-#[cfg(feature = "hot_reload")]
-bevy_dexterous_developer::reloadable_main!(bevy_main(initial_plugins) {
-    use dexterous_developer::{ReloadMode, ReloadSettings, ReloadableElementPolicy};
-    use bevy::prelude::*;
-
-    let mut app = App::new();
-    app.insert_resource(ReloadSettings {
-        display_update_time: true,
-        manual_reload: Some(KeyCode::F2),
-        toggle_reload_mode: None,
-        reload_mode: ReloadMode::Full,
-        reloadable_element_policy: ReloadableElementPolicy::All,
-        reloadable_element_selection: None,
-    });
-    init_app(&mut app, initial_plugins.initialize::<DefaultPlugins>());
-});
 
 pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     #[cfg(feature = "dhat-heap")]
@@ -95,21 +73,6 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
     app.insert_resource(opts.clone());
     app.insert_resource(ClearColor(Color::NONE));
     app.insert_resource(Time::<Fixed>::from_hz(20.0));
-
-    if cfg!(feature = "single_thread") {
-        default_plugins = default_plugins.set(TaskPoolPlugin {
-            task_pool_options: TaskPoolOptions {
-                compute: bevy::app::TaskPoolThreadAssignmentPolicy {
-                    min_threads: 1,
-                    max_threads: 1,
-                    percent: 1.0,
-                    on_thread_spawn: None,
-                    on_thread_destroy: None,
-                },
-                ..Default::default()
-            },
-        });
-    }
 
     let enable_cpu_profile = cfg!(any(feature = "trace_tracy", feature = "trace_chrome"));
 
@@ -139,7 +102,6 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         })
         .set(AssetPlugin {
             file_path: opts.assets.clone(),
-            unapproved_path_mode: bevy::asset::UnapprovedPathMode::Allow,
             ..Default::default()
         })
         .add_before::<AssetPlugin>(LinuxIconSourcePlugin)
@@ -177,9 +139,8 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
             }
         }
 
-        app.add_event::<WakeUp>();
         app.add_plugins((
-            WinitPlugin::<WakeUp>::default(),
+            WinitPlugin::default(),
             dway_util::eventloop::EventLoopPlugin::default(),
             // bevy_framepace::FramepacePlugin,
         ));
@@ -234,13 +195,6 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         .edit_schedule(Last, |schedule| {
             schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
         });
-        if let Some(extract_app) =
-            app.get_sub_app_mut(bevy::render::pipelined_rendering::RenderExtractApp)
-        {
-            extract_app.edit_schedule(ExtractSchedule, |schedule| {
-                schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);
-            });
-        };
         if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp) {
             render_app.edit_schedule(bevy::render::Render, |schedule| {
                 schedule.set_executor_kind(bevy::ecs::schedule::ExecutorKind::SingleThreaded);

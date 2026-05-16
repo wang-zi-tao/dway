@@ -33,7 +33,7 @@ pub mod reexport {
 }
 
 use animation::AnimationEvent;
-use bevy::{camera::visibility::VisibilitySystems, ui::UiSystem};
+use bevy::{camera::visibility::VisibilitySystems, ui::UiSystems};
 use bevy_prototype_lyon::plugin::ShapePlugin;
 use bevy_svg::{prelude::Svg, SvgPlugin};
 pub use dway_ui_derive::*;
@@ -76,10 +76,10 @@ impl Plugin for UiFrameworkPlugin {
             widgets::inputbox::UiInputBoxPlugin,
             UiMeshMaterialPlugin::<Svg>::default(),
         ))
-        .add_event::<event::DespawnLaterEvent>()
+        .add_message::<event::DespawnLaterEvent>()
         .add_systems(
             Last,
-            event::on_despawn_later_event.run_if(on_event::<event::DespawnLaterEvent>),
+            event::on_despawn_later_event.run_if(on_message::<event::DespawnLaterEvent>),
         )
         .register_type::<UiCheckBox>()
         .register_type::<UiCheckBoxState>()
@@ -98,7 +98,7 @@ impl Plugin for UiFrameworkPlugin {
         .init_resource::<input::MousePosition>()
         .register_type::<input::UiFocusState>()
         .init_resource::<input::UiFocusState>()
-        .add_event::<input::UiFocusEvent>()
+        .add_message::<input::UiFocusEvent>()
         .register_type::<input::UiFocusEvent>()
         .register_type::<UiDrag>()
         .register_callback(delay_destroy)
@@ -107,11 +107,11 @@ impl Plugin for UiFrameworkPlugin {
             PreUpdate,
             (
                 input::update_mouse_position
-                    .run_if(on_event::<CursorMoved>)
+                    .run_if(on_message::<CursorMoved>)
                     .in_set(InputSystems),
                 update_ui_input
                     .in_set(InputSystems)
-                    .after(UiSystem::Focus)
+                    .after(UiSystems::Focus)
                     .after(input::update_mouse_position),
                 widgets::button::update_ui_button.in_set(WidgetInputSystems),
                 widgets::checkbox::update_ui_checkbox.in_set(WidgetInputSystems),
@@ -137,7 +137,7 @@ impl Plugin for UiFrameworkPlugin {
         .configure_sets(
             PreUpdate,
             (
-                InputSystems.after(bevy::ui::UiSystem::Focus),
+                InputSystems.after(bevy::ui::UiSystems::Focus),
                 WidgetInputSystems,
             )
                 .chain(),
@@ -150,7 +150,7 @@ impl Plugin for UiFrameworkPlugin {
                 UpdateWidgets,
                 (UpdatePopup, UpdateTheme, ApplyAnimation),
             )
-                .before(UiSystem::Layout),
+                .before(UiSystems::Layout),
         )
         .configure_sets(PostUpdate, UpdateLayersMaterial.after(UpdateLayers))
         .add_plugins((

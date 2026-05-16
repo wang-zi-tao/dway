@@ -287,12 +287,12 @@ impl<'l, 'g> WidgetDomContext<'l, 'g> {
                 }else{
                     let mut state = #sub_widget_state_type::default();
                     let mut widget = #sub_widget_type::default();
-                    let __dway_ui_last_run = bevy::ecs::component::Tick::new(0);
-                    let __dway_ui_this_run = bevy::ecs::component::Tick::new(0);
-                    let mut __dway_ui_state_added = bevy::ecs::component::Tick::new(0);
-                    let mut __dway_ui_state_changed = bevy::ecs::component::Tick::new(0);
-                    let mut __dway_ui_widget_added = bevy::ecs::component::Tick::new(0);
-                    let mut __dway_ui_widget_changed = bevy::ecs::component::Tick::new(0);
+                    let __dway_ui_last_run = bevy::ecs::change_detection::Tick::new(0);
+                    let __dway_ui_this_run = bevy::ecs::change_detection::Tick::new(0);
+                    let mut __dway_ui_state_added = bevy::ecs::change_detection::Tick::new(0);
+                    let mut __dway_ui_state_changed = bevy::ecs::change_detection::Tick::new(0);
+                    let mut __dway_ui_widget_added = bevy::ecs::change_detection::Tick::new(0);
+                    let mut __dway_ui_widget_changed = bevy::ecs::change_detection::Tick::new(0);
                     let mut __dway_ui_caller = bevy::ecs::change_detection::MaybeLocation::caller();
                     let mut __dway_ui_caller2 = bevy::ecs::change_detection::MaybeLocation::caller();
                     let #ident = #lambda_var(

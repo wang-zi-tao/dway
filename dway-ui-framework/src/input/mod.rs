@@ -1,7 +1,7 @@
 pub mod picking;
 
 use bevy::{
-    ecs::{event::EventCursor, query::QueryData},
+    ecs::{message::MessageCursor, query::QueryData},
     input::{
         keyboard::KeyboardInput,
         mouse::{MouseButtonInput, MouseWheel},
@@ -172,10 +172,10 @@ pub fn update_ui_input(
     mouse_button_state: Res<ButtonInput<MouseButton>>,
     mut ui_focus_event: MessageReader<UiFocusEvent>,
     mut ui_focus_state: ResMut<UiFocusState>,
-    mut wheel_event_cursor: Local<EventCursor<MouseWheel>>,
-    mut button_event_cursor: Local<EventCursor<MouseButtonInput>>,
-    wheel_events: Res<Events<MouseWheel>>,
-    mouse_button_events: Res<Events<MouseButtonInput>>,
+    mut wheel_event_cursor: Local<MessageCursor<MouseWheel>>,
+    mut button_event_cursor: Local<MessageCursor<MouseButtonInput>>,
+    wheel_events: Res<Messages<MouseWheel>>,
+    mouse_button_events: Res<Messages<MouseButtonInput>>,
     global_mouse_position: Res<MousePosition>,
 ) {
     for UiInputQueryItem {

@@ -23,7 +23,6 @@ bevy_svg = {workspace = true}
 const-fnv1a-hash = "1.1.0"
 bitflags = {workspace=true}
 derive_builder = {workspace=true}
-dexterous_developer = {  workspace = true, optional=true }
 serde = { workspace = true }
 measure_time = {workspace = true}
 smart-default = {workspace = true}
@@ -38,7 +37,6 @@ lazy_static = {workspace=true}
 pretty_assertions = "1.4.0"
 
 [features]
-# hot_reload = ["dep:dexterous_developer", "dway-ui-framework/hot_reload"]
 develop = ["dway-ui-framework/develop"]
 
 [profile.dev]

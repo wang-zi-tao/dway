@@ -49,7 +49,7 @@ pub struct GrabPlugin;
 
 impl Plugin for GrabPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<StartGrab>();
+        app.add_message::<StartGrab>();
         app.register_type::<WlSurfacePointerState>();
     }
 }

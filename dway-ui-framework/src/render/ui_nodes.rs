@@ -32,7 +32,7 @@ use bevy::{
         renderer::{RenderDevice, RenderQueue},
         sync_world::MainEntity,
         view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
-        Extract, Render, RenderApp, RenderSet, RenderStartup,
+        Extract, Render, RenderApp, RenderSystems, RenderStartup,
     },
     ui_render::{
         init_ui_material_pipeline, stack_z_offsets, PreparedUiMaterial, TransparentUi, UiCameraMap,
@@ -64,7 +64,7 @@ impl Plugin for UiNodeRenderPlugin {
                 .init_resource::<UiBatchMap>()
                 .add_systems(
                     Render,
-                    (prepare_ui_nodes.in_set(RenderSet::PrepareBindGroups),),
+                    (prepare_ui_nodes.in_set(RenderSystems::PrepareBindGroups),),
                 );
         }
     }
@@ -90,7 +90,7 @@ impl<M: UiMaterial<Data = ()>> Plugin for UiMaterialPlugin<M> {
                 .init_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
                 .add_systems(RenderStartup, init_ui_material_pipeline::<M>)
                 .add_systems(ExtractSchedule, extract_ui_nodes::<M>)
-                .add_systems(Render, queue_ui_nodes::<M>.in_set(RenderSet::Queue));
+                .add_systems(Render, queue_ui_nodes::<M>.in_set(RenderSystems::Queue));
         }
     }
 
@@ -608,7 +608,6 @@ impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
         pass.set_vertex_buffer(0, ui_meta.vertices.buffer().unwrap().slice(..));
         pass.set_index_buffer(
             ui_meta.indices.buffer().unwrap().slice(..),
-            0,
             IndexFormat::Uint32,
         );
         pass.draw_indexed(batch.range.clone(), 0, 0..1);

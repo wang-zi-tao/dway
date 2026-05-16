@@ -1,6 +1,5 @@
 use bevy::{
     camera::{ImageRenderTarget, RenderTarget},
-    math::FloatOrd,
     prelude::*,
     window::WindowRef,
 };
@@ -22,17 +21,23 @@ impl DrmCamera {
     }
 }
 
-pub fn before_ui_focus(mut query: Query<(&DrmCamera, &mut Camera)>) {
-    for (drm_info, mut camera) in &mut query {
-        camera.target = RenderTarget::Window(WindowRef::Entity(drm_info.drm_surface));
+pub fn before_ui_focus(
+    mut query: Query<(Entity, &DrmCamera)>,
+    mut commands: Commands,
+) {
+    for (entity, drm_info) in &mut query {
+        commands.entity(entity).insert(RenderTarget::Window(WindowRef::Entity(drm_info.drm_surface)));
     }
 }
 
-pub fn after_ui_focus(mut query: Query<(&DrmCamera, &mut Camera)>) {
-    for (drm_info, mut camera) in &mut query {
-        camera.target = RenderTarget::Image(ImageRenderTarget {
+pub fn after_ui_focus(
+    mut query: Query<(Entity, &DrmCamera)>,
+    mut commands: Commands,
+) {
+    for (entity, drm_info) in &mut query {
+        commands.entity(entity).insert(RenderTarget::Image(ImageRenderTarget {
             handle: drm_info.image_handle.clone(),
-            scale_factor: FloatOrd(1.0),
-        });
+            scale_factor: 1.0,
+        }));
     }
 }

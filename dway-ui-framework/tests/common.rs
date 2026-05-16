@@ -24,7 +24,7 @@ use bevy::{
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
         texture::GpuImage,
-        Render, RenderApp, RenderSet,
+        Render, RenderApp, RenderSystems,
     },
     window::{PresentMode, WindowResolution},
     winit::WinitPlugin,
@@ -258,11 +258,11 @@ fn start_unit_test(
         let camera_entity = commands
             .spawn((
                 Camera2d::default(),
+                RenderTarget::Image(ImageRenderTarget {
+                    handle: image_handle.clone(),
+                    scale_factor: 1.0,
+                }),
                 Camera {
-                    target: RenderTarget::Image(ImageRenderTarget {
-                        handle: image_handle.clone(),
-                        scale_factor: FloatOrd(1.0),
-                    }),
                     clear_color: ClearColorConfig::Custom(Color::WHITE),
                     ..Default::default()
                 },
@@ -296,7 +296,7 @@ fn receive_image_from_buffer(
             Ok(r) => s.send(r).expect("Failed to send map update"),
             Err(err) => panic!("Failed to map buffer {err}"),
         });
-        render_device.poll(wgpu::PollType::Wait).unwrap();
+        render_device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
         r.recv().expect("Failed to receive the map_async message");
         let vec = buffer_slice.get_mapped_range().to_vec();
         image_copier.buffer.unmap();
@@ -419,7 +419,7 @@ impl Plugin for TestPlugin {
             .add_systems(Last, (wait_render, check_exit).chain());
 
         let render_app = app.sub_app_mut(RenderApp);
-        render_app.add_systems(Render, receive_image_from_buffer.after(RenderSet::Render));
+        render_app.add_systems(Render, receive_image_from_buffer.after(RenderSystems::Render));
 
         let node = CopyImageNode::from_world(render_app.world_mut());
         let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();

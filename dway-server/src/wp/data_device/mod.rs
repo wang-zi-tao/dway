@@ -77,7 +77,7 @@ impl Dispatch<wl_data_device::WlDataDevice, Entity> for DWay {
                 if let Some(_surface_grab) =
                     state.get_mut::<WlSurfacePointerState>(DWay::get_entity(&origin))
                 {
-                    state.send_event(StartGrab::Drag {
+                    state.send_message(StartGrab::Drag {
                         surface: surface_entity,
                         seat: seat_entity,
                         data_device: *data,
@@ -154,6 +154,6 @@ impl Plugin for DataDevicePlugin {
             (ClipboardManager::receive_data_system, send_selection_system)
                 .in_set(DWayServerSet::UpdateClipboard),
         );
-        app.add_event::<ClipboardEvent>();
+        app.add_message::<ClipboardEvent>();
     }
 }

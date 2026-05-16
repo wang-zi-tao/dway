@@ -115,16 +115,16 @@ pub struct XWindowAttachSurfaceRequest {
 pub struct EventPlugin;
 impl Plugin for EventPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<ResizeWindow>();
-        app.add_event::<MoveWindow>();
-        app.add_event::<MoveRequest>();
-        app.add_event::<ResizeRequest>();
-        app.add_event::<WindowAction>();
-        app.add_event::<DispatchDisplay>();
-        app.add_event::<DispatchXWaylandDisplay>();
-        app.add_event::<WindowAppIdChanged>();
-        app.add_event::<WindowAttachedToApp>();
-        app.add_event::<XWindowChanged>();
-        app.add_event::<XWindowAttachSurfaceRequest>();
+    app.add_message::<ResizeWindow>();
+    app.add_message::<MoveWindow>();
+    app.add_message::<MoveRequest>();
+    app.add_message::<ResizeRequest>();
+    app.add_message::<WindowAction>();
+    app.add_message::<DispatchDisplay>();
+    app.add_message::<DispatchXWaylandDisplay>();
+    app.add_message::<WindowAppIdChanged>();
+    app.add_message::<WindowAttachedToApp>();
+    app.add_message::<XWindowChanged>();
+    app.add_message::<XWindowAttachSurfaceRequest>();
     }
 }

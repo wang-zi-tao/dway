@@ -143,7 +143,7 @@ pub struct ScreenPlugin;
 impl Plugin for ScreenPlugin {
     fn build(&self, app: &mut App) {
         app.register_relation::<ScreenContainsWindow>();
-        app.add_event::<Insert<Screen>>();
+        app.add_message::<Insert<Screen>>();
         app.add_systems(
             PreUpdate,
             (

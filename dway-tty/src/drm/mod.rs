@@ -20,7 +20,7 @@ use bevy::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         Render, RenderApp,
     },
-    ui::{ui_focus_system, UiSystem},
+    ui::{ui_focus_system, UiSystems},
 };
 use double_map::DHashMap;
 use drm::{
@@ -832,7 +832,7 @@ impl Plugin for DrmPlugin {
                     camera::before_ui_focus.before(ui_focus_system),
                     camera::after_ui_focus.after(ui_focus_system),
                 )
-                    .in_set(UiSystem::Focus),
+                    .in_set(UiSystems::Focus),
             )
             .register_type::<DrmCamera>();
         app.sub_app_mut(RenderApp)
@@ -840,7 +840,7 @@ impl Plugin for DrmPlugin {
                 Render,
                 recevie_drm_events.in_set(DWayTTYSet::DrmEventSystem),
             )
-            .add_event::<DrmEvent>();
+            .add_message::<DrmEvent>();
     }
 }
 

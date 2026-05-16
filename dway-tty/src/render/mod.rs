@@ -9,13 +9,13 @@ use bevy::{
     prelude::*,
     render::{
         render_asset::RenderAssets, renderer::RenderDevice, sync_component::SyncComponentPlugin,
-        sync_world::RenderEntity, texture::GpuImage, Extract, Render, RenderApp, RenderSet,
+        sync_world::RenderEntity, texture::GpuImage, Extract, Render, RenderApp, RenderSystems,
     },
 };
 use drm::control::framebuffer;
 use drm_fourcc::DrmFormat;
 use tracing::{span, Level};
-use wgpu_core::hal_api::HalApi;
+use wgpu_hal::Api as HalApi;
 use wgpu_hal::api::Gles;
 
 use self::gles::GlesRenderFunctions;
@@ -90,13 +90,13 @@ impl Plugin for TtyRenderPlugin {
                     Render,
                     init_render
                         .run_if(run_once)
-                        .in_set(RenderSet::PrepareResources),
+                        .in_set(RenderSystems::PrepareResources),
                 )
                 .add_systems(
                     Render,
                     commit_drm_surface::<gles::GlTtyRender>
                         .run_if(resource_exists::<TtySwapchains<gles::GlTtyRender>>)
-                        .in_set(RenderSet::Cleanup),
+                        .in_set(RenderSystems::Cleanup),
                 );
         }
     }

@@ -373,7 +373,7 @@ impl ClipboardManager {
             ))
             .id();
 
-        world.send_event(ClipboardEvent::SourceAdded(entity));
+        world.write_message(ClipboardEvent::SourceAdded(entity));
 
         let mut this = world.resource_mut::<Self>();
         this.records.push_back(entity);
@@ -381,7 +381,7 @@ impl ClipboardManager {
         if this.records.len() > this.count_limit {
             if let Some(record) = this.records.pop_front() {
                 world.entity_mut(record).despawn();
-                world.send_event(ClipboardEvent::SourceDeleted(entity));
+                world.write_message(ClipboardEvent::SourceDeleted(entity));
             }
         }
     }

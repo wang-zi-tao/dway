@@ -24,8 +24,6 @@ chrono = "0.4"
 lru = "0.12"
 nix = { version="^0.27", features=["fs", "signal", "socket", "mman", "time"] }
 serde = "1.0.158"
-dexterous_developer = { version="0.3", features = ["bevy", "hot"] }
-bevy_dexterous_developer = {version="0.3", features = ["hot"]}
 regex = "^1.8"
 regex-macro = "0.2.0"
 bitflags = "2.3.1"
@@ -68,18 +66,18 @@ proc-macro2 = "1.0"
 syn_derive = "0.1.8"
 derive-syn-parse = "0.1.5"
 
-bevy_framepace = "0.20"
-bevy_mod_debugdump = { version="0.14" }
-bevy_prototype_lyon = { git = "https://github.com/rparrett/bevy_prototype_lyon", tag = "v0.15.0" }
-bevy-trait-query = {version="0.17", features=[]}
-bevy-inspector-egui = { version="0.35", default-features=false, features = ["bevy_render", "highlight_changes"]}
-bevy_egui = { version="0.38.1" }
-bevy_image_export = "0.15.1"
+bevy_framepace = "0.21"
+bevy_mod_debugdump = { version="0.15" }
+bevy_prototype_lyon = "0.16"
+bevy-trait-query = {git="https://github.com/joseph-gio/bevy-trait-query", rev="3837861", features=[]}
+bevy-inspector-egui = { version="0.36", default-features=false, features = ["bevy_render", "highlight_changes"]}
+bevy_egui = { version="0.39.1" }
+bevy_image_export = "0.16"
 
-wgpu={version="26",features=["angle"]}
-wgpu-hal={version="26",features=["gles"]}
-wgpu-types={version="26"}
-wgpu-core={version="26"}
+wgpu={version="27",features=["angle"]}
+wgpu-hal={version="27",features=["gles"]}
+wgpu-types={version="27"}
+wgpu-core={version="27"}
 glow = {version="0.16"}
 khronos-egl = { version="6",features= ["dynamic","static"] }
 ash = { version = "0.38", features = [] }
@@ -93,11 +91,10 @@ wayland-protocols-wlr = { version = "0.3.8", features = ["server"]}
 wayland-protocols-misc = { version="0.3.8", features = ["server"]}
 
 [workspace.dependencies.bevy_svg]
-git = "https://github.com/wang-zi-tao/bevy_svg.git"
-tag = "v0.17.0"
+version = "0.18"
 
 [workspace.dependencies.bevy]
-version = "0.17.3"
+version = "0.18.1"
 default-features = false
 features = [
   "bevy_color",
@@ -131,6 +128,9 @@ features = [
   "default_font",
   "webgl2",
   # "bevy_debug_stepping",
+  "keyboard",
+  "mouse",
+  "touch",
 
   "async-io",
   "wayland",

@@ -183,7 +183,7 @@ impl wayland_server::Dispatch<wl_buffer::WlBuffer, bevy::prelude::Entity, DWay> 
         resource: &wl_buffer::WlBuffer,
         data: &bevy::prelude::Entity,
     ) {
-        state.send_event(Destroy::<WlBuffer>::new(*data));
+        state.send_message(Destroy::<WlBuffer>::new(*data));
         state.despawn_object(*data, resource);
     }
 }
@@ -418,6 +418,6 @@ impl Plugin for WlBufferPlugin {
     fn build(&self, app: &mut App) {
         add_global_dispatch::<wl_shm::WlShm, 1>(app);
         app.register_type::<WlShmBuffer>();
-        app.add_event::<Destroy<WlBuffer>>();
+        app.add_message::<Destroy<WlBuffer>>();
     }
 }

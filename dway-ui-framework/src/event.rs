@@ -6,7 +6,7 @@ use std::{
 
 use bevy::{
     ecs::{
-        event::{EntityTrigger, Trigger},
+        event::{EntityTrigger, SetEntityEventTarget, Trigger},
         lifecycle::HookContext,
         system::{EntityCommand, EntityCommands, IntoObserverSystem, SystemState},
     },
@@ -98,9 +98,11 @@ impl<E: Send + Sync + 'static> EntityEvent for UiEvent<E> {
     fn event_target(&self) -> Entity {
         self.receiver
     }
+}
 
-    fn event_target_mut(&mut self) -> &mut Entity {
-        &mut self.receiver
+impl<E: Send + Sync + 'static> SetEntityEventTarget for UiEvent<E> {
+    fn set_event_target(&mut self, entity: Entity) {
+        self.receiver = entity;
     }
 }
 

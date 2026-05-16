@@ -11,7 +11,7 @@ pub fn destroy_ui(entity: EntityWorldMut) {
     let entity_id = entity.id();
     let world = entity.into_world_mut();
     let mut param = SystemState::<(Query<&dyn DestroyInterceptor>, Commands)>::new(world);
-    let (query, mut commands) = param.get_manual(world);
+    let (query, mut commands) = param.get(world);
 
     let Ok(entity_ref) = world.get_entity(entity_id) else {
         return;

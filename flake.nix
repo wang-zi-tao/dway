@@ -32,7 +32,18 @@
         source-code = pkg: pkgs.stdenv.mkDerivation { src = pkg.src; };
         nixpkgs-old = import inputs.nixpkgs-old { inherit system; };
         # qtbase = nixpkgs-qt5.libsForQt5.qt5.qtbase;
-        mesa = pkgs.enableDebugging pkgs.mesa;
+        mesa = pkgs.enableDebugging (
+          pkgs.mesa.overrideAttrs (old: {
+            mesonBuildType = "debug";
+            dontStrip = true;
+            preBuild = (old.preBuild or "") + ''
+              	export NIX_CFLAGS_COMPILE="$NIX_CFLAGS_COMPILE -fsanitize=address -fno-omit-frame-pointer"
+                export ASAN_OPTIONS=detect_leaks=0:allocator_may_return_null=1:log_path=asan.log
+                export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1:log_path=ubsan.log_path
+            '';
+            hardeningDisable = [ "fortify" ];
+          })
+        );
       in
       {
         devShell = pkgs.mkShell rec {

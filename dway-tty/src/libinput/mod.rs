@@ -286,9 +286,9 @@ impl Plugin for LibInputPlugin {
             .init_resource::<PointerState>()
             .register_type::<KeyLockState>()
             .register_type::<PointerState>()
-            .add_event::<MouseMotion>()
-            .add_event::<MouseButtonInput>()
-            .add_event::<MouseWheel>()
-            .add_event::<KeyboardInput>();
+        .add_message::<MouseMotion>()
+        .add_message::<MouseButtonInput>()
+        .add_message::<MouseWheel>()
+        .add_message::<KeyboardInput>();
     }
 }

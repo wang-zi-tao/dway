@@ -67,11 +67,11 @@ pub enum SetWindowIndex {
 }
 
 pub fn init_window_index(
-    trigger: Trigger<OnAdd, DWayWindow>,
+    trigger: On<Add, DWayWindow>,
     config: Res<WindowStackConfig>,
     mut stack: ResMut<WindowStack>,
 ) {
-    let new_window = trigger.target();
+    let new_window = trigger.entity;
     match config.default_position {
         WindowIndexDefaultPosition::Top => {
             stack.list.push_front(new_window);
@@ -167,7 +167,7 @@ impl Plugin for WindowStackPlugin {
         app.register_type::<WindowIndex>()
             .init_resource::<WindowStackConfig>()
             .init_resource::<WindowStack>()
-            .add_event::<SetWindowIndex>()
+            .add_message::<SetWindowIndex>()
             .add_observer(init_window_index)
             .add_systems(
                 PreUpdate,
@@ -177,7 +177,7 @@ impl Plugin for WindowStackPlugin {
                         .in_set(DWayClientSystem::UpdateZIndex)
                         .before(update_window_index),
                     update_window_index
-                        .run_if(on_event::<SetWindowIndex>.or(resource_changed::<WindowStack>))
+                        .run_if(on_message::<SetWindowIndex>.or(resource_changed::<WindowStack>))
                         .in_set(DWayClientSystem::UpdateZIndex),
                 ),
             );

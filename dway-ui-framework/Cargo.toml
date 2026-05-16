@@ -21,8 +21,6 @@ bevy_svg.workspace = true
 const-fnv1a-hash = "1.1.0"
 bitflags = {workspace=true}
 derive_builder = {workspace=true}
-dexterous_developer = {  workspace = true, optional=true }
-bevy_dexterous_developer = {  workspace = true, optional=true }
 serde = { workspace = true }
 measure_time = {workspace = true}
 smart-default = {workspace = true}
@@ -64,11 +62,6 @@ bevy-inspector-egui = { workspace=true}
 
 [features]
 develop = ["dep:bevy-inspector-egui", "dep:egui_dock", "bevy/reflect_auto_register", "dway-util/debug"]
-# hot_reload = [
-#     "dep:dexterous_developer",
-#     "dep:bevy_dexterous_developer",
-#     "dway-ui-derive/hot_reload"
-# ]
 
 [profile.dev]
 opt-level = 1

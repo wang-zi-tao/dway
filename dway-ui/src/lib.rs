@@ -123,20 +123,20 @@ ScreenUI=>
 }
 
 fn init_screen_ui(
-    trigger: Trigger<OnAdd, Screen>,
+    trigger: On<Add, Screen>,
     screen_query: Query<(&DrmSurface, &Connector)>,
     window_query: Query<&Window>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    let entity = trigger.target();
+    let entity = trigger.entity;
     let (name, target) = if let Ok((drm_surface, connector)) = screen_query.get(entity) {
         let image_handle = drm_surface.image();
         (
             connector.name().to_string(),
             RenderTarget::Image(ImageRenderTarget {
                 handle: image_handle,
-                scale_factor: FloatOrd(1.0),
+                scale_factor: 1.0,
             }),
         )
     } else if let Ok(window) = window_query.get(entity) {
@@ -160,10 +160,8 @@ fn init_screen_ui(
             Name::new(name),
             Msaa::Sample4,
             Camera2d,
-            Camera {
-                target: target.clone(),
-                ..default()
-            },
+            target.clone(),
+            Camera::default(),
             LayerManager::default().with_window_target(entity),
         ))
         .id();

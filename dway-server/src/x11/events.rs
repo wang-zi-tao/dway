@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use bevy::ecs::{entity::EntityHashSet, event::EventCursor, relationship::Relationship as _};
+use bevy::ecs::{entity::EntityHashSet, message::MessageCursor, relationship::Relationship as _};
 use scopeguard::defer;
 use thiserror::Error;
 use x11rb::{
@@ -79,7 +79,7 @@ pub fn process_x11_event(
                     xwindow.surface_id = Some(wid);
                     world.entity_mut(xwindow_entity).insert(MappedXWindow);
 
-                    world.send_event(XWindowAttachSurfaceRequest { xwindow_entity });
+                    world.write_message(XWindowAttachSurfaceRequest { xwindow_entity });
                 }
                 t if t == atoms.WM_CHANGE_STATE => {
                     todo!()
@@ -119,7 +119,7 @@ pub fn process_x11_event(
                                     7 => ResizeEdges::LEFT,
                                     _ => unreachable!(),
                                 };
-                                dway.send_event(StartGrab::Resizing {
+                                dway.send_message(StartGrab::Resizing {
                                     surface: surface_entity,
                                     seat: display_entity,
                                     edges,
@@ -130,7 +130,7 @@ pub fn process_x11_event(
                             }
                             8 => {
                                 let mouse_pos = window_pointer.mouse_pos;
-                                dway.send_event(StartGrab::Move {
+                                dway.send_message(StartGrab::Move {
                                     surface: surface_entity,
                                     seat: display_entity,
                                     serial: None,
@@ -336,7 +336,7 @@ pub fn process_x11_event(
             let mut window = world.get_mut::<XWindow>(entity).unwrap();
             window.update_property(x, Some(e.atom))?;
             let surface = window.surface_entity;
-            world.send_event(XWindowChanged {
+            world.write_message(XWindowChanged {
                 xwindow_entity: entity,
                 surface_entity: surface,
             });
@@ -362,7 +362,7 @@ pub fn process_x11_event(
                 .and_then(|r| r.get())
             {
                 world.entity_mut(surface_entity).remove::<DWayWindow>();
-                world.send_event(Destroy::<DWayWindow>::new(surface_entity));
+                world.write_message(Destroy::<DWayWindow>::new(surface_entity));
                 dway.disconnect_all::<XWindowAttachSurface>(window_entity);
             }
         }
@@ -377,7 +377,7 @@ pub fn process_x11_event(
 
 pub fn dispatch_x11_events(
     world: &mut World,
-    mut event_reader: Local<EventCursor<DispatchXWaylandDisplay>>,
+    mut event_reader: Local<MessageCursor<DispatchXWaylandDisplay>>,
 ) {
     let display_entity_list = event_reader
         .read(world.resource())
@@ -439,7 +439,7 @@ pub fn dispatch_x11_events(
                                     x.windows_entitys.insert(screen.root, entity);
                                     x.screen_windows.insert(screen.root);
                                 }
-                                dway.send_event(DWayXWaylandReady::new(dway_entity));
+                                dway.send_message(DWayXWaylandReady::new(dway_entity));
                                 dway.connect::<DWayHasXWayland>(dway_entity, display_entity);
                                 return Ok(());
                             }
@@ -447,7 +447,7 @@ pub fn dispatch_x11_events(
                             crate::x11::XWaylandThreadEvent::Disconnect(e) => {
                                 dway.despawn_tree(display_entity);
                                 info!(cause=?e,"despawn xwayland on {display_entity:?}");
-                                dway.send_event(DWayXWaylandStoped::new(dway_entity));
+                                dway.send_message(DWayXWaylandStoped::new(dway_entity));
                                 dway.disconnect::<DWayHasXWayland>(dway_entity, display_entity);
                                 return Ok(());
                             }

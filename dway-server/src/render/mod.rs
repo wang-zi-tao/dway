@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 
 use bevy::{
     core_pipeline::core_2d::graph::{Core2d, Node2d},
-    render::{render_graph::RenderGraphExt as _, Render, RenderApp, RenderSet},
+    render::{render_graph::RenderGraphExt as _, Render, RenderApp, RenderSystems},
 };
 use crossbeam_queue::SegQueue;
 use drm::DmaBackend;
@@ -134,11 +134,11 @@ impl Plugin for DWayServerRenderPlugin {
             render_app.add_systems(ExtractSchedule, importnode::extract_surface);
             render_app.add_systems(
                 Render,
-                DWayServerRenderServer::extract_system.in_set(RenderSet::PrepareAssets),
+                DWayServerRenderServer::extract_system.in_set(RenderSystems::PrepareAssets),
             );
             render_app.add_systems(
                 Render,
-                importnode::prepare_surfaces.after(RenderSet::PrepareAssets),
+                importnode::prepare_surfaces.after(RenderSystems::PrepareAssets),
             );
 
             render_app
@@ -159,11 +159,11 @@ impl Plugin for DWayServerRenderPlugin {
                 Render,
                 drm::init_drm_state
                     .run_if(|s: Res<DWayServerRenderServer>| s.is_added())
-                    .in_set(RenderSet::Prepare),
+                    .in_set(RenderSystems::Prepare),
             );
             render_app.add_systems(
                 Render,
-                clean.after(RenderSet::Render).before(RenderSet::Cleanup),
+                clean.after(RenderSystems::Render).before(RenderSystems::Cleanup),
             );
         }
     }

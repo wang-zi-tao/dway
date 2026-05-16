@@ -1,6 +1,6 @@
 use bevy::{
     prelude::*,
-    window::{PresentMode, WindowLevel, WindowMode, WindowResolution},
+    window::{PresentMode, VideoModeSelection, WindowLevel, WindowMode, WindowResolution},
 };
 
 use crate::drm::{connectors::Connector, surface::DrmSurface};
@@ -25,7 +25,6 @@ pub fn create_window(conn: &Connector, surface: &DrmSurface) -> Window {
         transparent: false,
         focused: false,
         window_level: WindowLevel::AlwaysOnTop,
-        canvas: None,
         prevent_default_event_handling: false,
         ..Default::default()
     }

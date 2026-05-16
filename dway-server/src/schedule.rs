@@ -1,4 +1,4 @@
-use bevy::{ecs::schedule::ScheduleLabel, ui::UiSystem};
+use bevy::{ecs::schedule::ScheduleLabel, ui::UiSystems};
 use dway_util::eventloop::PollerSystems;
 
 use crate::prelude::*;
@@ -93,7 +93,7 @@ impl Plugin for DWayServerSchedulePlugin {
         app.configure_sets(
             PreUpdate,
             (
-                Input.before(UpdateGeometry).after(UiSystem::Focus),
+                Input.before(UpdateGeometry).after(UiSystems::Focus),
                 GrabInput,
                 InputFlush,
             )

@@ -23,18 +23,18 @@ pub struct WorkspaceManager {
 }
 
 pub fn on_new_workspace(
-    trigger: Trigger<OnInsert, Workspace>,
+    trigger: On<Insert, Workspace>,
     mut workspace_manager: ResMut<WorkspaceManager>,
 ) {
-    workspace_manager.workspaces.push(trigger.target());
+    workspace_manager.workspaces.push(trigger.entity);
 }
 pub fn on_destroy_workspace(
-    trigger: Trigger<OnRemove, Workspace>,
+    trigger: On<Remove, Workspace>,
     mut workspace_manager: ResMut<WorkspaceManager>,
 ) {
     workspace_manager
         .workspaces
-        .retain(|e| *e != trigger.target());
+        .retain(|e| *e != trigger.entity);
 }
 
 graph_query2! { FocusedWindowGraph=>
@@ -107,7 +107,7 @@ pub fn resolve_workspace_request(
     mut geometry_query: Query<&mut Geometry>,
     mut commands: Commands,
 ) {
-    match &trigger.event().kind {
+    match &trigger.kind {
         WorkspaceRequestKind::AttachToScreen { screen, unique } => {
             if *unique {
                 commands
@@ -115,17 +115,17 @@ pub fn resolve_workspace_request(
                     .disconnect_all::<ScreenAttachWorkspace>();
             }
             commands
-                .entity(trigger.target())
+                .entity(trigger.workspace)
                 .connect_from::<ScreenAttachWorkspace>(*screen);
             if let Ok([screen_geo, mut workspace_geo]) =
-                geometry_query.get_many_mut([*screen, trigger.target()])
+                geometry_query.get_many_mut([*screen, trigger.workspace])
             {
                 *workspace_geo = screen_geo.clone();
             };
         }
         WorkspaceRequestKind::LeaveScreen { screen } => {
             commands
-                .entity(trigger.target())
+                .entity(trigger.workspace)
                 .disconnect_from::<ScreenAttachWorkspace>(*screen);
         }
         WorkspaceRequestKind::AttachWindow { window, unique } => {
@@ -136,12 +136,12 @@ pub fn resolve_workspace_request(
             }
             commands
                 .entity(*window)
-                .connect_to::<WindowOnWorkspace>(trigger.target());
+                .connect_to::<WindowOnWorkspace>(trigger.workspace);
         }
         WorkspaceRequestKind::RemoveWindow { window } => {
             commands
                 .entity(*window)
-                .disconnect_to::<WindowOnWorkspace>(trigger.target());
+                .disconnect_to::<WindowOnWorkspace>(trigger.workspace);
         }
         WorkspaceRequestKind::UpdateWorkspace => {}
     }
@@ -181,7 +181,7 @@ pub fn attach_window_to_workspace(
     geo_query: Query<&GlobalGeometry>,
     mut commands: Commands,
 ) {
-    let ScreenNotifyKind::WindowEnter(window_entity) = &trigger.event().kind else {
+    let ScreenNotifyKind::WindowEnter(window_entity) = &trigger.kind else {
         return;
     };
     let Ok(window_rect) = geo_query.get(*window_entity) else {
@@ -194,7 +194,7 @@ pub fn attach_window_to_workspace(
         .map(|l| l.is_empty())
         .unwrap_or(true)
     {
-        if let Ok(workspace_list) = screen_query.get(trigger.target()) {
+        if let Ok(workspace_list) = screen_query.get(trigger.screen) {
             for workspace in workspace_list.iter() {
                 let Ok(workspace_rect) = geo_query.get(workspace) else {
                     warn!(entity=?workspace, "the workspace has no GlobalGeometry");
@@ -214,7 +214,7 @@ pub fn attach_window_to_workspace(
 }
 
 pub fn on_add_screen(
-    trigger: Trigger<OnInsert, Screen>,
+    trigger: On<Insert, Screen>,
     screen_query: Query<(Entity, &GlobalGeometry)>,
     mut workspace_query: Query<
         (Entity, &mut Workspace, &mut Geometry),
@@ -222,7 +222,7 @@ pub fn on_add_screen(
     >,
     mut commands: Commands,
 ) {
-    if let Ok((screen_entity, screen_geo)) = screen_query.get(trigger.target()) {
+    if let Ok((screen_entity, screen_geo)) = screen_query.get(trigger.entity) {
         for (workspace_entity, workspace, mut workspace_geo) in workspace_query.iter_mut() {
             if workspace.no_screen && !workspace.hide {
                 commands.queue(ConnectCommand::<ScreenAttachWorkspace>::new(

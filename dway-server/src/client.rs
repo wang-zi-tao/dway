@@ -88,8 +88,8 @@ pub struct ClientPlugin;
 impl Plugin for ClientPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Last, clean_client.in_set(DWayServerSet::Clean));
-        app.add_event::<Insert<Client>>();
-        app.add_event::<Destroy<Client>>();
+    app.add_message::<Insert<Client>>();
+    app.add_message::<Destroy<Client>>();
         app.init_resource::<ClientEvents>();
     }
 }

@@ -1,6 +1,5 @@
 use bevy::{
     camera::{ImageRenderTarget, RenderTarget, ScalingMode},
-    math::FloatOrd,
     prelude::*,
     render::render_resource::{
         Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
@@ -210,12 +209,12 @@ pub fn prepare_render_command(
                     .spawn((
                         Camera {
                             order: -(render_area.alloc_count as isize),
-                            target: RenderTarget::Image(ImageRenderTarget {
-                                handle,
-                                scale_factor: FloatOrd(1.0),
-                            }),
                             ..default()
                         },
+                        RenderTarget::Image(ImageRenderTarget {
+                            handle,
+                            scale_factor: 1.0,
+                        }),
                         Camera2d,
                         projection,
                         transform,

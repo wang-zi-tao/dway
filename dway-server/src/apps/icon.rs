@@ -8,7 +8,7 @@ use std::{
 
 use bevy::{
     asset::{
-        io::{AssetReader, AssetReaderError, AssetSource, PathStream, VecReader},
+        io::{AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, VecReader},
         meta::{AssetAction, AssetMeta},
         AssetLoader,
     },
@@ -84,7 +84,7 @@ pub struct LinuxIconSettings {
     pub icon: LinuxIconUrl,
 }
 
-#[derive(Debug)]
+#[derive(Debug, TypePath)]
 pub struct LinuxIconLoader {
     pub icon_loader: icon_loader::IconLoader,
 }
@@ -211,7 +211,7 @@ impl Plugin for LinuxIconSourcePlugin {
         app.add_plugins(AssetCachePlugin::<LinuxIcon>::default());
         app.register_asset_source(
             "linuxicon",
-            AssetSource::build().with_reader(|| Box::new(LinuxIconReader::default())),
+            AssetSourceBuilder::new(|| Box::new(LinuxIconReader::default())),
         );
     }
 }

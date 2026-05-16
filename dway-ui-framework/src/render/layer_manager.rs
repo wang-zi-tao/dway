@@ -12,7 +12,7 @@ use bevy::{
         TextureUsages,
     },
     transform::components::Transform,
-    ui::{ui_focus_system, UiSystem},
+    ui::{ui_focus_system, UiSystems},
     window::{PrimaryWindow, WindowRef},
 };
 use bevy_relationship::reexport::Entity;
@@ -145,6 +145,7 @@ pub struct CameraQuery<'w, 's> {
         (
             &'static mut Camera,
             &'static mut SetWindowTarget,
+            &'static mut RenderTarget,
             Option<&'static mut LayerCamera>,
         ),
     >,
@@ -180,12 +181,13 @@ impl BaseLayerRef {
         render_target: &mut RenderTarget,
         window_target: &RenderTarget,
     ) {
-        let (mut camera, mut backup, _) = camera_query.camera.get_mut(self.camera).unwrap();
+        let (_, mut backup, mut camera_target, _) =
+            camera_query.camera.get_mut(self.camera).unwrap();
         backup.0 = Some(BackupRenderTargetInner {
             window_target: window_target.clone(),
             layer: render_target.clone(),
         });
-        camera.target = render_target.clone();
+        *camera_target = render_target.clone();
     }
 }
 
@@ -240,10 +242,10 @@ impl LayerRef {
                 Camera2d,
                 Camera {
                     clear_color: Color::BLACK.into(),
-                    target: render_target.clone(),
                     order,
                     ..Default::default()
                 },
+                render_target.clone(),
                 transform,
                 LayerCamera {
                     layer_manager: manager_entity,
@@ -285,7 +287,8 @@ impl Layer for LayerRef {
         window_target: &RenderTarget,
         size: Vec2,
     ) {
-        let (mut camera, mut backup, layer) = camera_query.camera.get_mut(self.camera).unwrap();
+        let (mut camera, mut backup, mut camera_target, layer) =
+            camera_query.camera.get_mut(self.camera).unwrap();
         if let Some(mut layer) = layer {
             layer.background_size = size;
         }
@@ -294,10 +297,10 @@ impl Layer for LayerRef {
                 window_target: window_target.clone(),
                 layer: render_target.clone(),
             });
-            camera.target = render_target.clone();
+            *camera_target = render_target.clone();
             *render_target = RenderTarget::Image(ImageRenderTarget {
                 handle: self.background_image.clone(),
-                scale_factor: FloatOrd(1.0),
+                scale_factor: 1.0,
             });
         } else {
             backup.0 = None;
@@ -604,10 +607,8 @@ impl LayerManager {
 
 fn on_insert_layer_manager(mut world: DeferredWorld, context: HookContext) {
     let entity = context.entity;
-    let camera = world.get::<Camera>(entity).unwrap();
-    let render_target = camera.target.clone();
-
-    let base_order = camera.order;
+    let render_target = world.get::<RenderTarget>(entity).unwrap().clone();
+    let base_order = world.get::<Camera>(entity).unwrap().order;
 
     let base_layer = BaseLayerRef::new(&mut world, entity, "layer_manager/base_layer/surface");
     let canvas_layer = LayerRef::new(
@@ -643,8 +644,8 @@ fn on_replace_layer_manager(mut world: DeferredWorld, context: HookContext) {
     despawn(layer_manager.blur_layer.layer.camera);
     despawn(layer_manager.blur_layer.layer.background_entity);
 
-    if let Some(mut camera) = world.get_mut::<Camera>(entity) {
-        camera.target = layer_manager.render_target;
+    if let Some(mut rt) = world.get_mut::<RenderTarget>(entity) {
+        *rt = layer_manager.render_target;
     }
 }
 
@@ -731,9 +732,9 @@ pub fn update_layers(
     for (entity, mut layer_manager) in &mut layer_manager_query {
         let mut image_size_changed = false;
         {
-            let (camera, _, _) = camera_query.camera.get(entity).unwrap();
+            let (_, _, render_target, _) = camera_query.camera.get(entity).unwrap();
 
-            let size = match camera.target.normalize(primary_window) {
+            let size = match render_target.normalize(primary_window) {
                 Some(NormalizedRenderTarget::Window(window_ref)) => window_query
                     .get(window_ref.entity())
                     .map(|w| UVec2::new(w.physical_width(), w.physical_height()))
@@ -888,18 +889,18 @@ impl BuildBindGroup for FillWithLayer {
     }
 }
 
-pub fn before_ui_focus_system(mut query: Query<(&SetWindowTarget, &mut Camera)>) {
-    for (backup, mut camera) in &mut query {
+pub fn before_ui_focus_system(mut query: Query<(&SetWindowTarget, &mut RenderTarget)>) {
+    for (backup, mut render_target) in &mut query {
         if let Some(backup) = backup.0.as_ref() {
-            camera.target = backup.window_target.clone();
+            *render_target = backup.window_target.clone();
         }
     }
 }
 
-pub fn after_ui_focus_system(mut query: Query<(&SetWindowTarget, &mut Camera)>) {
-    for (backup, mut camera) in &mut query {
+pub fn after_ui_focus_system(mut query: Query<(&SetWindowTarget, &mut RenderTarget)>) {
+    for (backup, mut render_target) in &mut query {
         if let Some(backup) = backup.0.as_ref() {
-            camera.target = backup.layer.clone();
+            *render_target = backup.layer.clone();
         }
     }
 }
@@ -921,13 +922,13 @@ impl Plugin for LayerManagerPlugin {
                 PreUpdate,
                 (
                     before_ui_focus_system
-                        .in_set(UiSystem::Focus)
+                        .in_set(UiSystems::Focus)
                         .before(ui_focus_system),
                     after_ui_focus_system
-                        .in_set(UiSystem::Focus)
+                        .in_set(UiSystems::Focus)
                         .after(ui_focus_system),
                 )
-                    .in_set(UiSystem::Focus),
+                    .in_set(UiSystems::Focus),
             )
             .add_systems(
                 PostUpdate,

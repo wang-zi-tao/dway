@@ -65,7 +65,7 @@ AppListUI=>
 @add_callback{ [UiEvent<UiButtonEvent>]click_app }
 @global(app_model: AppListModel)
 @global(desktop_entrys: DesktopEntriesSet)
-@state_component(#[derive(Reflect,serde::Serialize,serde::Deserialize)])
+@state_component(#[derive(Reflect)])
 @use_state(app_entitys: Vec<Entity> )
 @before_update{
     if !widget.inited || app_model.is_changed() || desktop_entrys.is_changed() {

@@ -48,7 +48,7 @@ derive_more = {workspace=true}
 
 [[example]]
 name = "drm3d"
-required-features = ["bevy/bevy_pbr", "bevy/animation"]
+required-features = ["bevy/bevy_pbr", "bevy/gltf_animation"]
 
 [[example]]
 name = "drm_render"

@@ -748,8 +748,8 @@ impl<T: Material> AsBindGroup for ShaderAsset<T> {
     type Data = ();
     type Param = (SRes<RenderAssets<GpuImage>>, SRes<FallbackImage>);
 
-    fn label() -> Option<&'static str> {
-        Some(type_name::<Self>())
+    fn label() -> &'static str {
+        type_name::<Self>()
     }
 
     fn unprepared_bind_group(

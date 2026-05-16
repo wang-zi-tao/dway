@@ -20,7 +20,7 @@ use wgpu::{
     CommandEncoder, CommandEncoderDescriptor, Extent3d, FilterMode, TexelCopyTextureInfo,
     TextureAspect, TextureDimension, TextureUses,
 };
-use wgpu_core::hal_api::HalApi;
+use wgpu_hal::Api as HalApi;
 use wgpu_hal::MemoryFlags;
 
 use super::{
@@ -484,5 +484,7 @@ where
         sampler: sampler.into(),
         size: extent3d,
         mip_level_count: 1,
+        had_data: true,
+        texture_view_format: None,
     })
 }

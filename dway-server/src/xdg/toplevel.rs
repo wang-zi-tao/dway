@@ -94,7 +94,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
         debug!("request {:?}", &request);
         match request {
             xdg_toplevel::Request::Destroy => {
-                state.send_event(Destroy::<DWayWindow>::new(*data));
+                state.send_message(Destroy::<DWayWindow>::new(*data));
                 state.destroy_object(resource);
             }
             xdg_toplevel::Request::SetParent { parent } => {
@@ -115,7 +115,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                 state.with_component_mut(resource, |c: &mut DWayToplevel| {
                     c.app_id = Some(app_id.clone())
                 });
-                state.send_event(WindowAppIdChanged {
+                state.send_message(WindowAppIdChanged {
                     entity: *data,
                     app_id,
                 });
@@ -138,7 +138,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                     .mouse_pos;
                 let geometry = state.get_mut::<Geometry>(*data).unwrap().clone();
 
-                state.send_event(StartGrab::Move {
+                state.send_message(StartGrab::Move {
                     mouse_pos,
                     seat: DWay::get_entity(&seat),
                     serial: Some(serial),
@@ -174,7 +174,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
                     _ => return,
                 };
                 let geometry = state.get_mut::<Geometry>(*data).unwrap().clone();
-                state.send_event(StartGrab::Resizing {
+                state.send_message(StartGrab::Resizing {
                     seat: DWay::get_entity(&seat),
                     serial: None,
                     edges,
@@ -232,7 +232,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);
-        state.send_event(Destroy::<DWayWindow>::new(*data));
+        state.send_message(Destroy::<DWayWindow>::new(*data));
     }
 }
 
@@ -378,8 +378,8 @@ pub fn receive_window_action_event(
 pub struct XdgToplevelPlugin;
 impl Plugin for XdgToplevelPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<Insert<XdgToplevel>>();
-        app.add_event::<Destroy<XdgToplevel>>();
+    app.add_message::<Insert<XdgToplevel>>();
+    app.add_message::<Destroy<XdgToplevel>>();
         app.register_type::<XdgToplevel>();
         app.register_type::<DWayToplevel>();
         app.add_systems(

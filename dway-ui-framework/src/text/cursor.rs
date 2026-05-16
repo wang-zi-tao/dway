@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use bevy::{
     ecs::world::DeferredWorld,
     input::keyboard::Key,
-    text::{LineHeight, TextLayoutInfo},
+    text::TextLayoutInfo,
     ui::RelativeCursorPosition,
 };
 
@@ -310,10 +310,7 @@ impl_event_receiver! {
 }
 
 pub(crate) fn line_height(font: &TextFont) -> f32 {
-    match font.line_height {
-        LineHeight::Px(px) => px,
-        LineHeight::RelativeToFont(f) => f * font.font_size,
-    }
+    font.font_size
 }
 
 pub fn update_text_cursor_layout_system(
