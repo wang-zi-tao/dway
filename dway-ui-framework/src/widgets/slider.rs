@@ -3,8 +3,14 @@ use smart_default::SmartDefault;
 
 use crate::{prelude::*, theme::ThemeComponent};
 
-#[derive(Component)]
-pub struct UiSliderInited;
+#[derive(Component, Default)]
+pub struct UiSliderBar;
+
+#[derive(Component, Default)]
+pub struct UiSliderHandle;
+
+#[derive(Component, Default)]
+pub struct UiSliderBarHighlight;
 
 #[derive(Component, SmartDefault, Reflect)]
 #[require(
@@ -44,9 +50,6 @@ UiSlider=>
 @world_query(node: &mut Node)
 @world_query(computed_node: &ComputedNode)
 @before{
-if !widget.inited{
-    commands.entity(this_entity).insert(UiSliderInited);
-}
 if ( slider_interaction.is_changed() || relative_cursor_position.is_changed() )
         && *slider_interaction == Interaction::Pressed{
     if let Some(mouse_position) = get_node_mouse_position(&relative_cursor_position, computed_node) {
@@ -58,17 +61,17 @@ if ( slider_interaction.is_changed() || relative_cursor_position.is_changed() )
         }, commands);
     }
 } }
-<Node @id="bar" @style="absolute h-8 w-full min-h-8 align-self:center" >
+<Node @id="bar" UiSliderBar @style="absolute h-8 w-full min-h-8 align-self:center" >
     <(Node{
         width: Val::Percent(100.0*((*state.value()-prop.min)/(prop.max-prop.min)).max(0.0).min(1.0)),
         ..style!("m-2")
-    }) @id="bar_highlight"
+    }) UiSliderBarHighlight @id="bar_highlight"
 />
 </Node>
 <(Node{
     margin:UiRect::left(Val::Percent(100.0*((*state.value()-prop.min)/(prop.max-prop.min)).max(0.0).min(1.0))),
     ..style!("absolute w-0 h-full flex-col align-items:center justify-content:center align-self:center")
 }) >
-    <Node @id="handle" @style="absolute align-self:center w/h-1.0 h-80% min-w-16 min-h-16" />
+    <Node @id="handle" UiSliderHandle @style="absolute align-self:center w/h-1.0 h-80% min-w-16 min-h-16" />
 </Node>
 }

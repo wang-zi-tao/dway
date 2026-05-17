@@ -14,23 +14,14 @@ use super::{
     insert_material_tween, BlockStyle, DefaultTextTheme, ThemeComponent, ThemeHightlight,
 };
 use crate::{
-    animation::{ease::AnimationEaseMethod, MaterialAnimationQueryData},
-    prelude::*,
-    render::layer_manager::{FillWithLayer, LayerCamera, LayerRenderArea},
-    shader::{
-        effect::{Border, InnerShadow, Shadow},
-        fill::{AddColor, Fill, FillColor},
-        shape::{Circle, RoundedBar, RoundedRect, Shape},
-        transform::Margins,
-        ShaderAsset, ShaderPlugin, ShapeRender, Transformed,
-    },
-    widgets::{
+    UiFrameworkSystems, animation::{MaterialAnimationQueryData, ease::AnimationEaseMethod}, prelude::*, render::layer_manager::{FillWithLayer, LayerCamera, LayerRenderArea}, shader::{
+        ShaderAsset, ShaderPlugin, ShapeRender, Transformed, effect::{Border, InnerShadow, Shadow}, fill::{AddColor, Fill, FillColor}, shape::{Circle, RoundedBar, RoundedRect, Shape}, transform::Margins
+    }, widgets::{
         button::UiButtonEventDispatcher,
         checkbox::UiCheckBoxEventDispatcher,
         inputbox::{UiInputBox, UiInputBoxEventDispatcher, UiInputBoxWidget},
-        slider::{UiSliderEventDispatcher, UiSliderInited, UiSliderWidget},
-    },
-    UiFrameworkSystems,
+        slider::{UiSliderBar, UiSliderBarHighlight, UiSliderEventDispatcher, UiSliderHandle, UiSliderWidget},
+    }
 };
 
 type BlockMaterial = ShapeRender<RoundedRect, (FillColor, Shadow)>;
@@ -563,48 +554,72 @@ impl EventObserver<UiCheckBoxEvent> for FlatTheme {
     }
 }
 
-impl WidgetInsertObserver<UiSliderInited> for FlatTheme {
+impl WidgetInsertObserver<UiSliderBar> for FlatTheme {
     type Filter = ();
-    type ItemQuery = (
-        &'static UiSlider,
-        &'static UiSliderWidget,
-        &'static mut UiSliderEventDispatcher,
-    );
+    type ItemQuery = Entity;
     type Params = SResMut<CallbackTypeRegister>;
 
     fn on_widget_insert(
         &self,
         _theme_entity: Entity,
-        (_prop, widget, _event_dispatcher): QueryItem<Self::ItemQuery>,
+        entity: QueryItem<Self::ItemQuery>,
         mut callback_register: SystemParamItem<Self::Params>,
         mut commands: EntityCommands,
     ) {
         commands
             .commands()
-            .entity(widget.node_bar_entity)
+            .entity(entity)
             .insert(MaterialNode(self.slider_material.clone()));
+    }
+}
+
+impl WidgetInsertObserver<UiSliderHandle> for FlatTheme {
+    type Filter = ();
+    type ItemQuery = Entity;
+    type Params = SResMut<CallbackTypeRegister>;
+
+    fn on_widget_insert(
+        &self,
+        _theme_entity: Entity,
+        entity: QueryItem<Self::ItemQuery>,
+        mut callback_register: SystemParamItem<Self::Params>,
+        mut commands: EntityCommands,
+    ) {
         commands
             .commands()
-            .entity(widget.node_bar_highlight_entity)
+            .entity(entity)
             .insert(MaterialNode(self.slider_hightlight_bar_material.clone()));
+    }
+}
 
+impl WidgetInsertObserver<UiSliderBarHighlight> for FlatTheme {
+    type Filter = ();
+    type ItemQuery = Entity;
+    type Params = SResMut<CallbackTypeRegister>;
+
+    fn on_widget_insert(
+        &self,
+        _theme_entity: Entity,
+        entity: QueryItem<Self::ItemQuery>,
+        mut callback_register: SystemParamItem<Self::Params>,
+        mut commands: EntityCommands,
+    ) {
         let mut commands = commands.commands();
-        let mut handle_entity_commands = commands.entity(widget.node_handle_entity);
+        let mut handle_entity_commands = commands.entity(entity);
         handle_entity_commands.insert(self.slider_handler_material_set.normal.clone());
         handle_entity_commands.entry::<UiInput>().or_default();
 
-        let handle_entity = widget.node_handle_entity;
         callback_register.add_to_observer(
-            <Self as EventObserver<UiInputEvent, UiSliderHandle>>::trigger,
+            <Self as EventObserver<UiInputEvent, UiSliderHandleObserver>>::trigger,
             &mut commands,
-            handle_entity,
+            entity,
         );
     }
 }
 
-pub struct UiSliderHandle;
+pub struct UiSliderHandleObserver;
 
-impl EventObserver<UiInputEvent, UiSliderHandle> for FlatTheme {
+impl EventObserver<UiInputEvent, UiSliderHandleObserver> for FlatTheme {
     type ItemQuery = MaterialAnimationQueryData<ShaderAsset<SliderHandlerMaterial>>;
     type Params = SResMut<CallbackTypeRegister>;
 
@@ -750,7 +765,9 @@ impl ThemeTrait for FlatTheme {
         <FlatTheme as WidgetInsertObserver<BlockStyle>>::register(theme_entity, world);
         <FlatTheme as WidgetInsertObserver<UiButton>>::register(theme_entity, world);
         <FlatTheme as WidgetInsertObserver<UiCheckBox>>::register(theme_entity, world);
-        <FlatTheme as WidgetInsertObserver<UiSliderInited>>::register(theme_entity, world);
+        <FlatTheme as WidgetInsertObserver<UiSliderBar>>::register(theme_entity, world);
+        <FlatTheme as WidgetInsertObserver<UiSliderHandle>>::register(theme_entity, world);
+        <FlatTheme as WidgetInsertObserver<UiSliderBarHighlight>>::register(theme_entity, world);
         <FlatTheme as WidgetInsertObserver<UiInputBox>>::register(theme_entity, world);
         <FlatTheme as WidgetInsertObserver<UiPopup>>::register(theme_entity, world);
     }
