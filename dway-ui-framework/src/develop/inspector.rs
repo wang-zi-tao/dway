@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use bevy::{
     color::palettes::{css::*, tailwind::CYAN_50},
-    ecs::system::SystemIdMarker,
+    ecs::{archetype::Archetype, system::SystemIdMarker},
     prelude::*,
     ui::{RelativeCursorPosition, UiStack},
 };
@@ -219,11 +219,11 @@ impl<'l> egui_dock::TabViewer for InspectorTabViewer<'l> {
                     .map(|a| a.id())
                     .collect::<HashSet<_>>();
 
-                let entitys = self
-                    .world
-                    .iter_entities()
-                    .filter(|entity| archetypes.contains(&entity.archetype().id()))
-                    .map(|e| e.id())
+                let mut query = self.world.query::<(Entity, &Archetype)>();
+                let entitys = query
+                    .iter(self.world)
+                    .filter(|(_, archetype)| archetypes.contains(&archetype.id()))
+                    .map(|(e, _)| e)
                     .collect::<Vec<_>>();
 
                 for entity in entitys {
