@@ -7,19 +7,19 @@ pub struct Bind<T: WlResource> {
     pub phase: std::marker::PhantomData<T>,
 }
 #[derive(Component)]
-pub struct Insert<T> {
+pub struct DWayInsertComponent<T> {
     pub entity: Entity,
     pub phase: std::marker::PhantomData<T>,
 }
 
-impl<T: Send + Sync + 'static> Message for Insert<T> {
+impl<T: Send + Sync + 'static> Message for DWayInsertComponent<T> {
 }
 
-impl<T: Send + Sync + 'static> Event for Insert<T> {
+impl<T: Send + Sync + 'static> Event for DWayInsertComponent<T> {
     type Trigger<'a> = GlobalTrigger;
 }
 
-impl<T> Insert<T> {
+impl<T> DWayInsertComponent<T> {
     pub fn new(entity: Entity) -> Self {
         Self {
             entity,
@@ -29,19 +29,19 @@ impl<T> Insert<T> {
 }
 
 #[derive(Component)]
-pub struct Destroy<T> {
+pub struct DWayDestroyComponent<T> {
     pub entity: Entity,
     pub phase: std::marker::PhantomData<T>,
 }
 
-impl<T: Send + Sync + 'static> Message for Destroy<T> {
+impl<T: Send + Sync + 'static> Message for DWayDestroyComponent<T> {
 }
 
-impl<T: Send + Sync + 'static> Event for Destroy<T> {
+impl<T: Send + Sync + 'static> Event for DWayDestroyComponent<T> {
     type Trigger<'a> = GlobalTrigger;
 }
 
-impl<T> Destroy<T> {
+impl<T> DWayDestroyComponent<T> {
     pub fn new(entity: Entity) -> Self {
         Self {
             entity,
@@ -115,16 +115,16 @@ pub struct XWindowAttachSurfaceRequest {
 pub struct EventPlugin;
 impl Plugin for EventPlugin {
     fn build(&self, app: &mut App) {
-    app.add_message::<ResizeWindow>();
-    app.add_message::<MoveWindow>();
-    app.add_message::<MoveRequest>();
-    app.add_message::<ResizeRequest>();
-    app.add_message::<WindowAction>();
-    app.add_message::<DispatchDisplay>();
-    app.add_message::<DispatchXWaylandDisplay>();
-    app.add_message::<WindowAppIdChanged>();
-    app.add_message::<WindowAttachedToApp>();
-    app.add_message::<XWindowChanged>();
-    app.add_message::<XWindowAttachSurfaceRequest>();
+        app.add_message::<ResizeWindow>();
+        app.add_message::<MoveWindow>();
+        app.add_message::<MoveRequest>();
+        app.add_message::<ResizeRequest>();
+        app.add_message::<WindowAction>();
+        app.add_message::<DispatchDisplay>();
+        app.add_message::<DispatchXWaylandDisplay>();
+        app.add_message::<WindowAppIdChanged>();
+        app.add_message::<WindowAttachedToApp>();
+        app.add_message::<XWindowChanged>();
+        app.add_message::<XWindowAttachSurfaceRequest>();
     }
 }

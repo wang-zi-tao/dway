@@ -1,5 +1,5 @@
 use dway_server::{
-    events::Insert,
+    events::DWayInsertComponent,
     geometry::{Geometry, GlobalGeometry},
     util::rect::IRect,
     xdg::DWayWindow,
@@ -28,7 +28,7 @@ pub struct ScreenBundle {
 pub fn create_screen(
     screen_query: Query<(Entity, Ref<Window>, Option<&Screen>), Changed<Window>>,
     mut commands: Commands,
-    mut event: MessageWriter<Insert<Screen>>,
+    mut event: MessageWriter<DWayInsertComponent<Screen>>,
 ) {
     for (entity, window, screen) in screen_query.iter() {
         let rect = IRect::new(
@@ -47,7 +47,7 @@ pub fn create_screen(
                 global_geometry: GlobalGeometry::new(rect),
                 stat: WindowStatistics::default(),
             });
-            event.write(Insert::new(entity));
+            event.write(DWayInsertComponent::new(entity));
         }
     }
 }
@@ -143,7 +143,7 @@ pub struct ScreenPlugin;
 impl Plugin for ScreenPlugin {
     fn build(&self, app: &mut App) {
         app.register_relation::<ScreenContainsWindow>();
-        app.add_message::<Insert<Screen>>();
+        app.add_message::<DWayInsertComponent<Screen>>();
         app.add_systems(
             PreUpdate,
             (

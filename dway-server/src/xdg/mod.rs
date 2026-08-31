@@ -13,7 +13,7 @@ use self::{
     wm::XdgWmBase,
 };
 use crate::{
-    events::Insert,
+    events::DWayInsertComponent,
     geometry::{Geometry, GlobalGeometry},
     input::grab::WlSurfacePointerState,
     prelude::*,
@@ -104,7 +104,7 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                     )
                         .check_component_not_exists::<XdgToplevel>(),
                 );
-                state.send_message(Insert::<DWayWindow>::new(*data));
+                state.send_message(DWayInsertComponent::<DWayWindow>::new(*data));
                 state.query_object::<(&mut XdgSurface, &mut XdgToplevel), _, _>(
                     resource,
                     |(mut xdg_surface, mut xdg_toplevel)| {
@@ -146,7 +146,7 @@ impl wayland_server::Dispatch<xdg_surface::XdgSurface, bevy::prelude::Entity, DW
                     })
                         .with_parent(parent_entity),
                 );
-                state.send_message(Insert::<DWayWindow>::new(*data));
+                state.send_message(DWayInsertComponent::<DWayWindow>::new(*data));
                 state.connect::<SurfaceHasPopup>(parent_entity, *data);
                 state.query_object::<(&mut XdgSurface, &mut XdgPopup), _, _>(
                     resource,
@@ -224,8 +224,8 @@ impl Plugin for XdgShellPlugin {
         add_global_dispatch::<xdg_wm_base::XdgWmBase, 6>(app);
         add_global_dispatch::<xdg_activation_v1::XdgActivationV1, 1>(app);
         app.register_relation::<SurfaceHasPopup>();
-    app.add_message::<Insert<DWayWindow>>();
-    app.add_message::<Destroy<DWayWindow>>();
+    app.add_message::<DWayInsertComponent<DWayWindow>>();
+    app.add_message::<DWayDestroyComponent<DWayWindow>>();
         app.register_type::<DWayWindow>();
         app.register_type::<XdgSurface>();
         app.register_type::<XdgActivationToken>();

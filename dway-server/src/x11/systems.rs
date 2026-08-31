@@ -3,7 +3,7 @@ use bevy::ecs::relationship::Relationship as _;
 use self::window::XWindowSurfaceRef;
 use super::*;
 use crate::{
-    events::Insert,
+    events::DWayInsertComponent,
     geometry::{Geometry, GlobalGeometry},
     input::grab::{StartGrab, WlSurfacePointerState},
     prelude::*,
@@ -190,7 +190,7 @@ pub fn x11_window_attach_wl_surface(
     )>,
     xdisplay_query: Query<(&XWaylandDisplayWrapper, &ChildOf)>,
     wl_query: Query<&DWayServer>,
-    mut event_writter: MessageWriter<Insert<DWayWindow>>,
+    mut event_writter: MessageWriter<DWayInsertComponent<DWayWindow>>,
     mut commands: Commands,
 ) {
     let mut iter = xwindow_query.iter_many_mut(event_reader.read().map(|e| e.xwindow_entity));
@@ -244,7 +244,7 @@ pub fn x11_window_attach_wl_surface(
                     ..Default::default()
                 });
             }
-            event_writter.write(Insert::new(wl_surface_entity));
+            event_writter.write(DWayInsertComponent::new(wl_surface_entity));
             commands.entity(xwindow_entity).insert(MappedXWindow);
             debug!(
                 "xwindow {:?} attach wl_surface {:?}",

@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use bevy::prelude::*;
 use bevy_relationship::{graph_query2, ControlFlow};
 use dway_server::{
-    events::Insert,
+    events::DWayInsertComponent,
     geometry::GlobalGeometry,
     macros::WindowAction,
     xdg::{
@@ -40,7 +40,7 @@ pub struct WindowStatistics {
 }
 
 pub fn on_window_created(
-    mut new_windows: MessageReader<Insert<DWayWindow>>,
+    mut new_windows: MessageReader<DWayInsertComponent<DWayWindow>>,
     mut commands: Commands,
 ) {
     for new_window in new_windows.read() {
@@ -150,7 +150,7 @@ impl Plugin for DWayWindowPlugin {
             PreUpdate,
             (
                 on_window_created
-                    .run_if(on_message::<Insert<DWayWindow>>)
+                    .run_if(on_message::<DWayInsertComponent<DWayWindow>>)
                     .in_set(DWayClientSystem::InsertWindowComponent),
                 window_statistics_system.in_set(DWayClientSystem::UpdateScreen),
                 update_window.in_set(DWayClientSystem::UpdateWindow),

@@ -29,7 +29,7 @@ use wayland_server::{DataInit, ListeningSocket, New};
 
 use crate::{
     client::{Client, ClientData, ClientEvents},
-    events::Insert,
+    events::DWayInsertComponent,
     prelude::*,
 };
 
@@ -675,7 +675,7 @@ pub fn create_client(
     }
     entity_mut.insert(ChildOf(display_entity));
     let entity = entity_mut.id();
-    world.write_message(Insert::<Client>::new(entity));
+    world.write_message(DWayInsertComponent::<Client>::new(entity));
 }
 
 #[derive(Message)]
@@ -699,7 +699,8 @@ impl Plugin for DWayStatePlugin {
             PreUpdate,
             (
                 on_create_display_event.run_if(on_message::<CreateDisplay>),
-                dispatch_events.run_if(on_message::<DispatchDisplay>)
+                dispatch_events
+                    .run_if(on_message::<DispatchDisplay>)
                     .in_set(DWayServerSet::Dispatch),
             ),
         );

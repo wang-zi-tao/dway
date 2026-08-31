@@ -1,6 +1,6 @@
 use super::{positioner::Positioner, SurfaceHasPopup};
 use crate::{
-    events::Insert,
+    events::DWayInsertComponent,
     geometry::{Geometry, GlobalGeometry},
     prelude::*,
     resource::ResourceWrapper,
@@ -100,7 +100,7 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object_component::<(XdgPopup, DWayWindow)>(*data, resource);
-        state.send_message(Destroy::<DWayWindow>::new(*data));
+        state.send_message(DWayDestroyComponent::<DWayWindow>::new(*data));
         state.disconnect_all_rev::<SurfaceHasPopup>(*data);
     }
 }
@@ -108,8 +108,8 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
 pub struct XdgPopupPlugin;
 impl Plugin for XdgPopupPlugin {
     fn build(&self, app: &mut App) {
-    app.add_message::<Insert<XdgPopup>>();
-    app.add_message::<Destroy<XdgPopup>>();
+    app.add_message::<DWayInsertComponent<XdgPopup>>();
+    app.add_message::<DWayDestroyComponent<XdgPopup>>();
         app.register_type::<XdgPopup>();
     }
 }

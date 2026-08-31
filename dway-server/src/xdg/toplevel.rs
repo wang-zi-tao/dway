@@ -3,7 +3,7 @@ use smart_default::SmartDefault;
 
 use super::{DWayWindow, XdgSurface};
 use crate::{
-    events::Insert,
+    events::DWayInsertComponent,
     geometry::{set_geometry, Geometry, GlobalGeometry},
     input::{
         grab::{ResizeEdges, StartGrab, WlSurfacePointerState},
@@ -94,7 +94,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
         debug!("request {:?}", &request);
         match request {
             xdg_toplevel::Request::Destroy => {
-                state.send_message(Destroy::<DWayWindow>::new(*data));
+                state.send_message(DWayDestroyComponent::<DWayWindow>::new(*data));
                 state.destroy_object(resource);
             }
             xdg_toplevel::Request::SetParent { parent } => {
@@ -232,7 +232,7 @@ impl wayland_server::Dispatch<xdg_toplevel::XdgToplevel, bevy::prelude::Entity, 
         data: &bevy::prelude::Entity,
     ) {
         state.despawn_object(*data, resource);
-        state.send_message(Destroy::<DWayWindow>::new(*data));
+        state.send_message(DWayDestroyComponent::<DWayWindow>::new(*data));
     }
 }
 
@@ -378,8 +378,8 @@ pub fn receive_window_action_event(
 pub struct XdgToplevelPlugin;
 impl Plugin for XdgToplevelPlugin {
     fn build(&self, app: &mut App) {
-    app.add_message::<Insert<XdgToplevel>>();
-    app.add_message::<Destroy<XdgToplevel>>();
+    app.add_message::<DWayInsertComponent<XdgToplevel>>();
+    app.add_message::<DWayDestroyComponent<XdgToplevel>>();
         app.register_type::<XdgToplevel>();
         app.register_type::<DWayToplevel>();
         app.add_systems(

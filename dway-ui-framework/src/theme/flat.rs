@@ -14,14 +14,26 @@ use super::{
     insert_material_tween, BlockStyle, DefaultTextTheme, ThemeComponent, ThemeHightlight,
 };
 use crate::{
-    UiFrameworkSystems, animation::{MaterialAnimationQueryData, ease::AnimationEaseMethod}, prelude::*, render::layer_manager::{FillWithLayer, LayerCamera, LayerRenderArea}, shader::{
-        ShaderAsset, ShaderPlugin, ShapeRender, Transformed, effect::{Border, InnerShadow, Shadow}, fill::{AddColor, Fill, FillColor}, shape::{Circle, RoundedBar, RoundedRect, Shape}, transform::Margins
-    }, widgets::{
+    animation::{ease::AnimationEaseMethod, MaterialAnimationQueryData},
+    prelude::*,
+    render::layer_manager::{FillWithLayer, LayerCamera, LayerRenderArea},
+    shader::{
+        effect::{Border, InnerShadow, Shadow},
+        fill::{AddColor, Fill, FillColor},
+        shape::{Circle, RoundedBar, RoundedRect, Shape},
+        transform::Margins,
+        ShaderAsset, ShaderPlugin, ShapeRender, Transformed,
+    },
+    widgets::{
         button::UiButtonEventDispatcher,
         checkbox::UiCheckBoxEventDispatcher,
         inputbox::{UiInputBox, UiInputBoxEventDispatcher, UiInputBoxWidget},
-        slider::{UiSliderBar, UiSliderBarHighlight, UiSliderEventDispatcher, UiSliderHandle, UiSliderWidget},
-    }
+        slider::{
+            UiSliderBar, UiSliderBarHighlight, UiSliderEventDispatcher, UiSliderHandle,
+            UiSliderWidget,
+        },
+    },
+    UiFrameworkSystems,
 };
 
 type BlockMaterial = ShapeRender<RoundedRect, (FillColor, Shadow)>;
@@ -581,14 +593,14 @@ impl WidgetInsertObserver<UiSliderHandle> for FlatTheme {
     fn on_widget_insert(
         &self,
         _theme_entity: Entity,
-        entity: QueryItem<Self::ItemQuery>,
-        mut callback_register: SystemParamItem<Self::Params>,
+        _entity: QueryItem<Self::ItemQuery>,
+        _callback_register: SystemParamItem<Self::Params>,
         mut commands: EntityCommands,
     ) {
         commands
-            .commands()
-            .entity(entity)
-            .insert(MaterialNode(self.slider_hightlight_bar_material.clone()));
+            .insert(self.slider_handler_material_set.normal.clone())
+            .entry::<UiInput>()
+            .or_default();
     }
 }
 
@@ -604,14 +616,14 @@ impl WidgetInsertObserver<UiSliderBarHighlight> for FlatTheme {
         mut callback_register: SystemParamItem<Self::Params>,
         mut commands: EntityCommands,
     ) {
-        let mut commands = commands.commands();
-        let mut handle_entity_commands = commands.entity(entity);
-        handle_entity_commands.insert(self.slider_handler_material_set.normal.clone());
-        handle_entity_commands.entry::<UiInput>().or_default();
+        commands
+            .commands()
+            .entity(entity)
+            .insert(MaterialNode(self.slider_hightlight_bar_material.clone()));
 
         callback_register.add_to_observer(
             <Self as EventObserver<UiInputEvent, UiSliderHandleObserver>>::trigger,
-            &mut commands,
+            &mut commands.commands(),
             entity,
         );
     }

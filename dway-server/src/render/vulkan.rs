@@ -54,9 +54,7 @@ pub struct ImageDropGuard {
 
 impl ImageDropGuard {
     fn drop_callback(self) -> DropCallback {
-        Box::new(move || {
-            let _ = self;
-        })
+        Box::new(move || drop(self))
     }
 }
 
@@ -150,6 +148,34 @@ pub fn drm_info(render_device: &wgpu::Device) -> Result<DrmInfo, DWayRenderError
     }
 }
 
+unsafe fn query_drm_format_modifier_properties(
+    instance: &ash::Instance,
+    physical: vk::PhysicalDevice,
+    format: vk::Format,
+    modifier: DrmModifier,
+) -> Option<vk::DrmFormatModifierPropertiesEXT> {
+    let modifier = u64::from(modifier);
+
+    let mut list = vk::DrmFormatModifierPropertiesListEXT::default();
+    let mut format_properties = vk::FormatProperties2::default().push_next(&mut list);
+    instance.get_physical_device_format_properties2(physical, format, &mut format_properties);
+
+    let count = list.drm_format_modifier_count;
+    if count == 0 {
+        return None;
+    }
+
+    let mut modifiers = vec![Default::default(); count as usize];
+    let mut list = vk::DrmFormatModifierPropertiesListEXT::default()
+        .drm_format_modifier_properties(&mut modifiers);
+    let mut format_properties = vk::FormatProperties2::default().push_next(&mut list);
+    instance.get_physical_device_format_properties2(physical, format, &mut format_properties);
+
+    modifiers
+        .into_iter()
+        .find(|properties| properties.drm_format_modifier == modifier)
+}
+
 pub fn create_vulkan_dma_image(
     hal_device: &wgpu_hal::vulkan::Device,
     buffer: &mut ImportDmaBufferRequest,
@@ -165,9 +191,30 @@ pub fn create_vulkan_dma_image(
 
     unsafe {
         let planes = std::mem::take(&mut buffer.planes);
-        if planes.is_empty() {
+        if planes.is_empty() || planes.len() > MEM_PLANE_ASCPECT.len() {
             bail!(InvalidDmaBuffer);
         }
+
+        // DRM_FORMAT_MOD_INVALID means the client did not specify a modifier;
+        // treat it as linear, which is also what the EGL import path does.
+        let modifier = if planes[0].modifier == DrmModifier::Invalid {
+            DrmModifier::Linear
+        } else {
+            planes[0].modifier
+        };
+
+        let Some(modifier_properties) = query_drm_format_modifier_properties(
+            instance,
+            physical,
+            image_format.vulkan_format,
+            modifier,
+        ) else {
+            bail!(InvalidDmaBuffer);
+        };
+        if planes.len() as u32 != modifier_properties.drm_format_modifier_plane_count {
+            bail!(InvalidDmaBuffer);
+        }
+
         let plane_layouts: Vec<_> = planes
             .iter()
             .map(|plane| {
@@ -191,12 +238,9 @@ pub fn create_vulkan_dma_image(
                 .unwrap_or(true)
         };
 
-        debug!(
-            "dma image format: {:?} modifier: {:?}",
-            format, planes[0].modifier
-        );
+        debug!("dma image format: {:?} modifier: {:?}", format, modifier);
         let mut drm_info = ash::vk::ImageDrmFormatModifierExplicitCreateInfoEXT::default()
-            .drm_format_modifier(planes[0].modifier.into())
+            .drm_format_modifier(modifier.into())
             .plane_layouts(&plane_layouts);
 
         let mut dmabuf_info = ash::vk::ExternalMemoryImageCreateInfoKHR::default()
@@ -237,11 +281,18 @@ pub fn create_vulkan_dma_image(
             .map_err(|e| anyhow!("error while create_image: {e}"))?;
 
         let phy_mem_prop = instance.get_physical_device_memory_properties(physical);
+        let mut image_guard = ImageDropGuard {
+            device: device.handle(),
+            image,
+            memory: SmallVec::new(),
+            shm_pool: None,
+            fn_free_memory: device.fp_v1_0().free_memory,
+            fn_destroy_image: device.fp_v1_0().destroy_image,
+        };
         let mut plane_infos = Vec::with_capacity(planes.len());
         let mut bind_infos = Vec::with_capacity(planes.len());
 
         let plane_count = if is_disjoint { planes.len() } else { 1 };
-        let mut memorys = SmallVec::<[_; 4]>::new();
         for (i, plane) in planes.into_iter().enumerate().take(plane_count) {
             let memory_requirement = {
                 let mut requirement_info =
@@ -283,11 +334,13 @@ pub fn create_vulkan_dma_image(
 
             let mut dedicated_info = ash::vk::MemoryDedicatedAllocateInfo::default().image(image);
 
-            let alloc_info = ash::vk::MemoryAllocateInfo::default()
+            let mut alloc_info = ash::vk::MemoryAllocateInfo::default()
                 .allocation_size(memory_requirement.memory_requirements.size.max(1))
                 .memory_type_index(mem_type as u32)
-                .push_next(&mut dedicated_info)
                 .push_next(&mut fd_info);
+            if !is_disjoint {
+                alloc_info = alloc_info.push_next(&mut dedicated_info);
+            }
 
             let memory = device
                 .allocate_memory(&alloc_info, None)
@@ -307,20 +360,13 @@ pub fn create_vulkan_dma_image(
             }
 
             bind_infos.push(bind_info);
-            memorys.push(memory);
+            image_guard.memory.push(memory);
         }
         device
             .bind_image_memory2(&bind_infos)
             .map_err(|e| anyhow!("error while bind_image_memory2: {e}"))?;
 
-        Ok(ImageDropGuard {
-            device: device.handle(),
-            image,
-            memory: memorys,
-            shm_pool: None,
-            fn_free_memory: device.fp_v1_0().free_memory,
-            fn_destroy_image: device.fp_v1_0().destroy_image,
-        })
+        Ok(image_guard)
     }
 }
 
@@ -398,7 +444,11 @@ pub fn create_wgpu_dma_image(
 
             let image = image_guard.image;
 
-            hal_device.texture_from_raw(image, &hal_texture_descriptor(request.size, format)?, None)
+            hal_device.texture_from_raw(
+                image,
+                &hal_texture_descriptor(request.size, format)?,
+                Some(image_guard.drop_callback()),
+            )
         };
 
         let gpu_image =

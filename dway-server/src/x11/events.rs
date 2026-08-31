@@ -362,7 +362,7 @@ pub fn process_x11_event(
                 .and_then(|r| r.get())
             {
                 world.entity_mut(surface_entity).remove::<DWayWindow>();
-                world.write_message(Destroy::<DWayWindow>::new(surface_entity));
+                world.write_message(DWayDestroyComponent::<DWayWindow>::new(surface_entity));
                 dway.disconnect_all::<XWindowAttachSurface>(window_entity);
             }
         }

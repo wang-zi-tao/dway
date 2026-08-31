@@ -20,8 +20,7 @@ use wgpu::{
     CommandEncoder, CommandEncoderDescriptor, Extent3d, FilterMode, TexelCopyTextureInfo,
     TextureAspect, TextureDimension, TextureUses,
 };
-use wgpu_hal::Api as HalApi;
-use wgpu_hal::MemoryFlags;
+use wgpu_hal::{Api as HalApi, MemoryFlags};
 
 use super::{
     gles::{self, EglState},
@@ -429,10 +428,10 @@ pub(crate) unsafe fn hal_texture_to_gpuimage<A>(
 where
     A: HalApi,
 {
-    let usage = wgpu::TextureUsages::RENDER_ATTACHMENT
-        | wgpu::TextureUsages::TEXTURE_BINDING
-        | wgpu::TextureUsages::COPY_SRC
-        | wgpu::TextureUsages::COPY_DST;
+    // Imported client buffers are only consumed by copy_texture_to_texture
+    // as the source, so do not advertise render/attachment usage that the
+    // imported Vulkan image may not have been created with.
+    let usage = wgpu::TextureUsages::COPY_SRC;
     let extent3d = wgpu::Extent3d {
         width: size.x,
         height: size.y,
