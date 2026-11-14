@@ -50,7 +50,6 @@
         devShell = pkgs.mkShell rec {
           nativeBuildInputs = with pkgs; [
             rust-toolchain.toolchain
-            rust-toolchain.rust-analyzer
 
             mdbook
             mdbook-plantuml
@@ -109,6 +108,7 @@
 
           ];
           buildInputs = with pkgs; [
+            rust-toolchain.rust-analyzer
             nixpkgs-old.lldb_17
             tracy
             libinput

@@ -161,3 +161,29 @@ features = [
 # bevy_state = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
 # bevy_input = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
 # bevy_picking = { git = "https://github.com/wang-zi-tao/bevy", branch = "dway-0.15.2" }
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev.package.bevy]
+opt-level = 3
+
+[profile.dev.package.bevy_prototype_lyon]
+debug-assertions = false
+
+[profile.dev.package.gfx-backend-vulkan]
+opt-level = 3
+debug-assertions = false
+
+[profile.dev.package.lyon_path]
+debug-assertions = false
+
+[profile.release]
+lto = "thin"
+strip = true
+
+[profile.bench]
+debug = true

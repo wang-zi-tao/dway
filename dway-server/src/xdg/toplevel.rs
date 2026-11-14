@@ -378,8 +378,8 @@ pub fn receive_window_action_event(
 pub struct XdgToplevelPlugin;
 impl Plugin for XdgToplevelPlugin {
     fn build(&self, app: &mut App) {
-    app.add_message::<DWayInsertComponent<XdgToplevel>>();
-    app.add_message::<DWayDestroyComponent<XdgToplevel>>();
+        app.add_message::<DWayInsertComponent<XdgToplevel>>();
+        app.add_message::<DWayDestroyComponent<XdgToplevel>>();
         app.register_type::<XdgToplevel>();
         app.register_type::<DWayToplevel>();
         app.add_systems(

@@ -1,16 +1,18 @@
 use bevy::ui::RelativeCursorPosition;
 use dway_client_core::{
+    UiAttachData,
+    desktop::FocusedWindow,
     input::{GrabRequestKind, SurfaceInputEvent},
     navigation::windowstack::{WindowIndex, WindowStack},
-    UiAttachData,
 };
 use dway_server::{
     geometry::{Geometry, GlobalGeometry},
     util::rect::IRect,
     wl::surface::WlSurface,
-    xdg::{toplevel::DWayToplevel, DWayWindow, PopupList},
+    xdg::{DWayWindow, PopupList, toplevel::DWayToplevel},
 };
 use dway_ui_framework::{
+    UiFrameworkSystems::InputSystems,
     util::nodes::get_node_position,
     widgets::drag::{UiDrag, UiDragEvent},
 };
@@ -105,6 +107,18 @@ pub fn create_raw_window_material(
     )
 }
 
+pub fn focus_window_ui_system(
+    focused: Res<FocusedWindow>,
+    window_query: Query<(&WindowUIWidget)>,
+    mut ui_focus_event: MessageWriter<UiFocusEvent>,
+) {
+    if let Some(focused) = focused.window_entity
+        && let Ok(widget) = window_query.get(focused)
+    {
+        ui_focus_event.write(UiFocusEvent::FocusEnterRequest(widget.node_surface_entity));
+    }
+}
+
 #[derive(Component, Reflect, Debug)]
 #[require(GlobalZIndex)]
 pub struct WindowUI {
@@ -129,6 +143,10 @@ WindowUI=>
     app.register_type::<WindowUI>();
     app.register_type::<WindowUIState>();
     app.configure_sets(PreUpdate, DWayClientSystem::Input.after(UiFrameworkSystems::InputSystems));
+    app.add_systems(PreUpdate, focus_window_ui_system
+        .run_if(resource_changed::<FocusedWindow>)
+        .before(InputSystems)
+        .after(DWayClientSystem::UpdateFocus));
 }
 @callback{ [UiEvent<UiButtonEvent>]
     fn on_close_button_event(
@@ -242,12 +260,12 @@ WindowUI=>
 </Node>
 <(irect_to_style(*state.rect())) @if(*state.decorated())
      @id="with_decorated">
-    <MaterialNode::<RoundedUiRectMaterial> @id="decorated_box"
+    <Node @id="decorated_box"
         ZIndex=(ZIndex(0))
         UiDrag @on_event(on_decorated_mouse_event)
         @style="absolute left-{-DECORATION_MARGIN} right-{-DECORATION_MARGIN} bottom-{-DECORATION_MARGIN} top-{-DECORATION_HEIGHT}"
         @handle(RoundedUiRectMaterial=>rounded_rect(color!("#333333"), 16.0)) />
-    <MaterialNode::<RoundedUiImageMaterial> @id="surface" @style="absolute full"
+    <Node @id="surface" @style="absolute full"
     @handle(RoundedUiImageMaterial=>rounded_ui_image(
         14.0,
         ( state.bbox_rect().min-state.rect().min ).as_vec2() / state.rect().size().as_vec2(),

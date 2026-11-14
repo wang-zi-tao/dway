@@ -1,13 +1,18 @@
 use std::collections::HashSet;
 
 use bevy::{
+    camera::RenderTarget,
     color::palettes::{css::*, tailwind::CYAN_50},
     ecs::{archetype::Archetype, system::SystemIdMarker},
     prelude::*,
-    ui::{RelativeCursorPosition, UiStack},
+    ui::{RelativeCursorPosition, UiStack, UiSystems},
+    window::PrimaryWindow,
 };
 use bevy_inspector_egui::{
-    bevy_egui::{EguiContext, EguiPlugin, EguiPrimaryContextPass, PrimaryEguiContext},
+    bevy_egui::{
+        input::WindowToEguiContextMap, EguiContext, EguiInputSet, EguiPlugin, EguiPostUpdateSet,
+        EguiPreUpdateSet, EguiPrimaryContextPass, PrimaryEguiContext,
+    },
     bevy_inspector::{
         ui_for_entities_filtered, ui_for_entity_with_children, ui_for_world,
         ui_for_world_entities_filtered, Filter,
@@ -18,7 +23,9 @@ use egui_dock::{egui::Color32, DockArea, DockState};
 
 use crate::{
     prelude::*,
+    render::layer_manager::{after_ui_focus_system, before_ui_focus_system},
     shader::{effect::Border, shape::RoundedRect},
+    UiFrameworkSystems,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -39,7 +46,101 @@ impl Plugin for InspectorPlugin {
                 EguiPrimaryContextPass,
                 inspector_ui.run_if(|ui_state: Res<InspectorUiState>| ui_state.enable),
             )
-            .add_systems(Update, open_close_inspector);
+            .add_systems(Update, open_close_inspector)
+            // --- ordering against the dway UI framework / LayerManager ----------------
+            //
+            // LayerManager keeps every managed camera pointed at its layer image and
+            // only swaps the real window target in for the duration of
+            // UiSystems::Focus (before_ui_focus_system .. after_ui_focus_system, see
+            // render/layer_manager.rs). bevy_egui reads that target, so its
+            // context/input systems have to be pinned to the same window.
+            .add_systems(
+                PreUpdate,
+                bind_egui_context_to_window
+                    .run_if(|ui_state: Res<InspectorUiState>| ui_state.enable)
+                    .in_set(UiSystems::Focus)
+                    .after(before_ui_focus_system)
+                    .before(after_ui_focus_system),
+            )
+            .configure_sets(
+                PreUpdate,
+                // Creates the primary context, binds it to a window by sampling the
+                // camera's RenderTarget (WindowToEguiContextMap) and derives
+                // screen_rect/pixels_per_point from the camera target. Run it while
+                // LayerManager exposes the window target, otherwise the context is born
+                // as a *non-window* context: no window input, and egui is painted into
+                // whichever layer image the camera happened to point at.
+                EguiPreUpdateSet::InitContexts
+                    .after(before_ui_focus_system)
+                    .before(after_ui_focus_system),
+            )
+            .configure_sets(
+                PreUpdate,
+                (
+                    EguiInputSet::InitReading,
+                    EguiInputSet::FocusContext,
+                    EguiInputSet::ReadBevyMessages,
+                    EguiInputSet::WriteEguiEvents,
+                )
+                    .chain()
+                    // Read egui's input in the same world state as the framework's own
+                    // input systems: after UiSystems::Focus (LayerManager has restored
+                    // the layer targets and the binding installed by
+                    // bind_egui_context_to_window is visible) and after
+                    // UiFrameworkSystems::InputSystems, so that
+                    // absorb_bevy_input_system cannot drain Bevy's input before dway's
+                    // widgets and the compositor cursor have seen it.
+                    .after(UiSystems::Focus)
+                    .after(UiFrameworkSystems::InputSystems),
+            )
+            .configure_sets(
+                PostUpdate,
+                (
+                    EguiPostUpdateSet::EndPass,
+                    EguiPostUpdateSet::ProcessOutput,
+                    EguiPostUpdateSet::PostProcessOutput,
+                )
+                    .chain()
+                    // EguiPrimaryContextPass can spawn/despawn bevy_ui nodes (the
+                    // inspector picker overlay), so it belongs into the same
+                    // "before layout" bucket as the framework's widget sets, and it must
+                    // not mutate the UI tree while update_layers snapshots it.
+                    .before(UiSystems::Layout)
+                    .before(UiFrameworkSystems::UpdateLayers),
+            );
+    }
+}
+
+/// Keeps the egui context -> window binding in sync with the LayerManager.
+///
+/// bevy_egui samples the camera's RenderTarget exactly once, when the context is
+/// created (WindowToEguiContextMap). LayerManager exposes the real window target
+/// only while UiSystems::Focus runs, and only from the first update_layers pass
+/// onwards, so a context created for a camera that already renders into a layer (the
+/// TTY/DRM output is an image target) would stay unbound forever: egui then receives
+/// no window input and EguiInput::focused stays false. Re-assert the binding while
+/// the window target is exposed.
+fn bind_egui_context_to_window(
+    mut map: ResMut<WindowToEguiContextMap>,
+    primary_window: Query<Entity, With<PrimaryWindow>>,
+    contexts: Query<(Entity, &RenderTarget), With<EguiContext>>,
+) {
+    let primary_window = primary_window.iter().next();
+    for (context, target) in &contexts {
+        let RenderTarget::Window(window_ref) = target else {
+            continue;
+        };
+        let Some(window) = window_ref.normalize(primary_window).map(|w| w.entity()) else {
+            continue;
+        };
+        if map.context_to_window.get(&context) == Some(&window) {
+            continue;
+        }
+        map.context_to_window.insert(context, window);
+        map.window_to_contexts
+            .entry(window)
+            .or_default()
+            .insert(context);
     }
 }
 

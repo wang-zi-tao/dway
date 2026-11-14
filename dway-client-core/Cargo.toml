@@ -31,17 +31,8 @@ tokio = {workspace=true}
 pulsectl-rs = "0.3.2"
 libpulse-binding = "2.24.0"
 
-sysinfo = { version="0.30.11", featrues=[] }
+sysinfo = { version="0.30.11", features=[] }
 dbus = "0.9.7"
 dbus-tokio = "0.7.6"
 dbus-crossroads = "0.5.2"
 system_shutdown = "4.0.1"
-
-[profile.dev]
-opt-level = 1
-
-[profile.dev.package."*"]
-opt-level = 3
-
-[profile.release]
-lto = "thin"

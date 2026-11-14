@@ -1,4 +1,3 @@
-#![feature(array_windows)]
 use std::collections::VecDeque;
 
 use bevy::{

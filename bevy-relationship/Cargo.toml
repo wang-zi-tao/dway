@@ -19,9 +19,6 @@ fixedbitset = "0.5.7"
 criterion = { version = "0.5", features = ["html_reports"] }
 
 
-[profile.dev.package."*"]
-opt-level = 3
-
 [[test]]
 name = "query"
 path = "./tests/query.rs"
@@ -29,6 +26,3 @@ path = "./tests/query.rs"
 [[bench]]
 name = "bench"
 harness = false
-
-[profile.bench]
-debug = true

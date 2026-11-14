@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use bevy::{
     app::PluginGroupBuilder,
+    asset::UnapprovedPathMode,
     audio::AudioPlugin,
     diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     ecs::schedule::{LogLevel, ScheduleBuildSettings},
@@ -93,7 +94,7 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         })
         .set(RenderPlugin {
             render_creation: RenderCreation::Automatic(WgpuSettings {
-                backends: Some(Backends::GL),
+                backends: Some(Backends::VULKAN),
                 priority: bevy::render::settings::WgpuSettingsPriority::Functionality,
                 memory_hints: bevy::render::settings::MemoryHints::MemoryUsage,
                 ..Default::default()
@@ -102,6 +103,12 @@ pub fn init_app(app: &mut App, mut default_plugins: PluginGroupBuilder) {
         })
         .set(AssetPlugin {
             file_path: opts.assets.clone(),
+            // `LinuxIconLoader` 会用 `LoadContext::load` 加载 icon theme 解析出来的绝对路径
+            // （如 /etc/profiles/.../icons/Tela-blue/.../firefox.svg）。bevy 0.18 默认的
+            // `Forbid` 会拒绝这类路径并返回一个无效 handle，嵌套加载器随后 unwrap 该 handle
+            // 直接 panic（bevy_asset/src/loader_builders.rs:321）。
+            // `Deny` 只拦截直接发起的加载，加载器内部的嵌套加载（override）依然允许。
+            unapproved_path_mode: UnapprovedPathMode::Deny,
             ..Default::default()
         })
         .add_before::<AssetPlugin>(LinuxIconSourcePlugin)

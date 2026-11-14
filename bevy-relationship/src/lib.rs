@@ -1,4 +1,3 @@
-#![feature(test)]
 mod app;
 mod builtins;
 mod changed;

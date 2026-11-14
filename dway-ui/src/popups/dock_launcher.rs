@@ -40,7 +40,7 @@ pub fn open_popup(event: UiEvent<UiButtonEvent>, mut commands: Commands) {
         commands
             .spawn((
                 UiTranslationAnimation::new(DwayUiDirection::BOTTOM),
-                AnimationTargetNodeState(style!("left-30% right-30% top-30% bottom-30% absolute")),
+                AnimationTargetNodeState(style!("left-20% right-20% top-20% bottom-20% absolute")),
                 PanelPopup,
                 AttachToAnchor(event.receiver()),
                 UiPopup::default(),

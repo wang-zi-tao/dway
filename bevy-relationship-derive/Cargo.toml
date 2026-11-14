@@ -18,6 +18,3 @@ convert_case = {workspace=true}
 syn_derive = {workspace=true}
 derive-syn-parse = {workspace=true}
 structstruck = {workspace=true}
-
-[profile.dev.package."*"]
-opt-level = 3

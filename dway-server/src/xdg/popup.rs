@@ -108,8 +108,8 @@ impl wayland_server::Dispatch<xdg_popup::XdgPopup, bevy::prelude::Entity, DWay> 
 pub struct XdgPopupPlugin;
 impl Plugin for XdgPopupPlugin {
     fn build(&self, app: &mut App) {
-    app.add_message::<DWayInsertComponent<XdgPopup>>();
-    app.add_message::<DWayDestroyComponent<XdgPopup>>();
+        app.add_message::<DWayInsertComponent<XdgPopup>>();
+        app.add_message::<DWayDestroyComponent<XdgPopup>>();
         app.register_type::<XdgPopup>();
     }
 }

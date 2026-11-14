@@ -224,8 +224,8 @@ impl Plugin for XdgShellPlugin {
         add_global_dispatch::<xdg_wm_base::XdgWmBase, 6>(app);
         add_global_dispatch::<xdg_activation_v1::XdgActivationV1, 1>(app);
         app.register_relation::<SurfaceHasPopup>();
-    app.add_message::<DWayInsertComponent<DWayWindow>>();
-    app.add_message::<DWayDestroyComponent<DWayWindow>>();
+        app.add_message::<DWayInsertComponent<DWayWindow>>();
+        app.add_message::<DWayDestroyComponent<DWayWindow>>();
         app.register_type::<DWayWindow>();
         app.register_type::<XdgSurface>();
         app.register_type::<XdgActivationToken>();

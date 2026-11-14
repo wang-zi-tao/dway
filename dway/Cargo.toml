@@ -78,26 +78,3 @@ name = "dway_main"
 edition = "2021"
 name = "dway"
 version = "0.3.0"
-
-[profile.dev]
-opt-level = 1
-
-[profile.dev.package."*"]
-opt-level = 3
-
-[profile.dev.package.bevy]
-opt-level = 3
-
-[profile.dev.package.bevy_prototype_lyon]
-debug-assertions = false
-
-[profile.dev.package.gfx-backend-vulkan]
-opt-level = 3
-debug-assertions = false
-
-[profile.dev.package.lyon_path]
-debug-assertions = false
-
-[profile.release]
-lto = "thin"
-strip = true
